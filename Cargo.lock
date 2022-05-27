@@ -33,6 +33,7 @@ dependencies = [
  "near-lake-framework",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-stream",
  "tracing",
