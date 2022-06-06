@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "tx-alertexer",
+    "shared",
+    "queue-sender",
+    "alert-rules",
+]

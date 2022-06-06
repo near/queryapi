@@ -1,0 +1,8 @@
+[package]
+name = "queue-sender"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.57"
+tracing = "0.1.34"
