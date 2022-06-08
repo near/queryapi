@@ -1,15 +1,15 @@
+#![feature(explicit_generic_args_with_impl_trait)]
 use futures::StreamExt;
 
 use shared::{Opts, Parser};
 
 mod checker;
-pub(crate) mod storage_ext;
 pub(crate) const INDEXER: &str = "alertexer";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // MOCK
-    let tx_alert_rules = vec![alert_rules::TxAlertRule {
+    let receipt_account_alert_rules = vec![alert_rules::ReceiptAccountPartyAlertRule {
         account_id: "aurora".to_owned(),
     }];
     // END MOCK
@@ -25,10 +25,15 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Instantiating the stream...",);
     let (sender, stream) = near_lake_framework::streamer(config);
 
+    tokio::spawn(stats(redis_connection_manager.clone()));
     tracing::info!(target: INDEXER, "Starting Alertexer...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
-            handle_streamer_message(streamer_message, &tx_alert_rules, &redis_connection_manager)
+            handle_streamer_message(
+                streamer_message,
+                &receipt_account_alert_rules,
+                &redis_connection_manager,
+            )
         })
         .buffer_unordered(1usize);
 
@@ -45,19 +50,16 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_streamer_message(
     streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
-    tx_alert_rule: &[alert_rules::TxAlertRule],
+    receipt_account_alert_rules: &[alert_rules::ReceiptAccountPartyAlertRule],
     redis_connection_manager: &storage::ConnectionManager,
 ) -> anyhow::Result<u64> {
-    tracing::info!(
-        target: INDEXER,
-        "Block {}",
-        streamer_message.block.header.height
+    let receipt_checker_future = checker::receipts(
+        &streamer_message,
+        receipt_account_alert_rules,
+        redis_connection_manager,
     );
 
-    let tx_checker_future =
-        checker::transactions(&streamer_message, tx_alert_rule, redis_connection_manager);
-
-    match futures::try_join!(tx_checker_future) {
+    match futures::try_join!(receipt_checker_future) {
         Ok(_) => tracing::debug!(
             target: INDEXER,
             "#{} checkers executed successful",
@@ -71,12 +73,41 @@ async fn handle_streamer_message(
         ),
     };
 
-    storage::set(
+    storage::update_last_indexed_block(
         redis_connection_manager,
-        "last_indexed_block",
-        &streamer_message.block.header.height.to_string(),
+        streamer_message.block.header.height,
     )
     .await?;
 
     Ok(streamer_message.block.header.height)
+}
+
+async fn stats(redis_connection_manager: storage::ConnectionManager) {
+    let interval_secs = 10;
+    let mut previous_processed_blocks: u64 =
+        storage::get::<u64>(&redis_connection_manager, "blocks_processed")
+            .await
+            .unwrap_or(0);
+
+    loop {
+        let processed_blocks: u64 = match storage::get::<u64>(
+            &redis_connection_manager,
+            "blocks_processed",
+        )
+        .await
+        {
+            Ok(value) => value,
+            Err(err) => {
+                tracing::error!(target: "stats", "Failed to get `blocks_processed` from Redis. Retry in 10s...\n{:#?}", err);
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                continue;
+            }
+        };
+
+        let bps = (processed_blocks - previous_processed_blocks) / interval_secs * 60;
+
+        tracing::info!(target: "stats", "stats: {} bps", bps);
+        previous_processed_blocks = processed_blocks;
+        tokio::time::sleep(std::time::Duration::from_secs(interval_secs)).await;
+    }
 }

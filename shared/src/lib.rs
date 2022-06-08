@@ -14,6 +14,8 @@ pub mod types;
     next_line_help(true)
 )]
 pub struct Opts {
+    #[clap(long, default_value = "redis://127.0.0.1")]
+    pub redis_connection_string: String,
     #[clap(subcommand)]
     pub chain_id: ChainId,
 }
@@ -76,7 +78,7 @@ fn get_start_block_height(opts: &Opts) -> u64 {
 }
 
 pub fn init_tracing() {
-    let mut env_filter = EnvFilter::new("near_lake_framework=info,alertexer=debug");
+    let mut env_filter = EnvFilter::new("near_lake_framework=info,alertexer=info,stats=info");
 
     if let Ok(rust_log) = std::env::var("RUST_LOG") {
         if !rust_log.is_empty() {

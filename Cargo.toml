@@ -2,7 +2,9 @@
 
 members = [
     "tx-alertexer",
+    "receipt-account-party-alertexer",
     "shared",
     "queue-sender",
     "alert-rules",
+    "storage",
 ]
