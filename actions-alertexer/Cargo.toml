@@ -1,5 +1,5 @@
 [package]
-name = "receipt-account-party-alertexer"
+name = "actions-alertexer"
 version = "0.1.0"
 edition = "2021"
 authors = ["Near Inc <hello@nearprotocol.com>"]
@@ -14,7 +14,7 @@ tokio = { version = "1.1", features = ["sync", "time", "macros", "rt-multi-threa
 tokio-stream = { version = "0.1" }
 tracing = "0.1.34"
 
-alert-rules = { path = '../alert-rules' }
+alert-rules = { path = '../alert-rules', features = ["db"] }
 shared = { path = '../shared' }
 storage = { path = '../storage' }
 queue-sender = { path = '../queue-sender' }

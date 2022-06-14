@@ -1,13 +1,16 @@
-use alert_rules::ReceiptAccountPartyAlertRule;
 use futures::future::try_join_all;
+
+use alert_rules::AlertRule;
 
 use near_lake_framework::near_indexer_primitives::{
     views::ExecutionStatusView, IndexerExecutionOutcomeWithReceipt, IndexerTransactionWithOutcome,
 };
 
+use crate::matchers::Matcher;
+
 pub(crate) async fn receipts(
     streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
-    receipt_account_alert_rules: &[ReceiptAccountPartyAlertRule],
+    alert_rules: &[AlertRule],
     redis_connection_manager: &storage::ConnectionManager,
 ) -> anyhow::Result<()> {
     let cache_tx_receipts_future = streamer_message
@@ -26,14 +29,13 @@ pub(crate) async fn receipts(
 
     cache_receipts_from_outcomes(&receipt_execution_outcomes, redis_connection_manager).await?;
 
-    let execution_outcomes_rule_handler_future =
-        receipt_account_alert_rules.iter().map(|alert_rule| {
-            rule_handler(
-                alert_rule,
-                &receipt_execution_outcomes,
-                redis_connection_manager,
-            )
-        });
+    let execution_outcomes_rule_handler_future = alert_rules.iter().map(|alert_rule| {
+        rule_handler(
+            alert_rule,
+            &receipt_execution_outcomes,
+            redis_connection_manager,
+        )
+    });
 
     try_join_all(execution_outcomes_rule_handler_future).await?;
 
@@ -112,14 +114,12 @@ async fn cache_receipts_from_outcomes(
 }
 
 async fn rule_handler(
-    alert_rule: &ReceiptAccountPartyAlertRule,
+    alert_rule: &AlertRule,
     receipt_execution_outcomes: &[IndexerExecutionOutcomeWithReceipt],
     redis_connection_manager: &storage::ConnectionManager,
 ) -> anyhow::Result<()> {
     for receipt_execution_outcome in receipt_execution_outcomes {
-        if receipt_execution_outcome.receipt.predecessor_id.to_string() == alert_rule.account_id
-            || receipt_execution_outcome.receipt.receiver_id.to_string() == alert_rule.account_id
-        {
+        if alert_rule.matches(receipt_execution_outcome) {
             let receipt_id = receipt_execution_outcome.receipt.receipt_id.to_string();
             if let Some(transaction_hash) =
                 storage::remove_receipt_from_watching_list(redis_connection_manager, &receipt_id)
@@ -139,14 +139,14 @@ async fn rule_handler(
 }
 
 async fn send_trigger_to_queue(
-    alert_rule: &ReceiptAccountPartyAlertRule,
+    alert_rule: &AlertRule,
     transaction_hash: &str,
     receipt_id: &str,
 ) -> anyhow::Result<()> {
     loop {
         match queue_sender::send_to_the_queue(format!(
             "TX {} affects {} in Receipt {}",
-            transaction_hash, alert_rule.account_id, receipt_id,
+            transaction_hash, alert_rule.id, receipt_id,
         ))
         .await
         {

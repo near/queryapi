@@ -4,15 +4,14 @@ use futures::StreamExt;
 use shared::{Opts, Parser};
 
 mod checker;
+pub(crate) mod matchers;
 pub(crate) const INDEXER: &str = "alertexer";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // MOCK
-    let receipt_account_alert_rules = vec![alert_rules::ReceiptAccountPartyAlertRule {
-        account_id: "aurora".to_owned(),
-    }];
-    // END MOCK
+    let pool = alert_rules::connect("postgres://root:1111@localhost/pagoda_alerts").await?;
+    let alert_rules = alert_rules::AlertRule::fetch_alert_rules(&pool).await?;
+
     shared::init_tracing();
 
     let opts = Opts::parse();
@@ -29,11 +28,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Starting Alertexer...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
-            handle_streamer_message(
-                streamer_message,
-                &receipt_account_alert_rules,
-                &redis_connection_manager,
-            )
+            handle_streamer_message(streamer_message, &alert_rules, &redis_connection_manager)
         })
         .buffer_unordered(1usize);
 
@@ -50,14 +45,11 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_streamer_message(
     streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
-    receipt_account_alert_rules: &[alert_rules::ReceiptAccountPartyAlertRule],
+    alert_rules: &[alert_rules::AlertRule],
     redis_connection_manager: &storage::ConnectionManager,
 ) -> anyhow::Result<u64> {
-    let receipt_checker_future = checker::receipts(
-        &streamer_message,
-        receipt_account_alert_rules,
-        redis_connection_manager,
-    );
+    let receipt_checker_future =
+        checker::receipts(&streamer_message, alert_rules, redis_connection_manager);
 
     match futures::try_join!(receipt_checker_future) {
         Ok(_) => tracing::debug!(
