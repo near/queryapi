@@ -23,7 +23,7 @@ CREATE TABLE alert_rules (
     alert_rule_kind alert_rule_kind NOT NULL,
     matching_rule json NOT NULL,
     is_paused bool NOT NULL,
-    updated_at timestamp NOT NULL
+    updated_at timestamptz NOT NULL
 );
 -- --- DevConsole
 -- description text NOT NULL,

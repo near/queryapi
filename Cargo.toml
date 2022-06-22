@@ -1,10 +1,9 @@
 [workspace]
 
 members = [
-    "tx-alertexer",
+    # "tx-alertexer",
     "actions-alertexer",
     "shared",
-    "queue-sender",
     "alert-rules",
     "storage",
 ]

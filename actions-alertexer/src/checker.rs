@@ -12,6 +12,8 @@ pub(crate) async fn receipts(
     streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
     alert_rules: &[AlertRule],
     redis_connection_manager: &storage::ConnectionManager,
+    queue_client: &shared::QueueClient,
+    queue_url: &str,
 ) -> anyhow::Result<()> {
     let cache_tx_receipts_future = streamer_message
         .shards
@@ -34,6 +36,8 @@ pub(crate) async fn receipts(
             alert_rule,
             &receipt_execution_outcomes,
             redis_connection_manager,
+            queue_client,
+            queue_url,
         )
     });
 
@@ -117,6 +121,8 @@ async fn rule_handler(
     alert_rule: &AlertRule,
     receipt_execution_outcomes: &[IndexerExecutionOutcomeWithReceipt],
     redis_connection_manager: &storage::ConnectionManager,
+    queue_client: &shared::QueueClient,
+    queue_url: &str,
 ) -> anyhow::Result<()> {
     for receipt_execution_outcome in receipt_execution_outcomes {
         if alert_rule.matches(receipt_execution_outcome) {
@@ -125,7 +131,14 @@ async fn rule_handler(
                 storage::remove_receipt_from_watching_list(redis_connection_manager, &receipt_id)
                     .await?
             {
-                send_trigger_to_queue(alert_rule, &transaction_hash, &receipt_id).await?;
+                send_trigger_to_queue(
+                    alert_rule,
+                    &transaction_hash,
+                    &receipt_id,
+                    queue_client,
+                    queue_url,
+                )
+                .await?;
             } else {
                 tracing::error!(
                     target: crate::INDEXER,
@@ -142,19 +155,28 @@ async fn send_trigger_to_queue(
     alert_rule: &AlertRule,
     transaction_hash: &str,
     receipt_id: &str,
+    queue_client: &shared::QueueClient,
+    queue_url: &str,
 ) -> anyhow::Result<()> {
     loop {
-        match queue_sender::send_to_the_queue(format!(
-            "TX {} affects {} in Receipt {}",
-            transaction_hash, alert_rule.id, receipt_id,
-        ))
+        match shared::send_to_the_queue(
+            queue_client,
+            queue_url.to_string(),
+            shared::types::primitives::AlertQueueMessage {
+                alert_rule_id: alert_rule.id,
+                payload: shared::types::primitives::ActionsAlertPayload {
+                    receipt_id: receipt_id.to_string(),
+                    transaction_hash: transaction_hash.to_string(),
+                },
+            },
+        )
         .await
         {
             Ok(_) => break,
             Err(err) => {
                 tracing::error!(
                     target: crate::INDEXER,
-                    "Error sending the alert to the queue. Retrying in 1s...{:#?}",
+                    "Error sending the alert to the queue. Retrying in 1s...\n{:#?}",
                     err,
                 );
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;

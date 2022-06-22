@@ -1,6 +1,9 @@
+pub use aws_sdk_sqs::Client as QueueClient;
 pub use clap::{Parser, Subcommand};
+pub use dotenv;
 use tracing_subscriber::EnvFilter;
 
+pub use base64;
 pub use borsh::{BorshDeserialize, BorshSerialize};
 pub mod types;
 
@@ -14,8 +17,20 @@ pub mod types;
     next_line_help(true)
 )]
 pub struct Opts {
-    #[clap(long, default_value = "redis://127.0.0.1")]
+    #[clap(long, default_value = "redis://127.0.0.1", env)]
     pub redis_connection_string: String,
+    #[clap(long, env)]
+    pub database_url: String,
+    #[clap(long, env)]
+    pub lake_aws_access_key: String,
+    #[clap(long, env)]
+    pub lake_aws_secret_access_key: String,
+    #[clap(long, env)]
+    pub queue_aws_access_key: String,
+    #[clap(long, env)]
+    pub queue_aws_secret_access_key: String,
+    #[clap(long, env)]
+    pub queue_url: String,
     #[clap(subcommand)]
     pub chain_id: ChainId,
 }
@@ -35,16 +50,65 @@ pub enum StartOptions {
 }
 
 impl Opts {
+    /// Returns [StartOptions] for current [Opts]
     pub fn start_options(&self) -> &StartOptions {
         match &self.chain_id {
-            ChainId::Mainnet(args) | ChainId::Testnet(args) => args,
+            ChainId::Mainnet(start_options) | ChainId::Testnet(start_options) => start_options,
         }
+    }
+
+    // Creates AWS Credentials for NEAR Lake
+    fn lake_credentials(&self) -> aws_types::credentials::SharedCredentialsProvider {
+        let provider = aws_types::Credentials::new(
+            self.lake_aws_access_key.clone(),
+            self.lake_aws_secret_access_key.clone(),
+            None,
+            None,
+            "alertexer_lake",
+        );
+        aws_types::credentials::SharedCredentialsProvider::new(provider)
+    }
+
+    // Creates AWS Credentials for SQS Queue
+    fn queue_credentials(&self) -> aws_types::credentials::SharedCredentialsProvider {
+        let provider = aws_types::Credentials::new(
+            self.queue_aws_access_key.clone(),
+            self.queue_aws_secret_access_key.clone(),
+            None,
+            None,
+            "alertexer_queue",
+        );
+        aws_types::credentials::SharedCredentialsProvider::new(provider)
+    }
+
+    /// Creates AWS Shared Config for NEAR Lake
+    pub fn lake_aws_sdk_config(&self) -> aws_types::sdk_config::SdkConfig {
+        aws_types::sdk_config::SdkConfig::builder()
+            .credentials_provider(self.lake_credentials())
+            .region(aws_types::region::Region::new("eu-central-1"))
+            .build()
+    }
+
+    /// Creates AWS Shared Config for Alertexer SQS queue
+    pub fn queue_aws_sdk_config(&self) -> aws_types::sdk_config::SdkConfig {
+        aws_types::sdk_config::SdkConfig::builder()
+            .credentials_provider(self.queue_credentials())
+            .region(aws_types::region::Region::new("eu-central-1"))
+            .build()
+    }
+
+    /// Creates AWS SQS Client for Alertexer SQS
+    pub fn queue_client(&self) -> aws_sdk_sqs::Client {
+        let shared_config = self.queue_aws_sdk_config();
+        aws_sdk_sqs::Client::new(&shared_config)
     }
 }
 
 impl From<Opts> for near_lake_framework::LakeConfig {
     fn from(opts: Opts) -> Self {
-        let config_builder = near_lake_framework::LakeConfigBuilder::default();
+        let s3_config = aws_sdk_s3::config::Builder::from(&opts.lake_aws_sdk_config()).build();
+
+        let config_builder = near_lake_framework::LakeConfigBuilder::default().s3_config(s3_config);
 
         match &opts.chain_id {
             ChainId::Mainnet(_) => config_builder
@@ -65,11 +129,11 @@ fn get_start_block_height(opts: &Opts) -> u64 {
         StartOptions::FromBlock { height } => *height,
         StartOptions::FromInterruption => match &std::fs::read("last_indexed_block") {
             Ok(contents) => String::from_utf8_lossy(contents).parse().unwrap(),
-            Err(e) => {
+            Err(err) => {
                 tracing::error!(
                     target: "alertexer",
                     "Cannot read last_indexed_block.\n{}\nStart indexer from genesis block",
-                    e
+                    err
                 );
                 0
             }
@@ -98,4 +162,32 @@ pub fn init_tracing() {
         .with_env_filter(env_filter)
         .with_writer(std::io::stderr)
         .init();
+}
+
+pub async fn send_to_the_queue<
+    T: borsh::BorshSerialize + borsh::BorshDeserialize + std::fmt::Debug,
+>(
+    client: &aws_sdk_sqs::Client,
+    queue_url: String,
+    message: types::primitives::AlertQueueMessage<T>,
+) -> anyhow::Result<()> {
+    tracing::info!(
+        target: "alertexer",
+        "Sending alert to the queue\n{:#?}",
+        message
+    );
+    let message_serialized = base64::encode(&message.try_to_vec()?);
+
+    let rsp = client
+        .send_message()
+        .queue_url(queue_url)
+        .message_body(message_serialized)
+        .send()
+        .await?;
+    tracing::debug!(
+        target: "alertexer",
+        "Response from sending a message to SQS\n{:#?}",
+        rsp
+    );
+    Ok(())
 }
