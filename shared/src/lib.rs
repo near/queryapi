@@ -1,4 +1,4 @@
-pub use aws_sdk_sqs::Client as QueueClient;
+pub use aws_sdk_sqs::{error::SendMessageError, Client as QueueClient, Region};
 pub use clap::{Parser, Subcommand};
 pub use dotenv;
 use tracing_subscriber::EnvFilter;
@@ -50,6 +50,13 @@ pub enum StartOptions {
 }
 
 impl Opts {
+    pub fn chain_id(&self) -> crate::types::primitives::ChainId {
+        match self.chain_id {
+            ChainId::Mainnet(_) => crate::types::primitives::ChainId::Mainnet,
+            ChainId::Testnet(_) => crate::types::primitives::ChainId::Testnet,
+        }
+    }
+
     /// Returns [StartOptions] for current [Opts]
     pub fn start_options(&self) -> &StartOptions {
         match &self.chain_id {
@@ -164,19 +171,19 @@ pub fn init_tracing() {
         .init();
 }
 
-pub async fn send_to_the_queue<
-    T: borsh::BorshSerialize + borsh::BorshDeserialize + std::fmt::Debug,
->(
+pub async fn send_to_the_queue(
     client: &aws_sdk_sqs::Client,
     queue_url: String,
-    message: types::primitives::AlertQueueMessage<T>,
+    message: types::primitives::AlertQueueMessage,
 ) -> anyhow::Result<()> {
     tracing::info!(
         target: "alertexer",
         "Sending alert to the queue\n{:#?}",
         message
     );
-    let message_serialized = base64::encode(&message.try_to_vec()?);
+    let message_serialized = base64::encode(message.try_to_vec()?);
+
+    eprintln!("{}", &message_serialized);
 
     let rsp = client
         .send_message()

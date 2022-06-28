@@ -19,6 +19,7 @@ async fn main() -> anyhow::Result<()> {
 
     let opts = Opts::parse();
 
+    let chain_id = &opts.chain_id();
     let queue_client = &opts.queue_client();
     let queue_url = opts.queue_url.clone();
     let alert_rules_inmemory: AlertRulesInMemory =
@@ -31,6 +32,7 @@ async fn main() -> anyhow::Result<()> {
     tokio::spawn(alert_rules_fetcher(
         opts.database_url.clone(),
         std::sync::Arc::clone(&alert_rules_inmemory),
+        chain_id.clone(),
     ));
 
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
@@ -48,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|streamer_message| {
             handle_streamer_message(
                 streamer_message,
+                &chain_id,
                 std::sync::Arc::clone(&alert_rules_inmemory),
                 &redis_connection_manager,
                 queue_client,
@@ -69,6 +72,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_streamer_message(
     streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
+    chain_id: &shared::types::primitives::ChainId,
     alert_rules_inmemory: AlertRulesInMemory,
     redis_connection_manager: &storage::ConnectionManager,
     queue_client: &shared::QueueClient,
@@ -82,6 +86,7 @@ async fn handle_streamer_message(
 
     let receipt_checker_future = checker::receipts(
         &streamer_message,
+        chain_id,
         &alert_rules,
         redis_connection_manager,
         queue_client,
@@ -114,6 +119,7 @@ async fn handle_streamer_message(
 async fn alert_rules_fetcher(
     database_connection_string: String,
     alert_rules_inmemory: AlertRulesInMemory,
+    chain_id: shared::types::primitives::ChainId,
 ) {
     let pool = loop {
         match alert_rules::connect(&database_connection_string).await {
@@ -131,7 +137,16 @@ async fn alert_rules_fetcher(
 
     loop {
         let alert_rules_tuples: Vec<(i32, alert_rules::AlertRule)> = loop {
-            match alert_rules::AlertRule::fetch_alert_rules(&pool).await {
+            match alert_rules::AlertRule::fetch_alert_rules(
+                &pool,
+                alert_rules::AlertRuleKind::Actions,
+                &match chain_id {
+                    shared::types::primitives::ChainId::Testnet => alert_rules::ChainId::Testnet,
+                    shared::types::primitives::ChainId::Mainnet => alert_rules::ChainId::Mainnet,
+                },
+            )
+            .await
+            {
                 Ok(rules_from_db) => {
                     break rules_from_db
                         .into_iter()

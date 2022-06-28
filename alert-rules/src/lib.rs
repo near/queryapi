@@ -14,44 +14,64 @@ pub async fn connect(connection_str: &str) -> Result<sqlx::PgPool, sqlx::Error> 
         .await
 }
 
-#[derive(sqlx::FromRow, Clone, Debug)]
+#[cfg_attr(feature = "db", derive(sqlx::FromRow))]
+#[derive(Clone, Debug)]
 pub struct AlertRule {
     pub id: i32,
     pub name: String,
     pub chain_id: ChainId,
     pub alert_rule_kind: AlertRuleKind,
     pub is_paused: bool,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[cfg(feature = "db")]
     matching_rule: sqlx::types::Json<MatchingRule>,
+    #[cfg(not(feature = "db"))]
+    pub matching_rule: MatchingRule,
 }
 
 impl AlertRule {
     #[cfg(feature = "db")]
-    pub async fn fetch_alert_rules(pool: &sqlx::PgPool) -> Result<Vec<Self>, sqlx::Error> {
+    pub async fn fetch_alert_rules(
+        pool: &sqlx::PgPool,
+        alert_rule_kind: AlertRuleKind,
+        chain_id: &ChainId,
+    ) -> Result<Vec<Self>, sqlx::Error> {
         sqlx::query_as!(AlertRule,
             r#"
 SELECT id, name, chain_id as "chain_id: _", alert_rule_kind as "alert_rule_kind: _", is_paused, updated_at, matching_rule as "matching_rule: sqlx::types::Json<MatchingRule>"
 FROM alert_rules
-            "#
+WHERE alert_rule_kind = $1 AND chain_id = $2
+            "#,
+            alert_rule_kind as AlertRuleKind,
+            chain_id.clone() as ChainId
         )
         .fetch_all(pool)
         .await
     }
 
+    #[cfg(feature = "db")]
     pub fn matching_rule(&self) -> MatchingRule {
         self.matching_rule.0.clone()
     }
 }
 
-#[derive(sqlx::Type, Clone, Debug)]
-#[sqlx(type_name = "alert_rule_kind", rename_all = "SCREAMING_SNAKE_CASE")]
+#[cfg_attr(feature = "db", derive(sqlx::Type))]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "db",
+    sqlx(type_name = "alert_rule_kind", rename_all = "SCREAMING_SNAKE_CASE")
+)]
 pub enum AlertRuleKind {
     Actions,
     Events,
 }
 
-#[derive(sqlx::Type, Clone, Debug)]
-#[sqlx(type_name = "chain_id", rename_all = "SCREAMING_SNAKE_CASE")]
+#[cfg_attr(feature = "db", derive(sqlx::Type))]
+#[derive(Clone, Debug)]
+#[cfg_attr(
+    feature = "db",
+    sqlx(type_name = "chain_id", rename_all = "SCREAMING_SNAKE_CASE")
+)]
 pub enum ChainId {
     Mainnet,
     Testnet,
@@ -68,6 +88,11 @@ pub enum MatchingRule {
         affected_account_id: String,
         status: Status,
         amount: DepositAmountCondition,
+    },
+    ActionFunctionCall {
+        affected_account_id: String,
+        status: Status,
+        function: String,
     },
 }
 

@@ -1,0 +1,44 @@
+{
+  "db": "PostgreSQL",
+  "8dea5be5170ce67bf9f45fbe3d25eb4828a77a5a0854d0279dce5829bd5fe978": {
+    "describe": {
+      "columns": [
+        {
+          "name": "name",
+          "ordinal": 0,
+          "type_info": "Text"
+        },
+        {
+          "name": "alert_id",
+          "ordinal": 1,
+          "type_info": "Int4"
+        },
+        {
+          "name": "type: _",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "WEBHOOK"
+                ]
+              },
+              "name": "notification_channel_kind"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT alert_rules.name, enabled_destinations.alert_id, destinations.type as \"type: _\" FROM enabled_destinations\nJOIN destinations ON enabled_destinations.destination_id = destinations.id\nJOIN alert_rules ON enabled_destinations.alert_id = alert_rules.id\nWHERE destinations.active = true\n    AND enabled_destinations.alert_id = $1\n            "
+  }
+}

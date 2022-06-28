@@ -20,7 +20,20 @@ impl Matcher for MatchingRule {
                 affected_account_id,
                 status,
             } => match_action_any(affected_account_id, status, outcome_with_receipt),
-            &MatchingRule::ActionTransfer { .. } => todo!(),
+            &MatchingRule::ActionTransfer { .. } => {
+                tracing::warn!(
+                    target: crate::INDEXER,
+                    "ActionTransfer matcher is not implemented"
+                );
+                false
+            }
+            &MatchingRule::ActionFunctionCall { .. } => {
+                tracing::warn!(
+                    target: crate::INDEXER,
+                    "ActionFunctionCall matcher is not implemented"
+                );
+                false
+            }
         }
     }
 }
