@@ -1,6 +1,6 @@
 {
   "db": "PostgreSQL",
-  "1afa2f101273f48c53ef99b361b1fa9a541c78e18a877e5c950537669900cc31": {
+  "3e8e52310f358c5b8ca2e78b0875b691657494f45309b206f77ff7304e7501ad": {
     "describe": {
       "columns": [
         {
@@ -36,7 +36,8 @@
               "kind": {
                 "Enum": [
                   "ACTIONS",
-                  "EVENTS"
+                  "EVENTS",
+                  "STATE_CHANGES"
                 ]
               },
               "name": "alert_rule_kind"
@@ -56,7 +57,7 @@
         {
           "name": "matching_rule: sqlx::types::Json<MatchingRule>",
           "ordinal": 6,
-          "type_info": "Json"
+          "type_info": "Jsonb"
         }
       ],
       "nullable": [
@@ -65,13 +66,37 @@
         false,
         false,
         false,
-        false,
+        true,
         false
       ],
       "parameters": {
-        "Left": []
+        "Left": [
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "ACTIONS",
+                  "EVENTS",
+                  "STATE_CHANGES"
+                ]
+              },
+              "name": "alert_rule_kind"
+            }
+          },
+          {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "MAINNET",
+                  "TESTNET"
+                ]
+              },
+              "name": "chain_id"
+            }
+          }
+        ]
       }
     },
-    "query": "\nSELECT id, name, chain_id as \"chain_id: _\", alert_rule_kind as \"alert_rule_kind: _\", is_paused, updated_at, matching_rule as \"matching_rule: sqlx::types::Json<MatchingRule>\"\nFROM alert_rules\n            "
+    "query": "\nSELECT id, name, chain_id as \"chain_id: _\", alert_rule_kind as \"alert_rule_kind: _\", is_paused, updated_at, matching_rule as \"matching_rule: sqlx::types::Json<MatchingRule>\"\nFROM alert_rules\nWHERE alert_rule_kind = $1 AND chain_id = $2\n            "
   }
 }
