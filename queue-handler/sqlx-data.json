@@ -1,12 +1,35 @@
 {
   "db": "PostgreSQL",
-  "8dea5be5170ce67bf9f45fbe3d25eb4828a77a5a0854d0279dce5829bd5fe978": {
+  "963fbbb04a303e50dd870bf4d9d63138b58790143e449e546ef2bc27a7614907": {
     "describe": {
       "columns": [
         {
-          "name": "name",
+          "name": "id",
           "ordinal": 0,
-          "type_info": "Text"
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4",
+          "Text",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id"
+  },
+  "af0857036a2f0c381abe518cc508d910fa527b27836b1b19b17334c6f7e74332": {
+    "describe": {
+      "columns": [
+        {
+          "name": "destination_id",
+          "ordinal": 0,
+          "type_info": "Int4"
         },
         {
           "name": "alert_id",
@@ -14,16 +37,17 @@
           "type_info": "Int4"
         },
         {
-          "name": "type: _",
+          "name": "destination_kind: _",
           "ordinal": 2,
           "type_info": {
             "Custom": {
               "kind": {
                 "Enum": [
-                  "WEBHOOK"
+                  "WEBHOOK",
+                  "EMAIL"
                 ]
               },
-              "name": "notification_channel_kind"
+              "name": "destination_type"
             }
           }
         }
@@ -39,6 +63,38 @@
         ]
       }
     },
-    "query": "\nSELECT alert_rules.name, enabled_destinations.alert_id, destinations.type as \"type: _\" FROM enabled_destinations\nJOIN destinations ON enabled_destinations.destination_id = destinations.id\nJOIN alert_rules ON enabled_destinations.alert_id = alert_rules.id\nWHERE destinations.active = true\n    AND enabled_destinations.alert_id = $1\n            "
+    "query": "\nSELECT destinations.id as destination_id, enabled_destinations.alert_id, destinations.type as \"destination_kind: _\" FROM enabled_destinations\nJOIN destinations ON enabled_destinations.destination_id = destinations.id\nWHERE destinations.active = true\n    AND enabled_destinations.alert_id = $1\n            "
+  },
+  "ea4374315e0ec56a011725773ffa9291d15e8e9ee5280c6b11595e84b2ec121c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "secret",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT destination_id as id, url, secret FROM webhook_destinations WHERE destination_id = $1\n                "
   }
 }

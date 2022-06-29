@@ -85,20 +85,21 @@ async fn handle_message(
     if let Some(endoded_message) = message.body {
         let decoded_message = shared::base64::decode(endoded_message)?;
         let alert_message = AlertQueueMessage::try_from_slice(&decoded_message)?;
-        // let triggered_alerts_id: i32 = loop {
-        //     match sqlx::query!(
-        //         "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id",
-        //         alert_message.alert_rule_id,
-        //         alert_message.payload.block_hash(),
-        //         alert_message.payload.transaction_hash(),
-        //         alert_message.payload.receipt_id(),
-        //     )
-        //     .fetch_one(pool)
-        //     .await {
-        //         Ok(res) => break res.id,
-        //         Err(_) => {},
-        //     }
-        // };
+
+        let triggered_alert_id: i32 = loop {
+            match sqlx::query!(
+                "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id",
+                alert_message.alert_rule_id,
+                alert_message.payload.block_hash(),
+                alert_message.payload.transaction_hash(),
+                alert_message.payload.receipt_id(),
+            )
+            .fetch_one(pool)
+            .await {
+                Ok(res) => break res.id,
+                Err(_) => {},
+            }
+        };
 
         let destinations: Vec<Destination> = sqlx::query_as!(Destination,
             r#"
@@ -111,12 +112,13 @@ WHERE destinations.active = true
         )
         .fetch_all(pool)
         .await?;
-        eprintln!("Destinations fetched");
+
         let handle_destination_futures = destinations
             .into_iter()
             .map(|destination| handle_destination(
                 alert_message.clone(),
                 destination,
+                triggered_alert_id,
                 client,
                 pool
             ));
@@ -129,6 +131,7 @@ WHERE destinations.active = true
 async fn handle_destination(
     alert_message: AlertQueueMessage,
     destination: Destination,
+    triggered_alert_id: i32,
     client: &QueueClient,
     pool: &sqlx::PgPool
 ) -> Result<(), QueueError> {
@@ -151,6 +154,7 @@ SELECT destination_id as id, url, secret FROM webhook_destinations WHERE destina
     };
 
     let alert_delivery_task = shared::types::primitives::AlertDeliveryTask {
+        triggered_alert_id,
         destination_config,
         alert_message,
     };
