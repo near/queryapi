@@ -31,6 +31,7 @@ struct Destination {
 #[sqlx(type_name = "destination_type", rename_all = "SCREAMING_SNAKE_CASE")]
 enum DestinationKind {
     Webhook,
+    Telegram,
 }
 
 #[derive(sqlx::FromRow, Debug)]
@@ -40,12 +41,27 @@ struct WebhookDestinationConfig {
     secret: String,
 }
 
+#[derive(sqlx::FromRow, Debug)]
+struct TelegramDestinationConfig {
+    id: i32,
+    chat_id: Option<f64>,
+}
+
 impl From<WebhookDestinationConfig> for shared::types::primitives::DestinationConfig {
     fn from(webhook_destination_config: WebhookDestinationConfig) -> Self {
         Self::Webhook {
             destination_id: webhook_destination_config.id,
             url: webhook_destination_config.url,
             secret: webhook_destination_config.secret,
+        }
+    }
+}
+
+impl From<TelegramDestinationConfig> for shared::types::primitives::DestinationConfig {
+    fn from(telegram_destination_config: TelegramDestinationConfig) -> Self {
+        Self::Telegram {
+            destination_id: telegram_destination_config.id,
+            chat_id: telegram_destination_config.chat_id.unwrap(),
         }
     }
 }
@@ -144,6 +160,20 @@ async fn handle_destination(
                 WebhookDestinationConfig,
                 r#"
 SELECT destination_id as id, url, secret FROM webhook_destinations WHERE destination_id = $1
+                "#,
+                destination.destination_id
+            )
+            .fetch_one(pool)
+            .await?
+            .into()
+        },
+        DestinationKind::Telegram => {
+            queue_url = std::env::var("TELEGRAM_QUEUE_URL")
+                .expect("TELEGRAM_QUEUE_URL is not provided for the lambda");
+            sqlx::query_as!(
+                TelegramDestinationConfig,
+                r#"
+SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destination_id = $1
                 "#,
                 destination.destination_id
             )

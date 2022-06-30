@@ -16,6 +16,35 @@ pub struct AlertQueueMessage {
     pub payload: AlertQueueMessagePayload,
 }
 
+impl AlertQueueMessage {
+    pub fn explorer_link(&self) -> String {
+        match self.chain_id {
+            ChainId::Testnet => {
+                if let Some(tx_hash) = self.payload.transaction_hash() {
+                    if let Some(receipt_id) = self.payload.receipt_id() {
+                        return format!(
+                            "https://explorer.testnet.near.org/transactions/{}#{}",
+                            tx_hash,
+                            receipt_id,
+                        )
+                    } else { return format!("https://explorer.testnet.near.org/block/{}", self.payload.block_hash()); }
+                } else { return format!("https://explorer.testnet.near.org/block/{}", self.payload.block_hash()); }
+            },
+            ChainId::Mainnet => {
+                if let Some(tx_hash) = self.payload.transaction_hash() {
+                    if let Some(receipt_id) = self.payload.receipt_id() {
+                        return format!(
+                            "https://explorer.near.org/transactions/{}#{}",
+                            tx_hash,
+                            receipt_id,
+                        );
+                    } else { return format!("https://explorer.near.org/block/{}", self.payload.block_hash()); }
+                } else { return format!("https://explorer.near.org/block/{}", self.payload.block_hash()); }
+            },
+        }
+    }
+}
+
 #[derive(
     borsh::BorshSerialize,
     borsh::BorshDeserialize,
@@ -95,4 +124,8 @@ pub enum DestinationConfig {
         url: String,
         secret: String,
     },
+    Telegram {
+        destination_id: i32,
+        chat_id: f64,
+    }
 }
