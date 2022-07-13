@@ -23,7 +23,11 @@ Naming convention is to add `-alertexer` for indexers in this project.
 
 Closely related to the project but excluded from the workspace for different reasons crates.
 
-- *draft* `queue-handler` is an AWS lambda function (Rust-lang) that listens to the events in main AWS SQS queue for alertexer. Interacts with the DevConsole DB to get data about the `AlertRule` and stores info about triggered events, passed the triggered event to the relevant queue based on the delivery channel.
+- `queue-handler` is an AWS lambda function (Rust-lang) that listens to the events in main AWS SQS queue for alertexer. Interacts with the DevConsole DB to get data about the `AlertRule` and stores info about triggered events, passed the triggered event to the relevant queue based on the delivery channel.
+- `webhook-queue-handler` is an AWS lambda function (Rust-lang) that listens to the events in the dedicated AWS SQS queue for webhooks. Interacts with the DB to store an information about the webhook is sent and what was the response (in order to simplify the webhook debugging)
+- `telegram-queue-handler` is an AWS lambda function (Rust-lang) that listens to the events in the dedicated AWS SQS queue for Telegram. Interacts with the DevConsole DB to get the `AlertRule`'s name in order to create a Telegram message
+  > "Alert {name} triggered. See {link to NEAR Explorer} for details"
+  Also, stores an information about the message has been sent to the Telegram.
 
 ## Design concept
 

@@ -1,0 +1,25 @@
+version: "3.9"  # optional since v1.27.0
+services:
+
+  actions_alertexer:
+    build:
+      context: .
+      args:
+        - package=actions-alertexer
+        - chain_id=mainnet
+    env_file: .env
+    links:
+      - redis
+    environment:
+      - REDIS_CONNECTION_STRING=redis://redis
+    command:
+      - mainnet
+      - from-interruption
+  redis:
+    image: redis
+    command:
+      - redis-server
+      - "--save 60 1"
+      - "--loglevel warning"
+    volumes:
+      - ./redis/data:/data

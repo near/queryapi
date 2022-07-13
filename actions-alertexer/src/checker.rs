@@ -82,41 +82,56 @@ async fn cache_receipts_from_outcomes(
     receipt_execution_outcomes: &[IndexerExecutionOutcomeWithReceipt],
     redis_connection_manager: &storage::ConnectionManager,
 ) -> anyhow::Result<()> {
-    for receipt_execution_outcome in receipt_execution_outcomes {
-        if let Ok(Some(transaction_hash)) = storage::get::<Option<String>>(
-            redis_connection_manager,
-            &receipt_execution_outcome.receipt.receipt_id.to_string(),
-        )
-        .await
-        {
-            // Add the newly produced receipt_ids to the watching list
-            for receipt_id in receipt_execution_outcome
-                .execution_outcome
-                .outcome
-                .receipt_ids
-                .iter()
-            {
-                tracing::debug!(target: crate::INDEXER, "+R {}", &receipt_id.to_string(),);
-                storage::push_receipt_to_watching_list(
-                    redis_connection_manager,
-                    &receipt_id.to_string(),
-                    &transaction_hash,
-                )
-                .await?;
-            }
+    let cache_futures = receipt_execution_outcomes
+        .iter()
+        .map(|receipt_execution_outcome| {
+            cache_receipts_from_execution_outcome(
+                receipt_execution_outcome,
+                redis_connection_manager,
+            )
+        });
 
-            // Add the success receipt to the watching list
-            if let ExecutionStatusView::SuccessReceiptId(receipt_id) =
-                receipt_execution_outcome.execution_outcome.outcome.status
-            {
-                tracing::debug!(target: crate::INDEXER, "+R {}", &receipt_id.to_string(),);
-                storage::push_receipt_to_watching_list(
-                    redis_connection_manager,
-                    &receipt_id.to_string(),
-                    &transaction_hash,
-                )
-                .await?;
-            }
+    try_join_all(cache_futures).await?;
+    Ok(())
+}
+
+async fn cache_receipts_from_execution_outcome(
+    receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
+    redis_connection_manager: &storage::ConnectionManager,
+) -> anyhow::Result<()> {
+    if let Ok(Some(transaction_hash)) = storage::get::<Option<String>>(
+        redis_connection_manager,
+        &receipt_execution_outcome.receipt.receipt_id.to_string(),
+    )
+    .await
+    {
+        // Add the newly produced receipt_ids to the watching list
+        for receipt_id in receipt_execution_outcome
+            .execution_outcome
+            .outcome
+            .receipt_ids
+            .iter()
+        {
+            tracing::debug!(target: crate::INDEXER, "+R {}", &receipt_id.to_string(),);
+            storage::push_receipt_to_watching_list(
+                redis_connection_manager,
+                &receipt_id.to_string(),
+                &transaction_hash,
+            )
+            .await?;
+        }
+
+        // Add the success receipt to the watching list
+        if let ExecutionStatusView::SuccessReceiptId(receipt_id) =
+            receipt_execution_outcome.execution_outcome.outcome.status
+        {
+            tracing::debug!(target: crate::INDEXER, "+R {}", &receipt_id.to_string(),);
+            storage::push_receipt_to_watching_list(
+                redis_connection_manager,
+                &receipt_id.to_string(),
+                &transaction_hash,
+            )
+            .await?;
         }
     }
     Ok(())
@@ -131,31 +146,55 @@ async fn rule_handler(
     queue_client: &shared::QueueClient,
     queue_url: &str,
 ) -> anyhow::Result<()> {
-    for receipt_execution_outcome in receipt_execution_outcomes {
-        if alert_rule.matches(receipt_execution_outcome) {
-            let receipt_id = receipt_execution_outcome.receipt.receipt_id.to_string();
-            if let Some(transaction_hash) =
-                storage::remove_receipt_from_watching_list(redis_connection_manager, &receipt_id)
-                    .await?
-            {
-                send_trigger_to_queue(
-                    block_hash,
-                    chain_id,
-                    alert_rule,
-                    &transaction_hash,
-                    &receipt_id,
-                    queue_client,
-                    queue_url,
-                )
-                .await?;
-            } else {
-                tracing::error!(
-                    target: crate::INDEXER,
-                    "Missing Receipt {}. Not found in watching list",
-                    &receipt_id,
-                );
-            }
-        }
+    let triggered_rules_futures = receipt_execution_outcomes
+        .iter()
+        .filter(|receipt_execution_outcome| alert_rule.matches(receipt_execution_outcome))
+        .map(|receipt_execution_outcome| {
+            triggered_rule_handler(
+                block_hash,
+                chain_id,
+                alert_rule,
+                receipt_execution_outcome,
+                redis_connection_manager,
+                queue_client,
+                queue_url,
+            )
+        });
+
+    try_join_all(triggered_rules_futures).await?;
+
+    Ok(())
+}
+
+async fn triggered_rule_handler(
+    block_hash: &str,
+    chain_id: &shared::types::primitives::ChainId,
+    alert_rule: &AlertRule,
+    receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
+    redis_connection_manager: &storage::ConnectionManager,
+    queue_client: &shared::QueueClient,
+    queue_url: &str,
+) -> anyhow::Result<()> {
+    let receipt_id = receipt_execution_outcome.receipt.receipt_id.to_string();
+    if let Some(transaction_hash) =
+        storage::remove_receipt_from_watching_list(redis_connection_manager, &receipt_id).await?
+    {
+        send_trigger_to_queue(
+            block_hash,
+            chain_id,
+            alert_rule,
+            &transaction_hash,
+            &receipt_id,
+            queue_client,
+            queue_url,
+        )
+        .await?;
+    } else {
+        tracing::error!(
+            target: crate::INDEXER,
+            "Missing Receipt {}. Not found in watching list",
+            &receipt_id,
+        );
     }
     Ok(())
 }

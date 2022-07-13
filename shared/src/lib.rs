@@ -1,10 +1,13 @@
 pub use aws_sdk_sqs::{error::SendMessageError, Client as QueueClient, Region};
+pub use base64;
+pub use borsh::{BorshDeserialize, BorshSerialize};
 pub use clap::{Parser, Subcommand};
 pub use dotenv;
 use tracing_subscriber::EnvFilter;
 
-pub use base64;
-pub use borsh::{BorshDeserialize, BorshSerialize};
+use near_jsonrpc_client::{methods, JsonRpcClient};
+use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finality};
+
 pub mod types;
 
 #[derive(Parser, Debug, Clone)]
@@ -47,6 +50,7 @@ pub enum ChainId {
 pub enum StartOptions {
     FromBlock { height: u64 },
     FromInterruption,
+    FromLatest,
 }
 
 impl Opts {
@@ -111,19 +115,19 @@ impl Opts {
     }
 }
 
-impl From<Opts> for near_lake_framework::LakeConfig {
-    fn from(opts: Opts) -> Self {
-        let s3_config = aws_sdk_s3::config::Builder::from(&opts.lake_aws_sdk_config()).build();
+impl Opts {
+    pub async fn to_lake_config(self) -> near_lake_framework::LakeConfig {
+        let s3_config = aws_sdk_s3::config::Builder::from(&self.lake_aws_sdk_config()).build();
 
         let config_builder = near_lake_framework::LakeConfigBuilder::default().s3_config(s3_config);
 
-        match &opts.chain_id {
+        match &self.chain_id {
             ChainId::Mainnet(_) => config_builder
                 .mainnet()
-                .start_block_height(get_start_block_height(&opts)),
+                .start_block_height(get_start_block_height(&self).await),
             ChainId::Testnet(_) => config_builder
                 .testnet()
-                .start_block_height(get_start_block_height(&opts)),
+                .start_block_height(get_start_block_height(&self).await),
         }
         .build()
         .expect("Failed to build LakeConfig")
@@ -131,20 +135,36 @@ impl From<Opts> for near_lake_framework::LakeConfig {
 }
 
 // TODO: refactor to read from Redis once `storage` is extracted to a separate crate
-fn get_start_block_height(opts: &Opts) -> u64 {
+async fn get_start_block_height(opts: &Opts) -> u64 {
     match opts.start_options() {
         StartOptions::FromBlock { height } => *height,
-        StartOptions::FromInterruption => match &std::fs::read("last_indexed_block") {
-            Ok(contents) => String::from_utf8_lossy(contents).parse().unwrap(),
-            Err(err) => {
-                tracing::error!(
-                    target: "alertexer",
-                    "Cannot read last_indexed_block.\n{}\nStart indexer from genesis block",
-                    err
-                );
-                0
+        StartOptions::FromInterruption => {
+            let redis_connection_manager = match storage::connect(&opts.redis_connection_string)
+                .await
+            {
+                Ok(connection_manager) => connection_manager,
+                Err(err) => {
+                    tracing::warn!(
+                        target: "alertexer",
+                        "Failed to connect to Redis to get last synced block, failing to the latest...\n{:#?}",
+                        err,
+                    );
+                    return final_block_height().await;
+                }
+            };
+            match storage::get_last_indexed_block(&redis_connection_manager).await {
+                Ok(last_indexed_block) => last_indexed_block,
+                Err(err) => {
+                    tracing::warn!(
+                        target: "alertexer",
+                        "Failed to get last indexer block from Redis. Failing to the latest one...\n{:#?}",
+                        err
+                    );
+                    final_block_height().await
+                }
             }
-        },
+        }
+        StartOptions::FromLatest => final_block_height().await,
     }
 }
 
@@ -197,4 +217,15 @@ pub async fn send_to_the_queue(
         rsp
     );
     Ok(())
+}
+
+async fn final_block_height() -> u64 {
+    let client = JsonRpcClient::connect("https://rpc.mainnet.near.org");
+    let request = methods::block::RpcBlockRequest {
+        block_reference: BlockReference::Finality(Finality::Final),
+    };
+
+    let latest_block = client.call(request).await.unwrap();
+
+    latest_block.header.height
 }
