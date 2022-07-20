@@ -1,8 +1,10 @@
 use alert_rules::{AlertRule, MatchingRule, Status};
 use near_lake_framework::near_indexer_primitives::{
-    views::{ActionView, ExecutionStatusView, ReceiptEnumView},
-    IndexerExecutionOutcomeWithReceipt,
+    views::ExecutionStatusView, IndexerExecutionOutcomeWithReceipt,
 };
+
+mod actions;
+mod events;
 
 pub trait Matcher {
     fn matches(&self, outcome_with_receipt: &IndexerExecutionOutcomeWithReceipt) -> bool;
@@ -20,7 +22,7 @@ impl Matcher for MatchingRule {
             MatchingRule::ActionAny {
                 affected_account_id,
                 status,
-            } => match_action_any(affected_account_id, status, outcome_with_receipt),
+            } => actions::match_action_any(affected_account_id, status, outcome_with_receipt),
             &MatchingRule::ActionTransfer { .. } => {
                 tracing::debug!(
                     target: crate::INDEXER,
@@ -32,59 +34,26 @@ impl Matcher for MatchingRule {
                 affected_account_id,
                 status,
                 function,
-            } => match_action_function_call(
+            } => actions::match_action_function_call(
                 affected_account_id,
                 status,
                 function,
                 outcome_with_receipt,
             ),
+            MatchingRule::Events {
+                affected_account_id,
+                event_name,
+                standard,
+                version,
+            } => events::match_events(
+                affected_account_id,
+                event_name,
+                standard,
+                version,
+                outcome_with_receipt,
+            ),
         }
     }
-}
-
-fn match_action_any(
-    account_id: &String,
-    status: &Status,
-    outcome_with_receipt: &IndexerExecutionOutcomeWithReceipt,
-) -> bool {
-    if match_account(account_id, outcome_with_receipt) {
-        return match_status(
-            status,
-            &outcome_with_receipt.execution_outcome.outcome.status,
-        );
-    }
-    false
-}
-
-fn match_action_function_call(
-    account_id: &String,
-    status: &Status,
-    function: &String,
-    outcome_with_receipt: &IndexerExecutionOutcomeWithReceipt,
-) -> bool {
-    if match_account(account_id, outcome_with_receipt) {
-        if let ReceiptEnumView::Action { actions, .. } = &outcome_with_receipt.receipt.receipt {
-            let function_call_actions = actions
-                .iter()
-                .filter_map(|action| {
-                    if let ActionView::FunctionCall { method_name, .. } = action {
-                        Some(method_name == function)
-                    } else {
-                        None
-                    }
-                })
-                .count();
-            if function_call_actions > 0 {
-                return match_status(
-                    status,
-                    &outcome_with_receipt.execution_outcome.outcome.status,
-                );
-            } else {
-                return false;
-            }
-        }
-    }
-    false
 }
 
 fn match_account(

@@ -77,24 +77,36 @@ pub enum AlertQueueMessagePayload {
         receipt_id: ReceiptIdString,
         transaction_hash: TransactionHashString,
     },
+    Events {
+        block_hash: BlockHashString,
+        receipt_id: ReceiptIdString,
+        transaction_hash: TransactionHashString,
+    },
 }
 
 impl AlertQueueMessagePayload {
     pub fn block_hash(&self) -> BlockHashString {
         match self {
-            Self::Actions { block_hash, .. } => block_hash.to_string(),
+            Self::Actions { block_hash, .. } | Self::Events { block_hash, .. } => {
+                block_hash.to_string()
+            }
         }
     }
 
     pub fn receipt_id(&self) -> Option<ReceiptIdString> {
         match self {
-            Self::Actions { receipt_id, .. } => Some(receipt_id.to_string()),
+            Self::Actions { receipt_id, .. } | Self::Events { receipt_id, .. } => {
+                Some(receipt_id.to_string())
+            }
         }
     }
 
     pub fn transaction_hash(&self) -> Option<TransactionHashString> {
         match self {
             Self::Actions {
+                transaction_hash, ..
+            }
+            | Self::Events {
                 transaction_hash, ..
             } => Some(transaction_hash.to_string()),
         }

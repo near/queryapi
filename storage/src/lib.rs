@@ -58,40 +58,39 @@ pub async fn get<V: FromRedisValue + std::fmt::Debug>(
 pub async fn push_receipt_to_watching_list(
     redis_connection_manager: &ConnectionManager,
     receipt_id: &str,
-    transaction_hash: &str,
+    cache_value: &[u8],
 ) -> anyhow::Result<()> {
-    set(redis_connection_manager, receipt_id, transaction_hash).await?;
-    redis::cmd("INCR")
-        .arg(format!("receipts_{}", transaction_hash))
-        .query_async(&mut redis_connection_manager.clone())
-        .await?;
-    tracing::debug!(target: STORAGE, "INCR: receipts_{}", transaction_hash);
+    set(redis_connection_manager, receipt_id, cache_value).await?;
+    // redis::cmd("INCR")
+    //     .arg(format!("receipts_{}", transaction_hash))
+    //     .query_async(&mut redis_connection_manager.clone())
+    //     .await?;
     Ok(())
 }
 
 /// Removes key `receipt_id: &str` from Redis storage.
 /// If the key exists in the storage decreases the `receipts_{transaction_hash}` counter.
-pub async fn remove_receipt_from_watching_list(
-    redis_connection_manager: &ConnectionManager,
-    receipt_id: &str,
-) -> anyhow::Result<Option<String>> {
-    match get::<Option<String>>(redis_connection_manager, receipt_id).await {
-        Ok(maybe_transaction_hash) => {
-            if let Some(ref transaction_hash) = maybe_transaction_hash {
-                redis::cmd("DECR")
-                    .arg(format!("receipts_{}", transaction_hash))
-                    .query_async(&mut redis_connection_manager.clone())
-                    .await?;
-                tracing::debug!(target: STORAGE, "DECR: receipts_{}", transaction_hash);
-                del(redis_connection_manager, receipt_id).await?;
-            }
-            Ok(maybe_transaction_hash)
-        }
-        Err(e) => {
-            anyhow::bail!(e)
-        }
-    }
-}
+// pub async fn remove_receipt_from_watching_list(
+//     redis_connection_manager: &ConnectionManager,
+//     receipt_id: &str,
+// ) -> anyhow::Result<Option<String>> {
+//     match get::<Option<String>>(redis_connection_manager, receipt_id).await {
+//         Ok(maybe_transaction_hash) => {
+//             if let Some(ref transaction_hash) = maybe_transaction_hash {
+//                 redis::cmd("DECR")
+//                     .arg(format!("receipts_{}", transaction_hash))
+//                     .query_async(&mut redis_connection_manager.clone())
+//                     .await?;
+//                 tracing::debug!(target: STORAGE, "DECR: receipts_{}", transaction_hash);
+//                 del(redis_connection_manager, receipt_id).await?;
+//             }
+//             Ok(maybe_transaction_hash)
+//         }
+//         Err(e) => {
+//             anyhow::bail!(e)
+//         }
+//     }
+// }
 
 /// Returns the value of the `receipts_{transaction_hash}` counter
 pub async fn receipts_transaction_hash_count(

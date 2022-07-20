@@ -2,7 +2,7 @@
 
 members = [
     # "tx-alertexer",
-    "actions-alertexer",
+    "alertexer",
     "shared",
     "alert-rules",
     "storage",

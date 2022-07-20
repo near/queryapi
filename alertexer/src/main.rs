@@ -2,9 +2,12 @@
 use futures::StreamExt;
 use std::collections::HashMap;
 
+use near_lake_framework::near_indexer_primitives::IndexerExecutionOutcomeWithReceipt;
+
 use shared::{Opts, Parser};
 
-mod checker;
+pub(crate) mod cache;
+mod checkers;
 pub(crate) mod matchers;
 pub(crate) const INDEXER: &str = "alertexer";
 
@@ -50,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
         .map(|streamer_message| {
             handle_streamer_message(
                 streamer_message,
-                &chain_id,
+                chain_id,
                 std::sync::Arc::clone(&alert_rules_inmemory),
                 &redis_connection_manager,
                 queue_client,
@@ -84,8 +87,20 @@ async fn handle_streamer_message(
         alert_rules_inmemory_lock.values().cloned().collect();
     drop(alert_rules_inmemory_lock);
 
-    let receipt_checker_future = checker::receipts(
-        &streamer_message,
+    cache::cache_txs_and_receipts(&streamer_message, redis_connection_manager).await?;
+
+    let block_hash_string = streamer_message.block.header.hash.to_string();
+
+    let receipt_execution_outcomes: Vec<IndexerExecutionOutcomeWithReceipt> = streamer_message
+        .shards
+        .iter()
+        .flat_map(|shard| shard.receipt_execution_outcomes.clone())
+        .collect();
+
+    // Actions and Events checks
+    let outcomes_checker_future = checkers::outcomes::check_outcomes(
+        &receipt_execution_outcomes,
+        &block_hash_string,
         chain_id,
         &alert_rules,
         redis_connection_manager,
@@ -93,7 +108,7 @@ async fn handle_streamer_message(
         queue_url,
     );
 
-    match futures::try_join!(receipt_checker_future) {
+    match futures::try_join!(outcomes_checker_future) {
         Ok(_) => tracing::debug!(
             target: INDEXER,
             "#{} checkers executed successful",
@@ -219,8 +234,7 @@ async fn stats(
                 }
             };
 
-        let bps =
-            (processed_blocks - previous_processed_blocks) as f64 / interval_secs as f64 * 60f64;
+        let bps = (processed_blocks - previous_processed_blocks) as f64 / interval_secs as f64;
 
         tracing::info!(
             target: "stats",

@@ -1,11 +1,12 @@
 [package]
-name = "actions-alertexer"
+name = "alertexer"
 version = "0.1.0"
 edition = "2021"
 authors = ["Near Inc <hello@nearprotocol.com>"]
 
 [dependencies]
 anyhow = "1.0.57"
+borsh = "0.9.3"
 futures = "0.3.5"
 itertools = "0.9.0"
 serde = { version = "1", features = ["derive"] }

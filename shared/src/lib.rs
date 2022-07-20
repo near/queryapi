@@ -1,6 +1,6 @@
 pub use aws_sdk_sqs::{error::SendMessageError, Client as QueueClient, Region};
 pub use base64;
-pub use borsh::{BorshDeserialize, BorshSerialize};
+pub use borsh::{self, BorshDeserialize, BorshSerialize};
 pub use clap::{Parser, Subcommand};
 pub use dotenv;
 use tracing_subscriber::EnvFilter;

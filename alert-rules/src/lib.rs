@@ -94,6 +94,12 @@ pub enum MatchingRule {
         status: Status,
         function: String,
     },
+    Events {
+        affected_account_id: String,
+        event_name: String,
+        standard: String,
+        version: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
