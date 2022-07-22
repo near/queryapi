@@ -95,8 +95,8 @@ pub enum MatchingRule {
         function: String,
     },
     Events {
-        affected_account_id: String,
-        event_name: String,
+        contract_account_id: String,
+        event: String,
         standard: String,
         version: String,
     },

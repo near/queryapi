@@ -41,13 +41,13 @@ impl Matcher for MatchingRule {
                 outcome_with_receipt,
             ),
             MatchingRule::Events {
-                affected_account_id,
-                event_name,
+                contract_account_id,
+                event,
                 standard,
                 version,
             } => events::match_events(
-                affected_account_id,
-                event_name,
+                contract_account_id,
+                event,
                 standard,
                 version,
                 outcome_with_receipt,
