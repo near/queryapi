@@ -22,7 +22,7 @@ pub struct AlertRule {
     pub chain_id: ChainId,
     pub alert_rule_kind: AlertRuleKind,
     pub is_paused: bool,
-    pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub updated_at: Option<chrono::NaiveDateTime>,
     #[cfg(feature = "db")]
     matching_rule: sqlx::types::Json<MatchingRule>,
     #[cfg(not(feature = "db"))]
@@ -94,7 +94,7 @@ pub enum MatchingRule {
         status: Status,
         function: String,
     },
-    Events {
+    Event {
         contract_account_id: String,
         event: String,
         standard: String,

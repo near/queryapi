@@ -40,7 +40,7 @@ impl Matcher for MatchingRule {
                 function,
                 outcome_with_receipt,
             ),
-            MatchingRule::Events {
+            MatchingRule::Event {
                 contract_account_id,
                 event,
                 standard,

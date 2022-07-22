@@ -153,7 +153,7 @@ fn build_alert_queue_message_payload(
                 transaction_hash: transaction_hash.to_string(),
             }
         }
-        MatchingRule::Events { .. } => {
+        MatchingRule::Event { .. } => {
             shared::types::primitives::AlertQueueMessagePayload::Events {
                 block_hash: block_hash.to_string(),
                 receipt_id: receipt_id.to_string(),
