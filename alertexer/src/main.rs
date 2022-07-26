@@ -127,21 +127,23 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
 
     while let Some(alert_queue_messages) = reducer_futures.next().await {
         if let Ok(alert_queue_messages) = alert_queue_messages {
-            match shared::send_to_the_queue(
-                context.queue_client,
-                context.queue_url.to_string(),
-                alert_queue_messages,
-            )
-            .await
-            {
-                Ok(_) => {}
-                Err(err) => tracing::error!(
-                    target: INDEXER,
-                    "#{} an error occurred during sending messages to the queue\n{:#?}",
-                    context.streamer_message.block.header.height,
-                    err
-                ),
-            };
+            if !alert_queue_messages.is_empty() {
+                match shared::send_to_the_queue(
+                    context.queue_client,
+                    context.queue_url.to_string(),
+                    alert_queue_messages,
+                )
+                .await
+                {
+                    Ok(_) => {}
+                    Err(err) => tracing::error!(
+                        target: INDEXER,
+                        "#{} an error occurred during sending messages to the queue\n{:#?}",
+                        context.streamer_message.block.header.height,
+                        err
+                    ),
+                };
+            }
         }
     }
 

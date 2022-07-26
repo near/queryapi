@@ -1,5 +1,31 @@
 {
   "db": "PostgreSQL",
+  "766613e3606d4ad7aac13574d580c87387e8af5ba34178fb08051d5edae5e6a9": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "chat_id",
+          "ordinal": 1,
+          "type_info": "Float8"
+        }
+      ],
+      "nullable": [
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT destination_id as id, chat_id FROM telegram_destinations WHERE destination_id = $1\n                "
+  },
   "963fbbb04a303e50dd870bf4d9d63138b58790143e449e546ef2bc27a7614907": {
     "describe": {
       "columns": [
@@ -44,7 +70,8 @@
               "kind": {
                 "Enum": [
                   "WEBHOOK",
-                  "EMAIL"
+                  "EMAIL",
+                  "TELEGRAM"
                 ]
               },
               "name": "destination_type"
