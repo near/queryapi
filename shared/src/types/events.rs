@@ -7,7 +7,7 @@ pub struct Event {
 }
 
 impl Event {
-    pub fn from_log(log: &String) -> anyhow::Result<Self> {
+    pub fn from_log(log: &str) -> anyhow::Result<Self> {
         let prefix = "EVENT_JSON:";
         if !log.starts_with(prefix) {
             anyhow::bail!("log message doesn't start from required prefix");

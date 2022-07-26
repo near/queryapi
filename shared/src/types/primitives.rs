@@ -28,8 +28,8 @@ impl AlertQueueMessage {
                         );
                     } else {
                         return format!(
-                            "https://explorer.testnet.near.org/block/{}",
-                            self.payload.block_hash()
+                            "https://explorer.testnet.near.org/transactions/{}",
+                            tx_hash
                         );
                     }
                 } else {
@@ -47,10 +47,7 @@ impl AlertQueueMessage {
                             tx_hash, receipt_id,
                         );
                     } else {
-                        return format!(
-                            "https://explorer.near.org/block/{}",
-                            self.payload.block_hash()
-                        );
+                        return format!("https://explorer.near.org/transactions/{}", tx_hash);
                     }
                 } else {
                     return format!(
@@ -82,14 +79,19 @@ pub enum AlertQueueMessagePayload {
         receipt_id: ReceiptIdString,
         transaction_hash: TransactionHashString,
     },
+    StateChanges {
+        block_hash: BlockHashString,
+        receipt_id: Option<ReceiptIdString>,
+        transaction_hash: TransactionHashString,
+    },
 }
 
 impl AlertQueueMessagePayload {
     pub fn block_hash(&self) -> BlockHashString {
         match self {
-            Self::Actions { block_hash, .. } | Self::Events { block_hash, .. } => {
-                block_hash.to_string()
-            }
+            Self::Actions { block_hash, .. }
+            | Self::Events { block_hash, .. }
+            | Self::StateChanges { block_hash, .. } => block_hash.to_string(),
         }
     }
 
@@ -98,6 +100,7 @@ impl AlertQueueMessagePayload {
             Self::Actions { receipt_id, .. } | Self::Events { receipt_id, .. } => {
                 Some(receipt_id.to_string())
             }
+            Self::StateChanges { receipt_id, .. } => receipt_id.clone(),
         }
     }
 
@@ -107,6 +110,9 @@ impl AlertQueueMessagePayload {
                 transaction_hash, ..
             }
             | Self::Events {
+                transaction_hash, ..
+            }
+            | Self::StateChanges {
                 transaction_hash, ..
             } => Some(transaction_hash.to_string()),
         }

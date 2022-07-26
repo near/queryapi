@@ -1,4 +1,6 @@
-pub use aws_sdk_sqs::{error::SendMessageError, Client as QueueClient, Region};
+pub use aws_sdk_sqs::{
+    error::SendMessageError, model::SendMessageBatchRequestEntry, Client as QueueClient, Region,
+};
 pub use base64;
 pub use borsh::{self, BorshDeserialize, BorshSerialize};
 pub use clap::{Parser, Subcommand};
@@ -113,6 +115,13 @@ impl Opts {
         let shared_config = self.queue_aws_sdk_config();
         aws_sdk_sqs::Client::new(&shared_config)
     }
+
+    pub fn rpc_url(&self) -> &str {
+        match self.chain_id {
+            ChainId::Mainnet(_) => "https://rpc.mainnet.near.org",
+            ChainId::Testnet(_) => "https://rpc.testnet.near.org",
+        }
+    }
 }
 
 impl Opts {
@@ -149,7 +158,7 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
                         "Failed to connect to Redis to get last synced block, failing to the latest...\n{:#?}",
                         err,
                     );
-                    return final_block_height().await;
+                    return final_block_height(opts).await;
                 }
             };
             match storage::get_last_indexed_block(&redis_connection_manager).await {
@@ -160,11 +169,11 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
                         "Failed to get last indexer block from Redis. Failing to the latest one...\n{:#?}",
                         err
                     );
-                    final_block_height().await
+                    final_block_height(opts).await
                 }
             }
         }
-        StartOptions::FromLatest => final_block_height().await,
+        StartOptions::FromLatest => final_block_height(opts).await,
     }
 }
 
@@ -194,21 +203,31 @@ pub fn init_tracing() {
 pub async fn send_to_the_queue(
     client: &aws_sdk_sqs::Client,
     queue_url: String,
-    message: types::primitives::AlertQueueMessage,
+    alert_queue_messages: Vec<types::primitives::AlertQueueMessage>,
 ) -> anyhow::Result<()> {
     tracing::info!(
         target: "alertexer",
-        "Sending alert to the queue\n{:#?}",
-        message
+        "Sending alerts to the queue\n{:#?}",
+        alert_queue_messages
     );
-    let message_serialized = base64::encode(message.try_to_vec()?);
 
-    eprintln!("{}", &message_serialized);
+    let message_bodies: Vec<SendMessageBatchRequestEntry> = alert_queue_messages
+        .into_iter()
+        .map(|alert_queue_message| {
+            SendMessageBatchRequestEntry::builder()
+                .message_body(base64::encode(
+                    alert_queue_message
+                        .try_to_vec()
+                        .expect("Failed to BorshSerialize AlertQueueMessage"),
+                ))
+                .build()
+        })
+        .collect();
 
     let rsp = client
-        .send_message()
+        .send_message_batch()
         .queue_url(queue_url)
-        .message_body(message_serialized)
+        .set_entries(Some(message_bodies))
         .send()
         .await?;
     tracing::debug!(
@@ -219,8 +238,8 @@ pub async fn send_to_the_queue(
     Ok(())
 }
 
-async fn final_block_height() -> u64 {
-    let client = JsonRpcClient::connect("https://rpc.mainnet.near.org");
+async fn final_block_height(opts: &Opts) -> u64 {
+    let client = JsonRpcClient::connect(opts.rpc_url());
     let request = methods::block::RpcBlockRequest {
         block_reference: BlockReference::Finality(Finality::Final),
     };

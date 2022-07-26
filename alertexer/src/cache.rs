@@ -1,9 +1,16 @@
+use std::str::FromStr;
+
 use borsh::{BorshDeserialize, BorshSerialize};
+use cached::Cached;
 use futures::future::try_join_all;
 use serde::{Deserialize, Serialize};
 
+use near_jsonrpc_client::errors::JsonRpcError;
+use near_jsonrpc_primitives::types::query::RpcQueryError;
 use near_lake_framework::near_indexer_primitives::{
-    views::ExecutionStatusView, IndexerExecutionOutcomeWithReceipt, IndexerTransactionWithOutcome,
+    types,
+    views::{self, ExecutionStatusView},
+    CryptoHash, IndexerExecutionOutcomeWithReceipt, IndexerTransactionWithOutcome,
 };
 
 #[derive(Serialize, Deserialize, BorshSerialize, BorshDeserialize, Debug)]
@@ -116,7 +123,7 @@ async fn cache_receipts_from_execution_outcome(
             cache_value.children_receipt_ids = children_receipt_ids.clone();
             storage::push_receipt_to_watching_list(
                 redis_connection_manager,
-                &receipt_id,
+                receipt_id,
                 &cache_value.try_to_vec().unwrap(),
             )
             .await?;
@@ -124,7 +131,7 @@ async fn cache_receipts_from_execution_outcome(
             let push_receipt_to_watching_list_future =
                 children_receipt_ids.iter().map(|receipt_id_string| async {
                     let cache_value_bytes = CacheValue {
-                        parent_receipt_id: Some(receipt_id.to_string().clone()),
+                        parent_receipt_id: Some(receipt_id.to_string()),
                         transaction_hash: cache_value.transaction_hash.clone(),
                         children_receipt_ids: vec![],
                     }
@@ -141,4 +148,123 @@ async fn cache_receipts_from_execution_outcome(
         }
     }
     Ok(())
+}
+
+pub(crate) async fn get_balance_retriable(
+    account_id: &types::AccountId,
+    block_hash: &str,
+    balance_cache: &crate::BalanceCache,
+    json_rpc_client: &near_jsonrpc_client::JsonRpcClient,
+) -> anyhow::Result<crate::BalanceDetails> {
+    let mut interval = crate::INTERVAL;
+    let mut retry_attempt = 0usize;
+
+    loop {
+        if retry_attempt == crate::RETRY_COUNT {
+            anyhow::bail!(
+                "Failed to perform query to RPC after {} attempts. Stop trying.\nAccount {}, block_hash {}",
+                crate::RETRY_COUNT,
+                account_id.to_string(),
+                block_hash.to_string()
+            );
+        }
+        retry_attempt += 1;
+
+        match get_balance(account_id, block_hash, balance_cache, json_rpc_client).await {
+            Ok(res) => return Ok(res),
+            Err(err) => {
+                tracing::error!(
+                    target: crate::INDEXER,
+                    "Failed to request account view details from RPC for account {}, block_hash {}.{}\n Retrying in {} milliseconds...",
+                    account_id.to_string(),
+                    block_hash.to_string(),
+                    err,
+                    interval.as_millis(),
+                );
+                tokio::time::sleep(interval).await;
+                if interval < crate::MAX_DELAY_TIME {
+                    interval *= 2;
+                }
+            }
+        }
+    }
+}
+
+async fn get_balance(
+    account_id: &types::AccountId,
+    block_hash: &str,
+    balance_cache: &crate::BalanceCache,
+    json_rpc_client: &near_jsonrpc_client::JsonRpcClient,
+) -> anyhow::Result<crate::BalanceDetails> {
+    let mut balances_cache_lock = balance_cache.lock().await;
+    let result = match balances_cache_lock.cache_get(account_id) {
+        None => {
+            let account_balance =
+                match get_account_view(json_rpc_client, account_id, block_hash).await {
+                    Ok(account_view) => Ok(crate::BalanceDetails {
+                        non_staked: account_view.amount,
+                        staked: account_view.locked,
+                    }),
+                    Err(err) => match err.handler_error() {
+                        Some(RpcQueryError::UnknownAccount { .. }) => Ok(crate::BalanceDetails {
+                            non_staked: 0,
+                            staked: 0,
+                        }),
+                        _ => Err(err.into()),
+                    },
+                };
+            if let Ok(balance) = account_balance {
+                balances_cache_lock.cache_set(account_id.clone(), balance);
+            }
+            account_balance
+        }
+        Some(balance) => Ok(*balance),
+    };
+    drop(balances_cache_lock);
+    result
+}
+
+pub(crate) async fn save_latest_balance(
+    account_id: types::AccountId,
+    balance: &crate::BalanceDetails,
+    balance_cache: &crate::BalanceCache,
+) {
+    let mut balances_cache_lock = balance_cache.lock().await;
+    balances_cache_lock.cache_set(
+        account_id,
+        crate::BalanceDetails {
+            non_staked: balance.non_staked,
+            staked: balance.staked,
+        },
+    );
+    drop(balances_cache_lock);
+}
+
+async fn get_account_view(
+    json_rpc_client: &near_jsonrpc_client::JsonRpcClient,
+    account_id: &types::AccountId,
+    block_hash: &str,
+) -> Result<views::AccountView, JsonRpcError<RpcQueryError>> {
+    let query = near_jsonrpc_client::methods::query::RpcQueryRequest {
+        block_reference: types::BlockReference::BlockId(types::BlockId::Hash(
+            CryptoHash::from_str(block_hash).unwrap(),
+        )),
+        request: views::QueryRequest::ViewAccount {
+            account_id: account_id.clone(),
+        },
+    };
+
+    let account_response = json_rpc_client.call(query).await?;
+    match account_response.kind {
+        near_jsonrpc_primitives::types::query::QueryResponseKind::ViewAccount(account) => {
+            Ok(account)
+        }
+        _ => unreachable!(
+            "Unreachable code! Asked for ViewAccount (block_hash {}, account_id {})\nReceived\n\
+                {:#?}\nReport this to https://github.com/near/near-jsonrpc-client-rs",
+            block_hash.to_string(),
+            account_id.to_string(),
+            account_response.kind
+        ),
+    }
 }

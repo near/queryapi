@@ -1,4 +1,7 @@
+pub use numeric::{I128, U128, U64};
 use serde::{Deserialize, Serialize};
+
+mod numeric;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TxAlertRule {
@@ -23,6 +26,7 @@ pub struct AlertRule {
     pub alert_rule_kind: AlertRuleKind,
     pub is_paused: bool,
     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
+    // pub updated_at: Option<chrono::NaiveDateTime>,
     #[cfg(feature = "db")]
     matching_rule: sqlx::types::Json<MatchingRule>,
     #[cfg(not(feature = "db"))]
@@ -50,8 +54,8 @@ WHERE alert_rule_kind = $1 AND chain_id = $2
     }
 
     #[cfg(feature = "db")]
-    pub fn matching_rule(&self) -> MatchingRule {
-        self.matching_rule.0.clone()
+    pub fn matching_rule(&self) -> &MatchingRule {
+        &self.matching_rule.0
     }
 }
 
@@ -94,11 +98,16 @@ pub enum MatchingRule {
         status: Status,
         function: String,
     },
-    Events {
-        affected_account_id: String,
-        event_name: String,
+    Event {
+        contract_account_id: String,
         standard: String,
         version: String,
+        event: String,
+    },
+    StateChangeAccountBalance {
+        affected_account_id: String,
+        #[serde(flatten)]
+        comparator: Comparator,
     },
 }
 
@@ -108,6 +117,23 @@ pub enum Status {
     Any,
     Success,
     Fail,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(
+    tag = "comparator_kind",
+    content = "comparator_range",
+    rename_all = "SCREAMING_SNAKE_CASE"
+)]
+pub enum Comparator {
+    RelativePercentageAmount {
+        from: Option<U128>,
+        to: Option<U128>,
+    },
+    RelativeYoctonearAmount {
+        from: Option<U128>,
+        to: Option<U128>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
