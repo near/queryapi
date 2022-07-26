@@ -213,15 +213,15 @@ pub async fn send_to_the_queue(
 
     let message_bodies: Vec<SendMessageBatchRequestEntry> = alert_queue_messages
         .into_iter()
-        .map(|alert_queue_message| {
-            let message = base64::encode(
-                alert_queue_message
-                    .try_to_vec()
-                    .expect("Failed to BorshSerialize AlertQueueMessage"),
-            );
+        .enumerate()
+        .map(|(index, alert_queue_message)| {
             SendMessageBatchRequestEntry::builder()
-                .id(&message) // The Ids of a batch request need to be unique within a request. Up to 80 chars
-                .message_body(message)
+                .id(index.to_string())
+                .message_body(base64::encode(
+                    alert_queue_message
+                        .try_to_vec()
+                        .expect("Failed to BorshSerialize AlertQueueMessage"),
+                ))
                 .build()
         })
         .collect();
