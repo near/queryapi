@@ -161,7 +161,7 @@ async fn reduce_alert_queue_messages(
     alert_rule: &alert_rules::AlertRule,
     context: &AlertexerContext<'_>,
 ) -> anyhow::Result<Vec<AlertQueueMessage>> {
-    Ok(match alert_rule.matching_rule() {
+    Ok(match &alert_rule.matching_rule {
         MatchingRule::ActionAny { .. }
         | MatchingRule::ActionFunctionCall { .. }
         | MatchingRule::ActionTransfer { .. }

@@ -21,7 +21,7 @@ pub(crate) async fn reduce_alert_queue_messages_from_outcomes(
                 .receipt_execution_outcomes
                 .iter()
                 .filter(|receipt_execution_outcome| {
-                    matcher::matches(alert_rule.matching_rule(), receipt_execution_outcome)
+                    matcher::matches(&alert_rule.matching_rule, receipt_execution_outcome)
                 })
         })
         .map(|receipt_execution_outcome| {
@@ -45,6 +45,7 @@ async fn build_alert_queue_message(
     Ok(AlertQueueMessage {
         chain_id: context.chain_id.clone(),
         alert_rule_id: alert_rule.id,
+        alert_name: alert_rule.name.clone(),
         payload: build_alert_queue_message_payload(
             alert_rule,
             &transaction_hash,
@@ -74,7 +75,7 @@ fn build_alert_queue_message_payload(
     receipt_id: &str,
     context: &crate::AlertexerContext,
 ) -> AlertQueueMessagePayload {
-    match alert_rule.matching_rule() {
+    match alert_rule.matching_rule {
         MatchingRule::ActionAny { .. }
         | MatchingRule::ActionTransfer { .. }
         | MatchingRule::ActionFunctionCall { .. } => {

@@ -13,6 +13,7 @@ pub type BlockHashString = String;
 pub struct AlertQueueMessage {
     pub chain_id: ChainId,
     pub alert_rule_id: i32,
+    pub alert_name: String,
     pub payload: AlertQueueMessagePayload,
 }
 
@@ -141,7 +142,7 @@ pub enum ChainId {
     Debug,
 )]
 pub struct AlertDeliveryTask {
-    pub triggered_alert_id: i32,
+    // pub triggered_alert_id: i32,
     pub destination_config: DestinationConfig,
     pub alert_message: AlertQueueMessage,
 }

@@ -28,7 +28,7 @@ pub(crate) async fn reduce_alert_queue_messages_from_state_changes(
     let matching_state_changes = stream::iter(state_changes.iter())
         .filter(|state_change_with_cause| async {
             matcher::match_state_change_account_balance(
-                alert_rule.matching_rule(),
+                &alert_rule.matching_rule,
                 state_change_with_cause,
                 context,
             )
@@ -80,6 +80,7 @@ async fn build_alert_queue_message(
     Ok(AlertQueueMessage {
         chain_id: context.chain_id.clone(),
         alert_rule_id: alert_rule.id,
+        alert_name: alert_rule.name.clone(),
         payload,
     })
 }

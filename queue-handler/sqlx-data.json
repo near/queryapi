@@ -1,5 +1,42 @@
 {
   "db": "PostgreSQL",
+  "6b6699b2822831823d5198427f128b11ea5302a390fb54a282ab6a987453861b": {
+    "describe": {
+      "columns": [
+        {
+          "name": "destination_id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "destination_kind: _",
+          "ordinal": 1,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "WEBHOOK",
+                  "EMAIL",
+                  "TELEGRAM"
+                ]
+              },
+              "name": "destination_type"
+            }
+          }
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT destinations.id as destination_id, destinations.type as \"destination_kind: _\" FROM enabled_destinations\nJOIN destinations ON enabled_destinations.destination_id = destinations.id\nWHERE destinations.active = true\n    AND enabled_destinations.alert_id = $1\n            "
+  },
   "766613e3606d4ad7aac13574d580c87387e8af5ba34178fb08051d5edae5e6a9": {
     "describe": {
       "columns": [
@@ -25,72 +62,6 @@
       }
     },
     "query": "\nSELECT destination_id as id, chat_id FROM telegram_destinations WHERE destination_id = $1\n                "
-  },
-  "963fbbb04a303e50dd870bf4d9d63138b58790143e449e546ef2bc27a7614907": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        }
-      ],
-      "nullable": [
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Int4",
-          "Text",
-          "Text",
-          "Text"
-        ]
-      }
-    },
-    "query": "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id"
-  },
-  "af0857036a2f0c381abe518cc508d910fa527b27836b1b19b17334c6f7e74332": {
-    "describe": {
-      "columns": [
-        {
-          "name": "destination_id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "alert_id",
-          "ordinal": 1,
-          "type_info": "Int4"
-        },
-        {
-          "name": "destination_kind: _",
-          "ordinal": 2,
-          "type_info": {
-            "Custom": {
-              "kind": {
-                "Enum": [
-                  "WEBHOOK",
-                  "EMAIL",
-                  "TELEGRAM"
-                ]
-              },
-              "name": "destination_type"
-            }
-          }
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nSELECT destinations.id as destination_id, enabled_destinations.alert_id, destinations.type as \"destination_kind: _\" FROM enabled_destinations\nJOIN destinations ON enabled_destinations.destination_id = destinations.id\nWHERE destinations.active = true\n    AND enabled_destinations.alert_id = $1\n            "
   },
   "ea4374315e0ec56a011725773ffa9291d15e8e9ee5280c6b11595e84b2ec121c": {
     "describe": {

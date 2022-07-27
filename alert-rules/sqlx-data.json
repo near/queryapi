@@ -1,6 +1,6 @@
 {
   "db": "PostgreSQL",
-  "3e8e52310f358c5b8ca2e78b0875b691657494f45309b206f77ff7304e7501ad": {
+  "3200c05156e8bdf774aa4269998b04af2f0553424750861cc929856f5d55c4ee": {
     "describe": {
       "columns": [
         {
@@ -14,7 +14,7 @@
           "type_info": "Text"
         },
         {
-          "name": "chain_id: _",
+          "name": "chain_id: ChainId",
           "ordinal": 2,
           "type_info": {
             "Custom": {
@@ -29,7 +29,7 @@
           }
         },
         {
-          "name": "alert_rule_kind: _",
+          "name": "alert_rule_kind: AlertRuleKind",
           "ordinal": 3,
           "type_info": {
             "Custom": {
@@ -55,7 +55,7 @@
           "type_info": "Timestamptz"
         },
         {
-          "name": "matching_rule: sqlx::types::Json<MatchingRule>",
+          "name": "matching_rule",
           "ordinal": 6,
           "type_info": "Jsonb"
         }
@@ -97,6 +97,6 @@
         ]
       }
     },
-    "query": "\nSELECT id, name, chain_id as \"chain_id: _\", alert_rule_kind as \"alert_rule_kind: _\", is_paused, updated_at, matching_rule as \"matching_rule: sqlx::types::Json<MatchingRule>\"\nFROM alert_rules\nWHERE alert_rule_kind = $1 AND chain_id = $2\n            "
+    "query": "\nSELECT id, name, chain_id as \"chain_id: ChainId\", alert_rule_kind as \"alert_rule_kind: AlertRuleKind\", is_paused, updated_at, matching_rule\nFROM alert_rules\nWHERE alert_rule_kind = $1 AND chain_id = $2\n            "
   }
 }

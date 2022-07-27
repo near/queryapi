@@ -26,10 +26,6 @@ pub struct AlertRule {
     pub alert_rule_kind: AlertRuleKind,
     pub is_paused: bool,
     pub updated_at: Option<chrono::DateTime<chrono::Utc>>,
-    // pub updated_at: Option<chrono::NaiveDateTime>,
-    #[cfg(feature = "db")]
-    matching_rule: sqlx::types::Json<MatchingRule>,
-    #[cfg(not(feature = "db"))]
     pub matching_rule: MatchingRule,
 }
 
@@ -40,9 +36,9 @@ impl AlertRule {
         alert_rule_kind: AlertRuleKind,
         chain_id: &ChainId,
     ) -> Result<Vec<Self>, sqlx::Error> {
-        sqlx::query_as!(AlertRule,
+        let alert_rules_rows = sqlx::query!(
             r#"
-SELECT id, name, chain_id as "chain_id: _", alert_rule_kind as "alert_rule_kind: _", is_paused, updated_at, matching_rule as "matching_rule: sqlx::types::Json<MatchingRule>"
+SELECT id, name, chain_id as "chain_id: ChainId", alert_rule_kind as "alert_rule_kind: AlertRuleKind", is_paused, updated_at, matching_rule
 FROM alert_rules
 WHERE alert_rule_kind = $1 AND chain_id = $2
             "#,
@@ -50,12 +46,27 @@ WHERE alert_rule_kind = $1 AND chain_id = $2
             chain_id.clone() as ChainId
         )
         .fetch_all(pool)
-        .await
-    }
+        .await?;
 
-    #[cfg(feature = "db")]
-    pub fn matching_rule(&self) -> &MatchingRule {
-        &self.matching_rule.0
+        Ok(alert_rules_rows
+            .into_iter()
+            .filter_map(|row| {
+                if let Ok(matching_rule) = serde_json::from_value::<MatchingRule>(row.matching_rule)
+                {
+                    Some(Self {
+                        id: row.id,
+                        name: row.name,
+                        chain_id: row.chain_id,
+                        alert_rule_kind: row.alert_rule_kind,
+                        is_paused: row.is_paused,
+                        updated_at: row.updated_at,
+                        matching_rule,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<Self>>())
     }
 }
 
@@ -68,6 +79,7 @@ WHERE alert_rule_kind = $1 AND chain_id = $2
 pub enum AlertRuleKind {
     Actions,
     Events,
+    StateChanges,
 }
 
 #[cfg_attr(feature = "db", derive(sqlx::Type))]

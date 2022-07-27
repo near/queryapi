@@ -1,4 +1,8 @@
-use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};use lambda_runtime::{run, service_fn, Error, LambdaEvent};use shared::{BorshDeserialize, BorshSerialize, types::primitives::{AlertQueueMessage}, QueueClient, Region};
+use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};
+use lambda_runtime::{run, service_fn, Error, LambdaEvent};
+use shared::{
+    types::primitives::AlertQueueMessage, BorshDeserialize, BorshSerialize, QueueClient, Region,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum QueueError {
@@ -23,7 +27,6 @@ pub enum QueueError {
 #[derive(sqlx::FromRow, Debug)]
 struct Destination {
     destination_id: i32,
-    alert_id: i32,
     destination_kind: DestinationKind,
 }
 
@@ -74,8 +77,9 @@ impl From<TelegramDestinationConfig> for shared::types::primitives::DestinationC
 async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<Vec<()>>, QueueError> {
     let pool = connect(
         &std::env::var("DATABASE_URL")
-            .expect("A DATABASE_URL must be set in this app's Lambda environment variables.")
-    ).await?;
+            .expect("A DATABASE_URL must be set in this app's Lambda environment variables."),
+    )
+    .await?;
 
     let shared_config = aws_config::from_env()
         .region(Region::new("eu-central-1"))
@@ -88,7 +92,7 @@ async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<Vec<()>>, 
         .payload
         .records
         .into_iter()
-        .map(|sqs_message| handle_message(sqs_message, &pool, &client,));
+        .map(|sqs_message| handle_message(sqs_message, &pool, &client));
 
     futures::future::try_join_all(handle_message_futures).await
 }
@@ -102,24 +106,26 @@ async fn handle_message(
         let decoded_message = shared::base64::decode(endoded_message)?;
         let alert_message = AlertQueueMessage::try_from_slice(&decoded_message)?;
 
-        let triggered_alert_id: i32 = loop {
-            match sqlx::query!(
-                "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id",
-                alert_message.alert_rule_id,
-                alert_message.payload.block_hash(),
-                alert_message.payload.transaction_hash(),
-                alert_message.payload.receipt_id(),
-            )
-            .fetch_one(pool)
-            .await {
-                Ok(res) => break res.id,
-                Err(_) => {},
-            }
-        };
+        // Disable unless stress-tested and ensured this is a bottleneck
+        // TODO: decide how to handle this as it is a bad idea to store it in the same DB
+        // let triggered_alert_id: i32 = loop {
+        //     match sqlx::query!(
+        //         "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id",
+        //         alert_message.alert_rule_id,
+        //         alert_message.payload.block_hash(),
+        //         alert_message.payload.transaction_hash(),
+        //         alert_message.payload.receipt_id(),
+        //     )
+        //     .fetch_one(pool)
+        //     .await {
+        //         Ok(res) => break res.id,
+        //         Err(_) => {},
+        //     }
+        // };
 
         let destinations: Vec<Destination> = sqlx::query_as!(Destination,
             r#"
-SELECT destinations.id as destination_id, enabled_destinations.alert_id, destinations.type as "destination_kind: _" FROM enabled_destinations
+SELECT destinations.id as destination_id, destinations.type as "destination_kind: _" FROM enabled_destinations
 JOIN destinations ON enabled_destinations.destination_id = destinations.id
 WHERE destinations.active = true
     AND enabled_destinations.alert_id = $1
@@ -129,62 +135,65 @@ WHERE destinations.active = true
         .fetch_all(pool)
         .await?;
 
-        let handle_destination_futures = destinations
-            .into_iter()
-            .map(|destination| handle_destination(
+        let handle_destination_futures = destinations.into_iter().map(|destination| {
+            handle_destination(
                 alert_message.clone(),
                 destination,
-                triggered_alert_id,
+                // triggered_alert_id,
                 client,
-                pool
-            ));
+                pool,
+            )
+        });
 
         return Ok(futures::future::try_join_all(handle_destination_futures).await?);
     }
-    Err(QueueError::HandleMessage("SQS message is empty".to_string()))
+    Err(QueueError::HandleMessage(
+        "SQS message is empty".to_string(),
+    ))
 }
 
 async fn handle_destination(
     alert_message: AlertQueueMessage,
     destination: Destination,
-    triggered_alert_id: i32,
+    // triggered_alert_id: i32,
     client: &QueueClient,
-    pool: &sqlx::PgPool
+    pool: &sqlx::PgPool,
 ) -> Result<(), QueueError> {
     let queue_url: String;
-    let destination_config: shared::types::primitives::DestinationConfig = match &destination.destination_kind {
-        DestinationKind::Webhook => {
-            queue_url = std::env::var("WEBHOOK_QUEUE_URL")
-                .expect("WEBHOOK_QUEUE_URL is not provided for the lambda");
-            sqlx::query_as!(
-                WebhookDestinationConfig,
-                r#"
+    let destination_config: shared::types::primitives::DestinationConfig =
+        match &destination.destination_kind {
+            DestinationKind::Webhook => {
+                queue_url = std::env::var("WEBHOOK_QUEUE_URL")
+                    .expect("WEBHOOK_QUEUE_URL is not provided for the lambda");
+                sqlx::query_as!(
+                    WebhookDestinationConfig,
+                    r#"
 SELECT destination_id as id, url, secret FROM webhook_destinations WHERE destination_id = $1
                 "#,
-                destination.destination_id
-            )
-            .fetch_one(pool)
-            .await?
-            .into()
-        },
-        DestinationKind::Telegram => {
-            queue_url = std::env::var("TELEGRAM_QUEUE_URL")
-                .expect("TELEGRAM_QUEUE_URL is not provided for the lambda");
-            sqlx::query_as!(
-                TelegramDestinationConfig,
-                r#"
+                    destination.destination_id
+                )
+                .fetch_one(pool)
+                .await?
+                .into()
+            }
+            DestinationKind::Telegram => {
+                queue_url = std::env::var("TELEGRAM_QUEUE_URL")
+                    .expect("TELEGRAM_QUEUE_URL is not provided for the lambda");
+                sqlx::query_as!(
+                    TelegramDestinationConfig,
+                    r#"
 SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destination_id = $1
                 "#,
-                destination.destination_id
-            )
-            .fetch_one(pool)
-            .await?
-            .into()
-        }
-    };
+                    destination.destination_id
+                )
+                .fetch_one(pool)
+                .await?
+                .into()
+            }
+        };
 
     let alert_delivery_task = shared::types::primitives::AlertDeliveryTask {
-        triggered_alert_id,
+        // triggered_alert_id,
         destination_config,
         alert_message,
     };
@@ -192,13 +201,12 @@ SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destinatio
     match client
         .send_message()
         .queue_url(queue_url)
-        .message_body(
-            shared::base64::encode(alert_delivery_task.try_to_vec()?)
-        )
+        .message_body(shared::base64::encode(alert_delivery_task.try_to_vec()?))
         .send()
-        .await {
-            Ok(rsp) => eprintln!("Response from sending a message: {:#?}", rsp),
-            Err(err) => eprintln!("Error {:#?}", err),
+        .await
+    {
+        Ok(rsp) => eprintln!("Response from sending a message: {:#?}", rsp),
+        Err(err) => eprintln!("Error {:#?}", err),
     };
 
     Ok(())
