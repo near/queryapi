@@ -4,6 +4,8 @@ use shared::{
     types::primitives::AlertQueueMessage, BorshDeserialize, BorshSerialize, QueueClient, Region,
 };
 
+static POOL: tokio::sync::OnceCell<sqlx::PgPool> = tokio::sync::OnceCell::const_new();
+
 #[derive(thiserror::Error, Debug)]
 pub enum QueueError {
     #[error("lambda_runtime error")]
@@ -75,11 +77,17 @@ impl From<TelegramDestinationConfig> for shared::types::primitives::DestinationC
 /// - https://github.com/awslabs/aws-lambda-rust-runtime/tree/main/lambda-runtime/examples
 /// - https://github.com/aws-samples/serverless-rust-demo/
 async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<Vec<()>>, QueueError> {
-    let pool = connect(
-        &std::env::var("DATABASE_URL")
-            .expect("A DATABASE_URL must be set in this app's Lambda environment variables."),
-    )
-    .await?;
+    let pool = POOL
+        .get_or_init(|| async {
+            connect(
+                &std::env::var("DATABASE_URL").expect(
+                    "A DATABASE_URL must be set in this app's Lambda environment variables.",
+                ),
+            )
+            .await
+            .unwrap()
+        })
+        .await;
 
     let shared_config = aws_config::from_env()
         .region(Region::new("eu-central-1"))
@@ -106,22 +114,21 @@ async fn handle_message(
         let decoded_message = shared::base64::decode(endoded_message)?;
         let alert_message = AlertQueueMessage::try_from_slice(&decoded_message)?;
 
-        // Disable unless stress-tested and ensured this is a bottleneck
         // TODO: decide how to handle this as it is a bad idea to store it in the same DB
-        // let triggered_alert_id: i32 = loop {
-        //     match sqlx::query!(
-        //         "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id",
-        //         alert_message.alert_rule_id,
-        //         alert_message.payload.block_hash(),
-        //         alert_message.payload.transaction_hash(),
-        //         alert_message.payload.receipt_id(),
-        //     )
-        //     .fetch_one(pool)
-        //     .await {
-        //         Ok(res) => break res.id,
-        //         Err(_) => {},
-        //     }
-        // };
+        let triggered_alert_id: i32 = loop {
+            match sqlx::query!(
+                "INSERT INTO triggered_alerts (alert_id, triggered_in_block_hash, triggered_in_transaction_hash, triggered_in_receipt_id, triggered_at) VALUES ($1, $2, $3, $4, now()) RETURNING id",
+                alert_message.alert_rule_id,
+                alert_message.payload.block_hash(),
+                alert_message.payload.transaction_hash(),
+                alert_message.payload.receipt_id(),
+            )
+            .fetch_one(pool)
+            .await {
+                Ok(res) => break res.id,
+                Err(_) => {},
+            }
+        };
 
         let destinations: Vec<Destination> = sqlx::query_as!(Destination,
             r#"
@@ -139,7 +146,7 @@ WHERE destinations.active = true
             handle_destination(
                 alert_message.clone(),
                 destination,
-                // triggered_alert_id,
+                triggered_alert_id,
                 client,
                 pool,
             )
@@ -155,7 +162,7 @@ WHERE destinations.active = true
 async fn handle_destination(
     alert_message: AlertQueueMessage,
     destination: Destination,
-    // triggered_alert_id: i32,
+    triggered_alert_id: i32,
     client: &QueueClient,
     pool: &sqlx::PgPool,
 ) -> Result<(), QueueError> {
@@ -193,7 +200,7 @@ SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destinatio
         };
 
     let alert_delivery_task = shared::types::primitives::AlertDeliveryTask {
-        // triggered_alert_id,
+        triggered_alert_id,
         destination_config,
         alert_message,
     };

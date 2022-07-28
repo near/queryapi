@@ -15,25 +15,5 @@
       }
     },
     "query": "INSERT INTO triggered_alerts_destinations (triggered_alert_id, alert_id, destination_id, status, response, created_at) VALUES ($1, $2, $3, $4, $5, now())"
-  },
-  "8cbcc0ac3e4a70197f78563e1e4a0d898e8583106a1f3a8a5c69eb03b210cd7f": {
-    "describe": {
-      "columns": [
-        {
-          "name": "name",
-          "ordinal": 0,
-          "type_info": "Text"
-        }
-      ],
-      "nullable": [
-        false
-      ],
-      "parameters": {
-        "Left": [
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nSELECT name FROM alert_rules WHERE id = $1\n            "
   }
 }

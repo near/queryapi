@@ -123,6 +123,7 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
 
     let mut reducer_futures = stream::iter(alert_rules.iter())
         .map(|alert_rule| reduce_alert_queue_messages(alert_rule, &context))
+        // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
         .buffer_unordered(10usize);
 
     while let Some(alert_queue_messages) = reducer_futures.next().await {

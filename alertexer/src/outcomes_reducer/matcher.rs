@@ -66,17 +66,14 @@ fn match_action_function_call(
 ) -> bool {
     if match_account(account_id, outcome_with_receipt) {
         if let ReceiptEnumView::Action { actions, .. } = &outcome_with_receipt.receipt.receipt {
-            let function_call_actions = actions
-                .iter()
-                .filter_map(|action| {
-                    if let ActionView::FunctionCall { method_name, .. } = action {
-                        Some(method_name == function)
-                    } else {
-                        None
-                    }
-                })
-                .count();
-            if function_call_actions > 0 {
+            let is_any_matching_function_call = actions.iter().any(|action| {
+                if let ActionView::FunctionCall { method_name, .. } = action {
+                    method_name == function
+                } else {
+                    false
+                }
+            });
+            if is_any_matching_function_call {
                 return match_status(
                     status,
                     &outcome_with_receipt.execution_outcome.outcome.status,
@@ -97,13 +94,13 @@ fn match_event(
     outcome_with_receipt: &IndexerExecutionOutcomeWithReceipt,
 ) -> bool {
     if match_account(account_id, outcome_with_receipt) {
-        let outcome_logs_with_triggered_events_json: Vec<Event> = outcome_with_receipt
+        outcome_with_receipt
             .execution_outcome
             .outcome
             .logs
             .iter()
             .filter_map(|log| Event::from_log(log).ok())
-            .filter(|near_event| {
+            .any(|near_event| {
                 vec![
                     wildmatch::WildMatch::new(event).matches(&near_event.event),
                     wildmatch::WildMatch::new(standard).matches(&near_event.standard),
@@ -112,11 +109,9 @@ fn match_event(
                 .into_iter()
                 .all(|val| val)
             })
-            .collect();
-
-        return !outcome_logs_with_triggered_events_json.is_empty();
+    } else {
+        false
     }
-    false
 }
 
 fn match_account(
