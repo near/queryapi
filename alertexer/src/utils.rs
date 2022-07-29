@@ -9,10 +9,10 @@ pub(crate) async fn alert_rules_fetcher(
             Err(err) => {
                 tracing::warn!(
                     target: crate::INDEXER,
-                    "Failed to establish connection with DB. Retrying in 10s...\n{:#?}",
+                    "Failed to establish connection with DB. Retrying in 1s...\n{:#?}",
                     err
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         }
     };
@@ -38,10 +38,10 @@ pub(crate) async fn alert_rules_fetcher(
                 Err(err) => {
                     tracing::warn!(
                         target: crate::INDEXER,
-                        "Failed to fetch AlertRulesInMemory from DB. Retrying in 10s...\n{:#?}",
+                        "Failed to fetch AlertRulesInMemory from DB. Retrying in 1s...\n{:#?}",
                         err
                     );
-                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
         };

@@ -68,7 +68,7 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
                 Err(err) => (-1i32, format!("{}", err)),
             };
 
-            sqlx::query!(
+            let _res = sqlx::query!(
                 "INSERT INTO triggered_alerts_destinations (triggered_alert_id, alert_id, destination_id, status, response, created_at) VALUES ($1, $2, $3, $4, $5, now())",
                 delivery_task.triggered_alert_id,
                 delivery_task.alert_message.alert_rule_id,
@@ -77,7 +77,7 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
                 response,
             )
                 .execute(pool)
-                .await?;
+                .await;
 
             return Ok(());
         }

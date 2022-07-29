@@ -89,7 +89,7 @@ async fn handle_message(
 
             // Disabling unless stress-tested to check if INSERTs are bottlenecks
             // TODO: Refactor/move the logic somewhere
-            sqlx::query!(
+            let _res = sqlx::query!(
                 "INSERT INTO triggered_alerts_destinations (triggered_alert_id, alert_id, destination_id, status, response, created_at) VALUES ($1, $2, $3, $4, $5, now())",
                 delivery_task.triggered_alert_id,
                 delivery_task.alert_message.alert_rule_id,
@@ -98,7 +98,7 @@ async fn handle_message(
                 response,
             )
                 .execute(pool)
-                .await?;
+                .await;
 
             return Ok(());
         }
