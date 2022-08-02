@@ -7,13 +7,13 @@ RUN rustup toolchain install nightly
 
 WORKDIR /tmp/
 COPY Cargo.toml Cargo.lock ./
-COPY actions-alertexer/Cargo.toml ./actions-alertexer/
+COPY alertexer/Cargo.toml ./alertexer/
 COPY alert-rules/Cargo.toml ./alert-rules/
 COPY shared/Cargo.toml ./shared/
 COPY storage/Cargo.toml ./storage/
 
-RUN /bin/bash -c "mkdir -p {actions-alertexer,alert-rules,shared,storage}/src" && \
-    echo 'fn main() {}' > actions-alertexer/src/main.rs && \
+RUN /bin/bash -c "mkdir -p {alertexer,alert-rules,shared,storage}/src" && \
+    echo 'fn main() {}' > alertexer/src/main.rs && \
     touch alert-rules/src/lib.rs && \
     touch shared/src/lib.rs && \
     touch storage/src/lib.rs && \

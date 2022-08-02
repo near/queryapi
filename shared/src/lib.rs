@@ -22,20 +22,28 @@ pub mod types;
     next_line_help(true)
 )]
 pub struct Opts {
+    /// Connection string to connect to the Redis instance for cache. Default: "redis://127.0.0.1"
     #[clap(long, default_value = "redis://127.0.0.1", env)]
     pub redis_connection_string: String,
+    /// Connection string to connect to the PostgreSQL Database to fetch AlertRules from
     #[clap(long, env)]
     pub database_url: String,
+    /// AWS Access Key with the rights to read from AWS S3
     #[clap(long, env)]
     pub lake_aws_access_key: String,
     #[clap(long, env)]
+    /// AWS Secret Access Key with the rights to read from AWS S3
     pub lake_aws_secret_access_key: String,
+    /// AWS Access Key with the rights to send messages to the `--queue-url`
     #[clap(long, env)]
     pub queue_aws_access_key: String,
+    /// AWS Secret Access Key with the rights to send messages to the `--queue-url`
     #[clap(long, env)]
     pub queue_aws_secret_access_key: String,
+    /// URL to the main AWS SQS queue backed by Queue Handler lambda
     #[clap(long, env)]
     pub queue_url: String,
+    /// Chain ID: testnet or mainnet
     #[clap(subcommand)]
     pub chain_id: ChainId,
 }

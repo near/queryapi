@@ -5,7 +5,7 @@ services:
     build:
       context: .
       args:
-        - package=actions-alertexer
+        - package=alertexer
         - chain_id=mainnet
     env_file: .env
     links:
