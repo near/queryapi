@@ -13,6 +13,8 @@ services:
     env: docker
     repo: https://github.com/khorolets/alertexer.git
     branch: chore/ci-render-yaml
+    # dockerfilePath: ./alertexer/Dockerfile
+    # dockerContext: ./alertexer
     dockerCommand: testnet from-latest
     numInstances: 1
     plan: free

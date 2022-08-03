@@ -1,9 +1,8 @@
 FROM rust:1.61.0 AS build
-ARG package
 
 # We have to use sparse-registry nightly cargo feature to avoid running out of RAM:
 # https://github.com/rust-lang/cargo/issues/10781
-RUN rustup toolchain install nightly
+RUN rustup toolchain install nightly-2022-06-20 && rustup override set nightly-2022-06-20
 
 WORKDIR /tmp/
 COPY Cargo.toml Cargo.lock ./
@@ -17,18 +16,17 @@ RUN /bin/bash -c "mkdir -p {alertexer,alert-rules,shared,storage}/src" && \
     touch alert-rules/src/lib.rs && \
     touch shared/src/lib.rs && \
     touch storage/src/lib.rs && \
-    cargo +nightly build -Z sparse-registry
+    cargo build -Z sparse-registry
 
 COPY ./ ./
 
-RUN cargo +nightly build --release --package $package -Z sparse-registry --offline
+RUN cargo build --release --package alertexer -Z sparse-registry --offline
 
 
 FROM ubuntu:20.04
-ARG package
 
 RUN apt update && apt install -yy openssl ca-certificates
 
 USER nobody
-COPY --from=build /tmp/target/release/$package /alertexer
+COPY --from=build /tmp/target/release/alertexer /alertexer
 ENTRYPOINT ["/alertexer"]
