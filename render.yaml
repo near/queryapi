@@ -7,7 +7,7 @@ services:
     plan: free # optional (defaults to starter)
     maxmemoryPolicy: allkeys-lru # optional (defaults to allkeys-lru)
 
-  - type: pserv
+  - type: worker
     name: alertexer-testnet
     region: frankfurt
     env: docker
@@ -17,7 +17,7 @@ services:
     # dockerContext: ./alertexer
     dockerCommand: testnet from-latest
     numInstances: 1
-    plan: free
+    plan: starter
     envVars:
       - key: REDIS_CONNECTION_STRING
         fromService:
