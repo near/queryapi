@@ -1,0 +1,24 @@
+services:
+  # A Redis instance
+  - type: redis
+    name: redis
+    ipAllowList: [] # no external connection allowed
+    region: frankfurt
+    plan: free # optional (defaults to starter)
+    maxmemoryPolicy: allkeys-lru # optional (defaults to allkeys-lru)
+
+  - type: pserv
+    name: alertexer-testnet
+    region: frankfurt
+    env: docker
+    repo: https://github.com/khorolets/alertexer.git
+    branch: master
+    dockerCommand: testnet from-latest
+    numInstances: 1
+    envVars:
+      - key: REDIS_CONNECTION_STRING
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+
