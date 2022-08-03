@@ -1,7 +1,12 @@
 services:
-  # A Redis instance
   - type: redis
-    name: redis
+    name: redis-testnet-alertexer
+    ipAllowList: [] # no external connection allowed
+    region: frankfurt
+    plan: free # optional (defaults to starter)
+    maxmemoryPolicy: allkeys-lru # optional (defaults to allkeys-lru)
+  - type: redis
+    name: redis-mainnet-alertexer
     ipAllowList: [] # no external connection allowed
     region: frankfurt
     plan: free # optional (defaults to starter)
@@ -13,15 +18,29 @@ services:
     env: docker
     repo: https://github.com/khorolets/alertexer.git
     branch: chore/ci-render-yaml
-    # dockerfilePath: ./alertexer/Dockerfile
-    # dockerContext: ./alertexer
-    dockerCommand: testnet from-latest
+    dockerCommand: ./alertexer testnet from-interruption
     numInstances: 1
     plan: starter
     envVars:
       - key: REDIS_CONNECTION_STRING
         fromService:
           type: redis
-          name: redis
+          name: redis-testnet-alertexer
+          property: connectionString
+
+  - type: worker
+    name: alertexer-mainnet
+    region: frankfurt
+    env: docker
+    repo: https://github.com/khorolets/alertexer.git
+    branch: chore/ci-render-yaml
+    dockerCommand: ./alertexer mainnet from-interruption
+    numInstances: 1
+    plan: starter
+    envVars:
+      - key: REDIS_CONNECTION_STRING
+        fromService:
+          type: redis
+          name: redis-mainnet-alertexer
           property: connectionString
 
