@@ -11,7 +11,7 @@ services:
     name: alertexer-testnet
     region: frankfurt
     env: docker
-    repo: git@github.com:near/alertexer.git
+    repo: https://github.com/khorolets/alertexer.git
     branch: chore/ci-render-yaml
     dockerCommand: testnet from-latest
     numInstances: 1
