@@ -10,11 +10,22 @@ $ cargo install cargo-lambda
 
 ## Deploy
 
-the role: `arn:aws:iam::754641474505:role/lambda-alertexer`
+the roles:
+- Staging `arn:aws:iam::754641474505:role/lambda-alertexer`
+- Production `arn:aws:iam::754641474505:role/production-lambda-alertexer`
 
 ```
 $ cargo lambda build --release
+```
+
+**Staging:**
+```
 $ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/lambda-alertexer
+```
+
+**Production:**
+```
+$ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer production-webhook-queue-handler
 ```
 
 It is deployed as [`webhook-queue-handler` on AWS](https://eu-central-1.console.aws.amazon.com/lambda/home?region=eu-central-1#/functions/webhook-queue-handler)
