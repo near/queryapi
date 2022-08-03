@@ -11,10 +11,11 @@ services:
     name: alertexer-testnet
     region: frankfurt
     env: docker
-    repo: https://github.com/khorolets/alertexer.git
-    branch: master
+    repo: git@github.com:near/alertexer.git
+    branch: chore/ci-render-yaml
     dockerCommand: testnet from-latest
     numInstances: 1
+    plan: free
     envVars:
       - key: REDIS_CONNECTION_STRING
         fromService:
