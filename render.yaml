@@ -16,7 +16,7 @@ services:
     name: alertexer-testnet
     region: frankfurt
     env: docker
-    repo: https://github.com/khorolets/alertexer.git
+    repo: https://github.com/near/alertexer.git
     branch: chore/ci-render-yaml
     dockerCommand: ./alertexer testnet from-interruption
     numInstances: 1
@@ -32,7 +32,7 @@ services:
     name: alertexer-mainnet
     region: frankfurt
     env: docker
-    repo: https://github.com/khorolets/alertexer.git
+    repo: https://github.com/near/alertexer.git
     branch: chore/ci-render-yaml
     dockerCommand: ./alertexer mainnet from-interruption
     numInstances: 1
