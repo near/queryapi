@@ -1,4 +1,4 @@
 /target
-.env
+.env*
 redis/
 *.log

@@ -1,0 +1,26 @@
+name: Queue Handlers Check
+
+on:
+  push:
+    branches: [ staging, production ]
+  pull_request:
+    branches: [ staging, production ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-queue-handler:
+    strategy:
+      matrix:
+        folder:
+          - queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run check
+        run: cargo check
+        working-directory: ./${{ matrix.forlder }}
