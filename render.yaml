@@ -5,8 +5,9 @@ services:
     region: frankfurt
     plan: free # optional (defaults to starter)
     maxmemoryPolicy: allkeys-lru # optional (defaults to allkeys-lru)
+
   - type: redis
-    name: redis-mainnet-alertexer
+    name: production-redis-mainnet-alertexer
     ipAllowList: [] # no external connection allowed
     region: frankfurt
     plan: free # optional (defaults to starter)
