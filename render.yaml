@@ -1,6 +1,6 @@
 services:
   - type: redis
-    name: redis-testnet-alertexer
+    name: production-redis-testnet-alertexer
     ipAllowList: [] # no external connection allowed
     region: frankfurt
     plan: free # optional (defaults to starter)
@@ -13,7 +13,7 @@ services:
     maxmemoryPolicy: allkeys-lru # optional (defaults to allkeys-lru)
 
   - type: worker
-    name: alertexer-testnet
+    name: production-alertexer-testnet
     region: frankfurt
     env: docker
     repo: https://github.com/near/alertexer.git
@@ -25,11 +25,11 @@ services:
       - key: REDIS_CONNECTION_STRING
         fromService:
           type: redis
-          name: redis-testnet-alertexer
+          name: production-redis-testnet-alertexer
           property: connectionString
 
   - type: worker
-    name: alertexer-mainnet
+    name: production-alertexer-mainnet
     region: frankfurt
     env: docker
     repo: https://github.com/near/alertexer.git
@@ -41,6 +41,6 @@ services:
       - key: REDIS_CONNECTION_STRING
         fromService:
           type: redis
-          name: redis-mainnet-alertexer
+          name: production-redis-mainnet-alertexer
           property: connectionString
 
