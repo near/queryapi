@@ -10,7 +10,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check-queue-handler:
+  check:
     strategy:
       matrix:
         folder:
@@ -24,3 +24,51 @@ jobs:
       - name: Run check
         run: cargo check
         working-directory: ./${{ matrix.forlder }}
+
+  rustfmt:
+    strategy:
+      matrix:
+        folder:
+          - queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly-2022-06-20
+        override: true
+        profile: minimal
+        components: rustfmt
+    - name: Check formatting
+      run: |
+        cargo fmt -- --check
+      working-directory: ./${{ matrix.forlder }}
+
+  rustclippy:
+    strategy:
+      matrix:
+        folder:
+          - queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
+    name: rustclippy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly-2022-06-20
+        override: true
+        profile: minimal
+        components: clippy
+    - name: Clippy check
+      run: |
+        cargo clippy
+      working-directory: ./${{ matrix.forlder }}
