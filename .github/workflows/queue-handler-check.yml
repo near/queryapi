@@ -1,27 +1,39 @@
-name: Rust
+name: Queue Handlers Check
 
 on:
   push:
-    branches: [ main ]
+    branches: [ staging, production ]
   pull_request:
-    branches: [ main, staging, production ]
+    branches: [ staging, production ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   check:
-
+    strategy:
+      matrix:
+        folder:
+          - queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Run check
-      run: cargo check
+      - uses: actions/checkout@v2
+      - name: Run check
+        run: cargo check
+        working-directory: ./${{ matrix.forlder }}
 
   rustfmt:
+    strategy:
+      matrix:
+        folder:
+          - queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
     name: rustfmt
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -35,10 +47,17 @@ jobs:
     - name: Check formatting
       run: |
         cargo fmt -- --check
+      working-directory: ./${{ matrix.forlder }}
 
   rustclippy:
+    strategy:
+      matrix:
+        folder:
+          - queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
     name: rustclippy
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
@@ -52,3 +71,4 @@ jobs:
     - name: Clippy check
       run: |
         cargo clippy
+      working-directory: ./${{ matrix.forlder }}
