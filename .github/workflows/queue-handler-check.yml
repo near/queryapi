@@ -2,9 +2,9 @@ name: Queue Handlers Check
 
 on:
   push:
-    branches: [ staging, production ]
+    branches: [ staging, production, main ]
   pull_request:
-    branches: [ staging, production ]
+    branches: [ staging, production, main ]
 
 env:
   CARGO_TERM_COLOR: always
