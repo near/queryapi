@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [Queue Handlers Check]
     types: [completed]
-    branches: [staing, production]
+    branches: [staging, production]
 
 jobs:
   release:
