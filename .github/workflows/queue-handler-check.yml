@@ -15,8 +15,8 @@ jobs:
       matrix:
         folder:
           - queue-handler
-          - webhook-queue-handler
-          - telegram-queue-handler
+          # - webhook-queue-handler
+          # - telegram-queue-handler
     runs-on: ubuntu-latest
 
     steps:
@@ -30,8 +30,8 @@ jobs:
       matrix:
         folder:
           - queue-handler
-          - webhook-queue-handler
-          - telegram-queue-handler
+          # - webhook-queue-handler
+          # - telegram-queue-handler
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
@@ -54,8 +54,8 @@ jobs:
       matrix:
         folder:
           - queue-handler
-          - webhook-queue-handler
-          - telegram-queue-handler
+          # - webhook-queue-handler
+          # - telegram-queue-handler
     name: rustclippy
     runs-on: ubuntu-latest
     steps:

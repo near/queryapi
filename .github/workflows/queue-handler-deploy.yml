@@ -18,10 +18,10 @@ jobs:
 
       - name: Build lambda
         uses: actions/checkout@v2
-          
-      - name: Uses zig # cargo-lambda dependency  
+
+      - name: Uses zig # cargo-lambda dependency
         uses: goto-bus-stop/setup-zig@v1
-        
+
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
