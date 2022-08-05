@@ -25,10 +25,15 @@ jobs:
           toolchain: nightly-2022-06-20
           override: true
           profile: minimal
+          
+      - name: Uses zig # cargo-lambda dependency  
+        uses: goto-bus-stop/setup-zig@v1
 
       - name: Use cargo-lambda
-        run: |
-          cargo install cargo-lambda
+        uses: actions-rs/install@v0.1
+          with:
+            crate: cargo-lambda
+            version: latest
 
       - name: Build release lambda
         run: |
