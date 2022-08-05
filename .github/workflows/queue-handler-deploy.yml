@@ -8,30 +8,33 @@ on:
 
 jobs:
   release:
-    strategy:
-    matrix:
-      folder:
-        - queue-handler
-        - webhook-queue-handler
-        - telegram-queue-handler
-
-    runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        folder: [ queue-handler ]
 
     steps:
 
       - name: Build lambda
         uses: actions/checkout@v2
+
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly-2022-06-20
           override: true
           profile: minimal
+
       - name: Use cargo-lambda
         run: |
           cargo install cargo-lambda
 
       - name: Build release lambda
         run: |
+          cd ${{ matrix.folder }}
           cargo lambda build --release
+
+      - name: Deploy to AWS Lambda
+        run: |
+          echo "Implement me"
