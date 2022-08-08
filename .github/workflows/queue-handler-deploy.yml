@@ -28,6 +28,8 @@ jobs:
           toolchain: nightly-2022-06-20
           override: true
           profile: minimal
+          
+      - name: Install cargo-lambda
         run: |
           cargo install cargo-lambda
 
