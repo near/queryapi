@@ -31,8 +31,10 @@ jobs:
           
       - name: Install cargo-lambda
         run: |
-          sudo snap install zig --classic --beta
+          cargo install cargo-zigbuild
           cargo install cargo-lambda
+#          sudo snap install zig --classic --beta
+ 
 
       - name: Build release lambda
         run: |
