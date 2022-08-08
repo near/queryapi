@@ -21,6 +21,8 @@ jobs:
 
       - name: Uses zig # cargo-lambda dependency
         uses: goto-bus-stop/setup-zig@v1
+        with:
+          version: 0.9.1
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -31,9 +33,7 @@ jobs:
           
       - name: Install cargo-lambda
         run: |
-          cargo install cargo-zigbuild
           cargo install cargo-lambda
-#          sudo snap install zig --classic --beta
  
 
       - name: Build release lambda
