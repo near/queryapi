@@ -28,12 +28,14 @@ jobs:
           toolchain: nightly-2022-06-20
           override: true
           profile: minimal
+        run: |
+          cargo install cargo-lambda
 
-      - name: Use cargo-lambda
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-lambda
-          version: latest
+      # - name: Use cargo-lambda
+      #   uses: actions-rs/install@v0.1
+      #   with:
+      #     crate: cargo-lambda
+      #     version: latest
 
       - name: Build release lambda
         run: |
