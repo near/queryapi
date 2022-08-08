@@ -18,16 +18,16 @@ jobs:
 
       - name: Build lambda
         uses: actions/checkout@v2
-
+          
+      - name: Uses zig # cargo-lambda dependency  
+        uses: goto-bus-stop/setup-zig@v1
+        
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly-2022-06-20
           override: true
           profile: minimal
-          
-      - name: Uses zig # cargo-lambda dependency  
-        uses: goto-bus-stop/setup-zig@v1
 
       - name: Use cargo-lambda
         uses: actions-rs/install@v0.1
