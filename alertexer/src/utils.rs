@@ -1,7 +1,7 @@
 pub(crate) async fn alert_rules_fetcher(
     database_connection_string: String,
     alert_rules_inmemory: crate::AlertRulesInMemory,
-    chain_id: shared::types::primitives::ChainId,
+    chain_id: shared::alertexer_types::primitives::ChainId,
 ) {
     let pool = loop {
         match alert_rules::connect(&database_connection_string).await {
@@ -23,8 +23,12 @@ pub(crate) async fn alert_rules_fetcher(
                 &pool,
                 alert_rules::AlertRuleKind::Actions,
                 &match chain_id {
-                    shared::types::primitives::ChainId::Testnet => alert_rules::ChainId::Testnet,
-                    shared::types::primitives::ChainId::Mainnet => alert_rules::ChainId::Mainnet,
+                    shared::alertexer_types::primitives::ChainId::Testnet => {
+                        alert_rules::ChainId::Testnet
+                    }
+                    shared::alertexer_types::primitives::ChainId::Mainnet => {
+                        alert_rules::ChainId::Mainnet
+                    }
                 },
             )
             .await

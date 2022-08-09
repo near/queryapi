@@ -1,8 +1,15 @@
 use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};
-use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use shared::{
-    types::primitives::AlertQueueMessage, BorshDeserialize, BorshSerialize, QueueClient, Region,
+pub use aws_sdk_sqs::{
+    Client as QueueClient, Region,
 };
+use borsh::{BorshSerialize, BorshDeserialize};
+use lambda_runtime::{run, service_fn, Error, LambdaEvent};
+
+use alertexer_types::primitives::{AlertQueueMessage};
+
+// use shared::{
+//     QueueClient, Region,
+// };
 
 static POOL: tokio::sync::OnceCell<sqlx::PgPool> = tokio::sync::OnceCell::const_new();
 
@@ -13,7 +20,7 @@ pub enum QueueError {
     #[error("Handle message error")]
     HandleMessage(String),
     #[error("Decode error")]
-    DecodeError(#[from] shared::base64::DecodeError),
+    DecodeError(#[from] base64::DecodeError),
     #[error("IO Error")]
     IOError(#[from] std::io::Error),
     #[error("Serialization error")]
@@ -52,7 +59,7 @@ struct TelegramDestinationConfig {
     chat_id: Option<f64>,
 }
 
-impl From<WebhookDestinationConfig> for shared::types::primitives::DestinationConfig {
+impl From<WebhookDestinationConfig> for alertexer_types::primitives::DestinationConfig {
     fn from(webhook_destination_config: WebhookDestinationConfig) -> Self {
         Self::Webhook {
             destination_id: webhook_destination_config.id,
@@ -62,7 +69,7 @@ impl From<WebhookDestinationConfig> for shared::types::primitives::DestinationCo
     }
 }
 
-impl From<TelegramDestinationConfig> for shared::types::primitives::DestinationConfig {
+impl From<TelegramDestinationConfig> for alertexer_types::primitives::DestinationConfig {
     fn from(telegram_destination_config: TelegramDestinationConfig) -> Self {
         Self::Telegram {
             destination_id: telegram_destination_config.id,
@@ -111,7 +118,7 @@ async fn handle_message(
     client: &QueueClient,
 ) -> Result<Vec<()>, QueueError> {
     if let Some(endoded_message) = message.body {
-        let decoded_message = shared::base64::decode(endoded_message)?;
+        let decoded_message = base64::decode(endoded_message)?;
         let alert_message = AlertQueueMessage::try_from_slice(&decoded_message)?;
 
         // TODO: decide how to handle this as it is a bad idea to store it in the same DB
@@ -167,7 +174,7 @@ async fn handle_destination(
     pool: &sqlx::PgPool,
 ) -> Result<(), QueueError> {
     let queue_url: String;
-    let destination_config: shared::types::primitives::DestinationConfig =
+    let destination_config: alertexer_types::primitives::DestinationConfig =
         match &destination.destination_kind {
             DestinationKind::Webhook => {
                 queue_url = std::env::var("WEBHOOK_QUEUE_URL")
@@ -199,7 +206,7 @@ SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destinatio
             }
         };
 
-    let alert_delivery_task = shared::types::primitives::AlertDeliveryTask {
+    let alert_delivery_task = alertexer_types::primitives::AlertDeliveryTask {
         triggered_alert_id,
         destination_config,
         alert_message,
@@ -208,7 +215,7 @@ SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destinatio
     match client
         .send_message()
         .queue_url(queue_url)
-        .message_body(shared::base64::encode(alert_delivery_task.try_to_vec()?))
+        .message_body(base64::encode(alert_delivery_task.try_to_vec()?))
         .send()
         .await
     {

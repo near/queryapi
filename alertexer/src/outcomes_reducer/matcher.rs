@@ -5,7 +5,7 @@ use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt,
 };
 
-use shared::types::events::Event;
+use shared::alertexer_types::events::Event;
 
 pub(crate) fn matches(
     matching_rule: &MatchingRule,
