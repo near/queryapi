@@ -10,7 +10,7 @@ use near_lake_framework::near_indexer_primitives::views::{
 };
 
 use alert_rules::AlertRule;
-use shared::types::primitives::{AlertQueueMessage, AlertQueueMessagePayload};
+use shared::alertexer_types::primitives::{AlertQueueMessage, AlertQueueMessagePayload};
 
 mod matcher;
 

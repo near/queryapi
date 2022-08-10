@@ -10,6 +10,7 @@ use tracing_subscriber::EnvFilter;
 use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finality};
 
+pub use alertexer_types;
 pub mod types;
 
 #[derive(Parser, Debug, Clone)]
@@ -64,10 +65,10 @@ pub enum StartOptions {
 }
 
 impl Opts {
-    pub fn chain_id(&self) -> crate::types::primitives::ChainId {
+    pub fn chain_id(&self) -> alertexer_types::ChainId {
         match self.chain_id {
-            ChainId::Mainnet(_) => crate::types::primitives::ChainId::Mainnet,
-            ChainId::Testnet(_) => crate::types::primitives::ChainId::Testnet,
+            ChainId::Mainnet(_) => alertexer_types::ChainId::Mainnet,
+            ChainId::Testnet(_) => alertexer_types::ChainId::Testnet,
         }
     }
 
@@ -211,7 +212,7 @@ pub fn init_tracing() {
 pub async fn send_to_the_queue(
     client: &aws_sdk_sqs::Client,
     queue_url: String,
-    alert_queue_messages: Vec<types::primitives::AlertQueueMessage>,
+    alert_queue_messages: Vec<alertexer_types::primitives::AlertQueueMessage>,
 ) -> anyhow::Result<()> {
     tracing::info!(
         target: "alertexer",

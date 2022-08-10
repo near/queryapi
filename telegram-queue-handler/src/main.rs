@@ -1,6 +1,7 @@
 use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};
+use borsh::BorshDeserialize;
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use shared::{types::primitives::AlertDeliveryTask, BorshDeserialize};
+use alertexer_types::primitives::AlertDeliveryTask;
 use teloxide::{
     payloads::SendMessageSetters,
     requests::{Request, Requester},
@@ -15,7 +16,7 @@ pub enum QueueError {
     #[error("Handle message error")]
     HandleMessage(String),
     #[error("Decode error")]
-    DecodeError(#[from] shared::base64::DecodeError),
+    DecodeError(#[from] base64::DecodeError),
     #[error("IO Error")]
     IOError(#[from] std::io::Error),
     #[error("Serialization error")]
@@ -61,12 +62,12 @@ async fn handle_message(
     bot: &teloxide::Bot,
 ) -> Result<(), QueueError> {
     if let Some(endoded_message) = message.body {
-        let decoded_message = shared::base64::decode(endoded_message)?;
+        let decoded_message = base64::decode(endoded_message)?;
         let delivery_task = AlertDeliveryTask::try_from_slice(&decoded_message)?;
 
         let explorer_link = delivery_task.alert_message.explorer_link();
 
-        if let shared::types::primitives::DestinationConfig::Telegram {
+        if let alertexer_types::primitives::DestinationConfig::Telegram {
             chat_id,
             destination_id,
         } = delivery_task.destination_config

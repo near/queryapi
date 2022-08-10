@@ -4,7 +4,7 @@ use futures::future::try_join_all;
 use near_lake_framework::near_indexer_primitives::IndexerExecutionOutcomeWithReceipt;
 
 use alert_rules::{AlertRule, MatchingRule};
-use shared::types::primitives::{AlertQueueMessage, AlertQueueMessagePayload};
+use shared::alertexer_types::primitives::{AlertQueueMessage, AlertQueueMessagePayload};
 
 mod matcher;
 

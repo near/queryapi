@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use alert_rules::MatchingRule;
 use near_lake_framework::near_indexer_primitives::types;
 
-use shared::{types::primitives::AlertQueueMessage, Opts, Parser};
+use shared::{alertexer_types::primitives::AlertQueueMessage, Opts, Parser};
 
 pub(crate) mod cache;
 mod outcomes_reducer;
@@ -34,7 +34,7 @@ pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<types::AccountId, Balanc
 
 pub(crate) struct AlertexerContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
-    pub chain_id: &'a shared::types::primitives::ChainId,
+    pub chain_id: &'a shared::alertexer_types::primitives::ChainId,
     pub queue_client: &'a shared::QueueClient,
     pub queue_url: &'a str,
     pub alert_rules_inmemory: AlertRulesInMemory,
