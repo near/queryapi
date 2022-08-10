@@ -47,6 +47,18 @@ jobs:
           cd ${{ matrix.folder }}
           cargo lambda build --release
 
+      - name: Generate credentials file
+        run: |
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY }}" >> ~/.aws/credentials
+          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+
       - name: Deploy to AWS Lambda
         run: |
-          echo "Implement me"
+          cd ${{ matrix.folder }}
+          cargo lambda deploy \
+            --iam-role arn:aws:iam::754641474505:role/lambda-alertexer
+            --region eu-central-1 \
+            --profile ~/.aws/credentials \
+            queue-handler-alertexer
