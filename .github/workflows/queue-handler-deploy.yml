@@ -12,7 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        folder: [ queue-handler ]
+        folder:
+          - queue-handler-alertexer
+          - webhook-queue-handler
+          - telegram-queue-handler
 
     steps:
 
@@ -32,15 +35,40 @@ jobs:
           profile: minimal
           
       - name: Install cargo-lambda
-        run: |
-          cargo install cargo-lambda
- 
+        uses: actions-rs/install@v0.1
+        with:
+          crate: cargo-lambda
+          version: latest
 
       - name: Build release lambda
         run: |
           cd ${{ matrix.folder }}
           cargo lambda build --release
 
-      - name: Deploy to AWS Lambda
+      - name: Generate credentials file
         run: |
-          echo "Implement me"
+          mkdir -p ~/.aws
+          echo "[default]" > ~/.aws/credentials
+          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY }}" >> ~/.aws/credentials
+          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+
+      - name: STAGING Deploy to AWS Lambda
+        if: ${{ github.ref == 'refs/heads/staging' }}
+        run: |
+          cd ${{ matrix.folder }}
+          cargo lambda deploy \
+            --iam-role arn:aws:iam::754641474505:role/lambda-alertexer \
+            --region eu-central-1 \
+            --profile default \
+            ${{ matrix.folder }}
+
+      - name: PRODUCTION Deploy to AWS Lambda
+        if: ${{ github.ref == 'refs/heads/production' }}
+        run: |
+          cp -rf ${{ matrix.folder }} production-${{ matrix.folder }}
+          cd production-${{ matrix.folder }}
+          cargo lambda deploy \
+            --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer \
+            --region eu-central-1 \
+            --profile default \
+            production-${{ matrix.folder }}
