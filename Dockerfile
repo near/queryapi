@@ -7,12 +7,14 @@ RUN rustup toolchain install nightly-2022-06-20 && rustup override set nightly-2
 WORKDIR /tmp/
 COPY Cargo.toml Cargo.lock ./
 COPY alertexer/Cargo.toml ./alertexer/
+COPY alertexer-types/Cargo.toml ./alertexer-types/
 COPY alert-rules/Cargo.toml ./alert-rules/
 COPY shared/Cargo.toml ./shared/
 COPY storage/Cargo.toml ./storage/
 
-RUN /bin/bash -c "mkdir -p {alertexer,alert-rules,shared,storage}/src" && \
+RUN /bin/bash -c "mkdir -p {alertexer,alertexer-types,alert-rules,shared,storage}/src" && \
     echo 'fn main() {}' > alertexer/src/main.rs && \
+    touch alertexer-types/src/lib.rs && \
     touch alert-rules/src/lib.rs && \
     touch shared/src/lib.rs && \
     touch storage/src/lib.rs && \
