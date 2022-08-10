@@ -38,9 +38,9 @@ jobs:
           
       - name: Install cargo-lambda
         uses: actions-rs/install@v0.1
-          with:
-            crate: cargo-lambda
-            version: latest
+        with:
+          crate: cargo-lambda
+          version: latest
 
       - name: Build release lambda
         run: |
