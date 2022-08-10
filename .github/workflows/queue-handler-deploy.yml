@@ -41,10 +41,10 @@ jobs:
           profile: minimal
           
       - name: Install cargo-lambda
-        run: |
-          sudo apt-get install pkg-config libssl-dev build-essential
-          cargo install cargo-lambda
- 
+        - uses: actions-rs/install@v0.1
+          with:
+            crate: cargo-lambda
+            version: latest
 
       - name: Build release lambda
         run: |
