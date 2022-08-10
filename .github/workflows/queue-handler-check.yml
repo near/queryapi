@@ -1,10 +1,10 @@
 name: Queue Handlers Check
 
-# on:
-#   push:
-#     branches: [ staging, production, main ]
-#   pull_request:
-#     branches: [ staging, production, main ]
+on:
+  push:
+    branches: [ staging, production, main ]
+  pull_request:
+    branches: [ staging, production, main ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,8 +15,8 @@ jobs:
       matrix:
         folder:
           - queue-handler-alertexer
-          # - webhook-queue-handler
-          # - telegram-queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
     runs-on: ubuntu-latest
 
     steps:

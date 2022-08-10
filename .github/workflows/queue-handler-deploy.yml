@@ -1,24 +1,21 @@
 name: Queue Handlers Deploy
 
 on:
-  push:
-    branches: [ staging, production, main ]
-  pull_request:
-    branches: [ staging, production, main ]
-# on:
-#   workflow_run:
-#     workflows: [Queue Handlers Check]
-#     types: [completed]
-#     branches: [staging, production]
+  workflow_run:
+    workflows: [Queue Handlers Check]
+    types: [completed]
+    branches: [staging, production]
 
 jobs:
   release:
-    # if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         folder:
           - queue-handler-alertexer
+          - webhook-queue-handler
+          - telegram-queue-handler
 
     steps:
 
