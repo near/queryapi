@@ -11,10 +11,6 @@ on:
 #     types: [completed]
 #     branches: [staging, production]
 
-env:
-  OPENSSL_LIB_DIR: "/usr/lib/x86_64-linux-gnu"
-  OPENSSL_INCLUDE_DIR: "/usr/include/openssl"
-
 jobs:
   release:
     # if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -41,7 +37,7 @@ jobs:
           profile: minimal
           
       - name: Install cargo-lambda
-        - uses: actions-rs/install@v0.1
+        uses: actions-rs/install@v0.1
           with:
             crate: cargo-lambda
             version: latest
