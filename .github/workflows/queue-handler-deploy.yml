@@ -58,7 +58,7 @@ jobs:
         run: |
           cd ${{ matrix.folder }}
           cargo lambda deploy \
-            --iam-role arn:aws:iam::754641474505:role/lambda-alertexer
+            --iam-role arn:aws:iam::754641474505:role/lambda-alertexer \
             --region eu-central-1 \
-            --profile ~/.aws/credentials \
+            --profile default \
             queue-handler-alertexer
