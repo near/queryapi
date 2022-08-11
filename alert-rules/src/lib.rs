@@ -1,5 +1,7 @@
 pub use numeric::{I128, U128, U64};
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "db")]
+pub use sqlx::PgPool;
 
 mod numeric;
 

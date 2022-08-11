@@ -14,8 +14,7 @@ pub(crate) mod cache;
 mod outcomes_reducer;
 mod state_changes_reducer;
 mod utils;
-// mod checkers;
-// pub(crate) mod matchers;
+
 pub(crate) const INDEXER: &str = "alertexer";
 pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
@@ -54,8 +53,6 @@ async fn main() -> anyhow::Result<()> {
     let chain_id = &opts.chain_id();
     let queue_client = &opts.queue_client();
     let queue_url = opts.queue_url.clone();
-    let alert_rules_inmemory: AlertRulesInMemory =
-        std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new()));
 
     // We want to prevent unnecessary RPC queries to find previous balance
     let balances_cache: BalanceCache =
@@ -65,8 +62,31 @@ async fn main() -> anyhow::Result<()> {
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
 
     tracing::info!(target: INDEXER, "Starting the Alert Rules fetcher...");
+    let pool = utils::establish_alerts_db_connection(&opts.database_url).await;
+
+    // Prevent indexer from start indexing unless we connect and get AlerRules from the DB
+    let alert_rules = loop {
+        match utils::fetch_alert_rules(&pool, chain_id).await {
+            Ok(alert_rules_tuples) => break alert_rules_tuples,
+            Err(err) => {
+                tracing::warn!(
+                    target: INDEXER,
+                    "Failed to fetch AlertRules from DB. Retrying in 1s...\n{:#?}",
+                    err
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+    };
+
+    let alert_rules_hashmap: HashMap<i32, alert_rules::AlertRule> =
+        alert_rules.into_iter().collect();
+
+    let alert_rules_inmemory: AlertRulesInMemory =
+        std::sync::Arc::new(tokio::sync::Mutex::new(alert_rules_hashmap));
+
     tokio::spawn(utils::alert_rules_fetcher(
-        opts.database_url.clone(),
+        pool,
         std::sync::Arc::clone(&alert_rules_inmemory),
         chain_id.clone(),
     ));
@@ -83,6 +103,7 @@ async fn main() -> anyhow::Result<()> {
         redis_connection_manager.clone(),
         std::sync::Arc::clone(&alert_rules_inmemory),
     ));
+
     tracing::info!(target: INDEXER, "Starting Alertexer...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
