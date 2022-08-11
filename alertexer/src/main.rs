@@ -79,7 +79,8 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let alert_rules_hashmap: HashMap<i32, alert_rules::AlertRule> = alert_rules.into_iter().collect();
+    let alert_rules_hashmap: HashMap<i32, alert_rules::AlertRule> =
+        alert_rules.into_iter().collect();
 
     let alert_rules_inmemory: AlertRulesInMemory =
         std::sync::Arc::new(tokio::sync::Mutex::new(alert_rules_hashmap));
