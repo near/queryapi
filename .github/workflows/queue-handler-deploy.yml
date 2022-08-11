@@ -62,8 +62,8 @@ jobs:
       - name: PRODUCTION Deploy to AWS Lambda
         if: ${{ github.ref == 'refs/heads/production' }}
         run: |
-          cp -rf ${{ matrix.folder }} production-${{ matrix.folder }}
-          cd production-${{ matrix.folder }}
+          cd ${{ matrix.folder }}
+          cp -rf ./target/lambda/${{ matrix.folder }} ./target/lambda/production-${{ matrix.folder }}
           cargo lambda deploy \
             --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer \
             --region eu-central-1 \
