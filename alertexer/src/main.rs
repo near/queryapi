@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Prevent indexer from start indexing unless we connect and get AlerRules from the DB
     let alert_rules = loop {
-        match utils::fetch_alert_rules(&pool, &chain_id).await {
+        match utils::fetch_alert_rules(&pool, chain_id).await {
             Ok(alert_rules_tuples) => break alert_rules_tuples,
             Err(err) => {
                 tracing::warn!(
@@ -79,8 +79,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let alert_rules_hashmap: HashMap<i32, alert_rules::AlertRule> =
-        alert_rules.into_iter().collect();
+    let alert_rules_hashmap: HashMap<i32, alert_rules::AlertRule> = alert_rules.into_iter().collect();
 
     let alert_rules_inmemory: AlertRulesInMemory =
         std::sync::Arc::new(tokio::sync::Mutex::new(alert_rules_hashmap));

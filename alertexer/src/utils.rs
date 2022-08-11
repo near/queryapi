@@ -2,7 +2,7 @@ pub(crate) async fn establish_alerts_db_connection(
     database_connection_string: &str,
 ) -> alert_rules::PgPool {
     loop {
-        match alert_rules::connect(&database_connection_string).await {
+        match alert_rules::connect(database_connection_string).await {
             Ok(res) => break res,
             Err(err) => {
                 tracing::warn!(
