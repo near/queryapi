@@ -1,9 +1,7 @@
 name: Queue Handlers Deploy
 
 on:
-  workflow_run:
-    workflows: [Queue Handlers Check]
-    types: [completed]
+  push:
     branches: [staging, production]
 
 jobs:
