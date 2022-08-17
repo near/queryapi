@@ -19,7 +19,7 @@ futures = "0.3.5"
 lambda_runtime = "0.5.1"
 openssl = { version = "0.10", features = ["vendored"] }
 serde_json = "1.0.55"
-sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "postgres", "macros", "offline" ] }
+sqlx = { version = "0.5", features = [ "runtime-tokio-native-tls", "postgres", "macros", "offline" ] }
 teloxide = { version = "0.9", features = ["macros", "auto-send"] }
 thiserror = "1.0.31"
 tokio = { version = "1", features = ["macros", "sync", "parking_lot"] }
