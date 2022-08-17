@@ -25,10 +25,10 @@ $ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/lambda-alertexer
 
 **Production:**
 ```
-$ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer production-queue-handler-alertexer
+$ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer production-email-queue-handler
 ```
 
-It is deployed as [`queue-handler-alertexer` on AWS](https://eu-central-1.console.aws.amazon.com/lambda/home?region=eu-central-1#/functions/queue-handler-alertexer?tab=code)
+It is deployed as [`email-queue-handler` on AWS](https://eu-central-1.console.aws.amazon.com/lambda/home?region=eu-central-1#/functions/email-queue-handler)
 
 ## Environmental variables required
 
@@ -38,14 +38,9 @@ This lambda will fail without required env vars.
 DATABASE_URL=postgres://user:pass@host/db
 ```
 
-`DATABASE_URL` is required to fetch destination settings for specific `AlertRule` and to write to the `triggered_alerts` table (history of Alerts)
+`DATABASE_URL` is required to write to the `triggered_alerts` table (history of Alerts)
 
-```
-TELEGRAM_QUEUE_URL=https://sqs.eu-central-1.amazonaws.com/754641474505/alertexer-telegram
-WEBHOOK_QUEUE_URL=https://sqs.eu-central-1.amazonaws.com/754641474505/alertexer-webhooks
-EMAIL_QUEUE_URL=https://sqs.eu-central-1.amazonaws.com/754641474505/alertexer-email
-```
-We anticipate the growth of this type of variables. They are used by the lambda to send `AlertRules` further to the relevant queue based on the rule's destination(s)
+`MAILGUN_API_KEY` is required to send emails via Mailgun API
 
 ## Local testing
 

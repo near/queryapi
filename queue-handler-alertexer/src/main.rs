@@ -44,6 +44,7 @@ struct Destination {
 enum DestinationKind {
     Webhook,
     Telegram,
+    Email,
 }
 
 #[derive(sqlx::FromRow, Debug)]
@@ -57,6 +58,13 @@ struct WebhookDestinationConfig {
 struct TelegramDestinationConfig {
     id: i32,
     chat_id: Option<f64>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+struct EmailDestinationConfig {
+    id: i32,
+    email: String,
+    token: Option<String>,
 }
 
 impl From<WebhookDestinationConfig> for alertexer_types::primitives::DestinationConfig {
@@ -74,6 +82,16 @@ impl From<TelegramDestinationConfig> for alertexer_types::primitives::Destinatio
         Self::Telegram {
             destination_id: telegram_destination_config.id,
             chat_id: telegram_destination_config.chat_id.unwrap(),
+        }
+    }
+}
+
+impl From<EmailDestinationConfig> for alertexer_types::primitives::DestinationConfig {
+    fn from(email_destination_config: EmailDestinationConfig) -> Self {
+        Self::Email {
+            destination_id: email_destination_config.id,
+            email: email_destination_config.email,
+            token: email_destination_config.token,
         }
     }
 }
@@ -203,7 +221,21 @@ SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destinatio
                 .fetch_one(pool)
                 .await?
                 .into()
-            }
+            },
+            DestinationKind::Email => {
+                queue_url = std::env::var("EMAIL_QUEUE_URL")
+                    .expect("EMAIL_QUEUE_URL is not provided for the lambda");
+                sqlx::query_as!(
+                    EmailDestinationConfig,
+                    r#"
+SELECT destination_id as id, email, token FROM email_destinations WHERE destination_id = $1
+                    "#,
+                    destination.destination_id
+                )
+                .fetch_one(pool)
+                .await?
+                .into()
+            },
         };
 
     let alert_delivery_task = alertexer_types::primitives::AlertDeliveryTask {

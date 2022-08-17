@@ -165,4 +165,9 @@ pub enum DestinationConfig {
         destination_id: i32,
         chat_id: f64,
     },
+    Email {
+        destination_id: i32,
+        email: String,
+        token: Option<String>,
+    },
 }
