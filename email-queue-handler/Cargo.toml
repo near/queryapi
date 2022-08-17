@@ -1,5 +1,5 @@
 [package]
-name = "webhook-queue-handler"
+name = "email-queue-handler"
 version = "0.1.0"
 edition = "2021"
 
