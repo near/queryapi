@@ -1,7 +1,7 @@
+use alertexer_types::primitives::AlertDeliveryTask;
 use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};
 use borsh::BorshDeserialize;
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use alertexer_types::primitives::AlertDeliveryTask;
 
 static POOL: tokio::sync::OnceCell<sqlx::PgPool> = tokio::sync::OnceCell::const_new();
 
@@ -18,7 +18,7 @@ pub enum QueueError {
     #[error("Serialization error")]
     SerializationError(#[from] serde_json::Error),
     #[error("Request Error")]
-    RequestError(#[from] minreq::Error),
+    RequestError(#[from] reqwest::Error),
     #[error("SQLx Error")]
     SqlxError(#[from] sqlx::Error),
 }
@@ -63,19 +63,39 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             let api_key = std::env::var("MAILGUN_API_KEY")
                 .expect("MAILGUN_API_KEY must be set in this app's Lambda environment variables");
 
-            let (status, response) = match minreq::post("https://api.mailgun.net/v3/alerts.console.pagoda.co/messages")
-                .with_header("Authorization", format!("Basic {}", api_key))
-                .with_json(&serde_json::json!({
-                    "from": "no-reply@alerts.console.pagoda.co",
-                    "to": email,
-                    "subject": format!("Alert \"{}\" triggered. See NEAR Explorer for details {}",
-                        delivery_task.alert_message.alert_name,
-                        delivery_task.alert_message.explorer_link(),
-                    )
-                }))?
+            let client = reqwest::Client::new();
+
+            let (status, response) = match client
+                .post("https://api.mailgun.net/v3/alerts.console.pagoda.co/messages")
+                .header(
+                    "Authorization",
+                    format!("Basic {}", base64::encode(api_key.clone())),
+                )
+                .form(&[
+                    ("from", "no-reply@alerts.console.pagoda.co"),
+                    ("to", &email),
+                    (
+                        "subject",
+                        format!(
+                            "Alert \"{}\" is triggered",
+                            delivery_task.alert_message.alert_name
+                        )
+                        .as_str(),
+                    ),
+                    (
+                        "text",
+                        format!(
+                            "Alert \"{}\" triggered. See NEAR Explorer for details {}",
+                            delivery_task.alert_message.alert_name,
+                            delivery_task.alert_message.explorer_link(),
+                        )
+                        .as_str(),
+                    ),
+                ])
                 .send()
+                .await
             {
-                Ok(rsp) => (rsp.status_code, rsp.as_str()?.to_string()),
+                Ok(rsp) => (rsp.status().as_u16() as i32, rsp.text().await?),
                 Err(err) => (-1i32, format!("{}", err)),
             };
 

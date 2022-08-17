@@ -322,14 +322,23 @@ dependencies = [
  "borsh",
  "futures",
  "lambda_runtime",
- "minreq",
  "openssl",
+ "reqwest",
  "serde_json",
  "sqlx",
  "thiserror",
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "encoding_rs"
+version = "0.8.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9852635589dc9f9ea1b6fe9f05b50ef208c85c834a562f0c6abb1c475736ec2b"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
@@ -500,6 +509,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "h2"
+version = "0.3.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ca32592cf21ac7ccab1825cd87f6c9b3d9022c44d086172ed0966bec8af30be"
+dependencies = [
+ "bytes",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "http",
+ "indexmap",
+ "slab",
+ "tokio",
+ "tokio-util",
+ "tracing",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -629,6 +657,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-util",
+ "h2",
  "http",
  "http-body",
  "httparse",
@@ -640,6 +669,32 @@ dependencies = [
  "tower-service",
  "tracing",
  "want",
+]
+
+[[package]]
+name = "hyper-rustls"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d87c48c02e0dc5e3b849a2041db3029fd066650f8f717c07bf8ed78ccb895cac"
+dependencies = [
+ "http",
+ "hyper",
+ "rustls",
+ "tokio",
+ "tokio-rustls",
+]
+
+[[package]]
+name = "hyper-tls"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
+dependencies = [
+ "bytes",
+ "hyper",
+ "native-tls",
+ "tokio",
+ "tokio-native-tls",
 ]
 
 [[package]]
@@ -671,6 +726,12 @@ checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
 dependencies = [
  "cfg-if",
 ]
+
+[[package]]
+name = "ipnet"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "879d54834c8c76457ef4293a689b2a8c59b076067ad77b15efafbb05f92a592b"
 
 [[package]]
 name = "itertools"
@@ -780,25 +841,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
+name = "mime"
+version = "0.3.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a60c7ce501c71e03a9c9c0d35b861413ae925bd979cc7a4e30d060069aaac8d"
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
-name = "minreq"
-version = "2.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c785bc6027fd359756e538541c8624012ba3776d3d3fe123885643092ed4132"
-dependencies = [
- "lazy_static",
- "log",
- "rustls",
- "serde",
- "serde_json",
- "webpki",
- "webpki-roots",
-]
 
 [[package]]
 name = "mio"
@@ -1131,6 +1183,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest"
+version = "0.11.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b75aa69a3f06bbcc66ede33af2af253c6f7a86b1ca0033f60c580a27074fbf92"
+dependencies = [
+ "base64",
+ "bytes",
+ "encoding_rs",
+ "futures-core",
+ "futures-util",
+ "h2",
+ "http",
+ "http-body",
+ "hyper",
+ "hyper-rustls",
+ "hyper-tls",
+ "ipnet",
+ "js-sys",
+ "lazy_static",
+ "log",
+ "mime",
+ "native-tls",
+ "percent-encoding",
+ "pin-project-lite",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "serde_urlencoded",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-rustls",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "webpki-roots",
+ "winreg",
+]
+
+[[package]]
 name = "ring"
 version = "0.16.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1155,6 +1249,15 @@ dependencies = [
  "ring",
  "sct",
  "webpki",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0864aeff53f8c05aa08d86e5ef839d3dfcf07aeba2db32f12db0ef716e87bd55"
+dependencies = [
+ "base64",
 ]
 
 [[package]]
@@ -1238,6 +1341,18 @@ version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b7ce2b32a1aed03c558dc61a5cd328f15aff2dbc17daad8fb8af04d2100e15c"
 dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_urlencoded"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3491c14715ca2294c4d6a88f15e84739788c1d030eed8c110436aafdaa2f3fd"
+dependencies = [
+ "form_urlencoded",
  "itoa",
  "ryu",
  "serde",
@@ -1543,6 +1658,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-rustls"
+version = "0.23.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c43ee83903113e03984cb9e5cebe6c04a5116269e900e3ddba8f068a62adda59"
+dependencies = [
+ "rustls",
+ "tokio",
+ "webpki",
+]
+
+[[package]]
 name = "tokio-stream"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1564,6 +1690,7 @@ dependencies = [
  "futures-sink",
  "pin-project-lite",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1782,6 +1909,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-bindgen-futures"
+version = "0.4.31"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de9a9cec1733468a8c657e57fa2413d2ae2c0129b95e87c5b72b8ace4d13f31f"
+dependencies = [
+ "cfg-if",
+ "js-sys",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "wasm-bindgen-macro"
 version = "0.2.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1913,3 +2052,12 @@ name = "windows_x86_64_msvc"
 version = "0.36.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
+
+[[package]]
+name = "winreg"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
+dependencies = [
+ "winapi",
+]
