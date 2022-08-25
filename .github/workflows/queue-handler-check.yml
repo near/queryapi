@@ -17,6 +17,7 @@ jobs:
           - queue-handler-alertexer
           - webhook-queue-handler
           - telegram-queue-handler
+          - email-queue-handler
     runs-on: ubuntu-latest
 
     steps:
@@ -30,8 +31,9 @@ jobs:
       matrix:
         folder:
           - queue-handler-alertexer
-          # - webhook-queue-handler
-          # - telegram-queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
+          - email-queue-handler
     name: rustfmt
     runs-on: ubuntu-latest
     steps:
@@ -54,8 +56,9 @@ jobs:
       matrix:
         folder:
           - queue-handler-alertexer
-          # - webhook-queue-handler
-          # - telegram-queue-handler
+          - webhook-queue-handler
+          - telegram-queue-handler
+          - email-queue-handler
     name: rustclippy
     runs-on: ubuntu-latest
     steps:

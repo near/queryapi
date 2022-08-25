@@ -66,7 +66,10 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
                 .send()
             {
                 Ok(rsp) => (rsp.status_code, rsp.as_str()?.to_string()),
-                Err(err) => (-1i32, format!("{}", err)),
+                Err(err) => {
+                    eprintln!("{}", err);
+                    (-1i32, format!("{}", err))
+                },
             };
 
             let _res = sqlx::query!(
@@ -79,6 +82,7 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             )
                 .execute(pool)
                 .await;
+            eprintln!("{:?}", _res);
 
             return Ok(());
         }
