@@ -13,6 +13,7 @@ jobs:
           - queue-handler-alertexer
           - webhook-queue-handler
           - telegram-queue-handler
+          - email-queue-handler
 
     steps:
 

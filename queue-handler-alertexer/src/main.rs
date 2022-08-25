@@ -138,6 +138,7 @@ async fn handle_message(
     if let Some(endoded_message) = message.body {
         let decoded_message = base64::decode(endoded_message)?;
         let alert_message = AlertQueueMessage::try_from_slice(&decoded_message)?;
+        eprintln!("{:#?}", &alert_message);
 
         // TODO: decide how to handle this as it is a bad idea to store it in the same DB
         let triggered_alert_id: i32 = loop {
@@ -228,7 +229,7 @@ SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destinatio
                 sqlx::query_as!(
                     EmailDestinationConfig,
                     r#"
-SELECT destination_id as id, email, token FROM email_destinations WHERE destination_id = $1
+SELECT destination_id as id, email, token FROM email_destinations WHERE destination_id = $1 AND is_verified = true
                     "#,
                     destination.destination_id
                 )
