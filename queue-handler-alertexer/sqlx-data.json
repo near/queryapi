@@ -1,5 +1,37 @@
 {
   "db": "PostgreSQL",
+  "08bc25bdbea91599df00f19eac37131b016aada4a1b486c6bafd0ab5c509c9e6": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int4"
+        },
+        {
+          "name": "email",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "token",
+          "ordinal": 2,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Int4"
+        ]
+      }
+    },
+    "query": "\nSELECT destination_id as id, email, token FROM email_destinations WHERE destination_id = $1 AND is_verified = true\n                    "
+  },
   "6b6699b2822831823d5198427f128b11ea5302a390fb54a282ab6a987453861b": {
     "describe": {
       "columns": [
@@ -117,37 +149,5 @@
       }
     },
     "query": "\nSELECT destination_id as id, url, secret FROM webhook_destinations WHERE destination_id = $1\n                "
-  },
-  "f073ef32cd314be3764ecf566283e20c5e55578f893e39cc8372827571920254": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Int4"
-        },
-        {
-          "name": "email",
-          "ordinal": 1,
-          "type_info": "Text"
-        },
-        {
-          "name": "token",
-          "ordinal": 2,
-          "type_info": "Text"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Int4"
-        ]
-      }
-    },
-    "query": "\nSELECT destination_id as id, email, token FROM email_destinations WHERE destination_id = $1\n                    "
   }
 }
