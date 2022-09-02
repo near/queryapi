@@ -79,6 +79,10 @@ pub enum AlertQueueMessagePayload {
         block_hash: BlockHashString,
         receipt_id: ReceiptIdString,
         transaction_hash: TransactionHashString,
+        event: String,
+        standard: String,
+        version: String,
+        data: Option<String>,
     },
     StateChanges {
         block_hash: BlockHashString,

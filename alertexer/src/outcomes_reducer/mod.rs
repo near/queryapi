@@ -4,7 +4,10 @@ use futures::future::try_join_all;
 use near_lake_framework::near_indexer_primitives::IndexerExecutionOutcomeWithReceipt;
 
 use alert_rules::{AlertRule, MatchingRule};
-use shared::alertexer_types::primitives::{AlertQueueMessage, AlertQueueMessagePayload};
+use shared::alertexer_types::{
+    events::Event,
+    primitives::{AlertQueueMessage, AlertQueueMessagePayload},
+};
 
 mod matcher;
 
@@ -49,7 +52,7 @@ async fn build_alert_queue_message(
         payload: build_alert_queue_message_payload(
             alert_rule,
             &transaction_hash,
-            &receipt_execution_outcome.receipt.receipt_id.to_string(),
+            receipt_execution_outcome,
             context,
         ),
     })
@@ -72,24 +75,50 @@ async fn parent_transaction_hash(
 fn build_alert_queue_message_payload(
     alert_rule: &AlertRule,
     transaction_hash: &str,
-    receipt_id: &str,
+    receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     context: &crate::AlertexerContext,
 ) -> AlertQueueMessagePayload {
-    match alert_rule.matching_rule {
+    match &alert_rule.matching_rule {
         MatchingRule::ActionAny { .. }
         | MatchingRule::ActionTransfer { .. }
         | MatchingRule::ActionFunctionCall { .. } => {
             AlertQueueMessagePayload::Actions {
                 block_hash: context.streamer_message.block.header.hash.to_string(),
-                receipt_id: receipt_id.to_string(),
+                receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
                 transaction_hash: transaction_hash.to_string(),
             }
         }
-        MatchingRule::Event { .. } => {
+        MatchingRule::Event { event, standard, version, .. } => {
+            let event = receipt_execution_outcome
+                .execution_outcome
+                .outcome
+                .logs
+                .iter()
+                .filter_map(|log| Event::from_log(log).ok())
+                .filter_map(|near_event| {
+                    if vec![
+                        wildmatch::WildMatch::new(event).matches(&near_event.event),
+                        wildmatch::WildMatch::new(standard).matches(&near_event.standard),
+                        wildmatch::WildMatch::new(version).matches(&near_event.version),
+                    ].into_iter().all(|val| val) {
+                        Some(near_event)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<Event>>()
+                .first()
+                .expect("Failed to get the matched Event itself while building the AlertQueueMessagePayload")
+                .clone();
+
             AlertQueueMessagePayload::Events {
                 block_hash: context.streamer_message.block.header.hash.to_string(),
-                receipt_id: receipt_id.to_string(),
+                receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
                 transaction_hash: transaction_hash.to_string(),
+                event: event.event.clone(),
+                standard: event.standard.clone(),
+                version: event.version.clone(),
+                data: event.data.as_ref().map(|data| data.to_string())
             }
         }
         MatchingRule::StateChangeAccountBalance { .. } => unreachable!("Unreachable code! Got StateChanges based MatchingRule we don't expect in `outcomes` checker"),
