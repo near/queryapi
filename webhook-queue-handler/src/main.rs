@@ -54,6 +54,9 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
     if let Some(endoded_message) = message.body {
         let decoded_message = base64::decode(endoded_message)?;
         let delivery_task = AlertDeliveryTask::try_from_slice(&decoded_message)?;
+
+        tracing::info!("Delivery task received: {:?}", &delivery_task);
+
         if let alertexer_types::primitives::DestinationConfig::Webhook {
             url,
             secret,
@@ -67,7 +70,7 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             {
                 Ok(rsp) => (rsp.status_code, rsp.as_str()?.to_string()),
                 Err(err) => {
-                    eprintln!("{}", err);
+                    tracing::error!("{}", err);
                     (-1i32, format!("{}", err))
                 },
             };
@@ -82,7 +85,7 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             )
                 .execute(pool)
                 .await;
-            eprintln!("{:?}", _res);
+            tracing::debug!("{:?}", _res);
 
             return Ok(());
         }
