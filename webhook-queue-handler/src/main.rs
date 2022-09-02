@@ -96,6 +96,7 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
                 }
                 Err(err) => {
                     tracing::error!("[Skip] Error received from the Webhook:\n{:?}", err);
+
                     (-1i32, format!("{}", err))
                 }
             };
