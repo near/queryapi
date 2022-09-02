@@ -18,7 +18,7 @@ services:
     region: frankfurt
     env: docker
     repo: https://github.com/near/alertexer.git
-    branch: main
+    branch: production
     dockerCommand: ./alertexer testnet from-interruption
     numInstances: 1
     plan: starter
@@ -34,7 +34,7 @@ services:
     region: frankfurt
     env: docker
     repo: https://github.com/near/alertexer.git
-    branch: main
+    branch: production
     dockerCommand: ./alertexer mainnet from-interruption
     numInstances: 1
     plan: starter
