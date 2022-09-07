@@ -31,13 +31,19 @@ pub enum QueueError {
 async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<()>, QueueError> {
     let pool = POOL
         .get_or_init(|| async {
-            connect(
+            match connect(
                 &std::env::var("DATABASE_URL").expect(
                     "A DATABASE_URL must be set in this app's Lambda environment variables.",
                 ),
             )
             .await
-            .unwrap()
+            {
+                Ok(res) => res,
+                Err(err) => {
+                    tracing::error!("Failed to establish DB connection:\n{:?}", err);
+                    panic!("{:?}", err);
+                }
+            }
         })
         .await;
 
@@ -52,8 +58,27 @@ async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<()>, Queue
 
 async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), QueueError> {
     if let Some(endoded_message) = message.body {
-        let decoded_message = base64::decode(endoded_message)?;
-        let delivery_task = AlertDeliveryTask::try_from_slice(&decoded_message)?;
+        let decoded_message = match base64::decode(endoded_message) {
+            Ok(res) => res,
+            Err(err) => {
+                tracing::error!(
+                    "Error during decoding the base64 body of the AlertQueueMessage\n{:?}",
+                    err
+                );
+                panic!("{:?}", err);
+            }
+        };
+        let delivery_task = match AlertDeliveryTask::try_from_slice(&decoded_message) {
+            Ok(res) => {
+                tracing::info!("{:?}", res);
+                res
+            }
+            Err(err) => {
+                tracing::error!("Failed to BorshDeserialize AlertDeliveryTask:\n{:?}", err);
+                panic!("{:?}", err);
+            }
+        };
+
         if let alertexer_types::primitives::DestinationConfig::Email {
             token: _, // TODO: find out what is it for
             email,
@@ -95,8 +120,14 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
                 .send()
                 .await
             {
-                Ok(rsp) => (rsp.status().as_u16() as i32, rsp.text().await?),
-                Err(err) => (-1i32, format!("{}", err)),
+                Ok(rsp) => {
+                    tracing::info!("Email sent:\n{:?}", rsp);
+                    (rsp.status().as_u16() as i32, rsp.text().await?)
+                }
+                Err(err) => {
+                    tracing::error!("[Skip] Error sending an Email:\n{:?}", err);
+                    (-1i32, format!("{}", err))
+                }
             };
 
             let _res = sqlx::query!(
@@ -109,6 +140,12 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             )
                 .execute(pool)
                 .await;
+            if _res.is_err() {
+                tracing::error!(
+                    "[Skip] Error on inserting triggered_alerts_destination info to the DB:\n{:?}",
+                    _res
+                );
+            }
 
             return Ok(());
         }

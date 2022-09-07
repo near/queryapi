@@ -1,11 +1,9 @@
 use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};
-pub use aws_sdk_sqs::{
-    Client as QueueClient, Region,
-};
-use borsh::{BorshSerialize, BorshDeserialize};
+pub use aws_sdk_sqs::{Client as QueueClient, Region};
+use borsh::{BorshDeserialize, BorshSerialize};
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
 
-use alertexer_types::primitives::{AlertQueueMessage};
+use alertexer_types::primitives::AlertQueueMessage;
 
 // use shared::{
 //     QueueClient, Region,
@@ -104,13 +102,18 @@ impl From<EmailDestinationConfig> for alertexer_types::primitives::DestinationCo
 async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<Vec<()>>, QueueError> {
     let pool = POOL
         .get_or_init(|| async {
-            connect(
+            match connect(
                 &std::env::var("DATABASE_URL").expect(
                     "A DATABASE_URL must be set in this app's Lambda environment variables.",
                 ),
             )
-            .await
-            .unwrap()
+            .await {
+                Ok(res) => res,
+                Err(err) => {
+                    tracing::error!("Failed to establish DB connection:\n{:?}", err);
+                    panic!("{:?}", err);
+                }
+            }
         })
         .await;
 
@@ -136,9 +139,26 @@ async fn handle_message(
     client: &QueueClient,
 ) -> Result<Vec<()>, QueueError> {
     if let Some(endoded_message) = message.body {
-        let decoded_message = base64::decode(endoded_message)?;
-        let alert_message = AlertQueueMessage::try_from_slice(&decoded_message)?;
-        eprintln!("{:#?}", &alert_message);
+        let decoded_message = match base64::decode(endoded_message) {
+            Ok(res) => res,
+            Err(err) => {
+                tracing::error!(
+                    "Error during decoding the base64 body of the AlertQueueMessage\n{:?}",
+                    err
+                );
+                panic!("{:?}", err);
+            }
+        };
+        let alert_message = match AlertQueueMessage::try_from_slice(&decoded_message) {
+            Ok(res) => {
+                tracing::info!("{:?}", res);
+                res
+            }
+            Err(err) => {
+                tracing::error!("Failed to BorshDeserialize AlertQueueMessage:\n{:?}", err);
+                panic!("{:?}", err);
+            }
+        };
 
         // TODO: decide how to handle this as it is a bad idea to store it in the same DB
         let triggered_alert_id: i32 = loop {
@@ -152,11 +172,13 @@ async fn handle_message(
             .fetch_one(pool)
             .await {
                 Ok(res) => break res.id,
-                Err(_) => {},
+                Err(err) => {
+                    tracing::error!("[Skip] Failed to record triggered alert data to the DB:\n{:?}", err);
+                },
             }
         };
 
-        let destinations: Vec<Destination> = sqlx::query_as!(Destination,
+        let destinations: Vec<Destination> = match sqlx::query_as!(Destination,
             r#"
 SELECT destinations.id as destination_id, destinations.type as "destination_kind: _" FROM enabled_destinations
 JOIN destinations ON enabled_destinations.destination_id = destinations.id
@@ -166,7 +188,13 @@ WHERE destinations.active = true
             alert_message.alert_rule_id
         )
         .fetch_all(pool)
-        .await?;
+        .await {
+            Ok(res) => res,
+            Err(err) => {
+                tracing::error!("Failed to fetch destination configs for AlertQueueMessage:\n{:?}", err);
+                panic!("{:?}", err);
+            }
+        };
 
         let handle_destination_futures = destinations.into_iter().map(|destination| {
             handle_destination(
@@ -178,7 +206,15 @@ WHERE destinations.active = true
             )
         });
 
-        return Ok(futures::future::try_join_all(handle_destination_futures).await?);
+        let future_results = match futures::future::try_join_all(handle_destination_futures).await {
+            Ok(res) => res,
+            Err(err) => {
+                tracing::error!("Failed to handle destinations:\n{:?}", err);
+                panic!("{:?}", err);
+            }
+        };
+
+        return Ok(future_results);
     }
     Err(QueueError::HandleMessage(
         "SQS message is empty".to_string(),
@@ -193,40 +229,59 @@ async fn handle_destination(
     pool: &sqlx::PgPool,
 ) -> Result<(), QueueError> {
     let queue_url: String;
-    let destination_config: alertexer_types::primitives::DestinationConfig =
-        match &destination.destination_kind {
-            DestinationKind::Webhook => {
-                queue_url = std::env::var("WEBHOOK_QUEUE_URL")
-                    .expect("WEBHOOK_QUEUE_URL is not provided for the lambda");
-                sqlx::query_as!(
-                    WebhookDestinationConfig,
-                    r#"
+    let destination_config: alertexer_types::primitives::DestinationConfig = match &destination
+        .destination_kind
+    {
+        DestinationKind::Webhook => {
+            queue_url = std::env::var("WEBHOOK_QUEUE_URL")
+                .expect("WEBHOOK_QUEUE_URL is not provided for the lambda");
+            match sqlx::query_as!(
+                WebhookDestinationConfig,
+                r#"
 SELECT destination_id as id, url, secret FROM webhook_destinations WHERE destination_id = $1
                 "#,
-                    destination.destination_id
-                )
-                .fetch_one(pool)
-                .await?
-                .into()
+                destination.destination_id
+            )
+            .fetch_one(pool)
+            .await
+            {
+                Ok(res) => res.into(),
+                Err(err) => {
+                    tracing::error!(
+                        "Failed to fetch WebHook destination from the DB:\n{:?}",
+                        err
+                    );
+                    panic!("{:?}", err);
+                }
             }
-            DestinationKind::Telegram => {
-                queue_url = std::env::var("TELEGRAM_QUEUE_URL")
-                    .expect("TELEGRAM_QUEUE_URL is not provided for the lambda");
-                sqlx::query_as!(
-                    TelegramDestinationConfig,
-                    r#"
+        }
+        DestinationKind::Telegram => {
+            queue_url = std::env::var("TELEGRAM_QUEUE_URL")
+                .expect("TELEGRAM_QUEUE_URL is not provided for the lambda");
+            match sqlx::query_as!(
+                TelegramDestinationConfig,
+                r#"
 SELECT destination_id as id, chat_id FROM telegram_destinations WHERE destination_id = $1
                 "#,
-                    destination.destination_id
-                )
-                .fetch_one(pool)
-                .await?
-                .into()
-            },
-            DestinationKind::Email => {
-                queue_url = std::env::var("EMAIL_QUEUE_URL")
-                    .expect("EMAIL_QUEUE_URL is not provided for the lambda");
-                sqlx::query_as!(
+                destination.destination_id
+            )
+            .fetch_one(pool)
+            .await
+            {
+                Ok(res) => res.into(),
+                Err(err) => {
+                    tracing::error!(
+                        "Failed to fetch Telegram destination from the DB:\n{:?}",
+                        err
+                    );
+                    panic!("{:?}", err);
+                }
+            }
+        }
+        DestinationKind::Email => {
+            queue_url = std::env::var("EMAIL_QUEUE_URL")
+                .expect("EMAIL_QUEUE_URL is not provided for the lambda");
+            match sqlx::query_as!(
                     EmailDestinationConfig,
                     r#"
 SELECT destination_id as id, email, token FROM email_destinations WHERE destination_id = $1 AND is_verified = true
@@ -234,10 +289,15 @@ SELECT destination_id as id, email, token FROM email_destinations WHERE destinat
                     destination.destination_id
                 )
                 .fetch_one(pool)
-                .await?
-                .into()
-            },
-        };
+                .await {
+                    Ok(res) => res.into(),
+                    Err(err) => {
+                        tracing::error!("Failed to fetch Email destination from the DB:\n{:?}", err);
+                        panic!("{:?}", err);
+                    }
+                }
+        }
+    };
 
     let alert_delivery_task = alertexer_types::primitives::AlertDeliveryTask {
         triggered_alert_id,
@@ -252,8 +312,8 @@ SELECT destination_id as id, email, token FROM email_destinations WHERE destinat
         .send()
         .await
     {
-        Ok(rsp) => eprintln!("Response from sending a message: {:#?}", rsp),
-        Err(err) => eprintln!("Error {:#?}", err),
+        Ok(rsp) => tracing::info!("Response from sending a message: {:?}", rsp),
+        Err(err) => tracing::error!("Failed to send a message further {:?}", err),
     };
 
     Ok(())

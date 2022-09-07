@@ -1,7 +1,7 @@
+use alertexer_types::primitives::AlertDeliveryTask;
 use aws_lambda_events::event::sqs::{SqsEvent, SqsMessage};
 use borsh::BorshDeserialize;
 use lambda_runtime::{run, service_fn, Error, LambdaEvent};
-use alertexer_types::primitives::AlertDeliveryTask;
 
 static POOL: tokio::sync::OnceCell<sqlx::PgPool> = tokio::sync::OnceCell::const_new();
 
@@ -31,13 +31,19 @@ pub enum QueueError {
 async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<()>, QueueError> {
     let pool = POOL
         .get_or_init(|| async {
-            connect(
+            match connect(
                 &std::env::var("DATABASE_URL").expect(
                     "A DATABASE_URL must be set in this app's Lambda environment variables.",
                 ),
             )
             .await
-            .unwrap()
+            {
+                Ok(res) => res,
+                Err(err) => {
+                    tracing::error!("Failed to establish DB connection:\n{:?}", err);
+                    panic!("{:?}", err);
+                }
+            }
         })
         .await;
 
@@ -52,10 +58,26 @@ async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<()>, Queue
 
 async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), QueueError> {
     if let Some(endoded_message) = message.body {
-        let decoded_message = base64::decode(endoded_message)?;
-        let delivery_task = AlertDeliveryTask::try_from_slice(&decoded_message)?;
-
-        tracing::info!("Delivery task received: {:?}", &delivery_task);
+        let decoded_message = match base64::decode(endoded_message) {
+            Ok(res) => res,
+            Err(err) => {
+                tracing::error!(
+                    "Error during decoding the base64 body of the AlertQueueMessage\n{:?}",
+                    err
+                );
+                panic!("{:?}", err);
+            }
+        };
+        let delivery_task = match AlertDeliveryTask::try_from_slice(&decoded_message) {
+            Ok(res) => {
+                tracing::info!("{:?}", res);
+                res
+            }
+            Err(err) => {
+                tracing::error!("Failed to BorshDeserialize AlertDeliveryTask:\n{:?}", err);
+                panic!("{:?}", err);
+            }
+        };
 
         if let alertexer_types::primitives::DestinationConfig::Webhook {
             url,
@@ -68,11 +90,14 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
                 .with_json(&delivery_task.alert_message)?
                 .send()
             {
-                Ok(rsp) => (rsp.status_code, rsp.as_str()?.to_string()),
+                Ok(rsp) => {
+                    tracing::info!("WebHook response:\n{:?}", rsp);
+                    (rsp.status_code, rsp.as_str()?.to_string())
+                }
                 Err(err) => {
-                    tracing::error!("{}", err);
+                    tracing::error!("[Skip] Error received from the Webhook:\n{:?}", err);
                     (-1i32, format!("{}", err))
-                },
+                }
             };
 
             let _res = sqlx::query!(
@@ -85,7 +110,12 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             )
                 .execute(pool)
                 .await;
-            tracing::debug!("{:?}", _res);
+            if _res.is_err() {
+                tracing::error!(
+                    "[Skip] Error on inserting triggered_alerts_destination info to the DB:\n{:?}",
+                    _res
+                );
+            }
 
             return Ok(());
         }
