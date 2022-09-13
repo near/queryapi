@@ -68,7 +68,7 @@ fn match_action_function_call(
         if let ReceiptEnumView::Action { actions, .. } = &outcome_with_receipt.receipt.receipt {
             let is_any_matching_function_call = actions.iter().any(|action| {
                 if let ActionView::FunctionCall { method_name, .. } = action {
-                    method_name == function
+                    wildmatch::WildMatch::new(function).matches(method_name)
                 } else {
                     false
                 }
