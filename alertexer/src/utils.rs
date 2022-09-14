@@ -30,6 +30,7 @@ pub(crate) async fn fetch_alert_rules(
     )
     .await?
     .into_iter()
+    .filter(|alert_rules| !alert_rules.is_paused)
     .map(|alert_rule| (alert_rule.id, alert_rule))
     .collect())
 }
