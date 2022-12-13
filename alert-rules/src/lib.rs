@@ -61,7 +61,7 @@ WHERE alert_rule_kind = $1 AND chain_id = $2
                         chain_id: row.chain_id,
                         alert_rule_kind: row.alert_rule_kind,
                         is_paused: row.is_paused,
-                        updated_at: row.updated_at,
+                        updated_at: Some(row.updated_at),
                         matching_rule,
                     })
                 } else {

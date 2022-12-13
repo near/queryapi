@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Starting the Alert Rules fetcher...");
     let pool = utils::establish_alerts_db_connection(&opts.database_url).await;
 
-    // Prevent indexer from start indexing unless we connect and get AlerRules from the DB
+    // Prevent indexer from start indexing unless we connect and get AlertRules from the DB
     let alert_rules = loop {
         match utils::fetch_alert_rules(&pool, chain_id).await {
             Ok(alert_rules_tuples) => break alert_rules_tuples,

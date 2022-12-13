@@ -30,7 +30,7 @@ CREATE TABLE destinations (
     id serial PRIMARY KEY,
     name text NOT NULL,
     active bool NOT NULL DEFAULT true,
-    type notification_channel_kind NOT NULL
+    type destination_type NOT NULL
 );
 
 CREATE TABLE enabled_destinations (
