@@ -59,5 +59,11 @@ GRANT ALL PRIVILEGES ON DATABASE alerts TO alerts;
 ```
  * Update the `.env` file with the database credentials you just set. `host.docker.internal` as the hostname will point to your local host machine. 
  * Run [schema.sql](./alert-rules/schema.sql) against your alerts DB to create the alert rules tables.
+ * Grant table privileges to the DB user
+```
+psql
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO alerts;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO alerts;
+```
  * _Install docker locally if not already present._
  * Run `docker compose up`
