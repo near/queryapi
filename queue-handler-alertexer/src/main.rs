@@ -43,6 +43,7 @@ enum DestinationKind {
     Webhook,
     Telegram,
     Email,
+    Aggregation
 }
 
 #[derive(sqlx::FromRow, Debug)]
@@ -63,6 +64,13 @@ struct EmailDestinationConfig {
     id: i32,
     email: String,
     token: Option<String>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+struct AggregationDestinationConfig {
+    id: i32,
+    contract_name: String,
+    function_name: String,
 }
 
 impl From<WebhookDestinationConfig> for alertexer_types::primitives::DestinationConfig {
@@ -90,6 +98,16 @@ impl From<EmailDestinationConfig> for alertexer_types::primitives::DestinationCo
             destination_id: email_destination_config.id,
             email: email_destination_config.email,
             token: email_destination_config.token,
+        }
+    }
+}
+
+impl From<AggregationDestinationConfig> for alertexer_types::primitives::DestinationConfig {
+    fn from(aggregation_destination_config: AggregationDestinationConfig) -> Self {
+        Self::Aggregation {
+            destination_id: aggregation_destination_config.id,
+            contract_name: aggregation_destination_config.contract_name,
+            function_name: aggregation_destination_config.function_name,
         }
     }
 }
@@ -296,6 +314,29 @@ SELECT destination_id as id, email, token FROM email_destinations WHERE destinat
                         panic!("{:?}", err);
                     }
                 }
+        }
+        DestinationKind::Aggregation => {
+            queue_url = std::env::var("AGGREGATION_QUEUE_URL")
+                .expect("AGGREGATION_QUEUE_URL is not provided for the lambda");
+            match sqlx::query_as!(
+                    AggregationDestinationConfig,
+                    r#"
+    SELECT destination_id as id, contract_name, function_name FROM aggregation_destinations WHERE destination_id = $1
+                    "#,
+                    destination.destination_id
+                )
+                .fetch_one(pool)
+                .await
+            {
+                Ok(res) => res.into(),
+                Err(err) => {
+                    tracing::error!(
+                            "Failed to fetch Aggregation destination from the DB:\n{:?}",
+                            err
+                        );
+                    panic!("{:?}", err);
+                }
+            }
         }
     };
 

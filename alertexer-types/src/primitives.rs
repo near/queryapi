@@ -174,4 +174,9 @@ pub enum DestinationConfig {
         email: String,
         token: Option<String>,
     },
+    Aggregation {
+        destination_id: i32,
+        contract_name: String,
+        function_name: String,
+    }
 }

@@ -71,7 +71,6 @@ CREATE TABLE "webhook_destinations" (
     CONSTRAINT "webhook_destinations_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "email_destinations" (
     "id" SERIAL NOT NULL,
     "destination_id" INTEGER NOT NULL,
@@ -88,7 +87,6 @@ CREATE TABLE "email_destinations" (
     CONSTRAINT "email_destinations_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "telegram_destinations" (
     "id" SERIAL NOT NULL,
     "destination_id" INTEGER NOT NULL,
@@ -105,7 +103,6 @@ CREATE TABLE "telegram_destinations" (
     CONSTRAINT "telegram_destinations_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "triggered_alerts" (
     "id" SERIAL NOT NULL,
     "slug" TEXT NOT NULL DEFAULT gen_random_uuid(),
@@ -119,7 +116,6 @@ CREATE TABLE "triggered_alerts" (
     CONSTRAINT "triggered_alerts_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
 CREATE TABLE "triggered_alerts_destinations" (
     "triggered_alert_id" INTEGER NOT NULL,
     "alert_id" INTEGER NOT NULL,
@@ -131,51 +127,53 @@ CREATE TABLE "triggered_alerts_destinations" (
     CONSTRAINT "triggered_alerts_destinations_pkey" PRIMARY KEY ("triggered_alert_id","alert_id","destination_id")
 );
 
--- CreateIndex
 CREATE UNIQUE INDEX "enabled_destinations_destination_id_alert_id_key" ON "enabled_destinations"("destination_id", "alert_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "webhook_destinations_destination_id_key" ON "webhook_destinations"("destination_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "email_destinations_destination_id_key" ON "email_destinations"("destination_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "email_destinations_token_key" ON "email_destinations"("token");
 
--- CreateIndex
 CREATE UNIQUE INDEX "email_destinations_unsubscribe_token_key" ON "email_destinations"("unsubscribe_token");
 
--- CreateIndex
 CREATE UNIQUE INDEX "telegram_destinations_destination_id_key" ON "telegram_destinations"("destination_id");
 
--- CreateIndex
 CREATE UNIQUE INDEX "telegram_destinations_start_token_key" ON "telegram_destinations"("start_token");
 
--- AddForeignKey
 ALTER TABLE "enabled_destinations" ADD CONSTRAINT "enabled_destinations_alert_id_fkey" FOREIGN KEY ("alert_id") REFERENCES "alert_rules"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "enabled_destinations" ADD CONSTRAINT "enabled_destinations_destination_id_fkey" FOREIGN KEY ("destination_id") REFERENCES "destinations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "webhook_destinations" ADD CONSTRAINT "webhook_destinations_destination_id_fkey" FOREIGN KEY ("destination_id") REFERENCES "destinations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "email_destinations" ADD CONSTRAINT "email_destinations_destination_id_fkey" FOREIGN KEY ("destination_id") REFERENCES "destinations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "telegram_destinations" ADD CONSTRAINT "telegram_destinations_destination_id_fkey" FOREIGN KEY ("destination_id") REFERENCES "destinations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "triggered_alerts" ADD CONSTRAINT "triggered_alerts_alert_id_fkey" FOREIGN KEY ("alert_id") REFERENCES "alert_rules"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "triggered_alerts_destinations" ADD CONSTRAINT "triggered_alerts_destinations_alert_id_fkey" FOREIGN KEY ("alert_id") REFERENCES "alert_rules"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "triggered_alerts_destinations" ADD CONSTRAINT "triggered_alerts_destinations_destination_id_fkey" FOREIGN KEY ("destination_id") REFERENCES "destinations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- AddForeignKey
 ALTER TABLE "triggered_alerts_destinations" ADD CONSTRAINT "triggered_alerts_destinations_triggered_alert_id_fkey" FOREIGN KEY ("triggered_alert_id") REFERENCES "triggered_alerts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
+ALTER TYPE "destination_type" ADD VALUE 'AGGREGATION';
+
+CREATE TABLE "aggregation_destinations" (
+    "id" SERIAL NOT NULL,
+    "destination_id" INTEGER NOT NULL,
+    "contract_name" TEXT NOT NULL,
+    "function_name" TEXT NOT NULL,
+    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    "created_by" INTEGER,
+    "updated_at" TIMESTAMPTZ,
+    "updated_by" INTEGER,
+
+    CONSTRAINT "aggregation_destinations_pkey" PRIMARY KEY ("id")
+);
+
+CREATE UNIQUE INDEX "aggregation_destinations_destination_id_key" ON "aggregation_destinations"("destination_id");
+
+ALTER TABLE "aggregation_destinations" ADD CONSTRAINT "aggregation_destinations_destination_id_fkey" FOREIGN KEY ("destination_id") REFERENCES "destinations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
