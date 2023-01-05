@@ -27,6 +27,3 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"] }
 
 alertexer-types = { path = "../alertexer-types" }
-
-[package.metadata.lambda.env]
-DATABASE_URL="postgres://data_alerts_indexer:9xJrHY3DCUC5Zx@localhost/alerts"
