@@ -25,5 +25,14 @@ thiserror = "1.0.31"
 tokio = { version = "1", features = ["macros", "parking_lot", "sync"] }
 tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"] }
+near-primitives = "0.15.0"
+near-jsonrpc-client = "0.4.1"
+near-jsonrpc-primitives = "0.15.0"
+near-crypto = "0.15.0"
 
 alertexer-types = { path = "../alertexer-types" }
+
+[package.metadata.lambda.env]
+DATABASE_URL="postgres://alerts:YOUR_PASSWORD@localhost/alerts"
+INVOKING_ACCOUNT_ID="buildnear.testnet"
+INVOKING_PRIVATE_KEY="ed25519:Local testing can be done with a private key - don't commit it!"

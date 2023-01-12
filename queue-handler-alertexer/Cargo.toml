@@ -28,3 +28,9 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"] }
 
 alertexer-types = { path = "../alertexer-types" }
+
+[package.metadata.lambda.env]
+DATABASE_URL="postgres://alerts:YOUR_PASSWORD@localhost/alerts"
+AWS_ACCESS_KEY_ID="local lambda Access Key"
+AWS_SECRET_ACCESS_KEY="local lambda secret key"
+AGGREGATION_QUEUE_URL="https://sqs.eu-central-1.amazonaws.com/754641474505/gabe-alertexer-aggregations"
