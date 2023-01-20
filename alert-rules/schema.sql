@@ -58,25 +58,6 @@ CREATE TABLE "enabled_destinations" (
     CONSTRAINT "enabled_destinations_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "webhook_destinations" (
-    "id" SERIAL NOT NULL,
-    "destination_id" INTEGER NOT NULL,
-    "url" TEXT NOT NULL,
-    "secret" TEXT NOT NULL,
-);
-
-CREATE TABLE "enabled_destinations" (
-    "id" SERIAL NOT NULL,
-    "alert_id" INTEGER NOT NULL,
-    "destination_id" INTEGER NOT NULL,
-    "created_at" TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    "created_by" INTEGER,
-    "updated_at" TIMESTAMPTZ,
-    "updated_by" INTEGER,
-
-    CONSTRAINT "webhook_destinations_pkey" PRIMARY KEY ("id")
-);
-
 CREATE TABLE "email_destinations" (
     "id" SERIAL NOT NULL,
     "destination_id" INTEGER NOT NULL,
@@ -85,7 +66,7 @@ CREATE TABLE "email_destinations" (
     "is_verified" BOOLEAN NOT NULL DEFAULT false,
     "token_expires_at" TIMESTAMPTZ,
     "unsubscribe_token" TEXT,
-    CONSTRAINT "enabled_destinations_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "email_destinations_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "webhook_destinations" (
@@ -98,7 +79,8 @@ CREATE TABLE "webhook_destinations" (
     "updated_at" TIMESTAMPTZ,
     "updated_by" INTEGER,
     "token_created_at" TIMESTAMPTZ,
-    CONSTRAINT "email_destinations_pkey" PRIMARY KEY ("id")
+
+    CONSTRAINT "webhook_destinations_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "telegram_destinations" (
