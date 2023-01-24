@@ -62,6 +62,7 @@ GRANT ALL PRIVILEGES ON DATABASE alerts TO alerts;
  * Grant table privileges to the DB user
 ```
 psql
+GRANT USAGE ON SCHEMA public TO alerts;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO alerts;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO alerts;
 ```

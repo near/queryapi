@@ -89,23 +89,8 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
             println!("Aggregation received with indexer_name: {} and indexer_function_code: {}", indexer_name, indexer_function_code);
             let status = 200;
             let response = "test response";
-            // // rewrite
-            // let (status, response) = match minreq::post(&url)
-            //     .with_header("Authorization", format!("Bearer {}", secret))
-            //     .with_json(&delivery_task.alert_message)?
-            //     .send()
-            // {
-            //     Ok(rsp) => {
-            //         tracing::info!("Aggregation response:\n{:?}", rsp);
-            //         (rsp.status_code, rsp.as_str()?.to_string())
-            //     }
-            //     Err(err) => {
-            //         tracing::error!("[Skip] Error received from the Aggregation:\n{:?}", err);
-            //         (-1i32, format!("{}", err))
-            //     }
-            // };
-            //
-            // // end rewrite
+
+
 
             let _res = sqlx::query!(
                 "INSERT INTO triggered_alerts_destinations (triggered_alert_id, alert_id, destination_id, status, response, created_at) VALUES ($1, $2, $3, $4, $5, now())",
