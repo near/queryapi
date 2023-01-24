@@ -69,8 +69,8 @@ struct EmailDestinationConfig {
 #[derive(sqlx::FromRow, Debug)]
 struct AggregationDestinationConfig {
     id: i32,
-    contract_name: String,
-    function_name: String,
+    indexer_name: String,
+    indexer_function_code: String,
 }
 
 impl From<WebhookDestinationConfig> for alertexer_types::primitives::DestinationConfig {
@@ -106,8 +106,8 @@ impl From<AggregationDestinationConfig> for alertexer_types::primitives::Destina
     fn from(aggregation_destination_config: AggregationDestinationConfig) -> Self {
         Self::Aggregation {
             destination_id: aggregation_destination_config.id,
-            contract_name: aggregation_destination_config.contract_name,
-            function_name: aggregation_destination_config.function_name,
+            indexer_name: aggregation_destination_config.indexer_name,
+            indexer_function_code: aggregation_destination_config.indexer_function_code,
         }
     }
 }
@@ -321,7 +321,7 @@ SELECT destination_id as id, email, token FROM email_destinations WHERE destinat
             match sqlx::query_as!(
                     AggregationDestinationConfig,
                     r#"
-    SELECT destination_id as id, contract_name, function_name FROM aggregation_destinations WHERE destination_id = $1
+    SELECT destination_id as id, indexer_name, indexer_function_code FROM aggregation_destinations WHERE destination_id = $1
                     "#,
                     destination.destination_id
                 )

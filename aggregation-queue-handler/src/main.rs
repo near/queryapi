@@ -80,13 +80,13 @@ async fn handle_message(message: SqsMessage, pool: &sqlx::PgPool) -> Result<(), 
         };
 
         if let alertexer_types::primitives::DestinationConfig::Aggregation {
-            contract_name,
-            function_name,
+            indexer_name,
+            indexer_function_code,
             destination_id,
         } = delivery_task.destination_config
         {
 
-            println!("Aggregation received with contract_name: {} and function_name: {}", contract_name, function_name);
+            println!("Aggregation received with indexer_name: {} and indexer_function_code: {}", indexer_name, indexer_function_code);
             let status = 200;
             let response = "test response";
             // // rewrite

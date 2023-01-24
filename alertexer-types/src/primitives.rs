@@ -176,7 +176,7 @@ pub enum DestinationConfig {
     },
     Aggregation {
         destination_id: i32,
-        contract_name: String,
-        function_name: String,
+        indexer_name: String,
+        indexer_function_code: String,
     }
 }
