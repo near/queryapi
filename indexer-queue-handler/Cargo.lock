@@ -3,26 +3,6 @@
 version = 3
 
 [[package]]
-name = "aggregation-queue-handler"
-version = "0.1.0"
-dependencies = [
- "alertexer-types",
- "aws_lambda_events",
- "base64",
- "borsh",
- "futures",
- "lambda_runtime",
- "minreq",
- "openssl",
- "serde_json",
- "sqlx",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "ahash"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -626,6 +606,26 @@ dependencies = [
  "matches",
  "unicode-bidi",
  "unicode-normalization",
+]
+
+[[package]]
+name = "indexer-queue-handler"
+version = "0.1.0"
+dependencies = [
+ "alertexer-types",
+ "aws_lambda_events",
+ "base64",
+ "borsh",
+ "futures",
+ "lambda_runtime",
+ "minreq",
+ "openssl",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

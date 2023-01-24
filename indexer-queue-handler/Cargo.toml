@@ -1,5 +1,5 @@
 [package]
-name = "aggregation-queue-handler"
+name = "indexer-queue-handler"
 version = "0.1.0"
 edition = "2021"
 

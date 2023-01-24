@@ -1,7 +1,7 @@
 ## General
 
-A Queue handler for Aggregation destinations. 
-Development Status: Prints arguments for debugging, needs real functionality added to invoke aggregation functions pulled from contract.
+A Queue handler for indexer destinations. 
+Development Status: Prints arguments for debugging, needs real functionality added to invoke indexer functions pulled from contract.
 
 - [**Queue-handler Concept description**](../docs/QUEUE_HANDLER_CONCEPT.md)
 
@@ -27,10 +27,10 @@ $ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/lambda-alertexer
 
 **Production:**
 ```
-$ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer production-aggregation-queue-handler
+$ cargo lambda deploy --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer production-indexer-queue-handler
 ```
 
-It is deployed as [`aggregation-queue-handler` on AWS](https://eu-central-1.console.aws.amazon.com/lambda/home?region=eu-central-1#/functions/aggregation-queue-handler)
+It is deployed as [`indexer-queue-handler` on AWS](https://eu-central-1.console.aws.amazon.com/lambda/home?region=eu-central-1#/functions/indexer-queue-handler)
 
 ## Environmental variables required
 
