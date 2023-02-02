@@ -1,0 +1,23 @@
+{
+  "name": "queryapi",
+  "version": "1.0.0",
+  "description": "Demo version of QueryApi IndexerFunction runner AWS Lambda function",
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest",
+    "deploy": "sls deploy",
+    "remove": "sls remove",
+    "lift": "sls lift"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.0.0",
+    "near-api-js": "1.1.0",
+    "vm2": "^3.9.13"
+  },
+  "devDependencies": {
+    "jest": "^29.4.1",
+    "serverless-lift": "^1.1.2"
+  }
+}
