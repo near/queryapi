@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model posts {
+  id           Int          @id @default(autoincrement())
+  account_id   String       @db.VarChar
+  block_height Decimal      @db.Decimal(58, 0)
+  content      String
+  comments     comments[]
+  post_likes   post_likes[]
+
+  @@unique([account_id, block_height])
+}
+
+model comments {
+  id           Int     @id @default(autoincrement())
+  post_id      Int     @default(autoincrement())
+  account_id   String  @db.VarChar
+  block_height Decimal @db.Decimal(58, 0)
+  content      String
+  posts        posts   @relation(fields: [post_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([post_id, account_id, block_height])
+}
+
+model post_likes {
+  post_id      Int      @default(autoincrement())
+  account_id   String   @db.VarChar
+  block_height Decimal? @db.Decimal(58, 0)
+  posts        posts    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([post_id, account_id])
+}
