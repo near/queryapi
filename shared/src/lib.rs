@@ -115,7 +115,7 @@ impl Opts {
     pub fn queue_aws_sdk_config(&self) -> aws_types::sdk_config::SdkConfig {
         aws_types::sdk_config::SdkConfig::builder()
             .credentials_provider(self.queue_credentials())
-            .region(aws_types::region::Region::new("eu-central-1"))
+            .region(aws_types::region::Region::new("us-west-2"))
             .build()
     }
 
