@@ -55,6 +55,7 @@ async fn build_alert_queue_message(
             receipt_execution_outcome,
             context,
         ),
+        block_height: context.streamer_message.block.header.height,
     })
 }
 

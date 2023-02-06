@@ -15,6 +15,7 @@ pub struct AlertQueueMessage {
     pub alert_rule_id: i32,
     pub alert_name: String,
     pub payload: AlertQueueMessagePayload,
+    pub block_height: u64,
 }
 
 impl AlertQueueMessage {
@@ -69,6 +70,7 @@ impl AlertQueueMessage {
     Clone,
     Debug,
 )]
+// todo add block height
 pub enum AlertQueueMessagePayload {
     Actions {
         block_hash: BlockHashString,

@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         folder:
-          - queue-handler-alertexer
+          - queue-handler-queryapi
           - webhook-queue-handler
           - telegram-queue-handler
           - email-queue-handler

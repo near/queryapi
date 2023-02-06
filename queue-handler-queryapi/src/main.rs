@@ -136,7 +136,7 @@ async fn function_handler(event: LambdaEvent<SqsEvent>) -> Result<Vec<Vec<()>>, 
         .await;
 
     let shared_config = aws_config::from_env()
-        .region(Region::new("eu-central-1"))
+        .region(Region::new("us-west-2"))
         .load()
         .await;
 
@@ -349,7 +349,8 @@ SELECT destination_id as id, email, token FROM email_destinations WHERE destinat
     match client
         .send_message()
         .queue_url(queue_url)
-        .message_body(base64::encode(alert_delivery_task.try_to_vec()?))
+        // alert_delivery_task as json
+        .message_body(serde_json::to_string(&alert_delivery_task)?) // was  base64::encode(alert_delivery_task.try_to_vec()?))
         .send()
         .await
     {

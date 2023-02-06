@@ -1,5 +1,5 @@
 [package]
-name = "queue-handler-alertexer"
+name = "queue-handler-queryapi"
 version = "0.1.0"
 edition = "2021"
 
