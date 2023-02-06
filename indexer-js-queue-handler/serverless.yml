@@ -1,0 +1,30 @@
+#org: pagoda
+#app: queryapi
+service: queryapi
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  region: us-west-2
+#  cfnRole: arn:aws:iam::754641474505:role/queryapi-cloudformation
+
+constructs:
+  jobs:
+    type: queue
+    worker:
+      handler: handler.consumer
+
+functions:
+#  producer:
+#    handler: handler.producer
+#    events:
+#      - httpApi:
+#          method: post
+#          path: /produce
+#    environment:
+#      QUEUE_URL: ${construct:jobs.queueUrl}
+
+plugins:
+  - serverless-lift
+#  - serverless-offline

@@ -1,11 +1,32 @@
 # Query API Node SQS Consumer on AWS using Serverless Framework
 Consume indexer queue that has been populated by queryapi-mvp/queue-handler-alertexer.
 `handler.js` is the entry point for the Lambda function.
-`indexer.js` has the main indexing logic.
+`indexer.js` has the indexing logic.
+
+### Operation and Testing
+ * You can write an indexer in the Data Indexing tab of a new NEAR Social (testnet) widget here https://near-social-query-api-demo.vercel.app/#/edit/
+ * Fastest indexer iteration is to use call `runFunctions` in `src/indexer.test.js` by hardcoding your functino
+as the first test in that file does.  
+
+### Deployment
+`queue-handler-queryapi` is deployed with `cargo lambda deploy` to  https://us-west-2.console.aws.amazon.com/lambda/home?region=us-west-2#/functions/queue-handler-queryapi
+It has two env vars set: 
+ * `DATABASE_URL` which needs to be set to the database url for the queryapi (alertexer based) database 
+ * `AGGREGATION_QUEUE_URL` with value https://sqs.us-west-2.amazonaws.com/754641474505/queryapi-dev-jobs
+
+`indexer-js-queue-handler` is deployed with `sls deploy --stage dev` to https://us-west-2.console.aws.amazon.com/lambda/home?region=us-west-2#/functions/queryapi-dev-jobsWorker
+ * Logs are here https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fqueryapi-dev-jobsWorker
+
 
 
 ## VM2 Sandbox notes
 https://www.npmjs.com/package/vm2
+
+Supports requiring modules.
+Uses `freeze` to prevent modification of the injected objects.
+
+Notes on Features that are not in use:
+
 `const vm = new VM({sandbox: {changeableObject: {}}});` sandbox values allow full mutability of the object
 
 The last statement in the sandboxed code is returned. We are using a passed in object for the return value but have the
@@ -16,14 +37,18 @@ const vmResult = vm.run(modifiedFunction);
 console.log(vmResult);
 ```
 
-**Security Testing for Modifiability**
+**Notes on Security Testing for Modifiability**
 Indexer function contains `mutationsReturnValue['hack'] = function() {return 'bad'}`
 `console.log(vmResult.hack);`
 The `freeze` function is used to prevent modification of the injected objects.
 
 
+----
 
 ## Serverless framework SQS template
+Note: the producer function described below has been removed.
+
+
 
 This template defines one function `producer` and one Lift construct - `jobs`. The producer function is triggered by `http` event type, accepts JSON payloads and sends it to a SQS queue for asynchronous processing. The SQS queue is created by the `jobs` queue construct of the Lift plugin. The queue is set up with a "dead-letter queue" (to receive failed messages) and a `worker` Lambda function that processes the SQS messages.
 
@@ -36,7 +61,7 @@ To learn more:
 
 ### Deployment
 ```
-sls deploy --stage dev --aws-profile serverless-deploy`
+sls deploy --stage dev --aws-profile serverless-deploy
 ```
 
 After running deploy, you should see output similar to:

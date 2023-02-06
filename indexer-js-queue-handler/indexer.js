@@ -1,45 +1,37 @@
-import { connect, keyStores, WalletConnection } from "near-api-js";
+import { connect } from "near-api-js";
 import { VM } from 'vm2';
+import AWS from 'aws-sdk';
 
 export default class Indexer {
-    // TODO require fetch library in VM to allow implementation of imperative version
-    async run() {
-        const functions = await this.fetchIndexerFunctions();
 
-        // TODO parse SQS message
-
-        // TODO fetch block from S3 based on block_height
-
-        const block = {block: {height: 456}}; // mockblock
-
-        // TODO only execute function specified in AlertMessage
-
-        // execute each indexer function against the current block
-        await this.runFunctions(block, functions);
-
+    constructor(network, aws_region) {
+        this.network = network;
+        this.aws_region = aws_region;
     }
 
     async runFunctions(block, functions) {
 
         const allMutations = {}; // track output for tests and logging
 
+        const blockWithHelpers = this.addHelperFunctionsToBlock(block);
+
+        // TODO only execute function specified in AlertMessage - blocked on filtering changes
         for (const key in functions) {
-            console.log(functions[key]);  // debug output
+            console.log('Running function', functions[key]);  // debug output
             try {
                 const vm = new VM();
-                const context = {};
                 const mutationsReturnValue = {};
-                context.set = function (key, value) {
-                    mutationsReturnValue[key] = value
-                };
-                vm.freeze(block, 'streamerMessage');
+                const context = this.buildFunctionalContextForFunction(key, mutationsReturnValue);
+                //const context = this.buildImperativeContextForFunction(key, vm);
+
+                vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
-                const modifiedFunction = functions[key]; // no transformations yet to the developer supplied code
+                const modifiedFunction = this.transformIndexerFunction(functions[key]);
                 vm.run(modifiedFunction);
 
-                console.log(mutationsReturnValue); // debug output
+                console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
                 const graphqlMutationList = await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
                 allMutations[key] = graphqlMutationList;
             } catch (e) {
@@ -50,6 +42,7 @@ export default class Indexer {
         return allMutations;
     }
 
+    // TODO use new GraphQL structure if schema is present
     async writeMutations(functionName, mutations) {
         const mutationList = [];
         try {
@@ -105,5 +98,47 @@ export default class Indexer {
         const stringResult = Buffer.from(response.result).toString();
         const functions = JSON.parse(stringResult);
         return functions;
+    }
+
+    // TODO fetch chunks as well
+    // fetch block from S3 based on block_height
+    async fetchBlock(block_height) {
+        const file = 'block.json';
+        const folder = block_height.toString().padStart(12, '0'); // pad with 0s to 12 digits
+        const params = {
+            Bucket: 'near-lake-data-' + this.network,
+            Key: `${folder}/${file}`,
+        };
+        const s3 = new AWS.S3({region: this.aws_region});
+        const response = await s3.getObject(params).promise();
+        const block = JSON.parse(response.Body.toString());
+        return block;
+    }
+
+    // no transformations yet to the developer supplied code
+    transformIndexerFunction(indexerFunction) {
+        return indexerFunction;
+    }
+
+    // TODO Implement
+    addHelperFunctionsToBlock(block) {
+        return block;
+    }
+
+    buildFunctionalContextForFunction(key, mutationsReturnValue) {
+        const context = {};
+        context.set = function (key, value) {
+            mutationsReturnValue[key] = value
+        };
+        return context;
+    }
+
+    // TODO Implement
+    buildImperativeContextForFunction(key, vm) {
+        const context = {};
+
+        // TODO require fetch library (or prisma) in VM to allow implementation of imperative version
+
+        return context;
     }
 }
