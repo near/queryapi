@@ -4,9 +4,18 @@ import AWS from 'aws-sdk';
 
 export default class Indexer {
 
-    constructor(network, aws_region) {
+    constructor(
+        network,
+        aws_region,
+        deps
+    ) {
         this.network = network;
         this.aws_region = aws_region;
+        this.deps = {
+            fetch,
+            s3: new AWS.S3({ region: aws_region }),
+            ...deps,
+        };
     }
 
     async runFunctions(block, functions) {
@@ -54,7 +63,7 @@ export default class Indexer {
                 const mutation = `mutation { set(functionName: \"${functionName}\", key: \"${key}\", data: \"${mutations[key]}\") }`;
 
                 // Post mutation to graphQL endpoint
-                const response = await fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
+                const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -109,8 +118,7 @@ export default class Indexer {
             Bucket: 'near-lake-data-' + this.network,
             Key: `${folder}/${file}`,
         };
-        const s3 = new AWS.S3({region: this.aws_region});
-        const response = await s3.getObject(params).promise();
+        const response = await this.deps.s3.getObject(params).promise();
         const block = JSON.parse(response.Body.toString());
         return block;
     }
