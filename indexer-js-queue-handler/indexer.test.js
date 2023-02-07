@@ -5,20 +5,34 @@ import Indexer from './indexer';
 describe('Indexer', () => {
 
     test('Indexer.runFunctions() should execute all functions against the current block', async () => {
-        const mockFetch = async () => ({
+        const mockFetch = jest.fn(() => ({
             status: 200,
             json: async () => ({
                 errors: null,
             }),
-        });
+        }));
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
 
         const functions = {};
-        functions['buildnear.testnet/test'] = 'const foo = 3; block.result = context.set(foo, 789); mutationsReturnValue[\'hack\'] = function() {return \'bad\'}';
+        functions['buildnear.testnet/test'] = `
+            const foo = 3;
+            block.result = context.set(foo, 789);
+            mutationsReturnValue[\'hack\'] = function() {return \'bad\'}
+        `;
         const block = {block: {height: 456}}; // mockblock
-        const mutations = await indexer.runFunctions(block, functions);
+        await indexer.runFunctions(block, functions);
 
-        expect(mutations).toEqual({"buildnear.testnet/test": ["mutation { set(functionName: \"buildnear.testnet/test\", key: \"3\", data: \"789\") }"]});
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledWith(
+            'https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: `mutation { set(functionName: \"buildnear.testnet/test\", key: "3", data: \"789\") }` }),
+            }
+        );
     });
 
     test('Indexer.writeMutations() should POST a graphQL mutation from key value pairs', async () => {

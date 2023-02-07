@@ -19,9 +19,6 @@ export default class Indexer {
     }
 
     async runFunctions(block, functions) {
-
-        const allMutations = {}; // track output for tests and logging
-
         const blockWithHelpers = this.addHelperFunctionsToBlock(block);
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
@@ -41,19 +38,16 @@ export default class Indexer {
                 vm.run(modifiedFunction);
 
                 console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
-                const graphqlMutationList = await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
-                allMutations[key] = graphqlMutationList;
+                await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
             } catch (e) {
                 console.error('Failed to run function: ' + key);
                 console.error(e);
             }
         }
-        return allMutations;
     }
 
     // TODO use new GraphQL structure if schema is present
     async writeMutations(functionName, mutations) {
-        const mutationList = [];
         try {
             for (const key in mutations) {
                 // Build graphQL mutation from key value pairs. example:
@@ -75,15 +69,12 @@ export default class Indexer {
                 if(response.status !== 200 || responseJson.errors) {
                     console.error('Failed to write mutation for function: ' + functionName +
                         ' http status: ' + response.status, responseJson.errors);
-                } else {
-                    mutationList.push(mutation);
                 }
             }
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName);
             console.error(e);
         }
-        return mutationList;
     }
 
     async fetchIndexerFunctions() {
