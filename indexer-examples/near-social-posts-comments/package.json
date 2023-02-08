@@ -7,9 +7,9 @@
     "start": "tsc && node index.js"
   },
   "dependencies": {
-    "@near-lake/indexer-primitives": "file:../../../near-lake-framework-js/packages/near-lake-primitives",
-    "@prisma/client": "^4.9.0",
-    "near-lake-framework": "file:../../../near-lake-framework-js/packages/near-lake-framework"
+    "@near-lake/framework": "^0.1.0",
+    "@near-lake/primitives": "^0.1.0",
+    "@prisma/client": "^4.9.0"
   },
   "devDependencies": {
     "prisma": "^4.9.0",
