@@ -4,15 +4,21 @@ import AWS from 'aws-sdk';
 
 export default class Indexer {
 
-    constructor(network, aws_region) {
+    constructor(
+        network,
+        aws_region,
+        deps
+    ) {
         this.network = network;
         this.aws_region = aws_region;
+        this.deps = {
+            fetch,
+            s3: new AWS.S3({ region: aws_region }),
+            ...deps,
+        };
     }
 
     async runFunctions(block, functions) {
-
-        const allMutations = {}; // track output for tests and logging
-
         const blockWithHelpers = this.addHelperFunctionsToBlock(block);
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
@@ -20,7 +26,7 @@ export default class Indexer {
             console.log('Running function', functions[key]);  // debug output
             try {
                 const vm = new VM();
-                const mutationsReturnValue = {};
+                const mutationsReturnValue = [];
                 const context = this.buildFunctionalContextForFunction(key, mutationsReturnValue);
                 //const context = this.buildImperativeContextForFunction(key, vm);
 
@@ -32,49 +38,43 @@ export default class Indexer {
                 vm.run(modifiedFunction);
 
                 console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
-                const graphqlMutationList = await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
-                allMutations[key] = graphqlMutationList;
+                await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
             } catch (e) {
                 console.error('Failed to run function: ' + key);
                 console.error(e);
             }
         }
-        return allMutations;
     }
 
-    // TODO use new GraphQL structure if schema is present
+    buildBatchedMutation(mutations) {
+        return `mutation {
+${
+    mutations
+        // alias each mutation to avoid conflicts between duplicate fields
+        .map((mutation, index) => `_${index}: ${mutation}`)
+        .join('\n')
+}
+}`;
+    }
+
     async writeMutations(functionName, mutations) {
-        const mutationList = [];
         try {
-            for (const key in mutations) {
-                // Build graphQL mutation from key value pairs. example:
-                // mutation {
-                //   set(functionName:"buildnear.testnet/test", key: "1", data: "What's up now Elon?" )
-                // }
-                const mutation = `mutation { set(functionName: \"${functionName}\", key: \"${key}\", data: \"${mutations[key]}\") }`;
+            const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: this.buildBatchedMutation(mutations) }),
+            });
 
-                // Post mutation to graphQL endpoint
-                const response = await fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ query: mutation }),
-                });
-
-                const responseJson = await response.json();
-                if(response.status !== 200 || responseJson.errors) {
-                    console.error('Failed to write mutation for function: ' + functionName +
-                        ' http status: ' + response.status, responseJson.errors);
-                } else {
-                    mutationList.push(mutation);
-                }
+            const responseJson = await response.json();
+            if(response.status !== 200 || responseJson.errors) {
+                throw new Error(`Failed to write mutation for function: ${functionName}, http status: ${response.status}, errors: ${JSON.stringify(responseJson.errors)}`);
             }
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName);
-            console.error(e);
+            throw(e);
         }
-        return mutationList;
     }
 
     async fetchIndexerFunctions() {
@@ -109,8 +109,7 @@ export default class Indexer {
             Bucket: 'near-lake-data-' + this.network,
             Key: `${folder}/${file}`,
         };
-        const s3 = new AWS.S3({region: this.aws_region});
-        const response = await s3.getObject(params).promise();
+        const response = await this.deps.s3.getObject(params).promise();
         const block = JSON.parse(response.Body.toString());
         return block;
     }
@@ -126,11 +125,13 @@ export default class Indexer {
     }
 
     buildFunctionalContextForFunction(key, mutationsReturnValue) {
-        const context = {};
-        context.set = function (key, value) {
-            mutationsReturnValue[key] = value
+        return {
+            graphql: {
+                mutation(mutation) {
+                    mutationsReturnValue.push(mutation);
+                },
+            },
         };
-        return context;
     }
 
     // TODO Implement
