@@ -26,7 +26,7 @@ export default class Indexer {
             console.log('Running function', functions[key]);  // debug output
             try {
                 const vm = new VM();
-                const mutationsReturnValue = {};
+                const mutationsReturnValue = [];
                 const context = this.buildFunctionalContextForFunction(key, mutationsReturnValue);
                 //const context = this.buildImperativeContextForFunction(key, vm);
 
@@ -46,34 +46,34 @@ export default class Indexer {
         }
     }
 
-    // TODO use new GraphQL structure if schema is present
+    buildBatchedMutation(mutations) {
+        return `mutation {
+${
+    mutations
+        // alias each mutation to avoid conflicts between duplicate fields
+        .map((mutation, index) => `_${index}: ${mutation}`)
+        .join('\n')
+}
+}`;
+    }
+
     async writeMutations(functionName, mutations) {
         try {
-            for (const key in mutations) {
-                // Build graphQL mutation from key value pairs. example:
-                // mutation {
-                //   set(functionName:"buildnear.testnet/test", key: "1", data: "What's up now Elon?" )
-                // }
-                const mutation = `mutation { set(functionName: \"${functionName}\", key: \"${key}\", data: \"${mutations[key]}\") }`;
+            const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: this.buildBatchedMutation(mutations) }),
+            });
 
-                // Post mutation to graphQL endpoint
-                const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ query: mutation }),
-                });
-
-                const responseJson = await response.json();
-                if(response.status !== 200 || responseJson.errors) {
-                    console.error('Failed to write mutation for function: ' + functionName +
-                        ' http status: ' + response.status, responseJson.errors);
-                }
+            const responseJson = await response.json();
+            if(response.status !== 200 || responseJson.errors) {
+                throw new Error(`Failed to write mutation for function: ${functionName}, http status: ${response.status}, errors: ${JSON.stringify(responseJson.errors)}`);
             }
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName);
-            console.error(e);
+            throw(e);
         }
     }
 
@@ -125,11 +125,13 @@ export default class Indexer {
     }
 
     buildFunctionalContextForFunction(key, mutationsReturnValue) {
-        const context = {};
-        context.set = function (key, value) {
-            mutationsReturnValue[key] = value
+        return {
+            graphql: {
+                mutation(mutation) {
+                    mutationsReturnValue.push(mutation);
+                },
+            },
         };
-        return context;
     }
 
     // TODO Implement

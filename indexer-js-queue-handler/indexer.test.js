@@ -16,8 +16,8 @@ describe('Indexer', () => {
         const functions = {};
         functions['buildnear.testnet/test'] = `
             const foo = 3;
-            block.result = context.set(foo, 789);
-            mutationsReturnValue[\'hack\'] = function() {return \'bad\'}
+            block.result = context.graphql.mutation(\`set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.block.height\}")\`);
+            mutationsReturnValue['hack'] = function() {return 'bad'}
         `;
         const block = {block: {height: 456}}; // mockblock
         await indexer.runFunctions(block, functions);
@@ -30,12 +30,14 @@ describe('Indexer', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: `mutation { set(functionName: \"buildnear.testnet/test\", key: "3", data: \"789\") }` }),
+                body: JSON.stringify({
+                    query: `mutation {\n_0: set(functionName: "buildnear.testnet/test", key: "height", data: "456")\n}`
+                }),
             }
         );
     });
 
-    test('Indexer.writeMutations() should POST a graphQL mutation from key value pairs', async () => {
+    test('Indexer.writeMutations() should POST a graphQL mutation from a mutation string', async () => {
         const mockFetch = jest.fn(() => ({
             status: 200,
             json: async () => ({
@@ -45,7 +47,7 @@ describe('Indexer', () => {
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
 
         const functionName = 'buildnear.testnet/test';
-        const mutations = {foo2: 'indexer test'};
+        const mutations = [`set(functionName: "${functionName}", key: "foo2", data: "indexer test")`];
         await indexer.writeMutations(functionName, mutations);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -56,7 +58,40 @@ describe('Indexer', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: `mutation { set(functionName: \"${functionName}\", key: \"foo2\", data: \"${mutations.foo2}\") }` }),
+                body: JSON.stringify({ query: `mutation {\n_0: set(functionName: "${functionName}", key: "foo2", data: "indexer test")\n}` }),
+            }
+        );
+    });
+
+    test('Indexer.writeMutations() should batch multiple mutations in to a single request', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+
+        const functionName = 'buildnear.testnet/test';
+        const mutations = [
+            `set(functionName: "${functionName}", key: "foo1", data: "indexer test")`,
+            `set(functionName: "${functionName}", key: "foo2", data: "indexer test")`
+        ];
+        await indexer.writeMutations(functionName, mutations);
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledWith(
+            'https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: `mutation {
+_0: set(functionName: "buildnear.testnet/test", key: "foo1", data: "indexer test")
+_1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test")
+}`
+                }),
             }
         );
     });
