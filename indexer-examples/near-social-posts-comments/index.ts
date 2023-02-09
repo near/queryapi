@@ -14,11 +14,6 @@ const SOCIAL_DB = 'social.near';
 
 const prisma = new PrismaClient()
 
-function base64decode(encodedValue: string): object {
-  let buff = Buffer.from(encodedValue, 'base64');
-  return JSON.parse(buff.toString('utf-8'));
-}
-
 async function handleStreamerMessage(
   block: types.Block,
   ctx: types.LakeContext,
@@ -53,117 +48,183 @@ async function handleStreamerMessage(
       console.log(`ACCOUNT_ID: ${accountId}`);
       // if creates a post
       if (postAction.args.data[accountId].post && 'main' in postAction.args.data[accountId].post) {
-        try {
-          await prisma.posts.create({
-            data: {
-              account_id: accountId,
-              receipt_id: postAction.receiptId,
-              block_height: blockHeight,
-              block_timestamp: blockTimestamp,
-              content: postAction.args.data[accountId].post.main,
-            }
-          })
-          console.log(`Post by ${accountId} has been added to the database`);
-        } catch (e) {
-          console.error(`Failed to store post by ${accountId} to the database (perhaps it already stored)`);
-        }
+        await handlePostCreation(
+          accountId,
+          blockHeight,
+          blockTimestamp,
+          postAction.receiptId,
+          postAction.args.data[accountId].post.main
+        );
       } else if (postAction.args.data[accountId].post && 'comment' in postAction.args.data[accountId].post) { // if creates a comment
-        const comment = JSON.parse(postAction.args.data[accountId].post.comment);
-        const postAuthor = comment.item.path.split("/")[0];
-        const postBlockHeight = comment.item.blockHeight;
-
-        // find post to retrieve Id or print a warning that we don't have it
-        try {
-          const post = await prisma.posts.findFirstOrThrow({
-            where: {
-              account_id: postAuthor,
-              block_height: postBlockHeight,
-            }
-          })
-          try {
-            delete comment["item"];
-            await prisma.comments.create({
-              data: {
-                post_id: post.id,
-                account_id: accountId,
-                receipt_id: postAction.receiptId,
-                block_height: blockHeight,
-                block_timestamp: blockTimestamp,
-                content: JSON.stringify(comment),
-              }
-            })
-            console.log(`Comment by ${accountId} has been added to the database`);
-          } catch (e) {
-            console.warn(`Failed to store comment to the post ${postAuthor}/${postBlockHeight} by ${accountId} perhaps it has already been stored.`);
-          }
-        } catch (e) {
-          console.warn(`Failed to store comment to the post ${postAuthor}/${postBlockHeight} as we don't have the post stored.`);
-        }
+        await handleCommentCreation(
+          accountId,
+          blockHeight,
+          blockTimestamp,
+          postAction.receiptId,
+          postAction.args.data[accountId].post.comment
+        );
       } else if ('index' in postAction.args.data[accountId]) {
         // Probably like or unlike action is happening
         if ('like' in postAction.args.data[accountId].index) {
-          const like = JSON.parse(postAction.args.data[accountId].index.like);
-          const likeAction = like.value;
-          const [itemAuthor, _, itemType] = like.key.path.split('/', 3);
-          const itemBlockHeight = like.key.blockHeight;
-          switch (itemType) {
-            case 'main':
-              // Post
-              try {
-                const post = await prisma.posts.findFirstOrThrow({
-                  where: {
-                    account_id: itemAuthor,
-                    block_height: itemBlockHeight,
-                  }
-                })
-                switch (likeAction) {
-                  case 'like':
-                    try {
-                      await prisma.post_likes.create({
-                        data: {
-                          post_id: post.id,
-                          account_id: itemAuthor,
-                          block_height: itemBlockHeight,
-                          block_timestamp: blockTimestamp,
-                        }
-                      })
-                    } catch (e) {
-                      console.error(`Failed to store like to in the database: ${e}`);
-                    }
-                    break;
-                  case 'unlike':
-                  default:
-                    try {
-                      await prisma.post_likes.delete({
-                        where: {
-                          post_id_account_id: {
-                            post_id: post.id,
-                            account_id: itemAuthor,
-                          },
-                        }
-                      })
-                    } catch (e) {
-                      console.error(`Failed to delete like from the database: ${e}`);
-                    }
-                    break;
+          await handleLike(
+            accountId,
+            blockHeight,
+            blockTimestamp,
+            postAction.receiptId,
+            postAction.args.data[accountId].index.like,
+          );
 
-                }
-              } catch (e) {
-                console.warn(`Failed to store like to post ${itemAuthor}/${itemBlockHeight} as we don't have it stored in the first place.`);
-              }
-              break;
-            case 'comment':
-              // Comment
-              console.warn(`Likes to comments are not supported yet. Skipping`);
-              break;
-            default:
-              // something else
-              console.warn(`Got unsupported like type "${itemType}". Skipping...`);
-              break;
-          }
         }
       }
     })
+  }
+}
+
+function base64decode(encodedValue: string): object {
+  let buff = Buffer.from(encodedValue, 'base64');
+  return JSON.parse(buff.toString('utf-8'));
+}
+
+async function handlePostCreation(
+  accountId: string,
+  blockHeight: number,
+  blockTimestamp: string,
+  receiptId: string,
+  content: string,
+): Promise<void> {
+  try {
+    await prisma.posts.create({
+      data: {
+        account_id: accountId,
+        receipt_id: receiptId,
+        block_height: blockHeight,
+        block_timestamp: blockTimestamp,
+        content,
+      }
+    })
+    console.log(`Post by ${accountId} has been added to the database`);
+  } catch (e) {
+    console.error(`Failed to store post by ${accountId} to the database (perhaps it already stored)`);
+  }
+}
+
+async function handleCommentCreation(
+  accountId: string,
+  blockHeight: number,
+  blockTimestamp: string,
+  receiptId: string,
+  commentString: string,
+): Promise<void> {
+  const comment = JSON.parse(commentString);
+  const postAuthor = comment.item.path.split("/")[0];
+  const postBlockHeight = comment.item.blockHeight;
+
+  // find post to retrieve Id or print a warning that we don't have it
+  try {
+    const post = await prisma.posts.findFirstOrThrow({
+      where: {
+        account_id: postAuthor,
+        block_height: postBlockHeight,
+      }
+    })
+    try {
+      delete comment["item"];
+      await prisma.comments.create({
+        data: {
+          post_id: post.id,
+          account_id: accountId,
+          receipt_id: receiptId,
+          block_height: blockHeight,
+          block_timestamp: blockTimestamp,
+          content: JSON.stringify(comment),
+        }
+      })
+      console.log(`Comment by ${accountId} has been added to the database`);
+    } catch (e) {
+      console.warn(`Failed to store comment to the post ${postAuthor}/${postBlockHeight} by ${accountId} perhaps it has already been stored.`);
+    }
+  } catch (e) {
+    console.warn(`Failed to store comment to the post ${postAuthor}/${postBlockHeight} as we don't have the post stored.`);
+  }
+}
+
+async function handleLike(
+  accountId: string,
+  blockHeight: number,
+  blockTimestamp: string,
+  receiptId: string,
+  likeContent: string,
+): Promise<void> {
+  const like = JSON.parse(likeContent);
+  const likeAction = like.value; // like or unlike
+  const [itemAuthor, _, itemType] = like.key.path.split('/', 3);
+  const itemBlockHeight = like.key.blockHeight;
+  switch (itemType) {
+    case 'main':
+      try {
+        const post = await prisma.posts.findFirstOrThrow({
+          where: {
+            account_id: itemAuthor,
+            block_height: itemBlockHeight,
+          }
+        })
+        switch (likeAction) {
+          case 'like':
+            await _handlePostLike(post.id, itemAuthor, blockHeight, blockTimestamp);
+            break;
+          case 'unlike':
+          default:
+            await _handlePostUnlike(post.id, itemAuthor);
+            break;
+
+        }
+      } catch (e) {
+        console.warn(`Failed to store like to post ${itemAuthor}/${itemBlockHeight} as we don't have it stored in the first place.`);
+      }
+      break;
+    case 'comment':
+      // Comment
+      console.warn(`Likes to comments are not supported yet. Skipping`);
+      break;
+    default:
+      // something else
+      console.warn(`Got unsupported like type "${itemType}". Skipping...`);
+      break;
+  }
+}
+
+async function _handlePostLike(
+  postId: number,
+  likeAuthorAccountId: string,
+  likeBlockHeight: number,
+  blockTimestamp: string,
+): Promise<void> {
+  try {
+    await prisma.post_likes.create({
+      data: {
+        post_id: postId,
+        account_id: likeAuthorAccountId,
+        block_height: likeBlockHeight,
+        block_timestamp: blockTimestamp,
+      }
+    })
+  } catch (e) {
+    console.error(`Failed to store like to in the database: ${e}`);
+  }
+}
+
+async function _handlePostUnlike(postId: number, likeAuthorAccountId: string): Promise<void> {
+  try {
+    await prisma.post_likes.delete({
+      where: {
+        post_id_account_id: {
+          post_id: postId,
+          account_id: likeAuthorAccountId,
+        },
+      }
+    })
+  } catch (e) {
+    console.error(`Failed to delete like from the database: ${e}`);
   }
 }
 
