@@ -1,13 +1,13 @@
 declare const Buffer; // ref: https://stackoverflow.com/a/38877890
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 import { startStream, types } from '@near-lake/framework';
 
 const lakeConfig: types.LakeConfig = {
   s3BucketName: "near-lake-data-mainnet",
   s3RegionName: "eu-central-1",
-  startBlockHeight: 84100119,
+  startBlockHeight: 84109467,
 };
 
 const SOCIAL_DB = 'social.near';
@@ -156,7 +156,7 @@ async function handleLike(
   likeContent: string,
 ): Promise<void> {
   const like = JSON.parse(likeContent);
-  const likeAction = like.value; // like or unlike
+  const likeAction = like.value.type; // like or unlike
   const [itemAuthor, _, itemType] = like.key.path.split('/', 3);
   const itemBlockHeight = like.key.blockHeight;
   switch (itemType) {
@@ -168,14 +168,16 @@ async function handleLike(
             block_height: itemBlockHeight,
           }
         })
+        console.log('LIKE_ACTION', likeAction);
         switch (likeAction) {
           case 'like':
-            await _handlePostLike(post.id, itemAuthor, blockHeight, blockTimestamp);
+            await _handlePostLike(post.id, accountId, blockHeight, blockTimestamp);
             break;
           case 'unlike':
           default:
-            await _handlePostUnlike(post.id, itemAuthor);
+            await _handlePostUnlike(post.id, accountId);
             break;
+
 
         }
       } catch (e) {
@@ -200,6 +202,28 @@ async function _handlePostLike(
   blockTimestamp: string,
 ): Promise<void> {
   try {
+    const post = await prisma.posts.findUnique({
+      where: {
+        id: postId,
+      }
+    });
+    let accountsLiked = post.accounts_liked as Prisma.JsonArray;
+
+    // it's a hacky workaround since Prims.JsonArray can't be converted into a Set
+    // and back. There is old related issue https://github.com/prisma/prisma/issues/3219
+    if (accountsLiked.indexOf(likeAuthorAccountId) === -1) {
+      accountsLiked.push(likeAuthorAccountId);
+    }
+
+    await prisma.posts.update({
+      where: {
+        id: postId,
+      },
+      data: {
+        accounts_liked: accountsLiked,
+      }
+    });
+
     await prisma.post_likes.create({
       data: {
         post_id: postId,
@@ -208,13 +232,37 @@ async function _handlePostLike(
         block_timestamp: blockTimestamp,
       }
     })
+
+
   } catch (e) {
     console.error(`Failed to store like to in the database: ${e}`);
   }
 }
 
-async function _handlePostUnlike(postId: number, likeAuthorAccountId: string): Promise<void> {
+async function _handlePostUnlike(
+  postId: number,
+  likeAuthorAccountId: string,
+): Promise<void> {
   try {
+    const post = await prisma.posts.findUnique({
+      where: {
+        id: postId,
+      }
+    });
+    let accountsLiked = post.accounts_liked as Prisma.JsonArray;
+    let indexOfLikeAuthorAccountIdInPost = accountsLiked.indexOf(likeAuthorAccountId);
+    if (indexOfLikeAuthorAccountIdInPost >= -1) {
+      delete accountsLiked[indexOfLikeAuthorAccountIdInPost];
+      await prisma.posts.update({
+        where: {
+          id: postId
+        },
+        data: {
+          accounts_liked: accountsLiked,
+        }
+      });
+    }
+
     await prisma.post_likes.delete({
       where: {
         post_id_account_id: {

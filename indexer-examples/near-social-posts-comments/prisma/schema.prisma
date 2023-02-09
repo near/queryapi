@@ -14,6 +14,7 @@ model posts {
   block_height Decimal      @db.Decimal(58, 0)
   block_timestamp Decimal   @db.Decimal(20, 0)
   content      String
+  accounts_liked Json       @default("[]")
   comments     comments[]
   post_likes   post_likes[]
 
