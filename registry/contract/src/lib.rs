@@ -1,15 +1,16 @@
+use std::collections::HashMap;
+
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen};
 
-use std::collections::HashMap;
-
+type FunctionName = String;
 // Define the contract structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
-    registry: HashMap<String, IndexerConfig>,
+    registry: HashMap<FunctionName, IndexerConfig>,
 }
 
 // Define the contract structure
@@ -34,50 +35,48 @@ impl Default for Contract {
 #[near_bindgen]
 impl Contract {
     // Public method - returns a function previously registered under this name or empty string
-    pub fn read_indexer_function(&self, name: String) -> IndexerConfig {
-        match self.registry.get(&name) {
+    pub fn read_indexer_function(&self, function_name: String) -> IndexerConfig {
+        match self.registry.get(&function_name) {
             Some(config) => config.clone(),
-            None => IndexerConfig {
-                code: "".to_string(),
-                start_block_height: None,
-                schema: None,
-            },
+            None => env::panic_str(
+                format!("The function_name {} is not registered", &function_name).as_str(),
+            ),
         }
     }
 
-    // Public method - registers indexer code under <account_id>/name
+    // Public method - registers indexer code under <account_id>/function_name
     pub fn register_indexer_function(
         &mut self,
-        name: String,
+        function_name: String,
         code: String,
         start_block_height: Option<u64>,
         schema: Option<String>,
     ) {
         let signer_account_id = env::signer_account_id().as_str().to_string();
-        let registered_name = [signer_account_id, name].join("/");
+        let registered_name = [signer_account_id, function_name].join("/");
         let config = IndexerConfig {
             code,
             start_block_height,
             schema,
         };
         log!(
-            "Registering function with account and name {}",
+            "Registering function with account and function_name {}",
             &registered_name
         );
         self.registry.insert(registered_name, config);
     }
 
-    pub fn remove_indexer_function(&mut self, name: String) {
+    pub fn remove_indexer_function(&mut self, function_name: String) {
         let signer_account_id = env::signer_account_id().as_str().to_string();
-        let registered_name = [signer_account_id, name].join("/");
+        let registered_name = [signer_account_id, function_name].join("/");
         log!(
-            "Removing function with account and name {}",
+            "Removing function with account and function_name {}",
             &registered_name
         );
         self.registry.remove(&registered_name);
     }
 
-    pub fn list_indexer_functions(&self) -> HashMap<String, IndexerConfig> {
+    pub fn list_indexer_functions(&self) -> HashMap<FunctionName, IndexerConfig> {
         self.registry.clone()
     }
 }
@@ -91,18 +90,11 @@ mod tests {
     use super::*;
 
     #[test]
+    #[should_panic(expected = "The function_name developer.near/test is not registered")]
     fn get_empty() {
         let contract = Contract::default();
-        let empty_config = IndexerConfig {
-            code: "".to_string(),
-            start_block_height: None,
-            schema: None,
-        };
         // no registered indexers so should return the default ""
-        assert_eq!(
-            contract.read_indexer_function("developer.near/test".to_string()),
-            empty_config
-        );
+        contract.read_indexer_function("developer.near/test".to_string());
     }
 
     #[test]
@@ -127,6 +119,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic(expected = "The function_name bob.near/test is not registered")]
     fn set_then_get_then_remove_indexer_function() {
         let mut contract = Contract::default();
         let config = IndexerConfig {
