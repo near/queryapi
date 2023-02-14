@@ -1,6 +1,7 @@
 import { connect } from "near-api-js";
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
+import { Block } from '@near-lake/primitives'
 
 export default class Indexer {
 
@@ -18,8 +19,8 @@ export default class Indexer {
         };
     }
 
-    async runFunctions(block, functions) {
-        const blockWithHelpers = this.addHelperFunctionsToBlock(block);
+    async runFunctions(block_height, functions) {
+        const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
         for (const key in functions) {
@@ -144,11 +145,6 @@ ${
     // no transformations yet to the developer supplied code
     transformIndexerFunction(indexerFunction) {
         return indexerFunction;
-    }
-
-    // TODO Implement
-    addHelperFunctionsToBlock(block) {
-        return block;
     }
 
     buildFunctionalContextForFunction(key, mutationsReturnValue) {

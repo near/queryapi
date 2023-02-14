@@ -12,16 +12,30 @@ describe('Indexer', () => {
                 errors: null,
             }),
         }));
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => ({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
 
         const functions = {};
         functions['buildnear.testnet/test'] = `
             const foo = 3;
-            block.result = context.graphql.mutation(\`set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.block.height\}")\`);
+            block.result = context.graphql.mutation(\`set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")\`);
             mutationsReturnValue['hack'] = function() {return 'bad'}
         `;
-        const block = {block: {height: 456}}; // mockblock
-        await indexer.runFunctions(block, functions);
+        await indexer.runFunctions(block_height, functions);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(

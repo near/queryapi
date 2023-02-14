@@ -7,11 +7,8 @@ export const consumer = async (event) => {
     for (const record of event.Records) {
         try {
             const jsonBody = JSON.parse(record.body);
-            // console.log("Received message: ", jsonBody);
             const block_height = jsonBody.alert_message.block_height;
-            const block = await indexer.fetchBlock(block_height);
-            // console.log('Fetched block: ', block);
-            const mutations = await indexer.runFunctions(block, functions);
+            const mutations = await indexer.runFunctions(block_height, functions);
             console.log('Final Mutations: ', mutations);
             return {statusCode: 200, body: {"# of mutations applied": Object.keys(mutations).length}};
         } catch (error) {
