@@ -1,6 +1,12 @@
-# Alertexer
+# QueryApi MVP 
 
-An indexer toolset to empower the Alerts Feature in DevConsole.
+An indexer toolset based off of Alertexer to power custom Index Functions.
+
+### To deploy the alertexer module to GCP
+Push the docker image to the GCP container registry.
+`gcloud auth configure-docker us-central1-docker.pkg.dev`
+`docker build -t --push us-central1-docker.pkg.dev/pagoda-shared-infrastructure/data-platform/queryapi-alertexer:latest .`
+
 
 [**Please, refer to the Docs to find the Concept descriptions for main parts of the toolset**](./docs)
 
