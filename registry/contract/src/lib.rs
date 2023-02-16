@@ -1,23 +1,16 @@
-use near_sdk::collections::UnorderedMap;
+use std::collections::HashMap;
 
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, log, near_bindgen, BorshStorageKey};
+use near_sdk::{env, log, near_bindgen};
 
 type FunctionName = String;
-
-/// Helper structure to for keys of the persistent collections.
-#[derive(BorshStorageKey, BorshSerialize)]
-pub enum StorageKey {
-    IndexerFunctions,
-}
-
 // Define the contract structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
-    registry: UnorderedMap<FunctionName, IndexerConfig>,
+    registry: HashMap<FunctionName, IndexerConfig>,
 }
 
 // Define the contract structure
@@ -33,7 +26,7 @@ pub struct IndexerConfig {
 impl Default for Contract {
     fn default() -> Self {
         Self {
-            registry: UnorderedMap::new(StorageKey::IndexerFunctions),
+            registry: HashMap::new(),
         }
     }
 }
@@ -44,7 +37,7 @@ impl Contract {
     // Public method - returns a function previously registered under this name or empty string
     pub fn read_indexer_function(&self, function_name: String) -> IndexerConfig {
         match self.registry.get(&function_name) {
-            Some(config) => config,
+            Some(config) => config.clone(),
             None => env::panic_str(
                 format!("The function_name {} is not registered", &function_name).as_str(),
             ),
@@ -70,7 +63,7 @@ impl Contract {
             "Registering function with account and function_name {}",
             &registered_name
         );
-        self.registry.insert(&registered_name, &config);
+        self.registry.insert(registered_name, config);
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String) {
@@ -83,8 +76,8 @@ impl Contract {
         self.registry.remove(&registered_name);
     }
 
-    pub fn list_indexer_functions(&self) -> &UnorderedMap<FunctionName, IndexerConfig> {
-        &self.registry
+    pub fn list_indexer_functions(&self) -> HashMap<FunctionName, IndexerConfig> {
+        self.registry.clone()
     }
 }
 
@@ -94,8 +87,6 @@ impl Contract {
  */
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
 
     #[test]
@@ -173,11 +164,8 @@ mod tests {
             config.start_block_height.clone(),
             config.schema.clone(),
         );
-        let mut expected = UnorderedMap::new(b"r".to_vec());
-        expected.insert(&"bob.near/test".to_string(), &config);
-        let actual: HashMap<String, IndexerConfig> =
-            contract.list_indexer_functions().iter().collect();
-            
-        assert_eq!(actual, expected.iter().collect());
+        let mut expected = HashMap::new();
+        expected.insert("bob.near/test".to_string(), config);
+        assert_eq!(contract.list_indexer_functions(), expected);
     }
 }
