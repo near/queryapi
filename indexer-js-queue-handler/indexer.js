@@ -19,7 +19,7 @@ export default class Indexer {
         };
     }
 
-    async runFunctions(block_height, functions) {
+    async runFunctions(block_height, functions, options = { imperative: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
@@ -28,8 +28,9 @@ export default class Indexer {
             try {
                 const vm = new VM();
                 const mutationsReturnValue = [];
-                const context = this.buildFunctionalContextForFunction(key, mutationsReturnValue);
-                //const context = this.buildImperativeContextForFunction(key, vm);
+                const context = options.imperative
+                    ? this.buildImperativeContextForFunction()
+                    : this.buildFunctionalContextForFunction(mutationsReturnValue);
 
                 vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
@@ -38,8 +39,10 @@ export default class Indexer {
                 const modifiedFunction = this.transformIndexerFunction(functions[key]);
                 await vm.run(modifiedFunction);
 
-                console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
-                await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                if (!options.imperative) {
+                    console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
+                    await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                }
             } catch (e) {
                 console.error('Failed to run function: ' + key);
                 console.error(e);
@@ -156,7 +159,7 @@ ${
         ].reduce((acc, val) => val(acc), indexerFunction);
     }
 
-    buildFunctionalContextForFunction(key, mutationsReturnValue) {
+    buildFunctionalContextForFunction(mutationsReturnValue) {
         return {
             graphql: {
                 mutation(mutation) {
@@ -166,12 +169,25 @@ ${
         };
     }
 
-    // TODO Implement
-    buildImperativeContextForFunction(key, vm) {
-        const context = {};
+    buildImperativeContextForFunction() {
+        return {
+            graphql: async (operation) => {
+                const response = await this.deps.fetch('https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: operation }),
+                });
 
-        // TODO require fetch library (or prisma) in VM to allow implementation of imperative version
+                const { data, errors } = await response.json();
 
-        return context;
+                if (response.status !== 200 || errors) {
+                    throw new Error(JSON.stringify(errors,  null, 2));
+                }
+
+                return data;
+            }
+        }
     }
 }
