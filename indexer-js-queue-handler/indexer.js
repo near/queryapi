@@ -23,25 +23,25 @@ export default class Indexer {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
-        for (const key in functions) {
-            console.log('Running function', functions[key]);  // debug output
+        for (const function_name in functions) {
+            console.log('Running function', functions[function_name]);  // debug output
             try {
                 const vm = new VM();
                 const mutationsReturnValue = [];
-                const context = this.buildFunctionalContextForFunction(key, mutationsReturnValue);
+                const context = this.buildFunctionalContextForFunction(function_name, mutationsReturnValue);
                 //const context = this.buildImperativeContextForFunction(key, vm);
 
                 vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
-                const modifiedFunction = this.transformIndexerFunction(functions[key]);
+                const modifiedFunction = this.transformIndexerFunction(functions[function_name].code);
                 vm.run(modifiedFunction);
 
-                console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
-                await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
+                return await this.writeMutations(function_name, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
             } catch (e) {
-                console.error('Failed to run function: ' + key);
+                console.error('Failed to run function: ' + function_name);
                 console.error(e);
             }
         }
@@ -60,18 +60,21 @@ ${
 
     async writeMutations(functionName, mutations) {
         try {
+            const batchedMutations = this.buildBatchedMutation(mutations);
+            console.log('Writing mutations', batchedMutations);
             const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: this.buildBatchedMutation(mutations) }),
+                body: JSON.stringify({ query: batchedMutations }),
             });
 
             const responseJson = await response.json();
             if(response.status !== 200 || responseJson.errors) {
                 throw new Error(`Failed to write mutation for function: ${functionName}, http status: ${response.status}, errors: ${JSON.stringify(responseJson.errors)}`);
             }
+            return batchedMutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName);
             throw(e);
@@ -127,7 +130,7 @@ ${
             Key: `${this.normalizeBlockHeight(block_height)}/shard_${shard_id}.json`,
         };
         const response = await this.deps.s3.getObject(params).promise();
-        return JSON.parse(response.Body.toString());
+        return JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
     }
 
     async fetchBlock(block_height) {
@@ -138,7 +141,7 @@ ${
             Key: `${folder}/${file}`,
         };
         const response = await this.deps.s3.getObject(params).promise();
-        const block = JSON.parse(response.Body.toString());
+        const block = JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
         return block;
     }
 
@@ -164,5 +167,25 @@ ${
         // TODO require fetch library (or prisma) in VM to allow implementation of imperative version
 
         return context;
+    }
+    renameUnderscoreFieldsToCamelCase(value) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+            // It's a non-null, non-array object, create a replacement with the keys initially-capped
+            const newValue = {};
+            for (const key in value) {
+                const newKey = key
+                    .split("_")
+                    .map((word, i) => {
+                        if (i > 0) {
+                            return word.charAt(0).toUpperCase() + word.slice(1);
+                        }
+                        return word;
+                    })
+                    .join("");
+                newValue[newKey] = value[key];
+            }
+            return newValue;
+        }
+        return value;
     }
 }
