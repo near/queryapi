@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen};
+use near_sdk::json_types::Base64VecU8;
 
 type FunctionName = String;
 // Define the contract structure
@@ -78,6 +79,14 @@ impl Contract {
 
     pub fn list_indexer_functions(&self) -> HashMap<FunctionName, IndexerConfig> {
         self.registry.clone()
+    }
+
+    // #[private]
+    // #[init(ignore_state)]
+    pub fn clean(keys: Vec<Base64VecU8>) {
+        for key in keys.iter() {
+            env::storage_remove(&key.0);
+        }
     }
 }
 
