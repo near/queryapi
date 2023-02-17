@@ -36,7 +36,7 @@ export default class Indexer {
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
                 const modifiedFunction = this.transformIndexerFunction(functions[key]);
-                vm.run(modifiedFunction);
+                await vm.run(modifiedFunction);
 
                 console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
                 await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
@@ -142,9 +142,18 @@ ${
         return block;
     }
 
-    // no transformations yet to the developer supplied code
+    enableAwaitTransform(indexerFunction) {
+        return `
+            (async () => {
+                ${indexerFunction}
+            })();
+        `;
+    }
+
     transformIndexerFunction(indexerFunction) {
-        return indexerFunction;
+        return [
+            this.enableAwaitTransform,
+        ].reduce((acc, val) => val(acc), indexerFunction);
     }
 
     buildFunctionalContextForFunction(key, mutationsReturnValue) {

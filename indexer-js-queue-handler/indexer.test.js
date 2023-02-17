@@ -207,4 +207,16 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
         expect(block.blockHeight).toEqual(blockHeight);
         expect(block.blockHash).toEqual(blockHash);
     });
+
+    test('Indexer.transformIndexerFunction() applies the necessary transformations', () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const transformedFunction = indexer.transformIndexerFunction(`console.log('hello')`);
+
+        expect(transformedFunction).toEqual(`
+            (async () => {
+                console.log('hello')
+            })();
+        `);
+    });
 });
