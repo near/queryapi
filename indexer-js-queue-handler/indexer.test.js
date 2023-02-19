@@ -4,6 +4,20 @@ import { Block } from '@near-lake/primitives'
 import Indexer from './indexer';
 
 describe('Indexer', () => {
+    const oldEnv = process.env;
+
+    const GRAPHQL_ENDPOINT = 'mock-graphql-endpoint';
+
+    beforeAll(() => {
+        process.env = {
+            ...oldEnv,
+            GRAPHQL_ENDPOINT,
+        };
+    });
+
+    afterAll(() => {
+        process.env = oldEnv;
+    });
 
     test('Indexer.runFunctions() should execute all functions against the current block', async () => {
         const mockFetch = jest.fn(() => ({
@@ -39,7 +53,7 @@ describe('Indexer', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            'https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {
@@ -67,7 +81,7 @@ describe('Indexer', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            'https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {
@@ -96,7 +110,7 @@ describe('Indexer', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            'https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {
@@ -263,7 +277,7 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
         expect(greet).toEqual('hello');
         expect(success).toEqual(true);
         expect(mockFetch.mock.calls[0]).toEqual([
-            'https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {
@@ -273,7 +287,7 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
             }
         ]);
         expect(mockFetch.mock.calls[1]).toEqual([
-            'https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {
@@ -386,7 +400,7 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
 
         expect(mockFetch).toHaveBeenCalledTimes(2);
         expect(mockFetch.mock.calls[0]).toEqual([
-            'https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {
@@ -404,7 +418,7 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
             }
         ]);
         expect(mockFetch.mock.calls[1]).toEqual([
-            'https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql',
+            GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
                 headers: {

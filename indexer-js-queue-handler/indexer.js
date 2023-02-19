@@ -63,7 +63,7 @@ ${
 
     async writeMutations(functionName, mutations) {
         try {
-            const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
+            const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ ${
     buildImperativeContextForFunction() {
         return {
             graphql: async (operation) => {
-                const response = await this.deps.fetch('https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql', {
+                const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
