@@ -43,40 +43,42 @@ async function handleStreamerMessage(
     const blockTimestamp = block.header().timestampNanosec;
     console.log(blockHeight);
     console.dir(nearSocialPosts, { depth: null })
-    nearSocialPosts.forEach(async postAction => {
-      const accountId = Object.keys(postAction.args.data)[0];
-      console.log(`ACCOUNT_ID: ${accountId}`);
-      // if creates a post
-      if (postAction.args.data[accountId].post && 'main' in postAction.args.data[accountId].post) {
-        await handlePostCreation(
-          accountId,
-          blockHeight,
-          blockTimestamp,
-          postAction.receiptId,
-          postAction.args.data[accountId].post.main
-        );
-      } else if (postAction.args.data[accountId].post && 'comment' in postAction.args.data[accountId].post) { // if creates a comment
-        await handleCommentCreation(
-          accountId,
-          blockHeight,
-          blockTimestamp,
-          postAction.receiptId,
-          postAction.args.data[accountId].post.comment
-        );
-      } else if ('index' in postAction.args.data[accountId]) {
-        // Probably like or unlike action is happening
-        if ('like' in postAction.args.data[accountId].index) {
-          await handleLike(
+    await Promise.all(
+      nearSocialPosts.map(async postAction => {
+        const accountId = Object.keys(postAction.args.data)[0];
+        console.log(`ACCOUNT_ID: ${accountId}`);
+        // if creates a post
+        if (postAction.args.data[accountId].post && 'main' in postAction.args.data[accountId].post) {
+          await handlePostCreation(
             accountId,
             blockHeight,
             blockTimestamp,
             postAction.receiptId,
-            postAction.args.data[accountId].index.like,
+            postAction.args.data[accountId].post.main
           );
+        } else if (postAction.args.data[accountId].post && 'comment' in postAction.args.data[accountId].post) { // if creates a comment
+          await handleCommentCreation(
+            accountId,
+            blockHeight,
+            blockTimestamp,
+            postAction.receiptId,
+            postAction.args.data[accountId].post.comment
+          );
+        } else if ('index' in postAction.args.data[accountId]) {
+          // Probably like or unlike action is happening
+          if ('like' in postAction.args.data[accountId].index) {
+            await handleLike(
+              accountId,
+              blockHeight,
+              blockTimestamp,
+              postAction.receiptId,
+              postAction.args.data[accountId].index.like,
+            );
 
+          }
         }
-      }
-    })
+      })
+    )
   }
 }
 
