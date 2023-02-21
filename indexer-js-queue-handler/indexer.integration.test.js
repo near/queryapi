@@ -33,7 +33,7 @@ describe('Indexer', () => {
                         .map(functionCallOperation => ({
                             ...functionCallOperation,
                             args: base64decode(functionCallOperation.args),
-                            receiptId: action.receiptId, // providing receiptId as we need it
+                            receiptId: action.receiptId,
                         }))
                         .filter(functionCall => {
                             const accountId = Object.keys(functionCall.args.data)[0];
@@ -46,13 +46,13 @@ describe('Indexer', () => {
             const blockTimestamp = block.header().timestampNanosec;
             nearSocialPosts.forEach(postAction => {
                 const accountId = Object.keys(postAction.args.data)[0];
-                // if creates a post
                 if (postAction.args.data[accountId].post && 'main' in postAction.args.data[accountId].post) {
                     const postData = {account_id: accountId, block_height: blockHeight, block_timestamp: blockTimestamp,
-                        receipt_id: postAction.receiptId, post: 'foo'// postAction.args.data[accountId].post.main
+                        receipt_id: postAction.receiptId, post: postAction.args.data[accountId].post.main
                         };
-                    const mutationData = {functionName: "buildnear.testnet/test", key: "LatestPost", data: JSON.stringify(postData) };
-                    context.graphql.mutation('set(' + JSON.stringify(mutationData).replace('{', '').slice(0,-1).replace('"functionName"', 'functionName').replace('"key"', 'key').replace('"data"', 'data') + ')');
+                    const mutationData = {object: {account_id: accountId, block_height: postData.block_height.toString(),
+                     block_timestamp: postData.block_timestamp, receipt_id: postData.receipt_id, content: JSON.stringify(postData) }};
+                    context.graphql.mutation('insert_posts_one(' + JSON.stringify(mutationData).replace('{', '').slice(0,-1).replace('"object"', 'object').replace('"account_id"', 'account_id').replace('"block_height"', 'block_height').replace('"block_timestamp"', 'block_timestamp').replace('"receipt_id"', 'receipt_id').replace('"content"', 'content') + ') { id }');
                 }
             });
         }

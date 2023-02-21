@@ -62,7 +62,7 @@ ${
         try {
             const batchedMutations = this.buildBatchedMutation(mutations);
             console.log('Writing mutations', batchedMutations);
-            const response = await this.deps.fetch('https://query-api-graphql-vcqilefdcq-uc.a.run.app/graphql', {
+            const response = await this.deps.fetch('https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -83,18 +83,18 @@ ${
 
     async fetchIndexerFunctions() {
         const connectionConfig = {
-            networkId: "testnet",
+            networkId: "mainnet",
             // keyStore: myKeyStore, // no keystore needed for reads
-            nodeUrl: "https://rpc.testnet.near.org",
-            walletUrl: "https://wallet.testnet.near.org",
-            helperUrl: "https://helper.testnet.near.org",
-            explorerUrl: "https://explorer.testnet.near.org",
+            nodeUrl: "https://rpc.mainnet.near.org",
+            walletUrl: "https://wallet.mainnet.near.org",
+            helperUrl: "https://helper.mainnet.near.org",
+            explorerUrl: "https://explorer.mainnet.near.org",
         };
         const near = await connect(connectionConfig);
         const response = await near.connection.provider.query({
             request_type: "call_function",
             finality: "optimistic",
-            account_id: "registry.queryapi.testnet",
+            account_id: "registry.queryapi.near",
             method_name: "list_indexer_functions",
             args_base64: "",
         });
