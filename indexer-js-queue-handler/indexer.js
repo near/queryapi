@@ -19,7 +19,7 @@ export default class Indexer {
         };
     }
 
-    async runFunctions(block_height, functions) {
+    async runFunctions(block_height, functions, options = { imperative: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
@@ -28,18 +28,21 @@ export default class Indexer {
             try {
                 const vm = new VM();
                 const mutationsReturnValue = [];
-                const context = this.buildFunctionalContextForFunction(function_name, mutationsReturnValue);
-                //const context = this.buildImperativeContextForFunction(key, vm);
+                const context = options.imperative
+                    ? this.buildImperativeContextForFunction()
+                    : this.buildFunctionalContextForFunction(mutationsReturnValue);
 
                 vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
-                const modifiedFunction = this.transformIndexerFunction(functions[function_name].code);
-                vm.run(modifiedFunction);
+                const modifiedFunction = this.transformIndexerFunction(functions[function_name]);
+                await vm.run(modifiedFunction);
 
-                console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
-                return await this.writeMutations(function_name, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                if (!options.imperative) {
+                    console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
+                    await this.writeMutations(function_name, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                }
             } catch (e) {
                 console.error('Failed to run function: ' + function_name);
                 console.error(e);
@@ -60,9 +63,7 @@ ${
 
     async writeMutations(functionName, mutations) {
         try {
-            const batchedMutations = this.buildBatchedMutation(mutations);
-            console.log('Writing mutations', batchedMutations);
-            const response = await this.deps.fetch('https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql', {
+            const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -145,12 +146,21 @@ ${
         return block;
     }
 
-    // no transformations yet to the developer supplied code
-    transformIndexerFunction(indexerFunction) {
-        return indexerFunction;
+    enableAwaitTransform(indexerFunction) {
+        return `
+            (async () => {
+                ${indexerFunction}
+            })();
+        `;
     }
 
-    buildFunctionalContextForFunction(key, mutationsReturnValue) {
+    transformIndexerFunction(indexerFunction) {
+        return [
+            this.enableAwaitTransform,
+        ].reduce((acc, val) => val(acc), indexerFunction);
+    }
+
+    buildFunctionalContextForFunction(mutationsReturnValue) {
         return {
             graphql: {
                 mutation(mutation) {
@@ -160,13 +170,29 @@ ${
         };
     }
 
-    // TODO Implement
-    buildImperativeContextForFunction(key, vm) {
-        const context = {};
+    buildImperativeContextForFunction() {
+        return {
+            graphql: async (operation, variables) => {
+                const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: operation,
+                        ...(variables && { variables }),
+                    }),
+                });
 
-        // TODO require fetch library (or prisma) in VM to allow implementation of imperative version
+                const { data, errors } = await response.json();
 
-        return context;
+                if (response.status !== 200 || errors) {
+                    throw new Error(JSON.stringify(errors,  null, 2));
+                }
+
+                return data;
+            }
+        }
     }
     renameUnderscoreFieldsToCamelCase(value) {
         if (value && typeof value === "object" && !Array.isArray(value)) {
