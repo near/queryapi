@@ -23,8 +23,8 @@ export default class Indexer {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         // TODO only execute function specified in AlertMessage - blocked on filtering changes
-        for (const key in functions) {
-            console.log('Running function', functions[key]);  // debug output
+        for (const function_name in functions) {
+            console.log('Running function', functions[function_name]);  // debug output
             try {
                 const vm = new VM();
                 const mutationsReturnValue = [];
@@ -36,15 +36,15 @@ export default class Indexer {
                 vm.freeze(context, 'context');
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
-                const modifiedFunction = this.transformIndexerFunction(functions[key]);
+                const modifiedFunction = this.transformIndexerFunction(functions[function_name]);
                 await vm.run(modifiedFunction);
 
                 if (!options.imperative) {
                     console.log(`Function ${key} returned`, mutationsReturnValue); // debug output
-                    await this.writeMutations(key, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                    await this.writeMutations(function_name, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
                 }
             } catch (e) {
-                console.error('Failed to run function: ' + key);
+                console.error('Failed to run function: ' + function_name);
                 console.error(e);
             }
         }
@@ -68,13 +68,14 @@ ${
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: this.buildBatchedMutation(mutations) }),
+                body: JSON.stringify({ query: batchedMutations }),
             });
 
             const responseJson = await response.json();
             if(response.status !== 200 || responseJson.errors) {
                 throw new Error(`Failed to write mutation for function: ${functionName}, http status: ${response.status}, errors: ${JSON.stringify(responseJson.errors)}`);
             }
+            return batchedMutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName);
             throw(e);
@@ -83,18 +84,18 @@ ${
 
     async fetchIndexerFunctions() {
         const connectionConfig = {
-            networkId: "testnet",
+            networkId: "mainnet",
             // keyStore: myKeyStore, // no keystore needed for reads
-            nodeUrl: "https://rpc.testnet.near.org",
-            walletUrl: "https://wallet.testnet.near.org",
-            helperUrl: "https://helper.testnet.near.org",
-            explorerUrl: "https://explorer.testnet.near.org",
+            nodeUrl: "https://rpc.mainnet.near.org",
+            walletUrl: "https://wallet.mainnet.near.org",
+            helperUrl: "https://helper.mainnet.near.org",
+            explorerUrl: "https://explorer.mainnet.near.org",
         };
         const near = await connect(connectionConfig);
         const response = await near.connection.provider.query({
             request_type: "call_function",
             finality: "optimistic",
-            account_id: "registry.queryapi.testnet",
+            account_id: "registry.queryapi.near",
             method_name: "list_indexer_functions",
             args_base64: "",
         });
@@ -130,7 +131,7 @@ ${
             Key: `${this.normalizeBlockHeight(block_height)}/shard_${shard_id}.json`,
         };
         const response = await this.deps.s3.getObject(params).promise();
-        return JSON.parse(response.Body.toString());
+        return JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
     }
 
     async fetchBlock(block_height) {
@@ -141,7 +142,7 @@ ${
             Key: `${folder}/${file}`,
         };
         const response = await this.deps.s3.getObject(params).promise();
-        const block = JSON.parse(response.Body.toString());
+        const block = JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
         return block;
     }
 
@@ -192,5 +193,25 @@ ${
                 return data;
             }
         }
+    }
+    renameUnderscoreFieldsToCamelCase(value) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+            // It's a non-null, non-array object, create a replacement with the keys initially-capped
+            const newValue = {};
+            for (const key in value) {
+                const newKey = key
+                    .split("_")
+                    .map((word, i) => {
+                        if (i > 0) {
+                            return word.charAt(0).toUpperCase() + word.slice(1);
+                        }
+                        return word;
+                    })
+                    .join("");
+                newValue[newKey] = value[key];
+            }
+            return newValue;
+        }
+        return value;
     }
 }

@@ -44,11 +44,11 @@ describe('Indexer', () => {
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
 
         const functions = {};
-        functions['buildnear.testnet/test'] = `
+        functions['buildnear.testnet/test'] = {code:`
             const foo = 3;
             block.result = context.graphql.mutation(\`set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")\`);
             mutationsReturnValue['hack'] = function() {return 'bad'}
-        `;
+        `};
         await indexer.runFunctions(block_height, functions);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
