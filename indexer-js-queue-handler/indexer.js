@@ -171,13 +171,16 @@ ${
 
     buildImperativeContextForFunction() {
         return {
-            graphql: async (operation) => {
+            graphql: async (operation, variables) => {
                 const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ query: operation }),
+                    body: JSON.stringify({
+                        query: operation,
+                        ...(variables && { variables }),
+                    }),
                 });
 
                 const { data, errors } = await response.json();

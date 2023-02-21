@@ -310,6 +310,37 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
         const context = indexer.buildImperativeContextForFunction();
 
         expect(() => context.graphql(`query { hello }`)).rejects.toThrow('boom');
+    });
+
+    test('Indexer.buildImperativeContextForFunction() handles GraphQL variables', async () => {
+        const mockFetch = jest.fn()
+            .mockResolvedValue({
+                status: 200,
+                json: async () => ({
+                    data: 'mock',
+                }),
+            });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+
+        const context = indexer.buildImperativeContextForFunction();
+
+        const query = `query($name: String) { hello(name: $name) }`;
+        const variables = { name: 'morgan' };
+        await context.graphql(query, variables);
+
+        expect(mockFetch.mock.calls[0]).toEqual([
+            GRAPHQL_ENDPOINT,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query,
+                    variables,
+                }),
+            },
+        ]);
     })
     
     test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {
