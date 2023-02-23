@@ -27,7 +27,7 @@ export default class Indexer {
             // console.log('Running function', functions[function_name]);  // debug output
             try {
                 const vm = new VM();
-                const mutationsReturnValue = {mutations: [], variables: {}, keyvalues: {}};
+                const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
                     ? this.buildImperativeContextForFunction()
                     : this.buildFunctionalContextForFunction(mutationsReturnValue);
@@ -50,24 +50,24 @@ export default class Indexer {
         }
     }
 
-    buildKeyValueMutations(keyvalues) {
-        if(!keyvalues || Object.keys(keyvalues).length === 0) return '';
-        return `mutation writeKeyValues($function_name: String!, ${Object.keys(keyvalues).map((key, index) => `$key_name${index}: String!, $value${index}: String!`).join(', ')}) {
-            ${Object.keys(keyvalues).map((key, index) => `_${index}: insert_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name${index}, value: $value${index}} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}`).join('\n')}
+    buildKeyValueMutations(keysValues) {
+        if(!keysValues || Object.keys(keysValues).length === 0) return '';
+        return `mutation writeKeyValues($function_name: String!, ${Object.keys(keysValues).map((key, index) => `$key_name${index}: String!, $value${index}: String!`).join(', ')}) {
+            ${Object.keys(keysValues).map((key, index) => `_${index}: insert_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name${index}, value: $value${index}} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}`).join('\n')}
         }`;
     }
-    buildKeyValueVariables(functionName, keyvalues) {
-        if(!keyvalues || Object.keys(keyvalues).length === 0) return {};
-        return Object.keys(keyvalues).reduce((acc, key, index) => {
+    buildKeyValueVariables(functionName, keysValues) {
+        if(!keysValues || Object.keys(keysValues).length === 0) return {};
+        return Object.keys(keysValues).reduce((acc, key, index) => {
             acc[`key_name${index}`] = key;
-            acc[`value${index}`] = keyvalues[key] ? JSON.stringify(keyvalues[key]) : null;
+            acc[`value${index}`] = keysValues[key] ? JSON.stringify(keysValues[key]) : null;
             return acc;
         }, {function_name: functionName});
     }
     async writeMutations(functionName, mutationReturnValue) {
         try {
-            const allMutations = mutationReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationReturnValue.keyvalues);
-            const variablesPlusKeyValues = {...mutationReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationReturnValue.keyvalues)};
+            const allMutations = mutationReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationReturnValue.keysValues);
+            const variablesPlusKeyValues = {...mutationReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationReturnValue.keysValues)};
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
 
@@ -179,7 +179,7 @@ export default class Indexer {
                 }
             },
             set: (key, value) => {
-                mutationsReturnValue.keyvalues[key] = value;
+                mutationsReturnValue.keysValues[key] = value;
             }
         };
     }

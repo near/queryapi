@@ -46,7 +46,7 @@ describe('Indexer', () => {
         const functions = {};
         functions['buildnear.testnet/test'] = {code:`
             const foo = 3;
-            block.result = context.graphql.mutation(\`set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")\`);
+            block.result = context.graphql.mutation(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
             mutationsReturnValue['hack'] = function() {return 'bad'}
         `};
         await indexer.runFunctions(block_height, functions);
@@ -60,7 +60,8 @@ describe('Indexer', () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    query: `mutation {\n_0: set(functionName: "buildnear.testnet/test", key: "height", data: "456")\n}`
+                    query: `mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "456")}`,
+                    variables: {}
                 }),
             }
         );
@@ -76,7 +77,7 @@ describe('Indexer', () => {
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
 
         const functionName = 'buildnear.testnet/test';
-        const mutations = [`set(functionName: "${functionName}", key: "foo2", data: "indexer test")`];
+        const mutations = {mutations: [`mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`], variables: {}, keysValues: {}};
         await indexer.writeMutations(functionName, mutations);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -87,7 +88,8 @@ describe('Indexer', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: `mutation {\n_0: set(functionName: "${functionName}", key: "foo2", data: "indexer test")\n}` }),
+                body: JSON.stringify({ query: `mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`,
+                    variables: {}}),
             }
         );
     });
@@ -102,10 +104,10 @@ describe('Indexer', () => {
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
 
         const functionName = 'buildnear.testnet/test';
-        const mutations = [
-            `set(functionName: "${functionName}", key: "foo1", data: "indexer test")`,
-            `set(functionName: "${functionName}", key: "foo2", data: "indexer test")`
-        ];
+        const mutations = {mutations: [
+                `mutation _0 { set(functionName: "${functionName}", key: "foo1", data: "indexer test") }`,
+                `mutation _1 { set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`
+            ], variables: {}, keysValues: {}};
         await indexer.writeMutations(functionName, mutations);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -116,11 +118,10 @@ describe('Indexer', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ query: `mutation {
-_0: set(functionName: "buildnear.testnet/test", key: "foo1", data: "indexer test")
-_1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test")
-}`
-                }),
+                body: JSON.stringify({ query:
+                        `mutation _0 { set(functionName: "buildnear.testnet/test", key: "foo1", data: "indexer test") }
+mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test") }`,
+                variables: {}}),
             }
         );
     });
@@ -397,7 +398,7 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
 
         const functions = {};
-        functions['buildnear.testnet/test'] = `
+        functions['buildnear.testnet/test'] = {code:`
             const { posts } = await context.graphql(\`
                 query {
                     posts(where: { id: { _eq: 1 } }) {
@@ -425,7 +426,7 @@ _1: set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test
             \`);
 
             return (\`Created comment \${id} on post \${post.id}\`)
-        `;
+        `};
 
         await indexer.runFunctions(blockHeight, functions, { imperative: true });
 
