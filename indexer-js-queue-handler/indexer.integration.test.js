@@ -1,6 +1,23 @@
 import Indexer from './indexer';
 
-describe('Indexer', () => {
+/** These tests require the following Environment Variables to be set: GRAPHQL_ENDPOINT */
+describe('Indexer integration tests', () => {
+
+    test('Indexer.runFunctions() should execute an imperative style test function against a given block using key-value storage', async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+        const functions = {};
+        functions['buildnear.testnet/itest1'] = {code: 'context.set("BlockHeight", block.header().height);'};
+        const block_height = 85376002;
+        await indexer.runFunctions(block_height, functions, {imperative: true});
+        const valueSet = await indexer.runGraphQLQuery('query MyQuery {\n' +
+            '  indexer_storage(\n' +
+            '    where: {key_name: {_eq: "BlockHeight"}, function_name: {_eq: "buildnear.testnet/itest1"}}\n' +
+            '  ) {\n' +
+            '    value\n' +
+            '  }\n' +
+            '}')
+        expect(valueSet.indexer_storage[0].value).toEqual("85376002");
+    });
 
     test('Indexer.runFunctions() should execute a test function against a given block using key-value storage', async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
@@ -8,20 +25,22 @@ describe('Indexer', () => {
         functions['buildnear.testnet/test'] = {code: 'context.set("BlockHeight", block.header().height);'};
         const block_height = 85376546;
         const mutations = await indexer.runFunctions(block_height, functions);
-        expect(mutations).toEqual({"keyvalues": {"BlockHeight": 85376546}, "mutations": [], "variables": {}});
+        expect(mutations).toEqual({"keysValues": {"BlockHeight": 85376546}, "mutations": [], "variables": {}});
     });
 
     test('Indexer.runFunctions() should execute a test function against a given block using a full mutation to write to key-value storage', async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
         const functions = {};
-        functions['buildnear.testnet/test'] = {code: 'context.graphql.mutation(`mutation { insert_indexer_storage_one(object: {function_name: "buildnear.testnet/itest1", key_name: "BlockHeight", value: "${block.header().height}"} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}}`);'};
+        functions['buildnear.testnet/itest3'] = {code: 'context.graphql.mutation(`mutation { insert_indexer_storage_one(object: {function_name: "buildnear.testnet/itest3", key_name: "BlockHeight", value: "${block.header().height}"} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}}`);'};
         const block_height = 85376546;
         const mutations = await indexer.runFunctions(block_height, functions);
         expect(mutations).toBeDefined()
         expect(JSON.stringify(mutations)).toContain("insert_indexer_storage_one");
     });
 
-    /** Note that the on_conflict block in the mutation is for test repeatability, there are known Hasura issues with unique indexes vs unique constraints on tables  */
+    /** Note that the on_conflict block in the mutation is for test repeatability.
+     * The posts table has had its unique index dropped and replaced with a unique constraint
+     * due to known Hasura issues with unique indexes vs unique constraints  */
     test('Indexer.runFunctions() should execute a near social function against a given block', async () => {
 
         const indexer = new Indexer('mainnet', 'us-west-2');
@@ -76,7 +95,58 @@ describe('Indexer', () => {
         const returnValue = await indexer.runFunctions(block_height, functions);
 
         expect(returnValue.mutations.length).toEqual(1);
-        expect(returnValue.mutations[0]).toContain("mutation createPost($post:posts_insert_input!) { insert_posts_one(object: $post) { id } }");
+        expect(returnValue.mutations[0]).toContain("mutation createPost($post:posts_insert_input!) { insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
+    });
+
+    /** Note that the on_conflict block in the mutation is for test repeatability.
+     * The comments table has had its unique index dropped and replaced with a unique constraint
+     * due to known Hasura issues with unique indexes vs unique constraints  */
+    test('Indexer.runFunctions() should execute an imperative style near social function against a given block', async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+        const functions = {};
+
+        functions['buildnear.testnet/itest5'] = {code:`
+            const { posts } = await context.graphql(\`
+                query {
+                    posts(where: { id: { _eq: 2 } }) {
+                        id
+                    }
+                }
+            \`);
+
+            if (posts.length === 0) {
+                return;
+            }
+
+            const [post] = posts;
+
+            const { insert_comments: { returning: { id } } } = await context.graphql(\`
+                mutation {
+                    insert_comments(
+                        objects: { account_id: "buildnear.testnet", content: "cool post", post_id: \${post.id},
+                        block_height: \${block.blockHeight}, block_timestamp: \${block.blockHeight}, 
+                        receipt_id: "12345" }
+                        on_conflict: {constraint: comments_post_id_account_id_block_height_key, update_columns: block_timestamp}
+                    ) {
+                        returning {
+                            id
+                        }
+                    }
+                }
+            \`);
+
+            return (\`Created comment \${id} on post \${post.id}\`)
+        `};
+
+        const block_height = 85376002;
+        await indexer.runFunctions(block_height, functions, {imperative: true});
+        const valueSet = await indexer.runGraphQLQuery('query MyQuery {\n' +
+            '  comments(where: {account_id: {_eq: "buildnear.testnet"}}) {\n' +
+            '    id\n' +
+            '    post_id\n' +
+            '  }\n' +
+            '}')
+        expect(valueSet.comments[0].post_id).toEqual(2);
     });
 });
 

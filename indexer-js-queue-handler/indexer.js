@@ -29,7 +29,7 @@ export default class Indexer {
                 const vm = new VM();
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
-                    ? this.buildImperativeContextForFunction()
+                    ? this.buildImperativeContextForFunction(function_name)
                     : this.buildFunctionalContextForFunction(mutationsReturnValue);
 
                 vm.freeze(blockWithHelpers, 'block');
@@ -71,18 +71,7 @@ export default class Indexer {
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
 
-            const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ query: allMutations, variables: variablesPlusKeyValues }),
-            });
-
-            const responseJson = await response.json();
-            if(response.status !== 200 || responseJson.errors) {
-                throw new Error(`Failed to write mutation for function: ${functionName}, http status: ${response.status}, errors: ${JSON.stringify(responseJson.errors)}`);
-            }
+            const responseData = this.runGraphQLQuery(allMutations, variablesPlusKeyValues);
             return allMutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName, e);
@@ -184,30 +173,48 @@ export default class Indexer {
         };
     }
 
-    buildImperativeContextForFunction() {
+    buildImperativeContextForFunction(functionName) {
         return {
             graphql: async (operation, variables) => {
-                const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        query: operation,
-                        ...(variables && { variables }),
-                    }),
-                });
-
-                const { data, errors } = await response.json();
-
-                if (response.status !== 200 || errors) {
-                    throw new Error(JSON.stringify(errors,  null, 2));
-                }
-
-                return data;
+                return this.runGraphQLQuery(operation, variables);
+            },
+            set: async (key, value) => {
+                const mutation =
+                    `mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
+                        insert_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+                     }`
+                const variables = {
+                    function_name: functionName,
+                    key: key,
+                    value: value ? JSON.stringify(value) : null
+                };
+                return await this.runGraphQLQuery(mutation, variables);
             }
-        }
+        };
     }
+
+    async runGraphQLQuery(operation, variables) {
+        const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: operation,
+                ...(variables && {variables}),
+            }),
+        });
+
+        const {data, errors} = await response.json();
+
+        if (response.status !== 200 || errors) {
+            // todo NEED to surface this error in Developer logs
+            throw new Error(`Failed to write graphql, http status: ${response.status}, errors: ${JSON.stringify(errors, null, 2)}`);
+        }
+
+        return data;
+    }
+
     renameUnderscoreFieldsToCamelCase(value) {
         if (value && typeof value === "object" && !Array.isArray(value)) {
             // It's a non-null, non-array object, create a replacement with the keys initially-capped

@@ -3,7 +3,7 @@ import { Block } from '@near-lake/primitives'
 
 import Indexer from './indexer';
 
-describe('Indexer', () => {
+describe('Indexer unit tests', () => {
     const oldEnv = process.env;
 
     const GRAPHQL_ENDPOINT = 'mock-graphql-endpoint';
