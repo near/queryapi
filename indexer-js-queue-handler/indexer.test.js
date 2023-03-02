@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import { Block } from '@near-lake/primitives'
 
 import Indexer from './indexer';
+import {VM} from "vm2";
 
 describe('Indexer unit tests', () => {
     const oldEnv = process.env;
@@ -46,13 +47,13 @@ describe('Indexer unit tests', () => {
         const functions = {};
         functions['buildnear.testnet/test'] = {code:`
             const foo = 3;
-            block.result = context.graphql.mutation(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
+            block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
             mutationsReturnValue['hack'] = function() {return 'bad'}
         `};
         await indexer.runFunctions(block_height, functions);
 
-        expect(mockFetch).toHaveBeenCalledTimes(1);
-        expect(mockFetch).toHaveBeenCalledWith(
+        expect(mockFetch).toHaveBeenCalledTimes(3); // 1st is log
+        expect(mockFetch.mock.calls[1]).toEqual([
             GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
@@ -64,7 +65,7 @@ describe('Indexer unit tests', () => {
                     variables: {}
                 }),
             }
-        );
+        ]);
     });
 
     test('Indexer.writeMutations() should POST a graphQL mutation from a mutation string', async () => {
@@ -349,6 +350,18 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const commentId = 2;
         const blockHeight = 82699904;
         const mockFetch = jest.fn()
+            .mockReturnValueOnce({ // starting log
+                status: 200,
+                json: async () => ({
+                    data: {
+                        indexer_log_store: [
+                            {
+                                id: '12345',
+                            },
+                        ],
+                    },
+                }),
+            })
             .mockReturnValueOnce({ // query
                 status: 200,
                 json: async () => ({
@@ -407,7 +420,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }
             \`);
 
-            if (posts.length === 0) {
+            if (!posts || posts.length === 0) {
                 return;
             }
 
@@ -430,8 +443,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         await indexer.runFunctions(blockHeight, functions, { imperative: true });
 
-        expect(mockFetch).toHaveBeenCalledTimes(2);
-        expect(mockFetch.mock.calls[0]).toEqual([
+        expect(mockFetch).toHaveBeenCalledTimes(4);
+        expect(mockFetch.mock.calls[1]).toEqual([
             GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
@@ -449,7 +462,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 })
             }
         ]);
-        expect(mockFetch.mock.calls[1]).toEqual([
+        expect(mockFetch.mock.calls[2]).toEqual([
             GRAPHQL_ENDPOINT,
             {
                 method: 'POST',
@@ -469,6 +482,72 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }
             `
                 })
+            }
+        ]);
+    });
+
+    test('Indexer.runFunctions() console.logs', async () => {
+        const logs = []
+        const context = {log: (m) => {
+            logs.push(m)
+        }};
+        const vm = new VM();
+        vm.freeze(context, 'context');
+        vm.freeze(context, 'console');
+        await vm.run('console.log("hello"); context.log("world")');
+        expect(logs).toEqual(['hello','world']);
+    });
+
+    test("Errors thrown in VM need to be caught", async () => {
+        const vm = new VM();
+        const t = () => {
+            vm.run("throw new Error('boom')")
+        }
+        await expect(t).toThrow('boom');
+    });
+
+    test('Indexer.runFunctions() catches errors', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => ({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {code:`
+            throw new Error('boom');
+        `};
+        await indexer.runFunctions(block_height, functions);
+
+        expect(mockFetch).toHaveBeenCalledTimes(4); // 2 logs
+        expect(mockFetch.mock.calls[1]).toEqual([
+            GRAPHQL_ENDPOINT,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\n    id\n  }\n}\n`,
+                    variables: {"function_name":"buildnear.testnet/test","block_height":456,"message":"[\"Error running IndexerFunction\",\"boom\"]"}
+                }),
             }
         ]);
     });

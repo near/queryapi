@@ -22,32 +22,45 @@ export default class Indexer {
     async runFunctions(block_height, functions, options = { imperative: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
+        const allMutations = [];
         // TODO only execute function(s) specified in AlertMessage - blocked on filtering changes
         for (const function_name in functions) {
-            // console.log('Running function', functions[function_name]);  // debug output
+            console.log('Running function', function_name, 'on block', block_height, 'with options', options);  // Lambda Logs
+            await this.writeLog(function_name, block_height, 'Running function', function_name);
             try {
                 const vm = new VM();
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
-                    ? this.buildImperativeContextForFunction(function_name)
-                    : this.buildFunctionalContextForFunction(mutationsReturnValue);
+                    ? this.buildImperativeContextForFunction(function_name, block_height)
+                    : this.buildFunctionalContextForFunction(mutationsReturnValue, function_name, block_height);
 
                 vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
+                vm.freeze(context, 'console'); // provide console.log via context.log
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
                 const modifiedFunction = this.transformIndexerFunction(functions[function_name].code);
-                await vm.run(modifiedFunction);
+                try {
+                    await vm.run(modifiedFunction);
+                } catch (e) {
+                    // NOTE: logging the exception likely leaks some information about the index runner.
+                    // For now, we just log the message. In the future we could sanitize the stack trace
+                    // and give the correct line number offsets within the indexer function
+                    await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
+                }
 
                 if (!options.imperative) {
                     console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
-                    await this.writeMutations(function_name, mutationsReturnValue); // await can be dropped once it's all tested so writes can happen in parallel
+                    await this.writeMutations(function_name, mutationsReturnValue, function_name, block_height); // await can be dropped once it's all tested so writes can happen in parallel
                 }
-                return mutationsReturnValue;
+                allMutations.push(mutationsReturnValue);
+
+                await this.writeFunctionState(function_name, block_height);
             } catch (e) {
                 console.error('Failed to run function: ' + function_name, e);
             }
         }
+        return allMutations;
     }
 
     buildKeyValueMutations(keysValues) {
@@ -64,18 +77,17 @@ export default class Indexer {
             return acc;
         }, {function_name: functionName});
     }
-    async writeMutations(functionName, mutationReturnValue) {
+    async writeMutations(functionName, mutationReturnValue, block_height) {
         try {
             const allMutations = mutationReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationReturnValue.keysValues);
             const variablesPlusKeyValues = {...mutationReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationReturnValue.keysValues)};
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
 
-            const responseData = this.runGraphQLQuery(allMutations, variablesPlusKeyValues);
+            await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height);
             return allMutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName, e);
-            throw(e);
         }
     }
 
@@ -157,26 +169,27 @@ export default class Indexer {
         ].reduce((acc, val) => val(acc), indexerFunction);
     }
 
-    buildFunctionalContextForFunction(mutationsReturnValue) {
+    buildFunctionalContextForFunction(mutationsReturnValue, functionName, block_height) {
         return {
-            graphql: {
-                mutation(mutation) {
-                    mutationsReturnValue.mutations.push(mutation);
-                },
-                allVariables(variables) {
-                    mutationsReturnValue.variables = variables;
-                }
+            graphql: (mutation, variables) => {
+                mutationsReturnValue.mutations.push(mutation);
+                // todo this is now a problem because multiple mutations could use the same variable names, but for now we're going to match the imperative context signature.
+                mutationsReturnValue.variables = Object.assign(mutationsReturnValue.variables, variables);
             },
             set: (key, value) => {
                 mutationsReturnValue.keysValues[key] = value;
+            },
+            log: async (log) => {  // starting with imperative logging for both imperative and functional contexts
+                return await this.writeLog(functionName, block_height, log);
             }
+
         };
     }
 
-    buildImperativeContextForFunction(functionName) {
+    buildImperativeContextForFunction(functionName, block_height) {
         return {
             graphql: async (operation, variables) => {
-                return this.runGraphQLQuery(operation, variables);
+                return this.runGraphQLQuery(operation, variables, functionName, block_height);
             },
             set: async (key, value) => {
                 const mutation =
@@ -188,12 +201,56 @@ export default class Indexer {
                     key: key,
                     value: value ? JSON.stringify(value) : null
                 };
-                return await this.runGraphQLQuery(mutation, variables);
+                return await this.runGraphQLQuery(mutation, variables, functionName, block_height);
+            },
+            log: async (log) => {
+                return await this.writeLog(functionName, block_height, log);
             }
         };
     }
 
-    async runGraphQLQuery(operation, variables) {
+    async writeLog(function_name, block_height, log) { // accepts multiple arguments
+        const message = JSON.stringify(Object.values(arguments).slice(2));
+        const mutation =
+`mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
+    id
+  }
+}
+`;
+        let result = null;
+        try {
+            result = await this.runGraphQLQuery(mutation, {function_name, block_height, message}, function_name, block_height);
+        } catch (e) {
+            console.error('Error writing log', e);
+        }
+        return result?.insert_indexer_log_entries_one?.id;
+    }
+
+    async writeFunctionState(function_name, block_height) {
+        const mutation =
+            `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+                  insert_indexer_state(
+                    objects: {current_block_height: $block_height, function_name: $function_name}
+                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                  ) {
+                    returning {
+                      current_block_height
+                      function_name
+                    }
+                  }
+                }`;
+        const variables = {
+            function_name: function_name,
+            block_height: block_height,
+        };
+        try {
+            return await this.runGraphQLQuery(mutation, variables, function_name, block_height);
+        } catch(e) {
+            console.error('Error writing function state', e);
+        }
+    }
+    async runGraphQLQuery(operation, variables, function_name, block_height, logError = true) {
         const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -208,7 +265,20 @@ export default class Indexer {
         const {data, errors} = await response.json();
 
         if (response.status !== 200 || errors) {
-            // todo NEED to surface this error in Developer logs
+            if(logError) {
+                const message = errors ? errors.map((e) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
+                const mutation =
+                    `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                    insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
+                    id
+                  }
+                }`;
+                try {
+                    await this.runGraphQLQuery(mutation, {function_name, block_height, message}, function_name, block_height, false);
+                } catch (e) {
+                    console.error('Error writing log of graphql error', e);
+                }
+            }
             throw new Error(`Failed to write graphql, http status: ${response.status}, errors: ${JSON.stringify(errors, null, 2)}`);
         }
 
