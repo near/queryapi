@@ -266,7 +266,7 @@ export default class Indexer {
 
         if (response.status !== 200 || errors) {
             if(logError) {
-                const message = errors ? errors.map((e) => e.message).join(', ') : 'Unknown error writing with graphql to indexer storage';
+                const message = errors ? errors.map((e) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
                 const mutation =
                     `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
                     insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
