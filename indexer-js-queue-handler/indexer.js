@@ -244,7 +244,11 @@ export default class Indexer {
             function_name: function_name,
             block_height: block_height,
         };
-        return await this.runGraphQLQuery(mutation, variables, function_name, block_height);
+        try {
+            return await this.runGraphQLQuery(mutation, variables, function_name, block_height);
+        } catch(e) {
+            console.error('Error writing function state', e);
+        }
     }
     async runGraphQLQuery(operation, variables, function_name, block_height, logError = true) {
         const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {

@@ -84,7 +84,8 @@ describe('Indexer integration tests', () => {
                     const mutationData = { post: { account_id: accountId, block_height: postData.block_height.toString(),
                       block_timestamp: postData.block_timestamp, receipt_id: postData.receipt_id, 
                       content: postData.post}};
-                    context.graphql('mutation createPost($post:posts_insert_input!) { insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }',
+                    context.graphql('mutation createPost($post:posts_insert_input!) {' +  
+                        'insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }',
                         mutationData);
                 }
             });
