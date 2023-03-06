@@ -1,4 +1,5 @@
 import { connect } from "near-api-js";
+import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
