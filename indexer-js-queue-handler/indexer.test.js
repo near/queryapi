@@ -598,7 +598,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledTimes(1);
         expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledWith(
             'morgs_near_test_',
-            'morgs_near_test',
+            'morgs_near',
             'schema'
         )
     });
@@ -705,7 +705,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Hasura-Role': 'morgs_near_test'
+                    'X-Hasura-Role': 'morgs_near'
                 },
                 body: JSON.stringify({
                     query: `mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "82699904")}`,

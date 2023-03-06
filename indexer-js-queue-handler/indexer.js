@@ -34,10 +34,10 @@ export default class Indexer {
 
             let hasuraRoleName = null;
             if (options.provision) {
-                try {
-                    hasuraRoleName = function_name.replace(/[.\/-]/g, '_')
-                    const schemaName = `${hasuraRoleName}_`;
+                hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
+                const schemaName = `${function_name.replace(/[.\/-]/g, '_')}_`
 
+                try {
                     if (!await this.deps.provisioner.doesEndpointExist(schemaName)) { 
                         await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
                     }
