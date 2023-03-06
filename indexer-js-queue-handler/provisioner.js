@@ -12,15 +12,15 @@ export default class Provisioner {
     }
 
     async createAuthenticatedEndpoint(schemaName, roleName, migration) {
-        await this.hasuraClient.createSchema(schema);
+        await this.hasuraClient.createSchema(schemaName);
 
-        await this.hasuraClient.runMigrations(schema, migration);
+        await this.hasuraClient.runMigrations(schemaName, migration);
 
-        const tableNames = await this.hasuraClient.getTableNames(schema);
-        await this.hasuraClient.trackTables(schema, tableNames);
+        const tableNames = await this.hasuraClient.getTableNames(schemaName);
+        await this.hasuraClient.trackTables(schemaName, tableNames);
 
         await this.hasuraClient.addPermissionsToTables(
-            schema,
+            schemaName,
             tableNames,
             roleName,
             ['select', 'insert', 'update', 'delete']

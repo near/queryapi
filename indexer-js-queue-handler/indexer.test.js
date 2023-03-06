@@ -3,6 +3,7 @@ import { Block } from '@near-lake/primitives'
 
 import Indexer from './indexer';
 import {VM} from "vm2";
+import Provisioner from './provisioner';
 
 describe('Indexer unit tests', () => {
     const oldEnv = process.env;
@@ -550,5 +551,100 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }),
             }
         ]);
+    });
+
+    test('Indexer.runFunctions() provisions a GraphQL endpoint with the specified schema', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn();
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => ({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValueOnce({ // shard
+                    promise: () => ({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(false),
+            createAuthenticatedEndpoint: jest.fn(),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: '',
+                schema: 'schema',
+            }
+        };
+        await indexer.runFunctions(1, functions, { provision: true });
+
+        expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledTimes(1);
+        expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledWith(
+            'morgs_near_test_',
+            'morgs_near_test',
+            'schema'
+        )
+    });
+
+    test('Indexer.runFunctions() skips provisioning if the endpoint exists', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn();
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => ({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValueOnce({ // shard
+                    promise: () => ({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(true),
+            createAuthenticatedEndpoint: jest.fn(),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: '',
+                schema: 'schema',
+            }
+        };
+        await indexer.runFunctions(1, functions, { provision: true });
+
+        expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
     });
 });

@@ -3,6 +3,8 @@ import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
 
+import Provisioner from './provisioner'
+
 export default class Indexer {
 
     constructor(
@@ -15,18 +17,36 @@ export default class Indexer {
         this.deps = {
             fetch,
             s3: new AWS.S3({ region: aws_region }),
+            provisioner: new Provisioner(),
             ...deps,
         };
     }
 
-    async runFunctions(block_height, functions, options = { imperative: false }) {
+    async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         const allMutations = [];
         // TODO only execute function(s) specified in AlertMessage - blocked on filtering changes
         for (const function_name in functions) {
+            const indexerFunction = functions[function_name];
             console.log('Running function', function_name, 'on block', block_height, 'with options', options);  // Lambda Logs
             await this.writeLog(function_name, block_height, 'Running function', function_name);
+
+            let hasuraRoleName = null;
+            if (options.provision) {
+                try {
+                    hasuraRoleName = function_name.replace(/[.\/-]/g, '_')
+                    const schemaName = `${hasuraRoleName}_`;
+
+                    if (!await this.deps.provisioner.doesEndpointExist(schemaName)) { 
+                        await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
+                    }
+                } catch (err) {
+                    console.error('Failed to provision endpoint: ', err)
+                }
+            }
+
+            // console.log('Running function', functions[function_name]);  // debug output
             try {
                 const vm = new VM();
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
