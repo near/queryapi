@@ -78,6 +78,10 @@ export default class Indexer {
         }, {function_name: functionName});
     }
     async writeMutations(functionName, mutationReturnValue, block_height) {
+        if (mutationReturnValue.mutations.length === 0) {
+            return;
+        }
+
         try {
             const allMutations = mutationReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationReturnValue.keysValues);
             const variablesPlusKeyValues = {...mutationReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationReturnValue.keysValues)};
