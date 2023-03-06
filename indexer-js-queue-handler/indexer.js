@@ -108,7 +108,7 @@ export default class Indexer {
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
 
-            const responseData = await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height, hasuraRoleName);
+            await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height, hasuraRoleName);
             return allMutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName, e);
@@ -275,7 +275,7 @@ export default class Indexer {
         }
     }
     async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
-        const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
+        const response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
