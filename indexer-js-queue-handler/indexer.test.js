@@ -647,4 +647,71 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
     });
+
+    test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => ({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValueOnce({ // shard
+                    promise: () => ({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(true),
+            createAuthenticatedEndpoint: jest.fn(),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: `
+                    context.graphql.mutation(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
+                `,
+                schema: 'schema',
+            }
+        };
+        await indexer.runFunctions(blockHeight, functions, { provision: true });
+
+        expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledWith(
+            GRAPHQL_ENDPOINT,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Role': 'morgs_near_test'
+                },
+                body: JSON.stringify({
+                    query: `mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "82699904")}`,
+                    variables: {}
+                }),
+            }
+        );
+    });
 });

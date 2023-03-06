@@ -30,7 +30,7 @@ export default class Indexer {
         for (const function_name in functions) {
             const indexerFunction = functions[function_name];
             console.log('Running function', function_name, 'on block', block_height, 'with options', options);  // Lambda Logs
-            await this.writeLog(function_name, block_height, 'Running function', function_name);
+            await this.writeLog(function_name, block_height, 'Running function');
 
             let hasuraRoleName = null;
             if (options.provision) {
@@ -51,7 +51,7 @@ export default class Indexer {
                 const vm = new VM();
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
-                    ? this.buildImperativeContextForFunction(function_name, block_height)
+                    ? this.buildImperativeContextForFunction(function_name, block_height, hasuraRoleName)
                     : this.buildFunctionalContextForFunction(mutationsReturnValue, function_name, block_height);
 
                 vm.freeze(blockWithHelpers, 'block');
@@ -59,7 +59,7 @@ export default class Indexer {
                 vm.freeze(context, 'console'); // provide console.log via context.log
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
-                const modifiedFunction = this.transformIndexerFunction(functions[function_name].code);
+                const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
                 try {
                     await vm.run(modifiedFunction);
                 } catch (e) {
@@ -71,7 +71,7 @@ export default class Indexer {
 
                 if (!options.imperative) {
                     console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
-                    await this.writeMutations(function_name, mutationsReturnValue, function_name, block_height); // await can be dropped once it's all tested so writes can happen in parallel
+                    await this.writeMutations(function_name, mutationsReturnValue, block_height, hasuraRoleName); // await can be dropped once it's all tested so writes can happen in parallel
                 }
                 allMutations.push(mutationsReturnValue);
 
@@ -97,7 +97,7 @@ export default class Indexer {
             return acc;
         }, {function_name: functionName});
     }
-    async writeMutations(functionName, mutationReturnValue, block_height) {
+    async writeMutations(functionName, mutationReturnValue, block_height, hasuraRoleName) {
         if (mutationReturnValue.mutations.length === 0) {
             return;
         }
@@ -108,7 +108,7 @@ export default class Indexer {
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
 
-            await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height);
+            const responseData = await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height, hasuraRoleName);
             return allMutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName, e);
@@ -210,10 +210,10 @@ export default class Indexer {
         };
     }
 
-    buildImperativeContextForFunction(functionName, block_height) {
+    buildImperativeContextForFunction(functionName, block_height, hasuraRoleName) {
         return {
             graphql: async (operation, variables) => {
-                return this.runGraphQLQuery(operation, variables, functionName, block_height);
+                return this.runGraphQLQuery(operation, variables, functionName, block_height, hasuraRoleName);
             },
             set: async (key, value) => {
                 const mutation =
@@ -225,7 +225,7 @@ export default class Indexer {
                     key: key,
                     value: value ? JSON.stringify(value) : null
                 };
-                return await this.runGraphQLQuery(mutation, variables, functionName, block_height);
+                return await this.runGraphQLQuery(mutation, variables, functionName, block_height, hasuraRoleName);
             },
             log: async (log) => {
                 return await this.writeLog(functionName, block_height, log);
@@ -274,11 +274,12 @@ export default class Indexer {
             console.error('Error writing function state', e);
         }
     }
-    async runGraphQLQuery(operation, variables, function_name, block_height, logError = true) {
+    async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
         const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(hasuraRoleName && { 'X-Hasura-Role': hasuraRoleName })
             },
             body: JSON.stringify({
                 query: operation,
