@@ -8,7 +8,7 @@ export default class Provisioner {
     }
 
     doesEndpointExist(schemaName) {
-        return this.hasuraClient.isSchemaCreated(schema);
+        return this.hasuraClient.isSchemaCreated(schemaName);
     }
 
     async createAuthenticatedEndpoint(schemaName, roleName, migration) {
