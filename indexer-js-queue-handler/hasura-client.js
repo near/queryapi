@@ -1,10 +1,12 @@
+import fetch from 'node-fetch';
+
 export default class HasuraClient {
   constructor(
     deps
   ) {
     this.deps = {
-      fetch,
-      ...deps
+        fetch,
+        ...deps,
     };
   }
 
@@ -55,11 +57,11 @@ export default class HasuraClient {
   };
 
   async executeBulkMetadataRequest (metadataRequests) {
-    return executeMetadataRequest('bulk', metadataRequests);
+    return this.executeMetadataRequest('bulk', metadataRequests);
   } 
 
   async isSchemaCreated (schemaName) {
-    const { result } = await executeSql(
+    const { result } = await this.executeSql(
       `SELECT schema_name FROM information_schema.schemata WHERE schema_name = '${schemaName}'`,
       { readOnly: true }
     );
@@ -68,24 +70,24 @@ export default class HasuraClient {
   };
 
   createSchema (schemaName) {
-    return executeSql(
+    return this.executeSql(
       `CREATE schema ${schemaName}`,
       { readOnly: false }
     );
   }
 
   runMigrations(schemaName, migration) {
-    return executeSql(
+    return this.executeSql(
       `
       set schema '${schemaName}';
-      ${migration}    
+      ${migration}
       `,
       { readOnly: false }
     ); 
   }
 
   async getTableNames(schemaName) {
-    const { result } = await executeSql(
+    const { result } = await this.executeSql(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = '${schemaName}'`,
       { readOnly: true }
     );
@@ -94,7 +96,7 @@ export default class HasuraClient {
   };
 
   async trackTables(schemaName, tableNames) {
-    return executeBulkMetadataRequest(
+    return this.executeBulkMetadataRequest(
       tableNames.map((name) => ({
         type: 'pg_track_table',
         args: {
@@ -108,7 +110,7 @@ export default class HasuraClient {
   } 
 
   async addPermissionsToTables(schemaName, tableNames, roleName, permissions) {
-    return executeBulkMetadataRequest(
+    return this.executeBulkMetadataRequest(
       tableNames
         .map((tableName) => (
           permissions.map((permission) => ({
