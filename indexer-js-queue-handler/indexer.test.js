@@ -8,12 +8,12 @@ import Provisioner from './provisioner';
 describe('Indexer unit tests', () => {
     const oldEnv = process.env;
 
-    const GRAPHQL_ENDPOINT = 'mock-graphql-endpoint';
+    const HASURA_ENDPOINT = 'mock-hasura-endpoint';
 
     beforeAll(() => {
         process.env = {
             ...oldEnv,
-            GRAPHQL_ENDPOINT,
+            HASURA_ENDPOINT,
         };
     });
 
@@ -55,7 +55,7 @@ describe('Indexer unit tests', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(3); // 1st is log
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -84,7 +84,7 @@ describe('Indexer unit tests', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -114,7 +114,7 @@ describe('Indexer unit tests', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -280,7 +280,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(greet).toEqual('hello');
         expect(success).toEqual(true);
         expect(mockFetch.mock.calls[0]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -290,7 +290,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         ]);
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -305,7 +305,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const mockFetch = jest.fn()
             .mockResolvedValue({
                 json: async () => ({
-                    errors: 'boom'
+                    errors: ['boom']
                 })
             });
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
@@ -332,7 +332,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         await context.graphql(query, variables);
 
         expect(mockFetch.mock.calls[0]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -446,7 +446,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         expect(mockFetch).toHaveBeenCalledTimes(4);
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -464,7 +464,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         ]);
         expect(mockFetch.mock.calls[2]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -537,9 +537,9 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         `};
         await indexer.runFunctions(block_height, functions);
 
-        expect(mockFetch).toHaveBeenCalledTimes(4); // 2 logs
+        expect(mockFetch).toHaveBeenCalledTimes(3); // 2 logs
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -690,7 +690,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const functions = {
             'morgs.near/test': {
                 code: `
-                    context.graphql.mutation(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
+                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
                 `,
                 schema: 'schema',
             }
@@ -698,9 +698,9 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         await indexer.runFunctions(blockHeight, functions, { provision: true });
 
         expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
-        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(mockFetch).toHaveBeenCalledTimes(3);
         expect(mockFetch).toHaveBeenCalledWith(
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
