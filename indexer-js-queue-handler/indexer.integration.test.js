@@ -164,7 +164,6 @@ describe('Indexer integration tests', () => {
         expect(functions).toBeDefined();
         expect(Object.keys(functions).length).toBeGreaterThan(0);
     });
-    // todo test indexer.runFunctions() with a function that has a bad graphql mutation
 
     test("writeFunctionState should write a function state to the database", async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
@@ -190,7 +189,7 @@ describe('Indexer integration tests', () => {
 
         const functions = {};
         functions['buildnear.testnet/itest3'] = {code:
-                'context.graphql(`mutation { incorrect_function_call()`);'};
+                'await context.graphql(`mutation { incorrect_function_call()`);'};
         const block_height = 85376002;
 
         await indexer.runFunctions(block_height, functions, {imperative: true});
@@ -198,7 +197,7 @@ describe('Indexer integration tests', () => {
     });
 
     // Unreturned promise rejection seems to be uncatchable even with process.on('unhandledRejection'
-    // However, the next function is run
+    // However, the next function is run (in this test but not on Lambda).
     test.skip("function that rejects a promise should catch the error", async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
 

@@ -555,6 +555,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     });
 
     // The unhandled promise causes problems with test reporting.
+    // Note unhandled promise rejections fail to proceed to the next function on AWS Lambda
     test.skip('Indexer.runFunctions() continues despite promise rejection, unable to log rejection', async () => {
         const mockFetch = jest.fn(() => ({
             status: 200,
