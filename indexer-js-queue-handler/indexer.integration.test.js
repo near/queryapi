@@ -96,7 +96,7 @@ describe('Indexer integration tests', () => {
         const returnValue = await indexer.runFunctions(block_height, functions);
 
         expect(returnValue[0].mutations.length).toEqual(1);
-        expect(returnValue[0].mutations[0]).toContain("mutation createPost($post:posts_insert_input!) { insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
+        expect(returnValue[0].mutations[0]).toContain("mutation createPost($post:posts_insert_input!) {insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
     });
 
     /** Note that the on_conflict block in the mutation is for test repeatability.
@@ -171,6 +171,47 @@ describe('Indexer integration tests', () => {
         const result = await indexer.writeFunctionState("buildnear.testnet/itest8", 85376002);
         expect(result).toBeDefined();
         expect(result.insert_indexer_state.returning[0].current_block_height).toBe(85376002);
+    });
+    test("function that throws an error should catch the error", async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {code:`
+            throw new Error('boom');
+        `};
+        const block_height = 85376002;
+
+        await indexer.runFunctions(block_height, functions);
+        // no error thrown is success
+    });
+
+    test("rejected graphql promise is awaited and caught", async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const functions = {};
+        functions['buildnear.testnet/itest3'] = {code:
+                'context.graphql(`mutation { incorrect_function_call()`);'};
+        const block_height = 85376002;
+
+        await indexer.runFunctions(block_height, functions, {imperative: true});
+        // no error thrown is success
+    });
+
+    // Unreturned promise rejection seems to be uncatchable even with process.on('unhandledRejection'
+    // However, the next function is run
+    test.skip("function that rejects a promise should catch the error", async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const functions = {};
+        functions['buildnear.testnet/fails'] = {code:`
+            Promise.reject('rejected promise');
+        `};
+        functions['buildnear.testnet/succeeds'] = {code:`
+            console.log('Post promise rejection function succeeded');
+        `};
+        const block_height = 85376002;
+
+        await indexer.runFunctions(block_height, functions);
     });
 });
 

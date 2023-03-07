@@ -230,9 +230,10 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const transformedFunction = indexer.transformIndexerFunction(`console.log('hello')`);
 
         expect(transformedFunction).toEqual(`
-            (async () => {
+            async function f(){
                 console.log('hello')
-            })();
+            };
+            f();
         `);
     });
 
@@ -304,7 +305,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const mockFetch = jest.fn()
             .mockResolvedValue({
                 json: async () => ({
-                    errors: 'boom'
+                    errors: ['boom']
                 })
             });
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
@@ -498,7 +499,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(logs).toEqual(['hello','world']);
     });
 
-    test("Errors thrown in VM need to be caught", async () => {
+    test("Errors thrown in VM can be caught outside the VM", async () => {
         const vm = new VM();
         const t = () => {
             vm.run("throw new Error('boom')")
@@ -534,9 +535,10 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         functions['buildnear.testnet/test'] = {code:`
             throw new Error('boom');
         `};
-        await indexer.runFunctions(block_height, functions);
+        await indexer.runFunctions(block_height, functions, {imperative: true });
 
-        expect(mockFetch).toHaveBeenCalledTimes(4); // 2 logs
+        // console.log('"Indexer.runFunctions() catches errors" calls:', mockFetch.mock.calls);
+        expect(mockFetch).toHaveBeenCalledTimes(3); // 2 logs, 1 state
         expect(mockFetch.mock.calls[1]).toEqual([
             GRAPHQL_ENDPOINT,
             {
@@ -551,4 +553,76 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         ]);
     });
+
+    // The unhandled promise causes problems with test reporting.
+    test.skip('Indexer.runFunctions() continues despite promise rejection, unable to log rejection', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => ({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+
+        const functions = {};
+        functions['buildnear.testnet/fails'] = {code:`
+                Promise.reject('rejected');
+        `};
+        functions['buildnear.testnet/succeeds'] = {code:`
+                console.log('succeeded');
+        `};
+        await indexer.runFunctions(block_height, functions, {imperative: true});
+
+        // console.log('"Indexer.runFunctions() catches errors" calls:', mockFetch.mock.calls);
+        expect(mockFetch).toHaveBeenCalledTimes(5); // 2 logs, 1 state
+        // expect(mockFetch.mock.calls[1]).toEqual([
+        //     GRAPHQL_ENDPOINT,
+        //     {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         },
+        //         body: JSON.stringify({
+        //             query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\n    id\n  }\n}\n`,
+        //             variables: {"function_name":"buildnear.testnet/test","block_height":456,"message":"[\"Error running IndexerFunction\",\"rejected\"]"}
+        //         }),
+        //     }
+        // ]);
+        expect(mockFetch.mock.calls[1]).toEqual([
+            GRAPHQL_ENDPOINT,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({query:`mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+                  insert_indexer_state(
+                    objects: {current_block_height: $block_height, function_name: $function_name}
+                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                  ) {
+                    returning {
+                      current_block_height
+                      function_name
+                    }
+                  }
+                }`,variables:{function_name:"buildnear.testnet/fails",block_height:456}}),
+            }
+        ]);
+    });
+
 });

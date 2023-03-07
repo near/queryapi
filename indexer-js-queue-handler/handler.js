@@ -9,7 +9,7 @@ export const consumer = async (event) => {
         try {
             const jsonBody = JSON.parse(record.body);
             const block_height = jsonBody.alert_message.block_height;
-            const mutations = await indexer.runFunctions(block_height, functions, {imperative: false});
+            const mutations = await indexer.runFunctions(block_height, functions, {imperative: true});
             return {statusCode: 200, body: {"# of mutations applied": Object.keys(mutations).length}};
         } catch (error) {
             return {

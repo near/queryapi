@@ -28,7 +28,7 @@ export default class Indexer {
             console.log('Running function', function_name, 'on block', block_height, 'with options', options);  // Lambda Logs
             await this.writeLog(function_name, block_height, 'Running function', function_name);
             try {
-                const vm = new VM();
+                const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
                     ? this.buildImperativeContextForFunction(function_name, block_height)
@@ -43,7 +43,7 @@ export default class Indexer {
                 try {
                     await vm.run(modifiedFunction);
                 } catch (e) {
-                    // NOTE: logging the exception likely leaks some information about the index runner.
+                    // NOTE: logging the exception would likely leak some information about the index runner.
                     // For now, we just log the message. In the future we could sanitize the stack trace
                     // and give the correct line number offsets within the indexer function
                     await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
@@ -51,7 +51,7 @@ export default class Indexer {
 
                 if (!options.imperative) {
                     console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
-                    await this.writeMutations(function_name, mutationsReturnValue, function_name, block_height); // await can be dropped once it's all tested so writes can happen in parallel
+                    await this.writeMutations(function_name, mutationsReturnValue, block_height); // await can be dropped once it's all tested so writes can happen in parallel
                 }
                 allMutations.push(mutationsReturnValue);
 
@@ -78,6 +78,7 @@ export default class Indexer {
         }, {function_name: functionName});
     }
     async writeMutations(functionName, mutationReturnValue, block_height) {
+        if(!mutationReturnValue?.mutations?.length && !(mutationReturnValue?.keysValues || Object.keys(mutationReturnValue?.keysValues).length == 0)) return;
         try {
             const allMutations = mutationReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationReturnValue.keysValues);
             const variablesPlusKeyValues = {...mutationReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationReturnValue.keysValues)};
@@ -157,9 +158,10 @@ export default class Indexer {
 
     enableAwaitTransform(indexerFunction) {
         return `
-            (async () => {
+            async function f(){
                 ${indexerFunction}
-            })();
+            };
+            f();
         `;
     }
 
@@ -189,7 +191,11 @@ export default class Indexer {
     buildImperativeContextForFunction(functionName, block_height) {
         return {
             graphql: async (operation, variables) => {
-                return this.runGraphQLQuery(operation, variables, functionName, block_height);
+                try {
+                    return await this.runGraphQLQuery(operation, variables, functionName, block_height);
+                } catch (e) {
+                    throw e; // allow catch outside of vm.run to receive the error
+                }
             },
             set: async (key, value) => {
                 const mutation =
@@ -201,7 +207,11 @@ export default class Indexer {
                     key: key,
                     value: value ? JSON.stringify(value) : null
                 };
-                return await this.runGraphQLQuery(mutation, variables, functionName, block_height);
+                try {
+                    return await this.runGraphQLQuery(mutation, variables, functionName, block_height);
+                } catch (e) {
+                    throw e; // allow catch outside of vm.run to receive the error
+                }
             },
             log: async (log) => {
                 return await this.writeLog(functionName, block_height, log);
@@ -241,8 +251,8 @@ export default class Indexer {
                   }
                 }`;
         const variables = {
-            function_name: function_name,
-            block_height: block_height,
+            function_name,
+            block_height,
         };
         try {
             return await this.runGraphQLQuery(mutation, variables, function_name, block_height);
