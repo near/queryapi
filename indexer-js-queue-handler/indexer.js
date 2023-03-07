@@ -77,11 +77,11 @@ export default class Indexer {
             return acc;
         }, {function_name: functionName});
     }
-    async writeMutations(functionName, mutationReturnValue, block_height) {
-        if(!mutationReturnValue?.mutations?.length && !(mutationReturnValue?.keysValues || Object.keys(mutationReturnValue?.keysValues).length == 0)) return;
+    async writeMutations(functionName, mutationsReturnValue, block_height) {
+        if(mutationsReturnValue?.mutations.length == 0 && Object.keys(mutationsReturnValue?.keysValues).length == 0) return;
         try {
-            const allMutations = mutationReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationReturnValue.keysValues);
-            const variablesPlusKeyValues = {...mutationReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationReturnValue.keysValues)};
+            const allMutations = mutationsReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationsReturnValue.keysValues);
+            const variablesPlusKeyValues = {...mutationsReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationsReturnValue.keysValues)};
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
 
