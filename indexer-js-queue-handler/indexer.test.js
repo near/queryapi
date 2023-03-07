@@ -304,7 +304,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const mockFetch = jest.fn()
             .mockResolvedValue({
                 json: async () => ({
-                    errors: 'boom'
+                    errors: ['boom']
                 })
             });
         const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
