@@ -25,7 +25,9 @@ describe('Indexer integration tests', () => {
         functions['buildnear.testnet/test'] = {code: 'context.set("BlockHeight", block.header().height);'};
         const block_height = 85376546;
         const mutations = await indexer.runFunctions(block_height, functions);
-        expect(mutations[0]).toEqual({"keysValues": {"BlockHeight": 85376546}, "mutations": [], "variables": {}});
+        expect(mutations[0]).toEqual(`mutation writeKeyValues($function_name: String!, $key_name0: String!, $value0: String!) {
+            _0: insert_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name0, value: $value0} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+        }`);
     });
 
     test('Indexer.runFunctions() should execute a test function against a given block using a full mutation to write to key-value storage', async () => {
@@ -95,8 +97,9 @@ describe('Indexer integration tests', () => {
         const block_height = 85242526; // post,  // 84940247; // comment
         const returnValue = await indexer.runFunctions(block_height, functions);
 
-        expect(returnValue[0].mutations.length).toEqual(1);
-        expect(returnValue[0].mutations[0]).toContain("mutation createPost($post:posts_insert_input!) {insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
+        console.log(returnValue);
+        expect(returnValue.length).toEqual(1);
+        expect(returnValue[0]).toContain("mutation createPost($post:posts_insert_input!) {insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
     });
 
     /** Note that the on_conflict block in the mutation is for test repeatability.

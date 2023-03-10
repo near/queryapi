@@ -4,12 +4,27 @@ import {jest} from '@jest/globals';
 describe('consumer', () => {
     jest.setTimeout(30000);
 
+    const body = {
+        "chain_id": "Mainnet",
+        "alert_rule_id": 1,
+        "alert_name": "Function set called in social.near",
+        "payload": {
+            "Actions": {
+                "block_hash": "BmuLkzmAT36wANBvdsDckFGUioJSZHdiYQRyh2WKRun9",
+                "receipt_id": "9CGkmYSMq6Bc1qVFjhQ8Au9gdYdsdr1zXZkNcPRgHvCj",
+                "transaction_hash": "6tyaAAkyJugueAssZn52S242MUTwtt89bPiokC8H5wDQ"
+            }
+        },
+        "block_height": 86956588,
+        "function_name": "buildnear.testnest/test_demo_height",
+        "function_code": "{\"code\":\" const h = block.header().height; console.log('About to write demo_blockheight', h); context.set('test_demo_height', h) \",\"schema\":\"\\nCREATE TABLE key_value (\\n  key text NOT NULL,\\n  value text NOT NULL\\n);\\n\",\"start_block_height\":null}"
+    };
     const testEvent2 = {
         "Records": [
             {
                 "messageId": "059f36b4-87a3-44ab-83d2-661975830a7d",
                 "receiptHandle": "AQEBwJnKyrHigUMZj6rYigCgxlaS3SLy0a...",
-                "body": "{\"triggered_alert_id\":9,\"destination_config\":{\"Aggregation\":{\"destination_id\":1,\"indexer_name\":\"posts_likes\",\"indexer_function_code\":\"for(let p in block.getPosts)) {\\n  context.save(a);\\n]\"}},\"alert_message\":{\"chain_id\":\"Mainnet\",\"alert_rule_id\":2,\"alert_name\":\"Function set called in social.near\",\"payload\":{\"Actions\":{\"block_hash\":\"BF78K1ywApepy9MhdmJAoUzGJXK39fPKvuVeMGexBnBo\",\"receipt_id\":\"7CQFJNB7xiJ3698tHRB7qf8vjtYAevpuH56AYyb7iZJS\",\"transaction_hash\":\"B33KtoiKchh7P4Vu96DU1SsM59UuiMLjqh3C4zRHdjYG\"}},\"block_height\":84331720}}",
+                "body": JSON.stringify(body),
                 "attributes": {
                     "ApproximateReceiveCount": "1",
                     "SentTimestamp": "1545082649183",
@@ -27,6 +42,6 @@ describe('consumer', () => {
 
     test('consumer parses SQS message', async () => {
         const result = await consumer(testEvent2);
-        expect(result).toEqual({"body": { "# of mutations applied": 2}, "statusCode": 200});
+        expect(result).toEqual({"body": { "# of mutations applied": 1}, "statusCode": 200});
     });
 });
