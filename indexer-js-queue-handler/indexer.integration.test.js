@@ -70,8 +70,8 @@ describe('Indexer integration tests', () => {
                         }))
                         .filter(functionCall => {
                             const accountId = Object.keys(functionCall.args.data)[0];
-                            return 'post' in functionCall.args.data[accountId]
-                                || 'index' in functionCall.args.data[accountId];
+                            return functionCall.args.data[accountId].post
+                                || functionCall.args.data[accountId].index;
                         })
                 );
         if (nearSocialPosts.length > 0) {
@@ -79,7 +79,7 @@ describe('Indexer integration tests', () => {
             const blockTimestamp = block.header().timestampNanosec;
             nearSocialPosts.forEach(postAction => {
                 const accountId = Object.keys(postAction.args.data)[0];
-                if (postAction.args.data[accountId].post && 'main' in postAction.args.data[accountId].post) {
+                if (postAction.args.data[accountId].post && postAction.args.data[accountId].post.main) {
                     const postData = {account_id: accountId, block_height: blockHeight, block_timestamp: blockTimestamp,
                         receipt_id: postAction.receiptId, post: postAction.args.data[accountId].post.main
                         };
