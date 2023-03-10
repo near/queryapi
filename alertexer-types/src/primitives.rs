@@ -1,3 +1,5 @@
+use near_lake_framework::near_indexer_primitives::StreamerMessage;
+
 pub type TransactionHashString = String;
 pub type ReceiptIdString = String;
 pub type BlockHashString = String;
@@ -16,6 +18,21 @@ pub struct AlertQueueMessage {
     pub alert_name: String,
     pub payload: AlertQueueMessagePayload,
     pub block_height: u64,
+}
+
+#[derive(
+serde::Serialize,
+serde::Deserialize,
+Clone,
+Debug,
+)]pub struct IndexerQueueMessage {
+    pub chain_id: ChainId,
+    pub alert_rule_id: i32,
+    pub alert_name: String,
+    pub payload: AlertQueueMessagePayload,
+    pub block_height: u64,
+    pub function_name: String,
+    pub function_code: String,
 }
 
 impl AlertQueueMessage {

@@ -22,11 +22,12 @@ export default class Indexer {
     async runFunctions(block_height, functions, options = { imperative: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
+        const simultaneousPromises = [];
         const allMutations = [];
-        // TODO only execute function(s) specified in AlertMessage - blocked on filtering changes
         for (const function_name in functions) {
             console.log('Running function', function_name, 'on block', block_height, 'with options', options);  // Lambda Logs
-            await this.writeLog(function_name, block_height, 'Running function', function_name);
+            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
+
             try {
                 const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
@@ -46,16 +47,20 @@ export default class Indexer {
                     // NOTE: logging the exception would likely leak some information about the index runner.
                     // For now, we just log the message. In the future we could sanitize the stack trace
                     // and give the correct line number offsets within the indexer function
+                    console.log(`Error running IndexerFunction ${function_name} on block ${block_height}: ${e.message}`);
                     await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
                 }
 
                 if (!options.imperative) {
                     console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
-                    await this.writeMutations(function_name, mutationsReturnValue, block_height); // await can be dropped once it's all tested so writes can happen in parallel
+                    const writtenMutations = await this.writeMutations(function_name, mutationsReturnValue, block_height); // await can be dropped once it's all tested so writes can happen in parallel
+                    if(writtenMutations?.length > 0) {
+                        allMutations.push(...writtenMutations);
+                    }
                 }
-                allMutations.push(mutationsReturnValue);
 
-                await this.writeFunctionState(function_name, block_height);
+                simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
+                await Promise.all(simultaneousPromises);
             } catch (e) {
                 console.error('Failed to run function: ' + function_name, e);
             }
@@ -80,18 +85,20 @@ export default class Indexer {
     async writeMutations(functionName, mutationsReturnValue, block_height) {
         if(mutationsReturnValue?.mutations.length == 0 && Object.keys(mutationsReturnValue?.keysValues).length == 0) return;
         try {
-            const allMutations = mutationsReturnValue.mutations.join('\n') + this.buildKeyValueMutations(mutationsReturnValue.keysValues);
+            const keyValuesMutations = this.buildKeyValueMutations(mutationsReturnValue.keysValues);
+            const allMutations = mutationsReturnValue.mutations.join('\n') + keyValuesMutations;
             const variablesPlusKeyValues = {...mutationsReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationsReturnValue.keysValues)};
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
-
             await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height);
-            return allMutations;
+
+            return keyValuesMutations.length > 0 ? mutationsReturnValue.mutations.concat(keyValuesMutations) : mutationsReturnValue.mutations;
         } catch (e) {
             console.error('Failed to write mutations for function: ' + functionName, e);
         }
     }
 
+    // deprecated
     async fetchIndexerFunctions() {
         const connectionConfig = {
             networkId: "mainnet",
@@ -115,45 +122,51 @@ export default class Indexer {
         return functions;
     }
 
+    // pad with 0s to 12 digits
     normalizeBlockHeight(block_height) {
-        return block_height.toString().padStart(12, '0'); // pad with 0s to 12 digits
+        return block_height.toString().padStart(12, '0');
     }
 
     async fetchStreamerMessage(block_height) {
-        const block = await this.fetchBlock(block_height);
-        const shards = await this.fetchShards(block_height, block.chunks.length)
+        const blockPromise = this.fetchBlockPromise(block_height);
+        // hardcoding 4 shards to test performance
+        const shardsPromises = await this.fetchShardsPromises(block_height, 4); // block.chunks.length)
 
+        const results = await Promise.all([blockPromise, ...shardsPromises]);
+        const block = results.shift();
+        const shards = results;
         return {
-            block,
-            shards,
+            block: block,
+            shards: shards,
         };
     }    
 
-    async fetchShards(block_height, number_of_shards) {
-        return Promise.all(
-            [...Array(number_of_shards).keys()].map((shard_id) => this.fetchShard(block_height, shard_id))
-        )
+    async fetchShardsPromises(block_height, number_of_shards) {
+        return ([...Array(number_of_shards).keys()].map((shard_id) =>
+            this.fetchShardPromise(block_height, shard_id)));
     }
 
-    async fetchShard(block_height, shard_id) {
+    fetchShardPromise(block_height, shard_id) {
         const params = {
             Bucket: `near-lake-data-${this.network}`,
             Key: `${this.normalizeBlockHeight(block_height)}/shard_${shard_id}.json`,
         };
-        const response = await this.deps.s3.getObject(params).promise();
-        return JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+        return this.deps.s3.getObject(params).promise().then((response) => {
+            return JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+        });
     }
 
-    async fetchBlock(block_height) {
+    fetchBlockPromise(block_height) {
         const file = 'block.json';
         const folder = this.normalizeBlockHeight(block_height);
         const params = {
             Bucket: 'near-lake-data-' + this.network,
             Key: `${folder}/${file}`,
         };
-        const response = await this.deps.s3.getObject(params).promise();
-        const block = JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-        return block;
+        return this.deps.s3.getObject(params).promise().then((response) => {
+            const block = JSON.parse(response.Body.toString(), (key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+            return block;
+        });
     }
 
     enableAwaitTransform(indexerFunction) {
@@ -228,13 +241,14 @@ export default class Indexer {
   }
 }
 `;
-        let result = null;
+
         try {
-            result = await this.runGraphQLQuery(mutation, {function_name, block_height, message}, function_name, block_height);
+            return this.runGraphQLQuery(mutation, {function_name, block_height, message},
+                function_name, block_height)
+                .then((result) => result?.insert_indexer_log_entries_one?.id);
         } catch (e) {
             console.error('Error writing log', e);
         }
-        return result?.insert_indexer_log_entries_one?.id;
     }
 
     async writeFunctionState(function_name, block_height) {
@@ -255,7 +269,7 @@ export default class Indexer {
             block_height,
         };
         try {
-            return await this.runGraphQLQuery(mutation, variables, function_name, block_height);
+            return this.runGraphQLQuery(mutation, variables, function_name, block_height);
         } catch(e) {
             console.error('Error writing function state', e);
         }

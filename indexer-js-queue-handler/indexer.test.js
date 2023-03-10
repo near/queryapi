@@ -30,7 +30,7 @@ describe('Indexer unit tests', () => {
         const block_height = 456;
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [],
@@ -131,7 +131,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const author = 'dokiacapital.poolv1.near';
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             author
@@ -143,7 +143,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3 });
 
         const blockHeight = '84333960';
-        const block = await indexer.fetchBlock(blockHeight);
+        const block = await indexer.fetchBlockPromise(blockHeight);
 
         expect(mockS3.getObject).toHaveBeenCalledTimes(1);
         expect(mockS3.getObject).toHaveBeenCalledWith({
@@ -156,7 +156,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     test('Indexer.fetchShard() should fetch the steamer message from S3', async () => {
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({})
                     }
@@ -167,7 +167,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         const blockHeight = 82699904;
         const shard = 0;
-        await indexer.fetchShard(blockHeight, shard);
+        await indexer.fetchShardPromise(blockHeight, shard);
 
         expect(mockS3.getObject).toHaveBeenCalledTimes(1);
         expect(mockS3.getObject).toHaveBeenCalledWith({
@@ -181,7 +181,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const blockHash = 'xyz';
         const getObject = jest.fn()
             .mockReturnValueOnce({ // block
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [0],
@@ -193,8 +193,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                     }
                 })
             })
-            .mockReturnValueOnce({ // shard
-                promise: () => ({
+            .mockReturnValue({ // shard
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({})
                     }
@@ -208,7 +208,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const shard = 0;
         const streamerMessage = await indexer.fetchStreamerMessage(blockHeight);
 
-        expect(getObject).toHaveBeenCalledTimes(2);
+        expect(getObject).toHaveBeenCalledTimes(5);
         expect(getObject.mock.calls[0][0]).toEqual({
             Bucket: 'near-lake-data-mainnet',
             Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
@@ -390,7 +390,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const mockS3 = {
             getObject: jest.fn()
                 .mockReturnValueOnce({ // block
-                    promise: () => ({
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({
                                 chunks: [0],
@@ -401,8 +401,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                         },
                     }),
                 })
-                .mockReturnValueOnce({ // shard
-                    promise: () => ({
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({})
                         },
@@ -517,7 +517,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const block_height = 456;
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [],
@@ -566,7 +566,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const block_height = 456;
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [],

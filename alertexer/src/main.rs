@@ -1,14 +1,23 @@
 #![feature(explicit_generic_args_with_impl_trait)]
 use std::collections::HashMap;
+use std::error::Error;
 
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
+use near_jsonrpc_client::JsonRpcClient;
+use near_jsonrpc_primitives::types::query::{QueryResponseKind, RpcQueryRequest};
 use tokio::sync::Mutex;
 
 use alert_rules::MatchingRule;
-use near_lake_framework::near_indexer_primitives::types;
+use near_lake_framework::near_indexer_primitives::{StreamerMessage, types};
+use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockReference, FunctionArgs};
+use near_lake_framework::near_indexer_primitives::types::BlockReference::Finality;
+use near_lake_framework::near_indexer_primitives::types::Finality::Final;
+use near_lake_framework::near_indexer_primitives::views::QueryRequest;
+use serde_json::{json, Value};
 
-use shared::{alertexer_types::primitives::AlertQueueMessage, Opts, Parser};
+use shared::{alertexer_types, alertexer_types::primitives::AlertQueueMessage, ChainId, Opts, Parser};
+use shared::alertexer_types::primitives::{AlertQueueMessagePayload, IndexerQueueMessage};
 
 pub(crate) mod cache;
 mod outcomes_reducer;
@@ -147,12 +156,35 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
         // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
         .buffer_unordered(10usize);
 
+    let indexer_functions = indexer_functions(&context.streamer_message, &context.json_rpc_client, context.streamer_message.block.header.height).await;
+
     while let Some(alert_queue_messages) = reducer_futures.next().await {
         if let Ok(alert_queue_messages) = alert_queue_messages {
-            stream::iter(alert_queue_messages.into_iter())
+
+            // for each alert_queue_message from the reducer
+            //   for each indexer_function create a new alert_queue_message
+            // Once the filters are tied to indexer functions, these will de-nest
+            let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
+            for(alert_queue_message) in alert_queue_messages.iter() {
+                for (function_name, function_code) in indexer_functions.as_object().unwrap() {
+                    let block_height = context.streamer_message.block.header.height;
+                    let msg = IndexerQueueMessage {
+                        chain_id: alert_queue_message.chain_id.clone(),
+                        alert_rule_id: alert_queue_message.alert_rule_id,
+                        alert_name: alert_queue_message.alert_name.clone(),
+                        payload: alert_queue_message.payload.clone(),
+                        block_height,
+                        function_name: function_name.clone(),
+                        function_code: function_code.clone().to_string(),
+                    };
+                    indexer_function_messages.push(msg);
+                }
+            }
+
+            stream::iter(indexer_function_messages.into_iter())
                 .chunks(10)
                 .for_each(|alert_queue_messages_batch| async {
-                    match shared::send_to_the_queue(
+                    match shared::send_to_indexer_queue(
                         context.queue_client,
                         context.queue_url.to_string(),
                         alert_queue_messages_batch,
@@ -180,6 +212,53 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
     .await?;
 
     Ok(context.streamer_message.block.header.height)
+}
+
+async fn indexer_functions(streamer_message: &StreamerMessage, rpc_client: &&JsonRpcClient, block_height: u64) -> Value {
+    // todo evaluate filter rule against streamer message to see if registry has changed
+
+    // todo cache indexer functions
+
+    // Fetch functions from registry
+    match read_only_call(rpc_client,
+                   "registry.queryapi.near",
+                   "list_indexer_functions",
+                   FunctionArgs::from(json!({}).to_string().into_bytes())).await {
+        Ok(functions) => functions,
+        Err(err) => {
+            tracing::error!(
+                target: INDEXER,
+                "#{} an error occurred reading indexer functions\n{:#?}",
+                block_height,
+                err
+            );
+            Value::Null
+        }
+    }
+}
+
+
+
+async fn read_only_call(client: &&JsonRpcClient, contract_name: &str, function_name: &str, args: FunctionArgs) -> Result<serde_json::Value, anyhow::Error> {
+
+    let account_id: AccountId = contract_name.parse()?;
+
+    let request = RpcQueryRequest {
+        block_reference: BlockReference::Finality(Final),
+        request: QueryRequest::CallFunction {
+            account_id,
+            method_name: function_name.to_string(),
+            args,
+        },
+    };
+
+    let response = client.call(request).await?;
+
+    if let QueryResponseKind::CallResult(result) = response.kind {
+        return Ok(serde_json::from_str(std::str::from_utf8(&result.result).unwrap()).unwrap());
+    }
+
+    Err(anyhow::anyhow!("Unable to read indexer functions from registry: {:?}", response))
 }
 
 async fn reduce_alert_queue_messages(
