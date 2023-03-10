@@ -11,6 +11,8 @@ use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finality};
 
 pub use alertexer_types;
+use alertexer_types::primitives::IndexerQueueMessage;
+
 pub mod types;
 
 #[derive(Parser, Debug, Clone)]
@@ -231,6 +233,43 @@ pub async fn send_to_the_queue(
                         .try_to_vec()
                         .expect("Failed to BorshSerialize AlertQueueMessage"),
                 ))
+                .build()
+        })
+        .collect();
+
+    let rsp = client
+        .send_message_batch()
+        .queue_url(queue_url)
+        .set_entries(Some(message_bodies))
+        .send()
+        .await?;
+    tracing::debug!(
+        target: "alertexer",
+        "Response from sending a message to SQS\n{:#?}",
+        rsp
+    );
+    Ok(())
+}
+
+pub async fn send_to_indexer_queue(
+    client: &aws_sdk_sqs::Client,
+    queue_url: String,
+    indexer_queue_messages: Vec<IndexerQueueMessage>,
+) -> anyhow::Result<()> {
+    tracing::info!(
+        target: "alertexer",
+        "Sending indexer tasks to the queue\n{:#?}",
+        indexer_queue_messages
+    );
+
+    let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
+        .into_iter()
+        .enumerate()
+        .map(|(index, indexer_queue_message)| {
+            SendMessageBatchRequestEntry::builder()
+                .id(index.to_string())
+                .message_body(serde_json::to_string(&indexer_queue_message)
+                    .expect("Failed to Json Serialize IndexerQueueMessage"))
                 .build()
         })
         .collect();
