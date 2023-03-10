@@ -25,7 +25,9 @@ describe('Indexer integration tests', () => {
         functions['buildnear.testnet/test'] = {code: 'context.set("BlockHeight", block.header().height);'};
         const block_height = 85376546;
         const mutations = await indexer.runFunctions(block_height, functions);
-        expect(mutations[0]).toEqual({"keysValues": {"BlockHeight": 85376546}, "mutations": [], "variables": {}});
+        expect(mutations[0]).toEqual(`mutation writeKeyValues($function_name: String!, $key_name0: String!, $value0: String!) {
+            _0: insert_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name0, value: $value0} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+        }`);
     });
 
     test('Indexer.runFunctions() should execute a test function against a given block using a full mutation to write to key-value storage', async () => {
@@ -68,8 +70,8 @@ describe('Indexer integration tests', () => {
                         }))
                         .filter(functionCall => {
                             const accountId = Object.keys(functionCall.args.data)[0];
-                            return 'post' in functionCall.args.data[accountId]
-                                || 'index' in functionCall.args.data[accountId];
+                            return functionCall.args.data[accountId].post
+                                || functionCall.args.data[accountId].index;
                         })
                 );
         if (nearSocialPosts.length > 0) {
@@ -77,7 +79,7 @@ describe('Indexer integration tests', () => {
             const blockTimestamp = block.header().timestampNanosec;
             nearSocialPosts.forEach(postAction => {
                 const accountId = Object.keys(postAction.args.data)[0];
-                if (postAction.args.data[accountId].post && 'main' in postAction.args.data[accountId].post) {
+                if (postAction.args.data[accountId].post && postAction.args.data[accountId].post.main) {
                     const postData = {account_id: accountId, block_height: blockHeight, block_timestamp: blockTimestamp,
                         receipt_id: postAction.receiptId, post: postAction.args.data[accountId].post.main
                         };
@@ -95,8 +97,9 @@ describe('Indexer integration tests', () => {
         const block_height = 85242526; // post,  // 84940247; // comment
         const returnValue = await indexer.runFunctions(block_height, functions);
 
-        expect(returnValue[0].mutations.length).toEqual(1);
-        expect(returnValue[0].mutations[0]).toContain("mutation createPost($post:posts_insert_input!) { insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
+        console.log(returnValue);
+        expect(returnValue.length).toEqual(1);
+        expect(returnValue[0]).toContain("mutation createPost($post:posts_insert_input!) {insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
     });
 
     /** Note that the on_conflict block in the mutation is for test repeatability.
@@ -164,13 +167,53 @@ describe('Indexer integration tests', () => {
         expect(functions).toBeDefined();
         expect(Object.keys(functions).length).toBeGreaterThan(0);
     });
-    // todo test indexer.runFunctions() with a function that has a bad graphql mutation
 
     test("writeFunctionState should write a function state to the database", async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
         const result = await indexer.writeFunctionState("buildnear.testnet/itest8", 85376002);
         expect(result).toBeDefined();
         expect(result.insert_indexer_state.returning[0].current_block_height).toBe(85376002);
+    });
+    test("function that throws an error should catch the error", async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {code:`
+            throw new Error('boom');
+        `};
+        const block_height = 85376002;
+
+        await indexer.runFunctions(block_height, functions);
+        // no error thrown is success
+    });
+
+    test("rejected graphql promise is awaited and caught", async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const functions = {};
+        functions['buildnear.testnet/itest3'] = {code:
+                'await context.graphql(`mutation { incorrect_function_call()`);'};
+        const block_height = 85376002;
+
+        await indexer.runFunctions(block_height, functions, {imperative: true});
+        // no error thrown is success
+    });
+
+    // Unreturned promise rejection seems to be uncatchable even with process.on('unhandledRejection'
+    // However, the next function is run (in this test but not on Lambda).
+    test.skip("function that rejects a promise should catch the error", async () => {
+        const indexer = new Indexer('mainnet', 'us-west-2');
+
+        const functions = {};
+        functions['buildnear.testnet/fails'] = {code:`
+            Promise.reject('rejected promise');
+        `};
+        functions['buildnear.testnet/succeeds'] = {code:`
+            console.log('Post promise rejection function succeeded');
+        `};
+        const block_height = 85376002;
+
+        await indexer.runFunctions(block_height, functions);
     });
 });
 

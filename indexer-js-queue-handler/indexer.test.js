@@ -31,7 +31,7 @@ describe('Indexer unit tests', () => {
         const block_height = 456;
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [],
@@ -132,7 +132,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const author = 'dokiacapital.poolv1.near';
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             author
@@ -144,7 +144,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3 });
 
         const blockHeight = '84333960';
-        const block = await indexer.fetchBlock(blockHeight);
+        const block = await indexer.fetchBlockPromise(blockHeight);
 
         expect(mockS3.getObject).toHaveBeenCalledTimes(1);
         expect(mockS3.getObject).toHaveBeenCalledWith({
@@ -157,7 +157,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     test('Indexer.fetchShard() should fetch the steamer message from S3', async () => {
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({})
                     }
@@ -168,7 +168,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         const blockHeight = 82699904;
         const shard = 0;
-        await indexer.fetchShard(blockHeight, shard);
+        await indexer.fetchShardPromise(blockHeight, shard);
 
         expect(mockS3.getObject).toHaveBeenCalledTimes(1);
         expect(mockS3.getObject).toHaveBeenCalledWith({
@@ -182,7 +182,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const blockHash = 'xyz';
         const getObject = jest.fn()
             .mockReturnValueOnce({ // block
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [0],
@@ -194,8 +194,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                     }
                 })
             })
-            .mockReturnValueOnce({ // shard
-                promise: () => ({
+            .mockReturnValue({ // shard
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({})
                     }
@@ -209,7 +209,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const shard = 0;
         const streamerMessage = await indexer.fetchStreamerMessage(blockHeight);
 
-        expect(getObject).toHaveBeenCalledTimes(2);
+        expect(getObject).toHaveBeenCalledTimes(5);
         expect(getObject.mock.calls[0][0]).toEqual({
             Bucket: 'near-lake-data-mainnet',
             Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
@@ -231,9 +231,10 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const transformedFunction = indexer.transformIndexerFunction(`console.log('hello')`);
 
         expect(transformedFunction).toEqual(`
-            (async () => {
+            async function f(){
                 console.log('hello')
-            })();
+            };
+            f();
         `);
     });
 
@@ -390,7 +391,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const mockS3 = {
             getObject: jest.fn()
                 .mockReturnValueOnce({ // block
-                    promise: () => ({
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({
                                 chunks: [0],
@@ -401,8 +402,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                         },
                     }),
                 })
-                .mockReturnValueOnce({ // shard
-                    promise: () => ({
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({})
                         },
@@ -499,7 +500,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(logs).toEqual(['hello','world']);
     });
 
-    test("Errors thrown in VM need to be caught", async () => {
+    test("Errors thrown in VM can be caught outside the VM", async () => {
         const vm = new VM();
         const t = () => {
             vm.run("throw new Error('boom')")
@@ -517,7 +518,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const block_height = 456;
         const mockS3 = {
             getObject: jest.fn(() => ({
-                promise: () => ({
+                promise: () => Promise.resolve({
                     Body: {
                         toString: () => JSON.stringify({
                             chunks: [],
@@ -535,9 +536,10 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         functions['buildnear.testnet/test'] = {code:`
             throw new Error('boom');
         `};
-        await indexer.runFunctions(block_height, functions);
+        await indexer.runFunctions(block_height, functions, {imperative: true });
 
-        expect(mockFetch).toHaveBeenCalledTimes(3); // 2 logs
+        // console.log('"Indexer.runFunctions() catches errors" calls:', mockFetch.mock.calls);
+        expect(mockFetch).toHaveBeenCalledTimes(3); // 2 logs, 1 state
         expect(mockFetch.mock.calls[1]).toEqual([
             `${HASURA_ENDPOINT}/v1/graphql`,
             {
@@ -714,4 +716,77 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         );
     });
+
+    // The unhandled promise causes problems with test reporting.
+    // Note unhandled promise rejections fail to proceed to the next function on AWS Lambda
+    test.skip('Indexer.runFunctions() continues despite promise rejection, unable to log rejection', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => Promise.resolve({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+
+        const functions = {};
+        functions['buildnear.testnet/fails'] = {code:`
+                Promise.reject('rejected');
+        `};
+        functions['buildnear.testnet/succeeds'] = {code:`
+                console.log('succeeded');
+        `};
+        await indexer.runFunctions(block_height, functions, {imperative: true});
+
+        // console.log('"Indexer.runFunctions() catches errors" calls:', mockFetch.mock.calls);
+        expect(mockFetch).toHaveBeenCalledTimes(5); // 2 logs, 1 state
+        // expect(mockFetch.mock.calls[1]).toEqual([
+        //     GRAPHQL_ENDPOINT,
+        //     {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         },
+        //         body: JSON.stringify({
+        //             query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\n    id\n  }\n}\n`,
+        //             variables: {"function_name":"buildnear.testnet/test","block_height":456,"message":"[\"Error running IndexerFunction\",\"rejected\"]"}
+        //         }),
+        //     }
+        // ]);
+        expect(mockFetch.mock.calls[1]).toEqual([
+            GRAPHQL_ENDPOINT,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({query:`mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+                  insert_indexer_state(
+                    objects: {current_block_height: $block_height, function_name: $function_name}
+                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                  ) {
+                    returning {
+                      current_block_height
+                      function_name
+                    }
+                  }
+                }`,variables:{function_name:"buildnear.testnet/fails",block_height:456}}),
+            }
+        ]);
+    });
+
 });
