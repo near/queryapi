@@ -564,7 +564,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             getObject: jest
                 .fn()
                 .mockReturnValueOnce({ // block
-                    promise: () => ({
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({
                                 chunks: [0],
@@ -575,8 +575,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                         },
                     }),
                 })
-                .mockReturnValueOnce({ // shard
-                    promise: () => ({
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({})
                         },
@@ -614,7 +614,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             getObject: jest
                 .fn()
                 .mockReturnValueOnce({ // block
-                    promise: () => ({
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({
                                 chunks: [0],
@@ -625,8 +625,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                         },
                     }),
                 })
-                .mockReturnValueOnce({ // shard
-                    promise: () => ({
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({})
                         },
@@ -664,7 +664,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             getObject: jest
                 .fn()
                 .mockReturnValueOnce({ // block
-                    promise: () => ({
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({
                                 chunks: [0],
@@ -675,8 +675,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                         },
                     }),
                 })
-                .mockReturnValueOnce({ // shard
-                    promise: () => ({
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
                         Body: {
                             toString: () => JSON.stringify({})
                         },
