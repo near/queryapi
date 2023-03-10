@@ -1,7 +1,10 @@
 import { connect } from "near-api-js";
+import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
+
+import Provisioner from './provisioner'
 
 export default class Indexer {
 
@@ -15,24 +18,41 @@ export default class Indexer {
         this.deps = {
             fetch,
             s3: new AWS.S3({ region: aws_region }),
+            provisioner: new Provisioner(),
             ...deps,
         };
     }
 
-    async runFunctions(block_height, functions, options = { imperative: false }) {
+    async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         const simultaneousPromises = [];
         const allMutations = [];
         for (const function_name in functions) {
-            console.log('Running function', function_name, 'on block', block_height, 'with options', options);  // Lambda Logs
+            const indexerFunction = functions[function_name];
+            console.log('Running function', functions[function_name]);  // Lambda logs
             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
+
+            let hasuraRoleName = null;
+            if (options.provision) {
+                hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
+                const schemaName = `${function_name.replace(/[.\/-]/g, '_')}_`
+
+                try {
+                    if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
+                        await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
+                    }
+                } catch (err) {
+                    console.error('Failed to provision endpoint: ', err)
+                }
+            }
+
 
             try {
                 const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
-                    ? this.buildImperativeContextForFunction(function_name, block_height)
+                    ? this.buildImperativeContextForFunction(function_name, block_height, hasuraRoleName)
                     : this.buildFunctionalContextForFunction(mutationsReturnValue, function_name, block_height);
 
                 vm.freeze(blockWithHelpers, 'block');
@@ -40,7 +60,7 @@ export default class Indexer {
                 vm.freeze(context, 'console'); // provide console.log via context.log
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
-                const modifiedFunction = this.transformIndexerFunction(functions[function_name].code);
+                const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
                 try {
                     await vm.run(modifiedFunction);
                 } catch (e) {
@@ -53,7 +73,7 @@ export default class Indexer {
 
                 if (!options.imperative) {
                     console.log(`Function ${function_name} returned`, mutationsReturnValue); // debug output
-                    const writtenMutations = await this.writeMutations(function_name, mutationsReturnValue, block_height); // await can be dropped once it's all tested so writes can happen in parallel
+                    const writtenMutations = await this.writeMutations(function_name, mutationsReturnValue, block_height, hasuraRoleName); // await can be dropped once it's all tested so writes can happen in parallel
                     if(writtenMutations?.length > 0) {
                         allMutations.push(...writtenMutations);
                     }
@@ -82,7 +102,7 @@ export default class Indexer {
             return acc;
         }, {function_name: functionName});
     }
-    async writeMutations(functionName, mutationsReturnValue, block_height) {
+    async writeMutations(functionName, mutationsReturnValue, block_height, hasuraRoleName) {
         if(mutationsReturnValue?.mutations.length == 0 && Object.keys(mutationsReturnValue?.keysValues).length == 0) return;
         try {
             const keyValuesMutations = this.buildKeyValueMutations(mutationsReturnValue.keysValues);
@@ -90,7 +110,7 @@ export default class Indexer {
             const variablesPlusKeyValues = {...mutationsReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationsReturnValue.keysValues)};
 
             console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
-            await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height);
+            await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, block_height, hasuraRoleName);
 
             return keyValuesMutations.length > 0 ? mutationsReturnValue.mutations.concat(keyValuesMutations) : mutationsReturnValue.mutations;
         } catch (e) {
@@ -201,11 +221,11 @@ export default class Indexer {
         };
     }
 
-    buildImperativeContextForFunction(functionName, block_height) {
+    buildImperativeContextForFunction(functionName, block_height, hasuraRoleName) {
         return {
             graphql: async (operation, variables) => {
                 try {
-                    return await this.runGraphQLQuery(operation, variables, functionName, block_height);
+                    return await this.runGraphQLQuery(operation, variables, functionName, block_height, hasuraRoleName);
                 } catch (e) {
                     throw e; // allow catch outside of vm.run to receive the error
                 }
@@ -221,7 +241,7 @@ export default class Indexer {
                     value: value ? JSON.stringify(value) : null
                 };
                 try {
-                    return await this.runGraphQLQuery(mutation, variables, functionName, block_height);
+                    return await this.runGraphQLQuery(mutation, variables, functionName, block_height, hasuraRoleName);
                 } catch (e) {
                     throw e; // allow catch outside of vm.run to receive the error
                 }
@@ -274,11 +294,12 @@ export default class Indexer {
             console.error('Error writing function state', e);
         }
     }
-    async runGraphQLQuery(operation, variables, function_name, block_height, logError = true) {
-        const response = await this.deps.fetch(process.env.GRAPHQL_ENDPOINT, {
+    async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
+        const response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                ...(hasuraRoleName && { 'X-Hasura-Role': hasuraRoleName })
             },
             body: JSON.stringify({
                 query: operation,

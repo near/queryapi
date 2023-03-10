@@ -3,16 +3,17 @@ import { Block } from '@near-lake/primitives'
 
 import Indexer from './indexer';
 import {VM} from "vm2";
+import Provisioner from './provisioner';
 
 describe('Indexer unit tests', () => {
     const oldEnv = process.env;
 
-    const GRAPHQL_ENDPOINT = 'mock-graphql-endpoint';
+    const HASURA_ENDPOINT = 'mock-hasura-endpoint';
 
     beforeAll(() => {
         process.env = {
             ...oldEnv,
-            GRAPHQL_ENDPOINT,
+            HASURA_ENDPOINT,
         };
     });
 
@@ -54,7 +55,7 @@ describe('Indexer unit tests', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(3); // 1st is log
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -83,7 +84,7 @@ describe('Indexer unit tests', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -113,7 +114,7 @@ describe('Indexer unit tests', () => {
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -280,7 +281,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(greet).toEqual('hello');
         expect(success).toEqual(true);
         expect(mockFetch.mock.calls[0]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -290,7 +291,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         ]);
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -332,7 +333,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         await context.graphql(query, variables);
 
         expect(mockFetch.mock.calls[0]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -446,7 +447,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         expect(mockFetch).toHaveBeenCalledTimes(4);
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -464,7 +465,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         ]);
         expect(mockFetch.mock.calls[2]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -540,7 +541,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         // console.log('"Indexer.runFunctions() catches errors" calls:', mockFetch.mock.calls);
         expect(mockFetch).toHaveBeenCalledTimes(3); // 2 logs, 1 state
         expect(mockFetch.mock.calls[1]).toEqual([
-            GRAPHQL_ENDPOINT,
+            `${HASURA_ENDPOINT}/v1/graphql`,
             {
                 method: 'POST',
                 headers: {
@@ -552,6 +553,168 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }),
             }
         ]);
+    });
+
+    test('Indexer.runFunctions() provisions a GraphQL endpoint with the specified schema', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn();
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(false),
+            createAuthenticatedEndpoint: jest.fn(),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: '',
+                schema: 'schema',
+            }
+        };
+        await indexer.runFunctions(1, functions, { provision: true });
+
+        expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledTimes(1);
+        expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledWith(
+            'morgs_near_test_',
+            'morgs_near',
+            'schema'
+        )
+    });
+
+    test('Indexer.runFunctions() skips provisioning if the endpoint exists', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn();
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(true),
+            createAuthenticatedEndpoint: jest.fn(),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: '',
+                schema: 'schema',
+            }
+        };
+        await indexer.runFunctions(1, functions, { provision: true });
+
+        expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
+    });
+
+    test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(true),
+            createAuthenticatedEndpoint: jest.fn(),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: `
+                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
+                `,
+                schema: 'schema',
+            }
+        };
+        await indexer.runFunctions(blockHeight, functions, { provision: true });
+
+        expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(mockFetch).toHaveBeenCalledWith(
+            `${HASURA_ENDPOINT}/v1/graphql`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Role': 'morgs_near'
+                },
+                body: JSON.stringify({
+                    query: `mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "82699904")}`,
+                    variables: {}
+                }),
+            }
+        );
     });
 
     // The unhandled promise causes problems with test reporting.
