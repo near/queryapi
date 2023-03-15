@@ -12,6 +12,7 @@ type FunctionName = String;
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
     registry: HashMap<FunctionName, IndexerConfig>,
+    // admins: Vec<String>,
 }
 
 // Define the contract structure
@@ -28,6 +29,10 @@ impl Default for Contract {
     fn default() -> Self {
         Self {
             registry: HashMap::new(),
+            users: HashMap::new(),
+            // admins: vec!["pavelnear.near".to_string(), "roshaan.near".to_string(),
+            //              "flatirons.near".to_string(), "root.near".to_string(),
+            //              "khorolets.near".to_string()],
         }
     }
 }
@@ -35,6 +40,16 @@ impl Default for Contract {
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
+
+    fn check_registered_user(&self, signer_account_id: &String) -> () {
+        let admins = vec!["nearpavel.near".to_string(), "roshaan.near".to_string(),
+            "flatirons.near".to_string(), "root.near".to_string(), "khorolets.near".to_string(),
+            "morgs.near".to_string(), "somepublicaddress.near".to_string()];
+        if !admins.contains(signer_account_id) {
+            env::panic_str("Only alpha users can register or remove functions");
+        }
+    }
+
     // Public method - returns a function previously registered under this name or empty string
     pub fn read_indexer_function(&self, function_name: String) -> IndexerConfig {
         match self.registry.get(&function_name) {
@@ -54,6 +69,9 @@ impl Contract {
         schema: Option<String>,
     ) {
         let signer_account_id = env::signer_account_id().as_str().to_string();
+
+        self.check_registered_user(&signer_account_id);
+
         let registered_name = [signer_account_id, function_name].join("/");
         let config = IndexerConfig {
             code,
@@ -69,6 +87,9 @@ impl Contract {
 
     pub fn remove_indexer_function(&mut self, function_name: String) {
         let signer_account_id = env::signer_account_id().as_str().to_string();
+
+        self.check_registered_user(&signer_account_id);
+
         let registered_name = [signer_account_id, function_name].join("/");
         log!(
             "Removing function with account and function_name {}",
@@ -81,13 +102,44 @@ impl Contract {
         self.registry.clone()
     }
 
-    // #[private]
-    // #[init(ignore_state)]
-    pub fn clean(keys: Vec<Base64VecU8>) {
+    pub fn clean(&self, keys: Vec<Base64VecU8>) -> () {
+        let signer_account_id = env::signer_account_id().as_str().to_string();
+        self.check_registered_user(&signer_account_id);
         for key in keys.iter() {
             env::storage_remove(&key.0);
         }
     }
+
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        // retrieve the current state from the contract
+        let old_state: OldState = env::state_read().expect("failed");
+
+        // iterate through the state migrating it to the new version
+        let mut new_registry: HashMap<FunctionName, IndexerConfig> = HashMap::new();
+
+        // Gabe updated the line above and the return clause but not much below here from the example
+
+        for (idx, posted) in old_state.messages.iter().enumerate() {
+            let payment = old_state.payments.get(idx as u64).unwrap_or(0);
+
+            new_messages.push(&PostedMessage {
+                payment,
+                premium: posted.premium,
+                sender: posted.sender,
+                text: posted.text,
+            })
+        }
+
+        // return the new state
+        Self {
+            registry: new_registry,
+            admins,
+            users,
+        }
+    }
+
 }
 
 /*
@@ -176,5 +228,23 @@ mod tests {
         let mut expected = HashMap::new();
         expected.insert("bob.near/test".to_string(), config);
         assert_eq!(contract.list_indexer_functions(), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "Only alpha users can register or remove functions")]
+    fn remove_indexer_function() {
+        let mut contract = Contract::default();
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: Some(4343333),
+            schema: Some("key: string, value: string".to_string()),
+        };
+        contract.register_indexer_function(
+            "test".to_string(),
+            config.code.clone(),
+            config.start_block_height.clone(),
+            config.schema.clone(),
+        );
+        contract.remove_indexer_function("test".to_string());
     }
 }
