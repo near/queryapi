@@ -7,4 +7,5 @@ members = [
     "alertexer-types",
     "shared",
     "storage",
+    "hasura-authentication-service"
 ]
