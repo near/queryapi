@@ -60,6 +60,7 @@ describe('Indexer unit tests', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    "X-Hasura-Role": "buildnear_testnet"
                 },
                 body: JSON.stringify({
                     query: `mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "456")}`,
@@ -80,7 +81,7 @@ describe('Indexer unit tests', () => {
 
         const functionName = 'buildnear.testnet/test';
         const mutations = {mutations: [`mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`], variables: {}, keysValues: {}};
-        await indexer.writeMutations(functionName, mutations);
+        await indexer.writeMutations(functionName, 'test', mutations);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
@@ -110,7 +111,7 @@ describe('Indexer unit tests', () => {
                 `mutation _0 { set(functionName: "${functionName}", key: "foo1", data: "indexer test") }`,
                 `mutation _1 { set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`
             ], variables: {}, keysValues: {}};
-        await indexer.writeMutations(functionName, mutations);
+        await indexer.writeMutations(functionName, 'test', mutations);
 
         expect(mockFetch).toHaveBeenCalledTimes(1);
         expect(mockFetch).toHaveBeenCalledWith(
@@ -452,6 +453,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    "X-Hasura-Role": "buildnear_testnet"
                 },
                 body: JSON.stringify({
                     query: `
@@ -470,6 +472,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    "X-Hasura-Role": "buildnear_testnet"
                 },
                 body: JSON.stringify({
                     query: `
@@ -546,6 +549,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    "X-Hasura-Role": "append"
                 },
                 body: JSON.stringify({
                     query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\n    id\n  }\n}\n`,
@@ -599,7 +603,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledTimes(1);
         expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledWith(
-            'morgs_near_test_',
+            'morgs_near_test',
             'morgs_near',
             'schema'
         )
