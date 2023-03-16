@@ -60,7 +60,8 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
 
     let chain_id = &opts.chain_id();
-    let queue_client = &opts.queue_client();
+    let aws_region = opts.aws_queue_region.clone();
+    let queue_client = &opts.queue_client(aws_region);
     let queue_url = opts.queue_url.clone();
 
     // We want to prevent unnecessary RPC queries to find previous balance
