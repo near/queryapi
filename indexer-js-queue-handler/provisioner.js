@@ -1,4 +1,4 @@
-import HasuraClient from './hasura-client';
+import HasuraClient from './hasura-client.js';
 
 export default class Provisioner {
     constructor(
