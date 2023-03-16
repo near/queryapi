@@ -43,6 +43,9 @@ pub struct Opts {
     /// AWS Secret Access Key with the rights to send messages to the `--queue-url`
     #[clap(long, env)]
     pub queue_aws_secret_access_key: String,
+    /// Which AWS region to use with the `--queue-url`
+    #[clap(long, env)]
+    pub aws_queue_region: String,
     /// URL to the main AWS SQS queue backed by Queue Handler lambda
     #[clap(long, env)]
     pub queue_url: String,
@@ -114,16 +117,16 @@ impl Opts {
     }
 
     /// Creates AWS Shared Config for Alertexer SQS queue
-    pub fn queue_aws_sdk_config(&self) -> aws_types::sdk_config::SdkConfig {
+    pub fn queue_aws_sdk_config(&self, region: String) -> aws_types::sdk_config::SdkConfig {
         aws_types::sdk_config::SdkConfig::builder()
             .credentials_provider(self.queue_credentials())
-            .region(aws_types::region::Region::new("us-west-2"))
+            .region(aws_types::region::Region::new(region))
             .build()
     }
 
     /// Creates AWS SQS Client for Alertexer SQS
-    pub fn queue_client(&self) -> aws_sdk_sqs::Client {
-        let shared_config = self.queue_aws_sdk_config();
+    pub fn queue_client(&self, region :String) -> aws_sdk_sqs::Client {
+        let shared_config = self.queue_aws_sdk_config(region);
         aws_sdk_sqs::Client::new(&shared_config)
     }
 
