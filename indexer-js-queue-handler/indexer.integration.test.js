@@ -6,39 +6,39 @@ describe('Indexer integration tests', () => {
     test('Indexer.runFunctions() should execute an imperative style test function against a given block using key-value storage', async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
         const functions = {};
-        functions['buildnear.testnet/itest1'] = {code: 'context.set("BlockHeight", block.header().height);'};
+        functions['buildnear.testnet/itest1'] = {code: 'context.set("BlockHeight", block.header().height);', schema: 'create table indexer_storage (function_name text, key_name text, value text, primary key (function_name, key_name));'};
         const block_height = 85376002;
-        await indexer.runFunctions(block_height, functions, {imperative: true});
+        const r = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
         const valueSet = await indexer.runGraphQLQuery('query MyQuery {\n' +
             '  indexer_storage(\n' +
             '    where: {key_name: {_eq: "BlockHeight"}, function_name: {_eq: "buildnear.testnet/itest1"}}\n' +
             '  ) {\n' +
             '    value\n' +
             '  }\n' +
-            '}')
+            '}', {}, 'buildnear.testnet/itest5', '1234', 'append');
         expect(valueSet.indexer_storage[0].value).toEqual("85376002");
-    });
+    }, 30000);
 
     test('Indexer.runFunctions() should execute a test function against a given block using key-value storage', async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
         const functions = {};
-        functions['buildnear.testnet/test'] = {code: 'context.set("BlockHeight", block.header().height);'};
+        functions['buildnear.testnet/itest1'] = {code: 'context.set("BlockHeight", block.header().height);'};
         const block_height = 85376546;
-        const mutations = await indexer.runFunctions(block_height, functions);
+        const mutations = await indexer.runFunctions(block_height, functions, {provision: true});
         expect(mutations[0]).toEqual(`mutation writeKeyValues($function_name: String!, $key_name0: String!, $value0: String!) {
-            _0: insert_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name0, value: $value0} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+            _0: insert_buildnear_testnet_itest1_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name0, value: $value0} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
         }`);
-    });
+    }, 30000);
 
     test('Indexer.runFunctions() should execute a test function against a given block using a full mutation to write to key-value storage', async () => {
         const indexer = new Indexer('mainnet', 'us-west-2');
         const functions = {};
-        functions['buildnear.testnet/itest3'] = {code: 'context.graphql(`mutation { insert_indexer_storage_one(object: {function_name: "buildnear.testnet/itest3", key_name: "BlockHeight", value: "${block.header().height}"} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}}`);'};
+        functions['buildnear.testnet/itest1'] = {code: 'context.graphql(`mutation { insert_buildnear_testnet_itest1_indexer_storage_one(object: {function_name: "buildnear.testnet/itest3", key_name: "BlockHeight", value: "${block.header().height}"} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}}`);'};
         const block_height = 85376546;
-        const mutations = await indexer.runFunctions(block_height, functions);
+        const mutations = await indexer.runFunctions(block_height, functions, {provision: true});
         expect(mutations[0]).toBeDefined()
-        expect(JSON.stringify(mutations[0])).toContain("insert_indexer_storage_one");
-    });
+        expect(JSON.stringify(mutations[0])).toContain("insert_buildnear_testnet_itest1_indexer_storage_one");
+    }, 30000);
 
     /** Note that the on_conflict block in the mutation is for test repeatability.
      * The posts table has had its unique index dropped and replaced with a unique constraint
@@ -83,24 +83,25 @@ describe('Indexer integration tests', () => {
                     const postData = {account_id: accountId, block_height: blockHeight, block_timestamp: blockTimestamp,
                         receipt_id: postAction.receiptId, post: postAction.args.data[accountId].post.main
                         };
-                    const mutationData = { post: { account_id: accountId, block_height: postData.block_height.toString(),
+                    const mutationData = { post: { account_id: accountId, block_height: postData.block_height,
                       block_timestamp: postData.block_timestamp, receipt_id: postData.receipt_id, 
                       content: postData.post}};
-                    context.graphql('mutation createPost($post:posts_insert_input!) {' +  
-                        'insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }',
+                    context.graphql('mutation createPost($post:buildnear_testnet_test_posts_insert_input!) {' +  
+                        'insert_buildnear_testnet_test_posts_one(object: $post on_conflict: {constraint: posts_pkey, update_columns: content}) { account_id, block_height } }',
                         mutationData);
                 }
             });
-        }
-`       };
+        }`,
+            schema: `create table posts (account_id text, block_height bigint, block_timestamp bigint, receipt_id text, content text, primary key (account_id, block_height));`
+        };
 
         const block_height = 85242526; // post,  // 84940247; // comment
-        const returnValue = await indexer.runFunctions(block_height, functions);
+        const returnValue = await indexer.runFunctions(block_height, functions, {provision: true});
 
         console.log(returnValue);
         expect(returnValue.length).toEqual(1);
-        expect(returnValue[0]).toContain("mutation createPost($post:posts_insert_input!) {insert_posts_one(object: $post on_conflict: {constraint: posts_account_id_block_height_key, update_columns: content}) { id } }");
-    });
+        expect(returnValue[0]).toContain("mutation createPost($post:buildnear_testnet_test_posts_insert_input!) {insert_buildnear_testnet_test_posts_one(object: $post on_conflict: {constraint: posts_pkey, update_columns: content}) { account_id, block_height } }");
+    }, 30000);
 
     /** Note that the on_conflict block in the mutation is for test repeatability.
      * The comments table has had its unique index dropped and replaced with a unique constraint
@@ -149,7 +150,7 @@ describe('Indexer integration tests', () => {
             '    id\n' +
             '    post_id\n' +
             '  }\n' +
-            '}')
+            '}', {}, 'buildnear.testnet/itest5', '1234', 'append');
         expect(valueSet.comments[0].post_id).toEqual(2);
     });
 
