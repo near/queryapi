@@ -33,7 +33,7 @@ export default class Indexer {
         const allMutations = [];
         for (const function_name in functions) {
             const indexerFunction = functions[function_name];
-            console.log('Running function', functions[function_name]);  // Lambda logs
+            console.log('Running function', function_name);  // Lambda logs
             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
 
             const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
@@ -74,7 +74,7 @@ export default class Indexer {
                     // NOTE: logging the exception would likely leak some information about the index runner.
                     // For now, we just log the message. In the future we could sanitize the stack trace
                     // and give the correct line number offsets within the indexer function
-                    console.log(`Error running IndexerFunction ${function_name} on block ${block_height}: ${e.message}`);
+                    console.error(`Error running IndexerFunction ${function_name} on block ${block_height}: ${e.message}`);
                     await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
                 }
 
@@ -232,7 +232,7 @@ export default class Indexer {
         return {
             graphql: async (operation, variables) => {
                 try {
-                    console.log('Running context graphql', operation); // temporary extra logging
+                    console.log(`${functionName}: Running context graphql`, operation); // temporary extra logging
                     return await this.runGraphQLQuery(operation, variables, functionName, block_height, hasuraRoleName);
                 } catch (e) {
                     throw e; // allow catch outside of vm.run to receive the error
@@ -249,7 +249,7 @@ export default class Indexer {
                     value: value ? JSON.stringify(value) : null
                 };
                 try {
-                    console.log('Running set:', mutation, variables); // temporary extra logging
+                    console.log(`${functionName}: Running set:`, mutation, variables); // temporary extra logging
                     return await this.runGraphQLQuery(mutation, variables, functionName, block_height, hasuraRoleName);
                 } catch (e) {
                     throw e; // allow catch outside of vm.run to receive the error
@@ -320,6 +320,7 @@ export default class Indexer {
 
         if (response.status !== 200 || errors) {
             if(logError) {
+                console.log(`${function_name}: Error writing graphql `, errors); // temporary extra logging
                 const message = errors ? errors.map((e) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
                 const mutation =
                     `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){

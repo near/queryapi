@@ -12,7 +12,7 @@ export const consumer = async (event) => {
             const function_config = jsonBody.function_code;
             const functions = {};
             functions[function_name] = JSON.parse(function_config);
-            const mutations = await indexer.runFunctions(block_height, functions, {imperative: true});
+            const mutations = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
             results.push(...mutations);
         } catch (error) {
             return { // force DLQ treatment of batch by returning error
