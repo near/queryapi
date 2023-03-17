@@ -113,6 +113,23 @@ impl Contract {
         }
     }
 
+    pub fn add_admin(&mut self, account_id: String) {
+        self.assert_admin(&[AdminRole::Super]);
+
+        if self
+            .admins
+            .iter()
+            .any(|admin| admin.account_id == account_id)
+        {
+            env::panic_str(&format!("Admin {} already exists", account_id));
+        }
+
+        self.admins.push(Admin {
+            account_id,
+            role: AdminRole::Moderator,
+        })
+    }
+
     // Public method - registers indexer code under <account_id>/function_name
     pub fn register_indexer_function(
         &mut self,
@@ -165,6 +182,45 @@ impl Contract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[should_panic(expected = "Account bob.near is not admin")]
+    fn non_super_admins_cant_add_other_admins() {
+        let mut contract = Contract::default();
+        contract.add_admin("alice.near".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Admin bob.near already exists")]
+    fn cannot_add_existing_admin() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Super,
+            }],
+        };
+
+        contract.add_admin("bob.near".to_string());
+    }
+
+    #[test]
+    fn add_admin() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Super,
+            }],
+        };
+
+        contract.add_admin("alice.near".to_string());
+
+        assert!(contract
+            .admins
+            .iter()
+            .any(|admin| admin.account_id == "alice.near"))
+    }
 
     #[test]
     #[should_panic(expected = "Account bob.near is not admin")]
