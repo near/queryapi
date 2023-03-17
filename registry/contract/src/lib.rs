@@ -138,6 +138,8 @@ impl Contract {
         start_block_height: Option<u64>,
         schema: Option<String>,
     ) {
+        self.assert_admin(&[AdminRole::Super, AdminRole::Moderator]);
+
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
         let config = IndexerConfig {
@@ -153,6 +155,8 @@ impl Contract {
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String) {
+        self.assert_admin(&[AdminRole::Super, AdminRole::Moderator]);
+
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
         log!(
@@ -264,7 +268,13 @@ mod tests {
 
     #[test]
     fn set_then_get_indexer_function() {
-        let mut contract = Contract::default();
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Moderator,
+            }],
+        };
         let config = IndexerConfig {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
@@ -286,7 +296,13 @@ mod tests {
     #[test]
     #[should_panic(expected = "The function_name bob.near/test is not registered")]
     fn set_then_get_then_remove_indexer_function() {
-        let mut contract = Contract::default();
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Super,
+            }],
+        };
         let config = IndexerConfig {
             code: "var x= 1;".to_string(),
             start_block_height: None,
@@ -317,7 +333,13 @@ mod tests {
 
     #[test]
     fn set_then_list_indexer_functions() {
-        let mut contract = Contract::default();
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Super,
+            }],
+        };
         let config = IndexerConfig {
             code: "var x= 1;".to_string(),
             start_block_height: Some(4343333),
