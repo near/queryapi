@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{env, log, near_bindgen};
-use near_sdk::json_types::Base64VecU8;
 
 type FunctionName = String;
 // Define the contract structure
@@ -12,6 +12,7 @@ type FunctionName = String;
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
     registry: HashMap<FunctionName, IndexerConfig>,
+    admins: Vec<Admin>,
 }
 
 // Define the contract structure
@@ -23,11 +24,55 @@ pub struct IndexerConfig {
     schema: Option<String>,
 }
 
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(crate = "near_sdk::serde")]
+pub enum AdminRole {
+    Super,
+    Moderator,
+}
+
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(crate = "near_sdk::serde")]
+struct Admin {
+    account_id: String,
+    role: AdminRole,
+}
+
 // Define the default, which automatically initializes the contract
 impl Default for Contract {
     fn default() -> Self {
         Self {
             registry: HashMap::new(),
+            admins: vec![
+                Admin {
+                    account_id: "morgs.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "pavelnear.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "roshaan.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "flatirons.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "root.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "khorolets.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: env::current_account_id().to_string(),
+                    role: AdminRole::Super,
+                },
+            ],
         }
     }
 }
@@ -42,6 +87,29 @@ impl Contract {
             None => env::panic_str(
                 format!("The function_name {} is not registered", &function_name).as_str(),
             ),
+        }
+    }
+
+    pub fn assert_admin(&self, permitted_roles: &[AdminRole]) {
+        let account_id = env::predecessor_account_id();
+        let admin = self
+            .admins
+            .iter()
+            .find(|admin| admin.account_id == account_id.to_string());
+
+        match admin {
+            Some(admin) => {
+                if permitted_roles.iter().any(|role| *role == admin.role) {
+                    return;
+                }
+                env::panic_str(&format!(
+                    "Admin {} does not have one of required roles {:?}",
+                    admin.account_id, permitted_roles
+                ));
+            }
+            None => {
+                env::panic_str(&format!("Account {} is not admin", account_id));
+            }
         }
     }
 
@@ -97,6 +165,38 @@ impl Contract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[should_panic(expected = "Account bob.near is not admin")]
+    fn assert_admin_should_panic_when_admin_doesnt_exist() {
+        let contract = Contract::default();
+        contract.assert_admin(&[])
+    }
+
+    #[test]
+    #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
+    fn assert_admin_should_panic_when_admin_doesnt_have_role() {
+        let contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Moderator,
+            }],
+        };
+        contract.assert_admin(&[AdminRole::Super])
+    }
+
+    #[test]
+    fn assert_admin_should_allow_admin_with_required_role() {
+        let contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Super,
+            }],
+        };
+        contract.assert_admin(&[AdminRole::Super])
+    }
 
     #[test]
     #[should_panic(expected = "The function_name developer.near/test is not registered")]
