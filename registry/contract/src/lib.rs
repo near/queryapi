@@ -33,7 +33,7 @@ pub enum AdminRole {
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
-struct Admin {
+pub struct Admin {
     account_id: String,
     role: AdminRole,
 }
@@ -111,6 +111,10 @@ impl Contract {
                 env::panic_str(&format!("Account {} is not admin", account_id));
             }
         }
+    }
+
+    pub fn list_admins(&self) -> Vec<Admin> {
+        self.admins.clone()
     }
 
     pub fn remove_admin(&mut self, account_id: String) {
@@ -208,6 +212,36 @@ impl Contract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn list_admins() {
+        let contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![
+                Admin {
+                    account_id: "bob.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "flatirons.near".to_string(),
+                    role: AdminRole::Moderator,
+                },
+            ],
+        };
+        assert_eq!(
+            contract.list_admins(),
+            vec![
+                Admin {
+                    account_id: "bob.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "flatirons.near".to_string(),
+                    role: AdminRole::Moderator,
+                },
+            ],
+        );
+    }
 
     #[test]
     #[should_panic(expected = "Account bob.near is not admin")]
