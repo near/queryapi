@@ -90,7 +90,7 @@ impl Contract {
         }
     }
 
-    pub fn assert_admin(&self, permitted_roles: &[AdminRole]) {
+    pub fn assert_admin(&self, permitted_roles: Vec<AdminRole>) {
         let account_id = env::predecessor_account_id();
         let admin = self
             .admins
@@ -118,7 +118,7 @@ impl Contract {
     }
 
     pub fn remove_admin(&mut self, account_id: String) {
-        self.assert_admin(&[AdminRole::Super]);
+        self.assert_admin(vec![AdminRole::Super]);
 
         let admin = self
             .admins
@@ -140,7 +140,7 @@ impl Contract {
     }
 
     pub fn add_admin(&mut self, account_id: String) {
-        self.assert_admin(&[AdminRole::Super]);
+        self.assert_admin(vec![AdminRole::Super]);
 
         if self
             .admins
@@ -164,7 +164,7 @@ impl Contract {
         start_block_height: Option<u64>,
         schema: Option<String>,
     ) {
-        self.assert_admin(&[AdminRole::Super, AdminRole::Moderator]);
+        self.assert_admin(vec![AdminRole::Super, AdminRole::Moderator]);
 
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
@@ -181,7 +181,7 @@ impl Contract {
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String) {
-        self.assert_admin(&[AdminRole::Super, AdminRole::Moderator]);
+        self.assert_admin(vec![AdminRole::Super, AdminRole::Moderator]);
 
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
@@ -363,7 +363,7 @@ mod tests {
     #[should_panic(expected = "Account bob.near is not admin")]
     fn assert_admin_should_panic_when_admin_doesnt_exist() {
         let contract = Contract::default();
-        contract.assert_admin(&[])
+        contract.assert_admin(vec![])
     }
 
     #[test]
@@ -376,7 +376,7 @@ mod tests {
                 role: AdminRole::Moderator,
             }],
         };
-        contract.assert_admin(&[AdminRole::Super])
+        contract.assert_admin(vec![AdminRole::Super])
     }
 
     #[test]
@@ -388,7 +388,7 @@ mod tests {
                 role: AdminRole::Super,
             }],
         };
-        contract.assert_admin(&[AdminRole::Super])
+        contract.assert_admin(vec![AdminRole::Super])
     }
 
     #[test]
