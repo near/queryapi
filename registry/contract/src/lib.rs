@@ -279,9 +279,15 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near is not admin")]
-    fn non_super_admins_cant_add_other_admins() {
-        let mut contract = Contract::default();
+    #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
+    fn moderators_cant_add_other_admins() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Moderator,
+            }],
+        };
         contract.add_admin("alice.near".to_string());
     }
 
@@ -353,7 +359,7 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
-    fn non_super_admins_cant_remove_other_admins() {
+    fn moderators_cant_remove_other_admins() {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![
