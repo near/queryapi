@@ -89,7 +89,7 @@ impl Contract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let state: OldState = env::state_read().unwrap();
+        let state: OldState = env::state_read().expect("Failed to deserialize contract state");
 
         Self {
             registry: state.registry,
