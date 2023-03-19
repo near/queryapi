@@ -416,7 +416,7 @@ mod tests {
         contract.register_indexer_function(
             "test".to_string(),
             config.code.clone(),
-            config.start_block_height.clone(),
+            config.start_block_height,
             config.schema.clone(),
         );
         assert_eq!(
@@ -444,7 +444,7 @@ mod tests {
         contract.register_indexer_function(
             "test".to_string(),
             config.code.clone(),
-            config.start_block_height.clone(),
+            config.start_block_height,
             config.schema.clone(),
         );
         assert_eq!(
@@ -481,7 +481,7 @@ mod tests {
         contract.register_indexer_function(
             "test".to_string(),
             config.code.clone(),
-            config.start_block_height.clone(),
+            config.start_block_height,
             config.schema.clone(),
         );
         let mut expected = HashMap::new();
