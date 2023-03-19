@@ -9,10 +9,16 @@ use near_sdk::{env, log, near_bindgen};
 type FunctionName = String;
 // Define the contract structure
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct Contract {
     registry: HashMap<FunctionName, IndexerConfig>,
     admins: Vec<Admin>,
+}
+
+#[near_bindgen]
+#[derive(BorshDeserialize, BorshSerialize, Debug)]
+pub struct OldState {
+    registry: HashMap<FunctionName, IndexerConfig>,
 }
 
 // Define the contract structure
@@ -80,6 +86,17 @@ impl Default for Contract {
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let state: OldState = env::state_read().unwrap();
+
+        Self {
+            registry: state.registry,
+            admins: Self::default().admins,
+        }
+    }
+
     // Public method - returns a function previously registered under this name or empty string
     pub fn read_indexer_function(&self, function_name: String) -> IndexerConfig {
         match self.registry.get(&function_name) {
@@ -212,6 +229,24 @@ impl Contract {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn migrate_admins() {
+        env::state_write(&OldState {
+            registry: HashMap::from([(
+                "test".to_string(),
+                IndexerConfig {
+                    code: "test".to_string(),
+                    start_block_height: None,
+                    schema: None,
+                },
+            )]),
+        });
+        let contract = Contract::migrate();
+
+        assert_eq!(contract.registry.len(), 1);
+        assert_eq!(contract.admins.len(), 7);
+    }
 
     #[test]
     fn list_admins() {
