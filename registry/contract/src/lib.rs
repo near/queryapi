@@ -113,6 +113,28 @@ impl Contract {
         }
     }
 
+    pub fn remove_admin(&mut self, account_id: String) {
+        self.assert_admin(&[AdminRole::Super]);
+
+        let admin = self
+            .admins
+            .iter()
+            .find(|admin| admin.account_id == account_id);
+
+        match admin {
+            Some(admin) => {
+                if admin.role == AdminRole::Moderator {
+                    self.admins.retain(|admin| admin.account_id != account_id);
+                }
+
+                env::panic_str(&format!("Cannot remove super admin {}", account_id));
+            }
+            None => {
+                env::panic_str(&format!("Admin {} does not exist", account_id));
+            }
+        }
+    }
+
     pub fn add_admin(&mut self, account_id: String) {
         self.assert_admin(&[AdminRole::Super]);
 
@@ -221,6 +243,83 @@ mod tests {
         contract.add_admin("alice.near".to_string());
 
         assert!(contract
+            .admins
+            .iter()
+            .any(|admin| admin.account_id == "alice.near"))
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot remove super admin alice.near")]
+    fn cannot_remove_super_admins() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![
+                Admin {
+                    account_id: "bob.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "alice.near".to_string(),
+                    role: AdminRole::Super,
+                },
+            ],
+        };
+
+        contract.remove_admin("alice.near".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Admin alice.near does not exist")]
+    fn cannot_remove_non_existing_admin() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: "bob.near".to_string(),
+                role: AdminRole::Super,
+            }],
+        };
+
+        contract.remove_admin("alice.near".to_string());
+    }
+
+    #[test]
+    #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
+    fn non_super_admins_cant_remove_other_admins() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![
+                Admin {
+                    account_id: "bob.near".to_string(),
+                    role: AdminRole::Moderator,
+                },
+                Admin {
+                    account_id: "alice.near".to_string(),
+                    role: AdminRole::Moderator,
+                },
+            ],
+        };
+        contract.remove_admin("alice.near".to_string());
+    }
+
+    #[test]
+    fn remove_admin() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![
+                Admin {
+                    account_id: "bob.near".to_string(),
+                    role: AdminRole::Super,
+                },
+                Admin {
+                    account_id: "alice.near".to_string(),
+                    role: AdminRole::Moderator,
+                },
+            ],
+        };
+
+        contract.remove_admin("alice.near".to_string());
+
+        assert!(!contract
             .admins
             .iter()
             .any(|admin| admin.account_id == "alice.near"))
