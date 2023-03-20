@@ -11,13 +11,13 @@ type FunctionName = String;
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct Contract {
-    registry: IndexerRegistry,
+    registry: IndexersByAccount,
     admins: Vec<Admin>,
 }
 
-pub type IndexerRegistry = HashMap<AccountId, IndexersByAccount>;
+pub type IndexersByAccount = HashMap<AccountId, IndexerConfigByFunctionName>;
 
-pub type IndexersByAccount = HashMap<FunctionName, IndexerConfig>;
+pub type IndexerConfigByFunctionName = HashMap<FunctionName, IndexerConfig>;
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
@@ -99,16 +99,45 @@ impl Default for Contract {
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
-    /* #[private]
-    #[init(ignore_state)] */
-    /* pub fn migrate() -> Self {
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
         let state: OldState = env::state_read().expect("Failed to deserialize contract state");
 
+        let mut registry = IndexersByAccount::new();
+
+        state.registry.iter().for_each(|(name, config)| {
+            let (account_id, function_name) = match name.split_once('/') {
+                Some((account_id, function_name)) => {
+                    let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
+                        env::panic_str(&format!(
+                            "Parsed account ID {} from function {} is invalid",
+                            account_id, name
+                        ));
+                    });
+
+                    (account_id, function_name)
+                }
+                None => {
+                    env::panic_str(&format!("Invalid function name {}", name));
+                }
+            };
+
+            registry.entry(account_id).or_default().insert(
+                function_name.to_string(),
+                IndexerConfig {
+                    code: config.code.clone(),
+                    start_block_height: config.start_block_height,
+                    schema: config.schema.clone(),
+                },
+            );
+        });
+
         Self {
-            registry: state.registry,
+            registry,
             admins: Self::default().admins,
         }
-    } */
+    }
 
     // Public method - returns a function previously registered under this name or empty string
     pub fn read_indexer_function(&self, function_name: String) -> IndexerConfig {
@@ -239,10 +268,7 @@ impl Contract {
             &account_id
         );
 
-        let account_indexers = self
-            .registry
-            .entry(account_id.clone())
-            .or_insert_with(IndexersByAccount::new);
+        let account_indexers = self.registry.entry(account_id.clone()).or_default();
 
         match account_indexers.get(&function_name) {
             Some(_) => {
@@ -301,7 +327,7 @@ impl Contract {
         }
     }
 
-    pub fn list_indexer_functions(&self) -> IndexerRegistry {
+    pub fn list_indexer_functions(&self) -> IndexersByAccount {
         self.registry.clone()
     }
 
@@ -322,36 +348,99 @@ impl Contract {
 mod tests {
     use super::*;
 
-    /* fn migrate_admins() {
+    #[test]
+    fn migrate_admins() {
         env::state_write(&OldState {
-            registry: HashMap::from([(
-                "test".to_string(),
-                IndexerConfig {
-                    code: "test".to_string(),
-                    start_block_height: None,
-                    schema: None,
-                },
-            )]),
+            registry: HashMap::from([
+                (
+                    "morgs.near/test".to_string(),
+                    IndexerConfig {
+                        code: "return block;".to_string(),
+                        start_block_height: None,
+                        schema: None,
+                    },
+                ),
+                (
+                    "morgs.near/test2".to_string(),
+                    IndexerConfig {
+                        code: "return block2;".to_string(),
+                        start_block_height: None,
+                        schema: None,
+                    },
+                ),
+                (
+                    "root.near/my_function".to_string(),
+                    IndexerConfig {
+                        code: "var x = 1;".to_string(),
+                        start_block_height: Some(1),
+                        schema: None,
+                    },
+                ),
+                (
+                    "roshaan.near/another/function".to_string(),
+                    IndexerConfig {
+                        code: "console.log('hi');".to_string(),
+                        start_block_height: None,
+                        schema: Some("schema".to_string()),
+                    },
+                ),
+            ]),
         });
+
         let contract = Contract::migrate();
 
         assert_eq!(
             contract.registry,
-            IndexerRegistry::from(vec![(
-                "bob.near".into(),
-                IndexerMap::from(vec![(
-                    "test".to_string(),
-                    IndexerConfig {
-                        code: "test".to_string(),
-                        start_block_height: None,
-                        schema: None,
-                    }
-                )])
-            )])
+            IndexersByAccount::from([
+                (
+                    AccountId::new_unchecked("morgs.near".to_string()),
+                    IndexerConfigByFunctionName::from([
+                        (
+                            "test".to_string(),
+                            IndexerConfig {
+                                code: "return block;".to_string(),
+                                start_block_height: None,
+                                schema: None,
+                            }
+                        ),
+                        (
+                            "test2".to_string(),
+                            IndexerConfig {
+                                code: "return block2;".to_string(),
+                                start_block_height: None,
+                                schema: None,
+                            }
+                        )
+                    ])
+                ),
+                (
+                    AccountId::new_unchecked("root.near".to_string()),
+                    IndexerConfigByFunctionName::from([(
+                        "my_function".to_string(),
+                        IndexerConfig {
+                            code: "var x = 1;".to_string(),
+                            start_block_height: Some(1),
+                            schema: None,
+                        }
+                    )])
+                ),
+                (
+                    AccountId::new_unchecked("roshaan.near".to_string()),
+                    IndexerConfigByFunctionName::from([(
+                        "another/function".to_string(),
+                        IndexerConfig {
+                            code: "console.log('hi');".to_string(),
+                            start_block_height: None,
+                            schema: Some("schema".to_string()),
+                        }
+                    )])
+                )
+            ])
         );
 
         assert_eq!(contract.admins.len(), 7);
-    } */
+    }
+
     #[test]
     fn list_admins() {
         let admins = vec![
@@ -655,9 +744,9 @@ mod tests {
     #[test]
     fn accounts_can_remove_their_own_functions() {
         let mut contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("bob.near".to_string()),
-                IndexersByAccount::from([(
+                IndexerConfigByFunctionName::from([(
                     "test".to_string(),
                     IndexerConfig {
                         code: "var x= 1;".to_string(),
@@ -681,9 +770,9 @@ mod tests {
     #[should_panic(expected = "Account bob.near is not admin")]
     fn account_cannot_remove_functions_for_others() {
         let mut contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("alice.near".to_string()),
-                IndexersByAccount::from([(
+                IndexerConfigByFunctionName::from([(
                     "test".to_string(),
                     IndexerConfig {
                         code: "var x= 1;".to_string(),
@@ -701,9 +790,9 @@ mod tests {
     #[test]
     fn moderators_can_remove_functions_for_others() {
         let mut contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("alice.near".to_string()),
-                IndexersByAccount::from([(
+                IndexerConfigByFunctionName::from([(
                     "test".to_string(),
                     IndexerConfig {
                         code: "var x= 1;".to_string(),
@@ -729,9 +818,9 @@ mod tests {
     #[test]
     fn owners_can_remove_functions_for_others() {
         let mut contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("alice.near".to_string()),
-                IndexersByAccount::from([(
+                IndexerConfigByFunctionName::from([(
                     "test".to_string(),
                     IndexerConfig {
                         code: "var x= 1;".to_string(),
@@ -785,9 +874,9 @@ mod tests {
     #[should_panic(expected = "Function test is not registered under account bob.near")]
     fn read_non_existant_indexer_function() {
         let contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("bob.near".to_string()),
-                IndexersByAccount::new(),
+                IndexerConfigByFunctionName::new(),
             )]),
             admins: vec![],
         };
@@ -803,9 +892,9 @@ mod tests {
             schema: None,
         };
         let contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("bob.near".to_string()),
-                IndexersByAccount::from([("test".to_string(), config.clone())]),
+                IndexerConfigByFunctionName::from([("test".to_string(), config.clone())]),
             )]),
             admins: vec![],
         };
@@ -850,9 +939,9 @@ mod tests {
     #[test]
     fn register_indexer_function_for_existing_account() {
         let mut contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("bob.near".to_string()),
-                IndexersByAccount::from([(
+                IndexerConfigByFunctionName::from([(
                     "test".to_string(),
                     IndexerConfig {
                         code: "var x= 1;".to_string(),
@@ -891,11 +980,11 @@ mod tests {
     }
 
     #[test]
-    fn remove_one_of_many_indexer_functions() {
+    fn remove_one_of_many_indexer_functions_from_account() {
         let mut contract = Contract {
-            registry: IndexerRegistry::from([(
+            registry: IndexersByAccount::from([(
                 AccountId::new_unchecked("bob.near".to_string()),
-                IndexersByAccount::from([
+                IndexerConfigByFunctionName::from([
                     (
                         "test".to_string(),
                         IndexerConfig {
@@ -929,28 +1018,24 @@ mod tests {
         );
     }
 
-    /* fn set_then_list_indexer_functions() {
-        let mut contract = Contract {
-            registry: HashMap::new(),
-            admins: vec![Admin {
-                account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
-            }],
+    #[test]
+    fn list_indexer_functions() {
+        let registry = IndexersByAccount::from([(
+            AccountId::new_unchecked("bob.near".to_string()),
+            IndexerConfigByFunctionName::from([(
+                "test".to_string(),
+                IndexerConfig {
+                    code: "var x= 1;".to_string(),
+                    start_block_height: None,
+                    schema: None,
+                },
+            )]),
+        )]);
+        let contract = Contract {
+            registry: registry.clone(),
+            admins: vec![],
         };
-        let config = IndexerConfig {
-            code: "var x= 1;".to_string(),
-            start_block_height: Some(4343333),
-            schema: Some("key: string, value: string".to_string()),
-        };
-        contract.register_indexer_function(
-            "test".to_string(),
-            config.code.clone(),
-            config.start_block_height,
-            config.schema.clone(),
-            None,
-        );
-        let mut expected = HashMap::new();
-        expected.insert("bob.near/test".to_string(), config);
-        assert_eq!(contract.list_indexer_functions(), expected);
-    } */
+
+        assert_eq!(contract.list_indexer_functions(), registry);
+    }
 }
