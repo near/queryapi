@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, log, near_bindgen};
+use near_sdk::{env, log, near_bindgen, AccountId};
 
 type FunctionName = String;
 // Define the contract structure
@@ -40,7 +40,7 @@ pub enum AdminRole {
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Admin {
-    account_id: String,
+    account_id: AccountId,
     role: AdminRole,
 }
 
@@ -51,31 +51,31 @@ impl Default for Contract {
             registry: HashMap::new(),
             admins: vec![
                 Admin {
-                    account_id: "morgs.near".to_string(),
+                    account_id: AccountId::new_unchecked("morgs.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "pavelnear.near".to_string(),
+                    account_id: AccountId::new_unchecked("pavelnear.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "roshaan.near".to_string(),
+                    account_id: AccountId::new_unchecked("roshaan.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "flatirons.near".to_string(),
+                    account_id: AccountId::new_unchecked("flatirons.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "root.near".to_string(),
+                    account_id: AccountId::new_unchecked("root.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "khorolets.near".to_string(),
+                    account_id: AccountId::new_unchecked("khorolets.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: env::current_account_id().to_string(),
+                    account_id: env::current_account_id(),
                     role: AdminRole::Super,
                 },
             ],
@@ -112,7 +112,7 @@ impl Contract {
         let admin = self
             .admins
             .iter()
-            .find(|admin| admin.account_id == account_id.to_string());
+            .find(|admin| admin.account_id == account_id);
 
         match admin {
             Some(admin) => {
@@ -137,6 +137,10 @@ impl Contract {
     pub fn remove_admin(&mut self, account_id: String) {
         self.assert_admin(vec![AdminRole::Super]);
 
+        let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
+            env::panic_str(&format!("Account ID {} is invalid", account_id));
+        });
+
         let admin = self
             .admins
             .iter()
@@ -158,6 +162,10 @@ impl Contract {
 
     pub fn add_admin(&mut self, account_id: String) {
         self.assert_admin(vec![AdminRole::Super]);
+
+        let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
+            env::panic_str(&format!("Account ID {} is invalid", account_id));
+        });
 
         if self
             .admins
@@ -254,11 +262,11 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![
                 Admin {
-                    account_id: "bob.near".to_string(),
+                    account_id: AccountId::new_unchecked("bob.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "flatirons.near".to_string(),
+                    account_id: AccountId::new_unchecked("flatirons.near".to_string()),
                     role: AdminRole::Moderator,
                 },
             ],
@@ -267,11 +275,11 @@ mod tests {
             contract.list_admins(),
             vec![
                 Admin {
-                    account_id: "bob.near".to_string(),
+                    account_id: AccountId::new_unchecked("bob.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "flatirons.near".to_string(),
+                    account_id: AccountId::new_unchecked("flatirons.near".to_string()),
                     role: AdminRole::Moderator,
                 },
             ],
@@ -284,7 +292,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
             }],
         };
@@ -297,7 +305,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Super,
             }],
         };
@@ -310,7 +318,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Super,
             }],
         };
@@ -320,7 +328,21 @@ mod tests {
         assert!(contract
             .admins
             .iter()
-            .any(|admin| admin.account_id == "alice.near"))
+            .any(|admin| admin.account_id.to_string() == "alice.near"))
+    }
+
+    #[test]
+    #[should_panic(expected = "Account ID 0 is invalid")]
+    fn add_admin_with_invalid_account_id() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Super,
+            }],
+        };
+
+        contract.add_admin("0".to_string());
     }
 
     #[test]
@@ -330,11 +352,11 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![
                 Admin {
-                    account_id: "bob.near".to_string(),
+                    account_id: AccountId::new_unchecked("bob.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "alice.near".to_string(),
+                    account_id: AccountId::new_unchecked("alice.near".to_string()),
                     role: AdminRole::Super,
                 },
             ],
@@ -349,7 +371,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Super,
             }],
         };
@@ -364,11 +386,11 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![
                 Admin {
-                    account_id: "bob.near".to_string(),
+                    account_id: AccountId::new_unchecked("bob.near".to_string()),
                     role: AdminRole::Moderator,
                 },
                 Admin {
-                    account_id: "alice.near".to_string(),
+                    account_id: AccountId::new_unchecked("alice.near".to_string()),
                     role: AdminRole::Moderator,
                 },
             ],
@@ -382,11 +404,11 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![
                 Admin {
-                    account_id: "bob.near".to_string(),
+                    account_id: AccountId::new_unchecked("bob.near".to_string()),
                     role: AdminRole::Super,
                 },
                 Admin {
-                    account_id: "alice.near".to_string(),
+                    account_id: AccountId::new_unchecked("alice.near".to_string()),
                     role: AdminRole::Moderator,
                 },
             ],
@@ -397,7 +419,21 @@ mod tests {
         assert!(!contract
             .admins
             .iter()
-            .any(|admin| admin.account_id == "alice.near"))
+            .any(|admin| admin.account_id.to_string() == "alice.near"))
+    }
+
+    #[test]
+    #[should_panic(expected = "Account ID 0 is invalid")]
+    fn remove_admin_with_invalid_account_id() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Super,
+            }],
+        };
+
+        contract.remove_admin("0".to_string());
     }
 
     #[test]
@@ -413,7 +449,7 @@ mod tests {
         let contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
             }],
         };
@@ -425,7 +461,7 @@ mod tests {
         let contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Super,
             }],
         };
@@ -445,7 +481,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
             }],
         };
@@ -473,7 +509,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Super,
             }],
         };
@@ -510,7 +546,7 @@ mod tests {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
-                account_id: "bob.near".to_string(),
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Super,
             }],
         };
