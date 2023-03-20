@@ -108,7 +108,7 @@ impl Contract {
     }
 
     pub fn assert_admin(&self, permitted_roles: Vec<AdminRole>) {
-        let account_id = env::predecessor_account_id();
+        let account_id = env::signer_account_id();
         let admin = self
             .admins
             .iter()
