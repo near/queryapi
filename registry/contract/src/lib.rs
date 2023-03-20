@@ -102,7 +102,9 @@ impl Contract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let state: OldState = env::state_read().expect("Failed to deserialize contract state");
+        let state: OldState = env::state_read().unwrap_or_else(|| {
+            env::panic_str("Failed to deserialize contract state");
+        });
 
         let mut registry = IndexersByAccount::new();
 
@@ -123,14 +125,10 @@ impl Contract {
                 }
             };
 
-            registry.entry(account_id).or_default().insert(
-                function_name.to_string(),
-                IndexerConfig {
-                    code: config.code.clone(),
-                    start_block_height: config.start_block_height,
-                    schema: config.schema.clone(),
-                },
-            );
+            registry
+                .entry(account_id)
+                .or_default()
+                .insert(function_name.to_string(), config.clone());
         });
 
         Self {
