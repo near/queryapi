@@ -61,7 +61,7 @@ pub struct Admin {
 impl Default for Contract {
     fn default() -> Self {
         Self {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("morgs.near".to_string()),
@@ -337,6 +337,30 @@ impl Contract {
         self.registry.clone()
     }
 
+    pub fn list_account_indexer_functions(
+        &self,
+        account_id: Option<String>,
+    ) -> IndexerConfigByFunctionName {
+        let account_id = match account_id {
+            Some(account_id) => account_id.parse::<AccountId>().unwrap_or_else(|_| {
+                env::panic_str(&format!("Account ID {} is invalid", account_id));
+            }),
+            None => env::signer_account_id(),
+        };
+
+        let account_indexers = self.registry.get(&account_id).unwrap_or_else(|| {
+            env::panic_str(
+                format!(
+                    "Account {} has no registered functions",
+                    env::signer_account_id()
+                )
+                .as_str(),
+            )
+        });
+
+        account_indexers.clone()
+    }
+
     // #[private]
     // #[init(ignore_state)]
     pub fn clean(keys: Vec<Base64VecU8>) {
@@ -460,7 +484,7 @@ mod tests {
             },
         ];
         let contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: admins.clone(),
         };
         assert_eq!(contract.list_admins(), admins);
@@ -470,7 +494,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn moderators_cant_add_other_admins() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -483,7 +507,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near already exists")]
     fn cannot_add_existing_admin() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -496,7 +520,7 @@ mod tests {
     #[test]
     fn add_admin() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -515,7 +539,7 @@ mod tests {
     #[should_panic(expected = "Account ID 0 is invalid")]
     fn add_admin_with_invalid_account_id() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -529,7 +553,7 @@ mod tests {
     #[should_panic(expected = "Cannot remove owner alice.near")]
     fn cannot_remove_owners() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
@@ -549,7 +573,7 @@ mod tests {
     #[should_panic(expected = "Admin alice.near does not exist")]
     fn cannot_remove_non_existing_admin() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -563,7 +587,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn moderators_cant_remove_other_admins() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
@@ -581,7 +605,7 @@ mod tests {
     #[test]
     fn remove_admin() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
@@ -606,7 +630,7 @@ mod tests {
     #[should_panic(expected = "Account ID 0 is invalid")]
     fn remove_admin_with_invalid_account_id() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -627,7 +651,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn assert_roles_should_panic_when_admin_doesnt_have_role() {
         let contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -639,7 +663,7 @@ mod tests {
     #[test]
     fn assert_roles_should_allow_admin_with_required_role() {
         let contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -681,7 +705,7 @@ mod tests {
     #[test]
     fn moderators_can_register_functions_for_others() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -707,7 +731,7 @@ mod tests {
     #[test]
     fn owners_can_register_functions_for_others() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -734,7 +758,7 @@ mod tests {
     #[should_panic(expected = "Account bob.near is not admin")]
     fn accounts_cannot_register_functions_for_others() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![],
         };
 
@@ -852,7 +876,7 @@ mod tests {
     #[test]
     fn set_then_get_indexer_function() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -936,7 +960,7 @@ mod tests {
     #[test]
     fn register_indexer_function_for_new_account() {
         let mut contract = Contract {
-            registry: HashMap::new(),
+            registry: IndexersByAccount::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -1068,5 +1092,64 @@ mod tests {
         };
 
         assert_eq!(contract.list_indexer_functions(), registry);
+    }
+
+    #[test]
+    fn list_account_indexer_functions() {
+        let account_indexers = IndexerConfigByFunctionName::from([(
+            "test".to_string(),
+            IndexerConfig {
+                code: "var x= 1;".to_string(),
+                start_block_height: None,
+                schema: None,
+            },
+        )]);
+        let contract = Contract {
+            registry: IndexersByAccount::from([(
+                AccountId::new_unchecked("bob.near".to_string()),
+                account_indexers.clone(),
+            )]),
+            admins: vec![],
+        };
+
+        assert_eq!(
+            contract.list_account_indexer_functions(None),
+            account_indexers
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near has no registered functions")]
+    fn list_account_empty_indexer_functions() {
+        let contract = Contract {
+            registry: IndexersByAccount::new(),
+            admins: vec![],
+        };
+
+        contract.list_account_indexer_functions(None);
+    }
+
+    #[test]
+    fn list_other_account_indexer_functions() {
+        let account_indexers = IndexerConfigByFunctionName::from([(
+            "test".to_string(),
+            IndexerConfig {
+                code: "var x= 1;".to_string(),
+                start_block_height: None,
+                schema: None,
+            },
+        )]);
+        let contract = Contract {
+            registry: IndexersByAccount::from([(
+                AccountId::new_unchecked("alice.near".to_string()),
+                account_indexers.clone(),
+            )]),
+            admins: vec![],
+        };
+
+        assert_eq!(
+            contract.list_account_indexer_functions(Some("alice.near".to_string())),
+            account_indexers
+        );
     }
 }
