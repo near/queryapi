@@ -138,19 +138,27 @@ impl Contract {
     }
 
     // Public method - returns a function previously registered under this name or empty string
-    pub fn read_indexer_function(&self, function_name: String) -> IndexerConfig {
-        let account_indexers = self
-            .registry
-            .get(&env::predecessor_account_id())
-            .unwrap_or_else(|| {
-                env::panic_str(
-                    format!(
-                        "Account {} has no registered functions",
-                        env::predecessor_account_id()
-                    )
-                    .as_str(),
+    pub fn read_indexer_function(
+        &self,
+        function_name: String,
+        account_id: Option<String>,
+    ) -> IndexerConfig {
+        let account_id = match account_id {
+            Some(account_id) => account_id.parse::<AccountId>().unwrap_or_else(|_| {
+                env::panic_str(&format!("Account ID {} is invalid", account_id));
+            }),
+            None => env::signer_account_id(),
+        };
+
+        let account_indexers = self.registry.get(&account_id).unwrap_or_else(|| {
+            env::panic_str(
+                format!(
+                    "Account {} has no registered functions",
+                    env::signer_account_id()
                 )
-            });
+                .as_str(),
+            )
+        });
 
         let indexer_config = account_indexers.get(&function_name).unwrap_or_else(|| {
             env::panic_str(
@@ -645,7 +653,7 @@ mod tests {
     fn read_indexer_function_for_non_existant_account() {
         let contract = Contract::default();
         // no registered indexers so should return the default ""
-        contract.read_indexer_function("test".to_string());
+        contract.read_indexer_function("test".to_string(), None);
     }
 
     #[test]
@@ -665,7 +673,7 @@ mod tests {
         );
         assert_eq!(
             // default account is bob.near
-            contract.read_indexer_function("test".to_string()),
+            contract.read_indexer_function("test".to_string(), None),
             config
         );
     }
@@ -864,11 +872,12 @@ mod tests {
         );
         assert_eq!(
             // default account is bob.near
-            contract.read_indexer_function("test".to_string()),
+            contract.read_indexer_function("test".to_string(), None),
             config
         );
     }
 
+    #[test]
     #[should_panic(expected = "Function test is not registered under account bob.near")]
     fn read_non_existant_indexer_function() {
         let contract = Contract {
@@ -879,7 +888,7 @@ mod tests {
             admins: vec![],
         };
 
-        contract.read_indexer_function("test".to_string());
+        contract.read_indexer_function("test".to_string(), None);
     }
 
     #[test]
@@ -897,7 +906,31 @@ mod tests {
             admins: vec![],
         };
 
-        assert_eq!(contract.read_indexer_function("test".to_string()), config);
+        assert_eq!(
+            contract.read_indexer_function("test".to_string(), None),
+            config
+        );
+    }
+
+    #[test]
+    fn read_indexer_function_from_other_account() {
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: None,
+            schema: None,
+        };
+        let contract = Contract {
+            registry: IndexersByAccount::from([(
+                AccountId::new_unchecked("alice.near".to_string()),
+                IndexerConfigByFunctionName::from([("test".to_string(), config.clone())]),
+            )]),
+            admins: vec![],
+        };
+
+        assert_eq!(
+            contract.read_indexer_function("test".to_string(), Some("alice.near".to_string())),
+            config
+        );
     }
 
     #[test]
