@@ -30,6 +30,15 @@ pub struct IndexerConfig {
     schema: Option<String>,
 }
 
+/// These roles are used to control access across the various contract methods.
+///
+/// Owners
+/// Owners are defined within the contract default state, and can only be modified via
+/// a contract upgrade. The inention is for Owners to be able to execute any action.
+///
+/// Moderator
+/// Moderators can only be invited, and also removed, by Owners. The intention behind this role
+/// is for allowing addition/removal of any accounts functions.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AdminRole {
