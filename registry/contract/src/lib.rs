@@ -33,7 +33,7 @@ pub struct IndexerConfig {
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AdminRole {
-    Super,
+    Owner,
     Moderator,
 }
 
@@ -52,31 +52,31 @@ impl Default for Contract {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("morgs.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("pavelnear.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("roshaan.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("flatirons.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("root.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("khorolets.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: env::current_account_id(),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
             ],
         }
@@ -135,7 +135,7 @@ impl Contract {
     }
 
     pub fn remove_admin(&mut self, account_id: String) {
-        self.assert_admin(vec![AdminRole::Super]);
+        self.assert_admin(vec![AdminRole::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
             env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -148,8 +148,8 @@ impl Contract {
 
         match admin {
             Some(admin) => {
-                if admin.role == AdminRole::Super {
-                    env::panic_str(&format!("Cannot remove super admin {}", account_id));
+                if admin.role == AdminRole::Owner {
+                    env::panic_str(&format!("Cannot remove owner {}", account_id));
                 }
 
                 self.admins.retain(|admin| admin.account_id != account_id);
@@ -161,7 +161,7 @@ impl Contract {
     }
 
     pub fn add_admin(&mut self, account_id: String) {
-        self.assert_admin(vec![AdminRole::Super]);
+        self.assert_admin(vec![AdminRole::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
             env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -189,7 +189,7 @@ impl Contract {
         start_block_height: Option<u64>,
         schema: Option<String>,
     ) {
-        self.assert_admin(vec![AdminRole::Super, AdminRole::Moderator]);
+        self.assert_admin(vec![AdminRole::Owner, AdminRole::Moderator]);
 
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
@@ -206,7 +206,7 @@ impl Contract {
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String) {
-        self.assert_admin(vec![AdminRole::Super, AdminRole::Moderator]);
+        self.assert_admin(vec![AdminRole::Owner, AdminRole::Moderator]);
 
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
@@ -263,7 +263,7 @@ mod tests {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("flatirons.near".to_string()),
@@ -276,7 +276,7 @@ mod tests {
             vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("flatirons.near".to_string()),
@@ -287,7 +287,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
+    #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn moderators_cant_add_other_admins() {
         let mut contract = Contract {
             registry: HashMap::new(),
@@ -306,7 +306,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
 
@@ -319,7 +319,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
 
@@ -338,7 +338,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
 
@@ -346,18 +346,18 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Cannot remove super admin alice.near")]
-    fn cannot_remove_super_admins() {
+    #[should_panic(expected = "Cannot remove owner alice.near")]
+    fn cannot_remove_owners() {
         let mut contract = Contract {
             registry: HashMap::new(),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("alice.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
             ],
         };
@@ -372,7 +372,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
 
@@ -380,7 +380,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
+    #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn moderators_cant_remove_other_admins() {
         let mut contract = Contract {
             registry: HashMap::new(),
@@ -405,7 +405,7 @@ mod tests {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Super,
+                    role: AdminRole::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("alice.near".to_string()),
@@ -429,7 +429,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
 
@@ -444,7 +444,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Admin bob.near does not have one of required roles [Super]")]
+    #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn assert_admin_should_panic_when_admin_doesnt_have_role() {
         let contract = Contract {
             registry: HashMap::new(),
@@ -453,7 +453,7 @@ mod tests {
                 role: AdminRole::Moderator,
             }],
         };
-        contract.assert_admin(vec![AdminRole::Super])
+        contract.assert_admin(vec![AdminRole::Owner])
     }
 
     #[test]
@@ -462,10 +462,10 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
-        contract.assert_admin(vec![AdminRole::Super])
+        contract.assert_admin(vec![AdminRole::Owner])
     }
 
     #[test]
@@ -510,7 +510,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
         let config = IndexerConfig {
@@ -547,7 +547,7 @@ mod tests {
             registry: HashMap::new(),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Super,
+                role: AdminRole::Owner,
             }],
         };
         let config = IndexerConfig {
