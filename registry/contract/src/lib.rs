@@ -278,32 +278,21 @@ mod tests {
 
     #[test]
     fn list_admins() {
+        let admins = vec![
+            Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Owner,
+            },
+            Admin {
+                account_id: AccountId::new_unchecked("flatirons.near".to_string()),
+                role: AdminRole::Moderator,
+            },
+        ];
         let contract = Contract {
             registry: HashMap::new(),
-            admins: vec![
-                Admin {
-                    account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Owner,
-                },
-                Admin {
-                    account_id: AccountId::new_unchecked("flatirons.near".to_string()),
-                    role: AdminRole::Moderator,
-                },
-            ],
+            admins: admins.clone(),
         };
-        assert_eq!(
-            contract.list_admins(),
-            vec![
-                Admin {
-                    account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Owner,
-                },
-                Admin {
-                    account_id: AccountId::new_unchecked("flatirons.near".to_string()),
-                    role: AdminRole::Moderator,
-                },
-            ],
-        );
+        assert_eq!(contract.list_admins(), admins);
     }
 
     #[test]
