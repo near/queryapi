@@ -188,11 +188,17 @@ impl Contract {
         code: String,
         start_block_height: Option<u64>,
         schema: Option<String>,
+        account_id: Option<String>,
     ) {
-        self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
+        let account_id = match account_id {
+            Some(account_id) => {
+                self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
+                account_id
+            }
+            None => env::signer_account_id().to_string(),
+        };
 
-        let signer_account_id = env::signer_account_id().as_str().to_string();
-        let registered_name = [signer_account_id, function_name].join("/");
+        let registered_name = [account_id, function_name].join("/");
         let config = IndexerConfig {
             code,
             start_block_height,
@@ -477,6 +483,87 @@ mod tests {
     }
 
     #[test]
+    fn accounts_can_register_functions_for_themselves() {
+        let mut contract = Contract::default();
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: Some(43434343),
+            schema: None,
+        };
+        contract.register_indexer_function(
+            "test".to_string(),
+            config.code.clone(),
+            config.start_block_height,
+            config.schema.clone(),
+            None,
+        );
+        assert_eq!(
+            // default account is bob.near
+            contract.read_indexer_function("bob.near/test".to_string()),
+            config
+        );
+    }
+
+    #[test]
+    fn moderators_can_register_functions_for_others() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Moderator,
+            }],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "var x = 1;".to_string(),
+            Some(434343),
+            None,
+            Some("alice.near".to_string()),
+        );
+
+        assert!(contract.registry.get("alice.near/test").is_some());
+    }
+
+    #[test]
+    fn owners_can_register_functions_for_others() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Owner,
+            }],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "var x = 1;".to_string(),
+            Some(434343),
+            None,
+            Some("alice.near".to_string()),
+        );
+
+        assert!(contract.registry.get("alice.near/test").is_some());
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near is not admin")]
+    fn accounts_cannot_register_functions_for_others() {
+        let mut contract = Contract {
+            registry: HashMap::new(),
+            admins: vec![],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "var x = 1;".to_string(),
+            Some(434343),
+            None,
+            Some("alice.near".to_string()),
+        );
+    }
+
+    #[test]
     fn set_then_get_indexer_function() {
         let mut contract = Contract {
             registry: HashMap::new(),
@@ -495,6 +582,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema.clone(),
+            None,
         );
         assert_eq!(
             // default account is bob.near
@@ -523,6 +611,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema.clone(),
+            None,
         );
         assert_eq!(
             // default account is bob.near
@@ -560,6 +649,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema.clone(),
+            None,
         );
         let mut expected = HashMap::new();
         expected.insert("bob.near/test".to_string(), config);
