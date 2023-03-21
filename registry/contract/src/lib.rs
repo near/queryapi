@@ -157,7 +157,7 @@ impl Contract {
                 format!(
                     "Function {} is not registered under account {}",
                     &function_name,
-                    env::predecessor_account_id()
+                    env::signer_account_id()
                 )
                 .as_str(),
             )
