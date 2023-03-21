@@ -148,11 +148,11 @@ impl Contract {
 
         match admin {
             Some(admin) => {
-                if admin.role == AdminRole::Owner {
+                if !matches!(admin.role, AdminRole::Owner) {
+                    self.admins.retain(|admin| admin.account_id != account_id);
+                } else {
                     env::panic_str(&format!("Cannot remove owner {}", account_id));
                 }
-
-                self.admins.retain(|admin| admin.account_id != account_id);
             }
             None => {
                 env::panic_str(&format!("Admin {} does not exist", account_id));
