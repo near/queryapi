@@ -107,7 +107,7 @@ impl Contract {
         }
     }
 
-    pub fn assert_admin(&self, permitted_roles: Vec<AdminRole>) {
+    pub fn assert_roles(&self, permitted_roles: Vec<AdminRole>) {
         let account_id = env::signer_account_id();
         let admin = self
             .admins
@@ -135,7 +135,7 @@ impl Contract {
     }
 
     pub fn remove_admin(&mut self, account_id: String) {
-        self.assert_admin(vec![AdminRole::Owner]);
+        self.assert_roles(vec![AdminRole::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
             env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -161,7 +161,7 @@ impl Contract {
     }
 
     pub fn add_admin(&mut self, account_id: String) {
-        self.assert_admin(vec![AdminRole::Owner]);
+        self.assert_roles(vec![AdminRole::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
             env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -189,7 +189,7 @@ impl Contract {
         start_block_height: Option<u64>,
         schema: Option<String>,
     ) {
-        self.assert_admin(vec![AdminRole::Owner, AdminRole::Moderator]);
+        self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
 
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
@@ -206,7 +206,7 @@ impl Contract {
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String) {
-        self.assert_admin(vec![AdminRole::Owner, AdminRole::Moderator]);
+        self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
 
         let signer_account_id = env::signer_account_id().as_str().to_string();
         let registered_name = [signer_account_id, function_name].join("/");
@@ -438,14 +438,14 @@ mod tests {
 
     #[test]
     #[should_panic(expected = "Account bob.near is not admin")]
-    fn assert_admin_should_panic_when_admin_doesnt_exist() {
+    fn assert_roles_should_panic_when_admin_doesnt_exist() {
         let contract = Contract::default();
-        contract.assert_admin(vec![])
+        contract.assert_roles(vec![])
     }
 
     #[test]
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
-    fn assert_admin_should_panic_when_admin_doesnt_have_role() {
+    fn assert_roles_should_panic_when_admin_doesnt_have_role() {
         let contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
@@ -453,11 +453,11 @@ mod tests {
                 role: AdminRole::Moderator,
             }],
         };
-        contract.assert_admin(vec![AdminRole::Owner])
+        contract.assert_roles(vec![AdminRole::Owner])
     }
 
     #[test]
-    fn assert_admin_should_allow_admin_with_required_role() {
+    fn assert_roles_should_allow_admin_with_required_role() {
         let contract = Contract {
             registry: HashMap::new(),
             admins: vec![Admin {
@@ -465,7 +465,7 @@ mod tests {
                 role: AdminRole::Owner,
             }],
         };
-        contract.assert_admin(vec![AdminRole::Owner])
+        contract.assert_roles(vec![AdminRole::Owner])
     }
 
     #[test]
