@@ -211,11 +211,16 @@ impl Contract {
         self.registry.insert(registered_name, config);
     }
 
-    pub fn remove_indexer_function(&mut self, function_name: String) {
-        self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
+    pub fn remove_indexer_function(&mut self, function_name: String, account_id: Option<String>) {
+        let account_id = match account_id {
+            Some(account_id) => {
+                self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
+                account_id
+            }
+            None => env::signer_account_id().to_string(),
+        };
 
-        let signer_account_id = env::signer_account_id().as_str().to_string();
-        let registered_name = [signer_account_id, function_name].join("/");
+        let registered_name = [account_id, function_name].join("/");
         log!(
             "Removing function with account and function_name {}",
             &registered_name
@@ -564,6 +569,87 @@ mod tests {
     }
 
     #[test]
+    fn accounts_can_remove_their_own_functions() {
+        let mut contract = Contract {
+            registry: HashMap::from([(
+                "bob.near/test".to_string(),
+                IndexerConfig {
+                    code: "var x= 1;".to_string(),
+                    start_block_height: Some(43434343),
+                    schema: None,
+                },
+            )]),
+            admins: vec![],
+        };
+
+        contract.remove_indexer_function("test".to_string(), None);
+
+        assert!(contract.registry.get("bob.near/test").is_none());
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near is not admin")]
+    fn account_cannot_remove_functions_for_others() {
+        let mut contract = Contract {
+            registry: HashMap::from([(
+                "alice.near/test".to_string(),
+                IndexerConfig {
+                    code: "var x= 1;".to_string(),
+                    start_block_height: Some(43434343),
+                    schema: None,
+                },
+            )]),
+            admins: vec![],
+        };
+
+        contract.remove_indexer_function("test".to_string(), Some("alice.near".to_string()));
+    }
+
+    #[test]
+    fn moderators_can_remove_functions_for_others() {
+        let mut contract = Contract {
+            registry: HashMap::from([(
+                "alice.near/test".to_string(),
+                IndexerConfig {
+                    code: "var x= 1;".to_string(),
+                    start_block_height: Some(43434343),
+                    schema: None,
+                },
+            )]),
+            admins: vec![Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Moderator,
+            }],
+        };
+
+        contract.remove_indexer_function("test".to_string(), Some("alice.near".to_string()));
+
+        assert!(contract.registry.get("alice.near/test").is_none());
+    }
+
+    #[test]
+    fn owners_can_remove_functions_for_others() {
+        let mut contract = Contract {
+            registry: HashMap::from([(
+                "alice.near/test".to_string(),
+                IndexerConfig {
+                    code: "var x= 1;".to_string(),
+                    start_block_height: Some(43434343),
+                    schema: None,
+                },
+            )]),
+            admins: vec![Admin {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: AdminRole::Owner,
+            }],
+        };
+
+        contract.remove_indexer_function("test".to_string(), Some("alice.near".to_string()));
+
+        assert!(contract.registry.get("alice.near/test").is_none());
+    }
+
+    #[test]
     fn set_then_get_indexer_function() {
         let mut contract = Contract {
             registry: HashMap::new(),
@@ -618,7 +704,7 @@ mod tests {
             contract.read_indexer_function("bob.near/test".to_string()),
             config
         );
-        contract.remove_indexer_function("test".to_string());
+        contract.remove_indexer_function("test".to_string(), None);
         let empty_config = IndexerConfig {
             code: "".to_string(),
             start_block_height: None,
