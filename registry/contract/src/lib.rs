@@ -337,14 +337,36 @@ impl Contract {
         }
     }
 
-    pub fn list_indexer_functions(self) -> IndexersByAccount {
+    pub fn list_indexer_functions(
+        &self,
+    ) -> HashMap<AccountId, HashMap<FunctionName, IndexerConfig>> {
         self.registry
+            .iter()
+            .map(|(account_id, functions)| {
+                (
+                    account_id.clone(),
+                    functions
+                        .iter()
+                        .map(|(function_name, config)| {
+                            (
+                                function_name.clone(),
+                                IndexerConfig {
+                                    code: config.code.clone(),
+                                    start_block_height: config.start_block_height,
+                                    schema: config.schema.clone(),
+                                },
+                            )
+                        })
+                        .collect(),
+                )
+            })
+            .collect()
     }
 
     pub fn list_account_indexer_functions(
         &self,
         account_id: Option<String>,
-    ) -> &IndexerConfigByFunctionName {
+    ) -> HashMap<FunctionName, IndexerConfig> {
         let account_id = match account_id {
             Some(account_id) => account_id.parse::<AccountId>().unwrap_or_else(|_| {
                 env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -363,6 +385,18 @@ impl Contract {
         });
 
         account_indexers
+            .iter()
+            .map(|(function_name, config)| {
+                (
+                    function_name.clone(),
+                    IndexerConfig {
+                        code: config.code.clone(),
+                        start_block_height: config.start_block_height,
+                        schema: config.schema.clone(),
+                    },
+                )
+            })
+            .collect()
     }
 
     // #[private]
@@ -1105,13 +1139,11 @@ mod tests {
         };
 
         assert_eq!(
-            contract
-                .list_indexer_functions()
-                .get(&AccountId::new_unchecked("bob.near".to_string()))
-                .unwrap()
-                .get("test")
-                .unwrap(),
-            &config
+            contract.list_indexer_functions(),
+            HashMap::from([(
+                AccountId::new_unchecked("bob.near".to_string()),
+                HashMap::from([("test".to_string(), config)])
+            )])
         );
     }
 
@@ -1135,11 +1167,8 @@ mod tests {
         };
 
         assert_eq!(
-            contract
-                .list_account_indexer_functions(None)
-                .get("test")
-                .unwrap(),
-            &config
+            contract.list_account_indexer_functions(None),
+            HashMap::from([("test".to_string(), config)])
         );
     }
 
@@ -1174,11 +1203,8 @@ mod tests {
         };
 
         assert_eq!(
-            contract
-                .list_account_indexer_functions(Some("alice.near".to_string()))
-                .get("test")
-                .unwrap(),
-            &config
+            contract.list_account_indexer_functions(Some("alice.near".to_string())),
+            HashMap::from([("test".to_string(), config)])
         );
     }
 }
