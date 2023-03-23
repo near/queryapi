@@ -5,7 +5,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::Base64VecU8;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::UnorderedMap;
-use near_sdk::{env, log, near_bindgen, AccountId};
+use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash};
 
 type FunctionName = String;
 // Define the contract structure
@@ -25,6 +25,12 @@ pub type IndexerConfigByFunctionName = UnorderedMap<FunctionName, IndexerConfig>
 pub enum AccountOrAllIndexers {
     All(HashMap<AccountId, HashMap<FunctionName, IndexerConfig>>),
     Account(HashMap<FunctionName, IndexerConfig>),
+}
+
+#[derive(BorshStorageKey, BorshSerialize)]
+pub enum StorageKeys {
+    Registry,
+    Account(CryptoHash),
 }
 
 #[near_bindgen]
@@ -69,7 +75,7 @@ pub struct Admin {
 impl Default for Contract {
     fn default() -> Self {
         Self {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("morgs.near".to_string()),
@@ -114,7 +120,7 @@ impl Contract {
             env::panic_str("Failed to deserialize contract state");
         });
 
-        let mut registry = IndexersByAccount::new(b"s");
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
 
         state.registry.iter().for_each(|(name, config)| {
             let (account_id, function_name) = match name.split_once('/') {
@@ -134,8 +140,10 @@ impl Contract {
             };
 
             registry
-                .entry(account_id)
-                .or_insert(IndexerConfigByFunctionName::new(b"s"))
+                .entry(account_id.clone())
+                .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
+                    env::sha256_array(account_id.as_bytes()),
+                )))
                 .insert(function_name.to_string(), config.clone());
         });
 
@@ -159,21 +167,14 @@ impl Contract {
         };
 
         let account_indexers = self.registry.get(&account_id).unwrap_or_else(|| {
-            env::panic_str(
-                format!(
-                    "Account {} has no registered functions",
-                    env::signer_account_id()
-                )
-                .as_str(),
-            )
+            env::panic_str(format!("Account {} has no registered functions", account_id).as_str())
         });
 
         let indexer_config = account_indexers.get(&function_name).unwrap_or_else(|| {
             env::panic_str(
                 format!(
                     "Function {} is not registered under account {}",
-                    &function_name,
-                    env::signer_account_id()
+                    &function_name, account_id
                 )
                 .as_str(),
             )
@@ -282,10 +283,12 @@ impl Contract {
             &account_id
         );
 
-        let account_indexers = self
-            .registry
-            .entry(account_id.clone())
-            .or_insert(IndexerConfigByFunctionName::new(b"s"));
+        let account_indexers =
+            self.registry
+                .entry(account_id.clone())
+                .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
+                    env::sha256_array(account_id.as_bytes()),
+                )));
 
         match account_indexers.get(&function_name) {
             Some(_) => {
@@ -498,7 +501,7 @@ mod tests {
             },
         ];
         let contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: admins.clone(),
         };
         assert_eq!(contract.list_admins(), admins);
@@ -508,7 +511,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn moderators_cant_add_other_admins() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -521,7 +524,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near already exists")]
     fn cannot_add_existing_admin() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -534,7 +537,7 @@ mod tests {
     #[test]
     fn add_admin() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -553,7 +556,7 @@ mod tests {
     #[should_panic(expected = "Account ID 0 is invalid")]
     fn add_admin_with_invalid_account_id() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -567,7 +570,7 @@ mod tests {
     #[should_panic(expected = "Cannot remove owner alice.near")]
     fn cannot_remove_owners() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
@@ -587,7 +590,7 @@ mod tests {
     #[should_panic(expected = "Admin alice.near does not exist")]
     fn cannot_remove_non_existing_admin() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -601,7 +604,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn moderators_cant_remove_other_admins() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
@@ -619,7 +622,7 @@ mod tests {
     #[test]
     fn remove_admin() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
@@ -644,7 +647,7 @@ mod tests {
     #[should_panic(expected = "Account ID 0 is invalid")]
     fn remove_admin_with_invalid_account_id() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -665,7 +668,7 @@ mod tests {
     #[should_panic(expected = "Admin bob.near does not have one of required roles [Owner]")]
     fn assert_roles_should_panic_when_admin_doesnt_have_role() {
         let contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -677,7 +680,7 @@ mod tests {
     #[test]
     fn assert_roles_should_allow_admin_with_required_role() {
         let contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -719,7 +722,7 @@ mod tests {
     #[test]
     fn moderators_can_register_functions_for_others() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -745,7 +748,7 @@ mod tests {
     #[test]
     fn owners_can_register_functions_for_others() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -772,7 +775,7 @@ mod tests {
     #[should_panic(expected = "Account bob.near is not admin")]
     fn accounts_cannot_register_functions_for_others() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![],
         };
 
@@ -787,7 +790,10 @@ mod tests {
 
     #[test]
     fn accounts_can_remove_their_own_functions() {
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert(
             "test".to_string(),
             IndexerConfig {
@@ -796,11 +802,8 @@ mod tests {
                 schema: None,
             },
         );
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
             admins: vec![],
@@ -817,7 +820,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "Account bob.near is not admin")]
     fn account_cannot_remove_functions_for_others() {
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert(
             "test".to_string(),
             IndexerConfig {
@@ -826,11 +832,8 @@ mod tests {
                 schema: None,
             },
         );
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("alice.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
             admins: vec![],
@@ -841,7 +844,10 @@ mod tests {
 
     #[test]
     fn moderators_can_remove_functions_for_others() {
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("alice.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert(
             "test".to_string(),
             IndexerConfig {
@@ -850,11 +856,8 @@ mod tests {
                 schema: None,
             },
         );
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("alice.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
             admins: vec![Admin {
@@ -873,7 +876,10 @@ mod tests {
 
     #[test]
     fn owners_can_remove_functions_for_others() {
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("alice.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert(
             "test".to_string(),
             IndexerConfig {
@@ -882,11 +888,8 @@ mod tests {
                 schema: None,
             },
         );
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("alice.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
             admins: vec![Admin {
@@ -906,7 +909,7 @@ mod tests {
     #[test]
     fn set_then_get_indexer_function() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Moderator,
@@ -934,11 +937,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "Function test is not registered under account bob.near")]
     fn read_non_existant_indexer_function() {
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            IndexerConfigByFunctionName::new(b"a"),
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        registry.insert(account_id, account_indexers);
         let contract = Contract {
             registry,
             admins: vec![],
@@ -954,13 +958,13 @@ mod tests {
             start_block_height: None,
             schema: None,
         };
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert("test".to_string(), config.clone());
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let contract = Contract {
             registry,
             admins: vec![],
@@ -979,13 +983,13 @@ mod tests {
             start_block_height: None,
             schema: None,
         };
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("alice.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert("test".to_string(), config.clone());
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("alice.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let contract = Contract {
             registry,
             admins: vec![],
@@ -1000,7 +1004,7 @@ mod tests {
     #[test]
     fn register_indexer_function_for_new_account() {
         let mut contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: AdminRole::Owner,
@@ -1033,7 +1037,10 @@ mod tests {
 
     #[test]
     fn register_indexer_function_for_existing_account() {
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert(
             "test".to_string(),
             IndexerConfig {
@@ -1042,11 +1049,8 @@ mod tests {
                 schema: None,
             },
         );
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
             admins: vec![Admin {
@@ -1080,7 +1084,10 @@ mod tests {
 
     #[test]
     fn remove_one_of_many_indexer_functions_from_account() {
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert(
             "test".to_string(),
             IndexerConfig {
@@ -1097,11 +1104,8 @@ mod tests {
                 schema: None,
             },
         );
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
             admins: vec![],
@@ -1126,13 +1130,13 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
         };
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert("test".to_string(), config.clone());
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let contract = Contract {
             registry,
             admins: vec![],
@@ -1154,13 +1158,13 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
         };
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert("test".to_string(), config.clone());
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("bob.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let contract = Contract {
             registry,
             admins: vec![],
@@ -1176,7 +1180,7 @@ mod tests {
     #[should_panic(expected = "Account bob.near has no registered functions")]
     fn list_account_empty_indexer_functions() {
         let contract = Contract {
-            registry: IndexersByAccount::new(b"s"),
+            registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![],
         };
 
@@ -1190,13 +1194,13 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
         };
-        let mut account_indexers = IndexerConfigByFunctionName::new(b"a");
+        let account_id = AccountId::new_unchecked("alice.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
         account_indexers.insert("test".to_string(), config.clone());
-        let mut registry = IndexersByAccount::new(b"s");
-        registry.insert(
-            AccountId::new_unchecked("alice.near".to_string()),
-            account_indexers,
-        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let contract = Contract {
             registry,
             admins: vec![],
