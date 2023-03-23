@@ -20,6 +20,13 @@ pub type IndexersByAccount = UnorderedMap<AccountId, IndexerConfigByFunctionName
 
 pub type IndexerConfigByFunctionName = UnorderedMap<FunctionName, IndexerConfig>;
 
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(crate = "near_sdk::serde")]
+pub enum AccountOrAllIndexers {
+    All(HashMap<AccountId, HashMap<FunctionName, IndexerConfig>>),
+    Account(HashMap<FunctionName, IndexerConfig>),
+}
+
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct OldState {
@@ -337,15 +344,21 @@ impl Contract {
         }
     }
 
-    pub fn list_indexer_functions(
-        &self,
-    ) -> HashMap<AccountId, HashMap<FunctionName, IndexerConfig>> {
-        self.registry
-            .iter()
-            .map(|(account_id, functions)| {
-                (
-                    account_id.clone(),
-                    functions
+    pub fn list_indexer_functions(&self, account_id: Option<String>) -> AccountOrAllIndexers {
+        match account_id {
+            Some(account_id) => {
+                let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
+                    env::panic_str(&format!("Account ID {} is invalid", account_id));
+                });
+
+                let account_indexers = self.registry.get(&account_id).unwrap_or_else(|| {
+                    env::panic_str(
+                        format!("Account {} has no registered functions", account_id).as_str(),
+                    )
+                });
+
+                AccountOrAllIndexers::Account(
+                    account_indexers
                         .iter()
                         .map(|(function_name, config)| {
                             (
@@ -359,44 +372,31 @@ impl Contract {
                         })
                         .collect(),
                 )
-            })
-            .collect()
-    }
-
-    pub fn list_account_indexer_functions(
-        &self,
-        account_id: Option<String>,
-    ) -> HashMap<FunctionName, IndexerConfig> {
-        let account_id = match account_id {
-            Some(account_id) => account_id.parse::<AccountId>().unwrap_or_else(|_| {
-                env::panic_str(&format!("Account ID {} is invalid", account_id));
-            }),
-            None => env::signer_account_id(),
-        };
-
-        let account_indexers = self.registry.get(&account_id).unwrap_or_else(|| {
-            env::panic_str(
-                format!(
-                    "Account {} has no registered functions",
-                    env::signer_account_id()
-                )
-                .as_str(),
-            )
-        });
-
-        account_indexers
-            .iter()
-            .map(|(function_name, config)| {
-                (
-                    function_name.clone(),
-                    IndexerConfig {
-                        code: config.code.clone(),
-                        start_block_height: config.start_block_height,
-                        schema: config.schema.clone(),
-                    },
-                )
-            })
-            .collect()
+            }
+            None => AccountOrAllIndexers::All(
+                self.registry
+                    .iter()
+                    .map(|(account_id, account_indexers)| {
+                        (
+                            account_id.clone(),
+                            account_indexers
+                                .iter()
+                                .map(|(function_name, config)| {
+                                    (
+                                        function_name.clone(),
+                                        IndexerConfig {
+                                            code: config.code.clone(),
+                                            start_block_height: config.start_block_height,
+                                            schema: config.schema.clone(),
+                                        },
+                                    )
+                                })
+                                .collect(),
+                        )
+                    })
+                    .collect(),
+            ),
+        }
     }
 
     // #[private]
@@ -1139,11 +1139,11 @@ mod tests {
         };
 
         assert_eq!(
-            contract.list_indexer_functions(),
-            HashMap::from([(
+            contract.list_indexer_functions(None),
+            AccountOrAllIndexers::All(HashMap::from([(
                 AccountId::new_unchecked("bob.near".to_string()),
                 HashMap::from([("test".to_string(), config)])
-            )])
+            )]))
         );
     }
 
@@ -1167,8 +1167,8 @@ mod tests {
         };
 
         assert_eq!(
-            contract.list_account_indexer_functions(None),
-            HashMap::from([("test".to_string(), config)])
+            contract.list_indexer_functions(Some("bob.near".to_string())),
+            AccountOrAllIndexers::Account(HashMap::from([("test".to_string(), config)]))
         );
     }
 
@@ -1180,7 +1180,7 @@ mod tests {
             admins: vec![],
         };
 
-        contract.list_account_indexer_functions(None);
+        contract.list_indexer_functions(Some("bob.near".to_string()));
     }
 
     #[test]
@@ -1203,8 +1203,8 @@ mod tests {
         };
 
         assert_eq!(
-            contract.list_account_indexer_functions(Some("alice.near".to_string())),
-            HashMap::from([("test".to_string(), config)])
+            contract.list_indexer_functions(Some("alice.near".to_string())),
+            AccountOrAllIndexers::Account(HashMap::from([("test".to_string(), config)]))
         );
     }
 }
