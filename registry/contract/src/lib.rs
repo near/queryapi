@@ -20,6 +20,9 @@ pub type IndexersByAccount = UnorderedMap<AccountId, IndexerConfigByFunctionName
 
 pub type IndexerConfigByFunctionName = UnorderedMap<FunctionName, IndexerConfig>;
 
+/// Enum to allow for returning either a single account's indexers or all indexers
+/// This type uses `HashMap` rather than `UnorderedMap` as we need to load the
+/// data into memory to return it.
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(crate = "near_sdk::serde")]
 pub enum AccountOrAllIndexers {
