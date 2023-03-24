@@ -30,6 +30,36 @@ pub enum AccountOrAllIndexers {
     Account(HashMap<FunctionName, IndexerConfig>),
 }
 
+impl From<&IndexersByAccount> for AccountOrAllIndexers {
+    fn from(indexers_by_account: &IndexersByAccount) -> Self {
+        AccountOrAllIndexers::All(
+            indexers_by_account
+                .iter()
+                .map(|(account_id, account_indexers)| {
+                    (
+                        account_id.clone(),
+                        account_indexers
+                            .iter()
+                            .map(|(function_name, config)| (function_name.clone(), config.clone()))
+                            .collect(),
+                    )
+                })
+                .collect(),
+        )
+    }
+}
+
+impl From<&IndexerConfigByFunctionName> for AccountOrAllIndexers {
+    fn from(indexer_config_by_function_name: &IndexerConfigByFunctionName) -> Self {
+        AccountOrAllIndexers::Account(
+            indexer_config_by_function_name
+                .iter()
+                .map(|(function_name, config)| (function_name.clone(), config.clone()))
+                .collect(),
+        )
+    }
+}
+
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
     Registry,
@@ -363,45 +393,9 @@ impl Contract {
                     )
                 });
 
-                AccountOrAllIndexers::Account(
-                    account_indexers
-                        .iter()
-                        .map(|(function_name, config)| {
-                            (
-                                function_name.clone(),
-                                IndexerConfig {
-                                    code: config.code.clone(),
-                                    start_block_height: config.start_block_height,
-                                    schema: config.schema.clone(),
-                                },
-                            )
-                        })
-                        .collect(),
-                )
+                AccountOrAllIndexers::from(account_indexers)
             }
-            None => AccountOrAllIndexers::All(
-                self.registry
-                    .iter()
-                    .map(|(account_id, account_indexers)| {
-                        (
-                            account_id.clone(),
-                            account_indexers
-                                .iter()
-                                .map(|(function_name, config)| {
-                                    (
-                                        function_name.clone(),
-                                        IndexerConfig {
-                                            code: config.code.clone(),
-                                            start_block_height: config.start_block_height,
-                                            schema: config.schema.clone(),
-                                        },
-                                    )
-                                })
-                                .collect(),
-                        )
-                    })
-                    .collect(),
-            ),
+            None => AccountOrAllIndexers::from(&self.registry),
         }
     }
 
