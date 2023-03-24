@@ -316,31 +316,19 @@ impl Contract {
             &account_id
         );
 
-        let account_indexers =
-            self.registry
-                .entry(account_id.clone())
-                .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
-                    env::sha256_array(account_id.as_bytes()),
-                )));
-
-        match account_indexers.get(&function_name) {
-            Some(_) => {
-                env::panic_str(&format!(
-                    "Function {} is already registered under account {}",
-                    &function_name, &account_id
-                ));
-            }
-            None => {
-                account_indexers.insert(
-                    function_name,
-                    IndexerConfig {
-                        code,
-                        start_block_height,
-                        schema,
-                    },
-                );
-            }
-        }
+        self.registry
+            .entry(account_id.clone())
+            .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
+                env::sha256_array(account_id.as_bytes()),
+            )))
+            .insert(
+                function_name,
+                IndexerConfig {
+                    code,
+                    start_block_height,
+                    schema,
+                },
+            );
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String, account_id: Option<String>) {
