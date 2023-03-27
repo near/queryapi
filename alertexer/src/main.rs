@@ -29,7 +29,7 @@ pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from
 pub(crate) const RETRY_COUNT: usize = 2;
 
 pub(crate) type AlertRulesInMemory =
-    std::sync::Arc<tokio::sync::Mutex<HashMap<i32, alert_rules::AlertRule>>>;
+    std::sync::Arc<Mutex<HashMap<i32, AlertRule>>>;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct BalanceDetails {
@@ -37,7 +37,7 @@ pub struct BalanceDetails {
     pub staked: types::Balance,
 }
 
-pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<types::AccountId, BalanceDetails>>>;
+pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<AccountId, BalanceDetails>>>;
 
 pub(crate) struct AlertexerContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
@@ -46,8 +46,8 @@ pub(crate) struct AlertexerContext<'a> {
     pub queue_url: &'a str,
     pub alert_rules_inmemory: AlertRulesInMemory,
     pub balance_cache: &'a BalanceCache,
-    pub redis_connection_manager: &'a storage::ConnectionManager,
-    pub json_rpc_client: &'a near_jsonrpc_client::JsonRpcClient,
+    pub redis_connection_manager: &'a ConnectionManager,
+    pub json_rpc_client: &'a JsonRpcClient,
 }
 
 #[tokio::main]
@@ -88,11 +88,11 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let alert_rules_hashmap: HashMap<i32, alert_rules::AlertRule> =
+    let alert_rules_hashmap: HashMap<i32, AlertRule> =
         alert_rules.into_iter().collect();
 
     let alert_rules_inmemory: AlertRulesInMemory =
-        std::sync::Arc::new(tokio::sync::Mutex::new(alert_rules_hashmap));
+        std::sync::Arc::new(Mutex::new(alert_rules_hashmap));
 
     tokio::spawn(utils::alert_rules_fetcher(
         pool,
@@ -100,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
         chain_id.clone(),
     ));
 
-    let json_rpc_client = near_jsonrpc_client::JsonRpcClient::connect(opts.rpc_url());
+    let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
 
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
     let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
@@ -144,7 +144,7 @@ async fn main() -> anyhow::Result<()> {
 async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Result<u64> {
     let alert_rules_inmemory_lock = context.alert_rules_inmemory.lock().await;
     // TODO: avoid cloning
-    let alert_rules: Vec<alert_rules::AlertRule> =
+    let alert_rules: Vec<AlertRule> =
         alert_rules_inmemory_lock.values().cloned().collect();
     drop(alert_rules_inmemory_lock);
 
@@ -289,7 +289,7 @@ async fn read_indexer_functions_from_registry(rpc_client: &JsonRpcClient, redis_
 }
 
 
-async fn read_only_call(client: &JsonRpcClient, contract_name: &str, function_name: &str, args: FunctionArgs) -> Result<serde_json::Value, anyhow::Error> {
+async fn read_only_call(client: &JsonRpcClient, contract_name: &str, function_name: &str, args: FunctionArgs) -> Result<Value, anyhow::Error> {
 
     let account_id: AccountId = contract_name.parse()?;
 
@@ -312,7 +312,7 @@ async fn read_only_call(client: &JsonRpcClient, contract_name: &str, function_na
 }
 
 async fn reduce_alert_queue_messages(
-    alert_rule: &alert_rules::AlertRule,
+    alert_rule: &AlertRule,
     context: &AlertexerContext<'_>,
 ) -> anyhow::Result<Vec<AlertQueueMessage>> {
     Ok(match &alert_rule.matching_rule {
