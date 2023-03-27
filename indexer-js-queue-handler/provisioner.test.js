@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import VError from 'verror'
 
 import HasuraClient from './hasura-client';
 import Provisioner from './provisioner';
@@ -43,5 +44,112 @@ describe('Provision', () => {
                 'delete'
             ]
         );
+    });
+
+    it('throws an error when it fails to create the schema', async () => {
+        const error = new Error('some http error');
+        const hasuraClient = {
+            createSchema: jest.fn().mockRejectedValue(error),
+        };
+        const provisioner = new Provisioner(hasuraClient);
+
+        try {
+            await provisioner.createAuthenticatedEndpoint('name', 'role', 'CREATE TABLE blocks (height numeric)')
+        } catch (error) {
+            expect(error.message).toBe('Failed to provision endpoint: Failed to create schema: some http error');
+            expect(VError.info(error)).toEqual({
+                schemaName: 'name',
+                roleName: 'role',
+                migration: 'CREATE TABLE blocks (height numeric)',
+            });
+        }
+    });
+
+    it('throws an error when it fails to create the schema', async () => {
+        const error = new Error('some http error');
+        const hasuraClient = {
+            createSchema: jest.fn().mockReturnValueOnce(),
+            runMigrations: jest.fn().mockRejectedValue(error),
+        };
+        const provisioner = new Provisioner(hasuraClient);
+
+        try {
+            await provisioner.createAuthenticatedEndpoint('name', 'role', 'CREATE TABLE blocks (height numeric)')
+        } catch (error) {
+            expect(error.message).toBe('Failed to provision endpoint: Failed to run migrations: some http error');
+            expect(VError.info(error)).toEqual({
+                schemaName: 'name',
+                roleName: 'role',
+                migration: 'CREATE TABLE blocks (height numeric)',
+            });
+        }
+    });
+
+    it('throws an error when it fails to create the schema', async () => {
+        const error = new Error('some http error');
+        const hasuraClient = {
+            createSchema: jest.fn().mockReturnValueOnce(),
+            runMigrations: jest.fn().mockReturnValueOnce(),
+            getTableNames: jest.fn().mockRejectedValue(error),
+        };
+        const provisioner = new Provisioner(hasuraClient);
+
+        try {
+            await provisioner.createAuthenticatedEndpoint('name', 'role', 'CREATE TABLE blocks (height numeric)')
+        } catch (error) {
+            expect(error.message).toBe('Failed to provision endpoint: Failed to fetch table names: some http error');
+            expect(VError.info(error)).toEqual({
+                schemaName: 'name',
+                roleName: 'role',
+                migration: 'CREATE TABLE blocks (height numeric)',
+            });
+        }
+    });
+
+    it('throws an error when it fails to create the schema', async () => {
+        const error = new Error('some http error');
+        const tableNames = ['blocks'];
+        const hasuraClient = {
+            createSchema: jest.fn().mockReturnValueOnce(),
+            runMigrations: jest.fn().mockReturnValueOnce(),
+            getTableNames: jest.fn().mockReturnValueOnce(tableNames),
+            trackTables: jest.fn().mockRejectedValueOnce(error),
+        };
+        const provisioner = new Provisioner(hasuraClient);
+
+        try {
+            await provisioner.createAuthenticatedEndpoint('name', 'role', 'CREATE TABLE blocks (height numeric)')
+        } catch (error) {
+            expect(error.message).toBe('Failed to provision endpoint: Failed to track tables: some http error');
+            expect(VError.info(error)).toEqual({
+                schemaName: 'name',
+                roleName: 'role',
+                migration: 'CREATE TABLE blocks (height numeric)',
+            });
+        }
+    });
+
+    it('throws an error when it fails to create the schema', async () => {
+        const error = new Error('some http error');
+        const tableNames = ['blocks'];
+        const hasuraClient = {
+            createSchema: jest.fn().mockReturnValueOnce(),
+            runMigrations: jest.fn().mockReturnValueOnce(),
+            getTableNames: jest.fn().mockReturnValueOnce(tableNames),
+            trackTables: jest.fn().mockReturnValueOnce(),
+            addPermissionsToTables: jest.fn().mockRejectedValue(error),
+        };
+        const provisioner = new Provisioner(hasuraClient);
+
+        try {
+            await provisioner.createAuthenticatedEndpoint('name', 'role', 'CREATE TABLE blocks (height numeric)')
+        } catch (error) {
+            expect(error.message).toBe('Failed to provision endpoint: Failed to add permissions to tables: some http error');
+            expect(VError.info(error)).toEqual({
+                migration: 'CREATE TABLE blocks (height numeric)',
+                schemaName: 'name',
+                roleName: 'role',
+            });
+        }
     });
 })
