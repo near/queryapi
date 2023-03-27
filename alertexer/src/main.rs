@@ -1,6 +1,4 @@
-#![feature(explicit_generic_args_with_impl_trait)]
 use std::collections::HashMap;
-use std::error::Error;
 
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
@@ -171,7 +169,7 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
             //   for each indexer_function create a new alert_queue_message
             // Once the filters are tied to indexer functions, these will de-nest
             let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
-            for(alert_queue_message) in alert_queue_messages.iter() {
+            for alert_queue_message in alert_queue_messages.iter() {
                 for (function_name, function_code) in indexer_functions.as_object().unwrap() {
                     let block_height = context.streamer_message.block.header.height;
                     let msg = IndexerQueueMessage {
