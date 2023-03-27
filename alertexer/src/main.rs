@@ -8,16 +8,17 @@ use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::query::{QueryResponseKind, RpcQueryRequest};
 use tokio::sync::Mutex;
 
-use alert_rules::MatchingRule;
-use near_lake_framework::near_indexer_primitives::{StreamerMessage, types};
-use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockReference, FunctionArgs};
+use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
+use near_lake_framework::near_indexer_primitives::{types};
+use near_lake_framework::near_indexer_primitives::types::{AccountId, FunctionArgs};
 use near_lake_framework::near_indexer_primitives::types::BlockReference::Finality;
 use near_lake_framework::near_indexer_primitives::types::Finality::Final;
 use near_lake_framework::near_indexer_primitives::views::QueryRequest;
 use serde_json::{json, Value};
 
-use shared::{alertexer_types, alertexer_types::primitives::AlertQueueMessage, ChainId, Opts, Parser};
-use shared::alertexer_types::primitives::{AlertQueueMessagePayload, IndexerQueueMessage};
+use shared::{alertexer_types::primitives::AlertQueueMessage, Opts, Parser};
+use shared::alertexer_types::primitives::{IndexerQueueMessage};
+use storage::ConnectionManager;
 
 pub(crate) mod cache;
 mod outcomes_reducer;
@@ -152,12 +153,16 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
     cache::cache_txs_and_receipts(&context.streamer_message, context.redis_connection_manager)
         .await?;
 
+    index_registry_changes(&context, context.json_rpc_client,
+                           context.redis_connection_manager).await;
+
     let mut reducer_futures = stream::iter(alert_rules.iter())
         .map(|alert_rule| reduce_alert_queue_messages(alert_rule, &context))
         // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
         .buffer_unordered(10usize);
 
-    let indexer_functions = indexer_functions(&context.streamer_message, &context.json_rpc_client, context.streamer_message.block.header.height).await;
+    let indexer_functions = fetch_indexer_functions(context.json_rpc_client,
+                                                    context.redis_connection_manager).await;
 
     while let Some(alert_queue_messages) = reducer_futures.next().await {
         if let Ok(alert_queue_messages) = alert_queue_messages {
@@ -215,37 +220,83 @@ async fn handle_streamer_message(context: AlertexerContext<'_>) -> anyhow::Resul
     Ok(context.streamer_message.block.header.height)
 }
 
-async fn indexer_functions(streamer_message: &StreamerMessage, rpc_client: &&JsonRpcClient, block_height: u64) -> Value {
-    // todo evaluate filter rule against streamer message to see if registry has changed
+async fn index_registry_changes(context: &AlertexerContext<'_>, rpc_client: &JsonRpcClient,
+                                redis_connection_manager: &ConnectionManager) {
+    let matching_rule = MatchingRule::ActionFunctionCall {
+        affected_account_id: "registry.queryapi.near".to_string(),
+        function: "register_indexer_function".to_string(),
+        status: Status::Any,
+    };
+    let registry_calls = AlertRule {
+        id: 0,
+        name: "indexer_function_registry_changes".to_string(),
+        chain_id: alert_rules::ChainId::Mainnet,
+        alert_rule_kind: AlertRuleKind::Actions,
+        is_paused: false,
+        updated_at: None,
+        matching_rule,
+    };
+    match outcomes_reducer::reduce_alert_queue_messages_from_outcomes(&registry_calls, context).await {
+       Ok(registry_updates) => {
+           if registry_updates.len() > 0 {
+               println!("indexing registry_updates: {:?}", registry_updates);
+               read_indexer_functions_from_registry(rpc_client, redis_connection_manager).await;
+           }
+       }
+        Err(error) => {
+            panic!("Error indexing indexer functions: {:?}", error);
+        }
+    }
+}
 
-    // todo cache indexer functions
-
-    // Fetch functions from registry
-    match read_only_call(rpc_client,
-                   "registry.queryapi.near",
-                   "list_indexer_functions",
-                   FunctionArgs::from(json!({}).to_string().into_bytes())).await {
-        Ok(functions) => functions,
+async fn fetch_indexer_functions(rpc_client: &JsonRpcClient,
+                                 redis_connection_manager: &ConnectionManager) -> Value {
+    match storage::get::<Option<String>>(
+        redis_connection_manager,
+        "indexer_function_registry",
+    ).await {
+        Ok(Some(indexer_functions)) => {
+            let indexer_functions: Value = serde_json::from_str(&indexer_functions).unwrap();
+            indexer_functions
+        },
+        Ok(None) => {
+            read_indexer_functions_from_registry(rpc_client, redis_connection_manager).await
+        }
         Err(err) => {
-            tracing::error!(
-                target: INDEXER,
-                "#{} an error occurred reading indexer functions\n{:#?}",
-                block_height,
-                err
-            );
-            Value::Null
+            panic!("Unable to read indexer functions from redis: {:?}", err);
+        }
+    }
+}
+
+async fn read_indexer_functions_from_registry(rpc_client: &JsonRpcClient, redis_connection_manager: &ConnectionManager) -> Value {
+    match read_only_call(rpc_client,
+                         "registry.queryapi.near",
+                         "list_indexer_functions",
+                         FunctionArgs::from(json!({}).to_string().into_bytes())).await {
+        Ok(functions) => {
+            // update cache with new indexer functions
+            let functions_string = serde_json::to_string(&functions).unwrap();
+            match storage::set(redis_connection_manager, "indexer_function_registry", &functions_string).await {
+                Ok(_) => {}
+                Err(err) => {
+                    tracing::error!("Unable to update indexer functions cache: {:?}", err);
+                }
+            }
+            functions
+        },
+        Err(err) => {
+            panic!("Unable to read indexer functions from registry: {:?}", err);
         }
     }
 }
 
 
-
-async fn read_only_call(client: &&JsonRpcClient, contract_name: &str, function_name: &str, args: FunctionArgs) -> Result<serde_json::Value, anyhow::Error> {
+async fn read_only_call(client: &JsonRpcClient, contract_name: &str, function_name: &str, args: FunctionArgs) -> Result<serde_json::Value, anyhow::Error> {
 
     let account_id: AccountId = contract_name.parse()?;
 
     let request = RpcQueryRequest {
-        block_reference: BlockReference::Finality(Final),
+        block_reference: Finality(Final),
         request: QueryRequest::CallFunction {
             account_id,
             method_name: function_name.to_string(),
