@@ -704,7 +704,68 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         await indexer.runFunctions(blockHeight, functions, { provision: true });
 
         expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
-        expect(mockFetch).toHaveBeenCalledTimes(3);
+        expect(mockFetch.mock.calls.flatMap(([_, payload]) => JSON.parse(payload.body))).toEqual([
+            {
+                "query": `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
+    id
+  }
+}
+`,
+                "variables": {
+                    "block_height": 82699904,
+                    "function_name": "morgs.near/test",
+                    "message": "[\"Running function\",\"morgs.near/test\"]",
+                },
+            },
+            {
+"query": `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
+    id
+  }
+}
+`,
+                "variables": {
+                    "block_height": 82699904,
+                    "function_name": "morgs.near/test",
+                    "message": "[\"Provisioning endpoint: starting\"]",
+                },
+            },
+            {
+"query": `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
+    id
+  }
+}
+`,
+                "variables": {
+                    "block_height": 82699904,
+                    "function_name": "morgs.near/test",
+                    "message": "[\"Provisioning endpoint: successful\"]",
+                },
+            },
+            {
+                "query": "mutation { set(functionName: \"buildnear.testnet/test\", key: \"height\", data: \"82699904\")}",
+                "variables": {},
+            },
+            {
+                "query": `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+                  insert_indexer_state(
+                    objects: {current_block_height: $block_height, function_name: $function_name}
+                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                  ) {
+                    returning {
+                      current_block_height
+                      function_name
+                    }
+                  }
+                }`,
+                "variables": {
+                    "block_height": 82699904,
+                    "function_name": "morgs.near/test",
+                },
+            },
+        ]);
         expect(mockFetch).toHaveBeenCalledWith(
             `${HASURA_ENDPOINT}/v1/graphql`,
             {
@@ -719,6 +780,63 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }),
             }
         );
+    });
+
+    test('Indexer.runFunctions() logs provisioning failures', async () => {
+        const postId = 1;
+        const commentId = 2;
+        const blockHeight = 82699904;
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const mockS3 = {
+            getObject: jest
+                .fn()
+                .mockReturnValueOnce({ // block
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({
+                                chunks: [0],
+                                header: {
+                                    height: blockHeight,
+                                },
+                            }),
+                        },
+                    }),
+                })
+                .mockReturnValue({ // shard
+                    promise: () => Promise.resolve({
+                        Body: {
+                            toString: () => JSON.stringify({})
+                        },
+                    }),
+                }),
+        };
+        const error = new Error('something went wrong with provisioning');
+        const provisioner = {
+            doesEndpointExist: jest.fn().mockReturnValue(false),
+            createAuthenticatedEndpoint: jest.fn().mockRejectedValue(error),
+        }
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+
+        const functions = {
+            'morgs.near/test': {
+                code: `
+                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
+                `,
+                schema: 'schema',
+            }
+        };
+
+        await expect(indexer.runFunctions(blockHeight, functions, { provision: true })).rejects.toThrow(error)
+        expect(mockFetch.mock.calls.flatMap(([_, payload]) => JSON.parse(payload.body).variables.message)).toEqual([
+            '["Running function","morgs.near/test"]',
+            '["Provisioning endpoint: starting"]',
+            `["Provisioning endpoint: failure","${error.message}"]`
+        ]);
     });
 
     // The unhandled promise causes problems with test reporting.

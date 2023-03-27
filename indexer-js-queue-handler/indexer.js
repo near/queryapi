@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
+import VError from "verror";
 
 import Provisioner from './provisioner.js'
 
@@ -40,18 +41,19 @@ export default class Indexer {
             const functionNameWithoutAccount = function_name.split('/')[1];
             if (options.provision) {
                 const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
+                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 
                 try {
                     if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
                         await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
                     }
                 } catch (err) {
-                    const msg = 'Failed to provision endpoint';
-                    console.error(msg, err)
-                    simultaneousPromises.push(this.writeLog(function_name, block_height, msg, err.message));
+                    console.error(err)
+                    simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: failure', err.message));
                     await Promise.all(simultaneousPromises);
-                    throw new Error(msg);
+                    throw err;
                 }
+                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
             }
 
 
