@@ -386,14 +386,6 @@ impl Contract {
             None => AccountOrAllIndexers::from(&self.registry),
         }
     }
-
-    // #[private]
-    // #[init(ignore_state)]
-    pub fn clean(keys: Vec<Base64VecU8>) {
-        for key in keys.iter() {
-            env::storage_remove(&key.0);
-        }
-    }
 }
 
 /*
