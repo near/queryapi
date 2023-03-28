@@ -301,13 +301,16 @@ impl Contract {
     ) {
         let account_id = match account_id {
             Some(account_id) => {
-                self.assert_roles(vec![Role::Owner, Role::User]);
+                self.assert_roles(vec![Role::Owner]);
 
                 account_id.parse::<AccountId>().unwrap_or_else(|_| {
                     env::panic_str(&format!("Account ID {} is invalid", account_id));
                 })
             }
-            None => env::signer_account_id(),
+            None => {
+                self.assert_roles(vec![Role::Owner, Role::User]);
+                env::signer_account_id()
+            }
         };
 
         log!(
@@ -334,13 +337,16 @@ impl Contract {
     pub fn remove_indexer_function(&mut self, function_name: String, account_id: Option<String>) {
         let account_id = match account_id {
             Some(account_id) => {
-                self.assert_roles(vec![Role::Owner, Role::User]);
+                self.assert_roles(vec![Role::Owner]);
 
                 account_id.parse::<AccountId>().unwrap_or_else(|_| {
                     env::panic_str(&format!("Account ID {} is invalid", account_id));
                 })
             }
-            None => env::signer_account_id(),
+            None => {
+                self.assert_roles(vec![Role::Owner, Role::User]);
+                env::signer_account_id()
+            }
         };
 
         log!(
@@ -593,6 +599,7 @@ mod tests {
                 },
             ],
         };
+
         contract.remove_user("alice.near".to_string());
     }
 
@@ -667,16 +674,43 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near has no registered functions")]
-    fn read_indexer_function_for_non_existant_account() {
-        let contract = Contract::default();
-        // no registered indexers so should return the default ""
-        contract.read_indexer_function("test".to_string(), None);
+    fn users_can_register_functions_for_themselves() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
+        };
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: Some(43434343),
+            schema: None,
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            config.code.clone(),
+            config.start_block_height,
+            config.schema.clone(),
+            None,
+        );
+
+        assert_eq!(
+            contract.read_indexer_function("test".to_string(), None),
+            config
+        );
     }
 
     #[test]
-    fn accounts_can_register_functions_for_themselves() {
-        let mut contract = Contract::default();
+    fn owners_can_register_functions_for_themselves() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::Owner,
+            }],
+        };
         let config = IndexerConfig {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
@@ -690,13 +724,47 @@ mod tests {
             None,
         );
         assert_eq!(
-            // default account is bob.near
             contract.read_indexer_function("test".to_string(), None),
             config
         );
     }
 
     #[test]
+    #[should_panic(expected = "Account bob.near does not have any roles")]
+    fn anonymous_cannot_register_functions_for_themselves() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "var x= 1;".to_string(),
+            Some(43434343),
+            None,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near does not have any roles")]
+    fn anonymous_cannot_register_functions_for_others() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "var x= 1;".to_string(),
+            Some(43434343),
+            None,
+            Some("alice.near".to_string()),
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near does not have one of required roles [Owner]")]
     fn users_can_not_register_functions_for_others() {
         let mut contract = Contract {
             registry: IndexersByAccount::new(StorageKeys::Registry),
@@ -713,13 +781,6 @@ mod tests {
             None,
             Some("alice.near".to_string()),
         );
-
-        assert!(contract
-            .registry
-            .get(&AccountId::new_unchecked("alice.near".to_string()))
-            .unwrap()
-            .get("test")
-            .is_some());
     }
 
     #[test]
@@ -749,24 +810,41 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near does not have any roles")]
-    fn users_cannot_register_functions_for_others() {
+    fn register_indexer_function_for_new_account() {
         let mut contract = Contract {
             registry: IndexersByAccount::new(StorageKeys::Registry),
-            account_roles: vec![],
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
+        };
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: None,
+            schema: None,
         };
 
         contract.register_indexer_function(
             "test".to_string(),
-            "var x = 1;".to_string(),
-            Some(434343),
+            config.code.clone(),
+            config.start_block_height,
+            config.schema.clone(),
             None,
-            Some("alice.near".to_string()),
+        );
+
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("bob.near".to_string()))
+                .unwrap()
+                .get("test")
+                .unwrap(),
+            &config
         );
     }
 
     #[test]
-    fn accounts_can_remove_their_own_functions() {
+    fn register_indexer_function_for_existing_account() {
         let account_id = AccountId::new_unchecked("bob.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
             env::sha256_array(account_id.as_bytes()),
@@ -783,7 +861,57 @@ mod tests {
         registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
-            account_roles: vec![],
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
+        };
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: None,
+            schema: None,
+        };
+
+        contract.register_indexer_function(
+            "test2".to_string(),
+            config.code.clone(),
+            config.start_block_height,
+            config.schema,
+            None,
+        );
+
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("bob.near".to_string()))
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn users_can_remove_their_own_functions() {
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        account_indexers.insert(
+            "test".to_string(),
+            IndexerConfig {
+                code: "var x= 1;".to_string(),
+                start_block_height: Some(43434343),
+                schema: None,
+            },
+        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
+        let mut contract = Contract {
+            registry,
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
         };
 
         contract.remove_indexer_function("test".to_string(), None);
@@ -795,8 +923,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near does not have any roles")]
-    fn account_cannot_remove_functions_for_others() {
+    fn owners_can_remove_their_own_functions() {
         let account_id = AccountId::new_unchecked("bob.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
             env::sha256_array(account_id.as_bytes()),
@@ -813,15 +940,24 @@ mod tests {
         registry.insert(account_id, account_indexers);
         let mut contract = Contract {
             registry,
-            account_roles: vec![],
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::Owner,
+            }],
         };
 
-        contract.remove_indexer_function("test".to_string(), Some("alice.near".to_string()));
+        contract.remove_indexer_function("test".to_string(), None);
+
+        assert!(contract
+            .registry
+            .get(&AccountId::new_unchecked("bob.near".to_string()))
+            .is_none());
     }
 
     #[test]
-    fn users_can_remove_functions_for_others() {
-        let account_id = AccountId::new_unchecked("alice.near".to_string());
+    #[should_panic(expected = "Account bob.near does not have one of required roles [Owner]")]
+    fn users_cannot_remove_functions_for_others() {
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
             env::sha256_array(account_id.as_bytes()),
         ));
@@ -844,11 +980,6 @@ mod tests {
         };
 
         contract.remove_indexer_function("test".to_string(), Some("alice.near".to_string()));
-
-        assert!(contract
-            .registry
-            .get(&AccountId::new_unchecked("alice.near".to_string()))
-            .is_none());
     }
 
     #[test]
@@ -884,30 +1015,71 @@ mod tests {
     }
 
     #[test]
-    fn set_then_get_indexer_function() {
+    #[should_panic(expected = "Account bob.near does not have any roles")]
+    fn anonymous_cannot_remove_functions() {
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        account_indexers.insert(
+            "test".to_string(),
+            IndexerConfig {
+                code: "var x= 1;".to_string(),
+                start_block_height: Some(43434343),
+                schema: None,
+            },
+        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
         let mut contract = Contract {
-            registry: IndexersByAccount::new(StorageKeys::Registry),
+            registry,
+            account_roles: vec![],
+        };
+
+        contract.remove_indexer_function("test".to_string(), None);
+    }
+
+    #[test]
+    fn remove_one_of_many_indexer_functions_from_account() {
+        let account_id = AccountId::new_unchecked("bob.near".to_string());
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        account_indexers.insert(
+            "test".to_string(),
+            IndexerConfig {
+                code: "var x= 1;".to_string(),
+                start_block_height: Some(43434343),
+                schema: None,
+            },
+        );
+        account_indexers.insert(
+            "test2".to_string(),
+            IndexerConfig {
+                code: "var x= 2;".to_string(),
+                start_block_height: Some(43434343),
+                schema: None,
+            },
+        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
+        let mut contract = Contract {
+            registry,
             account_roles: vec![AccountRole {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
                 role: Role::User,
             }],
         };
-        let config = IndexerConfig {
-            code: "var x= 1;".to_string(),
-            start_block_height: Some(43434343),
-            schema: None,
-        };
-        contract.register_indexer_function(
-            "test".to_string(),
-            config.code.clone(),
-            config.start_block_height,
-            config.schema.clone(),
-            None,
-        );
+
+        contract.remove_indexer_function("test".to_string(), None);
+
         assert_eq!(
-            // default account is bob.near
-            contract.read_indexer_function("test".to_string(), None),
-            config
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("bob.near".to_string()))
+                .unwrap()
+                .len(),
+            1
         );
     }
 
@@ -979,125 +1151,11 @@ mod tests {
     }
 
     #[test]
-    fn register_indexer_function_for_new_account() {
-        let mut contract = Contract {
-            registry: IndexersByAccount::new(StorageKeys::Registry),
-            account_roles: vec![AccountRole {
-                account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: Role::Owner,
-            }],
-        };
-        let config = IndexerConfig {
-            code: "var x= 1;".to_string(),
-            start_block_height: None,
-            schema: None,
-        };
-
-        contract.register_indexer_function(
-            "test".to_string(),
-            config.code.clone(),
-            config.start_block_height,
-            config.schema.clone(),
-            None,
-        );
-
-        assert_eq!(
-            contract
-                .registry
-                .get(&AccountId::new_unchecked("bob.near".to_string()))
-                .unwrap()
-                .get("test")
-                .unwrap(),
-            &config
-        );
-    }
-
-    #[test]
-    fn register_indexer_function_for_existing_account() {
-        let account_id = AccountId::new_unchecked("bob.near".to_string());
-        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
-            env::sha256_array(account_id.as_bytes()),
-        ));
-        account_indexers.insert(
-            "test".to_string(),
-            IndexerConfig {
-                code: "var x= 1;".to_string(),
-                start_block_height: Some(43434343),
-                schema: None,
-            },
-        );
-        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
-        registry.insert(account_id, account_indexers);
-        let mut contract = Contract {
-            registry,
-            account_roles: vec![AccountRole {
-                account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: Role::Owner,
-            }],
-        };
-        let config = IndexerConfig {
-            code: "var x= 1;".to_string(),
-            start_block_height: None,
-            schema: None,
-        };
-
-        contract.register_indexer_function(
-            "test2".to_string(),
-            config.code.clone(),
-            config.start_block_height,
-            config.schema,
-            None,
-        );
-
-        assert_eq!(
-            contract
-                .registry
-                .get(&AccountId::new_unchecked("bob.near".to_string()))
-                .unwrap()
-                .len(),
-            2
-        );
-    }
-
-    #[test]
-    fn remove_one_of_many_indexer_functions_from_account() {
-        let account_id = AccountId::new_unchecked("bob.near".to_string());
-        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
-            env::sha256_array(account_id.as_bytes()),
-        ));
-        account_indexers.insert(
-            "test".to_string(),
-            IndexerConfig {
-                code: "var x= 1;".to_string(),
-                start_block_height: Some(43434343),
-                schema: None,
-            },
-        );
-        account_indexers.insert(
-            "test2".to_string(),
-            IndexerConfig {
-                code: "var x= 2;".to_string(),
-                start_block_height: Some(43434343),
-                schema: None,
-            },
-        );
-        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
-        registry.insert(account_id, account_indexers);
-        let mut contract = Contract {
-            registry,
-            account_roles: vec![],
-        };
-
-        contract.remove_indexer_function("test".to_string(), None);
-
-        assert_eq!(
-            contract
-                .registry
-                .get(&AccountId::new_unchecked("bob.near".to_string()))
-                .unwrap()
-                .len(),
-            1
-        );
+    #[should_panic(expected = "Account bob.near has no registered functions")]
+    fn read_indexer_function_for_non_existant_account() {
+        let contract = Contract::default();
+        // no registered indexers so should return the default ""
+        contract.read_indexer_function("test".to_string(), None);
     }
 
     #[test]
