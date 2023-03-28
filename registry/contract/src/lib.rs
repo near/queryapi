@@ -91,7 +91,7 @@ pub struct IndexerConfig {
 /// is for allowing addition/removal of any accounts functions.
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(crate = "near_sdk::serde")]
-pub enum AdminRole {
+pub enum Role {
     Owner,
     Moderator,
 }
@@ -100,7 +100,7 @@ pub enum AdminRole {
 #[serde(crate = "near_sdk::serde")]
 pub struct Admin {
     account_id: AccountId,
-    role: AdminRole,
+    role: Role,
 }
 
 // Define the default, which automatically initializes the contract
@@ -111,31 +111,31 @@ impl Default for Contract {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("morgs.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("pavelnear.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("roshaan.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("flatirons.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("root.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("khorolets.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: env::current_account_id(),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
             ],
         }
@@ -215,7 +215,7 @@ impl Contract {
         indexer_config.clone()
     }
 
-    pub fn assert_roles(&self, permitted_roles: Vec<AdminRole>) {
+    pub fn assert_roles(&self, permitted_roles: Vec<Role>) {
         let account_id = env::signer_account_id();
         let admin = self
             .admins
@@ -243,7 +243,7 @@ impl Contract {
     }
 
     pub fn remove_admin(&mut self, account_id: String) {
-        self.assert_roles(vec![AdminRole::Owner]);
+        self.assert_roles(vec![Role::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
             env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -256,7 +256,7 @@ impl Contract {
 
         match admin {
             Some(admin) => {
-                if !matches!(admin.role, AdminRole::Owner) {
+                if !matches!(admin.role, Role::Owner) {
                     self.admins.retain(|admin| admin.account_id != account_id);
                 } else {
                     env::panic_str(&format!("Cannot remove owner {}", account_id));
@@ -269,7 +269,7 @@ impl Contract {
     }
 
     pub fn add_admin(&mut self, account_id: String) {
-        self.assert_roles(vec![AdminRole::Owner]);
+        self.assert_roles(vec![Role::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
             env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -285,7 +285,7 @@ impl Contract {
 
         self.admins.push(Admin {
             account_id,
-            role: AdminRole::Moderator,
+            role: Role::Moderator,
         })
     }
 
@@ -300,7 +300,7 @@ impl Contract {
     ) {
         let account_id = match account_id {
             Some(account_id) => {
-                self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
+                self.assert_roles(vec![Role::Owner, Role::Moderator]);
 
                 account_id.parse::<AccountId>().unwrap_or_else(|_| {
                     env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -333,7 +333,7 @@ impl Contract {
     pub fn remove_indexer_function(&mut self, function_name: String, account_id: Option<String>) {
         let account_id = match account_id {
             Some(account_id) => {
-                self.assert_roles(vec![AdminRole::Owner, AdminRole::Moderator]);
+                self.assert_roles(vec![Role::Owner, Role::Moderator]);
 
                 account_id.parse::<AccountId>().unwrap_or_else(|_| {
                     env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -469,11 +469,11 @@ mod tests {
         let admins = vec![
             Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             },
             Admin {
                 account_id: AccountId::new_unchecked("flatirons.near".to_string()),
-                role: AdminRole::Moderator,
+                role: Role::Moderator,
             },
         ];
         let contract = Contract {
@@ -490,7 +490,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Moderator,
+                role: Role::Moderator,
             }],
         };
         contract.add_admin("alice.near".to_string());
@@ -503,7 +503,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
 
@@ -516,7 +516,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
 
@@ -535,7 +535,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
 
@@ -550,11 +550,11 @@ mod tests {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("alice.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
             ],
         };
@@ -569,7 +569,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
 
@@ -584,11 +584,11 @@ mod tests {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Moderator,
+                    role: Role::Moderator,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("alice.near".to_string()),
-                    role: AdminRole::Moderator,
+                    role: Role::Moderator,
                 },
             ],
         };
@@ -602,11 +602,11 @@ mod tests {
             admins: vec![
                 Admin {
                     account_id: AccountId::new_unchecked("bob.near".to_string()),
-                    role: AdminRole::Owner,
+                    role: Role::Owner,
                 },
                 Admin {
                     account_id: AccountId::new_unchecked("alice.near".to_string()),
-                    role: AdminRole::Moderator,
+                    role: Role::Moderator,
                 },
             ],
         };
@@ -626,7 +626,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
 
@@ -647,10 +647,10 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Moderator,
+                role: Role::Moderator,
             }],
         };
-        contract.assert_roles(vec![AdminRole::Owner])
+        contract.assert_roles(vec![Role::Owner])
     }
 
     #[test]
@@ -659,10 +659,10 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
-        contract.assert_roles(vec![AdminRole::Owner])
+        contract.assert_roles(vec![Role::Owner])
     }
 
     #[test]
@@ -701,7 +701,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Moderator,
+                role: Role::Moderator,
             }],
         };
 
@@ -727,7 +727,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Moderator,
             }],
         };
 
@@ -838,7 +838,7 @@ mod tests {
             registry,
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Moderator,
+                role: Role::Moderator,
             }],
         };
 
@@ -870,7 +870,7 @@ mod tests {
             registry,
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
 
@@ -888,7 +888,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Moderator,
+                role: Role::Moderator,
             }],
         };
         let config = IndexerConfig {
@@ -983,7 +983,7 @@ mod tests {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
         let config = IndexerConfig {
@@ -1031,7 +1031,7 @@ mod tests {
             registry,
             admins: vec![Admin {
                 account_id: AccountId::new_unchecked("bob.near".to_string()),
-                role: AdminRole::Owner,
+                role: Role::Owner,
             }],
         };
         let config = IndexerConfig {
