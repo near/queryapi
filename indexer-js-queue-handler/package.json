@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "test": "node --experimental-vm-modules ./node_modules/.bin/jest",
+    "test:debug": "node --experimental-vm-modules --inspect-brk ./node_modules/.bin/jest",
     "deploy": "sls deploy",
     "remove": "sls remove",
     "lift": "sls lift"
