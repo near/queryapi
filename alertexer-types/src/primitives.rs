@@ -1,5 +1,3 @@
-use near_lake_framework::near_indexer_primitives::StreamerMessage;
-
 pub type TransactionHashString = String;
 pub type ReceiptIdString = String;
 pub type BlockHashString = String;
