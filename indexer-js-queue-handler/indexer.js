@@ -33,31 +33,34 @@ export default class Indexer {
         const simultaneousPromises = [];
         const allMutations = [];
         for (const function_name in functions) {
-            const indexerFunction = functions[function_name];
-            console.log('Running function', function_name);  // Lambda logs
-            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
-
-            const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
-            const functionNameWithoutAccount = function_name.split('/')[1];
-            if (options.provision) {
-                const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
-                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
-
-                try {
-                    if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
-                        await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
-                    }
-                } catch (err) {
-                    console.error(err)
-                    simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: failure', err.message));
-                    await Promise.all(simultaneousPromises);
-                    throw err;
-                }
-                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
-            }
-
-
             try {
+                const indexerFunction = functions[function_name];
+                console.log('Running function', function_name);  // Lambda logs
+                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
+
+                const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
+                const functionNameWithoutAccount = function_name.split('/')[1];
+
+                if (options.provision) {
+                    const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
+
+                    try {
+                        if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
+                            simultaneousPromises.push(this.setStatus(function_name, block_height, 'PROVISIONING'));
+                            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
+
+                            await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
+
+                            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
+                        }
+                    } catch (err) {
+                        simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: failure', err.message));
+                        throw err;
+                    }
+                }
+
+                simultaneousPromises.push(this.setStatus(function_name, block_height, 'RUNNING'));
+
                 const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
@@ -78,6 +81,7 @@ export default class Indexer {
                     // and give the correct line number offsets within the indexer function
                     console.error(`Error running IndexerFunction ${function_name} on block ${block_height}: ${e.message}`);
                     await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
+                    throw e;
                 }
 
                 if (!options.imperative) {
@@ -89,9 +93,11 @@ export default class Indexer {
                 }
 
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
-                await Promise.all(simultaneousPromises);
             } catch (e) {
+                simultaneousPromises.push(this.setStatus(function_name, block_height, 'STOPPED'));
                 console.error('Failed to run function: ' + function_name, e);
+            } finally {
+                await Promise.all(simultaneousPromises);
             }
         }
         return allMutations;
@@ -261,6 +267,26 @@ export default class Indexer {
                 return await this.writeLog(functionName, block_height, log);
             }
         };
+    }
+
+    setStatus(functionName, blockHeight, status) {
+        return this.runGraphQLQuery(
+            `
+                mutation SetStatus($function_name: String, $status: indexer_status) {
+                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
+                    function_name
+                    status
+                  }
+                }
+            `,
+            {
+                function_name: functionName,
+                status,
+            },
+            functionName,
+            blockHeight,
+            this.DEFAULT_HASURA_ROLE
+        );
     }
 
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
