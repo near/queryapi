@@ -46,7 +46,7 @@ export default class Indexer {
 
                     try {
                         if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
-                            simultaneousPromises.push(this.setStatus(function_name, block_height, 'PROVISIONING'));
+                            await this.setStatus(function_name, block_height, 'PROVISIONING');
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 
                             await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
@@ -59,7 +59,7 @@ export default class Indexer {
                     }
                 }
 
-                simultaneousPromises.push(this.setStatus(function_name, block_height, 'RUNNING'));
+                await this.setStatus(function_name, block_height, 'RUNNING');
 
                 const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
@@ -94,7 +94,7 @@ export default class Indexer {
 
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
             } catch (e) {
-                simultaneousPromises.push(this.setStatus(function_name, block_height, 'STOPPED'));
+                await this.setStatus(function_name, block_height, 'STOPPED');
                 console.error('Failed to run function: ' + function_name, e);
             } finally {
                 await Promise.all(simultaneousPromises);
