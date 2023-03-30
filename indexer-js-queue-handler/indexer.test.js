@@ -53,72 +53,7 @@ describe('Indexer unit tests', () => {
         `};
         await indexer.runFunctions(block_height, functions);
 
-        expect(mockFetch.mock.calls.flatMap(([_, payload]) => ({
-            role: payload.headers['X-Hasura-Role'],
-            body: payload.body
-        }))).toEqual([
-            {
-                role: 'append',
-                body: JSON.stringify({
-                    query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`,
-                    variables: {
-                        function_name: "buildnear.testnet/test",
-                        block_height: 456,
-                        message:"[\"Running function\",\"buildnear.testnet/test\"]"
-                    }
-                }),
-            },
-            {
-                role: 'append',
-                body: JSON.stringify({
-                    query: `
-                mutation SetStatus($function_name: String, $status: indexer_status) {
-                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                    function_name
-                    status
-                  }
-                }
-            `,
-                    variables: {
-                        function_name: "buildnear.testnet/test",
-                        status: "RUNNING"
-                    }
-                }),
-            },
-            {
-                role: 'buildnear_testnet',
-                body: JSON.stringify({
-                    query: `mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "456")}`,
-                    variables: {}
-                }),
-            },
-            {
-                role: 'append',
-                body: JSON.stringify({
-                        query:
-            `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-                  insert_indexer_state(
-                    objects: {current_block_height: $block_height, function_name: $function_name}
-                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
-                  ) {
-                    returning {
-                      current_block_height
-                      function_name
-                    }
-                  }
-                }`,
-                    variables: {
-                        function_name: "buildnear.testnet/test",
-                        block_height: 456,
-                    }
-                }),
-            }
-        ]);
+        expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
     test('Indexer.writeMutations() should POST a graphQL mutation from a mutation string', async () => {
@@ -510,74 +445,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         await indexer.runFunctions(blockHeight, functions, { imperative: true });
 
-        expect(mockFetch.mock.calls.flatMap(([_, payload]) => JSON.parse(payload.body))).toEqual([
-            {
-                query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`,
-                variables: {
-                    function_name: "buildnear.testnet/test",
-                    block_height: 82699904,
-                    message:"[\"Running function\",\"buildnear.testnet/test\"]"
-                }
-            },
-            {
-                query: `
-                mutation SetStatus($function_name: String, $status: indexer_status) {
-                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                    function_name
-                    status
-                  }
-                }
-            `,
-                variables: {
-                    function_name: "buildnear.testnet/test",
-                    status: "RUNNING"
-                }
-            },
-            {
-                query: `
-                query {
-                    posts(where: { id: { _eq: 1 } }) {
-                        id
-                    }
-                }
-            `
-            },
-            {
-                query: `
-                mutation {
-                    insert_comments(
-                        objects: {account_id: "morgs.near", block_height: ${blockHeight}, content: "cool post", post_id: ${postId}}
-                    ) {
-                        returning {
-                            id
-                        }
-                    }
-                }
-            `
-            },
-            {
-                query: `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-                  insert_indexer_state(
-                    objects: {current_block_height: $block_height, function_name: $function_name}
-                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
-                  ) {
-                    returning {
-                      current_block_height
-                      function_name
-                    }
-                  }
-                }`,
-                variables: {
-                    "block_height": 82699904,
-                    "function_name": "buildnear.testnet/test",
-                },
-            }
-        ]);
+        expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
     test('Indexer.runFunctions() console.logs', async () => {
@@ -630,62 +498,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         `};
         await indexer.runFunctions(block_height, functions, {imperative: true });
 
-        expect(mockFetch.mock.calls.flatMap(([_, payload]) => JSON.parse(payload.body))).toEqual([
-            {
-                query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`,
-                variables: {
-                    function_name: "buildnear.testnet/test",
-                    block_height: 456,
-                    message:"[\"Running function\",\"buildnear.testnet/test\"]"
-                }
-            },
-            {
-                query: `
-                mutation SetStatus($function_name: String, $status: indexer_status) {
-                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                    function_name
-                    status
-                  }
-                }
-            `,
-                variables: {
-                    function_name: "buildnear.testnet/test",
-                    status: "RUNNING"
-                }
-            },
-            {
-                query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`,
-                variables: {
-                    function_name: "buildnear.testnet/test",
-                    block_height: 456,
-                    message:"[\"Error running IndexerFunction\",\"boom\"]"
-                }
-            },
-            {
-                query: `
-                mutation SetStatus($function_name: String, $status: indexer_status) {
-                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                    function_name
-                    status
-                  }
-                }
-            `,
-                variables: {
-                    function_name: "buildnear.testnet/test",
-                    status: "STOPPED"
-                }
-            },
-        ]);
+        expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
     test('Indexer.runFunctions() provisions a GraphQL endpoint with the specified schema', async () => {
@@ -843,56 +656,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         await indexer.runFunctions(blockHeight, functions, { provision: true });
 
         expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
-        expect(mockFetch.mock.calls.flatMap(([_, payload]) => JSON.parse(payload.body))).toEqual([
-            {
-                query: `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`,
-                variables: {
-                    "block_height": 82699904,
-                    "function_name": "morgs.near/test",
-                    "message": "[\"Running function\",\"morgs.near/test\"]",
-                },
-            },
-            {
-                query: `
-                mutation SetStatus($function_name: String, $status: indexer_status) {
-                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                    function_name
-                    status
-                  }
-                }
-            `,
-                variables: {
-                    function_name: "morgs.near/test",
-                    status: "RUNNING"
-                }
-            },
-            {
-                query: "mutation { set(functionName: \"buildnear.testnet/test\", key: \"height\", data: \"82699904\")}",
-                variables: {},
-            },
-            {
-                query: `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-                  insert_indexer_state(
-                    objects: {current_block_height: $block_height, function_name: $function_name}
-                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
-                  ) {
-                    returning {
-                      current_block_height
-                      function_name
-                    }
-                  }
-                }`,
-                variables: {
-                    "block_height": 82699904,
-                    "function_name": "morgs.near/test",
-                },
-            },
-        ]);
+        expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
     test('Indexer.runFunctions() logs provisioning failures', async () => {
@@ -946,31 +710,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         await indexer.runFunctions(blockHeight, functions, { provision: true })
 
-        expect(mockFetch.mock.calls.flatMap(([_, payload]) => JSON.parse(payload.body).variables)).toEqual([
-           {
-             "block_height": 82699904,
-             "function_name": "morgs.near/test",
-             "message": "[\"Running function\",\"morgs.near/test\"]",
-           },
-           {
-             "function_name": "morgs.near/test",
-             "status": "PROVISIONING",
-           },
-           {
-             "block_height": 82699904,
-             "function_name": "morgs.near/test",
-             "message": "[\"Provisioning endpoint: starting\"]",
-           },
-           {
-             "block_height": 82699904,
-             "function_name": "morgs.near/test",
-             "message": "[\"Provisioning endpoint: failure\",\"something went wrong with provisioning\"]",
-           },
-           {
-             "function_name": "morgs.near/test",
-             "status": "STOPPED",
-           },
-        ]);
+        expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
     // The unhandled promise causes problems with test reporting.
