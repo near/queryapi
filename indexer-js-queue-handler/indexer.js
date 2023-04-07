@@ -41,7 +41,9 @@ export default class Indexer {
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1];
 
-                if (options.provision) {
+                // maintain backwards compatibility by checking for undefined
+                const functionNeedsProvisioning = typeof indexerFunction["provisioned"] === "undefined" ? true : indexerFunction["provisioned"];
+                if (options.provision && functionNeedsProvisioning) {
                     const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
 
                     try {

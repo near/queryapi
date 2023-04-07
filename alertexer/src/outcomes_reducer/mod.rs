@@ -9,6 +9,7 @@ use shared::alertexer_types::{
     primitives::{AlertQueueMessage, AlertQueueMessagePayload},
 };
 
+pub mod indexer_reducer;
 mod matcher;
 
 pub(crate) async fn reduce_alert_queue_messages_from_outcomes(
