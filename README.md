@@ -2,16 +2,13 @@
 
 An indexer toolset based off of Alertexer to power custom Index Functions.
 
-### To deploy the alertexer module to GCP
-Push the docker image to the GCP container registry.
-`gcloud auth configure-docker us-central1-docker.pkg.dev`
-`docker build -t --push us-central1-docker.pkg.dev/pagoda-shared-infrastructure/data-platform/queryapi-alertexer:latest .`
-
+### To deploy the queryapi_coordinator module to GCP
+See [queryapi_coordinator/README.md](./queryapi_coordinator/README.md)
 
 Originally forked from Alertexer, see https://github.com/near/alertexer/blob/main/README.md
 and https://github.com/near/alertexer/tree/main/docs
 
-Below is README.md content duplicated from Alertexer that is relevant to running the alertexer module.
+Below is README.md content duplicated from Alertexer that is relevant to running the queryapi_coordinator module.
 
 
 ## Structure
@@ -26,7 +23,7 @@ This project is using `workspace` feature of Cargo.
 
 ### Indexers
 
-- [`alertexer`](./alertexer) an indexer to watch for `AlertRules`
+- [`queryapi_coordinator`](./queryapi_coordinator) an indexer to watch for `AlertRules` and index changes to the QueryApi registry contract.
 
 ## Design concept
 

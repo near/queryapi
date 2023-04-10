@@ -1,7 +1,7 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
-  actions_alertexer:
+  actions_queryapi_coordinator:
     build:
       context: .
       args:
@@ -22,3 +22,5 @@ services:
       - "--loglevel warning"
     volumes:
       - ./redis/data:/data
+    ports:
+      - "6379:6379"
