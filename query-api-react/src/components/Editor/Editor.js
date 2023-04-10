@@ -18,6 +18,8 @@ import {
 import SqlPlugin from 'prettier-plugin-sql'
 import Switch from "react-switch";
 import primitives from '!!raw-loader!../../../primitives.d.ts';
+import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js"
+import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js"
 const defaultCode = `import {Block} from "@near-lake/primitives"
 
 /** 
@@ -104,24 +106,9 @@ const Editor = ({
   const [selectedOption, setSelectedOption] = useState('latestBlockHeight');
   const [blockHeight, setBlockHeight] = useState(86928994);
   const [playgroundLink, setPlaygroundLink] = useState()
-  // useEffect(() => {
-  //   console.log("indexerName", indexerName)
-  //   console.log("accountId", accountId)
-  //   console.log("----")
-  // setBlockHeight(getLatestBlockHeight())
-  // }, [])
-
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
   }
-  // useEffect(() => {
-  //   console.log(indexingCode, 'indexingCode')
-  // }, [indexingCode])
-
-  // useEffect(() => {
-  //   console.log(schema, 'schema')
-  // }, [schema])
-
   const format_SQL_code = (schema) => {
     const formattedSQL = prettier.format(schema, {
       parser: "sql",
@@ -134,6 +121,7 @@ const Editor = ({
     return formattedSQL;
 
   };
+
   const checkSQLSchemaFormatting = () => {
     try {
       let formatted_code = format_SQL_code(schema);
@@ -180,6 +168,7 @@ const Editor = ({
       setShowResetCodeModel(false)
       return
     }
+
     const data = await get_indexer_function_details(accountId + "/" + indexerNameField)
     if (data == null) {
       setIndexingCode(defaultCode);
@@ -210,8 +199,7 @@ const Editor = ({
   const format_querried_code = (code) => {
     code = code.replace(/(?:\\[n])+/g, "\r\n")
     let unformatted_code = `import {Block} from "@near-lake/primitives"
-
-    /** 
+ /** 
      * Note: We only support javascript at the moment. We will support Rust, Typescript in a further release. 
      */
     
@@ -244,7 +232,6 @@ const Editor = ({
 
 
   useEffect(() => {
-    console.log("loading from scratch")
     const load = async () => {
       setLoading(true)
       await handleReload()
@@ -253,48 +240,53 @@ const Editor = ({
     load()
   }, [accountId, handleReload, indexerName])
 
+  const formatIndexingCode = (code) => {
+    return prettier.format(code, {
+      parser: "babel",
+      plugins: [parserBabel],
+    });
+  };
+
+  const formatSQLSchema = (schema) => {
+    return prettier.format(schema, {
+      parser: "sql",
+      formatter: "sql-formatter",
+      plugins: [SqlPlugin],
+      pluginSearchDirs: false,
+      language: 'postgresql',
+      database: 'postgresql',
+    });
+  };
+
+  const handleFormattingError = (fileName) => {
+    const errorMessage = fileName === "indexingLogic.js"
+      ? "Oh snap! We could not format your code. Make sure it is proper Javascript code."
+      : "Oh snap! We could not format your SQL schema. Make sure it is proper SQL DDL";
+
+    setError(() => errorMessage);
+  };
 
   const reformat = () => {
     return new Promise((resolve, reject) => {
       try {
-        if (fileName == "indexingLogic.js") {
-          const formattedCode = prettier.format(indexingCode, {
-            parser: "babel",
-            plugins: [parserBabel],
-          });
-          setError(() => undefined);
+        let formattedCode;
+        if (fileName === "indexingLogic.js") {
+          formattedCode = formatIndexingCode(indexingCode);
           setIndexingCode(formattedCode);
-          resolve(formattedCode);
+        } else if (fileName === "schema.sql") {
+          formattedCode = formatSQLSchema(schema);
+          setSchema(formattedCode);
         }
-        if (fileName == "schema.sql") {
-          const formattedSQL = prettier.format(schema, {
-            parser: "sql",
-            formatter: "sql-formatter",
-            plugins: [SqlPlugin],
-            pluginSearchDirs: false,
-            language: 'postgresql',
-            database: 'postgresql',
-
-          });
-          setError(() => undefined);
-          setSchema(formattedSQL);
-          resolve(formattedSQL);
-        }
+        setError(() => undefined);
+        resolve(formattedCode);
       } catch (error) {
-        if (fileName == "indexingLogic.js") {
-          setError(() => "Oh snap! We could not format your code. Make sure it is proper Javascript code.");
-
-        }
-        if (fileName == "schema.sql") {
-          setError(() => "Oh snap! We could not format your SQL schema. Make sure it is proper SQL DDL");
-        }
+        handleFormattingError(fileName);
         reject(error);
       }
     });
   };
 
   async function handleFormating() {
-    // Handle Register button click
     await reformat()
   }
 
@@ -323,7 +315,6 @@ const Editor = ({
       'file:///node_modules/@near-lake/primitives/index.d.ts'
     );
   }
-
 
   function generateGraphQLQuery(accountName, indexerName) {
     const tableRegex = /CREATE TABLE "([^"]+)"\s*\(([^)]+)\)/g;
@@ -368,63 +359,18 @@ const Editor = ({
     // window.parent.postMessage({ action: "view_playground", value: { indexerName: indexerNameField.replace(" ", "_"), link: endpoint + "&query=" + encodeURIComponent(generateGraphQLQuery(accountId, indexerName)) }, from: "react" }, "*");
   }
 
-  {/* <Button className="px-3" href={generateAndSendPlaygroundLink()
-              } variant="link" >  View in Playground
-              </Button> */}
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-      {/* {loading && <h2> LOADING...</h2>} */}
       {
         <>
           <ButtonToolbar className="pt-3 pb-1 flex-col" aria-label="Actions for Editor">
-            <InputGroup className="px-3" style={{ width: '100%' }}>
-              <InputGroup style={{ width: '30%' }}>
-                <InputGroup.Text id="btnGroupAddon">AccountID:</InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  value={accountId}
-                  disabled={true}
-                  aria-label="Registered Indexer Name"
-                  aria-describedby="btnGroupAddon"
-                />
-              </InputGroup>
-              <InputGroup className="px-3" style={{ width: '40%' }}>
-
-                <InputGroup.Text id="btnGroupAddon">Indexer Name: </InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  value={indexerNameField}
-                  onChange={(e) => setIndexerNameField(e.target.value)}
-                  disabled={options?.create_new_indexer === false}
-                  aria-label="Registered Indexer Name"
-                  aria-describedby="btnGroupAddon"
-                />
-              </InputGroup>
-            </InputGroup>
-
+            <IndexerDetailsGroup accountId={accountId} indexerNameField={indexerNameField} setIndexerNameField={setIndexerNameField} isCreateNewIndexerPage={options.create_new_indexer} />
             {options?.create_new_indexer && <>
-              <InputGroup className="px-3 pt-3">
-                <InputGroup.Checkbox value="latestBlockHeight" checked={selectedOption === "latestBlockHeight"}
-                  onChange={handleOptionChange} aria-label="Checkbox for following text input" />
-                <InputGroup.Text>From Latest Block Height</InputGroup.Text>
-              </InputGroup>
-              <InputGroup className="px-3 pt-3">
-                <InputGroup.Checkbox value="specificBlockHeight" checked={selectedOption === "specificBlockHeight"}
-                  onChange={handleOptionChange} aria-label="Checkbox for following text input" />
-                <InputGroup.Text>Specific Block Height</InputGroup.Text>
-                <input
-                  type="number"
-                  value={blockHeight}
-                  onChange={(e) => setBlockHeight(e.target.value)}
-                  aria-label="Text input with checkbox" />
-              </InputGroup>
-
+              <BlockHeightOptions selectedOption={selectedOption} handleOptionChange={handleOptionChange} blockHeight={blockHeight} setBlockHeight={setBlockHeight} />
             </>}
             <ButtonGroup className="px-3 pt-3" style={{ width: '100%' }} aria-label="Action Button Group">
               <Button variant="secondary" className="px-3" onClick={() => setShowResetCodeModel(true)}> Reset</Button>{' '}
               <Button variant="secondary" className="px-3" onClick={() => handleFormating()}> Format Code</Button>{' '}
-
-              {/* <Button variant="primary" className="px-3" onClick={() => submit()}> Save / Register</Button>{' '} */}
               <Button variant="primary" className="px-3" onClick={() => submit()}>
                 {actionButtonText}
               </Button>
@@ -443,8 +389,6 @@ const Editor = ({
                 />
               </InputGroup>
             }
-
-
           </ButtonToolbar></>}
       <Modal show={showResetCodeModel} onHide={() => setShowResetCodeModel(false)}>
         <Modal.Header closeButton>
@@ -468,9 +412,7 @@ const Editor = ({
       </Alert>}
 
       <div className="px-3" style={{ "flex": "display", justifyContent: "space-around", "width": "100%" }}>
-
         <ToggleButtonGroup type="radio" style={{ backgroundColor: 'white' }} name="options" defaultValue={"indexingLogic.js"}
-
         >
           <ToggleButton id="tbg-radio-1" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'blue' : "grey", "borderRadius": "0px" }} value={"indexingLogic.js"} onClick={() => setFileName("indexingLogic.js")}>
             indexingLogic.js
@@ -478,8 +420,6 @@ const Editor = ({
           <ToggleButton id="tbg-radio-2" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'grey' : "blue", "borderRadius": "0px" }} value={"schema.sql"} onClick={() => setFileName("schema.sql")}>
             schema.sql
           </ToggleButton>
-
-
           <InputGroup  >
             <InputGroup.Text className='px-3'> Diff View
               <Switch
@@ -489,30 +429,21 @@ const Editor = ({
                   setDiffView(checked)
                 }}
               /></InputGroup.Text>
-
-
           </InputGroup>
-
-          {/* <Button style={{ width: '100%' }} variant="link"> */}
-
-
-
-          {/* </Button> */}
-
         </ToggleButtonGroup>
-
         {fileName === "indexingLogic.js" && (
-          diffView === true ? <DiffEditor
-            original={originalIndexingCode}
-            modified={indexingCode}
-            height="50vh"
-            width="100%"
-            language="javascript"
-            theme="vs-dark"
-            onMount={handleEditorMount}
-
-            options={{ ...options, readOnly: false }}
-          /> :
+          diffView ? (
+            <DiffEditor
+              original={originalIndexingCode}
+              modified={indexingCode}
+              height="50vh"
+              width="100%"
+              language="javascript"
+              theme="vs-dark"
+              onMount={handleEditorMount}
+              options={{ ...options, readOnly: false }}
+            />
+          ) : (
             <MonacoEditor
               value={indexingCode}
               height="50vh"
@@ -523,18 +454,25 @@ const Editor = ({
               onChange={(text) => setIndexingCode(text)}
               beforeMount={handleEditorWillMount}
               options={{ ...options, readOnly: false }}
-            />)}
+            />
+          )
+        )}
         {fileName === "schema.sql" &&
-          (diffView === true ? <DiffEditor
-            original={originalSQLCode}
-            modified={schema}
-            height="50vh"
-            width="100%"
-            language="sql"
-            onMount={handleEditorMount}
-            theme="vs-dark"
-            options={{ ...options, readOnly: options?.create_new_indexer === true ? false : true }}
-          /> :
+          (diffView ? (
+            <DiffEditor
+              original={originalSQLCode}
+              modified={schema}
+              height="50vh"
+              width="100%"
+              language="sql"
+              onMount={handleEditorMount}
+              theme="vs-dark"
+              options={{
+                ...options,
+                readOnly: options?.create_new_indexer === true ? false : true,
+              }}
+            />
+          ) : (
             <MonacoEditor
               value={schema}
               height="50vh"
@@ -543,11 +481,13 @@ const Editor = ({
               defaultLanguage="sql"
               theme="vs-dark"
               onChange={(text) => setSchema(text)}
-              options={{ ...options, readOnly: options?.create_new_indexer === true ? false : false }}
-            />)
-        }
+              options={{
+                ...options,
+                readOnly: options?.create_new_indexer === true ? false : false,
+              }}
+            />
+          ))}
       </div>
-    </div >);
+    </div>);
 }
-
 export default Editor;
