@@ -9,17 +9,11 @@ export const consumer = async (event) => {
             const jsonBody = JSON.parse(record.body);
             const block_height = jsonBody.block_height;
             const functions = {};
-            let function_name = jsonBody["function_name"];
 
-            if(function_name) { // old format
-                const function_config = jsonBody.function_code;
-                functions[function_name] = JSON.parse(function_config);
-            }
-            else { // new format
-                const function_config = JSON.parse(jsonBody.indexer_function);
-                function_name = function_config.account_id + '/' + function_config.function_name;
-                functions[function_name] = function_config;
-            }
+            const function_config = jsonBody.indexer_function;
+            const function_name = function_config.account_id + '/' + function_config.function_name;
+            functions[function_name] = function_config;
+
             const mutations = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
             results.push(...mutations);
         } catch (error) {

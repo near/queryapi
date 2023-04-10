@@ -290,7 +290,7 @@ impl Contract {
         })
     }
 
-    // Public method - registers indexer code under <account_id>/function_name
+    // Public method - registers indexer code under <account_id> then function_name
     pub fn register_indexer_function(
         &mut self,
         function_name: String,

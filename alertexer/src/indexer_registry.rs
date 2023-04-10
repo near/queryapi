@@ -12,7 +12,6 @@ use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
 use storage::ConnectionManager;
 use crate::{AlertexerContext};
 
-use registry::IndexerConfig;
 use shared::alertexer_types::ChainId;
 use shared::alertexer_types::indexer_types::{IndexerFunction, IndexerRegistry};
 use shared::alertexer_types::primitives::AlertQueueMessagePayload;
