@@ -18,21 +18,6 @@ pub struct AlertQueueMessage {
     pub block_height: u64,
 }
 
-#[derive(
-serde::Serialize,
-serde::Deserialize,
-Clone,
-Debug,
-)]pub struct IndexerQueueMessage {
-    pub chain_id: ChainId,
-    pub alert_rule_id: i32,
-    pub alert_name: String,
-    pub payload: AlertQueueMessagePayload,
-    pub block_height: u64,
-    pub function_name: String,
-    pub function_code: String,
-}
-
 impl AlertQueueMessage {
     pub fn explorer_link(&self) -> String {
         match self.chain_id {

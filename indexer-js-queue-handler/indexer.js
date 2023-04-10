@@ -41,7 +41,7 @@ export default class Indexer {
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1];
 
-                if (options.provision) {
+                if (options.provision && !indexerFunction["provisioned"]) {
                     const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
 
                     try {
@@ -79,7 +79,7 @@ export default class Indexer {
                     // NOTE: logging the exception would likely leak some information about the index runner.
                     // For now, we just log the message. In the future we could sanitize the stack trace
                     // and give the correct line number offsets within the indexer function
-                    console.error(`Error running IndexerFunction ${function_name} on block ${block_height}: ${e.message}`);
+                    console.error(`${function_name}: Error running IndexerFunction on block ${block_height}: ${e.message}`);
                     await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
                     throw e;
                 }
@@ -95,7 +95,7 @@ export default class Indexer {
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
             } catch (e) {
                 await this.setStatus(function_name, block_height, 'STOPPED');
-                console.error('Failed to run function: ' + function_name, e);
+                console.error(`${function_name}: Failed to run function`, e);
             } finally {
                 await Promise.all(simultaneousPromises);
             }
@@ -129,7 +129,7 @@ export default class Indexer {
 
             return keyValuesMutations.length > 0 ? mutationsReturnValue.mutations.concat(keyValuesMutations) : mutationsReturnValue.mutations;
         } catch (e) {
-            console.error('Failed to write mutations for function: ' + functionName, e);
+            console.error(`${functionName}: Failed to write mutations for function`, e);
         }
     }
 
@@ -204,6 +204,9 @@ export default class Indexer {
         });
     }
 
+    replaceNewLines(indexerFunction) {
+        return indexerFunction.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    }
     enableAwaitTransform(indexerFunction) {
         return `
             async function f(){
@@ -215,6 +218,7 @@ export default class Indexer {
 
     transformIndexerFunction(indexerFunction) {
         return [
+            this.replaceNewLines,
             this.enableAwaitTransform,
         ].reduce((acc, val) => val(acc), indexerFunction);
     }
@@ -304,7 +308,7 @@ export default class Indexer {
                 function_name, block_height, this.DEFAULT_HASURA_ROLE)
                 .then((result) => result?.insert_indexer_log_entries_one?.id);
         } catch (e) {
-            console.error('Error writing log', e);
+            console.error(`${function_name}: Error writing log`, e);
         }
     }
 
@@ -328,7 +332,7 @@ export default class Indexer {
         try {
             return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE);
         } catch(e) {
-            console.error('Error writing function state', e);
+            console.error(`${function_name}: Error writing function state`, e);
         }
     }
     async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
@@ -359,7 +363,7 @@ export default class Indexer {
                 try {
                     await this.runGraphQLQuery(mutation, {function_name, block_height, message}, function_name, block_height, this.DEFAULT_HASURA_ROLE, false);
                 } catch (e) {
-                    console.error('Error writing log of graphql error', e);
+                    console.error(`${function_name}: Error writing log of graphql error`, e);
                 }
             }
             throw new Error(`Failed to write graphql, http status: ${response.status}, errors: ${JSON.stringify(errors, null, 2)}`);

@@ -11,7 +11,7 @@ use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finality};
 
 pub use alertexer_types;
-use alertexer_types::primitives::IndexerQueueMessage;
+use alertexer_types::indexer_types::IndexerQueueMessage;
 
 pub mod types;
 
@@ -261,8 +261,7 @@ pub async fn send_to_indexer_queue(
 ) -> anyhow::Result<()> {
     tracing::info!(
         target: "alertexer",
-        "Sending indexer tasks to the queue\n{:#?}",
-        indexer_queue_messages
+        "Sending indexer tasks to the queue"
     );
 
     let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
