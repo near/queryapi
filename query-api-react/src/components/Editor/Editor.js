@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import MonacoEditor, { DiffEditor } from '@monaco-editor/react';
-import prettier from 'prettier';
-import parserBabel from 'prettier/parser-babel';
-import { providers } from 'near-api-js';
+import { formatSQL, formatIndexingCode } from '../../utils/formatters';
+import { queryIndexerFunctionDetails } from '../../utils/queryIndexerFunction';
 import {
   Button,
   Alert,
@@ -15,75 +14,19 @@ import {
   ToggleButton,
   Nav,
 } from 'react-bootstrap';
-import SqlPlugin from 'prettier-plugin-sql'
 import Switch from "react-switch";
 import primitives from '!!raw-loader!../../../primitives.d.ts';
 import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js"
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js"
-const defaultCode = `import {Block} from "@near-lake/primitives"
-
-/** 
- * Note: We only support javascript at the moment. We will support Rust, Typescript in a further release. 
- */
-
-
-/**
- * getBlock(block, context) applies your custom logic to a Block on Near and commits the data to a database. 
- * 
- * Learn more about indexers here:  https://docs.near.org/concepts/advanced/indexers
- * 
- * @param {block} Block - A Near Protocol Block 
- * @param {context} - A set of helper methods to retrieve and commit state
- */
-async function getBlock(block: Block, context) {
+const defaultCode = formatIndexingCode(`
   // Add your code here   
   const h = block.header().height
   await context.set('height', h);
-}`
+`, true);
 
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `
-
-//network config (replace testnet with mainnet or betanet)
-const provider = new providers.JsonRpcProvider(
-  "https://archival-rpc.mainnet.near.org"
-);
-const contractId = "registry.queryapi.near"
-
-// get latest block height
-const getLatestBlockHeight = async () => {
-  const provider = new providers.JsonRpcProvider(
-    "https://archival-rpc.mainnet.near.org"
-  );
-  const latestBlock = await provider.block({
-    finality: "final"
-  });
-  return latestBlock.header.height;
-}
-
-const get_indexer_function_details = async (name) => {
-  let args = { function_name: name };
-
-  try {
-    const result = await provider.query({
-      request_type: "call_function",
-      account_id: contractId,
-      method_name: "read_indexer_function",
-      args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
-      finality: "optimistic",
-    });
-    return (
-      result.result &&
-      result.result.length > 0 &&
-      JSON.parse(Buffer.from(result.result).toString())
-    );
-  }
-  catch (error) {
-    console.log(error, "error")
-    return null;
-  }
-}
 
 const Editor = ({
   options,
@@ -109,22 +52,11 @@ const Editor = ({
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
   }
-  const format_SQL_code = (schema) => {
-    const formattedSQL = prettier.format(schema, {
-      parser: "sql",
-      formatter: "sql-formatter",
-      plugins: [SqlPlugin],
-      pluginSearchDirs: false,
-      language: 'postgresql',
-      database: 'postgresql',
-    });
-    return formattedSQL;
 
-  };
 
   const checkSQLSchemaFormatting = () => {
     try {
-      let formatted_code = format_SQL_code(schema);
+      let formatted_code = formatSQL(schema);
       let formatted_schema = formatted_code;
       return formatted_schema;
     }
@@ -147,9 +79,6 @@ const Editor = ({
       return
     }
     setError(() => undefined);
-    console.log("formatted_schema", formatted_schema)
-    console.log("indexer code", indexingCode)
-
     // Send a message to other sources
     window.parent.postMessage({ action: "register_function", value: { indexerName: indexerNameField.replace(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: blockHeight }, from: "react" }, "*");
   };
@@ -169,7 +98,7 @@ const Editor = ({
       return
     }
 
-    const data = await get_indexer_function_details(accountId + "/" + indexerNameField)
+    const data = await queryIndexerFunctionDetails(accountId + "/" + indexerNameField)
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
@@ -197,30 +126,8 @@ const Editor = ({
   }, [accountId, indexerNameField, onLoadErrorText, options?.create_new_indexer])
 
   const format_querried_code = (code) => {
-    code = code.replace(/(?:\\[n])+/g, "\r\n")
-    let unformatted_code = `import {Block} from "@near-lake/primitives"
- /** 
-     * Note: We only support javascript at the moment. We will support Rust, Typescript in a further release. 
-     */
-    
-    
-    /**
-     * getBlock(block, context) applies your custom logic to a Block on Near and commits the data to a database. 
-     * 
-     * Learn more about indexers here:  https://docs.near.org/concepts/advanced/indexers
-     * 
-     * @param {block} Block - A Near Protocol Block 
-     * @param {context} - A set of helper methods to retrieve and commit state
-     */
-    async function getBlock(block: Block, context) {
-      ${code}
-    }`
-
     try {
-      let formatted_code = prettier.format(unformatted_code, {
-        parser: "babel",
-        plugins: [parserBabel],
-      });
+      let formatted_code = formatIndexingCode(code, true)
       setError(() => undefined);
       return formatted_code;
     } catch (error) {
@@ -240,24 +147,6 @@ const Editor = ({
     load()
   }, [accountId, handleReload, indexerName])
 
-  const formatIndexingCode = (code) => {
-    return prettier.format(code, {
-      parser: "babel",
-      plugins: [parserBabel],
-    });
-  };
-
-  const formatSQLSchema = (schema) => {
-    return prettier.format(schema, {
-      parser: "sql",
-      formatter: "sql-formatter",
-      plugins: [SqlPlugin],
-      pluginSearchDirs: false,
-      language: 'postgresql',
-      database: 'postgresql',
-    });
-  };
-
   const handleFormattingError = (fileName) => {
     const errorMessage = fileName === "indexingLogic.js"
       ? "Oh snap! We could not format your code. Make sure it is proper Javascript code."
@@ -271,10 +160,10 @@ const Editor = ({
       try {
         let formattedCode;
         if (fileName === "indexingLogic.js") {
-          formattedCode = formatIndexingCode(indexingCode);
+          formattedCode = formatIndexingCode(indexingCode, false);
           setIndexingCode(formattedCode);
         } else if (fileName === "schema.sql") {
-          formattedCode = formatSQLSchema(schema);
+          formattedCode = formatSQL(schema);
           setSchema(formattedCode);
         }
         setError(() => undefined);
@@ -299,7 +188,6 @@ const Editor = ({
   function handleEditorMount(editor) {
     const modifiedEditor = editor.getModifiedEditor();
     modifiedEditor.onDidChangeModelContent((_) => {
-      console.log(modifiedEditor.getValue());
       if (fileName == "indexingLogic.js") {
         setIndexingCode(modifiedEditor.getValue());
       }
