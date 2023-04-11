@@ -19,7 +19,7 @@ mod state_changes_reducer;
 mod utils;
 mod indexer_registry;
 
-pub(crate) const INDEXER: &str = "alertexer";
+pub(crate) const INDEXER: &str = "queryapi_coordinator";
 pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
 pub(crate) const RETRY_COUNT: usize = 2;
@@ -118,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
         std::sync::Arc::clone(&alert_rules_inmemory),
     ));
 
-    tracing::info!(target: INDEXER, "Starting Alertexer...",);
+    tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
             let context = AlertexerContext {

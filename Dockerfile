@@ -6,14 +6,14 @@ RUN rustup toolchain install nightly-2022-06-20 && rustup override set nightly-2
 
 WORKDIR /tmp/
 COPY Cargo.toml Cargo.lock ./
-COPY alertexer/Cargo.toml ./alertexer/
+COPY queryapi_coordinator/Cargo.toml ./queryapi_coordinator/
 COPY alertexer-types/Cargo.toml ./alertexer-types/
 COPY alert-rules/Cargo.toml ./alert-rules/
 COPY shared/Cargo.toml ./shared/
 COPY storage/Cargo.toml ./storage/
 
-RUN /bin/bash -c "mkdir -p {alertexer,alertexer-types,alert-rules,shared,storage}/src" && \
-    echo 'fn main() {}' > alertexer/src/main.rs && \
+RUN /bin/bash -c "mkdir -p {queryapi_coordinator,alertexer-types,alert-rules,shared,storage}/src" && \
+    echo 'fn main() {}' > queryapi_coordinator/src/main.rs && \
     touch alertexer-types/src/lib.rs && \
     touch alert-rules/src/lib.rs && \
     touch shared/src/lib.rs && \
@@ -22,7 +22,7 @@ RUN /bin/bash -c "mkdir -p {alertexer,alertexer-types,alert-rules,shared,storage
 
 COPY ./ ./
 
-RUN cargo build --release --package alertexer -Z sparse-registry --offline
+RUN cargo build --release --package queryapi_coordinator -Z sparse-registry --offline
 
 
 FROM ubuntu:20.04
@@ -30,5 +30,5 @@ FROM ubuntu:20.04
 RUN apt update && apt install -yy openssl ca-certificates
 
 USER nobody
-COPY --from=build /tmp/target/release/alertexer /alertexer
-ENTRYPOINT ["/alertexer"]
+COPY --from=build /tmp/target/release/queryapi_coordinator /queryapi_coordinator
+ENTRYPOINT ["/queryapi_coordinator"]

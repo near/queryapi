@@ -2,7 +2,7 @@
 
 members = [
     "alert-rules",
-    "alertexer",
+    "queryapi_coordinator",
     "alertexer-types",
     "shared",
     "storage",
