@@ -4,15 +4,38 @@ import { providers } from 'near-api-js';
 const provider = new providers.JsonRpcProvider(
     "https://archival-rpc.mainnet.near.org"
 );
-const contractId = "registry.queryapi.near"
+const contractId = process.env.NEXT_PUBLIC_CONTRACT_ID;
 
-export const queryIndexerFunctionDetails = async (name) => {
-    let args = { function_name: name };
+export const queryIndexerFunctionDetails = async (accountId, functionName) => {
+    let args = { account_id: accountId, function_name: functionName };
 
     try {
         const result = await provider.query({
             request_type: "call_function",
             account_id: contractId,
+            method_name: "read_indexer_function",
+            args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
+            finality: "optimistic",
+        });
+        return (
+            result.result &&
+            result.result.length > 0 &&
+            JSON.parse(Buffer.from(result.result).toString())
+        );
+    }
+    catch (error) {
+        console.log(error, "error")
+        return null;
+    }
+}
+
+export const queryIndexerFunctionDetails_deprecated = async (functionName) => {
+    let args = { function_name: functionName };
+
+    try {
+        const result = await provider.query({
+            request_type: "call_function",
+            account_id: "registry.queryapi.near",
             method_name: "read_indexer_function",
             args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
             finality: "optimistic",

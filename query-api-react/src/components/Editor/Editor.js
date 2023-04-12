@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import MonacoEditor, { DiffEditor } from '@monaco-editor/react';
 import { formatSQL, formatIndexingCode } from '../../utils/formatters';
-import { queryIndexerFunctionDetails } from '../../utils/queryIndexerFunction';
+import { queryIndexerFunctionDetails, queryIndexerFunctionDetails_deprecated } from '../../utils/queryIndexerFunction';
 import {
   Button,
   Alert,
@@ -97,8 +97,13 @@ const Editor = ({
       setShowResetCodeModel(false)
       return
     }
+    let data;
+    if (process.env.NEXT_PUBLIC_UPDATE_FLAG === "true") {
+      data = await queryIndexerFunctionDetails(accountId, indexerNameField)
+    } else {
+      data = await queryIndexerFunctionDetails_deprecated(accountId + "/" + indexerNameField)
+    }
 
-    const data = await queryIndexerFunctionDetails(accountId + "/" + indexerNameField)
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
