@@ -31,23 +31,8 @@ describe('HasuraClient', () => {
 
         await client.createSchema('name');
 
-        expect(fetch).toBeCalledWith(
-            `${HASURA_ENDPOINT}/v2/query`,
-            {
-                body: JSON.stringify({
-                    type: 'run_sql',
-                    args: {
-                        sql: 'CREATE schema name',
-                        read_only: false,
-                        source: 'default'
-                    },
-                }),
-                headers: {
-                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-                },
-                method: 'POST'
-            }
-        );
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
     it('checks if a schema exists', async () => {
@@ -64,23 +49,8 @@ describe('HasuraClient', () => {
         const result = await client.isSchemaCreated('name');
 
         expect(result).toBe(true);
-        expect(fetch).toBeCalledWith(
-            `${HASURA_ENDPOINT}/v2/query`,
-            {
-                body: JSON.stringify({
-                    type: 'run_sql',
-                    args: {
-                        sql: 'SELECT schema_name FROM information_schema.schemata WHERE schema_name = \'name\'',
-                        read_only: true,
-                        source: 'default'
-                    }
-                }),
-                headers: {
-                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-                },
-                method: 'POST'
-            }
-        );
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
     it('runs migrations for the specified schema', async () => {
@@ -94,27 +64,8 @@ describe('HasuraClient', () => {
 
         await client.runMigrations('schema', 'CREATE TABLE blocks (height numeric)');
 
-        expect(fetch).toBeCalledWith(
-            `${HASURA_ENDPOINT}/v2/query`,
-            {
-                body: JSON.stringify({
-                    type: 'run_sql',
-                    args: {
-                        sql: 
-      `
-      set schema 'schema';
-      CREATE TABLE blocks (height numeric)
-      `,
-                        read_only: false,
-                        source: 'default'
-                    }
-                }),
-                headers: {
-                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-                },
-                method: 'POST'
-            }
-        );
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
     it('gets table names within a schema', async () => {
@@ -135,23 +86,8 @@ describe('HasuraClient', () => {
         const names = await client.getTableNames('schema');
 
         expect(names).toEqual(['height', 'width']);
-        expect(fetch).toBeCalledWith(
-            `${HASURA_ENDPOINT}/v2/query`,
-            {
-                body: JSON.stringify({
-                    type: 'run_sql',
-                    args: {
-                        sql: 'SELECT table_name FROM information_schema.tables WHERE table_schema = \'schema\'',
-                        read_only: true,
-                        source: 'default'
-                    }
-                }),
-                headers: {
-                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-                },
-                method: 'POST'
-            }
-        );
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
     it('tracks the specified tables for a specified schema', async () => {
@@ -165,38 +101,8 @@ describe('HasuraClient', () => {
 
         await client.trackTables('schema', ['height', 'width']);
 
-        expect(fetch).toBeCalledWith(
-            `${HASURA_ENDPOINT}/v1/metadata`,
-            {
-                body: JSON.stringify({
-                    type: 'bulk',
-                    args: [
-                        {
-                            type: 'pg_track_table',
-                            args: {
-                                table: {
-                                    name: 'height',
-                                    schema: 'schema'
-                                }
-                            }
-                        },
-                        {
-                            type: 'pg_track_table',
-                            args: {
-                                table: {
-                                    name: 'width',
-                                    schema: 'schema'
-                                }
-                            }
-                        }
-                    ]
-                }),
-                headers: {
-                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-                },
-                method: 'POST'
-            }
-        );
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
     it('adds the specified permissions for the specified roles/table/schema', async () => {
@@ -210,78 +116,9 @@ describe('HasuraClient', () => {
 
         await client.addPermissionsToTables('schema', ['height', 'width'], 'role', ['select', 'insert']);
 
-        expect(fetch).toBeCalledWith(
-            `${HASURA_ENDPOINT}/v1/metadata`,
-            {
-                body: JSON.stringify({
-                    type: 'bulk',
-                    args: [
-                        {
-                            type: 'pg_create_select_permission',
-                            args: {
-                                table: {
-                                    name: 'height',
-                                    schema: 'schema', 
-                                },
-                                role: 'role',
-                                permission: {
-                                    columns: '*',
-                                    check: {},
-                                    computed_fields: [],
-                                    filter: {},
-                                    allow_aggregations: true
-                                },
-                                source: 'default'
-                            },
-                        },
-                        {
-                            type: 'pg_create_insert_permission',
-                            args: {
-                                table: {
-                                    name: 'height',
-                                    schema: 'schema', 
-                                },
-                                role: 'role',
-                                permission: {
-                                    columns: '*',
-                                    check: {},
-                                    computed_fields: [],
-                                    filter: {},
-                                },
-                                source: 'default'
-                            },
-                        },
-                        {
-                            type: 'pg_create_select_permission',
-                            args: {
-                                table: {
-                                    name: 'width',
-                                    schema: 'schema', 
-                                },
-                                role: 'role',
-                                permission: {
-                                    columns: '*',
-                                    check: {},
-                                    computed_fields: [],
-                                    filter: {},
-                                    allow_aggregations: true
-                                },
-                                source: 'default'
-                            },
-                        },
-                        {
-                            type: 'pg_create_insert_permission',
-                            args: {
-                                table: {
-                                    name: 'width',
-                                    schema: 'schema', 
-                                },
-                                role: 'role',
-                                permission: {
-                                    columns: '*',
-                                    check: {},
-                                    computed_fields: [],
-                                    filter: {},
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+    });
                                 },
                                 source: 'default'
                             },

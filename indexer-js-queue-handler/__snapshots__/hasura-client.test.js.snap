@@ -1,0 +1,152 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HasuraClient adds the specified permissions for the specified roles/table/schema 1`] = `
+{
+  "args": [
+    {
+      "args": {
+        "permission": {
+          "allow_aggregations": true,
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "height",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_select_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "height",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_insert_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "allow_aggregations": true,
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "width",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_select_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "width",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_insert_permission",
+    },
+  ],
+  "type": "bulk",
+}
+`;
+
+exports[`HasuraClient checks if a schema exists 1`] = `
+{
+  "args": {
+    "read_only": true,
+    "source": "default",
+    "sql": "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'name'",
+  },
+  "type": "run_sql",
+}
+`;
+
+exports[`HasuraClient creates a schema 1`] = `
+{
+  "args": {
+    "read_only": false,
+    "source": "default",
+    "sql": "CREATE schema name",
+  },
+  "type": "run_sql",
+}
+`;
+
+exports[`HasuraClient gets table names within a schema 1`] = `
+{
+  "args": {
+    "read_only": true,
+    "source": "default",
+    "sql": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'schema'",
+  },
+  "type": "run_sql",
+}
+`;
+
+exports[`HasuraClient runs migrations for the specified schema 1`] = `
+{
+  "args": {
+    "read_only": false,
+    "source": "default",
+    "sql": "
+      set schema 'schema';
+      CREATE TABLE blocks (height numeric)
+      ",
+  },
+  "type": "run_sql",
+}
+`;
+
+exports[`HasuraClient tracks the specified tables for a specified schema 1`] = `
+{
+  "args": [
+    {
+      "args": {
+        "table": {
+          "name": "height",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_track_table",
+    },
+    {
+      "args": {
+        "table": {
+          "name": "width",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_track_table",
+    },
+  ],
+  "type": "bulk",
+}
+`;
