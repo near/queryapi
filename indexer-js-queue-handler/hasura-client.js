@@ -169,6 +169,10 @@ export default class HasuraClient {
   async trackForeignKeyRelationships(schemaName) {
     const foreignKeys = await this.getForeignKeys(schemaName);
 
+    if (foreignKeys.length === 0) {
+      return;
+    }
+
     return this.executeBulkMetadataRequest(
       foreignKeys
         .map((foreignKey) => ([ 

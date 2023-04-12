@@ -171,4 +171,27 @@ describe('HasuraClient', () => {
         expect(fetch.mock.calls[1][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
         expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchSnapshot();
     });
+
+    it('skips foreign key tracking if none exist', async () => {
+        const fetch = jest
+            .fn()
+            .mockResolvedValue({
+                status: 200,
+                json: () => ({
+                    result: [
+                        [
+                            "coalesce"
+                        ],
+                        [
+                            JSON.stringify([])
+                        ]
+                    ] 
+                }),
+            });
+        const client = new HasuraClient({ fetch })
+
+        const result = await client.trackForeignKeyRelationships('public');
+
+        expect(fetch).toBeCalledTimes(1); // to fetch the foreign keys
+    })
 });
