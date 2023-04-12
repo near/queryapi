@@ -114,8 +114,27 @@ pub(crate) async fn index_registry_changes(registry: &mut MutexGuard<'_, Indexer
     let registry_calls = build_registry_alert(registry_method_name);
     let registry_updates = indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
     if registry_updates.len() > 0 {
-        println!("indexing {registry_method_name} {:?}", registry_updates);
-        // todo remove DB schema
+        for update in registry_updates {
+
+            let mut new_indexer_function = build_indexer_function_from_args(
+                parse_indexer_function_args(&update), update.signer_id);
+            match new_indexer_function {
+                None => continue,
+                Some(mut new_indexer_function) => {
+                    tracing::info!(target: crate::INDEXER, "indexed removal call to {registry_method_name}: {:?} {:?}",
+                                     new_indexer_function.account_id.clone(),
+                                     new_indexer_function.function_name.clone(),
+                        );
+                    match registry.entry(new_indexer_function.account_id.clone()) {
+                        Entry::Vacant(_) => {},
+                        Entry::Occupied(mut fns) => {
+                            fns.get_mut().remove(new_indexer_function.function_name.as_str());
+                        }
+                    }
+                    // todo request removal of DB schema
+                }
+            }
+        }
     }
 }
 
