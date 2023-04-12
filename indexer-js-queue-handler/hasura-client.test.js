@@ -229,6 +229,7 @@ describe('HasuraClient', () => {
                                     check: {},
                                     computed_fields: [],
                                     filter: {},
+                                    allow_aggregations: true
                                 },
                                 source: 'default'
                             },
@@ -263,6 +264,7 @@ describe('HasuraClient', () => {
                                     check: {},
                                     computed_fields: [],
                                     filter: {},
+                                    allow_aggregations: true
                                 },
                                 source: 'default'
                             },
