@@ -205,7 +205,7 @@ exports[`HasuraClient tracks foreign key relationships 2`] = `
     },
     {
       "args": {
-        "name": "posts",
+        "name": "post",
         "table": {
           "name": "comments",
           "schema": "public",
@@ -237,7 +237,7 @@ exports[`HasuraClient tracks foreign key relationships 2`] = `
     },
     {
       "args": {
-        "name": "posts",
+        "name": "post",
         "table": {
           "name": "post_likes",
           "schema": "public",

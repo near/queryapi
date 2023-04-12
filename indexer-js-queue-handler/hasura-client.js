@@ -1,4 +1,5 @@
 import fetch from 'node-fetch';
+import pluralize from 'pluralize';
 
 export default class HasuraClient {
   constructor(
@@ -193,7 +194,7 @@ export default class HasuraClient {
           {
             type: "pg_create_object_relationship",
             args: {
-              name: foreignKey.ref_table,
+              name: pluralize.singular(foreignKey.ref_table),
               table: {
                 name: foreignKey.table_name,
                 schema: schemaName,
