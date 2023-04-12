@@ -49,7 +49,8 @@ export default class Indexer {
                             await this.setStatus(function_name, block_height, 'PROVISIONING');
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 
-                            await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
+                            const transformedSchema = this.replaceNewLines(indexerFunction.schema);
+                            await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, transformedSchema);
 
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
                         }
@@ -204,8 +205,8 @@ export default class Indexer {
         });
     }
 
-    replaceNewLines(indexerFunction) {
-        return indexerFunction.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    replaceNewLines(code) {
+        return code.replace(/\\n/g, '\n').replace(/\\"/g, '"');
     }
     enableAwaitTransform(indexerFunction) {
         return `
