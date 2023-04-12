@@ -20,6 +20,7 @@ describe('Provision', () => {
             runMigrations: jest.fn().mockReturnValueOnce(),
             getTableNames: jest.fn().mockReturnValueOnce(tableNames),
             trackTables: jest.fn().mockReturnValueOnce(),
+            trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(),
             addPermissionsToTables: jest.fn().mockReturnValueOnce(),
         };
         const provisioner = new Provisioner(hasuraClient);
@@ -65,7 +66,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to run migrations', async () => {
         const error = new Error('some http error');
         const hasuraClient = {
             createSchema: jest.fn().mockReturnValueOnce(),
@@ -85,7 +86,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to fetch table names', async () => {
         const error = new Error('some http error');
         const hasuraClient = {
             createSchema: jest.fn().mockReturnValueOnce(),
@@ -106,7 +107,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to track tables', async () => {
         const error = new Error('some http error');
         const tableNames = ['blocks'];
         const hasuraClient = {
@@ -129,7 +130,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to track foreign key relationships', async () => {
         const error = new Error('some http error');
         const tableNames = ['blocks'];
         const hasuraClient = {
@@ -137,6 +138,31 @@ describe('Provision', () => {
             runMigrations: jest.fn().mockReturnValueOnce(),
             getTableNames: jest.fn().mockReturnValueOnce(tableNames),
             trackTables: jest.fn().mockReturnValueOnce(),
+            trackForeignKeyRelationships: jest.fn().mockRejectedValueOnce(error),
+        };
+        const provisioner = new Provisioner(hasuraClient);
+
+        try {
+            await provisioner.createAuthenticatedEndpoint('name', 'role', 'CREATE TABLE blocks (height numeric)')
+        } catch (error) {
+            expect(error.message).toBe('Failed to provision endpoint: Failed to track foreign key relationships: some http error');
+            expect(VError.info(error)).toEqual({
+                schemaName: 'name',
+                roleName: 'role',
+                migration: 'CREATE TABLE blocks (height numeric)',
+            });
+        }
+    })
+
+    it('throws an error when it fails to add permissions to tables', async () => {
+        const error = new Error('some http error');
+        const tableNames = ['blocks'];
+        const hasuraClient = {
+            createSchema: jest.fn().mockReturnValueOnce(),
+            runMigrations: jest.fn().mockReturnValueOnce(),
+            getTableNames: jest.fn().mockReturnValueOnce(tableNames),
+            trackTables: jest.fn().mockReturnValueOnce(),
+            trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(),
             addPermissionsToTables: jest.fn().mockRejectedValue(error),
         };
         const provisioner = new Provisioner(hasuraClient);

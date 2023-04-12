@@ -58,6 +58,14 @@ export default class Provisioner {
         }
     }
 
+    async trackForeignKeyRelationships(schemaName) {
+        try {
+            await this.hasuraClient.trackForeignKeyRelationships(schemaName);
+        } catch (error) {
+            throw new VError(error, `Failed to track foreign key relationships`);
+        }
+    }
+
     async createAuthenticatedEndpoint(schemaName, roleName, migration) {
         try {
             await this.createSchema(schemaName);
@@ -66,6 +74,8 @@ export default class Provisioner {
 
             const tableNames = await this.getTableNames(schemaName);
             await this.trackTables(schemaName, tableNames);
+
+            await this.trackForeignKeyRelationships(schemaName);
 
             await this.addPermissionsToTables(schemaName, tableNames, roleName, ['select', 'insert', 'update', 'delete']);
         } catch (error) {
