@@ -119,17 +119,56 @@ describe('HasuraClient', () => {
         expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
         expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
+
+    it('tracks foreign key relationships', async () => {
+        const fetch = jest
+            .fn()
+            .mockResolvedValue({
+                status: 200,
+                json: () => ({
+                    result: [
+                        [
+                            "coalesce"
+                        ],
+                        [
+                            JSON.stringify([
+                                {
+                                    table_schema: "public",
+                                    table_name: "comments",
+                                    constraint_name: "comments_post_id_fkey",
+                                    ref_table_table_schema: "public",
+                                    ref_table: "posts",
+                                    column_mapping: {
+                                        post_id: "id"
+                                    },
+                                    on_update: "a",
+                                    on_delete: "a"
                                 },
-                                source: 'default'
-                            },
-                        },
-                    ]
+                                {
+                                    table_schema: "public",
+                                    table_name: "post_likes",
+                                    constraint_name: "post_likes_post_id_fkey",
+                                    ref_table_table_schema: "public",
+                                    ref_table: "posts",
+                                    column_mapping: {
+                                        post_id: "id"
+                                    },
+                                    on_update: "a",
+                                    on_delete: "c"
+                                }
+                            ])
+                        ]
+                    ] 
                 }),
-                headers: {
-                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-                },
-                method: 'POST'
-            }
-        );
+            });
+        const client = new HasuraClient({ fetch })
+
+        const result = await client.trackForeignKeyRelationships('public');
+
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+
+        expect(fetch.mock.calls[1][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchSnapshot();
     });
 });
