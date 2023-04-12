@@ -66,7 +66,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to run migrations', async () => {
         const error = new Error('some http error');
         const hasuraClient = {
             createSchema: jest.fn().mockReturnValueOnce(),
@@ -86,7 +86,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to fetch table names', async () => {
         const error = new Error('some http error');
         const hasuraClient = {
             createSchema: jest.fn().mockReturnValueOnce(),
@@ -107,7 +107,7 @@ describe('Provision', () => {
         }
     });
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to track tables', async () => {
         const error = new Error('some http error');
         const tableNames = ['blocks'];
         const hasuraClient = {
@@ -154,7 +154,7 @@ describe('Provision', () => {
         }
     })
 
-    it('throws an error when it fails to create the schema', async () => {
+    it('throws an error when it fails to add permissions to tables', async () => {
         const error = new Error('some http error');
         const tableNames = ['blocks'];
         const hasuraClient = {
