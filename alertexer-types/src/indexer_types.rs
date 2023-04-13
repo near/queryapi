@@ -17,7 +17,7 @@ pub struct IndexerQueueMessage {
     pub chain_id: ChainId,
     pub alert_rule_id: i32,
     pub alert_name: String,
-    pub payload: AlertQueueMessagePayload,
+    pub payload: Option<AlertQueueMessagePayload>,
     pub block_height: u64,
     pub indexer_function: IndexerFunction,
 }

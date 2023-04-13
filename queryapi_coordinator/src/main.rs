@@ -7,10 +7,10 @@ use tokio::sync::Mutex;
 
 use alert_rules::{AlertRule, MatchingRule};
 use near_lake_framework::near_indexer_primitives::{types};
-use near_lake_framework::near_indexer_primitives::types::{AccountId};
+use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 
 use shared::{alertexer_types::primitives::AlertQueueMessage, Opts, Parser};
-use shared::alertexer_types::indexer_types::{IndexerQueueMessage, IndexerRegistry, IndexerFunction};
+use shared::alertexer_types::indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use storage::ConnectionManager;
 
 pub(crate) mod cache;
@@ -105,8 +105,8 @@ async fn main() -> anyhow::Result<()> {
     // Could this give us results from a newer block than the next block we receive from the Lake?
     tracing::info!(target: INDEXER, "Fetching indexer functions from contract registry...");
     let indexer_functions = indexer_registry::read_indexer_functions_from_registry(&json_rpc_client).await;
-    let mut indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
-    let mut indexer_registry: SharedIndexerRegistry = std::sync::Arc::new(Mutex::new(indexer_functions));
+    let  indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
+    let indexer_registry: SharedIndexerRegistry = std::sync::Arc::new(Mutex::new(indexer_functions));
 
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
     let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
@@ -162,8 +162,10 @@ async fn handle_streamer_message(context: AlertexerContext<'_>, indexer_registry
         // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
         .buffer_unordered(10usize);
 
+    let block_height: BlockHeight = context.streamer_message.block.header.height;
+
     let mut indexer_registry_locked = indexer_registry.lock().await;
-    indexer_registry::index_registry_changes(&mut indexer_registry_locked, &context).await;
+    let spawned_indexers = indexer_registry::index_registry_changes(block_height, &mut indexer_registry_locked, &context).await;
 
     while let Some(alert_queue_messages) = reducer_futures.next().await {
         if let Ok(alert_queue_messages) = alert_queue_messages {
@@ -173,14 +175,13 @@ async fn handle_streamer_message(context: AlertexerContext<'_>, indexer_registry
             // Once the filters are tied to indexer functions, these will de-nest
             let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
             for alert_queue_message in alert_queue_messages.iter() {
-                for(account, functions) in &mut indexer_registry_locked.iter_mut() {
-                    for (function_name, indexer_function) in &mut functions.iter_mut() {
-                        let block_height = context.streamer_message.block.header.height;
+                for(_account, functions) in &mut indexer_registry_locked.iter_mut() {
+                    for (_function_name, indexer_function) in &mut functions.iter_mut() {
                         let msg = IndexerQueueMessage {
                             chain_id: alert_queue_message.chain_id.clone(),
                             alert_rule_id: alert_queue_message.alert_rule_id,
                             alert_name: alert_queue_message.alert_name.clone(),
-                            payload: alert_queue_message.payload.clone(),
+                            payload: Some(alert_queue_message.payload.clone()),
                             block_height,
                             indexer_function: indexer_function.clone(),
                         };

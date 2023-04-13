@@ -260,7 +260,7 @@ pub async fn send_to_indexer_queue(
     indexer_queue_messages: Vec<IndexerQueueMessage>,
 ) -> anyhow::Result<()> {
     tracing::info!(
-        target: "alertexer",
+        target: "queryapi_coordinator",
         "Sending indexer tasks to the queue"
     );
 

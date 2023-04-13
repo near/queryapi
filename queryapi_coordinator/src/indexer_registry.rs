@@ -2,21 +2,18 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::query::{QueryResponseKind, RpcQueryRequest};
-use near_lake_framework::near_indexer_primitives::types::{AccountId, FunctionArgs};
+use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight, FunctionArgs};
 use near_lake_framework::near_indexer_primitives::types::BlockReference::Finality;
 use near_lake_framework::near_indexer_primitives::types::Finality::Final;
 use near_lake_framework::near_indexer_primitives::views::QueryRequest;
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::sync::MutexGuard;
+use tokio::task::JoinHandle;
 use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
-use storage::ConnectionManager;
 use crate::{AlertexerContext};
 
-use shared::alertexer_types::ChainId;
-use shared::alertexer_types::indexer_types::{IndexerFunction, IndexerRegistry};
-use shared::alertexer_types::primitives::AlertQueueMessagePayload;
-use shared::base64;
+use shared::alertexer_types::indexer_types::{IndexerFunction, IndexerQueueMessage, IndexerRegistry};
+use shared::{base64, Opts, Parser};
 use crate::outcomes_reducer::indexer_reducer;
 use crate::outcomes_reducer::indexer_reducer::FunctionCallInfo;
 
@@ -59,14 +56,19 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
     registry
 }
 
-pub(crate) async fn index_registry_changes(registry: &mut MutexGuard<'_, IndexerRegistry>, context: &AlertexerContext<'_>) {
+pub(crate) async fn index_registry_changes(block_height: BlockHeight,
+                                           registry: &mut MutexGuard<'_, IndexerRegistry>,
+                                           context: &AlertexerContext<'_>) -> Vec<JoinHandle<i64>> {
+
     let registry_method_name = "register_indexer_function";
     let registry_calls = build_registry_alert(registry_method_name);
     let registry_updates = indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
+    let mut spawned_start_from_block_threads = Vec::new();
+
     if registry_updates.len() > 0 {
         for update in registry_updates {
 
-            let mut new_indexer_function = build_indexer_function_from_args(
+            let new_indexer_function = build_indexer_function_from_args(
                 parse_indexer_function_args(&update), update.signer_id);
 
             match new_indexer_function {
@@ -75,21 +77,34 @@ pub(crate) async fn index_registry_changes(registry: &mut MutexGuard<'_, Indexer
                     let fns = registry.entry(new_indexer_function.account_id.clone()).or_default();
 
                     match fns.get(new_indexer_function.function_name.as_str()) {
+
+                        // if there is no existing function then insert the new one with the default state of provisioned = false
                         None => {
                             tracing::info!(target: crate::INDEXER, "indexed creation call to {registry_method_name}: {:?} {:?}",
                                      new_indexer_function.account_id.clone(),
                                      new_indexer_function.function_name.clone()
                             );
+
+                            match spawn_historical_message_thread(block_height, &mut new_indexer_function) {
+                                Some(thread) => spawned_start_from_block_threads.push(thread),
+                                None => {}
+                            }
+
                             fns.insert(update.method_name.clone(), new_indexer_function);
                         }
+
+                        // if there is an existing function then respond to any changed fields
                         Some(old_indexer_function) => {
-                            // if there is an old function then respond to any changed fields
-                            if old_indexer_function.start_block_height != new_indexer_function.start_block_height {
-                                // todo spawn historical indexer thread
-                            }
+
                             if old_indexer_function.schema == new_indexer_function.schema {
                                 new_indexer_function.provisioned = true;
                             }
+
+                            match spawn_historical_message_thread(block_height, &mut new_indexer_function) {
+                                Some(thread) => spawned_start_from_block_threads.push(thread),
+                                None => {}
+                            }
+
                             tracing::info!(target: crate::INDEXER, "indexed update call to {registry_method_name}: {:?} {:?}",
                                      new_indexer_function.account_id.clone(),
                                      new_indexer_function.function_name.clone(),
@@ -127,6 +142,23 @@ pub(crate) async fn index_registry_changes(registry: &mut MutexGuard<'_, Indexer
                 }
             }
         }
+    }
+    spawned_start_from_block_threads
+}
+
+fn spawn_historical_message_thread(block_height: BlockHeight, new_indexer_function: &mut IndexerFunction) -> Option<JoinHandle<i64>> {
+    match new_indexer_function.start_block_height {
+        Some(..) => {
+            let block_height_copy = block_height.clone();
+            let new_indexer_function_copy = new_indexer_function.clone();
+            let historical_thread = tokio::spawn(async move {
+                process_historical_messages(block_height_copy,
+                                            new_indexer_function_copy
+                ).await
+            });
+            Some(historical_thread)
+        }
+        None => None
     }
 }
 
@@ -173,23 +205,71 @@ fn parse_indexer_function_args(update: &FunctionCallInfo) -> Option<Value> {
     None
 }
 
-pub(crate) async fn fetch_indexer_functions(rpc_client: &JsonRpcClient,
-                                            redis_connection_manager: &ConnectionManager) -> Value {
-    match storage::get::<Option<String>>(
-        redis_connection_manager,
-        "indexer_function_registry",
-    ).await {
-        Ok(Some(indexer_functions)) => {
-            let indexer_functions: Value = serde_json::from_str(&indexer_functions).unwrap();
-            indexer_functions
-        },
-        Ok(None) => {
-            read_indexer_functions_from_registry(rpc_client).await
+
+
+async fn process_historical_messages(block_height: BlockHeight, indexer_function: IndexerFunction) -> i64 {
+    let start_block = indexer_function.start_block_height.unwrap();
+    let block_difference : i64 = (block_height - start_block) as i64;
+    match block_difference {
+        i64::MIN..=-1 => {
+            tracing::error!(target: crate::INDEXER, "Skipping back fill, start_block_height is greater than current block height: {:?} {:?}",
+                                     indexer_function.account_id.clone(),
+                                     indexer_function.function_name.clone(),);
         }
-        Err(err) => {
-            panic!("Unable to read indexer functions from redis: {:?}", err);
+        0 => {
+            tracing::info!(target: crate::INDEXER, "Skipping back fill, start_block_height is equal to current block height: {:?} {:?}",
+                                     indexer_function.account_id.clone(),
+                                     indexer_function.function_name.clone(),);
+        }
+        1..=3600 => {
+            tracing::info!(target: crate::INDEXER, "Back filling from {start_block} to current block height {block_height}: {:?} {:?}",
+                                     indexer_function.account_id.clone(),
+                                     indexer_function.function_name.clone(),);
+
+            let opts = Opts::parse();
+
+            let chain_id = opts.chain_id().clone();
+            let aws_region = opts.aws_queue_region.clone();
+            let queue_client = &opts.queue_client(aws_region);
+            //opts.queue_url.clone();  temporarily hardcoding
+            let queue_url = "https://sqs.eu-central-1.amazonaws.com/754641474505/queryapi-dev-startFromBlock-runner".to_string();
+
+
+            // todo: potential filtering here: fetch block, apply alert rule
+
+            let msg = IndexerQueueMessage {
+                chain_id, // alert_queue_message.chain_id.clone(),
+                alert_rule_id: 0,// alert_queue_message.alert_rule_id,
+                alert_name: "Unfiltered Start Block Height".to_string(), //alert_queue_message.alert_name.clone(),
+                payload: None, //alert_queue_message.payload.clone(),
+                block_height,
+                indexer_function: indexer_function.clone(),
+            };
+
+            match shared::send_to_indexer_queue(
+                queue_client,
+                queue_url,
+                vec![msg],
+            )
+                .await
+            {
+                Ok(_) => {}
+                Err(err) => tracing::error!(
+                            target: crate::INDEXER,
+                            "#{} an error occurred during sending messages to the queue\n{:#?}",
+                            block_height,
+                            err
+                        ),
+            }
+
+        }
+        3601..=i64::MAX => {
+            tracing::error!(target: crate::INDEXER, "Skipping back fill, start_block_height is more than 1 hour before current block height: {:?} {:?}",
+                                     indexer_function.account_id.clone(),
+                                     indexer_function.function_name.clone(),);
         }
     }
+    block_difference
 }
 
 fn build_registry_alert(registry_method_name: &str) -> AlertRule {
@@ -260,4 +340,18 @@ fn escape_json(object: &mut serde_json::Value) {
         serde_json::Value::String(ref mut value) => *value = value.escape_default().to_string(),
         _ => {}
     }
+}
+
+#[tokio::test]
+async fn test_process_historical_messages() {
+    let indexer_function = IndexerFunction {
+        account_id: "buildnear.testnet".to_string().parse().unwrap(),
+        function_name: "index_stuff".to_string(),
+        code: "".to_string(),
+        start_block_height: Some(85376002),
+        schema: None,
+        provisioned: false,
+    };
+
+    process_historical_messages(85376003, indexer_function).await;
 }
