@@ -20,6 +20,10 @@ use shared::base64;
 use crate::outcomes_reducer::indexer_reducer;
 use crate::outcomes_reducer::indexer_reducer::FunctionCallInfo;
 
+struct RegistryFunctionInvocation {
+    pub account_id: AccountId,
+    pub function_name: String,
+}
 
 pub(crate) fn build_registry_from_old_json(raw_registry: Value) -> IndexerRegistry {
     let mut registry: IndexerRegistry = HashMap::new();
@@ -83,7 +87,6 @@ pub(crate) async fn index_registry_changes(registry: &mut MutexGuard<'_, Indexer
 
                     match fns.get(new_indexer_function.function_name.as_str()) {
                         None => {
-                            // if there is no old function then insert the new one with provisioned = false
                             tracing::info!(target: crate::INDEXER, "indexed creation call to {registry_method_name}: {:?} {:?}",
                                      new_indexer_function.account_id.clone(),
                                      new_indexer_function.function_name.clone()
@@ -116,24 +119,40 @@ pub(crate) async fn index_registry_changes(registry: &mut MutexGuard<'_, Indexer
     if registry_updates.len() > 0 {
         for update in registry_updates {
 
-            let mut new_indexer_function = build_indexer_function_from_args(
+            let function_invocation: Option<RegistryFunctionInvocation> = build_function_invocation_from_args(
                 parse_indexer_function_args(&update), update.signer_id);
-            match new_indexer_function {
+            match function_invocation {
                 None => continue,
-                Some(mut new_indexer_function) => {
+                Some(function_invocation) => {
                     tracing::info!(target: crate::INDEXER, "indexed removal call to {registry_method_name}: {:?} {:?}",
-                                     new_indexer_function.account_id.clone(),
-                                     new_indexer_function.function_name.clone(),
+                                     function_invocation.account_id.clone(),
+                                     function_invocation.function_name.clone(),
                         );
-                    match registry.entry(new_indexer_function.account_id.clone()) {
+                    match registry.entry(function_invocation.account_id.clone()) {
                         Entry::Vacant(_) => {},
                         Entry::Occupied(mut fns) => {
-                            fns.get_mut().remove(new_indexer_function.function_name.as_str());
+                            fns.get_mut().remove(function_invocation.function_name.as_str());
                         }
                     }
                     // todo request removal of DB schema
                 }
             }
+        }
+    }
+}
+
+fn build_function_invocation_from_args(args: Option<Value>, signer_id: String) -> Option<RegistryFunctionInvocation> {
+    match args {
+        None => None,
+        Some(args) => {
+            let account_id: String = match args["account_id"] {
+                Value::String(ref account_id) => account_id.clone(),
+                _ => signer_id,
+            };
+            Some(RegistryFunctionInvocation {
+                account_id: account_id.parse().unwrap(),
+                function_name: args["function_name"].as_str().unwrap().to_string(),
+            })
         }
     }
 }
