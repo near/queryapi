@@ -25,19 +25,6 @@ struct RegistryFunctionInvocation {
     pub function_name: String,
 }
 
-pub(crate) fn build_registry_from_old_json(raw_registry: Value) -> IndexerRegistry {
-    let mut registry: IndexerRegistry = HashMap::new();
-    for (name, function_config) in raw_registry.as_object().unwrap() {
-        // split function_name into account_id and function_name
-        let account_id = name.split("/").next().unwrap();
-        let function_name = name.split("/").last().unwrap();
-        let idx_fn = build_indexer_function(function_config, function_name.to_string(), account_id.to_string().parse().unwrap());
-        let fns = registry.entry(account_id.parse().unwrap()).or_insert_with(HashMap::new);
-        fns.insert(function_name.to_string(), idx_fn);
-    }
-    registry
-}
-
 fn build_indexer_function(function_config: &Value, function_name: String, account_id: String) -> IndexerFunction {
     IndexerFunction {
         account_id: account_id.parse().unwrap(),
@@ -51,8 +38,10 @@ fn build_indexer_function(function_config: &Value, function_name: String, accoun
 
 pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
     let mut registry: IndexerRegistry = HashMap::new();
-    // parse raw_registry into registry
-    for (account, functions) in raw_registry.as_object().unwrap() {
+    let raw_registry = raw_registry.as_object().unwrap();
+    let raw_registry = raw_registry["All"].as_object().unwrap();
+
+    for (account, functions) in raw_registry {
         let mut fns = HashMap::new();
         for (function_name, function_config) in functions.as_object().unwrap() {
             let idx_fn = build_indexer_function(function_config, function_name.to_string(), account.to_string().parse().unwrap());
@@ -205,7 +194,7 @@ pub(crate) async fn fetch_indexer_functions(rpc_client: &JsonRpcClient,
 
 fn build_registry_alert(registry_method_name: &str) -> AlertRule {
     let matching_rule = MatchingRule::ActionFunctionCall {
-        affected_account_id: "registry.queryapi.near".to_string(),
+        affected_account_id: crate::REGISTRY_CONTRACT.to_string(),
         function: registry_method_name.to_string(),
         status: Status::Any,
     };
@@ -223,7 +212,7 @@ fn build_registry_alert(registry_method_name: &str) -> AlertRule {
 
 pub async fn read_indexer_functions_from_registry(rpc_client: &JsonRpcClient) -> Value {
     match read_only_call(rpc_client,
-                         "registry.queryapi.near",
+                         crate::REGISTRY_CONTRACT,
                          "list_indexer_functions",
                          FunctionArgs::from(json!({}).to_string().into_bytes())).await {
         Ok(functions) => {

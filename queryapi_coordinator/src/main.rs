@@ -23,6 +23,7 @@ pub(crate) const INDEXER: &str = "queryapi_coordinator";
 pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
 pub(crate) const RETRY_COUNT: usize = 2;
+pub(crate) const REGISTRY_CONTRACT: &str = "registry.queryapi.near";
 
 pub(crate) type AlertRulesInMemory =
     std::sync::Arc<Mutex<HashMap<i32, AlertRule>>>;
@@ -104,7 +105,7 @@ async fn main() -> anyhow::Result<()> {
     // Could this give us results from a newer block than the next block we receive from the Lake?
     tracing::info!(target: INDEXER, "Fetching indexer functions from contract registry...");
     let indexer_functions = indexer_registry::read_indexer_functions_from_registry(&json_rpc_client).await;
-    let mut indexer_functions = indexer_registry::build_registry_from_old_json(indexer_functions);
+    let mut indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
     let mut indexer_registry: SharedIndexerRegistry = std::sync::Arc::new(Mutex::new(indexer_functions));
 
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
