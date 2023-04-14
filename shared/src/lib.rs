@@ -49,6 +49,9 @@ pub struct Opts {
     /// URL to the main AWS SQS queue backed by Queue Handler lambda
     #[clap(long, env)]
     pub queue_url: String,
+    /// URL to the AWS SQS queue for processing historical data
+    #[clap(long, env)]
+    pub start_from_block_queue_url: String,
     /// Chain ID: testnet or mainnet
     #[clap(subcommand)]
     pub chain_id: ChainId,
@@ -192,7 +195,7 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
 }
 
 pub fn init_tracing() {
-    let mut env_filter = EnvFilter::new("near_lake_framework=info,alertexer=info,stats=info");
+    let mut env_filter = EnvFilter::new("near_lake_framework=info,queryapi_coordinator=info,stats=info");
 
     if let Ok(rust_log) = std::env::var("RUST_LOG") {
         if !rust_log.is_empty() {
@@ -261,7 +264,7 @@ pub async fn send_to_indexer_queue(
 ) -> anyhow::Result<()> {
     tracing::info!(
         target: "queryapi_coordinator",
-        "Sending indexer tasks to the queue"
+        "Sending indexer tasks to the queue: {queue_url}",
     );
 
     let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages

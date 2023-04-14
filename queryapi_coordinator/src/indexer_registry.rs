@@ -222,7 +222,7 @@ async fn process_historical_messages(block_height: BlockHeight, indexer_function
                                      indexer_function.function_name.clone(),);
         }
         1..=3600 => {
-            tracing::info!(target: crate::INDEXER, "Back filling from {start_block} to current block height {block_height}: {:?} {:?}",
+            tracing::info!(target: crate::INDEXER, "Back filling {block_difference} blocks from {start_block} to current block height {block_height}: {:?} {:?}",
                                      indexer_function.account_id.clone(),
                                      indexer_function.function_name.clone(),);
 
@@ -231,37 +231,36 @@ async fn process_historical_messages(block_height: BlockHeight, indexer_function
             let chain_id = opts.chain_id().clone();
             let aws_region = opts.aws_queue_region.clone();
             let queue_client = &opts.queue_client(aws_region);
-            //opts.queue_url.clone();  temporarily hardcoding
-            let queue_url = "https://sqs.eu-central-1.amazonaws.com/754641474505/queryapi-dev-startFromBlock-runner".to_string();
+            let queue_url = opts.start_from_block_queue_url.clone();
 
+            // todo: fetch contract index files to get list of relevant blocks for our filter.
 
-            // todo: potential filtering here: fetch block, apply alert rule
+            for current_block in start_block..block_height {
+                let msg = IndexerQueueMessage {
+                    chain_id: chain_id.clone(), // alert_queue_message.chain_id.clone(),
+                    alert_rule_id: 0,// alert_queue_message.alert_rule_id,
+                    alert_name: "Unfiltered Start Block Height".to_string(), //alert_queue_message.alert_name.clone(),
+                    payload: None, //alert_queue_message.payload.clone(),
+                    block_height: current_block,
+                    indexer_function: indexer_function.clone(),
+                };
 
-            let msg = IndexerQueueMessage {
-                chain_id, // alert_queue_message.chain_id.clone(),
-                alert_rule_id: 0,// alert_queue_message.alert_rule_id,
-                alert_name: "Unfiltered Start Block Height".to_string(), //alert_queue_message.alert_name.clone(),
-                payload: None, //alert_queue_message.payload.clone(),
-                block_height,
-                indexer_function: indexer_function.clone(),
-            };
-
-            match shared::send_to_indexer_queue(
-                queue_client,
-                queue_url,
-                vec![msg],
-            )
-                .await
-            {
-                Ok(_) => {}
-                Err(err) => tracing::error!(
+                match shared::send_to_indexer_queue(
+                    queue_client,
+                    queue_url.clone(),
+                    vec![msg],
+                )
+                    .await
+                {
+                    Ok(_) => {}
+                    Err(err) => tracing::error!(
                             target: crate::INDEXER,
                             "#{} an error occurred during sending messages to the queue\n{:#?}",
                             block_height,
                             err
                         ),
+                }
             }
-
         }
         3601..=i64::MAX => {
             tracing::error!(target: crate::INDEXER, "Skipping back fill, start_block_height is more than 1 hour before current block height: {:?} {:?}",
