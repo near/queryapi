@@ -27,13 +27,13 @@ export default class HasuraClient {
       }),
     });
 
-    const body = await response.json();
+    const body = await response.text();
 
     if (response.status !== 200) {
       throw new Error(JSON.stringify(body, null, 2));
     }
 
-    return body
+    return JSON.parse(body)
   };
 
   async executeMetadataRequest (type, args) {
@@ -48,13 +48,13 @@ export default class HasuraClient {
       }),
     });
 
-    const body = await response.json();
+    const body = await response.text();
 
     if (response.status !== 200) {
-      throw new Error(JSON.stringify(body, null, 2));
+      throw new Error(body, null, 2);
     }
 
-    return body;
+    return JSON.parse(body);
   };
 
   async executeBulkMetadataRequest (metadataRequests) {
