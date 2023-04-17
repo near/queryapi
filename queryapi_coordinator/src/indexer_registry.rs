@@ -222,7 +222,7 @@ async fn process_historical_messages(block_height: BlockHeight, indexer_function
                                      indexer_function.function_name.clone(),);
         }
         1..=3600 => {
-            tracing::info!(target: crate::INDEXER, "Back filling {block_difference} blocks from {start_block} to current block height {block_height}: {:?} {:?}",
+            tracing::info!(target: crate::INDEXER, "Back filling from {start_block} to current block height {block_height}: {:?} {:?}",
                                      indexer_function.account_id.clone(),
                                      indexer_function.function_name.clone(),);
 
