@@ -1,17 +1,17 @@
-use std::collections::HashMap;
-use near_lake_framework::near_indexer_primitives::types::AccountId;
-use crate::ChainId;
 use crate::primitives::AlertQueueMessagePayload;
+use crate::ChainId;
+use near_lake_framework::near_indexer_primitives::types::AccountId;
+use std::collections::HashMap;
 
 pub type IndexerRegistry = HashMap<AccountId, HashMap<String, IndexerFunction>>;
 
 #[derive(
-borsh::BorshSerialize,
-borsh::BorshDeserialize,
-serde::Serialize,
-serde::Deserialize,
-Clone,
-Debug,
+    borsh::BorshSerialize,
+    borsh::BorshDeserialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
 )]
 pub struct IndexerQueueMessage {
     pub chain_id: ChainId,
@@ -23,12 +23,12 @@ pub struct IndexerQueueMessage {
 }
 
 #[derive(
-borsh::BorshSerialize,
-borsh::BorshDeserialize,
-serde::Serialize,
-serde::Deserialize,
-Clone,
-Debug,
+    borsh::BorshSerialize,
+    borsh::BorshDeserialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
 )]
 pub struct IndexerFunction {
     pub account_id: AccountId,

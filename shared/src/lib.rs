@@ -128,7 +128,7 @@ impl Opts {
     }
 
     /// Creates AWS SQS Client for Alertexer SQS
-    pub fn queue_client(&self, region :String) -> aws_sdk_sqs::Client {
+    pub fn queue_client(&self, region: String) -> aws_sdk_sqs::Client {
         let shared_config = self.queue_aws_sdk_config(region);
         aws_sdk_sqs::Client::new(&shared_config)
     }
@@ -195,7 +195,8 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
 }
 
 pub fn init_tracing() {
-    let mut env_filter = EnvFilter::new("near_lake_framework=info,queryapi_coordinator=info,stats=info");
+    let mut env_filter =
+        EnvFilter::new("near_lake_framework=info,queryapi_coordinator=info,stats=info");
 
     if let Ok(rust_log) = std::env::var("RUST_LOG") {
         if !rust_log.is_empty() {
@@ -273,8 +274,10 @@ pub async fn send_to_indexer_queue(
         .map(|(index, indexer_queue_message)| {
             SendMessageBatchRequestEntry::builder()
                 .id(index.to_string())
-                .message_body(serde_json::to_string(&indexer_queue_message)
-                    .expect("Failed to Json Serialize IndexerQueueMessage"))
+                .message_body(
+                    serde_json::to_string(&indexer_queue_message)
+                        .expect("Failed to Json Serialize IndexerQueueMessage"),
+                )
                 .build()
         })
         .collect();
