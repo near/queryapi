@@ -97,6 +97,7 @@ export default class Indexer {
             } catch (e) {
                 console.error(`${function_name}: Failed to run function`, e);
                 await this.setStatus(function_name, block_height, 'STOPPED');
+                throw e;
             } finally {
                 await Promise.all(simultaneousPromises);
             }
