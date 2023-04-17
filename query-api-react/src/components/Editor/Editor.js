@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import MonacoEditor, { DiffEditor } from '@monaco-editor/react';
 import { formatSQL, formatIndexingCode } from '../../utils/formatters';
-import { queryIndexerFunctionDetails, queryIndexerFunctionDetails_deprecated } from '../../utils/queryIndexerFunction';
+import { queryIndexerFunctionDetails } from '../../utils/queryIndexerFunction';
 import {
   Button,
   Alert,
@@ -12,7 +12,6 @@ import {
   InputGroup,
   ToggleButtonGroup,
   ToggleButton,
-  Nav,
 } from 'react-bootstrap';
 import Switch from "react-switch";
 import primitives from '!!raw-loader!../../../primitives.d.ts';
@@ -24,6 +23,7 @@ const defaultCode = formatIndexingCode(`
   await context.set('height', h);
 `, true);
 
+import { useNearSocialBridge, request } from 'near-social-bridge'
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `
@@ -47,12 +47,11 @@ const Editor = ({
   const [diffView, setDiffView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState('latestBlockHeight');
-  const [blockHeight, setBlockHeight] = useState(86928994);
-  const [playgroundLink, setPlaygroundLink] = useState()
+  const [blockHeight, setBlockHeight] = useState(undefined);
+
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
   }
-
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -67,28 +66,21 @@ const Editor = ({
     }
   }
 
+
   const registerFunction = async () => {
-    // if (selectedOption === "latestBlockHeight") {
-    //   setBlockHeight(await getLatestBlockHeight())
-    // }
 
     let formatted_schema = checkSQLSchemaFormatting();
+
     const innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1]
     if (indexerNameField == undefined || formatted_schema == undefined) {
       setError(() => "Please check your SQL schema formatting and specify an Indexer Name");
       return
     }
     setError(() => undefined);
+    let shouldFetchLatestBlockheight = selectedOption === "latestBlockHeight"
     // Send a message to other sources
-    window.parent.postMessage({ action: "register_function", value: { indexerName: indexerNameField.replace(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: blockHeight }, from: "react" }, "*");
+    request('register-function', { indexerName: indexerNameField.replace(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: Number(blockHeight), shouldFetchLatestBlockheight });
   };
-
-  useEffect(() => {
-    if (options.create_new_indexer === false) {
-
-      setPlaygroundLink(generatePlaygroundLink())
-    }
-  }, [schema])
 
   const handleReload = useCallback(async () => {
     if (options?.create_new_indexer === true) {
@@ -99,9 +91,6 @@ const Editor = ({
     }
 
     const data = await queryIndexerFunctionDetails(accountId, indexerNameField)
-
-
-
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
@@ -117,6 +106,10 @@ const Editor = ({
         if (unformatted_schema !== null) {
           setOriginalSQLCode(unformatted_schema);
           setSchema(unformatted_schema);
+        }
+        if (data.start_from_blockheight) {
+          console.log(data.start_block_height, "blockheight")
+          setBlockHeight(data.start_block_height)
         }
       }
       catch (error) {
@@ -207,49 +200,6 @@ const Editor = ({
     );
   }
 
-  function generateGraphQLQuery(accountName, indexerName) {
-    const tableRegex = /CREATE TABLE "([^"]+)"\s*\(([^)]+)\)/g;
-    const fieldRegex = /"([^"]+)"\s+([A-Za-z]+)/g;
-
-    let tableMatches;
-    const tables = {};
-
-    while ((tableMatches = tableRegex.exec(schema)) !== null) {
-      const tableName = tableMatches[1];
-      const fieldList = tableMatches[2];
-
-      let fieldMatches;
-      const fields = {};
-
-      while ((fieldMatches = fieldRegex.exec(fieldList)) !== null) {
-        const fieldName = fieldMatches[1];
-        const fieldType = fieldMatches[2];
-        fields[fieldName] = fieldType;
-      }
-
-      tables[tableName] = fields;
-    }
-
-    const queryParts = [];
-    const accountNamePrefix = accountName.replaceAll('.', '_');
-    const indexerNamePrefix = indexerName.replaceAll('-', '_');
-
-    for (const tableName in tables) {
-      const prefixedTableName = `${accountNamePrefix}_${indexerNamePrefix}_${tableName}`;
-      const fieldNames = Object.keys(tables[tableName]).join(', ');
-      queryParts.push(`${prefixedTableName} { ${fieldNames} }`);
-    }
-
-    return `query { ${queryParts.join(', ')} }`;
-  }
-
-  function generatePlaygroundLink() {
-    let endpoint = `https://cloud.hasura.io/public/graphiql?endpoint=https%3A%2F%2Fquery-api-hasura-vcqilefdcq-uc.a.run.app%2Fv1%2Fgraphql`
-    endpoint += `&header=x-hasura-role%3A${accountId.replaceAll('.', '_')}`
-    return endpoint + "&query=" + encodeURIComponent(generateGraphQLQuery(accountId, indexerName))
-    // window.parent.postMessage({ action: "view_playground", value: { indexerName: indexerNameField.replace(" ", "_"), link: endpoint + "&query=" + encodeURIComponent(generateGraphQLQuery(accountId, indexerName)) }, from: "react" }, "*");
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
       {
@@ -267,19 +217,6 @@ const Editor = ({
               </Button>
 
             </ButtonGroup>
-            {
-              options?.create_new_indexer === false &&
-              <InputGroup style={{ width: "100%", padding: "10px" }}>
-                <InputGroup.Text id="btnGroupAddon">GraphQL Playground:</InputGroup.Text>
-                <Form.Control
-                  type="text"
-                  value={playgroundLink}
-                  disabled={true}
-                  aria-label="Graph QL Playground Link"
-                  aria-describedby="btnGroupAddon"
-                />
-              </InputGroup>
-            }
           </ButtonToolbar></>}
       <Modal show={showResetCodeModel} onHide={() => setShowResetCodeModel(false)}>
         <Modal.Header closeButton>
