@@ -92,7 +92,7 @@ pub(crate) async fn index_registry_changes(
                         .or_default();
 
                     match fns.get(new_indexer_function.function_name.as_str()) {
-                        // if there is no existing function then insert the new one with the default state of provisioned = false
+                        // if there is no existing function then we will insert the new one with the default state of provisioned = false
                         None => {
                             tracing::info!(
                                 target: crate::INDEXER,
@@ -101,40 +101,42 @@ pub(crate) async fn index_registry_changes(
                                 new_indexer_function.function_name.clone()
                             );
 
-                            match spawn_historical_message_thread(
+                            if let Some(thread) = spawn_historical_message_thread(
                                 block_height,
                                 &mut new_indexer_function,
                             ) {
-                                Some(thread) => spawned_start_from_block_threads.push(thread),
-                                None => {}
+                                spawned_start_from_block_threads.push(thread);
                             }
-
-                            fns.insert(update.method_name.clone(), new_indexer_function);
                         }
 
                         // if there is an existing function then respond to any changed fields
                         Some(old_indexer_function) => {
-                            if old_indexer_function.schema == new_indexer_function.schema {
-                                new_indexer_function.provisioned = true;
-                            }
-
-                            match spawn_historical_message_thread(
-                                block_height,
-                                &mut new_indexer_function,
-                            ) {
-                                Some(thread) => spawned_start_from_block_threads.push(thread),
-                                None => {}
-                            }
-
                             tracing::info!(
                                 target: crate::INDEXER,
                                 "indexed update call to {registry_method_name}: {:?} {:?}",
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone(),
                             );
-                            fns.insert(update.method_name.clone(), new_indexer_function);
+
+                            if old_indexer_function.schema == new_indexer_function.schema {
+                                new_indexer_function.provisioned = true;
+                            }
+
+                            if has_new_start_block(
+                                old_indexer_function.start_block_height,
+                                new_indexer_function.start_block_height,
+                            ) {
+                                if let Some(thread) = spawn_historical_message_thread(
+                                    block_height,
+                                    &mut new_indexer_function,
+                                ) {
+                                    spawned_start_from_block_threads.push(thread);
+                                }
+                            }
                         }
                     }
+
+                    fns.insert(update.method_name.clone(), new_indexer_function);
                 }
             };
         }
@@ -173,6 +175,17 @@ pub(crate) async fn index_registry_changes(
         }
     }
     spawned_start_from_block_threads
+}
+
+fn has_new_start_block(
+    old_start_block: Option<BlockHeight>,
+    new_start_block: Option<BlockHeight>,
+) -> bool {
+    match (old_start_block, new_start_block) {
+        (None, Some(..)) => true,
+        (Some(..), Some(..)) if old_start_block != new_start_block => true,
+        _ => false,
+    }
 }
 
 fn spawn_historical_message_thread(
@@ -271,7 +284,7 @@ async fn process_historical_messages(
         1..=3600 => {
             tracing::info!(
                 target: crate::INDEXER,
-                "Back filling from {start_block} to current block height {block_height}: {:?} {:?}",
+                "Back filling {block_difference} blocks from {start_block} to current block height {block_height}: {:?} {:?}",
                 indexer_function.account_id.clone(),
                 indexer_function.function_name.clone(),
             );
@@ -376,19 +389,19 @@ async fn read_only_call(
     Err(anyhow::anyhow!("Unable to make rpc call: {:?}", response))
 }
 
-fn escape_json(object: &mut serde_json::Value) {
+fn escape_json(object: &mut Value) {
     match object {
-        serde_json::Value::Object(ref mut value) => {
+        Value::Object(ref mut value) => {
             for (_key, val) in value {
                 escape_json(val);
             }
         }
-        serde_json::Value::Array(ref mut values) => {
+        Value::Array(ref mut values) => {
             for element in values.iter_mut() {
                 escape_json(element)
             }
         }
-        serde_json::Value::String(ref mut value) => *value = value.escape_default().to_string(),
+        Value::String(ref mut value) => *value = value.escape_default().to_string(),
         _ => {}
     }
 }
