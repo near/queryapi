@@ -7,6 +7,7 @@ provider:
   name: aws
   runtime: nodejs16.x
   region: eu-central-1
+  timeout: 60
 #  cfnRole: arn:aws:iam::754641474505:role/queryapi-cloudformation
 
 constructs:
