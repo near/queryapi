@@ -170,17 +170,13 @@ fn spawn_historical_message_thread(
     block_height: BlockHeight,
     new_indexer_function: &mut IndexerFunction,
 ) -> Option<JoinHandle<i64>> {
-    match new_indexer_function.start_block_height {
-        Some(..) => {
-            let block_height_copy = block_height.clone();
-            let new_indexer_function_copy = new_indexer_function.clone();
-            let historical_thread = tokio::spawn(async move {
-                process_historical_messages(block_height_copy, new_indexer_function_copy).await
-            });
-            Some(historical_thread)
-        }
-        None => None,
-    }
+    new_indexer_function.start_block_height.map(|_| {
+        let block_height_copy = block_height.clone();
+        let new_indexer_function_copy = new_indexer_function.clone();
+        tokio::spawn(async move {
+            process_historical_messages(block_height_copy, new_indexer_function_copy).await
+        })
+    })
 }
 
 fn build_function_invocation_from_args(
