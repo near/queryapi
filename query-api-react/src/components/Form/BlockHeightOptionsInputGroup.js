@@ -16,7 +16,7 @@ const BlockHeightOptions = ({ selectedOption, handleOptionChange, blockHeight, s
       <input
         type="number"
         value={blockHeight}
-        onChange={(e) => setBlockHeight(e.target.value)}
+        onChange={(e) => setBlockHeight(parseInt(e.target.value))}
         aria-label="Text input with checkbox" />
     </InputGroup>
   </>)

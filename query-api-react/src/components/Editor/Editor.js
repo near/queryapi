@@ -23,10 +23,11 @@ const defaultCode = formatIndexingCode(`
   await context.set('height', h);
 `, true);
 
-import { useNearSocialBridge, request } from 'near-social-bridge'
+import { request, useInitialPayload } from 'near-social-bridge'
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `
+const BLOCKHEIGHT_LIMIT = 3600
 
 const Editor = ({
   options,
@@ -37,6 +38,7 @@ const Editor = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(undefined);
+  const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [fileName, setFileName] = useState("indexingLogic.js");
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
@@ -47,11 +49,34 @@ const Editor = ({
   const [diffView, setDiffView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState('latestBlockHeight');
-  const [blockHeight, setBlockHeight] = useState(undefined);
+  const [blockHeight, setBlockHeight] = useState(null);
+
+  const { height } = useInitialPayload()
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
+    setBlockHeightError(null)
   }
+
+
+  useEffect(() => {
+    if (selectedOption == "latestBlockHeight") {
+      setBlockHeightError(null)
+      return
+    }
+
+    if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
+      setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600} hrs.
+
+                Choose a start block height between ${height - BLOCKHEIGHT_LIMIT} - ${height}.`)
+    }
+    else if (blockHeight > height) {
+      setBlockHeightError(`Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT} - ${height}.`)
+    } else {
+      setBlockHeightError(null)
+    }
+  }
+    , [blockHeight, selectedOption])
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -68,7 +93,6 @@ const Editor = ({
 
 
   const registerFunction = async () => {
-
     let formatted_schema = checkSQLSchemaFormatting();
 
     const innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1]
@@ -77,9 +101,12 @@ const Editor = ({
       return
     }
     setError(() => undefined);
-    let shouldFetchLatestBlockheight = selectedOption === "latestBlockHeight"
+    let start_block_height = blockHeight
+    if (selectedOption == "latestBlockHeight") {
+      start_block_height = null
+    }
     // Send a message to other sources
-    request('register-function', { indexerName: indexerNameField.replace(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: Number(blockHeight), shouldFetchLatestBlockheight });
+    request('register-function', { indexerName: indexerNameField.replaceAll(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: start_block_height });
   };
 
   const handleReload = useCallback(async () => {
@@ -107,8 +134,8 @@ const Editor = ({
           setOriginalSQLCode(unformatted_schema);
           setSchema(unformatted_schema);
         }
-        if (data.start_from_blockheight) {
-          console.log(data.start_block_height, "blockheight")
+        if (data.start_block_height) {
+          setSelectedOption("specificBlockHeight")
           setBlockHeight(data.start_block_height)
         }
       }
@@ -206,9 +233,7 @@ const Editor = ({
         <>
           <ButtonToolbar className="pt-3 pb-1 flex-col" aria-label="Actions for Editor">
             <IndexerDetailsGroup accountId={accountId} indexerNameField={indexerNameField} setIndexerNameField={setIndexerNameField} isCreateNewIndexerPage={options.create_new_indexer} />
-            {options?.create_new_indexer && <>
-              <BlockHeightOptions selectedOption={selectedOption} handleOptionChange={handleOptionChange} blockHeight={blockHeight} setBlockHeight={setBlockHeight} />
-            </>}
+            <BlockHeightOptions selectedOption={selectedOption} handleOptionChange={handleOptionChange} blockHeight={blockHeight} setBlockHeight={setBlockHeight} />
             <ButtonGroup className="px-3 pt-3" style={{ width: '100%' }} aria-label="Action Button Group">
               <Button variant="secondary" className="px-3" onClick={() => setShowResetCodeModel(true)}> Reset</Button>{' '}
               <Button variant="secondary" className="px-3" onClick={() => handleFormating()}> Format Code</Button>{' '}
@@ -235,11 +260,15 @@ const Editor = ({
         </Modal.Footer>
       </Modal>
 
-      {error && <Alert className="px-3 pt-3" variant="danger">
-        {error}
-      </Alert>}
 
       <div className="px-3" style={{ "flex": "display", justifyContent: "space-around", "width": "100%" }}>
+        {error && <Alert className="px-3 pt-3" variant="danger">
+          {error}
+        </Alert>}
+        {blockHeightError && <Alert className="px-3 pt-3" variant="danger">
+          {blockHeightError}
+        </Alert>}
+
         <ToggleButtonGroup type="radio" style={{ backgroundColor: 'white' }} name="options" defaultValue={"indexingLogic.js"}
         >
           <ToggleButton id="tbg-radio-1" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'blue' : "grey", "borderRadius": "0px" }} value={"indexingLogic.js"} onClick={() => setFileName("indexingLogic.js")}>
@@ -316,6 +345,6 @@ const Editor = ({
             />
           ))}
       </div>
-    </div>);
+    </div>)
 }
 export default Editor;
