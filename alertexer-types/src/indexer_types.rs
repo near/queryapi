@@ -1,34 +1,34 @@
-use std::collections::HashMap;
-use near_lake_framework::near_indexer_primitives::types::AccountId;
-use crate::ChainId;
 use crate::primitives::AlertQueueMessagePayload;
+use crate::ChainId;
+use near_lake_framework::near_indexer_primitives::types::AccountId;
+use std::collections::HashMap;
 
 pub type IndexerRegistry = HashMap<AccountId, HashMap<String, IndexerFunction>>;
 
 #[derive(
-borsh::BorshSerialize,
-borsh::BorshDeserialize,
-serde::Serialize,
-serde::Deserialize,
-Clone,
-Debug,
+    borsh::BorshSerialize,
+    borsh::BorshDeserialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
 )]
 pub struct IndexerQueueMessage {
     pub chain_id: ChainId,
     pub alert_rule_id: i32,
     pub alert_name: String,
-    pub payload: AlertQueueMessagePayload,
+    pub payload: Option<AlertQueueMessagePayload>,
     pub block_height: u64,
     pub indexer_function: IndexerFunction,
 }
 
 #[derive(
-borsh::BorshSerialize,
-borsh::BorshDeserialize,
-serde::Serialize,
-serde::Deserialize,
-Clone,
-Debug,
+    borsh::BorshSerialize,
+    borsh::BorshDeserialize,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    Debug,
 )]
 pub struct IndexerFunction {
     pub account_id: AccountId,

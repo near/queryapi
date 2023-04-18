@@ -49,6 +49,9 @@ pub struct Opts {
     /// URL to the main AWS SQS queue backed by Queue Handler lambda
     #[clap(long, env)]
     pub queue_url: String,
+    /// URL to the AWS SQS queue for processing historical data
+    #[clap(long, env)]
+    pub start_from_block_queue_url: String,
     /// Chain ID: testnet or mainnet
     #[clap(subcommand)]
     pub chain_id: ChainId,
@@ -125,7 +128,7 @@ impl Opts {
     }
 
     /// Creates AWS SQS Client for Alertexer SQS
-    pub fn queue_client(&self, region :String) -> aws_sdk_sqs::Client {
+    pub fn queue_client(&self, region: String) -> aws_sdk_sqs::Client {
         let shared_config = self.queue_aws_sdk_config(region);
         aws_sdk_sqs::Client::new(&shared_config)
     }
@@ -192,7 +195,8 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
 }
 
 pub fn init_tracing() {
-    let mut env_filter = EnvFilter::new("near_lake_framework=info,alertexer=info,stats=info");
+    let mut env_filter =
+        EnvFilter::new("near_lake_framework=info,queryapi_coordinator=info,stats=info");
 
     if let Ok(rust_log) = std::env::var("RUST_LOG") {
         if !rust_log.is_empty() {
@@ -260,8 +264,8 @@ pub async fn send_to_indexer_queue(
     indexer_queue_messages: Vec<IndexerQueueMessage>,
 ) -> anyhow::Result<()> {
     tracing::info!(
-        target: "alertexer",
-        "Sending indexer tasks to the queue"
+        target: "queryapi_coordinator",
+        "Sending indexer tasks to the queue: {queue_url}",
     );
 
     let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
@@ -270,8 +274,10 @@ pub async fn send_to_indexer_queue(
         .map(|(index, indexer_queue_message)| {
             SendMessageBatchRequestEntry::builder()
                 .id(index.to_string())
-                .message_body(serde_json::to_string(&indexer_queue_message)
-                    .expect("Failed to Json Serialize IndexerQueueMessage"))
+                .message_body(
+                    serde_json::to_string(&indexer_queue_message)
+                        .expect("Failed to Json Serialize IndexerQueueMessage"),
+                )
                 .build()
         })
         .collect();

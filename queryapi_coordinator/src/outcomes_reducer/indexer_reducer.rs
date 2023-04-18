@@ -1,9 +1,9 @@
 use borsh::BorshDeserialize;
 
-use near_lake_framework::near_indexer_primitives::IndexerExecutionOutcomeWithReceipt;
 use near_lake_framework::near_indexer_primitives::views::{ActionView, ReceiptEnumView};
+use near_lake_framework::near_indexer_primitives::IndexerExecutionOutcomeWithReceipt;
 
-use alert_rules::{AlertRule};
+use alert_rules::AlertRule;
 
 use crate::outcomes_reducer::matcher;
 
@@ -46,9 +46,12 @@ fn build_registry_info(
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     context: &crate::AlertexerContext<'_>,
 ) -> Vec<FunctionCallInfo> {
-
-    if let ReceiptEnumView::Action { actions, signer_id, .. } = &receipt_execution_outcome.receipt.receipt {
-        actions.iter()
+    if let ReceiptEnumView::Action {
+        actions, signer_id, ..
+    } = &receipt_execution_outcome.receipt.receipt
+    {
+        actions
+            .iter()
             .filter(|action| {
                 if let ActionView::FunctionCall { method_name, .. } = action {
                     method_name == method_name
@@ -57,7 +60,10 @@ fn build_registry_info(
                 }
             })
             .flat_map(|action| {
-                if let ActionView::FunctionCall { method_name, args, .. } = action {
+                if let ActionView::FunctionCall {
+                    method_name, args, ..
+                } = action
+                {
                     Some(FunctionCallInfo {
                         chain_id: context.chain_id.clone(),
                         alert_rule_id: alert_rule.id,
@@ -70,8 +76,9 @@ fn build_registry_info(
                 } else {
                     None
                 }
-            }).collect()
+            })
+            .collect()
     } else {
-       panic!("Not an action receipt")
+        panic!("Not an action receipt")
     }
 }

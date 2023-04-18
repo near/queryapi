@@ -6,18 +6,18 @@ use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::Mutex;
 
 use alert_rules::{AlertRule, MatchingRule};
-use near_lake_framework::near_indexer_primitives::{types};
-use near_lake_framework::near_indexer_primitives::types::{AccountId};
+use near_lake_framework::near_indexer_primitives::types;
+use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 
+use shared::alertexer_types::indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use shared::{alertexer_types::primitives::AlertQueueMessage, Opts, Parser};
-use shared::alertexer_types::indexer_types::{IndexerQueueMessage, IndexerRegistry, IndexerFunction};
 use storage::ConnectionManager;
 
 pub(crate) mod cache;
+mod indexer_registry;
 mod outcomes_reducer;
 mod state_changes_reducer;
 mod utils;
-mod indexer_registry;
 
 pub(crate) const INDEXER: &str = "queryapi_coordinator";
 pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
@@ -25,8 +25,7 @@ pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from
 pub(crate) const RETRY_COUNT: usize = 2;
 pub(crate) const REGISTRY_CONTRACT: &str = "registry.queryapi.near";
 
-pub(crate) type AlertRulesInMemory =
-    std::sync::Arc<Mutex<HashMap<i32, AlertRule>>>;
+pub(crate) type AlertRulesInMemory = std::sync::Arc<Mutex<HashMap<i32, AlertRule>>>;
 
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
 
@@ -87,8 +86,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    let alert_rules_hashmap: HashMap<i32, AlertRule> =
-        alert_rules.into_iter().collect();
+    let alert_rules_hashmap: HashMap<i32, AlertRule> = alert_rules.into_iter().collect();
 
     let alert_rules_inmemory: AlertRulesInMemory =
         std::sync::Arc::new(Mutex::new(alert_rules_hashmap));
@@ -103,10 +101,15 @@ async fn main() -> anyhow::Result<()> {
 
     // fetch raw indexer functions for use in indexer
     // Could this give us results from a newer block than the next block we receive from the Lake?
-    tracing::info!(target: INDEXER, "Fetching indexer functions from contract registry...");
-    let indexer_functions = indexer_registry::read_indexer_functions_from_registry(&json_rpc_client).await;
-    let mut indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
-    let mut indexer_registry: SharedIndexerRegistry = std::sync::Arc::new(Mutex::new(indexer_functions));
+    tracing::info!(
+        target: INDEXER,
+        "Fetching indexer functions from contract registry..."
+    );
+    let indexer_functions =
+        indexer_registry::read_indexer_functions_from_registry(&json_rpc_client).await;
+    let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
+    let indexer_registry: SharedIndexerRegistry =
+        std::sync::Arc::new(Mutex::new(indexer_functions));
 
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
     let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
@@ -132,7 +135,7 @@ async fn main() -> anyhow::Result<()> {
                 chain_id,
                 queue_client,
             };
-            handle_streamer_message(context,  indexer_registry.clone())
+            handle_streamer_message(context, indexer_registry.clone())
         })
         .buffer_unordered(1usize);
 
@@ -147,11 +150,13 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn handle_streamer_message(context: AlertexerContext<'_>, indexer_registry: SharedIndexerRegistry) -> anyhow::Result<u64> {
+async fn handle_streamer_message(
+    context: AlertexerContext<'_>,
+    indexer_registry: SharedIndexerRegistry,
+) -> anyhow::Result<u64> {
     let alert_rules_inmemory_lock = context.alert_rules_inmemory.lock().await;
     // TODO: avoid cloning
-    let alert_rules: Vec<AlertRule> =
-        alert_rules_inmemory_lock.values().cloned().collect();
+    let alert_rules: Vec<AlertRule> = alert_rules_inmemory_lock.values().cloned().collect();
     drop(alert_rules_inmemory_lock);
 
     cache::cache_txs_and_receipts(&context.streamer_message, context.redis_connection_manager)
@@ -162,25 +167,30 @@ async fn handle_streamer_message(context: AlertexerContext<'_>, indexer_registry
         // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
         .buffer_unordered(10usize);
 
+    let block_height: BlockHeight = context.streamer_message.block.header.height;
+
     let mut indexer_registry_locked = indexer_registry.lock().await;
-    indexer_registry::index_registry_changes(&mut indexer_registry_locked, &context).await;
+    let spawned_indexers = indexer_registry::index_registry_changes(
+        block_height,
+        &mut indexer_registry_locked,
+        &context,
+    )
+    .await;
 
     while let Some(alert_queue_messages) = reducer_futures.next().await {
         if let Ok(alert_queue_messages) = alert_queue_messages {
-
             // for each alert_queue_message from the reducer
             //   for each indexer_function create a new alert_queue_message
             // Once the filters are tied to indexer functions, these will de-nest
             let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
             for alert_queue_message in alert_queue_messages.iter() {
-                for(account, functions) in &mut indexer_registry_locked.iter_mut() {
-                    for (function_name, indexer_function) in &mut functions.iter_mut() {
-                        let block_height = context.streamer_message.block.header.height;
+                for (_account, functions) in &mut indexer_registry_locked.iter_mut() {
+                    for (_function_name, indexer_function) in &mut functions.iter_mut() {
                         let msg = IndexerQueueMessage {
                             chain_id: alert_queue_message.chain_id.clone(),
                             alert_rule_id: alert_queue_message.alert_rule_id,
                             alert_name: alert_queue_message.alert_name.clone(),
-                            payload: alert_queue_message.payload.clone(),
+                            payload: Some(alert_queue_message.payload.clone()),
                             block_height,
                             indexer_function: indexer_function.clone(),
                         };

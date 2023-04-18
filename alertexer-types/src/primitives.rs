@@ -180,5 +180,5 @@ pub enum DestinationConfig {
         destination_id: i32,
         indexer_name: String,
         indexer_function_code: String,
-    }
+    },
 }
