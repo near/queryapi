@@ -100,13 +100,6 @@ pub(crate) async fn index_registry_changes(
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone()
                             );
-
-                            if let Some(thread) = spawn_historical_message_thread(
-                                block_height,
-                                &mut new_indexer_function,
-                            ) {
-                                spawned_start_from_block_threads.push(thread);
-                            }
                         }
 
                         // if there is an existing function then respond to any changed fields
@@ -121,18 +114,14 @@ pub(crate) async fn index_registry_changes(
                             if old_indexer_function.schema == new_indexer_function.schema {
                                 new_indexer_function.provisioned = true;
                             }
+                        }
+                    }
 
-                            if has_new_start_block(
-                                old_indexer_function.start_block_height,
-                                new_indexer_function.start_block_height,
-                            ) {
-                                if let Some(thread) = spawn_historical_message_thread(
-                                    block_height,
-                                    &mut new_indexer_function,
-                                ) {
-                                    spawned_start_from_block_threads.push(thread);
-                                }
-                            }
+                    if new_indexer_function.start_block_height.is_some() {
+                        if let Some(thread) =
+                            spawn_historical_message_thread(block_height, &mut new_indexer_function)
+                        {
+                            spawned_start_from_block_threads.push(thread);
                         }
                     }
 
@@ -175,17 +164,6 @@ pub(crate) async fn index_registry_changes(
         }
     }
     spawned_start_from_block_threads
-}
-
-fn has_new_start_block(
-    old_start_block: Option<BlockHeight>,
-    new_start_block: Option<BlockHeight>,
-) -> bool {
-    match (old_start_block, new_start_block) {
-        (None, Some(..)) => true,
-        (Some(..), Some(..)) if old_start_block != new_start_block => true,
-        _ => false,
-    }
 }
 
 fn spawn_historical_message_thread(
