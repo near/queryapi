@@ -17,6 +17,7 @@ export const consumer = async (event) => {
             const mutations = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
             results.push(...mutations);
         } catch (error) {
+            console.error(error);
             return { // force DLQ treatment of batch by returning error
                 statusCode: 400,
                 body: JSON.stringify({
