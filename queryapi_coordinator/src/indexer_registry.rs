@@ -71,6 +71,13 @@ pub(crate) async fn index_registry_changes(
     registry: &mut MutexGuard<'_, IndexerRegistry>,
     context: &AlertexerContext<'_>,
 ) -> Vec<JoinHandle<i64>> {
+    index_and_process_remove_calls(registry, context);
+
+    let spawned_start_from_block_threads = index_and_process_register_calls(block_height, registry, context);
+    spawned_start_from_block_threads
+}
+
+fn index_and_process_register_calls(block_height: BlockHeight, registry: &mut MutexGuard<IndexerRegistry>, context: &AlertexerContext) -> Vec<JoinHandle<i64>> {
     let registry_method_name = "register_indexer_function";
     let registry_calls = build_registry_alert(registry_method_name);
     let registry_updates =
@@ -130,7 +137,10 @@ pub(crate) async fn index_registry_changes(
             };
         }
     }
+    spawned_start_from_block_threads
+}
 
+fn index_and_process_remove_calls(registry: &mut MutexGuard<IndexerRegistry>, context: &AlertexerContext) {
     let registry_method_name = "remove_indexer_function";
     let registry_calls = build_registry_alert(registry_method_name);
     let registry_updates =
@@ -163,7 +173,6 @@ pub(crate) async fn index_registry_changes(
             }
         }
     }
-    spawned_start_from_block_threads
 }
 
 fn spawn_historical_message_thread(
