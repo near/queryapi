@@ -282,6 +282,13 @@ async fn process_historical_messages(
             // todo: fetch contract index files to get list of relevant blocks for our filter.
 
             for current_block in start_block..block_height {
+                let mut indexer_function = indexer_function.clone();
+
+                // only request provisioning on the first block
+                if current_block != start_block {
+                    indexer_function.provisioned = true;
+                }
+
                 let msg = IndexerQueueMessage {
                     chain_id: chain_id.clone(), // alert_queue_message.chain_id.clone(),
                     alert_rule_id: 0,           // alert_queue_message.alert_rule_id,
