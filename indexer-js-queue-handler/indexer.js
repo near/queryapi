@@ -3,9 +3,9 @@ import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
-import VError from "verror";
-
 import Provisioner from './provisioner.js'
+import AWSXRay from "aws-xray-sdk";
+import traceFetch from "./trace-fetch.js";
 
 export default class Indexer {
 
@@ -20,7 +20,7 @@ export default class Indexer {
         this.network = network;
         this.aws_region = aws_region;
         this.deps = {
-            fetch,
+            fetch: traceFetch(fetch),
             s3: new AWS.S3({ region: aws_region }),
             provisioner: new Provisioner(),
             ...deps,
@@ -36,6 +36,10 @@ export default class Indexer {
             try {
                 const indexerFunction = functions[function_name];
                 console.log('Running function', function_name);  // Lambda logs
+                const segment = AWSXRay.getSegment(); // segment is immutable, subsegments are mutable
+                const functionSubsegment = segment.addNewSubsegment('indexer_function');
+                functionSubsegment.addAnnotation('indexer_function', function_name);
+                this.functionSubsegment = functionSubsegment;
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
@@ -96,10 +100,14 @@ export default class Indexer {
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
             } catch (e) {
                 console.error(`${function_name}: Failed to run function`, e);
+                this.functionSubsegment.addError(e);
                 await this.setStatus(function_name, block_height, 'STOPPED');
                 throw e;
             } finally {
                 await Promise.all(simultaneousPromises);
+                if(this.functionSubsegment) {
+                    this.functionSubsegment.close();
+                }
             }
         }
         return allMutations;
@@ -276,6 +284,9 @@ export default class Indexer {
     }
 
     setStatus(functionName, blockHeight, status) {
+        const activeFunctionSubsegment = this.functionSubsegment;
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`setStatus`);
+
         return this.runGraphQLQuery(
             `
                 mutation SetStatus($function_name: String, $status: indexer_status) {
@@ -292,29 +303,37 @@ export default class Indexer {
             functionName,
             blockHeight,
             this.DEFAULT_HASURA_ROLE
-        );
+        ).finally(() => {
+            subsegment.close();
+        });
     }
 
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
-        const messageJson = JSON.stringify(message);
-        const mutation =
-`mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`;
-
+        const activeFunctionSubsegment = this.functionSubsegment;
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
         try {
+            const messageJson = JSON.stringify(message);
+            const mutation =
+                `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                    insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+                 }`;
+
             return this.runGraphQLQuery(mutation, {function_name, block_height, message: messageJson},
                 function_name, block_height, this.DEFAULT_HASURA_ROLE)
-                .then((result) => result?.insert_indexer_log_entries_one?.id);
+                .then((result) => {
+                    return result?.insert_indexer_log_entries_one?.id;
+                })
+                .finally(() => {
+                    subsegment.close();
+                });
         } catch (e) {
             console.error(`${function_name}: Error writing log`, e);
         }
     }
 
     async writeFunctionState(function_name, block_height) {
+        const activeFunctionSubsegment = this.functionSubsegment;
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeFunctionState`);
         const mutation =
             `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
                   insert_indexer_state(
@@ -332,7 +351,10 @@ export default class Indexer {
             block_height,
         };
         try {
-            return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE);
+            return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE)
+                .finally(() => {
+                    subsegment.close();
+                });
         } catch(e) {
             console.error(`${function_name}: Error writing function state`, e);
         }
