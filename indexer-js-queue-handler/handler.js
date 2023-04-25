@@ -3,7 +3,7 @@ import AWSXRay from "aws-xray-sdk";
 import AWS from "aws-sdk";
 
 // capture calls to AWS services in X-ray traces
-const awsSdk = AWSXRay.captureAWS(AWS);
+AWSXRay.captureAWS(AWS);
 
 export const consumer = async (event) => {
     const indexer = new Indexer('mainnet', 'eu-central-1');
