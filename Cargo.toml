@@ -7,3 +7,7 @@ members = [
     "shared",
     "storage",
 ]
+
+exclude = [ 
+    "hasura-authentication-service"
+]
