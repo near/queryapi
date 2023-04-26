@@ -16,7 +16,9 @@ It has two env vars set:
 
 `indexer-js-queue-handler` is deployed with `sls deploy --stage dev` to https://us-west-2.console.aws.amazon.com/lambda/home?region=us-west-2#/functions/queryapi-dev-jobsWorker
  * Logs are here https://us-west-2.console.aws.amazon.com/cloudwatch/home?region=us-west-2#logsV2:log-groups/log-group/$252Faws$252Flambda$252Fqueryapi-dev-jobsWorker
-
+or when using the awslogs cli tool
+ * AWS_REGION=eu-central-1 awslogs get /aws/lambda/queryapi-dev-indexer-runnerWorker ALL --watch;
+ * AWS_REGION=eu-central-1 awslogs get /aws/lambda/queryapi-dev-startFromBlock-runnerWorker ALL --watch;
 
 
 ## VM2 Sandbox notes
