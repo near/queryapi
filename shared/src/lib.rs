@@ -52,6 +52,9 @@ pub struct Opts {
     /// URL to the AWS SQS queue for processing historical data
     #[clap(long, env)]
     pub start_from_block_queue_url: String,
+    /// Registry contract to use
+    #[clap(env)]
+    pub registry_contract_id: String,
     /// Chain ID: testnet or mainnet
     #[clap(subcommand)]
     pub chain_id: ChainId,
