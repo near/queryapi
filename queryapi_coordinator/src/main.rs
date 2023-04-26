@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::Mutex;
 
-use alert_rules::{AlertRule, MatchingRule};
+use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
 use near_lake_framework::near_indexer_primitives::types;
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 
@@ -24,8 +22,6 @@ pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_milli
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
 pub(crate) const RETRY_COUNT: usize = 2;
 
-pub(crate) type AlertRulesInMemory = std::sync::Arc<Mutex<HashMap<i32, AlertRule>>>;
-
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -36,13 +32,12 @@ pub struct BalanceDetails {
 
 pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<AccountId, BalanceDetails>>>;
 
-pub(crate) struct AlertexerContext<'a> {
+pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
     pub chain_id: &'a shared::alertexer_types::primitives::ChainId,
     pub queue_client: &'a shared::QueueClient,
     pub queue_url: &'a str,
     pub registry_contract_id: &'a str,
-    pub alert_rules_inmemory: AlertRulesInMemory,
     pub balance_cache: &'a BalanceCache,
     pub redis_connection_manager: &'a ConnectionManager,
     pub json_rpc_client: &'a JsonRpcClient,
@@ -69,35 +64,6 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
 
-    tracing::info!(target: INDEXER, "Starting the Alert Rules fetcher...");
-    let pool = utils::establish_alerts_db_connection(&opts.database_url).await;
-
-    // Prevent indexer from start indexing unless we connect and get AlertRules from the DB
-    let alert_rules = loop {
-        match utils::fetch_alert_rules(&pool, chain_id).await {
-            Ok(alert_rules_tuples) => break alert_rules_tuples,
-            Err(err) => {
-                tracing::warn!(
-                    target: INDEXER,
-                    "Failed to fetch AlertRules from DB. Retrying in 1s...\n{:#?}",
-                    err
-                );
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
-        }
-    };
-
-    let alert_rules_hashmap: HashMap<i32, AlertRule> = alert_rules.into_iter().collect();
-
-    let alert_rules_inmemory: AlertRulesInMemory =
-        std::sync::Arc::new(Mutex::new(alert_rules_hashmap));
-
-    tokio::spawn(utils::alert_rules_fetcher(
-        pool,
-        std::sync::Arc::clone(&alert_rules_inmemory),
-        chain_id.clone(),
-    ));
-
     let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
 
     // fetch raw indexer functions for use in indexer
@@ -121,16 +87,12 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Instantiating the stream...",);
     let (sender, stream) = near_lake_framework::streamer(config);
 
-    tokio::spawn(utils::stats(
-        redis_connection_manager.clone(),
-        std::sync::Arc::clone(&alert_rules_inmemory),
-    ));
+    tokio::spawn(utils::stats(redis_connection_manager.clone()));
 
     tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
-            let context = AlertexerContext {
-                alert_rules_inmemory: std::sync::Arc::clone(&alert_rules_inmemory),
+            let context = QueryApiContext {
                 redis_connection_manager: &redis_connection_manager,
                 queue_url: &queue_url,
                 json_rpc_client: &json_rpc_client,
@@ -156,13 +118,11 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn handle_streamer_message(
-    context: AlertexerContext<'_>,
+    context: QueryApiContext<'_>,
     indexer_registry: SharedIndexerRegistry,
 ) -> anyhow::Result<u64> {
-    let alert_rules_inmemory_lock = context.alert_rules_inmemory.lock().await;
-    // TODO: avoid cloning
-    let alert_rules: Vec<AlertRule> = alert_rules_inmemory_lock.values().cloned().collect();
-    drop(alert_rules_inmemory_lock);
+    // This is a single hardcoded filter, which is standing in for filters on IndexerFunctions.
+    let alert_rules: Vec<AlertRule> = vec![near_social_alert_rule()];
 
     cache::cache_txs_and_receipts(&context.streamer_message, context.redis_connection_manager)
         .await?;
@@ -250,7 +210,7 @@ async fn handle_streamer_message(
 
 async fn reduce_alert_queue_messages(
     alert_rule: &AlertRule,
-    context: &AlertexerContext<'_>,
+    context: &QueryApiContext<'_>,
 ) -> anyhow::Result<Vec<AlertQueueMessage>> {
     Ok(match &alert_rule.matching_rule {
         MatchingRule::ActionAny { .. }
@@ -266,4 +226,23 @@ async fn reduce_alert_queue_messages(
             .await?
         }
     })
+}
+
+fn near_social_alert_rule() -> AlertRule {
+    let contract = "social.near";
+    let method = "set";
+    let matching_rule = MatchingRule::ActionFunctionCall {
+        affected_account_id: contract.to_string(),
+        function: method.to_string(),
+        status: Status::Any,
+    };
+    AlertRule {
+        id: 0,
+        name: format!("{} {}{}", contract, method, "_changes"),
+        chain_id: alert_rules::ChainId::Mainnet,
+        alert_rule_kind: AlertRuleKind::Actions,
+        is_paused: false,
+        updated_at: None,
+        matching_rule,
+    }
 }

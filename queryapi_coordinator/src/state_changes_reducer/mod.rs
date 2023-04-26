@@ -16,7 +16,7 @@ mod matcher;
 
 pub(crate) async fn reduce_alert_queue_messages_from_state_changes(
     alert_rule: &AlertRule,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> anyhow::Result<Vec<AlertQueueMessage>> {
     let state_changes: Vec<&StateChangeWithCauseView> = context
         .streamer_message
@@ -46,7 +46,7 @@ pub(crate) async fn reduce_alert_queue_messages_from_state_changes(
 async fn build_alert_queue_message(
     alert_rule: &AlertRule,
     state_change_with_cause: &StateChangeWithCauseView,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> anyhow::Result<AlertQueueMessage> {
     let payload = match state_change_with_cause.cause {
         StateChangeCauseView::TransactionProcessing { tx_hash } => {
