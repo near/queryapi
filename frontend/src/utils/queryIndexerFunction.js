@@ -1,5 +1,5 @@
 import { providers } from 'near-api-js';
-
+const REGISTRY_CONTRACT = process.env.NEXT_PUBLIC_REGISTRY_CONTRACT_ID || "queryapi.dataplatform.near";
 //network config (replace testnet with mainnet or betanet)
 const provider = new providers.JsonRpcProvider(
   "https://archival-rpc.mainnet.near.org"
@@ -11,7 +11,7 @@ export const queryIndexerFunctionDetails = async (accountId, functionName) => {
   try {
     const result = await provider.query({
       request_type: "call_function",
-      account_id: "registry.queryapi.near",
+      account_id: REGISTRY_CONTRACT,
       method_name: "read_indexer_function",
       args_base64: Buffer.from(JSON.stringify(args)).toString("base64"),
       finality: "optimistic",
