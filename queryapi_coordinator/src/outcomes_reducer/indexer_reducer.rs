@@ -54,7 +54,7 @@ fn build_registry_info(
             .iter()
             .filter(|action| {
                 if let ActionView::FunctionCall { method_name, .. } = action {
-                    method_name == method_name
+                    method_name.eq(method_name)
                 } else {
                     false
                 }

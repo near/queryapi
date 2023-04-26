@@ -176,6 +176,13 @@ async fn handle_streamer_message(
         &context,
     )
     .await;
+    if !spawned_indexers.is_empty() {
+        tracing::info!(
+            target: INDEXER,
+            "Spawned {} historical backfill indexers",
+            spawned_indexers.len()
+        );
+    }
 
     while let Some(alert_queue_messages) = reducer_futures.next().await {
         if let Ok(alert_queue_messages) = alert_queue_messages {
@@ -196,7 +203,7 @@ async fn handle_streamer_message(
                         };
                         indexer_function_messages.push(msg);
 
-                        if indexer_function.provisioned == false {
+                        if !indexer_function.provisioned {
                             indexer_function.provisioned = true;
                         }
                     }

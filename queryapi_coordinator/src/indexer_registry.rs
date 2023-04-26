@@ -66,6 +66,7 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
     registry
 }
 
+/// Returns spawned start_from_block threads
 pub(crate) async fn index_registry_changes(
     block_height: BlockHeight,
     registry: &mut MutexGuard<'_, IndexerRegistry>,
@@ -73,9 +74,7 @@ pub(crate) async fn index_registry_changes(
 ) -> Vec<JoinHandle<i64>> {
     index_and_process_remove_calls(registry, context);
 
-    let spawned_start_from_block_threads =
-        index_and_process_register_calls(block_height, registry, context);
-    spawned_start_from_block_threads
+    index_and_process_register_calls(block_height, registry, context)
 }
 
 fn index_and_process_register_calls(
@@ -89,7 +88,7 @@ fn index_and_process_register_calls(
         indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
     let mut spawned_start_from_block_threads = Vec::new();
 
-    if registry_updates.len() > 0 {
+    if !registry_updates.is_empty() {
         for update in registry_updates {
             let new_indexer_function = build_indexer_function_from_args(
                 parse_indexer_function_args(&update),
@@ -153,7 +152,7 @@ fn index_and_process_remove_calls(
     let registry_calls = build_registry_alert(registry_method_name);
     let registry_updates =
         indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
-    if registry_updates.len() > 0 {
+    if !registry_updates.is_empty() {
         for update in registry_updates {
             let function_invocation: Option<RegistryFunctionInvocation> =
                 build_function_invocation_from_args(
@@ -188,10 +187,9 @@ fn spawn_historical_message_thread(
     new_indexer_function: &mut IndexerFunction,
 ) -> Option<JoinHandle<i64>> {
     new_indexer_function.start_block_height.map(|_| {
-        let block_height_copy = block_height.clone();
         let new_indexer_function_copy = new_indexer_function.clone();
         tokio::spawn(async move {
-            process_historical_messages(block_height_copy, new_indexer_function_copy).await
+            process_historical_messages(block_height, new_indexer_function_copy).await
         })
     })
 }
@@ -334,7 +332,7 @@ fn build_registry_alert(registry_method_name: &str) -> AlertRule {
         function: registry_method_name.to_string(),
         status: Status::Any,
     };
-    let registry_calls = AlertRule {
+    AlertRule {
         id: 0,
         name: format!("{}{}", registry_method_name, "_changes"),
         chain_id: alert_rules::ChainId::Mainnet,
@@ -342,8 +340,7 @@ fn build_registry_alert(registry_method_name: &str) -> AlertRule {
         is_paused: false,
         updated_at: None,
         matching_rule,
-    };
-    registry_calls
+    }
 }
 
 pub async fn read_indexer_functions_from_registry(rpc_client: &JsonRpcClient) -> Value {
