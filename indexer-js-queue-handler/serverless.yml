@@ -17,10 +17,12 @@ constructs:
     type: queue
     worker:
       handler: handler.consumer
+      timeout: 60 # 6 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
   startFromBlock-runner:
     type: queue
     worker:
       handler: handler.consumer
+      timeout: 60 # 6 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
 
 functions:
 
