@@ -23,7 +23,6 @@ pub(crate) const INDEXER: &str = "queryapi_coordinator";
 pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
 pub(crate) const RETRY_COUNT: usize = 2;
-pub(crate) const REGISTRY_CONTRACT: &str = "registry.queryapi.near";
 
 pub(crate) type AlertRulesInMemory = std::sync::Arc<Mutex<HashMap<i32, AlertRule>>>;
 
@@ -42,6 +41,7 @@ pub(crate) struct AlertexerContext<'a> {
     pub chain_id: &'a shared::alertexer_types::primitives::ChainId,
     pub queue_client: &'a shared::QueueClient,
     pub queue_url: &'a str,
+    pub registry_contract_id: &'a str,
     pub alert_rules_inmemory: AlertRulesInMemory,
     pub balance_cache: &'a BalanceCache,
     pub redis_connection_manager: &'a ConnectionManager,
@@ -60,6 +60,7 @@ async fn main() -> anyhow::Result<()> {
     let aws_region = opts.aws_queue_region.clone();
     let queue_client = &opts.queue_client(aws_region);
     let queue_url = opts.queue_url.clone();
+    let registry_contract_id = opts.registry_contract_id.clone();
 
     // We want to prevent unnecessary RPC queries to find previous balance
     let balances_cache: BalanceCache =
@@ -105,8 +106,11 @@ async fn main() -> anyhow::Result<()> {
         target: INDEXER,
         "Fetching indexer functions from contract registry..."
     );
-    let indexer_functions =
-        indexer_registry::read_indexer_functions_from_registry(&json_rpc_client).await;
+    let indexer_functions = indexer_registry::read_indexer_functions_from_registry(
+        &json_rpc_client,
+        &registry_contract_id,
+    )
+    .await;
     let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
@@ -131,6 +135,7 @@ async fn main() -> anyhow::Result<()> {
                 queue_url: &queue_url,
                 json_rpc_client: &json_rpc_client,
                 balance_cache: &balances_cache,
+                registry_contract_id: &registry_contract_id,
                 streamer_message,
                 chain_id,
                 queue_client,
