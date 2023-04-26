@@ -14,7 +14,7 @@ mod matcher;
 
 pub(crate) async fn reduce_alert_queue_messages_from_outcomes(
     alert_rule: &AlertRule,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> anyhow::Result<Vec<AlertQueueMessage>> {
     let build_alert_queue_message_futures = context
         .streamer_message
@@ -38,7 +38,7 @@ pub(crate) async fn reduce_alert_queue_messages_from_outcomes(
 async fn build_alert_queue_message(
     alert_rule: &AlertRule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> anyhow::Result<AlertQueueMessage> {
     let transaction_hash = parent_transaction_hash(
         &receipt_execution_outcome.receipt.receipt_id.to_string(),
@@ -62,7 +62,7 @@ async fn build_alert_queue_message(
 
 async fn parent_transaction_hash(
     receipt_id: &str,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> anyhow::Result<String> {
     if let Some(cache_value_bytes) =
         storage::get::<Option<Vec<u8>>>(context.redis_connection_manager, &receipt_id).await?
@@ -78,7 +78,7 @@ fn build_alert_queue_message_payload(
     alert_rule: &AlertRule,
     transaction_hash: &str,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
-    context: &crate::AlertexerContext,
+    context: &crate::QueryApiContext,
 ) -> AlertQueueMessagePayload {
     match &alert_rule.matching_rule {
         MatchingRule::ActionAny { .. }

@@ -1,4 +1,4 @@
-use crate::AlertexerContext;
+use crate::QueryApiContext;
 use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::query::{QueryResponseKind, RpcQueryRequest};
@@ -70,7 +70,7 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 pub(crate) async fn index_registry_changes(
     block_height: BlockHeight,
     registry: &mut MutexGuard<'_, IndexerRegistry>,
-    context: &AlertexerContext<'_>,
+    context: &QueryApiContext<'_>,
 ) -> Vec<JoinHandle<i64>> {
     index_and_process_remove_calls(registry, context);
 
@@ -80,7 +80,7 @@ pub(crate) async fn index_registry_changes(
 fn index_and_process_register_calls(
     block_height: BlockHeight,
     registry: &mut MutexGuard<IndexerRegistry>,
-    context: &AlertexerContext,
+    context: &QueryApiContext,
 ) -> Vec<JoinHandle<i64>> {
     let registry_method_name = "register_indexer_function";
     let registry_calls = build_registry_alert(registry_method_name);
@@ -146,7 +146,7 @@ fn index_and_process_register_calls(
 
 fn index_and_process_remove_calls(
     registry: &mut MutexGuard<IndexerRegistry>,
-    context: &AlertexerContext,
+    context: &QueryApiContext,
 ) {
     let registry_method_name = "remove_indexer_function";
     let registry_calls = build_registry_alert(registry_method_name);

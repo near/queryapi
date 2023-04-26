@@ -6,7 +6,7 @@ use near_lake_framework::near_indexer_primitives::views::{
 pub(crate) async fn match_state_change_account_balance(
     matching_rule: &MatchingRule,
     state_change: &StateChangeWithCauseView,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> bool {
     if let MatchingRule::StateChangeAccountBalance {
         affected_account_id,

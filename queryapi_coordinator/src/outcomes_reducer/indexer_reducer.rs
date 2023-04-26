@@ -9,7 +9,7 @@ use crate::outcomes_reducer::matcher;
 
 pub(crate) fn reduce_function_registry_from_outcomes(
     alert_rule: &AlertRule,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> Vec<FunctionCallInfo> {
     let build_function_call_info_vector = context
         .streamer_message
@@ -44,7 +44,7 @@ pub struct FunctionCallInfo {
 fn build_registry_info(
     alert_rule: &AlertRule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
-    context: &crate::AlertexerContext<'_>,
+    context: &crate::QueryApiContext<'_>,
 ) -> Vec<FunctionCallInfo> {
     if let ReceiptEnumView::Action {
         actions, signer_id, ..
