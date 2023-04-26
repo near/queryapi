@@ -130,11 +130,9 @@ fn match_status(status: &Status, execution_outcome_status: &ExecutionStatusView)
             execution_outcome_status,
             ExecutionStatusView::SuccessValue(_) | ExecutionStatusView::SuccessReceiptId(_)
         ),
-        Status::Fail => match execution_outcome_status {
-            ExecutionStatusView::SuccessValue(_) | ExecutionStatusView::SuccessReceiptId(_) => {
-                false
-            }
-            _ => true,
-        },
+        Status::Fail => !matches!(
+            execution_outcome_status,
+            ExecutionStatusView::SuccessValue(_) | ExecutionStatusView::SuccessReceiptId(_)
+        ),
     }
 }

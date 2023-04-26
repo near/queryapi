@@ -64,12 +64,12 @@ async fn cache_receipts_from_tx(
             children_receipt_ids: vec![],
         };
 
-        return storage::push_receipt_to_watching_list(
+        storage::push_receipt_to_watching_list(
             redis_connection_manager,
             &converted_into_receipt_id,
             &cache_value.try_to_vec().unwrap(),
         )
-        .await;
+        .await
     });
     try_join_all(push_receipt_to_watching_list_future).await?;
 
@@ -137,12 +137,12 @@ async fn cache_receipts_from_execution_outcome(
                     }
                     .try_to_vec()
                     .expect("Failed to BorshSerialize CacheValue");
-                    return storage::push_receipt_to_watching_list(
+                    storage::push_receipt_to_watching_list(
                         redis_connection_manager,
                         receipt_id_string,
                         &cache_value_bytes,
                     )
-                    .await;
+                    .await
                 });
             try_join_all(push_receipt_to_watching_list_future).await?;
         }

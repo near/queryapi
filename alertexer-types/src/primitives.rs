@@ -24,38 +24,35 @@ impl AlertQueueMessage {
             ChainId::Testnet => {
                 if let Some(tx_hash) = self.payload.transaction_hash() {
                     if let Some(receipt_id) = self.payload.receipt_id() {
-                        return format!(
+                        format!(
                             "https://explorer.testnet.near.org/transactions/{}#{}",
                             tx_hash, receipt_id,
-                        );
+                        )
                     } else {
-                        return format!(
-                            "https://explorer.testnet.near.org/transactions/{}",
-                            tx_hash
-                        );
+                        format!("https://explorer.testnet.near.org/transactions/{}", tx_hash)
                     }
                 } else {
-                    return format!(
+                    format!(
                         "https://explorer.testnet.near.org/block/{}",
                         self.payload.block_hash()
-                    );
+                    )
                 }
             }
             ChainId::Mainnet => {
                 if let Some(tx_hash) = self.payload.transaction_hash() {
                     if let Some(receipt_id) = self.payload.receipt_id() {
-                        return format!(
+                        format!(
                             "https://explorer.near.org/transactions/{}#{}",
                             tx_hash, receipt_id,
-                        );
+                        )
                     } else {
-                        return format!("https://explorer.near.org/transactions/{}", tx_hash);
+                        format!("https://explorer.near.org/transactions/{}", tx_hash)
                     }
                 } else {
-                    return format!(
+                    format!(
                         "https://explorer.near.org/block/{}",
                         self.payload.block_hash()
-                    );
+                    )
                 }
             }
         }
