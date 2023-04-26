@@ -21,4 +21,5 @@ export const consumer = async (event) => {
         const mutations = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
         results.push(...mutations);
     }
+    return results;
 };

@@ -311,24 +311,23 @@ export default class Indexer {
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
         const activeFunctionSubsegment = this.functionSubsegment;
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
-        try {
-            const messageJson = JSON.stringify(message);
-            const mutation =
-                `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-                    insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
-                 }`;
+        const messageJson = JSON.stringify(message);
+        const mutation =
+            `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+             }`;
 
-            return this.runGraphQLQuery(mutation, {function_name, block_height, message: messageJson},
-                function_name, block_height, this.DEFAULT_HASURA_ROLE)
-                .then((result) => {
-                    return result?.insert_indexer_log_entries_one?.id;
-                })
-                .finally(() => {
-                    subsegment.close();
-                });
-        } catch (e) {
-            console.error(`${function_name}: Error writing log`, e);
-        }
+        return this.runGraphQLQuery(mutation, {function_name, block_height, message: messageJson},
+            function_name, block_height, this.DEFAULT_HASURA_ROLE)
+            .then((result) => {
+                return result?.insert_indexer_log_entries_one?.id;
+            })
+            .catch((e) => {
+                console.error(`${function_name}: Error writing log`, e);
+            })
+            .finally(() => {
+                subsegment.close();
+            });
     }
 
     async writeFunctionState(function_name, block_height) {
@@ -350,14 +349,13 @@ export default class Indexer {
             function_name,
             block_height,
         };
-        try {
-            return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE)
-                .finally(() => {
-                    subsegment.close();
-                });
-        } catch(e) {
-            console.error(`${function_name}: Error writing function state`, e);
-        }
+        return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE)
+            .catch((e) => {
+                console.error(`${function_name}: Error writing function state`, e);
+            })
+            .finally(() => {
+                subsegment.close();
+            });
     }
     async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
         const response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
