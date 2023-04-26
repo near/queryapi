@@ -39,7 +39,6 @@ export default class Indexer {
                 const segment = AWSXRay.getSegment(); // segment is immutable, subsegments are mutable
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
                 functionSubsegment.addAnnotation('indexer_function', function_name);
-                this.functionSubsegment = functionSubsegment;
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
@@ -100,14 +99,12 @@ export default class Indexer {
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
             } catch (e) {
                 console.error(`${function_name}: Failed to run function`, e);
-                this.functionSubsegment.addError(e);
+                AWSXRay.resolveSegment().addError(e);
                 await this.setStatus(function_name, block_height, 'STOPPED');
                 throw e;
             } finally {
                 await Promise.all(simultaneousPromises);
-                if(this.functionSubsegment) {
-                    this.functionSubsegment.close();
-                }
+                AWSXRay.resolveSegment().close();
             }
         }
         return allMutations;
@@ -284,7 +281,7 @@ export default class Indexer {
     }
 
     setStatus(functionName, blockHeight, status) {
-        const activeFunctionSubsegment = this.functionSubsegment;
+        const activeFunctionSubsegment = AWSXRay.resolveSegment()
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`setStatus`);
 
         return this.runGraphQLQuery(
@@ -309,7 +306,7 @@ export default class Indexer {
     }
 
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
-        const activeFunctionSubsegment = this.functionSubsegment;
+        const activeFunctionSubsegment = AWSXRay.resolveSegment();
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
         const messageJson = JSON.stringify(message);
         const mutation =
@@ -331,7 +328,7 @@ export default class Indexer {
     }
 
     async writeFunctionState(function_name, block_height) {
-        const activeFunctionSubsegment = this.functionSubsegment;
+        const activeFunctionSubsegment = AWSXRay.resolveSegment();
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeFunctionState`);
         const mutation =
             `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
