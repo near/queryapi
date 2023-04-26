@@ -83,7 +83,7 @@ fn index_and_process_register_calls(
     context: &AlertexerContext,
 ) -> Vec<JoinHandle<i64>> {
     let registry_method_name = "register_indexer_function";
-    let registry_calls = build_registry_alert(registry_method_name);
+    let registry_calls = build_registry_alert(registry_method_name, context.registry_contract_id);
     let registry_updates =
         indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
     let mut spawned_start_from_block_threads = Vec::new();
@@ -149,7 +149,7 @@ fn index_and_process_remove_calls(
     context: &AlertexerContext,
 ) {
     let registry_method_name = "remove_indexer_function";
-    let registry_calls = build_registry_alert(registry_method_name);
+    let registry_calls = build_registry_alert(registry_method_name, context.registry_contract_id);
     let registry_updates =
         indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
     if !registry_updates.is_empty() {
@@ -326,9 +326,9 @@ async fn process_historical_messages(
     block_difference
 }
 
-fn build_registry_alert(registry_method_name: &str) -> AlertRule {
+fn build_registry_alert(registry_method_name: &str, registry_contract_id: &str) -> AlertRule {
     let matching_rule = MatchingRule::ActionFunctionCall {
-        affected_account_id: crate::REGISTRY_CONTRACT.to_string(),
+        affected_account_id: registry_contract_id.to_string(),
         function: registry_method_name.to_string(),
         status: Status::Any,
     };
@@ -343,10 +343,13 @@ fn build_registry_alert(registry_method_name: &str) -> AlertRule {
     }
 }
 
-pub async fn read_indexer_functions_from_registry(rpc_client: &JsonRpcClient) -> Value {
+pub async fn read_indexer_functions_from_registry(
+    rpc_client: &JsonRpcClient,
+    registry_contract_id: &str,
+) -> Value {
     match read_only_call(
         rpc_client,
-        crate::REGISTRY_CONTRACT,
+        registry_contract_id,
         "list_indexer_functions",
         FunctionArgs::from(json!({}).to_string().into_bytes()),
     )
