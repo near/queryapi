@@ -286,7 +286,7 @@ const Editor = ({
           <ToggleButton id="tbg-radio-1" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'blue' : "grey", "borderRadius": "0px" }} value={"indexingLogic.js"} onClick={() => setFileName("indexingLogic.js")}>
             indexingLogic.js
           </ToggleButton>
-          <ToggleButton id="tbg-radio-2" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'grey' : "blue", "borderRadius": "0px" }} value={"schema.sql"} onClick={() => setFileName("schema.sql")}>
+          <ToggleButton id="tbg-radio-2" style={{ backgroundColor: fileName === "schema.sql" ? 'blue' : "grey", "borderRadius": "0px" }} value={"schema.sql"} onClick={() => setFileName("schema.sql")}>
             schema.sql
           </ToggleButton>
           <ToggleButton id="tbg-radio-3" style={{ backgroundColor: fileName === "GraphiQL" ? 'blue' : "grey", "borderRadius": "0px" }} value={"GraphiQL"} onClick={() => setFileName("GraphiQL")}>
@@ -300,7 +300,8 @@ const Editor = ({
                 onChange={(checked) => {
                   setDiffView(checked)
                 }}
-              /></InputGroup.Text>
+              />
+            </InputGroup.Text>
           </InputGroup>
         </ToggleButtonGroup>
         {fileName === "GraphiQL" && (
