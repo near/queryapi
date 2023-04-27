@@ -17,18 +17,22 @@ import Switch from "react-switch";
 import primitives from '!!raw-loader!../../../primitives.d.ts';
 import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js"
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js"
+import GraphiQL from 'graphiql'
+
+import "graphiql/graphiql.min.css";
+import { request, useInitialPayload, sessionStorage } from 'near-social-bridge'
+
 const defaultCode = formatIndexingCode(`
   // Add your code here   
   const h = block.header().height
   await context.set('height', h);
 `, true);
 
-import { request, useInitialPayload } from 'near-social-bridge'
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `
 const BLOCKHEIGHT_LIMIT = 3600
-
+const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_HASURA_ENDPOINT
 const Editor = ({
   options,
   accountId,
@@ -52,7 +56,6 @@ const Editor = ({
   const [blockHeight, setBlockHeight] = useState(null);
 
   const { height } = useInitialPayload()
-
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null)
@@ -108,6 +111,15 @@ const Editor = ({
     // Send a message to other sources
     request('register-function', { indexerName: indexerNameField.replaceAll(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: start_block_height });
   };
+
+  const graphQLFetcher = (graphQLParams) => {
+    return fetch( HASURA_ENDPOINT , {
+      method: "post",
+      credentials: "omit",
+      headers: { "Content-Type": "application/json", "X-Hasura-Role": accountId.replaceAll('.', '_') },
+      body: JSON.stringify(graphQLParams || {})
+    }).then((response) => response.json());
+  }
 
   const handleReload = useCallback(async () => {
     if (options?.create_new_indexer === true) {
@@ -277,6 +289,9 @@ const Editor = ({
           <ToggleButton id="tbg-radio-2" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'grey' : "blue", "borderRadius": "0px" }} value={"schema.sql"} onClick={() => setFileName("schema.sql")}>
             schema.sql
           </ToggleButton>
+          <ToggleButton id="tbg-radio-3" style={{ backgroundColor: fileName === "GraphiQL" ? 'blue' : "grey", "borderRadius": "0px" }} value={"GraphiQL"} onClick={() => setFileName("GraphiQL")}>
+            GraphiQL
+          </ToggleButton>
           <InputGroup  >
             <InputGroup.Text className='px-3'> Diff View
               <Switch
@@ -288,6 +303,15 @@ const Editor = ({
               /></InputGroup.Text>
           </InputGroup>
         </ToggleButtonGroup>
+        {fileName === "GraphiQL" && (
+          <div style={{ width: "100%", height: "50vh" }}>
+            <GraphiQL
+              fetcher={graphQLFetcher}
+              defaultQuery=""
+              storage={sessionStorage}
+            />
+          </div>
+        )}
         {fileName === "indexingLogic.js" && (
           diffView ? (
             <DiffEditor
