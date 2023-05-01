@@ -1,0 +1,11 @@
+{
+  "description": "Seamlessly create, manage, and discover indexers",
+  "image": {
+    "ipfs_cid": "bafkreihx3wowmjrv3taztqxwgubt6mijaqwzvo6573wi6lv4omxfh3ogdm"
+  },
+  "name": "Near Query API waitlist",
+  "tags": {
+    "indexers": "",
+    "data-platform": ""
+  }
+}

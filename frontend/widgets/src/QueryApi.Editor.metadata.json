@@ -1,0 +1,10 @@
+{
+  "description": "Helper widget for QueryApi.Dashboard to help write indexer",
+  "image": {
+  },
+  "name": "Editor",
+  "tags": {
+    "indexers": "",
+    "data-platform": ""
+  }
+}

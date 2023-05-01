@@ -1,0 +1,10 @@
+{
+  "description": "Helper widget for QueryApi.Dashboard to display Indexer Status",
+  "image": {
+  },
+  "name": "Indexer Status",
+  "tags": {
+    "indexers": "",
+    "data-platform": ""
+  }
+}
