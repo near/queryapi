@@ -91,27 +91,27 @@ impl Opts {
     }
 
     // Creates AWS Credentials for NEAR Lake
-    fn lake_credentials(&self) -> aws_types::credentials::SharedCredentialsProvider {
-        let provider = aws_types::Credentials::new(
+    fn lake_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
+        let provider = aws_credential_types::Credentials::new(
             self.lake_aws_access_key.clone(),
             self.lake_aws_secret_access_key.clone(),
             None,
             None,
             "alertexer_lake",
         );
-        aws_types::credentials::SharedCredentialsProvider::new(provider)
+        aws_credential_types::provider::SharedCredentialsProvider::new(provider)
     }
 
     // Creates AWS Credentials for SQS Queue
-    fn queue_credentials(&self) -> aws_types::credentials::SharedCredentialsProvider {
-        let provider = aws_types::Credentials::new(
+    fn queue_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
+        let provider = aws_credential_types::Credentials::new(
             self.queue_aws_access_key.clone(),
             self.queue_aws_secret_access_key.clone(),
             None,
             None,
             "alertexer_queue",
         );
-        aws_types::credentials::SharedCredentialsProvider::new(provider)
+        aws_credential_types::provider::SharedCredentialsProvider::new(provider)
     }
 
     /// Creates AWS Shared Config for NEAR Lake
