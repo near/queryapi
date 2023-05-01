@@ -286,7 +286,7 @@ export default class Indexer {
 
         return this.runGraphQLQuery(
             `
-                mutation SetStatus($function_name: String, $status: indexer_status) {
+                mutation SetStatus($function_name: String, $status: String) {
                   insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
                     function_name
                     status
