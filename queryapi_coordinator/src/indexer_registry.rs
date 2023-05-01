@@ -234,19 +234,12 @@ fn build_indexer_function_from_args(
 }
 
 fn parse_indexer_function_args(update: &FunctionCallInfo) -> Option<Value> {
-    if let Ok(decoded_args) = base64::decode(&update.args) {
-        if let Ok(mut args_json) = serde_json::from_slice(&decoded_args) {
-            escape_json(&mut args_json);
-            return Some(args_json);
-        } else {
-            tracing::error!(
-                "Unable to json parse arguments to indexer function: {:?}",
-                &update.method_name
-            );
-        }
+    if let Ok(mut args_json) = serde_json::from_str(&update.args) {
+        escape_json(&mut args_json);
+        return Some(args_json);
     } else {
         tracing::error!(
-            "Unable to base64 decode arguments to indexer function: {:?}",
+            "Unable to json parse arguments to indexer function: {:?}",
             &update.method_name
         );
     }

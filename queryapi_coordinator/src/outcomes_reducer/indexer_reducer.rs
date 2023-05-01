@@ -70,7 +70,7 @@ fn build_registry_info(
                         alert_name: alert_rule.name.clone(),
                         signer_id: signer_id.to_string(),
                         method_name: method_name.to_string(),
-                        args: args.to_string(),
+                        args: serde_json::to_string(args).unwrap_or("".to_string()), // todo improve conversion
                         block_height: context.streamer_message.block.header.height,
                     })
                 } else {
