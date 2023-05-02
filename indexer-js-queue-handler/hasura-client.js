@@ -30,7 +30,7 @@ export default class HasuraClient {
     const body = await response.text();
 
     if (response.status !== 200) {
-      throw new Error(JSON.stringify(body, null, 2));
+      throw new Error(body);
     }
 
     return JSON.parse(body)
