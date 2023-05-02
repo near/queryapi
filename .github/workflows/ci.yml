@@ -33,6 +33,7 @@ jobs:
         profile: minimal
         components: rustfmt
     - name: Check formatting
+    - working-directory: ./indexer
       run: |
         cargo fmt -- --check
 
@@ -50,5 +51,6 @@ jobs:
         profile: minimal
         components: clippy
     - name: Clippy check
+    - working-directory: ./indexer
       run: |
         cargo clippy
