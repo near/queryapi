@@ -308,13 +308,12 @@ export default class Indexer {
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
         const activeFunctionSubsegment = AWSXRay.resolveSegment();
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
-        const messageJson = JSON.stringify(message);
         const mutation =
             `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
                 insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
              }`;
 
-        return this.runGraphQLQuery(mutation, {function_name, block_height, message: messageJson},
+        return this.runGraphQLQuery(mutation, {function_name, block_height, message: message.join(':')},
             function_name, block_height, this.DEFAULT_HASURA_ROLE)
             .then((result) => {
                 return result?.insert_indexer_log_entries_one?.id;
