@@ -1,72 +1,75 @@
-name: Queue Handlers Deploy
+## todo update to js checks for indexer-js-queue-handler
 
-on:
-  push:
-    branches: [ staging, production ]
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        folder:
-          - queue-handler-queryapi
-          - webhook-queue-handler
-          - telegram-queue-handler
-          - email-queue-handler
-
-    steps:
-
-      - name: Build lambda
-        uses: actions/checkout@v2
-
-      - name: Uses zig # cargo-lambda dependency
-        uses: goto-bus-stop/setup-zig@v1
-        with:
-          version: 0.9.1
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.68.0
-          override: true
-          profile: minimal
-          
-      - name: Install cargo-lambda
-        uses: actions-rs/install@v0.1
-        with:
-          crate: cargo-lambda
-          version: latest
-
-      - name: Build release lambda
-        run: |
-          cd ${{ matrix.folder }}
-          cargo lambda build --release
-
-      - name: Generate credentials file
-        run: |
-          mkdir -p ~/.aws
-          echo "[default]" > ~/.aws/credentials
-          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY }}" >> ~/.aws/credentials
-          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
-
-      - name: STAGING Deploy to AWS Lambda
-        if: ${{ github.ref == 'refs/heads/staging' }}
-        run: |
-          cd ${{ matrix.folder }}
-          cargo lambda deploy \
-            --iam-role arn:aws:iam::754641474505:role/lambda-alertexer \
-            --region eu-central-1 \
-            --profile default \
-            ${{ matrix.folder }}
-
-      - name: PRODUCTION Deploy to AWS Lambda
-        if: ${{ github.ref == 'refs/heads/production' }}
-        run: |
-          cd ${{ matrix.folder }}
-          cp -rf ./target/lambda/${{ matrix.folder }} ./target/lambda/production-${{ matrix.folder }}
-          cargo lambda deploy \
-            --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer \
-            --region eu-central-1 \
-            --profile default \
-            production-${{ matrix.folder }}
+#name: Queue Handlers Deploy
+#
+#on:
+#  push:
+#    branches: [ staging, production ]
+#
+#jobs:
+#  release:
+#    runs-on: ubuntu-latest
+#    strategy:
+#      matrix:
+#        folder:
+#          - queue-handler-queryapi
+#          - webhook-queue-handler
+#          - telegram-queue-handler
+#          - email-queue-handler
+#
+#    steps:
+#
+#      - name: Build lambda
+#        uses: actions/checkout@v2
+#
+#      - name: Uses zig # cargo-lambda dependency
+#        uses: goto-bus-stop/setup-zig@v1
+#        with:
+#          version: 0.9.1
+#
+#      - name: Install Rust
+#        uses: actions-rs/toolchain@v1
+#        with:
+#          toolchain: 1.68.0
+#          override: true
+#          profile: minimal
+#
+#      - name: Install cargo-lambda
+#        uses: actions-rs/install@v0.1
+#        with:
+#          crate: cargo-lambda
+#          version: latest
+#
+#      - name: Build release lambda
+#        run: |
+#          cd ${{ matrix.folder }}
+#          cargo lambda build --release
+#
+#      - name: Generate credentials file
+#        run: |
+#          mkdir -p ~/.aws
+#          echo "[default]" > ~/.aws/credentials
+#          echo "aws_access_key_id=${{ secrets.AWS_ACCESS_KEY }}" >> ~/.aws/credentials
+#          echo "aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> ~/.aws/credentials
+#
+#      - name: STAGING Deploy to AWS Lambda
+#        if: ${{ github.ref == 'refs/heads/staging' }}
+#        run: |
+#          cd ${{ matrix.folder }}
+#          cargo lambda deploy \
+#            --iam-role arn:aws:iam::754641474505:role/lambda-alertexer \
+#            --region eu-central-1 \
+#            --profile default \
+#            ${{ matrix.folder }}
+#
+#      - name: PRODUCTION Deploy to AWS Lambda
+#        if: ${{ github.ref == 'refs/heads/production' }}
+#        run: |
+#          cd ${{ matrix.folder }}
+#          cp -rf ./target/lambda/${{ matrix.folder }} ./target/lambda/production-${{ matrix.folder }}
+#          cargo lambda deploy \
+#            --iam-role arn:aws:iam::754641474505:role/production-lambda-alertexer \
+#            --region eu-central-1 \
+#            --profile default \
+#            production-${{ matrix.folder }}
