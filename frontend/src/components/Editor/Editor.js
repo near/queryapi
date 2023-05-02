@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import MonacoEditor, { DiffEditor } from '@monaco-editor/react';
-import { formatSQL, formatIndexingCode } from '../../utils/formatters';
-import { queryIndexerFunctionDetails } from '../../utils/queryIndexerFunction';
+import React, { useEffect, useState, useCallback } from "react";
+import MonacoEditor, { DiffEditor } from "@monaco-editor/react";
+import { formatSQL, formatIndexingCode } from "../../utils/formatters";
+import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import {
   Button,
   Alert,
@@ -12,27 +12,30 @@ import {
   InputGroup,
   ToggleButtonGroup,
   ToggleButton,
-} from 'react-bootstrap';
+} from "react-bootstrap";
 import Switch from "react-switch";
-import primitives from '!!raw-loader!../../../primitives.d.ts';
-import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js"
-import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js"
-import GraphiQL from 'graphiql'
+import primitives from "!!raw-loader!../../../primitives.d.ts";
+import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js";
+import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
+import GraphiQL from "graphiql";
 
 import "graphiql/graphiql.min.css";
-import { request, useInitialPayload, sessionStorage } from 'near-social-bridge'
+import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
 
-const defaultCode = formatIndexingCode(`
+const defaultCode = formatIndexingCode(
+  `
   // Add your code here   
   const h = block.header().height
   await context.set('height', h);
-`, true);
+`,
+  true
+);
 
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
-`
-const BLOCKHEIGHT_LIMIT = 3600
-const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_HASURA_ENDPOINT
+`;
+const BLOCKHEIGHT_LIMIT = 3600;
+const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_HASURA_ENDPOINT;
 const Editor = ({
   options,
   accountId,
@@ -52,84 +55,104 @@ const Editor = ({
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
-  const [selectedOption, setSelectedOption] = useState('latestBlockHeight');
+  const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [blockHeight, setBlockHeight] = useState(null);
 
-  const { height } = useInitialPayload()
+  const { height } = useInitialPayload();
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
-    setBlockHeightError(null)
-  }
-
+    setBlockHeightError(null);
+  };
 
   useEffect(() => {
     if (selectedOption == "latestBlockHeight") {
-      setBlockHeightError(null)
-      return
+      setBlockHeightError(null);
+      return;
     }
 
     if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-      setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600} hrs.
+      setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
+        BLOCKHEIGHT_LIMIT / 3600
+      } hrs.
 
-                Choose a start block height between ${height - BLOCKHEIGHT_LIMIT} - ${height}.`)
-    }
-    else if (blockHeight > height) {
-      setBlockHeightError(`Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT} - ${height}.`)
+                Choose a start block height between ${
+                  height - BLOCKHEIGHT_LIMIT
+                } - ${height}.`);
+    } else if (blockHeight > height) {
+      setBlockHeightError(
+        `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
+          height - BLOCKHEIGHT_LIMIT
+        } - ${height}.`
+      );
     } else {
-      setBlockHeightError(null)
+      setBlockHeightError(null);
     }
-  }
-    , [blockHeight, selectedOption])
+  }, [blockHeight, selectedOption]);
 
   const checkSQLSchemaFormatting = () => {
     try {
       let formatted_code = formatSQL(schema);
       let formatted_schema = formatted_code;
       return formatted_schema;
-    }
-    catch (error) {
-      console.log("error", error)
-      setError(() => "Please check your SQL schema formatting and specify an Indexer Name");
+    } catch (error) {
+      console.log("error", error);
+      setError(
+        () =>
+          "Please check your SQL schema formatting and specify an Indexer Name"
+      );
       return undefined;
     }
-  }
-
+  };
 
   const registerFunction = async () => {
     let formatted_schema = checkSQLSchemaFormatting();
 
-    const innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1]
+    const innerCode = indexingCode.match(
+      /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
+    )[1];
     if (indexerNameField == undefined || formatted_schema == undefined) {
-      setError(() => "Please check your SQL schema formatting and specify an Indexer Name");
-      return
+      setError(
+        () =>
+          "Please check your SQL schema formatting and specify an Indexer Name"
+      );
+      return;
     }
     setError(() => undefined);
-    let start_block_height = blockHeight
+    let start_block_height = blockHeight;
     if (selectedOption == "latestBlockHeight") {
-      start_block_height = null
+      start_block_height = null;
     }
     // Send a message to other sources
-    request('register-function', { indexerName: indexerNameField.replaceAll(" ", "_"), code: innerCode, schema: formatted_schema, blockHeight: start_block_height });
+    request("register-function", {
+      indexerName: indexerNameField.replaceAll(" ", "_"),
+      code: innerCode,
+      schema: formatted_schema,
+      blockHeight: start_block_height,
+    });
   };
 
   const graphQLFetcher = (graphQLParams) => {
-    return fetch( HASURA_ENDPOINT , {
+    console.log(HASURA_ENDPOINT, "Hashura Endpoint");
+    return fetch(HASURA_ENDPOINT, {
       method: "post",
       credentials: "omit",
-      headers: { "Content-Type": "application/json", "X-Hasura-Role": accountId.replaceAll('.', '_') },
-      body: JSON.stringify(graphQLParams || {})
+      headers: {
+        "Content-Type": "application/json",
+        "X-Hasura-Role": accountId.replaceAll(".", "_"),
+      },
+      body: JSON.stringify(graphQLParams || {}),
     }).then((response) => response.json());
-  }
+  };
 
   const handleReload = useCallback(async () => {
     if (options?.create_new_indexer === true) {
       // setIndexingCode(defaultCode);
       // setSchema(defaultSchema);
-      setShowResetCodeModel(false)
-      return
+      setShowResetCodeModel(false);
+      return;
     }
 
-    const data = await queryIndexerFunctionDetails(accountId, indexerNameField)
+    const data = await queryIndexerFunctionDetails(accountId, indexerNameField);
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
@@ -147,45 +170,52 @@ const Editor = ({
           setSchema(unformatted_schema);
         }
         if (data.start_block_height) {
-          setSelectedOption("specificBlockHeight")
-          setBlockHeight(data.start_block_height)
+          setSelectedOption("specificBlockHeight");
+          setBlockHeight(data.start_block_height);
         }
-      }
-      catch (error) {
+      } catch (error) {
         console.log(error);
         setError(() => "An Error occured while trying to format the code.");
       }
     }
 
-    setShowResetCodeModel(false)
-  }, [accountId, indexerNameField, onLoadErrorText, options?.create_new_indexer])
+    setShowResetCodeModel(false);
+  }, [
+    accountId,
+    indexerNameField,
+    onLoadErrorText,
+    options?.create_new_indexer,
+  ]);
 
   const format_querried_code = (code) => {
     try {
-      let formatted_code = formatIndexingCode(code, true)
+      let formatted_code = formatIndexingCode(code, true);
       setError(() => undefined);
       return formatted_code;
     } catch (error) {
-      setError(() => "Oh snap! We could not format the queried code. The code in the registry contract may be invalid Javascript code. ");
+      setError(
+        () =>
+          "Oh snap! We could not format the queried code. The code in the registry contract may be invalid Javascript code. "
+      );
       console.log(error);
-      return unformatted_code
+      return unformatted_code;
     }
-  }
-
+  };
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true)
-      await handleReload()
-      setLoading(false)
-    }
-    load()
-  }, [accountId, handleReload, indexerName])
+      setLoading(true);
+      await handleReload();
+      setLoading(false);
+    };
+    load();
+  }, [accountId, handleReload, indexerName]);
 
   const handleFormattingError = (fileName) => {
-    const errorMessage = fileName === "indexingLogic.js"
-      ? "Oh snap! We could not format your code. Make sure it is proper Javascript code."
-      : "Oh snap! We could not format your SQL schema. Make sure it is proper SQL DDL";
+    const errorMessage =
+      fileName === "indexingLogic.js"
+        ? "Oh snap! We could not format your code. Make sure it is proper Javascript code."
+        : "Oh snap! We could not format your SQL schema. Make sure it is proper SQL DDL";
 
     setError(() => errorMessage);
   };
@@ -211,13 +241,13 @@ const Editor = ({
   };
 
   async function handleFormating() {
-    await reformat()
+    await reformat();
   }
 
   async function submit() {
     // Handle Register button click
-    await reformat()
-    await registerFunction()
+    await reformat();
+    await registerFunction();
   }
 
   function handleEditorMount(editor) {
@@ -235,7 +265,7 @@ const Editor = ({
   function handleEditorWillMount(monaco) {
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
-      'file:///node_modules/@near-lake/primitives/index.d.ts'
+      "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
   }
 
@@ -243,19 +273,58 @@ const Editor = ({
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
       {
         <>
-          <ButtonToolbar className="pt-3 pb-1 flex-col" aria-label="Actions for Editor">
-            <IndexerDetailsGroup accountId={accountId} indexerNameField={indexerNameField} setIndexerNameField={setIndexerNameField} isCreateNewIndexerPage={options.create_new_indexer} />
-            <BlockHeightOptions selectedOption={selectedOption} handleOptionChange={handleOptionChange} blockHeight={blockHeight} setBlockHeight={setBlockHeight} />
-            <ButtonGroup className="px-3 pt-3" style={{ width: '100%' }} aria-label="Action Button Group">
-              <Button variant="secondary" className="px-3" onClick={() => setShowResetCodeModel(true)}> Reset</Button>{' '}
-              <Button variant="secondary" className="px-3" onClick={() => handleFormating()}> Format Code</Button>{' '}
-              <Button variant="primary" className="px-3" onClick={() => submit()}>
+          <ButtonToolbar
+            className="pt-3 pb-1 flex-col"
+            aria-label="Actions for Editor"
+          >
+            <IndexerDetailsGroup
+              accountId={accountId}
+              indexerNameField={indexerNameField}
+              setIndexerNameField={setIndexerNameField}
+              isCreateNewIndexerPage={options.create_new_indexer}
+            />
+            <BlockHeightOptions
+              selectedOption={selectedOption}
+              handleOptionChange={handleOptionChange}
+              blockHeight={blockHeight}
+              setBlockHeight={setBlockHeight}
+            />
+            <ButtonGroup
+              className="px-3 pt-3"
+              style={{ width: "100%" }}
+              aria-label="Action Button Group"
+            >
+              <Button
+                variant="secondary"
+                className="px-3"
+                onClick={() => setShowResetCodeModel(true)}
+              >
+                {" "}
+                Reset
+              </Button>{" "}
+              <Button
+                variant="secondary"
+                className="px-3"
+                onClick={() => handleFormating()}
+              >
+                {" "}
+                Format Code
+              </Button>{" "}
+              <Button
+                variant="primary"
+                className="px-3"
+                onClick={() => submit()}
+              >
                 {actionButtonText}
               </Button>
-
             </ButtonGroup>
-          </ButtonToolbar></>}
-      <Modal show={showResetCodeModel} onHide={() => setShowResetCodeModel(false)}>
+          </ButtonToolbar>
+        </>
+      }
+      <Modal
+        show={showResetCodeModel}
+        onHide={() => setShowResetCodeModel(false)}
+      >
         <Modal.Header closeButton>
           <Modal.Title>Are you sure?</Modal.Title>
         </Modal.Header>
@@ -263,7 +332,10 @@ const Editor = ({
           The changes you have made in the editor will be deleted.
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowResetCodeModel(false)}>
+          <Button
+            variant="secondary"
+            onClick={() => setShowResetCodeModel(false)}
+          >
             Cancel
           </Button>
           <Button variant="primary" onClick={() => handleReload()}>
@@ -272,33 +344,74 @@ const Editor = ({
         </Modal.Footer>
       </Modal>
 
+      <div
+        className="px-3"
+        style={{
+          flex: "display",
+          justifyContent: "space-around",
+          width: "100%",
+        }}
+      >
+        {error && (
+          <Alert className="px-3 pt-3" variant="danger">
+            {error}
+          </Alert>
+        )}
+        {blockHeightError && (
+          <Alert className="px-3 pt-3" variant="danger">
+            {blockHeightError}
+          </Alert>
+        )}
 
-      <div className="px-3" style={{ "flex": "display", justifyContent: "space-around", "width": "100%" }}>
-        {error && <Alert className="px-3 pt-3" variant="danger">
-          {error}
-        </Alert>}
-        {blockHeightError && <Alert className="px-3 pt-3" variant="danger">
-          {blockHeightError}
-        </Alert>}
-
-        <ToggleButtonGroup type="radio" style={{ backgroundColor: 'white' }} name="options" defaultValue={"indexingLogic.js"}
+        <ToggleButtonGroup
+          type="radio"
+          style={{ backgroundColor: "white" }}
+          name="options"
+          defaultValue={"indexingLogic.js"}
         >
-          <ToggleButton id="tbg-radio-1" style={{ backgroundColor: fileName === "indexingLogic.js" ? 'blue' : "grey", "borderRadius": "0px" }} value={"indexingLogic.js"} onClick={() => setFileName("indexingLogic.js")}>
+          <ToggleButton
+            id="tbg-radio-1"
+            style={{
+              backgroundColor:
+                fileName === "indexingLogic.js" ? "blue" : "grey",
+              borderRadius: "0px",
+            }}
+            value={"indexingLogic.js"}
+            onClick={() => setFileName("indexingLogic.js")}
+          >
             indexingLogic.js
           </ToggleButton>
-          <ToggleButton id="tbg-radio-2" style={{ backgroundColor: fileName === "schema.sql" ? 'blue' : "grey", "borderRadius": "0px" }} value={"schema.sql"} onClick={() => setFileName("schema.sql")}>
+          <ToggleButton
+            id="tbg-radio-2"
+            style={{
+              backgroundColor: fileName === "schema.sql" ? "blue" : "grey",
+              borderRadius: "0px",
+            }}
+            value={"schema.sql"}
+            onClick={() => setFileName("schema.sql")}
+          >
             schema.sql
           </ToggleButton>
-          <ToggleButton id="tbg-radio-3" style={{ backgroundColor: fileName === "GraphiQL" ? 'blue' : "grey", "borderRadius": "0px" }} value={"GraphiQL"} onClick={() => setFileName("GraphiQL")}>
+          <ToggleButton
+            id="tbg-radio-3"
+            style={{
+              backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
+              borderRadius: "0px",
+            }}
+            value={"GraphiQL"}
+            onClick={() => setFileName("GraphiQL")}
+          >
             GraphiQL
           </ToggleButton>
-          <InputGroup  >
-            <InputGroup.Text className='px-3'> Diff View
+          <InputGroup>
+            <InputGroup.Text className="px-3">
+              {" "}
+              Diff View
               <Switch
-                className='px-1'
+                className="px-1"
                 checked={diffView}
                 onChange={(checked) => {
-                  setDiffView(checked)
+                  setDiffView(checked);
                 }}
               />
             </InputGroup.Text>
@@ -313,8 +426,8 @@ const Editor = ({
             />
           </div>
         )}
-        {fileName === "indexingLogic.js" && (
-          diffView ? (
+        {fileName === "indexingLogic.js" &&
+          (diffView ? (
             <DiffEditor
               original={originalIndexingCode}
               modified={indexingCode}
@@ -337,8 +450,7 @@ const Editor = ({
               beforeMount={handleEditorWillMount}
               options={{ ...options, readOnly: false }}
             />
-          )
-        )}
+          ))}
         {fileName === "schema.sql" &&
           (diffView ? (
             <DiffEditor
@@ -370,6 +482,7 @@ const Editor = ({
             />
           ))}
       </div>
-    </div>)
-}
+    </div>
+  );
+};
 export default Editor;
