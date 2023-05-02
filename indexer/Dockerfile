@@ -2,13 +2,13 @@ FROM rust:1.68 AS build
 
 WORKDIR /tmp/
 COPY Cargo.toml Cargo.lock ./
-COPY queryapi_coordinator/Cargo.toml ./queryapi_coordinator/
 COPY alertexer-types/Cargo.toml ./alertexer-types/
 COPY alert-rules/Cargo.toml ./alert-rules/
 COPY shared/Cargo.toml ./shared/
 COPY storage/Cargo.toml ./storage/
+COPY queryapi_coordinator/Cargo.toml ./queryapi_coordinator/
 
-# We have to use sparse-registry nightly cargo feature to avoid running out of RAM (version 1.68+)
+# We have to use sparse-registry cargo feature to avoid running out of RAM (version 1.68+)
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 RUN /bin/bash -c "mkdir -p {queryapi_coordinator,alertexer-types,alert-rules,shared,storage}/src" && \
     echo 'fn main() {}' > queryapi_coordinator/src/main.rs && \

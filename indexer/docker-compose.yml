@@ -6,7 +6,7 @@ services:
       context: .
       args:
         - chain_id=mainnet
-    env_file: .env
+    env_file: ./queryapi_coordinator/.env
     links:
       - redis
     environment:
