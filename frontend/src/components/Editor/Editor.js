@@ -18,7 +18,6 @@ import primitives from "!!raw-loader!../../../primitives.d.ts";
 import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js";
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
 import GraphiQL from "graphiql";
-
 import "graphiql/graphiql.min.css";
 import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
 
@@ -35,7 +34,9 @@ const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `;
 const BLOCKHEIGHT_LIMIT = 3600;
-const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_HASURA_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql"
+const HASURA_ENDPOINT =
+  process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
 const Editor = ({
   options,
   accountId,
@@ -56,13 +57,19 @@ const Editor = ({
   const [diffView, setDiffView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
-  const [blockHeight, setBlockHeight] = useState(null);
+  const [blockHeight, setBlockHeight] = useState(undefined);
 
-  const { height } = useInitialPayload();
+  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
   };
+
+  useEffect(() => {
+    if (selectedTab === "playground") {
+      setFileName("GraphiQL");
+    }
+  }, [selectedTab]);
 
   useEffect(() => {
     if (selectedOption == "latestBlockHeight") {
@@ -74,10 +81,9 @@ const Editor = ({
       setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
         BLOCKHEIGHT_LIMIT / 3600
       } hrs.
-
-                Choose a start block height between ${
-                  height - BLOCKHEIGHT_LIMIT
-                } - ${height}.`);
+Choose a start block height between ${
+        height - BLOCKHEIGHT_LIMIT
+      } - ${height}.`);
     } else if (blockHeight > height) {
       setBlockHeightError(
         `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
@@ -106,8 +112,9 @@ const Editor = ({
 
   const registerFunction = async () => {
     let formatted_schema = checkSQLSchemaFormatting();
+    let isForking = accountId !== currentUserAccountId;
 
-    const innerCode = indexingCode.match(
+    let innerCode = indexingCode.match(
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     if (indexerNameField == undefined || formatted_schema == undefined) {
@@ -117,6 +124,14 @@ const Editor = ({
       );
       return;
     }
+
+    if (isForking) {
+      let prevAccountName = accountId.replace(".", "_");
+      let newAccountName = currentUserAccountId.replace(".", "_");
+
+      innerCode = innerCode.replaceAll(prevAccountName, newAccountName);
+    }
+
     setError(() => undefined);
     let start_block_height = blockHeight;
     if (selectedOption == "latestBlockHeight") {
@@ -200,6 +215,12 @@ const Editor = ({
       console.log(error);
       return unformatted_code;
     }
+  };
+
+  const getActionButtonText = () => {
+    const isUserIndexer = accountId === currentUserAccountId;
+
+    return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
   useEffect(() => {
@@ -310,13 +331,15 @@ const Editor = ({
                 {" "}
                 Format Code
               </Button>{" "}
-              <Button
-                variant="primary"
-                className="px-3"
-                onClick={() => submit()}
-              >
-                {actionButtonText}
-              </Button>
+              {currentUserAccountId && (
+                <Button
+                  variant="primary"
+                  className="px-3"
+                  onClick={() => submit()}
+                >
+                  {getActionButtonText()}
+                </Button>
+              )}
             </ButtonGroup>
           </ButtonToolbar>
         </>
