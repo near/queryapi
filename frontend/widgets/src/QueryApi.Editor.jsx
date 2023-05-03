@@ -18,6 +18,7 @@ if (!context.accountId) {
 const initialPayload = {
   height: Near.block("optimistic").header.height,
   selectedTab: tab,
+  currentUserAccountId: context.accountId,
 };
 
 const registerFunctionHandler = (request, response) => {

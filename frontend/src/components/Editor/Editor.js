@@ -19,12 +19,7 @@ import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js";
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
 import GraphiQL from "graphiql";
 import "graphiql/graphiql.min.css";
-import {
-  useAuth,
-  request,
-  useInitialPayload,
-  sessionStorage,
-} from "near-social-bridge";
+import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
 
 const defaultCode = formatIndexingCode(
   `
@@ -64,9 +59,7 @@ const Editor = ({
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [blockHeight, setBlockHeight] = useState(undefined);
 
-  const { height, selectedTab } = useInitialPayload();
-  const auth = useAuth();
-
+  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -119,8 +112,9 @@ Choose a start block height between ${
 
   const registerFunction = async () => {
     let formatted_schema = checkSQLSchemaFormatting();
+    let isForking = accountId !== currentUserAccountId;
 
-    const innerCode = indexingCode.match(
+    let innerCode = indexingCode.match(
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     if (indexerNameField == undefined || formatted_schema == undefined) {
@@ -130,6 +124,14 @@ Choose a start block height between ${
       );
       return;
     }
+
+    if (isForking) {
+      let prevAccountName = accountId.replace(".", "_");
+      let newAccountName = currentUserAccountId.replace(".", "_");
+
+      innerCode = innerCode.replaceAll(prevAccountName, newAccountName);
+    }
+
     setError(() => undefined);
     let start_block_height = blockHeight;
     if (selectedOption == "latestBlockHeight") {
@@ -216,7 +218,7 @@ Choose a start block height between ${
   };
 
   const getActionButtonText = () => {
-    const isUserIndexer = accountId === auth.user?.accountId;
+    const isUserIndexer = accountId === currentUserAccountId;
 
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
@@ -329,7 +331,7 @@ Choose a start block height between ${
                 {" "}
                 Format Code
               </Button>{" "}
-              {auth.ready && (
+              {currentUserAccountId && (
                 <Button
                   variant="primary"
                   className="px-3"
