@@ -18,9 +18,13 @@ import primitives from "!!raw-loader!../../../primitives.d.ts";
 import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js";
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
 import GraphiQL from "graphiql";
-
 import "graphiql/graphiql.min.css";
-import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
+import {
+  useAuth,
+  request,
+  useInitialPayload,
+  sessionStorage,
+} from "near-social-bridge";
 
 const defaultCode = formatIndexingCode(
   `
@@ -35,7 +39,9 @@ const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `;
 const BLOCKHEIGHT_LIMIT = 3600;
-const HASURA_ENDPOINT = process.env.NEXT_PUBLIC_HASURA_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql"
+const HASURA_ENDPOINT =
+  process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
 const Editor = ({
   options,
   accountId,
@@ -59,10 +65,27 @@ const Editor = ({
   const [blockHeight, setBlockHeight] = useState(null);
 
   const { height } = useInitialPayload();
+  const initialPayload = useInitialPayload();
+  console.log(initialPayload); // initial payload sent by the Widget
+  const auth = useAuth();
+
+  useEffect(() => {
+    console.log(auth.ready, "ready");
+    console.log(auth.user, "user");
+  }, [auth.ready, auth.user]);
+
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
   };
+
+  useEffect(() => {
+    console.log("loading initial", initialPayload);
+    if (initialPayload?.selectedTab === "playground") {
+      consol.log(initialPayload.selectedTab);
+      setFileName("GraphiQL");
+    }
+  }, [initialPayload]);
 
   useEffect(() => {
     if (selectedOption == "latestBlockHeight") {
@@ -74,10 +97,9 @@ const Editor = ({
       setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
         BLOCKHEIGHT_LIMIT / 3600
       } hrs.
-
-                Choose a start block height between ${
-                  height - BLOCKHEIGHT_LIMIT
-                } - ${height}.`);
+Choose a start block height between ${
+        height - BLOCKHEIGHT_LIMIT
+      } - ${height}.`);
     } else if (blockHeight > height) {
       setBlockHeightError(
         `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
@@ -202,6 +224,14 @@ const Editor = ({
     }
   };
 
+  const getActionButtonText = () => {
+    console.log("auth.user?.accountId", auth.user?.accountId);
+    console.log("accountId", accountId);
+    const isUserIndexer = accountId === auth.user?.accountId;
+
+    return isUserIndexer ? actionButtonText : "Fork Indexer";
+  };
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -310,13 +340,15 @@ const Editor = ({
                 {" "}
                 Format Code
               </Button>{" "}
-              <Button
-                variant="primary"
-                className="px-3"
-                onClick={() => submit()}
-              >
-                {actionButtonText}
-              </Button>
+              {auth.ready && (
+                <Button
+                  variant="primary"
+                  className="px-3"
+                  onClick={() => submit()}
+                >
+                  {getActionButtonText()}
+                </Button>
+              )}
             </ButtonGroup>
           </ButtonToolbar>
         </>
