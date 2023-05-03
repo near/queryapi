@@ -13,6 +13,7 @@ use storage::ConnectionManager;
 
 pub(crate) mod cache;
 mod indexer_registry;
+mod metrics;
 mod outcomes_reducer;
 mod state_changes_reducer;
 mod utils;
