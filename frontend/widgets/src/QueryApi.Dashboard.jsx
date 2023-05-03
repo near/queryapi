@@ -9,8 +9,7 @@ let totalIndexers = 0;
 const registry_contract_id =
   props.registry_contract_id || "queryapi.dataplatform.near";
 const APP_OWNER = "roshaan.near";
-console.log("devving");
-console.log("coming from ", props.tab);
+
 State.init({
   activeTab: activeTab,
   my_indexers: [],
@@ -363,7 +362,7 @@ const indexerView = (accountId, indexerName, idx, view) => {
             })
           }
         >
-          Edit Indexer
+          {accountId === context.accountId ? "Edit Indexer" : "View Indexer"}
         </ButtonLink>
         <ButtonLink
           href={playgroundLink}
