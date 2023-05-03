@@ -55,6 +55,9 @@ pub struct Opts {
     /// Registry contract to use
     #[clap(env)]
     pub registry_contract_id: String,
+    /// Port to enable metrics/health service
+    #[clap(env, default_value_t = 4000)]
+    pub port: u16,
     /// Chain ID: testnet or mainnet
     #[clap(subcommand)]
     pub chain_id: ChainId,

@@ -89,10 +89,15 @@ async fn main() -> anyhow::Result<()> {
     let (sender, stream) = near_lake_framework::streamer(config);
 
     tokio::spawn(utils::stats(redis_connection_manager.clone()));
+    tokio::spawn(metrics::init_server(opts.port).expect("Failed to start metrics server"));
 
     tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
+            metrics::BLOCK_COUNT.inc();
+            metrics::LATEST_BLOCK_HEIGHT
+                .set(streamer_message.block.header.height.try_into().unwrap());
+
             let context = QueryApiContext {
                 redis_connection_manager: &redis_connection_manager,
                 queue_url: &queue_url,
