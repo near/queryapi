@@ -62,7 +62,7 @@ const Editor = ({
   const [diffView, setDiffView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
-  const [blockHeight, setBlockHeight] = useState(null);
+  const [blockHeight, setBlockHeight] = useState(undefined);
 
   const { height, selectedTab } = useInitialPayload();
   const auth = useAuth();
