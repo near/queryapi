@@ -64,15 +64,8 @@ const Editor = ({
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [blockHeight, setBlockHeight] = useState(null);
 
-  const { height } = useInitialPayload();
-  const initialPayload = useInitialPayload();
-  console.log(initialPayload); // initial payload sent by the Widget
+  const { height, selectedTab } = useInitialPayload();
   const auth = useAuth();
-
-  useEffect(() => {
-    console.log(auth.ready, "ready");
-    console.log(auth.user, "user");
-  }, [auth.ready, auth.user]);
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -80,12 +73,10 @@ const Editor = ({
   };
 
   useEffect(() => {
-    console.log("loading initial", initialPayload);
-    if (initialPayload?.selectedTab === "playground") {
-      consol.log(initialPayload.selectedTab);
+    if (selectedTab === "playground") {
       setFileName("GraphiQL");
     }
-  }, [initialPayload]);
+  }, [selectedTab]);
 
   useEffect(() => {
     if (selectedOption == "latestBlockHeight") {
@@ -225,8 +216,6 @@ Choose a start block height between ${
   };
 
   const getActionButtonText = () => {
-    console.log("auth.user?.accountId", auth.user?.accountId);
-    console.log("accountId", accountId);
     const isUserIndexer = accountId === auth.user?.accountId;
 
     return isUserIndexer ? actionButtonText : "Fork Indexer";

@@ -1,4 +1,3 @@
-
 const accountId = context.accountId;
 const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
   ? props.selectedIndexerPath.split("/")
@@ -9,8 +8,9 @@ const limit = 7;
 let totalIndexers = 0;
 const registry_contract_id =
   props.registry_contract_id || "queryapi.dataplatform.near";
-const APP_OWNER = "roshaan.near"
-
+const APP_OWNER = "roshaan.near";
+console.log("devving");
+console.log("coming from ", props.tab);
 State.init({
   activeTab: activeTab,
   my_indexers: [],
@@ -62,12 +62,12 @@ const Wrapper = styled.div`
 `;
 
 const NavBarLogo = styled.a`
-    padding-top: 0.3125rem;
-    padding-bottom: 0.3125rem;
-    margin-right: 1rem;
-    font-size: 1.25rem;
-    text-decoration: none;
-    white-space: nowrap;
+  padding-top: 0.3125rem;
+  padding-bottom: 0.3125rem;
+  margin-right: 1rem;
+  font-size: 1.25rem;
+  text-decoration: none;
+  white-space: nowrap;
 `;
 const Main = styled.div`
   display: grid;
@@ -141,7 +141,7 @@ const TabsButton = styled.button`
   }
 
   &::after {
-    content: '';
+    content: "";
     display: ${(p) => (p.selected ? "block" : "none")};
     position: absolute;
     bottom: 0;
@@ -180,7 +180,7 @@ const CardFooter = styled.div`
   display: flex;
   justify-content: space-around;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 4px;
   padding: 16px;
   border-top: 1px solid #eceef0;
 `;
@@ -296,15 +296,17 @@ const ButtonLink = styled.a`
 `;
 
 const indexerView = (accountId, indexerName, idx, view) => {
-  const isSelected = (view === "user") &&
-    (selected_accountId === undefined &&
+  const isSelected =
+    (view === "user" &&
+      selected_accountId === undefined &&
       selected_indexerName === undefined &&
       idx === 0) ||
     (selected_accountId === accountId && selected_indexerName === indexerName);
 
   const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
   const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
-  const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-window&tab=playground`;
+  const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
+
   let removeIndexer = (name) => {
     const gas = 200000000000000;
     Near.call(
@@ -371,7 +373,7 @@ const indexerView = (accountId, indexerName, idx, view) => {
             })
           }
         >
-           View In Playground
+          View In Playground
         </ButtonLink>
         {view === "user" && (
           <ButtonLink danger onClick={() => removeIndexer(indexerName)}>
@@ -465,7 +467,7 @@ return (
               })
             }
           >
-            Create New Indexer Loaded
+            Create New Indexer
           </ButtonLink>
           {state.my_indexers.length > 0 && (
             <H2>
@@ -523,6 +525,7 @@ return (
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "query-api-editor",
+                tab: props.tab,
               }}
             />
           </div>
@@ -536,7 +539,7 @@ return (
                 <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
               ))}
             <Widget
-              src={`${APP_OWNER}/near/widget/QueryApi.Editor`}
+              src={`${APP_OWNER}/widget/QueryApi.Editor`}
               props={{
                 indexerName:
                   selected_indexerName ?? state.indexers[0].indexerName,

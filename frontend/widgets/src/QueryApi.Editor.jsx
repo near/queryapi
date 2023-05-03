@@ -1,7 +1,5 @@
-
 const path = props.path || "query-api-editor";
-const tab = props.tab
-console.log("selected tab from editro", tab)
+const tab = props.tab || "";
 const registry_contract_id =
   props.registry_contract_id || "queryapi.dataplatform.near";
 let accountId = props.accountId || context.accountId;
@@ -12,13 +10,15 @@ let externalAppUrl = `http://localhost:3000/${path}?accountId=${accountId}`;
 if (props.indexerName) {
   externalAppUrl += `&indexerName=${props.indexerName}`;
 }
-
 const initialViewHeight = 1000;
 if (!context.accountId) {
   return "Please sign in to use this widget.";
 }
 
-const initialPayload = { height: Near.block("optimistic").header.height, selectedTab: tab };
+const initialPayload = {
+  height: Near.block("optimistic").header.height,
+  selectedTab: tab,
+};
 
 const registerFunctionHandler = (request, response) => {
   const { indexerName, code, schema, blockHeight } = request.payload;
