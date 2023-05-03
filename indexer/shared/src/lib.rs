@@ -148,7 +148,7 @@ impl Opts {
 }
 
 impl Opts {
-    pub async fn to_lake_config(self) -> near_lake_framework::LakeConfig {
+    pub async fn to_lake_config(&self) -> near_lake_framework::LakeConfig {
         let s3_config = aws_sdk_s3::config::Builder::from(&self.lake_aws_sdk_config()).build();
 
         let config_builder = near_lake_framework::LakeConfigBuilder::default().s3_config(s3_config);
@@ -156,10 +156,10 @@ impl Opts {
         match &self.chain_id {
             ChainId::Mainnet(_) => config_builder
                 .mainnet()
-                .start_block_height(get_start_block_height(&self).await),
+                .start_block_height(get_start_block_height(self).await),
             ChainId::Testnet(_) => config_builder
                 .testnet()
-                .start_block_height(get_start_block_height(&self).await),
+                .start_block_height(get_start_block_height(self).await),
         }
         .build()
         .expect("Failed to build LakeConfig")
