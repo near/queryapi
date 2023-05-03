@@ -1,0 +1,64 @@
+service: block-server
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs16.x
+  region: eu-central-1
+
+# you can add statements to the Lambda function's IAM Role here
+#  iam:
+#    role:
+#      statements:
+#        - Effect: "Allow"
+#          Action:
+#            - "s3:ListBucket"
+#          Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+#        - Effect: "Allow"
+#          Action:
+#            - "s3:PutObject"
+#          Resource:
+#            Fn::Join:
+#              - ""
+#              - - "arn:aws:s3:::"
+#                - "Ref" : "ServerlessDeploymentBucket"
+#                - "/*"
+
+# you can define service wide environment variables here
+#  environment:
+#    variable1: value1
+
+# you can add packaging information here
+#package:
+#  patterns:
+#    - '!exclude-me.js'
+#    - '!exclude-me-dir/**'
+#    - include-me.js
+#    - include-me-dir/**
+
+functions:
+  block:
+    handler: handler.block
+    events:
+      - httpApi:
+          path: /block/{block_height}
+          method: get
+
+#    Define function environment variables here
+#    environment:
+#      variable2: value2
+
+# you can add CloudFormation resource templates here
+#resources:
+#  Resources:
+#    NewResource:
+#      Type: AWS::S3::Bucket
+#      Properties:
+#        BucketName: my-new-bucket
+#  Outputs:
+#     NewOutput:
+#       Description: "Description for the output"
+#       Value: "Some output value"

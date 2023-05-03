@@ -1,77 +1,79 @@
-name: Queue Handlers Check
+## todo update to js checks for indexer-js-queue-handler
 
-on:
-  push:
-    branches: [ staging, production, main ]
-  pull_request:
-    branches: [ staging, production, main ]
-
-env:
-  CARGO_TERM_COLOR: always
-
-jobs:
-  check:
-    strategy:
-      matrix:
-        folder:
-          - queue-handler-queryapi
-          - webhook-queue-handler
-          - telegram-queue-handler
-          - email-queue-handler
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run check
-        run: cargo check
-        working-directory: ./${{ matrix.forlder }}
-
-  rustfmt:
-    strategy:
-      matrix:
-        folder:
-          - queue-handler-queryapi
-          - webhook-queue-handler
-          - telegram-queue-handler
-          - email-queue-handler
-    name: rustfmt
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly-2022-06-20
-        override: true
-        profile: minimal
-        components: rustfmt
-    - name: Check formatting
-      run: |
-        cargo fmt -- --check
-      working-directory: ./${{ matrix.forlder }}
-
-  rustclippy:
-    strategy:
-      matrix:
-        folder:
-          - queue-handler-queryapi
-          - webhook-queue-handler
-          - telegram-queue-handler
-          - email-queue-handler
-    name: rustclippy
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-    - name: Install Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly-2022-06-20
-        override: true
-        profile: minimal
-        components: clippy
-    - name: Clippy check
-      run: |
-        cargo clippy
-      working-directory: ./${{ matrix.forlder }}
+#name: Queue Handlers Check
+#
+#on:
+#  push:
+#    branches: [ staging, production, main ]
+#  pull_request:
+#    branches: [ staging, production, main ]
+#
+#env:
+#  CARGO_TERM_COLOR: always
+#
+#jobs:
+#  check:
+#    strategy:
+#      matrix:
+#        folder:
+#          - queue-handler-queryapi
+#          - webhook-queue-handler
+#          - telegram-queue-handler
+#          - email-queue-handler
+#    runs-on: ubuntu-latest
+#
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Run check
+#        run: cargo check
+#        working-directory: ./${{ matrix.folder }}
+#
+#  rustfmt:
+#    strategy:
+#      matrix:
+#        folder:
+#          - queue-handler-queryapi
+#          - webhook-queue-handler
+#          - telegram-queue-handler
+#          - email-queue-handler
+#    name: rustfmt
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: Checkout repository
+#      uses: actions/checkout@v2
+#    - name: Install Rust
+#      uses: actions-rs/toolchain@v1
+#      with:
+#        toolchain: 1.68.0
+#        override: true
+#        profile: minimal
+#        components: rustfmt
+#    - name: Check formatting
+#      run: |
+#        cargo fmt -- --check
+#      working-directory: ./${{ matrix.folder }}
+#
+#  rustclippy:
+#    strategy:
+#      matrix:
+#        folder:
+#          - queue-handler-queryapi
+#          - webhook-queue-handler
+#          - telegram-queue-handler
+#          - email-queue-handler
+#    name: rustclippy
+#    runs-on: ubuntu-latest
+#    steps:
+#    - name: Checkout repository
+#      uses: actions/checkout@v2
+#    - name: Install Rust
+#      uses: actions-rs/toolchain@v1
+#      with:
+#        toolchain: 1.68.0
+#        override: true
+#        profile: minimal
+#        components: clippy
+#    - name: Clippy check
+#      run: |
+#        cargo clippy
+#      working-directory: ./${{ matrix.folder }}

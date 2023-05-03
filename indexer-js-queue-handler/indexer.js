@@ -3,8 +3,9 @@ import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
-
 import Provisioner from './provisioner.js'
+import AWSXRay from "aws-xray-sdk";
+import traceFetch from "./trace-fetch.js";
 
 export default class Indexer {
 
@@ -19,7 +20,7 @@ export default class Indexer {
         this.network = network;
         this.aws_region = aws_region;
         this.deps = {
-            fetch,
+            fetch: traceFetch(fetch),
             s3: new AWS.S3({ region: aws_region }),
             provisioner: new Provisioner(),
             ...deps,
@@ -32,30 +33,38 @@ export default class Indexer {
         const simultaneousPromises = [];
         const allMutations = [];
         for (const function_name in functions) {
-            const indexerFunction = functions[function_name];
-            console.log('Running function', function_name);  // Lambda logs
-            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
-
-            const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
-            const functionNameWithoutAccount = function_name.split('/')[1];
-            if (options.provision) {
-                const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
-
-                try {
-                    if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
-                        await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema)
-                    }
-                } catch (err) {
-                    const msg = 'Failed to provision endpoint';
-                    console.error(msg, err)
-                    simultaneousPromises.push(this.writeLog(function_name, block_height, msg, err.message));
-                    await Promise.all(simultaneousPromises);
-                    throw new Error(msg);
-                }
-            }
-
-
             try {
+                const indexerFunction = functions[function_name];
+                console.log('Running function', function_name);  // Lambda logs
+                const segment = AWSXRay.getSegment(); // segment is immutable, subsegments are mutable
+                const functionSubsegment = segment.addNewSubsegment('indexer_function');
+                functionSubsegment.addAnnotation('indexer_function', function_name);
+                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
+
+                const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
+                const functionNameWithoutAccount = function_name.split('/')[1];
+
+                if (options.provision && !indexerFunction["provisioned"]) {
+                    const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
+
+                    try {
+                        if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
+                            await this.setStatus(function_name, block_height, 'PROVISIONING');
+                            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
+
+                            const transformedSchema = this.replaceNewLines(indexerFunction.schema);
+                            await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, transformedSchema);
+
+                            simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
+                        }
+                    } catch (err) {
+                        simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: failure', err.message));
+                        throw err;
+                    }
+                }
+
+                await this.setStatus(function_name, block_height, 'RUNNING');
+
                 const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
@@ -74,8 +83,9 @@ export default class Indexer {
                     // NOTE: logging the exception would likely leak some information about the index runner.
                     // For now, we just log the message. In the future we could sanitize the stack trace
                     // and give the correct line number offsets within the indexer function
-                    console.error(`Error running IndexerFunction ${function_name} on block ${block_height}: ${e.message}`);
+                    console.error(`${function_name}: Error running IndexerFunction on block ${block_height}: ${e.message}`);
                     await this.writeLog(function_name, block_height, 'Error running IndexerFunction', e.message);
+                    throw e;
                 }
 
                 if (!options.imperative) {
@@ -87,9 +97,14 @@ export default class Indexer {
                 }
 
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
-                await Promise.all(simultaneousPromises);
             } catch (e) {
-                console.error('Failed to run function: ' + function_name, e);
+                console.error(`${function_name}: Failed to run function`, e);
+                AWSXRay.resolveSegment().addError(e);
+                await this.setStatus(function_name, block_height, 'STOPPED');
+                throw e;
+            } finally {
+                await Promise.all(simultaneousPromises);
+                AWSXRay.resolveSegment().close();
             }
         }
         return allMutations;
@@ -121,7 +136,7 @@ export default class Indexer {
 
             return keyValuesMutations.length > 0 ? mutationsReturnValue.mutations.concat(keyValuesMutations) : mutationsReturnValue.mutations;
         } catch (e) {
-            console.error('Failed to write mutations for function: ' + functionName, e);
+            console.error(`${functionName}: Failed to write mutations for function`, e);
         }
     }
 
@@ -196,6 +211,9 @@ export default class Indexer {
         });
     }
 
+    replaceNewLines(code) {
+        return code.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+    }
     enableAwaitTransform(indexerFunction) {
         return `
             async function f(){
@@ -207,6 +225,7 @@ export default class Indexer {
 
     transformIndexerFunction(indexerFunction) {
         return [
+            this.replaceNewLines,
             this.enableAwaitTransform,
         ].reduce((acc, val) => val(acc), indexerFunction);
     }
@@ -261,26 +280,59 @@ export default class Indexer {
         };
     }
 
-    async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
-        const messageJson = JSON.stringify(message);
-        const mutation =
-`mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-    id
-  }
-}
-`;
+    setStatus(functionName, blockHeight, status) {
+        const activeFunctionSubsegment = AWSXRay.resolveSegment()
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`setStatus`);
 
-        try {
-            return this.runGraphQLQuery(mutation, {function_name, block_height, message: messageJson},
-                function_name, block_height, this.DEFAULT_HASURA_ROLE)
-                .then((result) => result?.insert_indexer_log_entries_one?.id);
-        } catch (e) {
-            console.error('Error writing log', e);
-        }
+        return this.runGraphQLQuery(
+            `
+                mutation SetStatus($function_name: String, $status: String) {
+                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
+                    function_name
+                    status
+                  }
+                }
+            `,
+            {
+                function_name: functionName,
+                status,
+            },
+            functionName,
+            blockHeight,
+            this.DEFAULT_HASURA_ROLE
+        ).finally(() => {
+            subsegment.close();
+        });
+    }
+
+    async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
+        const activeFunctionSubsegment = AWSXRay.resolveSegment();
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
+        const parsedMessage = message
+            .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
+            .join(':');
+
+        const mutation =
+            `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+             }`;
+
+        return this.runGraphQLQuery(mutation, {function_name, block_height, message: parsedMessage},
+            function_name, block_height, this.DEFAULT_HASURA_ROLE)
+            .then((result) => {
+                return result?.insert_indexer_log_entries_one?.id;
+            })
+            .catch((e) => {
+                console.error(`${function_name}: Error writing log`, e);
+            })
+            .finally(() => {
+                subsegment.close();
+            });
     }
 
     async writeFunctionState(function_name, block_height) {
+        const activeFunctionSubsegment = AWSXRay.resolveSegment();
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeFunctionState`);
         const mutation =
             `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
                   insert_indexer_state(
@@ -297,11 +349,13 @@ export default class Indexer {
             function_name,
             block_height,
         };
-        try {
-            return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE);
-        } catch(e) {
-            console.error('Error writing function state', e);
-        }
+        return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE)
+            .catch((e) => {
+                console.error(`${function_name}: Error writing function state`, e);
+            })
+            .finally(() => {
+                subsegment.close();
+            });
     }
     async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
         const response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
@@ -321,6 +375,8 @@ export default class Indexer {
         if (response.status !== 200 || errors) {
             if(logError) {
                 console.log(`${function_name}: Error writing graphql `, errors); // temporary extra logging
+                AWSXRay.resolveSegment().addAnnotation('graphql_errors', true);
+
                 const message = errors ? errors.map((e) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
                 const mutation =
                     `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
@@ -331,7 +387,7 @@ export default class Indexer {
                 try {
                     await this.runGraphQLQuery(mutation, {function_name, block_height, message}, function_name, block_height, this.DEFAULT_HASURA_ROLE, false);
                 } catch (e) {
-                    console.error('Error writing log of graphql error', e);
+                    console.error(`${function_name}: Error writing log of graphql error`, e);
                 }
             }
             throw new Error(`Failed to write graphql, http status: ${response.status}, errors: ${JSON.stringify(errors, null, 2)}`);

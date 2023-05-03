@@ -1,0 +1,13 @@
+[workspace]
+
+members = [
+    "alert-rules",
+    "queryapi_coordinator",
+    "alertexer-types",
+    "shared",
+    "storage",
+]
+
+exclude = [ 
+    "hasura-authentication-service"
+]

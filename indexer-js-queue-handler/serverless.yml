@@ -7,6 +7,9 @@ provider:
   name: aws
   runtime: nodejs16.x
   region: eu-central-1
+  timeout: 60
+  tracing:
+    lambda: true #enable X-Ray tracing
 #  cfnRole: arn:aws:iam::754641474505:role/queryapi-cloudformation
 
 constructs:
@@ -14,10 +17,12 @@ constructs:
     type: queue
     worker:
       handler: handler.consumer
+      timeout: 60 # 6 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
   startFromBlock-runner:
     type: queue
     worker:
       handler: handler.consumer
+      timeout: 60 # 6 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
 
 functions:
 

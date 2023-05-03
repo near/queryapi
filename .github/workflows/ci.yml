@@ -28,11 +28,12 @@ jobs:
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly-2022-06-20
+        toolchain: 1.68.0
         override: true
         profile: minimal
         components: rustfmt
     - name: Check formatting
+    - working-directory: ./indexer
       run: |
         cargo fmt -- --check
 
@@ -45,10 +46,11 @@ jobs:
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly-2022-06-20
+        toolchain: 1.68.0
         override: true
         profile: minimal
         components: clippy
     - name: Clippy check
+    - working-directory: ./indexer
       run: |
         cargo clippy
