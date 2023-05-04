@@ -1,6 +1,8 @@
 //props indexer_name
 const indexer_name = props.indexer_name;
 
+const GRAPHQL_ENDPOINT =
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 const LIMIT = 10;
 const accountId = props.accountId || context.accountId;
 const H2 = styled.h2`
@@ -101,23 +103,18 @@ State.init({
 });
 
 function fetchGraphQL(operationsDoc, operationName, variables) {
-  return asyncFetch(
-    "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql",
-    {
-      method: "POST",
-      body: JSON.stringify({
-        query: operationsDoc,
-        variables: variables,
-        operationName: operationName,
-      }),
-    }
-  );
+return asyncFetch(`${GRAPHQL_ENDPOINT}/v1/graphql`, {
+    method: "POST",
+    body: JSON.stringify({
+      query: operationsDoc,
+      variables: variables,
+      operationName: operationName,
+    }),
+  });
 }
 
 const createGraphQLLink = () => {
-  const queryLink =
-    "https://cloud.hasura.io/public/graphiql?endpoint=https%3A%2F%2Fquery-api-hasura-vcqilefdcq-uc.a.run.app%2Fv1%2Fgraphql&query=query+IndexerQuery+%7B%0A++indexer_state%28where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%29+%7B%0A++++function_name%0A++++current_block_height%0A++%7D%0A++indexer_log_entries%28%0A++++where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%0A++++order_by%3A+%7Bblock_height%3A+desc%2C+timestamp%3A+desc%7D%0A++%29+%7B%0A++++function_name%0A++++id%0A++++message%0A++++timestamp%0A++%7D%0A%7D%0A";
-
+  const queryLink = `https://cloud.hasura.io/public/graphiql?endpoint=${GRAPHQL_ENDPOINT}/v1/graphql&query=query+IndexerQuery+%7B%0A++indexer_state%28where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%29+%7B%0A++++function_name%0A++++current_block_height%0A++%7D%0A++indexer_log_entries%28%0A++++where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%0A++++order_by%3A+%7Bblock_height%3A+desc%2C+timestamp%3A+desc%7D%0A++%29+%7B%0A++++function_name%0A++++id%0A++++message%0A++++timestamp%0A++%7D%0A%7D%0A`;
   return queryLink.replaceAll(
     "function_placeholder",
     `${accountId}/${indexer_name}`

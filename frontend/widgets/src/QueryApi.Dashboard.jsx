@@ -9,6 +9,7 @@ let totalIndexers = 0;
 const registry_contract_id =
   props.registry_contract_id || "queryapi.dataplatform.near";
 const APP_OWNER = "roshaan.near";
+const GRAPHQL_ENDPOINT =  'https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app' 
 
 State.init({
   activeTab: activeTab,
@@ -304,7 +305,11 @@ const indexerView = (accountId, indexerName, idx, view) => {
 
   const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
   const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
-  const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
+  // const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
+  const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
+    ".",
+    "_"
+  )}`;
 
   let removeIndexer = (name) => {
     const gas = 200000000000000;
@@ -364,14 +369,7 @@ const indexerView = (accountId, indexerName, idx, view) => {
         >
           {accountId === context.accountId ? "Edit Indexer" : "View Indexer"}
         </ButtonLink>
-        <ButtonLink
-          href={playgroundLink}
-          onClick={() =>
-            State.update({
-              activeTab: "editor-window",
-            })
-          }
-        >
+        <ButtonLink href={playgroundLink} target="_blank">
           View In Playground
         </ButtonLink>
         {view === "user" && (
