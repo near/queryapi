@@ -70,7 +70,6 @@ const NavBarLogo = styled.a`
 `;
 const Main = styled.div`
   display: grid;
-  grid-template-columns: 284px minmax(0, 1fr);
   grid-gap: 16px;
   padding-bottom: 24px;
 
@@ -401,18 +400,7 @@ const renderIndexers = (indexers, view) => {
 
 return (
   <Wrapper negativeMargin={state.activeTab === "indexers"}>
-    <Tabs
-      halfMargin={state.activeTab === "indexers"}
-      noMargin={state.activeTab === "indexers"}
-    >
-      <TabsButton
-        type="button"
-        onClick={() => State.update({ activeTab: "indexers" })}
-        selected={state.activeTab === "indexers"}
-      >
-        Indexers
-      </TabsButton>
-
+    <Tabs noMargin={state.activeTab === "indexers"}>
       <TabsButton
         type="button"
         onClick={() => State.update({ activeTab: "editor-window" })}
