@@ -20,16 +20,8 @@ import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
 import GraphiQL from "graphiql";
 import "graphiql/graphiql.min.css";
 import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
-import Indexer from "../../utils/indexerRunner";
+import { useDragResize } from "../../utils/resize";
 import { block_details } from "./block_details";
-import {
-  ArrowCounterclockwise,
-  Justify,
-  BugFill,
-  SendFill,
-} from "react-bootstrap-icons";
-import Tooltip from "react-bootstrap/Tooltip";
-import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 const defaultCode = formatIndexingCode(
   `
   // Add your code here   
@@ -324,11 +316,31 @@ Choose a start block height between ${
 
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-      {
-        <>
-          <ButtonToolbar
-            className="pt-2 pb-1 flex-col"
-            aria-label="Actions for Editor"
+      <ButtonToolbar
+        className="pt-3 pb-1 flex-col"
+        aria-label="Actions for Editor"
+      >
+        <IndexerDetailsGroup
+          accountId={accountId}
+          indexerNameField={indexerNameField}
+          setIndexerNameField={setIndexerNameField}
+          isCreateNewIndexerPage={options.create_new_indexer}
+        />
+        <BlockHeightOptions
+          selectedOption={selectedOption}
+          handleOptionChange={handleOptionChange}
+          blockHeight={blockHeight}
+          setBlockHeight={setBlockHeight}
+        />
+        <ButtonGroup
+          className="px-3 pt-3"
+          style={{ width: "100%" }}
+          aria-label="Action Button Group"
+        >
+          <Button
+            variant="secondary"
+            className="px-3"
+            onClick={() => setShowResetCodeModel(true)}
           >
             <IndexerDetailsGroup
               accountId={accountId}
@@ -452,6 +464,63 @@ Choose a start block height between ${
           name="options"
           defaultValue={"indexingLogic.js"}
         >
+          <Modal.Header closeButton>
+            <Modal.Title>Select A Blockheight</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <input
+              type="number"
+              value={getBlockHeight || blockHeight}
+              onChange={(e) => setGetBlockHeight(e.value)}
+              aria-label="Input blockheight"
+            />
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              variant="secondary"
+              onClick={() => setShowResetCodeModel(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() =>
+                getBlockValue().then((response) =>
+                  setBlock(response.data.block)
+                )
+              }
+            >
+              Get Block Details
+            </Button>
+          </Modal.Footer>
+        </Modal>
+      </div>
+
+      <div
+        className="px-3"
+        style={{
+          flex: "display",
+          justifyContent: "space-around",
+          width: "100%",
+        }}
+      >
+        {error && (
+          <Alert className="px-3 pt-3" variant="danger">
+            {error}
+          </Alert>
+        )}
+        {blockHeightError && (
+          <Alert className="px-3 pt-3" variant="danger">
+            {blockHeightError}
+          </Alert>
+        )}
+
+        <ToggleButtonGroup
+          type="radio"
+          style={{ backgroundColor: "white" }}
+          name="options"
+          defaultValue={"indexingLogic.js"}
+        >
           <ToggleButton
             id="tbg-radio-1"
             style={{
@@ -499,71 +568,125 @@ Choose a start block height between ${
               />
             </InputGroup.Text>
           </InputGroup>
+          <InputGroup>
+            <InputGroup.Text className="px-3">
+              {" "}
+              Block View
+              <Switch
+                className="px-1"
+                checked={blockView}
+                onChange={(checked) => {
+                  setBlockView(checked);
+                }}
+              />
+            </InputGroup.Text>
+          </InputGroup>
         </ToggleButtonGroup>
-        {fileName === "GraphiQL" && (
-          <div style={{ width: "100%", height: "50vh" }}>
-            <GraphiQL
-              fetcher={graphQLFetcher}
-              defaultQuery=""
-              storage={sessionStorage}
-            />
+
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          <div
+            ref={firstRef}
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "center",
+              minWidth: "100px",
+            }}
+          >
+            {fileName === "GraphiQL" && (
+              <div style={{ width: "100%", height: "50vh" }}>
+                <GraphiQL
+                  fetcher={graphQLFetcher}
+                  defaultQuery=""
+                  storage={sessionStorage}
+                />
+              </div>
+            )}
+            {fileName === "indexingLogic.js" &&
+              (diffView ? (
+                <DiffEditor
+                  original={originalIndexingCode}
+                  modified={indexingCode}
+                  height="50vh"
+                  width="100%"
+                  language="javascript"
+                  theme="vs-dark"
+                  onMount={handleEditorMount}
+                  options={{ ...options, readOnly: false }}
+                />
+              ) : (
+                <MonacoEditor
+                  value={indexingCode}
+                  height="50vh"
+                  width="100%"
+                  defaultValue={defaultCode}
+                  defaultLanguage="typescript"
+                  theme="vs-dark"
+                  onChange={(text) => setIndexingCode(text)}
+                  beforeMount={handleEditorWillMount}
+                  options={{ ...options, readOnly: false }}
+                />
+              ))}
+            {fileName === "schema.sql" &&
+              (diffView ? (
+                <DiffEditor
+                  original={originalSQLCode}
+                  modified={schema}
+                  height="50vh"
+                  width="100%"
+                  language="sql"
+                  onMount={handleEditorMount}
+                  theme="vs-dark"
+                  options={{
+                    ...options,
+                    readOnly:
+                      options?.create_new_indexer === true ? false : true,
+                  }}
+                />
+              ) : (
+                <MonacoEditor
+                  value={schema}
+                  height="50vh"
+                  width="100%"
+                  defaultValue={defaultSchema}
+                  defaultLanguage="sql"
+                  theme="vs-dark"
+                  onChange={(text) => setSchema(text)}
+                  options={{
+                    ...options,
+                    readOnly:
+                      options?.create_new_indexer === true ? false : false,
+                  }}
+                />
+              ))}
           </div>
-        )}
-        {fileName === "indexingLogic.js" &&
-          (diffView ? (
-            <DiffEditor
-              original={originalIndexingCode}
-              modified={indexingCode}
-              height="50vh"
-              width="100%"
-              language="javascript"
-              theme="vs-dark"
-              onMount={handleEditorMount}
-              options={{ ...options, readOnly: false }}
-            />
-          ) : (
-            <MonacoEditor
-              value={indexingCode}
-              height="50vh"
-              width="100%"
-              defaultValue={defaultCode}
-              defaultLanguage="typescript"
-              theme="vs-dark"
-              onChange={(text) => setIndexingCode(text)}
-              beforeMount={handleEditorWillMount}
-              options={{ ...options, readOnly: false }}
-            />
-          ))}
-        {fileName === "schema.sql" &&
-          (diffView ? (
-            <DiffEditor
-              original={originalSQLCode}
-              modified={schema}
-              height="50vh"
-              width="100%"
-              language="sql"
-              onMount={handleEditorMount}
-              theme="vs-dark"
-              options={{
-                ...options,
-                readOnly: options?.create_new_indexer === true ? false : true,
-              }}
-            />
-          ) : (
-            <MonacoEditor
-              value={schema}
-              height="50vh"
-              width="100%"
-              defaultValue={defaultSchema}
-              defaultLanguage="sql"
-              theme="vs-dark"
-              onChange={(text) => setSchema(text)}
-              options={{
-                ...options,
-                readOnly: options?.create_new_indexer === true ? false : false,
-              }}
-            />
-          ))}
+          <div
+            ref={dragBarRef}
+            style={{
+              width: "10px",
+              backgroundColor: "gray",
+              cursor: "col-resize",
+            }}
+          />
+          <div
+            ref={secondRef}
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minWidth: "100px",
+            }}
+          >
+            <JsonViewer style={{ width: "100%" }} value={block_details} />
+          </div>
+        </div>
       </div>
     </div>
   );
