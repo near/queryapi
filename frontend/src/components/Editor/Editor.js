@@ -8,7 +8,6 @@ import {
   Modal,
   ButtonGroup,
   ButtonToolbar,
-  Form,
   InputGroup,
   ToggleButtonGroup,
   ToggleButton,
@@ -32,6 +31,7 @@ const defaultCode = formatIndexingCode(
   true
 );
 
+//Todo do thos n
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `;
@@ -47,7 +47,6 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
@@ -101,7 +100,7 @@ const Editor = ({
     } else {
       setBlockHeightError(null);
     }
-  }, [blockHeight, selectedOption]);
+  }, [blockHeight, height, selectedOption]);
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -148,9 +147,9 @@ const Editor = ({
     });
   };
 
-  const graphQLFetcher = (graphQLParams) => {
+  const graphQLFetcher = async (graphQLParams) => {
     console.log(HASURA_ENDPOINT, "Hashura Endpoint");
-    return fetch(HASURA_ENDPOINT, {
+    const response = await fetch(HASURA_ENDPOINT, {
       method: "post",
       credentials: "omit",
       headers: {
@@ -158,7 +157,8 @@ const Editor = ({
         "X-Hasura-Role": accountId.replaceAll(".", "_"),
       },
       body: JSON.stringify(graphQLParams || {}),
-    }).then((response) => response.json());
+    });
+    return await response.json();
   };
 
   const handleReload = useCallback(async () => {
@@ -221,9 +221,7 @@ const Editor = ({
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
       await handleReload();
-      setLoading(false);
     };
     load();
   }, [accountId, handleReload, indexerName]);
