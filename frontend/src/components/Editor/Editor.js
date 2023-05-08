@@ -585,17 +585,24 @@ const Editor = ({
               cursor: "col-resize",
             }}
           />
-          <div
-            ref={secondRef}
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minWidth: "100px",
-            }}
-          >
-            <JsonViewer style={{ width: "100%" }} value={block_details} />
-          </div>
+          {blockView && (
+            <div
+              ref={secondRef}
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                minWidth: "100px",
+              }}
+            >
+              <JsonViewer
+                theme={"dark"}
+                style={{ width: "100%" }}
+                value={block_details}
+                collapsed
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
