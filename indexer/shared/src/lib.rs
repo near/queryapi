@@ -281,6 +281,11 @@ pub async fn send_to_indexer_queue(
                     serde_json::to_string(&indexer_queue_message)
                         .expect("Failed to Json Serialize IndexerQueueMessage"),
                 )
+                .message_group_id(format!(
+                    "{}_{}",
+                    indexer_queue_message.indexer_function.account_id,
+                    indexer_queue_message.indexer_function.function_name
+                ))
                 .build()
         })
         .collect();
