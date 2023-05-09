@@ -6,11 +6,16 @@ const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
 const activeTab = props.view ?? "public-indexers";
 const limit = 7;
 let totalIndexers = 0;
-const registry_contract_id =
-  props.registry_contract_id || "queryapi.dataplatform.near";
-const APP_OWNER = "roshaan.near";
-const GRAPHQL_ENDPOINT =  'https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app' 
+const REGISTRY_CONTRACT_ID =
+  props.REGISTRY_CONTRACT_ID || "queryapi.dataplatform.near";
+const APP_OWNER = props.APP_OWNER || "dataplatform.near";
+const GRAPHQL_ENDPOINT =
+  props.GRAPHQL_ENDPOINT ||
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+const EXTERNAL_APP_URL =
+  props.EXTERNAL_APP_URL || "https://queryapi-frontend-24ktefolwq-ew.a.run.app";
 
+let appPath = props.isDev ? "dev-App" : "App";
 State.init({
   activeTab: activeTab,
   my_indexers: [],
@@ -19,7 +24,7 @@ State.init({
   selected_account: undefined,
 });
 
-Near.asyncView(registry_contract_id, "list_indexer_functions").then((data) => {
+Near.asyncView(REGISTRY_CONTRACT_ID, "list_indexer_functions").then((data) => {
   const indexers = [];
   const total_indexers = 0;
   Object.keys(data.All).forEach((accountId) => {
@@ -303,9 +308,9 @@ const indexerView = (accountId, indexerName, idx, view) => {
       idx === 0) ||
     (selected_accountId === accountId && selected_indexerName === indexerName);
 
-  const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
-  const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
-  // const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
+  const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
+  const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
+  // const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
   const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
     ".",
     "_"
@@ -314,7 +319,7 @@ const indexerView = (accountId, indexerName, idx, view) => {
   let removeIndexer = (name) => {
     const gas = 200000000000000;
     Near.call(
-      registry_contract_id,
+      REGISTRY_CONTRACT_ID,
       "remove_indexer_function",
       {
         function_name: name,
@@ -431,7 +436,7 @@ return (
     <Main>
       <Section active={state.activeTab === "indexers"}>
         <NavBarLogo
-          href={`https://alpha.near.org/#/${APP_OWNER}/widget/QueryApi.Dashboard`}
+          href={`https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}`}
           title="QueryApi"
           onClick={() => {
             State.update({
@@ -455,7 +460,7 @@ return (
 
         <div>
           <ButtonLink
-            href={`/#/${APP_OWNER}/widget/QueryApi.Dashboard/?view=create-new-indexer`}
+            href={`/#/${APP_OWNER}/widget/QueryApi.${appPath}/?view=create-new-indexer`}
             style={{ "margin-top": "10px" }}
             onClick={() =>
               State.update({
@@ -499,6 +504,10 @@ return (
                 indexer_name:
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
+                EXTERNAL_APP_URL,
+                REGISTRY_CONTRACT_ID,
+                GRAPHQL_ENDPOINT,
+                APP_OWNER,
               }}
             />
           </div>
@@ -523,6 +532,10 @@ return (
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "query-api-editor",
                 tab: props.tab,
+                EXTERNAL_APP_URL,
+                REGISTRY_CONTRACT_ID,
+                GRAPHQL_ENDPOINT,
+                APP_OWNER,
               }}
             />
           </div>
@@ -542,6 +555,10 @@ return (
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "create-new-indexer",
+                EXTERNAL_APP_URL,
+                REGISTRY_CONTRACT_ID,
+                GRAPHQL_ENDPOINT,
+                APP_OWNER,
               }}
             />
           </div>

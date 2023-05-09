@@ -2,6 +2,7 @@
 const indexer_name = props.indexer_name;
 
 const GRAPHQL_ENDPOINT =
+  props.GRAPHQL_ENDPOINT ||
   "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 const LIMIT = 10;
 const accountId = props.accountId || context.accountId;
@@ -103,7 +104,7 @@ State.init({
 });
 
 function fetchGraphQL(operationsDoc, operationName, variables) {
-return asyncFetch(`${GRAPHQL_ENDPOINT}/v1/graphql`, {
+  return asyncFetch(`${GRAPHQL_ENDPOINT}/v1/graphql`, {
     method: "POST",
     body: JSON.stringify({
       query: operationsDoc,
