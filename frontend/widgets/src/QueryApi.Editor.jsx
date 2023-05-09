@@ -1,10 +1,11 @@
 const path = props.path || "query-api-editor";
 const tab = props.tab || "";
-const registry_contract_id =
-  props.registry_contract_id || "queryapi.dataplatform.near";
+const REGISTRY_CONTRACT_ID =
+  props.REGISTRY_CONTRACT_ID || "queryapi.dataplatform.near";
 let accountId = props.accountId || context.accountId;
-
-let externalAppUrl = `https://queryapi-frontend-vcqilefdcq-ew.a.run.app/${path}?accountId=${accountId}`;
+let externalAppUrl =
+  props.EXTERNAL_APP_URL || "https://queryapi-frontend-24ktefolwq-ew.a.run.app";
+externalAppUrl += `/${path}?accountId=${accountId}`;
 // let externalAppUrl = `http://localhost:3000/${path}?accountId=${accountId}`;
 
 if (props.indexerName) {
@@ -31,7 +32,7 @@ const registerFunctionHandler = (request, response) => {
   // }
 
   Near.call(
-    registry_contract_id,
+    REGISTRY_CONTRACT_ID,
     "register_indexer_function",
     {
       function_name: indexerName,
