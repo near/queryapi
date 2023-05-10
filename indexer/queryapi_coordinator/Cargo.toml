@@ -22,6 +22,7 @@ tracing = "0.1.34"
 alert-rules = { path = '../alert-rules', features = ["db"] }
 shared = { path = '../shared' }
 storage = { path = '../storage' }
+indexer_rules_engine = { path = '../../indexer_rules_engine' }
 wildmatch = "2.1.1"
 
 near-jsonrpc-client = "0.5.1"

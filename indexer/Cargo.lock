@@ -2066,6 +2066,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "indexer_rules_engine"
+version = "0.1.0"
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3085,6 +3089,7 @@ dependencies = [
  "borsh",
  "cached",
  "futures",
+ "indexer_rules_engine",
  "itertools 0.9.0",
  "lazy_static",
  "mockall",

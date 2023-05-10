@@ -9,5 +9,5 @@ members = [
 ]
 
 exclude = [ 
-    "hasura-authentication-service"
+    "../hasura-authentication-service"
 ]
