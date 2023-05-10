@@ -20,7 +20,16 @@ import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
 import GraphiQL from "graphiql";
 import "graphiql/graphiql.min.css";
 import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
-
+import Indexer from "../../utils/indexerRunner";
+import { block_details } from "./block_details";
+import {
+  ArrowCounterclockwise,
+  Justify,
+  BugFill,
+  SendFill,
+} from "react-bootstrap-icons";
+import Tooltip from "react-bootstrap/Tooltip";
+import OverlayTrigger from "react-bootstrap/OverlayTrigger";
 const defaultCode = formatIndexingCode(
   `
   // Add your code here   
@@ -308,12 +317,17 @@ Choose a start block height between ${
       setIsContractFilterValid(true);
     }
   }
+  function executeIndexerFunction(block_height) {
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    indexerRunner.runFunction(block_details, innerCode);
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
       {
         <>
           <ButtonToolbar
-            className="pt-3 pb-1 flex-col"
+            className="pt-2 pb-1 flex-col"
             aria-label="Actions for Editor"
           >
             <IndexerDetailsGroup
@@ -331,35 +345,60 @@ Choose a start block height between ${
               handleSetContractFilter={handleSetContractFilter}
               isContractFilterValid={isContractFilterValid}
             />
+          </ButtonToolbar>
+          <ButtonToolbar
+            className="py-1 flex-col"
+            aria-label="Actions for Editor"
+          >
             <ButtonGroup
-              className="px-3 pt-3"
-              style={{ width: "100%" }}
+              className="px-3 inline-block"
               aria-label="Action Button Group"
             >
-              <Button
-                variant="secondary"
-                className="px-3"
-                onClick={() => setShowResetCodeModel(true)}
+              <OverlayTrigger
+                overlay={<Tooltip>Reset Changes To Code</Tooltip>}
               >
-                {" "}
-                Reset
-              </Button>{" "}
-              <Button
-                variant="secondary"
-                className="px-3"
-                onClick={() => handleFormating()}
-              >
-                {" "}
-                Format Code
-              </Button>{" "}
-              {currentUserAccountId && (
                 <Button
-                  variant="primary"
-                  className="px-3"
-                  onClick={() => submit()}
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setShowResetCodeModel(true)}
                 >
-                  {getActionButtonText()}
+                  <ArrowCounterclockwise size={24} />
                 </Button>
+              </OverlayTrigger>
+
+              <OverlayTrigger overlay={<Tooltip>Format Code</Tooltip>}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleFormating()}
+                >
+                  <Justify size={24} />
+                </Button>
+              </OverlayTrigger>
+              <OverlayTrigger
+                overlay={<Tooltip>Test Indexer Function In Browser</Tooltip>}
+              >
+                <Button
+                  className="w-40"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => executeIndexerFunction(91243919)}
+                >
+                  <BugFill size={24} />
+                </Button>
+              </OverlayTrigger>
+              {currentUserAccountId && (
+                <OverlayTrigger
+                  overlay={<Tooltip>{getActionButtonText()}</Tooltip>}
+                >
+                  <Button
+                    variant="primary"
+                    className="px-3"
+                    onClick={() => submit()}
+                  >
+                    {getActionButtonText()}
+                  </Button>
+                </OverlayTrigger>
               )}
             </ButtonGroup>
           </ButtonToolbar>
@@ -389,7 +428,7 @@ Choose a start block height between ${
       </Modal>
 
       <div
-        className="px-3"
+        className="px-3 pt-3"
         style={{
           flex: "display",
           justifyContent: "space-around",
