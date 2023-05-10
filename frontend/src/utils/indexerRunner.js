@@ -8,14 +8,11 @@ export default class Indexer {
     const innerCodeWithBlockHelper =
       `
       const block = Block.fromStreamerMessage(streamerMessage);
-      console.log(block,"blocks");
     ` + indexerCode;
 
     const modifiedFunction = this.transformIndexerFunction(
       innerCodeWithBlockHelper
     );
-
-    console.log(modifiedFunction, "modifiedFunction");
 
     // Create a function wrapper around the evaluated code
     const wrappedFunction = new Function(
