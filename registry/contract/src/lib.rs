@@ -74,14 +74,17 @@ pub struct IndexerConfig {
 // Migration types
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
-    Registry,
-    Account(CryptoHash),
+    Registry, // can be removed after migration
+    Account(CryptoHash), // can be removed after migration
+    RegistryV1,
+    AccountV1(CryptoHash),
 }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, Debug)]
 pub struct OldState {
     registry: OldIndexersByAccount,
+    account_roles: Vec<AccountRole>,
 }
 pub type OldIndexersByAccount = UnorderedMap<AccountId, OldIndexerConfigByFunctionName>;
 pub type OldIndexerConfigByFunctionName = UnorderedMap<FunctionName, OldIndexerConfig>;
@@ -162,30 +165,34 @@ impl Contract {
     #[private]
     #[init(ignore_state)]
     pub fn migrate() -> Self {
-        let state: OldState = env::state_read().unwrap_or_else(|| {
+        log!("Pre-migration storage size {:?}", env::storage_usage());
+
+        let mut state: OldState = env::state_read().unwrap_or_else(|| {
             env::panic_str("Failed to deserialize contract state");
         });
 
-        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        let mut registry = IndexersByAccount::new(StorageKeys::RegistryV1);
 
-        state.registry.iter().for_each(|(account_id, functions)| {
+        state.registry.iter_mut().for_each(|(account_id, functions)| {
 
-            let mut new_functions: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            let mut new_functions: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(StorageKeys::AccountV1(
                 env::sha256_array(account_id.as_bytes()),
             ));
-            functions.iter().for_each(|(function_name, config)| {
-                let old_indexer_config = config.clone();
+            functions.iter().for_each(|(function_name, old_indexer_config)| {
                 let new_indexer_config = IndexerConfig {
-                    code: old_indexer_config.code,
+                    code: old_indexer_config.code.clone(),
                     start_block_height: old_indexer_config.start_block_height,
-                    schema: old_indexer_config.schema,
+                    schema: old_indexer_config.schema.clone(),
                     filter: indexer_rules_engine::near_social_indexer_rule(),
                 };
                 new_functions.insert(function_name.clone(), new_indexer_config);
-
             });
             registry.insert(account_id.clone(), new_functions);
+            functions.clear();
         });
+        state.registry.clear();
+
+        log!("Post-migration storage size {:?}", env::storage_usage());
 
         Self {
             registry,
@@ -439,77 +446,82 @@ mod tests {
                 schema: None,
             },
         );
-        // funcs.insert(
-        //     "test2".to_string(),
-        //     OldIndexerConfig {
-        //         code: "return block2;".to_string(),
-        //         start_block_height: None,
-        //         schema: None,
-        //     },
-        // );
+        funcs.insert(
+            "test2".to_string(),
+            OldIndexerConfig {
+                code: "return block2;".to_string(),
+                start_block_height: None,
+                schema: None,
+            },
+        );
         registry.insert(AccountId::new_unchecked("morgs.near".to_string()), funcs);
-        //
-        // let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
-        //     env::sha256_array("root.near".as_bytes()),
-        // ));
-        // funcs.insert(
-        //     "my_function".to_string(),
-        //     OldIndexerConfig {
-        //         code: "var x = 1;".to_string(),
-        //         start_block_height: Some(1),
-        //         schema: None,
-        //     },
-        // );
-        // registry.insert(AccountId::new_unchecked("root.near".to_string()), funcs);
-        //
-        // let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
-        //     env::sha256_array("roshaan.near".as_bytes()),
-        // ));
-        // funcs.insert(
-        //     "another/function".to_string(),
-        //     OldIndexerConfig {
-        //         code: "console.log('hello');".to_string(),
-        //         start_block_height: Some(1),
-        //         schema: None,
-        //     },
-        // );
-        // registry.insert(AccountId::new_unchecked("roshaan.near".to_string()), funcs);
-        //
+
+        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array("root.near".as_bytes()),
+        ));
+        funcs.insert(
+            "my_function".to_string(),
+            OldIndexerConfig {
+                code: "var x = 1;".to_string(),
+                start_block_height: Some(1),
+                schema: None,
+            },
+        );
+        registry.insert(AccountId::new_unchecked("root.near".to_string()), funcs);
+
+        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array("roshaan.near".as_bytes()),
+        ));
+        funcs.insert(
+            "another/function".to_string(),
+            OldIndexerConfig {
+                code: "console.log('hello');".to_string(),
+                start_block_height: Some(1),
+                schema: None,
+            },
+        );
+        registry.insert(AccountId::new_unchecked("roshaan.near".to_string()), funcs);
+
         env::state_write(&OldState {
-            registry
+            registry,
+            account_roles: vec![],
         });
 
+        println!("Starting storage size {:?}", env::storage_usage());
         let contract = Contract::migrate();
 
-        // assert_eq!(contract.registry.len(), 3);
-        // assert_eq!(
-        //     contract
-        //         .registry
-        //         .get(&AccountId::new_unchecked("morgs.near".to_string()))
-        //         .unwrap()
-        //         .len(),
-        //     2
-        // );
-        // assert_eq!(
-        //     contract
-        //         .registry
-        //         .get(&AccountId::new_unchecked("root.near".to_string()))
-        //         .unwrap()
-        //         .get("my_function")
-        //         .unwrap()
-        //         .filter,
-        //     indexer_rules_engine::near_social_indexer_rule()
-        // );
-        // assert_eq!(
-        //     contract
-        //         .registry
-        //         .get(&AccountId::new_unchecked("roshaan.near".to_string()))
-        //         .unwrap()
-        //         .len(),
-        //     1
-        // );
-        //
-        // assert_eq!(contract.account_roles.len(), 7);
+        // Note, the new state doesn't seem to get fully saved by the test
+        println!("Migrated storage size {:?}", env::storage_usage());
+
+        assert_eq!(contract.registry.len(), 3);
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("morgs.near".to_string()))
+                .unwrap()
+                .len(),
+            2
+        );
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("root.near".to_string()))
+                .unwrap()
+                .get("my_function")
+                .unwrap()
+                .filter,
+            indexer_rules_engine::near_social_indexer_rule()
+        );
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("roshaan.near".to_string()))
+                .unwrap()
+                .len(),
+            1
+        );
+
+        assert_eq!(contract.account_roles.len(), 7);
     }
 
     #[test]
