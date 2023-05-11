@@ -31,11 +31,6 @@ pub enum MatchingRule {
         affected_account_id: String,
         status: Status,
     },
-    // ActionTransfer {
-    //     affected_account_id: String,
-    //     status: Status,
-    //     amount: DepositAmountCondition,
-    // },
     ActionFunctionCall {
         affected_account_id: String,
         status: Status,
@@ -47,9 +42,4 @@ pub enum MatchingRule {
         version: String,
         event: String,
     },
-    // StateChangeAccountBalance {
-    //     affected_account_id: String,
-    //     #[serde(flatten)]
-    //     comparator: Comparator,
-    // },
 }
