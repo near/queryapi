@@ -10,10 +10,7 @@ use tracing_subscriber::EnvFilter;
 use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finality};
 
-pub use alertexer_types;
-use alertexer_types::indexer_types::IndexerQueueMessage;
-
-pub mod types;
+use crate::indexer_types::IndexerQueueMessage;
 
 #[derive(Parser, Debug, Clone)]
 #[clap(
@@ -28,9 +25,6 @@ pub struct Opts {
     /// Connection string to connect to the Redis instance for cache. Default: "redis://127.0.0.1"
     #[clap(long, default_value = "redis://127.0.0.1", env)]
     pub redis_connection_string: String,
-    /// Connection string to connect to the PostgreSQL Database to fetch AlertRules from
-    #[clap(long, env)]
-    pub database_url: String,
     /// AWS Access Key with the rights to read from AWS S3
     #[clap(long, env)]
     pub lake_aws_access_key: String,
@@ -79,10 +73,10 @@ pub enum StartOptions {
 }
 
 impl Opts {
-    pub fn chain_id(&self) -> alertexer_types::ChainId {
+    pub fn chain_id(&self) -> indexer_rules_engine::types::indexer_rule_match::ChainId {
         match self.chain_id {
-            ChainId::Mainnet(_) => alertexer_types::ChainId::Mainnet,
-            ChainId::Testnet(_) => alertexer_types::ChainId::Testnet,
+            ChainId::Mainnet(_) => indexer_rules_engine::types::indexer_rule_match::ChainId::Mainnet,
+            ChainId::Testnet(_) => indexer_rules_engine::types::indexer_rule_match::ChainId::Testnet,
         }
     }
 
@@ -100,7 +94,7 @@ impl Opts {
             self.lake_aws_secret_access_key.clone(),
             None,
             None,
-            "alertexer_lake",
+            "queryapi_coordinator_lake",
         );
         aws_credential_types::provider::SharedCredentialsProvider::new(provider)
     }
@@ -112,7 +106,7 @@ impl Opts {
             self.queue_aws_secret_access_key.clone(),
             None,
             None,
-            "alertexer_queue",
+            "queryapi_coordinator_queue",
         );
         aws_credential_types::provider::SharedCredentialsProvider::new(provider)
     }
@@ -125,7 +119,7 @@ impl Opts {
             .build()
     }
 
-    /// Creates AWS Shared Config for Alertexer SQS queue
+    /// Creates AWS Shared Config for QueryApi SQS queue
     pub fn queue_aws_sdk_config(&self, region: String) -> aws_types::sdk_config::SdkConfig {
         aws_types::sdk_config::SdkConfig::builder()
             .credentials_provider(self.queue_credentials())
@@ -133,7 +127,7 @@ impl Opts {
             .build()
     }
 
-    /// Creates AWS SQS Client for Alertexer SQS
+    /// Creates AWS SQS Client for QueryApi SQS
     pub fn queue_client(&self, region: String) -> aws_sdk_sqs::Client {
         let shared_config = self.queue_aws_sdk_config(region);
         aws_sdk_sqs::Client::new(&shared_config)
@@ -177,7 +171,7 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
                 Ok(connection_manager) => connection_manager,
                 Err(err) => {
                     tracing::warn!(
-                        target: "alertexer",
+                        target: crate::INDEXER,
                         "Failed to connect to Redis to get last synced block, failing to the latest...\n{:#?}",
                         err,
                     );
@@ -188,7 +182,7 @@ async fn get_start_block_height(opts: &Opts) -> u64 {
                 Ok(last_indexed_block) => last_indexed_block,
                 Err(err) => {
                     tracing::warn!(
-                        target: "alertexer",
+                        target: crate::INDEXER,
                         "Failed to get last indexer block from Redis. Failing to the latest one...\n{:#?}",
                         err
                     );
@@ -222,46 +216,6 @@ pub fn init_tracing() {
         .with_env_filter(env_filter)
         .with_writer(std::io::stderr)
         .init();
-}
-
-pub async fn send_to_the_queue(
-    client: &aws_sdk_sqs::Client,
-    queue_url: String,
-    alert_queue_messages: Vec<alertexer_types::primitives::AlertQueueMessage>,
-) -> anyhow::Result<()> {
-    tracing::info!(
-        target: "alertexer",
-        "Sending alerts to the queue\n{:#?}",
-        alert_queue_messages
-    );
-
-    let message_bodies: Vec<SendMessageBatchRequestEntry> = alert_queue_messages
-        .into_iter()
-        .enumerate()
-        .map(|(index, alert_queue_message)| {
-            SendMessageBatchRequestEntry::builder()
-                .id(index.to_string())
-                .message_body(base64::encode(
-                    alert_queue_message
-                        .try_to_vec()
-                        .expect("Failed to BorshSerialize AlertQueueMessage"),
-                ))
-                .build()
-        })
-        .collect();
-
-    let rsp = client
-        .send_message_batch()
-        .queue_url(queue_url)
-        .set_entries(Some(message_bodies))
-        .send()
-        .await?;
-    tracing::debug!(
-        target: "alertexer",
-        "Response from sending a message to SQS\n{:#?}",
-        rsp
-    );
-    Ok(())
 }
 
 pub async fn send_to_indexer_queue(
@@ -300,7 +254,7 @@ pub async fn send_to_indexer_queue(
         .send()
         .await?;
     tracing::debug!(
-        target: "alertexer",
+        target: crate::INDEXER,
         "Response from sending a message to SQS\n{:#?}",
         rsp
     );

@@ -1,13 +1,13 @@
-use alert_rules::{MatchingRule, Status};
 
 use near_lake_framework::near_indexer_primitives::{
     views::{ActionView, ExecutionStatusView, ReceiptEnumView},
     IndexerExecutionOutcomeWithReceipt,
 };
 
-use shared::alertexer_types::events::Event;
+use crate::types::events::Event;
+use crate::types::indexer_rule::{MatchingRule, Status};
 
-pub(crate) fn matches(
+pub fn matches(
     matching_rule: &MatchingRule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
 ) -> bool {
@@ -37,9 +37,6 @@ pub(crate) fn matches(
             standard,
             version,
             receipt_execution_outcome,
-        ),
-        _ => unreachable!(
-            "Unreachable code! Didn't expect StateChanges based MatchingRule in `outcomes_reducer`"
         ),
     }
 }

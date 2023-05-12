@@ -6,7 +6,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, serde_json};
 
-use indexer_rules_engine::types::{IndexerRule};
+use indexer_rules_engine::indexer_rule::{IndexerRule};
 
 type FunctionName = String;
 // Define the contract structure

@@ -3,19 +3,21 @@ use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::Mutex;
 
-use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
+use indexer_rules_engine::types::indexer_rule::{IndexerRule};
+use indexer_rules_engine::types::indexer_rule_match::{ChainId};
 use near_lake_framework::near_indexer_primitives::types;
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 
-use shared::alertexer_types::indexer_types::{IndexerQueueMessage, IndexerRegistry};
-use shared::{alertexer_types::primitives::AlertQueueMessage, Opts, Parser};
+use indexer_types::{IndexerQueueMessage, IndexerRegistry};
+use opts::{Opts, Parser};
 use storage::ConnectionManager;
 
 pub(crate) mod cache;
+mod indexer_types;
 mod indexer_registry;
+mod indexer_reducer;
 mod metrics;
-mod outcomes_reducer;
-mod state_changes_reducer;
+mod opts;
 mod utils;
 
 pub(crate) const INDEXER: &str = "queryapi_coordinator";
@@ -35,8 +37,8 @@ pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<AccountId, BalanceDetail
 
 pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
-    pub chain_id: &'a shared::alertexer_types::primitives::ChainId,
-    pub queue_client: &'a shared::QueueClient,
+    pub chain_id: &'a ChainId,
+    pub queue_client: &'a opts::QueueClient,
     pub queue_url: &'a str,
     pub registry_contract_id: &'a str,
     pub balance_cache: &'a BalanceCache,
@@ -46,9 +48,9 @@ pub(crate) struct QueryApiContext<'a> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    shared::init_tracing();
+    opts::init_tracing();
 
-    shared::dotenv::dotenv().ok();
+    opts::dotenv::dotenv().ok();
 
     let opts = Opts::parse();
 
@@ -128,13 +130,18 @@ async fn handle_streamer_message(
     indexer_registry: SharedIndexerRegistry,
 ) -> anyhow::Result<u64> {
     // This is a single hardcoded filter, which is standing in for filters on IndexerFunctions.
-    let alert_rules: Vec<AlertRule> = vec![near_social_alert_rule()];
+    let indexer_rules: Vec<IndexerRule> = vec![indexer_rules_engine::near_social_indexer_rule()];
 
     cache::cache_txs_and_receipts(&context.streamer_message, context.redis_connection_manager)
         .await?;
 
-    let mut reducer_futures = stream::iter(alert_rules.iter())
-        .map(|alert_rule| reduce_alert_queue_messages(alert_rule, &context))
+    let mut reducer_futures = stream::iter(indexer_rules.iter())
+        .map(|indexer_rule| indexer_rules_engine::reduce_indexer_rule_matches(
+            indexer_rule,
+            &context.streamer_message,
+            context.redis_connection_manager,
+            context.chain_id.clone(),
+        ))
         // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
         .buffer_unordered(10usize);
 
@@ -155,20 +162,20 @@ async fn handle_streamer_message(
         );
     }
 
-    while let Some(alert_queue_messages) = reducer_futures.next().await {
-        if let Ok(alert_queue_messages) = alert_queue_messages {
+    while let Some(indexer_rule_matches) = reducer_futures.next().await {
+        if let Ok(indexer_rule_matches) = indexer_rule_matches {
             // for each alert_queue_message from the reducer
             //   for each indexer_function create a new alert_queue_message
             // Once the filters are tied to indexer functions, these will de-nest
             let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
-            for alert_queue_message in alert_queue_messages.iter() {
+            for indexer_rule_match in indexer_rule_matches.iter() {
                 for (_account, functions) in &mut indexer_registry_locked.iter_mut() {
                     for (_function_name, indexer_function) in &mut functions.iter_mut() {
                         let msg = IndexerQueueMessage {
-                            chain_id: alert_queue_message.chain_id.clone(),
-                            alert_rule_id: alert_queue_message.alert_rule_id,
-                            alert_name: alert_queue_message.alert_name.clone(),
-                            payload: Some(alert_queue_message.payload.clone()),
+                            chain_id: indexer_rule_match.chain_id.clone(),
+                            indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
+                            indexer_rule_name: indexer_rule_match.indexer_rule_name.clone().unwrap_or("".to_string()),
+                            payload: Some(indexer_rule_match.payload.clone()),
                             block_height,
                             indexer_function: indexer_function.clone(),
                         };
@@ -184,7 +191,7 @@ async fn handle_streamer_message(
             stream::iter(indexer_function_messages.into_iter())
                 .chunks(10)
                 .for_each(|alert_queue_messages_batch| async {
-                    match shared::send_to_indexer_queue(
+                    match opts::send_to_indexer_queue(
                         context.queue_client,
                         context.queue_url.to_string(),
                         alert_queue_messages_batch,
@@ -212,43 +219,4 @@ async fn handle_streamer_message(
     .await?;
 
     Ok(context.streamer_message.block.header.height)
-}
-
-async fn reduce_alert_queue_messages(
-    alert_rule: &AlertRule,
-    context: &QueryApiContext<'_>,
-) -> anyhow::Result<Vec<AlertQueueMessage>> {
-    Ok(match &alert_rule.matching_rule {
-        MatchingRule::ActionAny { .. }
-        | MatchingRule::ActionFunctionCall { .. }
-        | MatchingRule::ActionTransfer { .. }
-        | MatchingRule::Event { .. } => {
-            outcomes_reducer::reduce_alert_queue_messages_from_outcomes(alert_rule, context).await?
-        }
-        MatchingRule::StateChangeAccountBalance { .. } => {
-            state_changes_reducer::reduce_alert_queue_messages_from_state_changes(
-                alert_rule, context,
-            )
-            .await?
-        }
-    })
-}
-
-fn near_social_alert_rule() -> AlertRule {
-    let contract = "social.near";
-    let method = "set";
-    let matching_rule = MatchingRule::ActionFunctionCall {
-        affected_account_id: contract.to_string(),
-        function: method.to_string(),
-        status: Status::Any,
-    };
-    AlertRule {
-        id: 0,
-        name: format!("{} {}{}", contract, method, "_changes"),
-        chain_id: alert_rules::ChainId::Mainnet,
-        alert_rule_kind: AlertRuleKind::Actions,
-        is_paused: false,
-        updated_at: None,
-        matching_rule,
-    }
 }

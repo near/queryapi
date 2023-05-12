@@ -5,6 +5,8 @@ use borsh::{BorshDeserialize, BorshSerialize};
 pub struct IndexerRule {
     pub indexer_rule_kind: IndexerRuleKind,
     pub matching_rule: MatchingRule,
+    pub id: Option<u32>,
+    pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
