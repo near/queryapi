@@ -64,15 +64,23 @@ fn build_registry_info(
                     method_name, args, ..
                 } = action
                 {
-                    Some(FunctionCallInfo {
-                        chain_id: context.chain_id.clone(),
-                        alert_rule_id: alert_rule.id,
-                        alert_name: alert_rule.name.clone(),
-                        signer_id: signer_id.to_string(),
-                        method_name: method_name.to_string(),
-                        args: serde_json::to_string(args).unwrap_or("".to_string()), // todo improve conversion
-                        block_height: context.streamer_message.block.header.height,
-                    })
+                    match std::str::from_utf8(args) {
+                        Ok(args) => {
+                            Some(FunctionCallInfo {
+                                chain_id: context.chain_id.clone(),
+                                alert_rule_id: alert_rule.id,
+                                alert_name: alert_rule.name.clone(),
+                                signer_id: signer_id.to_string(),
+                                method_name: method_name.to_string(),
+                                args: args.to_string(),
+                                block_height: context.streamer_message.block.header.height,
+                            })
+                        }
+                        Err(_) => {
+                            tracing::error!("Failed to deserialize args");
+                            None
+                        },
+                    }
                 } else {
                     None
                 }
