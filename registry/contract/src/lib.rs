@@ -428,6 +428,7 @@ impl Contract {
  */
 #[cfg(test)]
 mod tests {
+    use indexer_rules_engine::types::{IndexerRuleKind, MatchingRule, Status};
     use super::*;
 
     #[test]
@@ -487,11 +488,7 @@ mod tests {
             account_roles: vec![],
         });
 
-        println!("Starting storage size {:?}", env::storage_usage());
         let contract = Contract::migrate();
-
-        // Note, the new state doesn't seem to get fully saved by the test
-        println!("Migrated storage size {:?}", env::storage_usage());
 
         assert_eq!(contract.registry.len(), 3);
         assert_eq!(
@@ -903,6 +900,72 @@ mod tests {
                 .get("test")
                 .unwrap(),
             &config
+        );
+    }
+
+    #[test]
+    fn register_indexer_function_with_filter() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
+        };
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: None,
+            schema: None,
+            filter: IndexerRule {
+                indexer_rule_kind: IndexerRuleKind::Action,
+                matching_rule: MatchingRule::ActionFunctionCall {
+                    affected_account_id: "test".to_string(),
+                    function: "test".to_string(),
+                    status: Status::Fail,
+                }
+            },
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            config.code.clone(),
+            config.start_block_height,
+            config.schema.clone(),
+            None,
+            Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_FUNCTION_CALL","affected_account_id":"test","function":"test","status":"FAIL"}}"#.to_string()),
+        );
+
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("bob.near".to_string()))
+                .unwrap()
+                .get("test")
+                .unwrap(),
+            &config
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Invalid filter JSON")]
+    fn register_indexer_function_with_invalid_filter() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
+        };
+
+        let filter_json_missing_rule_type = r#"{"indexer_rule_kind":"Action","matching_rule":{"affected_account_id":"test","function":"test","status":"FAIL"}}"#;
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "var x= 1;".to_string(),
+            None,
+            None,
+            None,
+            Some(filter_json_missing_rule_type.to_string()),
         );
     }
 

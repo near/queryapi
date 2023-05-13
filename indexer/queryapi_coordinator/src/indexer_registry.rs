@@ -360,7 +360,7 @@ fn build_registry_indexer_rule(registry_method_name: &str, registry_contract_id:
     let matching_rule = MatchingRule::ActionFunctionCall {
         affected_account_id: registry_contract_id.to_string(),
         function: registry_method_name.to_string(),
-        status: Status::Any,
+        status: Status::Success,
     };
     IndexerRule {
         id: None,
