@@ -323,7 +323,7 @@ fn build_registry_alert(registry_method_name: &str, registry_contract_id: &str) 
     let matching_rule = MatchingRule::ActionFunctionCall {
         affected_account_id: registry_contract_id.to_string(),
         function: registry_method_name.to_string(),
-        status: Status::Any,
+        status: Status::Success,
     };
     AlertRule {
         id: 0,
