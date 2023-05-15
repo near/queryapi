@@ -57,15 +57,16 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
     for (account, functions) in raw_registry {
         let mut fns = HashMap::new();
         for (function_name, function_config) in functions.as_object().unwrap() {
-            let indexer_rule = indexer_rules_engine::near_social_indexer_rule();
+            let indexer_rule = match serde_json::from_value(function_config["filter"].clone()) {
+                Ok(indexer_rule) => {
+                    indexer_rule
+                }
+                Err(e) => {
+                    tracing::error!("Error parsing indexer_rule filter for function {}: {}", function_name, e);
+                    continue;
+                }
+            };
 
-            // todo implement separately from refactor
-            // let indexer_rule = IndexerRule {
-            //     id: None,
-            //     name: Some(function_config["function_name"].as_str().unwrap().to_string()),
-            //     indexer_rule_kind: IndexerRuleKind::from_str(function_config["filter"]["kind"].as_str()),
-            //     matching_rule: MatchingRule::from_str(function_config["filter"]["matchingRule"].as_str()),
-            // };
             let idx_fn = build_indexer_function(
                 function_config,
                 function_name.to_string(),
