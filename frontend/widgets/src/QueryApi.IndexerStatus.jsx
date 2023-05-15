@@ -4,7 +4,7 @@ const indexer_name = props.indexer_name;
 const GRAPHQL_ENDPOINT =
   props.GRAPHQL_ENDPOINT ||
   "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
-const LIMIT = 10;
+const LIMIT = 20;
 const accountId = props.accountId || context.accountId;
 const H2 = styled.h2`
   font-size: 19px;
@@ -30,6 +30,10 @@ const SmallTitle = styled.h3`
 `;
 const TableElement = styled.td`
   word-wrap: break-word;
+  font-family: "Roboto Mono", monospace;
+  font-size: 11px;
+  background-color: rgb(255, 255, 255);
+  color: rgb(32, 33, 36);
 `;
 const Subheading = styled.h2`
   display: block;
@@ -90,7 +94,9 @@ const TextLink = styled.a`
     text-decoration: underline;
   }
 `;
+
 if (!indexer_name) return "missing indexer_name";
+
 State.init({
   logs: [],
   state: [],
@@ -129,8 +135,6 @@ const logsDoc = `
   query QueryLogs($offset: Int) {
     indexer_log_entries(order_by: {block_height: desc}, limit: ${LIMIT}, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
       block_height
-      id
-      function_name
       message
       timestamp
     }
@@ -156,32 +160,33 @@ const indexerStateDoc = `
     }
   }
 `;
-
-fetchGraphQL(logsDoc, "QueryLogs", {
-  offset: state.logsPage * LIMIT,
-}).then((result) => {
-  if (result.status === 200) {
-    State.update({
-      logs: result.body.data[`indexer_log_entries`],
-      logsCount:
-        result.body.data[`indexer_log_entries_aggregate`].aggregate.count,
-    });
-  }
-});
-
-fetchGraphQL(indexerStateDoc, "IndexerState", {
-  offset: 0,
-}).then((result) => {
-  if (result.status === 200) {
-    if (result.body.data.indexer_state.length == 1) {
+if (!state.initialFetch) {
+  fetchGraphQL(logsDoc, "QueryLogs", {
+    offset: state.logsPage * LIMIT,
+  }).then((result) => {
+    if (result.status === 200) {
       State.update({
-        state: result.body.data.indexer_state,
-        stateCount: result.body.data.indexer_state_aggregate.aggregate.count,
+        logs: result.body.data[`indexer_log_entries`],
+        logsCount:
+          result.body.data[`indexer_log_entries_aggregate`].aggregate.count,
       });
     }
-  }
-});
+  });
 
+  fetchGraphQL(indexerStateDoc, "IndexerState", {
+    offset: 0,
+  }).then((result) => {
+    if (result.status === 200) {
+      if (result.body.data.indexer_state.length == 1) {
+        State.update({
+          state: result.body.data.indexer_state,
+          stateCount: result.body.data.indexer_state_aggregate.aggregate.count,
+        });
+      }
+    }
+  });
+  State.update({ initialFetch: true });
+}
 const onLogsPageChange = (page) => {
   page = page - 1;
   if (page === state.logsPage) {
@@ -264,7 +269,7 @@ return (
                 {state.state.map((x) => (
                   <tr>
                     <TableElement>{x.function_name}</TableElement>
-                    <td>{x.current_block_height}</td>
+                    <TableElement>{x.current_block_height}</TableElement>
                     <TableElement>{x.status}</TableElement>
                   </tr>
                 ))}
@@ -287,22 +292,17 @@ return (
               >
                 <thead>
                   <tr>
-                    <th>Block Height</th>
-                    <th>Function Name</th>
-                    <th>ID</th>
-                    <th>Message</th>
-
-                    <th>Timestamp</th>
+                    <th style={{ width: "20%" }}>Block Height</th>
+                    <th style={{ width: "80%" }}>Message</th>
+                    <th style={{ width: "20%" }}>Timestamp</th>
                   </tr>
                 </thead>
                 <tbody>
                   {state.logs.map((x) => (
                     <tr>
                       <TableElement>{x.block_height}</TableElement>
-                      <TableElement>{x.function_name}</TableElement>
-                      <TableElement>{x.id}</TableElement>
-                      <TableElement>{x.message}</TableElement>
                       <TableElement>{x.timestamp}</TableElement>
+                      <TableElement>{x.message}</TableElement>
                     </tr>
                   ))}
                 </tbody>
