@@ -36,7 +36,7 @@ CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT N
 const BLOCKHEIGHT_LIMIT = 3600;
 const HASURA_ENDPOINT =
   process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
+  "https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql";
 const Editor = ({
   options,
   accountId,
