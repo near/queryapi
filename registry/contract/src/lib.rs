@@ -6,7 +6,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, serde_json};
 
-use indexer_rules_engine::indexer_rule::{IndexerRule};
+use indexer_rules_engine::types::indexer_rule::{IndexerRule};
 
 type FunctionName = String;
 // Define the contract structure
@@ -428,7 +428,7 @@ impl Contract {
  */
 #[cfg(test)]
 mod tests {
-    use indexer_rules_engine::types::{IndexerRuleKind, MatchingRule, Status};
+    use indexer_rules_engine::types::indexer_rule::{IndexerRuleKind, MatchingRule, Status};
     use super::*;
 
     #[test]
@@ -922,7 +922,9 @@ mod tests {
                     affected_account_id: "test".to_string(),
                     function: "test".to_string(),
                     status: Status::Fail,
-                }
+                },
+                id: None,
+                name: None,
             },
         };
 

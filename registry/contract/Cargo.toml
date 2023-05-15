@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 near-sdk = "4.1.1"
 uint = { version = "0.9.3", default-features = false }
-indexer_rules_engine = { path = "../../indexer_rules_engine" }
+indexer_rules_engine = { features = ["nearsdk"], path = "../../indexer_rules_engine" }
 
 [profile.release]
 codegen-units = 1

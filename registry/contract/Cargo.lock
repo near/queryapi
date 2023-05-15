@@ -1630,6 +1630,7 @@ dependencies = [
  "borsh 0.10.3",
  "futures",
  "near-lake-framework",
+ "near-sdk",
  "redis",
  "serde",
  "serde_json",
