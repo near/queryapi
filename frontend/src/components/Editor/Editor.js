@@ -14,11 +14,12 @@ import { block_details } from "./block_details";
 import { useDragResize } from "../../utils/resize";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
-import { BlockDetailsModal } from "../Modals/getBlockDetails";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 
 const BLOCKHEIGHT_LIMIT = 3600;
+const BLOCK_FETCHER_API =
+  "https://70jshyr5cb.execute-api.eu-central-1.amazonaws.com/block/";
 
 const Editor = ({
   options,
@@ -43,7 +44,6 @@ const Editor = ({
 
   const indexerRunner = new Indexer(handleLog);
 
-  const [block, setBlock] = useState(undefined);
   const { firstRef, secondRef, dragBarRef } = useDragResize({
     direction: "horizontal",
     initiallyHidden: null,
@@ -55,7 +55,6 @@ const Editor = ({
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
   const [blockView, setBlockView] = useState(false);
-  const [getBlockHeight, setGetBlockHeight] = useState(3939393);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [blockHeight, setBlockHeight] = useState(undefined);
@@ -63,13 +62,6 @@ const Editor = ({
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("near.social");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
-  useEffect(() => {
-    console.log("schema", schema);
-  }, [schema]);
-
-  useEffect(() => {
-    console.log(indexingCode, "indexing code changed");
-  }, [indexingCode]);
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -121,9 +113,6 @@ const Editor = ({
     }
   };
 
-  const getBlockValue = () => {
-    request("get-block", {});
-  };
   const registerFunction = async () => {
     let formatted_schema = checkSQLSchemaFormatting();
     let isForking = accountId !== currentUserAccountId;
@@ -332,22 +321,15 @@ const Editor = ({
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
         submit={submit}
+        debugMode={debugMode}
+        heights={heights}
+        setHeights={setHeights}
+        contractFilter={contractFilter}
       />
       <ResetChangesModal
         showResetCodeModel={showResetCodeModel}
         setShowResetCodeModel={setShowResetCodeModel}
         handleReload={handleReload}
-      />
-      <BlockDetailsModal
-        showGetBlockModalInput={showGetBlockModalInput}
-        setShowGetBlockModalInput={setShowGetBlockModalInput}
-        getBlockValue={getBlockValue}
-        setBlock={setBlock}
-        getBlockHeight={getBlockHeight}
-        blockHeight={blockHeight}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
       />
       <div
         className="px-3 pt-3"
@@ -355,6 +337,7 @@ const Editor = ({
           flex: "display",
           justifyContent: "space-around",
           width: "100%",
+          height: "100%",
         }}
       >
         {error && (

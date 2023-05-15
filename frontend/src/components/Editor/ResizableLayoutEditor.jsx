@@ -1,4 +1,3 @@
-import { JsonViewer } from "@textea/json-viewer";
 import { DiffEditorComponent } from "./DiffEditorComponent";
 import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";

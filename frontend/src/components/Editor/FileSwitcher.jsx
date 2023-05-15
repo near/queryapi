@@ -63,19 +63,19 @@ export function FileSwitcher({
             />
           </InputGroup.Text>
         </InputGroup>
-        <InputGroup>
-          <InputGroup.Text className="px-3">
-            {" "}
-            Block View
-            <Switch
-              className="px-1"
-              checked={blockView}
-              onChange={(checked) => {
-                setBlockView(checked);
-              }}
-            />
-          </InputGroup.Text>
-        </InputGroup>
+        {/* <InputGroup> */}
+        {/*   <InputGroup.Text className="px-3"> */}
+        {/*     {" "} */}
+        {/*     Block View */}
+        {/*     <Switch */}
+        {/*       className="px-1" */}
+        {/*       checked={blockView} */}
+        {/*       onChange={(checked) => { */}
+        {/*         setBlockView(checked); */}
+        {/*       }} */}
+        {/*     /> */}
+        {/*   </InputGroup.Text> */}
+        {/* </InputGroup> */}
       </ToggleButtonGroup>
     </>
   );
