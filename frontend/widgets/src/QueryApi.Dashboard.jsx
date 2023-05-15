@@ -3,7 +3,7 @@ const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
   ? props.selectedIndexerPath.split("/")
   : [undefined, undefined];
 
-const activeTab = props.view ?? "public-indexers";
+const activeTab = props.view ?? "indexers";
 const limit = 7;
 let totalIndexers = 0;
 const REGISTRY_CONTRACT_ID =
@@ -75,29 +75,15 @@ const NavBarLogo = styled.a`
   white-space: nowrap;
 `;
 const Main = styled.div`
-  display: grid;
-  grid-template-columns: 284px minmax(0, 1fr);
-  grid-gap: 16px;
-  padding-bottom: 24px;
-
-  @media (max-width: 1200px) {
-    display: block;
-  }
+  display: block;
 `;
 
 const Section = styled.div`
-  padding-left: 10px;
-  padding-top: 24px;
-  border-left: ${(p) => (p.primary ? "1px solid #ECEEF0" : "none")};
-  border-right: ${(p) => (p.primary ? "1px solid #ECEEF0" : "none")};
-
-  @media (max-width: 1200px) {
-    padding-top: 0px;
-    border-left: none;
-    border-right: none;
-    display: ${(p) => (p.active ? "block" : "none")};
-    margin: ${(p) => (p.negativeMargin ? "0 -12px" : "0")};
-  }
+  padding-top: 0px;
+  border-left: none;
+  border-right: none;
+  display: ${(p) => (p.active ? "block" : "none")};
+  margin: ${(p) => (p.negativeMargin ? "0 -12px" : "0")};
 `;
 
 const Tabs = styled.div`
@@ -108,14 +94,12 @@ const Tabs = styled.div`
   border-bottom: 1px solid #eceef0;
   margin-bottom: ${(p) => (p.noMargin ? "0" : p.halfMargin ? "24px" : "24px")};
 
-  @media (max-width: 1200px) {
-    display: flex;
-    margin-left: -12px;
-    margin-right: -12px;
+  display: flex;
+  margin-left: -12px;
+  margin-right: -12px;
 
-    button {
-      flex: 1;
-    }
+  button {
+    flex: 1;
   }
 `;
 const Content = styled.div`
@@ -140,7 +124,6 @@ const TabsButton = styled.button`
   background: none;
   border: none;
   outline: none;
-
   &:hover {
     color: #11181c;
   }
@@ -160,7 +143,7 @@ const H2 = styled.h2`
   font-size: 19px;
   line-height: 22px;
   color: #11181c;
-  margin: 0 0 24px;
+  margin: 0 0 8px;
 `;
 const Card = styled.div`
   border-radius: 12px;
@@ -300,14 +283,8 @@ const ButtonLink = styled.a`
     }}
 `;
 
-const indexerView = (accountId, indexerName, idx, view) => {
-  const isSelected =
-    (view === "user" &&
-      selected_accountId === undefined &&
-      selected_indexerName === undefined &&
-      idx === 0) ||
-    (selected_accountId === accountId && selected_indexerName === indexerName);
-
+const indexerView = (accountId, indexerName, isUserView) => {
+  console.log(accountId, IndexerName, isUserView);
   const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
   const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
   // const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
@@ -328,7 +305,7 @@ const indexerView = (accountId, indexerName, idx, view) => {
     );
   };
   return (
-    <Card selected={isSelected}>
+    <Card>
       <CardBody>
         <Thumbnail>
           <Widget
@@ -354,7 +331,6 @@ const indexerView = (accountId, indexerName, idx, view) => {
 
       <CardFooter className="flex justify-center items-center">
         <ButtonLink
-          href={statusUrl}
           onClick={() =>
             State.update({
               activeTab: "indexer-status",
@@ -365,7 +341,6 @@ const indexerView = (accountId, indexerName, idx, view) => {
         </ButtonLink>
         <ButtonLink
           primary
-          href={editUrl}
           onClick={() =>
             State.update({
               activeTab: "editor-window",
@@ -377,7 +352,7 @@ const indexerView = (accountId, indexerName, idx, view) => {
         <ButtonLink href={playgroundLink} target="_blank">
           View In Playground
         </ButtonLink>
-        {view === "user" && (
+        {isUserView && (
           <ButtonLink danger onClick={() => removeIndexer(indexerName)}>
             Delete Indexer
           </ButtonLink>
@@ -387,27 +362,9 @@ const indexerView = (accountId, indexerName, idx, view) => {
   );
 };
 
-const renderIndexers = (indexers, view) => {
-  return (
-    <>
-      {indexers.map((indexer, i) => (
-        <CardWrapper key={i}>
-          {indexerView(indexer.accountId, indexer.indexerName, i, view)}
-        </CardWrapper>
-      ))}
-      {indexers.length === 0 && (
-        <Subheading> You have no indexers to show...</Subheading>
-      )}
-    </>
-  );
-};
-
 return (
   <Wrapper negativeMargin={state.activeTab === "indexers"}>
-    <Tabs
-      halfMargin={state.activeTab === "indexers"}
-      noMargin={state.activeTab === "indexers"}
-    >
+    <Tabs>
       <TabsButton
         type="button"
         onClick={() => State.update({ activeTab: "indexers" })}
@@ -415,24 +372,36 @@ return (
       >
         Indexers
       </TabsButton>
+      {props.view === "create-new-indexer" && (
+        <TabsButton
+          type="button"
+          onClick={() => State.update({ activeTab: "create-new-indexer" })}
+          selected={state.activeTab === "create-new-indexer"}
+        >
+          Create New Indexer
+        </TabsButton>
+      )}
 
-      <TabsButton
-        type="button"
-        onClick={() => State.update({ activeTab: "editor-window" })}
-        selected={state.activeTab === "editor-window"}
-      >
-        Indexer Editor
-      </TabsButton>
+      {props.selectedIndexerPath && (
+        <>
+          <TabsButton
+            type="button"
+            onClick={() => State.update({ activeTab: "editor-window" })}
+            selected={state.activeTab === "editor-window"}
+          >
+            Indexer Editor
+          </TabsButton>
 
-      <TabsButton
-        type="button"
-        onClick={() => State.update({ activeTab: "indexer-status" })}
-        selected={state.activeTab === "indexer-status"}
-      >
-        Indexer Status
-      </TabsButton>
+          <TabsButton
+            type="button"
+            onClick={() => State.update({ activeTab: "indexer-status" })}
+            selected={state.activeTab === "indexer-status"}
+          >
+            Indexer Status
+          </TabsButton>
+        </>
+      )}
     </Tabs>
-
     <Main>
       <Section active={state.activeTab === "indexers"}>
         <NavBarLogo
@@ -440,7 +409,7 @@ return (
           title="QueryApi"
           onClick={() => {
             State.update({
-              activeTab: "public-indexers",
+              activeTab: "indexers",
             });
           }}
         >
@@ -477,15 +446,40 @@ return (
               <span>({state.my_indexers.length})</span>
             </H2>
           )}
-          {renderIndexers(state.my_indexers, "user")}
+          <Widget
+            src={`${APP_OWNER}/widget/QueryApi.IndexerExplorer`}
+            props={{
+              REGISTRY_CONTRACT_ID,
+              APP_OWNER,
+              appPath,
+            }}
+          />
         </div>
       </Section>
-
       <Section
         negativeMargin
         primary
-        active={state.activeTab === "editor-window"}
+        active={state.activeTab === "create-new-indexer"}
       >
+        {state.activeTab === "create-new-indexer" && (
+          <div>
+            <Widget
+              src={`${APP_OWNER}/widget/QueryApi.Editor`}
+              props={{
+                indexerName:
+                  selected_indexerName ?? state.indexers[0].indexerName,
+                accountId: selected_accountId ?? state.indexers[0].accountId,
+                path: "create-new-indexer",
+                EXTERNAL_APP_URL,
+                REGISTRY_CONTRACT_ID,
+                GRAPHQL_ENDPOINT,
+                APP_OWNER,
+              }}
+            />
+          </div>
+        )}
+      </Section>
+      <Section active={state.activeTab === "indexer-status"}>
         {state.activeTab === "indexer-status" && (
           <div>
             {state.indexers.length > 0 &&
@@ -496,7 +490,8 @@ return (
               ))}
             {indexerView(
               selected_accountId ?? state.indexers[0].accountId,
-              selected_indexerName ?? state.indexers[0].indexerName
+              selected_indexerName ?? state.indexers[0].indexerName,
+              context.accountId === selected_accountId
             )}
             <Widget
               src={`${APP_OWNER}/widget/QueryApi.IndexerStatus`}
@@ -512,6 +507,12 @@ return (
             />
           </div>
         )}
+      </Section>
+      <Section
+        negativeMargin
+        primary
+        active={state.activeTab === "editor-window"}
+      >
         {state.activeTab === "editor-window" && (
           <div>
             {state.indexers.length > 0 &&
@@ -522,7 +523,8 @@ return (
               ))}
             {indexerView(
               selected_accountId ?? state.indexers[0].accountId,
-              selected_indexerName ?? state.indexers[0].indexerName
+              selected_indexerName ?? state.indexers[0].indexerName,
+              context.accountId === selected_accountId
             )}
             <Widget
               src={`${APP_OWNER}/widget/QueryApi.Editor`}
@@ -561,13 +563,6 @@ return (
                 APP_OWNER,
               }}
             />
-          </div>
-        )}
-        {state.activeTab === "public-indexers" && (
-          <div>
-            {state.all_indexers && (
-              <div>{renderIndexers(state.all_indexers, "public")}</div>
-            )}
           </div>
         )}
       </Section>
