@@ -9,8 +9,11 @@ lazy_static! {
         "Height of last processed block"
     )
     .unwrap();
-    pub(crate) static ref BLOCK_COUNT: IntCounter =
-        try_create_int_counter("queryapi_coordinator_block_count", "Number of indexed blocks").unwrap();
+    pub(crate) static ref BLOCK_COUNT: IntCounter = try_create_int_counter(
+        "queryapi_coordinator_block_count",
+        "Number of indexed blocks"
+    )
+    .unwrap();
 }
 
 fn try_create_int_gauge(name: &str, help: &str) -> prometheus::Result<IntGauge> {
