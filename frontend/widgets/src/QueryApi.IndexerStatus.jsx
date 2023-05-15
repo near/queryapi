@@ -4,7 +4,7 @@ const indexer_name = props.indexer_name;
 const GRAPHQL_ENDPOINT =
   props.GRAPHQL_ENDPOINT ||
   "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
-const LIMIT = 10;
+const LIMIT = 20;
 const accountId = props.accountId || context.accountId;
 const H2 = styled.h2`
   font-size: 19px;
@@ -30,6 +30,10 @@ const SmallTitle = styled.h3`
 `;
 const TableElement = styled.td`
   word-wrap: break-word;
+  font-family: "Roboto Mono", monospace;
+  font-size: 11px;
+  background-color: rgb(255, 255, 255);
+  color: rgb(32, 33, 36);
 `;
 const Subheading = styled.h2`
   display: block;
@@ -90,7 +94,9 @@ const TextLink = styled.a`
     text-decoration: underline;
   }
 `;
+
 if (!indexer_name) return "missing indexer_name";
+
 State.init({
   logs: [],
   state: [],
@@ -129,8 +135,6 @@ const logsDoc = `
   query QueryLogs($offset: Int) {
     indexer_log_entries(order_by: {block_height: desc}, limit: ${LIMIT}, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
       block_height
-      id
-      function_name
       message
       timestamp
     }
@@ -265,7 +269,7 @@ return (
                 {state.state.map((x) => (
                   <tr>
                     <TableElement>{x.function_name}</TableElement>
-                    <td>{x.current_block_height}</td>
+                    <TableElement>{x.current_block_height}</TableElement>
                     <TableElement>{x.status}</TableElement>
                   </tr>
                 ))}
@@ -297,10 +301,8 @@ return (
                   {state.logs.map((x) => (
                     <tr>
                       <TableElement>{x.block_height}</TableElement>
-                      <TableElement>{x.function_name}</TableElement>
-                      <TableElement>{x.id}</TableElement>
-                      <TableElement>{x.message}</TableElement>
                       <TableElement>{x.timestamp}</TableElement>
+                      <TableElement>{x.message}</TableElement>
                     </tr>
                   ))}
                 </tbody>
