@@ -1,47 +1,25 @@
 import React, { useEffect, useState, useCallback } from "react";
-import MonacoEditor, { DiffEditor } from "@monaco-editor/react";
-import { formatSQL, formatIndexingCode } from "../../utils/formatters";
-import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import {
-  Button,
-  Alert,
-  Modal,
-  ButtonGroup,
-  ButtonToolbar,
-  Form,
-  InputGroup,
-  ToggleButtonGroup,
-  ToggleButton,
-} from "react-bootstrap";
-import Switch from "react-switch";
+  formatSQL,
+  formatIndexingCode,
+  defaultCode,
+  defaultSchema,
+} from "../../utils/formatters";
+import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
+import { Alert } from "react-bootstrap";
 import primitives from "!!raw-loader!../../../primitives.d.ts";
-import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js";
-import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
-import GraphiQL from "graphiql";
-import "graphiql/graphiql.min.css";
 import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
-import { useDragResize } from "../../utils/resize";
+import Indexer from "../../utils/indexerRunner";
 import { block_details } from "./block_details";
-const defaultCode = formatIndexingCode(
-  `
-  // Add your code here   
-  const h = block.header().height
-  await context.set('height', h);
-`,
-  true
-);
+import { useDragResize } from "../../utils/resize";
+import ResizableLayoutEditor from "./ResizableLayoutEditor";
+import { ResetChangesModal } from "../Modals/resetChanges";
+import { BlockDetailsModal } from "../Modals/getBlockDetails";
+import { FileSwitcher } from "./FileSwitcher";
+import EditorButtons from "./EditorButtons";
 
-const contractRegex = RegExp(
-  "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
-);
-
-const defaultSchema = `
-CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
-`;
 const BLOCKHEIGHT_LIMIT = 3600;
-const HASURA_ENDPOINT =
-  process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
-  "https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql";
+
 const Editor = ({
   options,
   accountId,
@@ -49,23 +27,49 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
+  const [showGetBlockModalInput, setShowGetBlockModalInput] = useState(false);
   const [fileName, setFileName] = useState("indexingLogic.js");
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
+  const [debugMode, setDebugMode] = useState(false);
+  const [logs, setLogs] = useState([]);
+
+  const handleLog = (log) => {
+    setLogs((prevLogs) => [...prevLogs, log]);
+  };
+
+  const indexerRunner = new Indexer(handleLog);
+
+  const [block, setBlock] = useState(undefined);
+  const { firstRef, secondRef, dragBarRef } = useDragResize({
+    direction: "horizontal",
+    initiallyHidden: null,
+    defaultSizeRelation: 3,
+    sizeThresholdFirst: 60,
+    sizeThresholdSecond: 60,
+  });
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
+  const [blockView, setBlockView] = useState(false);
+  const [getBlockHeight, setGetBlockHeight] = useState(3939393);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [blockHeight, setBlockHeight] = useState(undefined);
+
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("near.social");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+  useEffect(() => {
+    console.log("schema", schema);
+  }, [schema]);
 
+  useEffect(() => {
+    console.log(indexingCode, "indexing code changed");
+  }, [indexingCode]);
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -84,12 +88,13 @@ const Editor = ({
     }
 
     if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-      setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
-        BLOCKHEIGHT_LIMIT / 3600
-      } hrs.
-Choose a start block height between ${
-        height - BLOCKHEIGHT_LIMIT
-      } - ${height}.`);
+      setBlockHeightError(
+        `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
+          BLOCKHEIGHT_LIMIT / 3600
+        } hrs. Choose a start block height between ${
+          height - BLOCKHEIGHT_LIMIT
+        } - ${height}.`
+      );
     } else if (blockHeight > height) {
       setBlockHeightError(
         `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
@@ -99,7 +104,7 @@ Choose a start block height between ${
     } else {
       setBlockHeightError(null);
     }
-  }, [blockHeight, selectedOption]);
+  }, [blockHeight, height, selectedOption]);
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -116,6 +121,9 @@ Choose a start block height between ${
     }
   };
 
+  const getBlockValue = () => {
+    request("get-block", {});
+  };
   const registerFunction = async () => {
     let formatted_schema = checkSQLSchemaFormatting();
     let isForking = accountId !== currentUserAccountId;
@@ -147,21 +155,7 @@ Choose a start block height between ${
       code: innerCode,
       schema: formatted_schema,
       blockHeight: start_block_height,
-      contractFilter: contractFilter,
     });
-  };
-
-  const graphQLFetcher = (graphQLParams) => {
-    console.log(HASURA_ENDPOINT, "Hashura Endpoint");
-    return fetch(HASURA_ENDPOINT, {
-      method: "post",
-      credentials: "omit",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Hasura-Role": accountId.replaceAll(".", "_"),
-      },
-      body: JSON.stringify(graphQLParams || {}),
-    }).then((response) => response.json());
   };
 
   const handleReload = useCallback(async () => {
@@ -230,9 +224,7 @@ Choose a start block height between ${
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
       await handleReload();
-      setLoading(false);
     };
     load();
   }, [accountId, handleReload, indexerName]);
@@ -280,6 +272,7 @@ Choose a start block height between ${
     const modifiedEditor = editor.getModifiedEditor();
     modifiedEditor.onDidChangeModelContent((_) => {
       if (fileName == "indexingLogic.js") {
+        console.log("mountin");
         setIndexingCode(modifiedEditor.getValue());
       }
       if (fileName == "schema.sql") {
@@ -310,135 +303,52 @@ Choose a start block height between ${
     }
   }
   function executeIndexerFunction(block_height) {
+    setLogs(() => []);
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerRunner.runFunction(block_details, innerCode);
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-      <ButtonToolbar
-        className="pt-3 pb-1 flex-col"
-        aria-label="Actions for Editor"
-      >
-        <IndexerDetailsGroup
-          accountId={accountId}
-          indexerNameField={indexerNameField}
-          setIndexerNameField={setIndexerNameField}
-          isCreateNewIndexerPage={options.create_new_indexer}
-        />
-        <BlockHeightOptions
-          selectedOption={selectedOption}
-          handleOptionChange={handleOptionChange}
-          blockHeight={blockHeight}
-          setBlockHeight={setBlockHeight}
-        />
-        <ButtonGroup
-          className="px-3 pt-3"
-          style={{ width: "100%" }}
-          aria-label="Action Button Group"
-        >
-          <Button
-            variant="secondary"
-            className="px-3"
-            onClick={() => setShowResetCodeModel(true)}
-          >
-            <IndexerDetailsGroup
-              accountId={accountId}
-              indexerNameField={indexerNameField}
-              setIndexerNameField={setIndexerNameField}
-              isCreateNewIndexerPage={options.create_new_indexer}
-            />
-            <BlockHeightOptions
-              selectedOption={selectedOption}
-              handleOptionChange={handleOptionChange}
-              blockHeight={blockHeight}
-              setBlockHeight={setBlockHeight}
-              contractFilter={contractFilter}
-              handleSetContractFilter={handleSetContractFilter}
-              isContractFilterValid={isContractFilterValid}
-            />
-          </ButtonToolbar>
-          <ButtonToolbar
-            className="py-1 flex-col"
-            aria-label="Actions for Editor"
-          >
-            <ButtonGroup
-              className="px-3 inline-block"
-              aria-label="Action Button Group"
-            >
-              <OverlayTrigger
-                overlay={<Tooltip>Reset Changes To Code</Tooltip>}
-              >
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setShowResetCodeModel(true)}
-                >
-                  <ArrowCounterclockwise size={24} />
-                </Button>
-              </OverlayTrigger>
-
-              <OverlayTrigger overlay={<Tooltip>Format Code</Tooltip>}>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleFormating()}
-                >
-                  <Justify size={24} />
-                </Button>
-              </OverlayTrigger>
-              <OverlayTrigger
-                overlay={<Tooltip>Test Indexer Function In Browser</Tooltip>}
-              >
-                <Button
-                  className="w-40"
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => executeIndexerFunction(91243919)}
-                >
-                  <BugFill size={24} />
-                </Button>
-              </OverlayTrigger>
-              {currentUserAccountId && (
-                <OverlayTrigger
-                  overlay={<Tooltip>{getActionButtonText()}</Tooltip>}
-                >
-                  <Button
-                    variant="primary"
-                    className="px-3"
-                    onClick={() => submit()}
-                  >
-                    {getActionButtonText()}
-                  </Button>
-                </OverlayTrigger>
-              )}
-            </ButtonGroup>
-          </ButtonToolbar>
-        </>
-      }
-      <Modal
-        show={showResetCodeModel}
-        onHide={() => setShowResetCodeModel(false)}
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Are you sure?</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          The changes you have made in the editor will be deleted.
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowResetCodeModel(false)}
-          >
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={() => handleReload()}>
-            Reload
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "85vh",
+      }}
+    >
+      <EditorButtons
+        accountId={accountId}
+        indexerNameField={indexerNameField}
+        setIndexerNameField={setIndexerNameField}
+        options={options}
+        selectedOption={selectedOption}
+        handleOptionChange={handleOptionChange}
+        blockHeight={blockHeight}
+        setBlockHeight={setBlockHeight}
+        setShowResetCodeModel={setShowResetCodeModel}
+        handleFormating={handleFormating}
+        executeIndexerFunction={executeIndexerFunction}
+        currentUserAccountId={currentUserAccountId}
+        getActionButtonText={getActionButtonText}
+        submit={submit}
+      />
+      <ResetChangesModal
+        showResetCodeModel={showResetCodeModel}
+        setShowResetCodeModel={setShowResetCodeModel}
+        handleReload={handleReload}
+      />
+      <BlockDetailsModal
+        showGetBlockModalInput={showGetBlockModalInput}
+        setShowGetBlockModalInput={setShowGetBlockModalInput}
+        getBlockValue={getBlockValue}
+        setBlock={setBlock}
+        getBlockHeight={getBlockHeight}
+        blockHeight={blockHeight}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
+      />
       <div
         className="px-3 pt-3"
         style={{
@@ -457,238 +367,43 @@ Choose a start block height between ${
             {blockHeightError}
           </Alert>
         )}
-
-        <ToggleButtonGroup
-          type="radio"
-          style={{ backgroundColor: "white" }}
-          name="options"
-          defaultValue={"indexingLogic.js"}
-        >
-          <Modal.Header closeButton>
-            <Modal.Title>Select A Blockheight</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <input
-              type="number"
-              value={getBlockHeight || blockHeight}
-              onChange={(e) => setGetBlockHeight(e.value)}
-              aria-label="Input blockheight"
-            />
-          </Modal.Body>
-          <Modal.Footer>
-            <Button
-              variant="secondary"
-              onClick={() => setShowResetCodeModel(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() =>
-                getBlockValue().then((response) =>
-                  setBlock(response.data.block)
-                )
-              }
-            >
-              Get Block Details
-            </Button>
-          </Modal.Footer>
-        </Modal>
-      </div>
-
-      <div
-        className="px-3"
-        style={{
-          flex: "display",
-          justifyContent: "space-around",
-          width: "100%",
-        }}
-      >
         {error && (
           <Alert className="px-3 pt-3" variant="danger">
             {error}
           </Alert>
         )}
-        {blockHeightError && (
-          <Alert className="px-3 pt-3" variant="danger">
-            {blockHeightError}
-          </Alert>
-        )}
-
-        <ToggleButtonGroup
-          type="radio"
-          style={{ backgroundColor: "white" }}
-          name="options"
-          defaultValue={"indexingLogic.js"}
-        >
-          <ToggleButton
-            id="tbg-radio-1"
-            style={{
-              backgroundColor:
-                fileName === "indexingLogic.js" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"indexingLogic.js"}
-            onClick={() => setFileName("indexingLogic.js")}
-          >
-            indexingLogic.js
-          </ToggleButton>
-          <ToggleButton
-            id="tbg-radio-2"
-            style={{
-              backgroundColor: fileName === "schema.sql" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"schema.sql"}
-            onClick={() => setFileName("schema.sql")}
-          >
-            schema.sql
-          </ToggleButton>
-          <ToggleButton
-            id="tbg-radio-3"
-            style={{
-              backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"GraphiQL"}
-            onClick={() => setFileName("GraphiQL")}
-          >
-            GraphiQL
-          </ToggleButton>
-          <InputGroup>
-            <InputGroup.Text className="px-3">
-              {" "}
-              Diff View
-              <Switch
-                className="px-1"
-                checked={diffView}
-                onChange={(checked) => {
-                  setDiffView(checked);
-                }}
-              />
-            </InputGroup.Text>
-          </InputGroup>
-          <InputGroup>
-            <InputGroup.Text className="px-3">
-              {" "}
-              Block View
-              <Switch
-                className="px-1"
-                checked={blockView}
-                onChange={(checked) => {
-                  setBlockView(checked);
-                }}
-              />
-            </InputGroup.Text>
-          </InputGroup>
-        </ToggleButtonGroup>
-
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          <div
-            ref={firstRef}
-            style={{
-              width: "100%",
-              display: "flex",
-              justifyContent: "center",
-              minWidth: "100px",
-            }}
-          >
-            {fileName === "GraphiQL" && (
-              <div style={{ width: "100%", height: "50vh" }}>
-                <GraphiQL
-                  fetcher={graphQLFetcher}
-                  defaultQuery=""
-                  storage={sessionStorage}
-                />
-              </div>
-            )}
-            {fileName === "indexingLogic.js" &&
-              (diffView ? (
-                <DiffEditor
-                  original={originalIndexingCode}
-                  modified={indexingCode}
-                  height="50vh"
-                  width="100%"
-                  language="javascript"
-                  theme="vs-dark"
-                  onMount={handleEditorMount}
-                  options={{ ...options, readOnly: false }}
-                />
-              ) : (
-                <MonacoEditor
-                  value={indexingCode}
-                  height="50vh"
-                  width="100%"
-                  defaultValue={defaultCode}
-                  defaultLanguage="typescript"
-                  theme="vs-dark"
-                  onChange={(text) => setIndexingCode(text)}
-                  beforeMount={handleEditorWillMount}
-                  options={{ ...options, readOnly: false }}
-                />
-              ))}
-            {fileName === "schema.sql" &&
-              (diffView ? (
-                <DiffEditor
-                  original={originalSQLCode}
-                  modified={schema}
-                  height="50vh"
-                  width="100%"
-                  language="sql"
-                  onMount={handleEditorMount}
-                  theme="vs-dark"
-                  options={{
-                    ...options,
-                    readOnly:
-                      options?.create_new_indexer === true ? false : true,
-                  }}
-                />
-              ) : (
-                <MonacoEditor
-                  value={schema}
-                  height="50vh"
-                  width="100%"
-                  defaultValue={defaultSchema}
-                  defaultLanguage="sql"
-                  theme="vs-dark"
-                  onChange={(text) => setSchema(text)}
-                  options={{
-                    ...options,
-                    readOnly:
-                      options?.create_new_indexer === true ? false : false,
-                  }}
-                />
-              ))}
-          </div>
-          <div
-            ref={dragBarRef}
-            style={{
-              width: "10px",
-              backgroundColor: "gray",
-              cursor: "col-resize",
-            }}
-          />
-          <div
-            ref={secondRef}
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              minWidth: "100px",
-            }}
-          >
-            <JsonViewer style={{ width: "100%" }} value={block_details} />
-          </div>
-        </div>
       </div>
+
+      <FileSwitcher
+        fileName={fileName}
+        setFileName={setFileName}
+        diffView={diffView}
+        setDiffView={setDiffView}
+        blockView={blockView}
+        setBlockView={setBlockView}
+      />
+      <ResizableLayoutEditor
+        accountId={accountId}
+        fileName={fileName}
+        indexingCode={indexingCode}
+        blockView={blockView}
+        diffView={diffView}
+        setIndexingCode={setIndexingCode}
+        setSchema={setSchema}
+        block_details={block_details}
+        originalSQLCode={originalSQLCode}
+        originalIndexingCode={originalIndexingCode}
+        schema={schema}
+        options={options}
+        firstRef={firstRef}
+        secondRef={secondRef}
+        dragBarRef={dragBarRef}
+        handleEditorWillMount={handleEditorWillMount}
+        handleEditorMount={handleEditorMount}
+        logs={logs}
+      />
     </div>
   );
 };
+
 export default Editor;

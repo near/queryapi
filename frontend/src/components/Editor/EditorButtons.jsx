@@ -35,7 +35,7 @@ const EditorButtons = ({
 }) => (
   <>
     <ButtonToolbar
-      className="pt-2 pb-1 flex-col"
+      className="pt-3 pb-1 flex-col"
       aria-label="Actions for Editor"
     >
       <IndexerDetailsGroup
@@ -52,10 +52,7 @@ const EditorButtons = ({
       />
     </ButtonToolbar>
     <ButtonToolbar className="py-1 flex-col" aria-label="Actions for Editor">
-      <ButtonGroup
-        className="px-3 inline-block"
-        aria-label="Action Button Group"
-      >
+      <ButtonGroup className="inline-block" aria-label="Action Button Group">
         <OverlayTrigger overlay={<Tooltip>Reset Changes To Code</Tooltip>}>
           <Button
             size="sm"

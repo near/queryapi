@@ -180,8 +180,8 @@ export default function ResizableLayoutEditor({
       <div
         ref={dragBarRefConsole}
         style={{
-          height: "10px",
-          backgroundColor: "red",
+          height: "5px",
+          backgroundColor: "gray",
           cursor: "ns-resize",
         }}
       />
@@ -189,7 +189,7 @@ export default function ResizableLayoutEditor({
       <div
         ref={secondRefConsole}
         style={{
-          backgroundColor: "#1e1e1e",
+          backgroundColor: "gray",
           overflow: "auto",
           color: "white",
           padding: "10px",
