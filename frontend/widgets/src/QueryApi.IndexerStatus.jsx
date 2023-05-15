@@ -156,32 +156,33 @@ const indexerStateDoc = `
     }
   }
 `;
-
-fetchGraphQL(logsDoc, "QueryLogs", {
-  offset: state.logsPage * LIMIT,
-}).then((result) => {
-  if (result.status === 200) {
-    State.update({
-      logs: result.body.data[`indexer_log_entries`],
-      logsCount:
-        result.body.data[`indexer_log_entries_aggregate`].aggregate.count,
-    });
-  }
-});
-
-fetchGraphQL(indexerStateDoc, "IndexerState", {
-  offset: 0,
-}).then((result) => {
-  if (result.status === 200) {
-    if (result.body.data.indexer_state.length == 1) {
+if (!state.initialFetch) {
+  fetchGraphQL(logsDoc, "QueryLogs", {
+    offset: state.logsPage * LIMIT,
+  }).then((result) => {
+    if (result.status === 200) {
       State.update({
-        state: result.body.data.indexer_state,
-        stateCount: result.body.data.indexer_state_aggregate.aggregate.count,
+        logs: result.body.data[`indexer_log_entries`],
+        logsCount:
+          result.body.data[`indexer_log_entries_aggregate`].aggregate.count,
       });
     }
-  }
-});
+  });
 
+  fetchGraphQL(indexerStateDoc, "IndexerState", {
+    offset: 0,
+  }).then((result) => {
+    if (result.status === 200) {
+      if (result.body.data.indexer_state.length == 1) {
+        State.update({
+          state: result.body.data.indexer_state,
+          stateCount: result.body.data.indexer_state_aggregate.aggregate.count,
+        });
+      }
+    }
+  });
+  State.update({ initialFetch: true });
+}
 const onLogsPageChange = (page) => {
   page = page - 1;
   if (page === state.logsPage) {
@@ -287,12 +288,9 @@ return (
               >
                 <thead>
                   <tr>
-                    <th>Block Height</th>
-                    <th>Function Name</th>
-                    <th>ID</th>
-                    <th>Message</th>
-
-                    <th>Timestamp</th>
+                    <th style={{ width: "20%" }}>Block Height</th>
+                    <th style={{ width: "80%" }}>Message</th>
+                    <th style={{ width: "20%" }}>Timestamp</th>
                   </tr>
                 </thead>
                 <tbody>
