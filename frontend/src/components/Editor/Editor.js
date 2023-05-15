@@ -30,6 +30,10 @@ const defaultCode = formatIndexingCode(
   true
 );
 
+const contractRegex = RegExp(
+  "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
+);
+
 const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `;
@@ -51,15 +55,16 @@ const Editor = ({
   const [fileName, setFileName] = useState("indexingLogic.js");
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
-
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [blockHeight, setBlockHeight] = useState(undefined);
-
+  const [isContractFilterValid, setIsContractFilterValid] = useState(true);
+  const [contractFilter, setContractFilter] = useState("near.social");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -114,9 +119,7 @@ Choose a start block height between ${
     let formatted_schema = checkSQLSchemaFormatting();
     let isForking = accountId !== currentUserAccountId;
 
-    let innerCode = indexingCode.match(
-      /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
-    )[1];
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     if (indexerNameField == undefined || formatted_schema == undefined) {
       setError(
         () =>
@@ -143,6 +146,7 @@ Choose a start block height between ${
       code: innerCode,
       schema: formatted_schema,
       blockHeight: start_block_height,
+      contractFilter: contractFilter,
     });
   };
 
@@ -290,6 +294,20 @@ Choose a start block height between ${
     );
   }
 
+  function handleSetContractFilter(e) {
+    // check if contract filter is greater than 2 and less than or equal to 64 chars
+    const contractFilter = e.target.value;
+    setContractFilter(contractFilter);
+    if (
+      contractFilter.length > 64 ||
+      contractFilter.length < 2 ||
+      !contractRegex.test(contractFilter)
+    ) {
+      setIsContractFilterValid(false);
+    } else {
+      setIsContractFilterValid(true);
+    }
+  }
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
       {
@@ -309,6 +327,9 @@ Choose a start block height between ${
               handleOptionChange={handleOptionChange}
               blockHeight={blockHeight}
               setBlockHeight={setBlockHeight}
+              contractFilter={contractFilter}
+              handleSetContractFilter={handleSetContractFilter}
+              isContractFilterValid={isContractFilterValid}
             />
             <ButtonGroup
               className="px-3 pt-3"

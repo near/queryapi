@@ -23,7 +23,8 @@ const initialPayload = {
 };
 
 const registerFunctionHandler = (request, response) => {
-  const { indexerName, code, schema, blockHeight } = request.payload;
+  const { indexerName, code, schema, blockHeight, contractFilter } =
+    request.payload;
 
   const gas = 200000000000000;
 
@@ -39,6 +40,7 @@ const registerFunctionHandler = (request, response) => {
       code,
       schema,
       start_block_height: blockHeight,
+      contract_filter: contractFilter || "social.near",
     },
     gas
   );
