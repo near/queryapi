@@ -1,24 +1,21 @@
-use std::future::Future;
-use borsh::BorshDeserialize;
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::{Mutex};
 
-use indexer_rules_engine::types::indexer_rule::{IndexerRule};
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use near_lake_framework::near_indexer_primitives::{StreamerMessage, types};
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
+use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
 
+use crate::indexer_types::IndexerFunction;
 use indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use opts::{Opts, Parser};
 use storage::ConnectionManager;
-use crate::indexer_types::IndexerFunction;
 
 pub(crate) mod cache;
-mod indexer_types;
-mod indexer_registry;
 mod indexer_reducer;
+mod indexer_registry;
+mod indexer_types;
 mod metrics;
 mod opts;
 mod utils;
@@ -132,19 +129,21 @@ async fn handle_streamer_message(
     context: QueryApiContext<'_>,
     indexer_registry: SharedIndexerRegistry,
 ) -> anyhow::Result<u64> {
-
     // build context for enriching filter matches
     cache::update_all(&context.streamer_message, context.redis_connection_manager).await?;
 
     let mut indexer_registry_locked = indexer_registry.lock().await;
-    let indexer_functions = indexer_registry::registry_as_vec_of_indexer_functions(&indexer_registry_locked);;
+    let indexer_functions =
+        indexer_registry::registry_as_vec_of_indexer_functions(&indexer_registry_locked);
 
     let mut indexer_function_filter_matches_futures = stream::iter(indexer_functions.iter())
-        .map(|indexer_function| reduce_rule_matches_for_indexer_function(
+        .map(|indexer_function| {
+            reduce_rule_matches_for_indexer_function(
                 indexer_function,
                 &context.streamer_message,
-                context.chain_id.clone(),)
-        )
+                context.chain_id.clone(),
+            )
+        })
         // TODO: fix the buffer size used to accumulate results, it takes 10 vecs of vecs while we want to take 10 IndexerRuleMatches
         .buffer_unordered(10usize);
 
@@ -164,7 +163,9 @@ async fn handle_streamer_message(
         );
     }
 
-    while let Some(indexer_function_with_matches) = indexer_function_filter_matches_futures.next().await {
+    while let Some(indexer_function_with_matches) =
+        indexer_function_filter_matches_futures.next().await
+    {
         if let Ok(indexer_function_with_matches) = indexer_function_with_matches {
             let mut indexer_function = indexer_function_with_matches.indexer_function;
             let indexer_rule_matches = indexer_function_with_matches.matches;
@@ -175,7 +176,10 @@ async fn handle_streamer_message(
                 let msg = IndexerQueueMessage {
                     chain_id: indexer_rule_match.chain_id.clone(),
                     indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
-                    indexer_rule_name: indexer_rule_match.indexer_rule_name.clone().unwrap_or("".to_string()),
+                    indexer_rule_name: indexer_rule_match
+                        .indexer_rule_name
+                        .clone()
+                        .unwrap_or("".to_string()),
                     payload: Some(indexer_rule_match.payload.clone()),
                     block_height,
                     indexer_function: indexer_function.clone(),
@@ -226,17 +230,19 @@ struct IndexerFunctionWithMatches<'b> {
     pub matches: Vec<IndexerRuleMatch>,
 }
 
-async fn reduce_rule_matches_for_indexer_function<'x>(indexer_function: &'x IndexerFunction,
-                                                      streamer_message: &StreamerMessage,
-                                                      chain_id: ChainId,
+async fn reduce_rule_matches_for_indexer_function<'x>(
+    indexer_function: &'x IndexerFunction,
+    streamer_message: &StreamerMessage,
+    chain_id: ChainId,
 ) -> anyhow::Result<IndexerFunctionWithMatches<'x>> {
     let matches = indexer_rules_engine::reduce_indexer_rule_matches(
         &indexer_function.indexer_rule,
         &streamer_message,
-        chain_id.clone()).await?;
+        chain_id.clone(),
+    )
+    .await?;
     Ok(IndexerFunctionWithMatches {
         indexer_function,
-        matches
+        matches,
     })
 }
-

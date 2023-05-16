@@ -1,7 +1,7 @@
 #[cfg(not(feature = "near-sdk"))]
-use serde::{Deserialize, Serialize};
-#[cfg(not(feature = "near-sdk"))]
 use borsh::{self, BorshDeserialize, BorshSerialize};
+#[cfg(not(feature = "near-sdk"))]
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "near-sdk")]
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};

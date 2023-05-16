@@ -11,15 +11,14 @@ use std::collections::HashMap;
 use tokio::sync::MutexGuard;
 use tokio::task::JoinHandle;
 
-use indexer_rules_engine::types::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 use crate::indexer_reducer;
 use crate::indexer_reducer::FunctionCallInfo;
-use crate::indexer_types::{
-    IndexerFunction, IndexerQueueMessage, IndexerRegistry,
-};
+use crate::indexer_types::{IndexerFunction, IndexerQueueMessage, IndexerRegistry};
 use crate::opts;
 use crate::opts::{Opts, Parser};
-
+use indexer_rules_engine::types::indexer_rule::{
+    IndexerRule, IndexerRuleKind, MatchingRule, Status,
+};
 
 pub(crate) fn registry_as_vec_of_indexer_functions(
     registry: &IndexerRegistry,
@@ -69,11 +68,13 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
         let mut fns = HashMap::new();
         for (function_name, function_config) in functions.as_object().unwrap() {
             let indexer_rule = match serde_json::from_value(function_config["filter"].clone()) {
-                Ok(indexer_rule) => {
-                    indexer_rule
-                }
+                Ok(indexer_rule) => indexer_rule,
                 Err(e) => {
-                    tracing::error!("Error parsing indexer_rule filter for function {}: {}", function_name, e);
+                    tracing::error!(
+                        "Error parsing indexer_rule filter for function {}: {}",
+                        function_name,
+                        e
+                    );
                     continue;
                 }
             };
@@ -83,7 +84,8 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
                 function_name.to_string(),
                 account.to_string().parse().unwrap(),
                 &indexer_rule,
-            ).unwrap();
+            )
+            .unwrap();
             fns.insert(function_name.clone(), idx_fn);
         }
         registry.insert(account.parse().unwrap(), fns);
@@ -108,13 +110,14 @@ fn index_and_process_register_calls(
     context: &QueryApiContext,
 ) -> Vec<JoinHandle<i64>> {
     let registry_method_name = "register_indexer_function";
-    let registry_calls_rule = build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
-    let registry_updates =
-        indexer_reducer::reduce_function_registry_from_outcomes(
-            &registry_calls_rule,
-            &context.streamer_message,
-            context.chain_id,
-            context.streamer_message.block.header.height);
+    let registry_calls_rule =
+        build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
+    let registry_updates = indexer_reducer::reduce_function_registry_from_outcomes(
+        &registry_calls_rule,
+        &context.streamer_message,
+        context.chain_id,
+        context.streamer_message.block.header.height,
+    );
     let mut spawned_start_from_block_threads = Vec::new();
 
     if !registry_updates.is_empty() {
@@ -122,7 +125,7 @@ fn index_and_process_register_calls(
             let new_indexer_function = build_indexer_function_from_args(
                 parse_indexer_function_args(&update),
                 update.signer_id,
-                &registry_calls_rule
+                &registry_calls_rule,
             );
 
             match new_indexer_function {
@@ -179,13 +182,14 @@ fn index_and_process_remove_calls(
     context: &QueryApiContext,
 ) {
     let registry_method_name = "remove_indexer_function";
-    let registry_calls_rule = build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
-    let registry_updates =
-        indexer_reducer::reduce_function_registry_from_outcomes(
-            &registry_calls_rule,
-            &context.streamer_message,
-            context.chain_id,
-            context.streamer_message.block.header.height);
+    let registry_calls_rule =
+        build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
+    let registry_updates = indexer_reducer::reduce_function_registry_from_outcomes(
+        &registry_calls_rule,
+        &context.streamer_message,
+        context.chain_id,
+        context.streamer_message.block.header.height,
+    );
 
     if !registry_updates.is_empty() {
         for update in registry_updates {
@@ -269,14 +273,12 @@ fn build_indexer_function_from_args(
                     );
                     return None;
                 }
-                Some(function_name) => {
-                    build_indexer_function(
-                        &args,
-                        function_name.to_string(),
-                        account_id,
-                        indexer_rule,
-                    )
-                }
+                Some(function_name) => build_indexer_function(
+                    &args,
+                    function_name.to_string(),
+                    account_id,
+                    indexer_rule,
+                ),
             }
         }
     }
@@ -346,8 +348,7 @@ async fn process_historical_messages(
                     indexer_function: indexer_function.clone(),
                 };
 
-                match opts::send_to_indexer_queue(queue_client, queue_url.clone(), vec![msg])
-                    .await
+                match opts::send_to_indexer_queue(queue_client, queue_url.clone(), vec![msg]).await
                 {
                     Ok(_) => {}
                     Err(err) => tracing::error!(
@@ -368,7 +369,10 @@ async fn process_historical_messages(
     block_difference
 }
 
-fn build_registry_indexer_rule(registry_method_name: &str, registry_contract_id: &str) -> IndexerRule {
+fn build_registry_indexer_rule(
+    registry_method_name: &str,
+    registry_contract_id: &str,
+) -> IndexerRule {
     let matching_rule = MatchingRule::ActionFunctionCall {
         affected_account_id: registry_contract_id.to_string(),
         function: registry_method_name.to_string(),
@@ -452,7 +456,7 @@ async fn test_process_historical_messages() {
         start_block_height: Some(85376002),
         schema: None,
         provisioned: false,
-        indexer_rule: indexer_rules_engine::near_social_indexer_rule()
+        indexer_rule: indexer_rules_engine::near_social_indexer_rule(),
     };
 
     process_historical_messages(85376003, indexer_function).await;

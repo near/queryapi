@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::UnorderedMap;
-use near_sdk::{env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, serde_json};
+use near_sdk::{env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash};
 
-use indexer_rules_engine::types::indexer_rule::{IndexerRule};
+use indexer_rules_engine::types::indexer_rule::IndexerRule;
 
 type FunctionName = String;
 // Define the contract structure
@@ -74,7 +74,7 @@ pub struct IndexerConfig {
 // Migration types
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
-    Registry, // can be removed after migration
+    Registry,            // can be removed after migration
     Account(CryptoHash), // can be removed after migration
     RegistryV1,
     AccountV1(CryptoHash),
@@ -173,23 +173,28 @@ impl Contract {
 
         let mut registry = IndexersByAccount::new(StorageKeys::RegistryV1);
 
-        state.registry.iter_mut().for_each(|(account_id, functions)| {
-
-            let mut new_functions: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(StorageKeys::AccountV1(
-                env::sha256_array(account_id.as_bytes()),
-            ));
-            functions.iter().for_each(|(function_name, old_indexer_config)| {
-                let new_indexer_config = IndexerConfig {
-                    code: old_indexer_config.code.clone(),
-                    start_block_height: old_indexer_config.start_block_height,
-                    schema: old_indexer_config.schema.clone(),
-                    filter: indexer_rules_engine::near_social_indexer_rule(),
-                };
-                new_functions.insert(function_name.clone(), new_indexer_config);
+        state
+            .registry
+            .iter_mut()
+            .for_each(|(account_id, functions)| {
+                let mut new_functions: IndexerConfigByFunctionName =
+                    IndexerConfigByFunctionName::new(StorageKeys::AccountV1(env::sha256_array(
+                        account_id.as_bytes(),
+                    )));
+                functions
+                    .iter()
+                    .for_each(|(function_name, old_indexer_config)| {
+                        let new_indexer_config = IndexerConfig {
+                            code: old_indexer_config.code.clone(),
+                            start_block_height: old_indexer_config.start_block_height,
+                            schema: old_indexer_config.schema.clone(),
+                            filter: indexer_rules_engine::near_social_indexer_rule(),
+                        };
+                        new_functions.insert(function_name.clone(), new_indexer_config);
+                    });
+                registry.insert(account_id.clone(), new_functions);
+                functions.clear();
             });
-            registry.insert(account_id.clone(), new_functions);
-            functions.clear();
-        });
         state.registry.clear();
 
         log!("Post-migration storage size {:?}", env::storage_usage());
@@ -331,9 +336,10 @@ impl Contract {
 
         let filter_rule: IndexerRule = match filter_json {
             Some(filter_json) => {
-                let filter_rule: IndexerRule = serde_json::from_str(&filter_json).unwrap_or_else(|_| {
-                    env::panic_str(&format!("Invalid filter JSON {}", filter_json));
-                });
+                let filter_rule: IndexerRule =
+                    serde_json::from_str(&filter_json).unwrap_or_else(|_| {
+                        env::panic_str(&format!("Invalid filter JSON {}", filter_json));
+                    });
 
                 filter_rule
             }
@@ -428,16 +434,16 @@ impl Contract {
  */
 #[cfg(test)]
 mod tests {
-    use indexer_rules_engine::types::indexer_rule::{IndexerRuleKind, MatchingRule, Status};
     use super::*;
+    use indexer_rules_engine::types::indexer_rule::{IndexerRuleKind, MatchingRule, Status};
 
     #[test]
     fn migrate() {
-        let mut registry =  OldIndexersByAccount::new(StorageKeys::Registry);
+        let mut registry = OldIndexersByAccount::new(StorageKeys::Registry);
         let account_id = AccountId::new_unchecked("morgs.near".to_string());
-        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
-            env::sha256_array(account_id.as_bytes()),
-        ));
+        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(
+            StorageKeys::Account(env::sha256_array(account_id.as_bytes())),
+        );
 
         funcs.insert(
             "test".to_string(),
@@ -457,9 +463,9 @@ mod tests {
         );
         registry.insert(AccountId::new_unchecked("morgs.near".to_string()), funcs);
 
-        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
-            env::sha256_array("root.near".as_bytes()),
-        ));
+        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(
+            StorageKeys::Account(env::sha256_array("root.near".as_bytes())),
+        );
         funcs.insert(
             "my_function".to_string(),
             OldIndexerConfig {
@@ -470,9 +476,9 @@ mod tests {
         );
         registry.insert(AccountId::new_unchecked("root.near".to_string()), funcs);
 
-        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(StorageKeys::Account(
-            env::sha256_array("roshaan.near".as_bytes()),
-        ));
+        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(
+            StorageKeys::Account(env::sha256_array("roshaan.near".as_bytes())),
+        );
         funcs.insert(
             "another/function".to_string(),
             OldIndexerConfig {

@@ -1,11 +1,13 @@
 use borsh::BorshDeserialize;
 
 use near_lake_framework::near_indexer_primitives::views::{ActionView, ReceiptEnumView};
-use near_lake_framework::near_indexer_primitives::{IndexerExecutionOutcomeWithReceipt, StreamerMessage};
+use near_lake_framework::near_indexer_primitives::{
+    IndexerExecutionOutcomeWithReceipt, StreamerMessage,
+};
 
+use indexer_rules_engine::matcher;
 use indexer_rules_engine::types::indexer_rule::IndexerRule;
 use indexer_rules_engine::types::indexer_rule_match::ChainId;
-use indexer_rules_engine::matcher;
 
 pub(crate) fn reduce_function_registry_from_outcomes(
     indexer_rule: &IndexerRule,
@@ -25,7 +27,12 @@ pub(crate) fn reduce_function_registry_from_outcomes(
                 })
         })
         .map(|receipt_execution_outcome| {
-            build_registry_info(indexer_rule, receipt_execution_outcome, chain_id, block_height)
+            build_registry_info(
+                indexer_rule,
+                receipt_execution_outcome,
+                chain_id,
+                block_height,
+            )
         });
 
     build_function_call_info_vector.flatten().collect()
@@ -67,21 +74,19 @@ fn build_registry_info(
                 } = action
                 {
                     match std::str::from_utf8(args) {
-                        Ok(args) => {
-                            Some(FunctionCallInfo {
-                                chain_id: chain_id.clone(),
-                                indexer_rule_id: indexer_rule.id.unwrap_or(0),
-                                indexer_rule_name: indexer_rule.name.clone().unwrap_or("".to_string()),
-                                signer_id: signer_id.to_string(),
-                                method_name: method_name.to_string(),
-                                args: args.to_string(),
-                                block_height,
-                            })
-                        }
+                        Ok(args) => Some(FunctionCallInfo {
+                            chain_id: chain_id.clone(),
+                            indexer_rule_id: indexer_rule.id.unwrap_or(0),
+                            indexer_rule_name: indexer_rule.name.clone().unwrap_or("".to_string()),
+                            signer_id: signer_id.to_string(),
+                            method_name: method_name.to_string(),
+                            args: args.to_string(),
+                            block_height,
+                        }),
                         Err(_) => {
                             tracing::error!("Failed to deserialize args");
                             None
-                        },
+                        }
                     }
                 } else {
                     None

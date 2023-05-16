@@ -23,7 +23,7 @@ pub(crate) struct CacheValue {
 pub(crate) async fn update_all(
     streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
     redis_connection_manager: &storage::ConnectionManager,
-) -> anyhow::Result<()>  {
+) -> anyhow::Result<()> {
     cache_txs_and_receipts(streamer_message, redis_connection_manager).await?;
     Ok(())
 }

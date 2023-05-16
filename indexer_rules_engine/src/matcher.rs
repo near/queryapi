@@ -1,4 +1,3 @@
-
 use near_lake_framework::near_indexer_primitives::{
     views::{ActionView, ExecutionStatusView, ReceiptEnumView},
     IndexerExecutionOutcomeWithReceipt,

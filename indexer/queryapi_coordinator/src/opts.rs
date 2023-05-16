@@ -75,8 +75,12 @@ pub enum StartOptions {
 impl Opts {
     pub fn chain_id(&self) -> indexer_rules_engine::types::indexer_rule_match::ChainId {
         match self.chain_id {
-            ChainId::Mainnet(_) => indexer_rules_engine::types::indexer_rule_match::ChainId::Mainnet,
-            ChainId::Testnet(_) => indexer_rules_engine::types::indexer_rule_match::ChainId::Testnet,
+            ChainId::Mainnet(_) => {
+                indexer_rules_engine::types::indexer_rule_match::ChainId::Mainnet
+            }
+            ChainId::Testnet(_) => {
+                indexer_rules_engine::types::indexer_rule_match::ChainId::Testnet
+            }
         }
     }
 

@@ -1,10 +1,10 @@
-pub mod types;
-pub mod outcomes_reducer;
 pub mod matcher;
+pub mod outcomes_reducer;
+pub mod types;
 
+use near_lake_framework::near_indexer_primitives::StreamerMessage;
 use types::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 use types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use near_lake_framework::near_indexer_primitives::{StreamerMessage};
 
 pub async fn reduce_indexer_rule_matches(
     indexer_rule: &IndexerRule,
@@ -18,7 +18,9 @@ pub async fn reduce_indexer_rule_matches(
             outcomes_reducer::reduce_indexer_rule_matches_from_outcomes(
                 indexer_rule,
                 streamer_message,
-                chain_id).await?
+                chain_id,
+            )
+            .await?
         }
     })
 }

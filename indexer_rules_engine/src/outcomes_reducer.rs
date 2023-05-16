@@ -1,10 +1,12 @@
 use futures::future::try_join_all;
 
-use near_lake_framework::near_indexer_primitives::{StreamerMessage, IndexerExecutionOutcomeWithReceipt};
+use crate::matcher;
 use crate::types::events::Event;
 use crate::types::indexer_rule::{IndexerRule, MatchingRule};
 use crate::types::indexer_rule_match::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
-use crate::matcher;
+use near_lake_framework::near_indexer_primitives::{
+    IndexerExecutionOutcomeWithReceipt, StreamerMessage,
+};
 
 pub async fn reduce_indexer_rule_matches_from_outcomes(
     indexer_rule: &IndexerRule,
@@ -23,11 +25,12 @@ pub async fn reduce_indexer_rule_matches_from_outcomes(
                 })
         })
         .map(|receipt_execution_outcome| {
-            build_indexer_rule_match(indexer_rule,
-                                     receipt_execution_outcome,
-                                     streamer_message.block.header.hash.to_string(),
-                                     streamer_message.block.header.height,
-                                     chain_id.clone(),
+            build_indexer_rule_match(
+                indexer_rule,
+                receipt_execution_outcome,
+                streamer_message.block.header.hash.to_string(),
+                streamer_message.block.header.height,
+                chain_id.clone(),
             )
         });
 
@@ -41,7 +44,6 @@ async fn build_indexer_rule_match(
     block_height: u64,
     chain_id: ChainId,
 ) -> anyhow::Result<IndexerRuleMatch> {
-
     Ok(IndexerRuleMatch {
         chain_id: chain_id.clone(),
         indexer_rule_id: indexer_rule.id,
@@ -60,21 +62,24 @@ fn build_indexer_rule_match_payload(
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     block_header_hash: String,
 ) -> IndexerRuleMatchPayload {
-
     // future enhancement will extract and enrich fields from block & context as
     //   specified in the indexer function config.
     let transaction_hash = None;
 
     match &indexer_rule.matching_rule {
-        MatchingRule::ActionAny { .. }
-        | MatchingRule::ActionFunctionCall { .. } => {
+        MatchingRule::ActionAny { .. } | MatchingRule::ActionFunctionCall { .. } => {
             IndexerRuleMatchPayload::Actions {
                 block_hash: block_header_hash.to_string(),
                 receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
                 transaction_hash,
             }
         }
-        MatchingRule::Event { event, standard, version, .. } => {
+        MatchingRule::Event {
+            event,
+            standard,
+            version,
+            ..
+        } => {
             let event = receipt_execution_outcome
                 .execution_outcome
                 .outcome
@@ -104,7 +109,7 @@ fn build_indexer_rule_match_payload(
                 event: event.event.clone(),
                 standard: event.standard.clone(),
                 version: event.version.clone(),
-                data: event.data.as_ref().map(|data| data.to_string())
+                data: event.data.as_ref().map(|data| data.to_string()),
             }
         }
     }

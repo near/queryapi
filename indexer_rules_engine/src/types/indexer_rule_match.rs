@@ -121,7 +121,7 @@ impl IndexerRuleMatchPayload {
             } => match transaction_hash {
                 Some(transaction_hash) => Some(transaction_hash.to_string()),
                 None => None,
-                },
+            },
         }
     }
 }
