@@ -41,6 +41,7 @@ const BLOCKHEIGHT_LIMIT = 3600;
 const HASURA_ENDPOINT =
   process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
   "https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql";
+console.log("HASURA ENDPPPOINT", process.env.NEXT_PUBLIC_HASURA_ENDPOINT);
 const Editor = ({
   options,
   accountId,
