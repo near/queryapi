@@ -337,6 +337,8 @@ const Editor = ({
         heights={heights}
         setHeights={setHeights}
         contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
       />
       <ResetChangesModal
         showResetCodeModel={showResetCodeModel}

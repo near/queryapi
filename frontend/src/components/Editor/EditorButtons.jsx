@@ -36,6 +36,8 @@ const EditorButtons = ({
   heights,
   setHeights,
   contractFilter,
+  handleSetContractFilter,
+  isContractFilterValid,
 }) => {
   return (
     <>
@@ -54,7 +56,9 @@ const EditorButtons = ({
           handleOptionChange={handleOptionChange}
           blockHeight={blockHeight}
           setBlockHeight={setBlockHeight}
+          handleSetContractFilter={handleSetContractFilter}
           contractFilter={contractFilter}
+          isContractFilterValid={isContractFilterValid}
         />
       </ButtonToolbar>
       <ButtonToolbar className="py-1 flex-col" aria-label="Actions for Editor">
