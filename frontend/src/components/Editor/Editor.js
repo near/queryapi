@@ -31,12 +31,12 @@ const Editor = ({
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
-  const [showGetBlockModalInput, setShowGetBlockModalInput] = useState(false);
   const [fileName, setFileName] = useState("indexingLogic.js");
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
   const [debugMode, setDebugMode] = useState(false);
   const [logs, setLogs] = useState([]);
+  const [heights, setHeights] = useState([]);
 
   const handleLog = (log) => {
     setLogs((prevLogs) => [...prevLogs, log]);
@@ -362,41 +362,38 @@ const Editor = ({
             {blockHeightError}
           </Alert>
         )}
-        {error && (
-          <Alert className="px-3 pt-3" variant="danger">
-            {error}
-          </Alert>
-        )}
-      </div>
 
-      <FileSwitcher
-        fileName={fileName}
-        setFileName={setFileName}
-        diffView={diffView}
-        setDiffView={setDiffView}
-        blockView={blockView}
-        setBlockView={setBlockView}
-      />
-      <ResizableLayoutEditor
-        accountId={accountId}
-        fileName={fileName}
-        indexingCode={indexingCode}
-        blockView={blockView}
-        diffView={diffView}
-        setIndexingCode={setIndexingCode}
-        setSchema={setSchema}
-        block_details={block_details}
-        originalSQLCode={originalSQLCode}
-        originalIndexingCode={originalIndexingCode}
-        schema={schema}
-        options={options}
-        firstRef={firstRef}
-        secondRef={secondRef}
-        dragBarRef={dragBarRef}
-        handleEditorWillMount={handleEditorWillMount}
-        handleEditorMount={handleEditorMount}
-        logs={logs}
-      />
+        <FileSwitcher
+          fileName={fileName}
+          setFileName={setFileName}
+          diffView={diffView}
+          setDiffView={setDiffView}
+          blockView={blockView}
+          setBlockView={setBlockView}
+          debugMode={debugMode}
+          setDebugMode={setDebugMode}
+        />
+        <ResizableLayoutEditor
+          accountId={accountId}
+          fileName={fileName}
+          indexingCode={indexingCode}
+          blockView={blockView}
+          diffView={diffView}
+          setIndexingCode={setIndexingCode}
+          setSchema={setSchema}
+          block_details={block_details}
+          originalSQLCode={originalSQLCode}
+          originalIndexingCode={originalIndexingCode}
+          schema={schema}
+          options={options}
+          firstRef={firstRef}
+          secondRef={secondRef}
+          dragBarRef={dragBarRef}
+          handleEditorWillMount={handleEditorWillMount}
+          handleEditorMount={handleEditorMount}
+          logs={logs}
+        />
+      </div>
     </div>
   );
 };

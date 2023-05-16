@@ -8,6 +8,8 @@ export function FileSwitcher({
   setDiffView,
   blockView,
   setBlockView,
+  debugMode,
+  setDebugMode,
 }) {
   return (
     <>
@@ -52,13 +54,22 @@ export function FileSwitcher({
         </ToggleButton>
         <InputGroup>
           <InputGroup.Text className="px-3">
-            {" "}
             Diff View
             <Switch
               className="px-1"
               checked={diffView}
               onChange={(checked) => {
                 setDiffView(checked);
+              }}
+            />
+          </InputGroup.Text>
+          <InputGroup.Text className="px-3">
+            Debug Mode
+            <Switch
+              className="px-1"
+              checked={debugMode}
+              onChange={(checked) => {
+                setDebugMode(checked);
               }}
             />
           </InputGroup.Text>
