@@ -94,10 +94,6 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
         .map(|streamer_message| {
-            metrics::BLOCK_COUNT.inc();
-            metrics::LATEST_BLOCK_HEIGHT
-                .set(streamer_message.block.header.height.try_into().unwrap());
-
             let context = QueryApiContext {
                 redis_connection_manager: &redis_connection_manager,
                 queue_url: &queue_url,
@@ -210,6 +206,17 @@ async fn handle_streamer_message(
         context.streamer_message.block.header.height,
     )
     .await?;
+
+    metrics::BLOCK_COUNT.inc();
+    metrics::LATEST_BLOCK_HEIGHT.set(
+        context
+            .streamer_message
+            .block
+            .header
+            .height
+            .try_into()
+            .unwrap(),
+    );
 
     Ok(context.streamer_message.block.header.height)
 }
