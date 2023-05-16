@@ -72,12 +72,12 @@ pub enum IndexerRuleMatchPayload {
     Actions {
         block_hash: BlockHashString,
         receipt_id: ReceiptIdString,
-        transaction_hash: TransactionHashString,
+        transaction_hash: Option<TransactionHashString>,
     },
     Events {
         block_hash: BlockHashString,
         receipt_id: ReceiptIdString,
-        transaction_hash: TransactionHashString,
+        transaction_hash: Option<TransactionHashString>,
         event: String,
         standard: String,
         version: String,
@@ -86,7 +86,7 @@ pub enum IndexerRuleMatchPayload {
     StateChanges {
         block_hash: BlockHashString,
         receipt_id: Option<ReceiptIdString>,
-        transaction_hash: TransactionHashString,
+        transaction_hash: Option<TransactionHashString>,
     },
 }
 
@@ -118,7 +118,10 @@ impl IndexerRuleMatchPayload {
             }
             | Self::StateChanges {
                 transaction_hash, ..
-            } => Some(transaction_hash.to_string()),
+            } => match transaction_hash {
+                Some(transaction_hash) => Some(transaction_hash.to_string()),
+                None => None,
+                },
         }
     }
 }

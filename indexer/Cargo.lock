@@ -1953,7 +1953,6 @@ dependencies = [
  "borsh",
  "futures",
  "near-lake-framework",
- "redis",
  "serde",
  "serde_json",
  "wildmatch",

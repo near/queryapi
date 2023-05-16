@@ -132,8 +132,8 @@ async fn handle_streamer_message(
     // This is a single hardcoded filter, which is standing in for filters on IndexerFunctions.
     let indexer_rules: Vec<IndexerRule> = vec![indexer_rules_engine::near_social_indexer_rule()];
 
-    cache::cache_txs_and_receipts(&context.streamer_message, context.redis_connection_manager)
-        .await?;
+    // build context for enriching filter matches
+    cache::update_all(&context.streamer_message, context.redis_connection_manager).await?;
 
     let mut reducer_futures = stream::iter(indexer_rules.iter())
         .map(|indexer_rule| indexer_rules_engine::reduce_indexer_rule_matches(

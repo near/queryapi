@@ -4,13 +4,11 @@ pub mod matcher;
 
 use types::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 use types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use redis::aio::ConnectionManager;
 use near_lake_framework::near_indexer_primitives::{StreamerMessage};
 
 pub async fn reduce_indexer_rule_matches(
     indexer_rule: &IndexerRule,
     streamer_message: &StreamerMessage,
-    redis_connection_manager: &ConnectionManager,
     chain_id: ChainId,
 ) -> anyhow::Result<Vec<IndexerRuleMatch>> {
     Ok(match &indexer_rule.matching_rule {
@@ -20,7 +18,6 @@ pub async fn reduce_indexer_rule_matches(
             outcomes_reducer::reduce_indexer_rule_matches_from_outcomes(
                 indexer_rule,
                 streamer_message,
-                redis_connection_manager,
                 chain_id).await?
         }
     })

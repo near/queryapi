@@ -1,5 +1,4 @@
 use futures::future::try_join_all;
-use redis::aio::ConnectionManager;
 
 use near_lake_framework::near_indexer_primitives::{StreamerMessage, IndexerExecutionOutcomeWithReceipt};
 use crate::types::events::Event;
@@ -10,7 +9,6 @@ use crate::matcher;
 pub async fn reduce_indexer_rule_matches_from_outcomes(
     indexer_rule: &IndexerRule,
     streamer_message: &StreamerMessage,
-    redis_connection_manager: &ConnectionManager,
     chain_id: ChainId,
 ) -> anyhow::Result<Vec<IndexerRuleMatch>> {
     let build_indexer_rule_match_futures = streamer_message
@@ -27,7 +25,6 @@ pub async fn reduce_indexer_rule_matches_from_outcomes(
         .map(|receipt_execution_outcome| {
             build_indexer_rule_match(indexer_rule,
                                      receipt_execution_outcome,
-                                     redis_connection_manager,
                                      streamer_message.block.header.hash.to_string(),
                                      streamer_message.block.header.height,
                                      chain_id.clone(),
@@ -40,17 +37,10 @@ pub async fn reduce_indexer_rule_matches_from_outcomes(
 async fn build_indexer_rule_match(
     indexer_rule: &IndexerRule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
-    redis_connection_manager: &ConnectionManager,
     block_header_hash: String,
     block_height: u64,
     chain_id: ChainId,
 ) -> anyhow::Result<IndexerRuleMatch> {
-    // todo Awaiting further refactor
-    // let transaction_hash = parent_transaction_hash(
-    //     &receipt_execution_outcome.receipt.receipt_id.to_string(),
-    //     redis_connection_manager,
-    // )
-    // .await?;
 
     Ok(IndexerRuleMatch {
         chain_id: chain_id.clone(),
@@ -58,7 +48,6 @@ async fn build_indexer_rule_match(
         indexer_rule_name: indexer_rule.name.clone(),
         payload: build_indexer_rule_match_payload(
             indexer_rule,
-//            &transaction_hash,
             receipt_execution_outcome,
             block_header_hash,
         ),
@@ -66,30 +55,15 @@ async fn build_indexer_rule_match(
     })
 }
 
-
-// todo Refactor
-// async fn parent_transaction_hash(
-//     receipt_id: &str,
-//     redis_connection_manager: &ConnectionManager,
-// ) -> anyhow::Result<String> {
-//     if let Some(cache_value_bytes) =
-//         storage::get::<Option<Vec<u8>>>(redis_connection_manager, &receipt_id).await?
-//     {
-//         let cache_value = crate::cache::CacheValue::try_from_slice(&cache_value_bytes)?;
-//
-//         return Ok(cache_value.transaction_hash);
-//     }
-//     anyhow::bail!("Missing Receipt {}. Not found in Redis cache", receipt_id,)
-// }
-
 fn build_indexer_rule_match_payload(
     indexer_rule: &IndexerRule,
-//    transaction_hash: &str,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     block_header_hash: String,
 ) -> IndexerRuleMatchPayload {
 
-    let temporary_transaction_hash = "".to_string(); // todo Awaiting refactor
+    // future enhancement will extract and enrich fields from block & context as
+    //   specified in the indexer function config.
+    let transaction_hash = None;
 
     match &indexer_rule.matching_rule {
         MatchingRule::ActionAny { .. }
@@ -97,8 +71,7 @@ fn build_indexer_rule_match_payload(
             IndexerRuleMatchPayload::Actions {
                 block_hash: block_header_hash.to_string(),
                 receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
-                transaction_hash: temporary_transaction_hash,
-                // transaction_hash: transaction_hash.to_string(),
+                transaction_hash,
             }
         }
         MatchingRule::Event { event, standard, version, .. } => {
@@ -127,7 +100,7 @@ fn build_indexer_rule_match_payload(
             IndexerRuleMatchPayload::Events {
                 block_hash: block_header_hash.to_string(),
                 receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
-                transaction_hash: temporary_transaction_hash,
+                transaction_hash,
                 event: event.event.clone(),
                 standard: event.standard.clone(),
                 version: event.version.clone(),
