@@ -1,5 +1,6 @@
 import { Block } from "@near-lake/primitives";
-
+import { Buffer } from "buffer";
+global.Buffer = Buffer;
 export default class Indexer {
   constructor(handleLog) {
     this.handleLog = handleLog;
