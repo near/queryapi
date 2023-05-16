@@ -20,6 +20,17 @@ use crate::indexer_types::{
 use crate::opts;
 use crate::opts::{Opts, Parser};
 
+
+pub(crate) fn registry_as_vec_of_indexer_functions(
+    registry: &IndexerRegistry,
+) -> Vec<IndexerFunction> {
+    registry
+        .values()
+        .flat_map(|fns| fns.values())
+        .cloned()
+        .collect()
+}
+
 struct RegistryFunctionInvocation {
     pub account_id: AccountId,
     pub function_name: String,
