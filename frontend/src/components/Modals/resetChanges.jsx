@@ -6,6 +6,7 @@ export const ResetChangesModal = ({
 }) => {
   return (
     <Modal
+      centered={true}
       show={showResetCodeModel}
       onHide={() => setShowResetCodeModel(false)}
     >

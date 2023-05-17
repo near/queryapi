@@ -10,17 +10,12 @@ import {
 } from "react-bootstrap";
 import { ArrowCounterclockwise, Justify } from "react-bootstrap-icons";
 import IndexerDetailsGroup from "../Form/IndexerDetailsGroup";
-import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup";
 import { BlockPicker } from "./BlockPicker";
 const EditorButtons = ({
   accountId,
   indexerNameField,
   setIndexerNameField,
   options,
-  selectedOption,
-  handleOptionChange,
-  blockHeight,
-  setBlockHeight,
   setShowResetCodeModel,
   handleFormating,
   executeIndexerFunction,
@@ -30,9 +25,7 @@ const EditorButtons = ({
   debugMode,
   heights,
   setHeights,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
+  setShowPublishModal,
 }) => {
   return (
     <>
@@ -47,54 +40,6 @@ const EditorButtons = ({
             setIndexerNameField={setIndexerNameField}
           />
         )}
-        <BlockHeightOptions
-          selectedOption={selectedOption}
-          handleOptionChange={handleOptionChange}
-          blockHeight={blockHeight}
-          setBlockHeight={setBlockHeight}
-          handleSetContractFilter={handleSetContractFilter}
-          contractFilter={contractFilter}
-          isContractFilterValid={isContractFilterValid}
-        />
-      </ButtonToolbar>
-      <ButtonToolbar
-        className="px-3 py-1 flex-col"
-        aria-label="Actions for Editor"
-      >
-        <ButtonGroup className="inline-block" aria-label="Action Button Group">
-          <OverlayTrigger overlay={<Tooltip>Reset Changes To Code</Tooltip>}>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setShowResetCodeModel(true)}
-            >
-              <ArrowCounterclockwise size={24} />
-            </Button>
-          </OverlayTrigger>
-
-          <OverlayTrigger overlay={<Tooltip>Format Code</Tooltip>}>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => handleFormating()}
-            >
-              <Justify size={24} />
-            </Button>
-          </OverlayTrigger>
-          {currentUserAccountId && (
-            <OverlayTrigger
-              overlay={<Tooltip>{getActionButtonText()}</Tooltip>}
-            >
-              <Button
-                variant="primary"
-                className="px-3"
-                onClick={() => submit()}
-              >
-                {getActionButtonText()}
-              </Button>
-            </OverlayTrigger>
-          )}
-        </ButtonGroup>
       </ButtonToolbar>
       <ButtonToolbar className="px-3 pt-1" aria-label="Debug Mode Options">
         {debugMode && (
@@ -105,6 +50,62 @@ const EditorButtons = ({
           />
         )}
       </ButtonToolbar>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <ButtonToolbar
+          className="px-3 py-1 flex justify-center"
+          aria-label="Actions for Editor"
+        >
+          <ButtonGroup
+            className="inline-block"
+            aria-label="Action Button Group"
+          >
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip>Reset Changes To Code</Tooltip>}
+            >
+              <Button
+                size="sm"
+                style={{ paddingRight: "2px" }}
+                className="flex align-center"
+                variant="secondary"
+                onClick={() => setShowResetCodeModel(true)}
+              >
+                <ArrowCounterclockwise size={22} />
+                Reset Changes
+              </Button>
+            </OverlayTrigger>
+
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip>Format Code</Tooltip>}
+            >
+              <Button
+                size="sm"
+                variant="secondary"
+                className="flex align-center"
+                onClick={() => handleFormating()}
+              >
+                <Justify style={{ paddingRight: "2px" }} size={24} />
+                Format Code
+              </Button>
+            </OverlayTrigger>
+            {currentUserAccountId && (
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<Tooltip>{getActionButtonText()}</Tooltip>}
+              >
+                <Button
+                  variant="primary"
+                  className="px-3"
+                  onClick={() => setShowPublishModal(true)}
+                >
+                  {getActionButtonText()}
+                </Button>
+              </OverlayTrigger>
+            )}
+          </ButtonGroup>
+        </ButtonToolbar>
+      </div>
     </>
   );
 };

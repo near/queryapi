@@ -15,7 +15,7 @@ import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
-
+import { PublishModal } from "../Modals/PublishModal";
 const BLOCKHEIGHT_LIMIT = 3600;
 const BLOCK_FETCHER_API =
   "https://70jshyr5cb.execute-api.eu-central-1.amazonaws.com/block/";
@@ -36,6 +36,7 @@ const Editor = ({
   const [debugMode, setDebugMode] = useState(false);
   const [logs, setLogs] = useState([]);
   const [heights, setHeights] = useState([]);
+  const [showPublishModal, setShowPublishModal] = useState(false);
 
   const handleLog = (log) => {
     setLogs((prevLogs) => [...prevLogs, log]);
@@ -49,7 +50,7 @@ const Editor = ({
   const [blockView, setBlockView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
-  const [blockHeight, setBlockHeight] = useState(undefined);
+  const [blockHeight, setBlockHeight] = useState("0");
 
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("near.social");
@@ -137,6 +138,7 @@ const Editor = ({
       schema: formatted_schema,
       blockHeight: start_block_height,
     });
+    setShowPublishModal(false)
   };
 
   const handleReload = useCallback(async () => {
@@ -333,18 +335,33 @@ const Editor = ({
         executeIndexerFunction={executeIndexerFunction}
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
-        submit={submit}
         debugMode={debugMode}
         heights={heights}
         setHeights={setHeights}
         contractFilter={contractFilter}
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}
+        setShowPublishModal={setShowPublishModal}
       />
       <ResetChangesModal
         showResetCodeModel={showResetCodeModel}
         setShowResetCodeModel={setShowResetCodeModel}
         handleReload={handleReload}
+      />
+      <PublishModal
+        showPublishModal={showPublishModal}
+        setShowPublishModal={setShowPublishModal}
+        registerFunction={registerFunction}
+        selectedOption={selectedOption}
+        handleOptionChange={handleOptionChange}
+        blockHeight={blockHeight}
+        setBlockHeight={setBlockHeight}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
+        actionButtonText={getActionButtonText()}
+        submit={submit}
+        blockHeightError={blockHeightError}
       />
       <div
         className="px-3 pt-3"
@@ -358,11 +375,6 @@ const Editor = ({
         {error && (
           <Alert className="px-3 pt-3" variant="danger">
             {error}
-          </Alert>
-        )}
-        {blockHeightError && (
-          <Alert className="px-3 pt-3" variant="danger">
-            {blockHeightError}
           </Alert>
         )}
 
