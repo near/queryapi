@@ -24,7 +24,7 @@ export const GraphqlPlayground = ({ accountId }) => {
   return (
     <div style={{ width: "100%", height: "50vh" }}>
       <GraphiQL
-        fetcher={(param) => graphQLFetcher(params, accountId)}
+        fetcher={(params) => graphQLFetcher(params, accountId)}
         defaultQuery=""
         storage={sessionStorage}
       />
