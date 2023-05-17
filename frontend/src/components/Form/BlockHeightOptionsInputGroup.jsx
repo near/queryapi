@@ -11,7 +11,7 @@ const BlockHeightOptions = ({
 }) => {
   return (
     <>
-      <InputGroup size="sm" className="px-1 pt-3 ps-1">
+      <InputGroup size="sm" className="pt-3">
         <InputGroup.Checkbox
           value="latestBlockHeight"
           checked={selectedOption === "latestBlockHeight"}
