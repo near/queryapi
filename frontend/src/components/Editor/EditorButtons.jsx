@@ -45,12 +45,13 @@ const EditorButtons = ({
         className="pt-3 pb-1 flex-col"
         aria-label="Actions for Editor"
       >
-        <IndexerDetailsGroup
-          accountId={accountId}
-          indexerNameField={indexerNameField}
-          setIndexerNameField={setIndexerNameField}
-          isCreateNewIndexerPage={options.create_new_indexer}
-        />
+        {options.create_new_indexer && (
+          <IndexerDetailsGroup
+            accountId={accountId}
+            indexerNameField={indexerNameField}
+            setIndexerNameField={setIndexerNameField}
+          />
+        )}
         <BlockHeightOptions
           selectedOption={selectedOption}
           handleOptionChange={handleOptionChange}
