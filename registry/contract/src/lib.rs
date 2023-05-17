@@ -6,7 +6,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash};
 
-use indexer_rules_engine::types::indexer_rule::IndexerRule;
+use indexer_rule_type::indexer_rule::IndexerRule;
 
 type FunctionName = String;
 // Define the contract structure
@@ -188,7 +188,7 @@ impl Contract {
                             code: old_indexer_config.code.clone(),
                             start_block_height: old_indexer_config.start_block_height,
                             schema: old_indexer_config.schema.clone(),
-                            filter: indexer_rules_engine::near_social_indexer_rule(),
+                            filter: indexer_rule_type::near_social_indexer_rule(),
                         };
                         new_functions.insert(function_name.clone(), new_indexer_config);
                     });
@@ -343,7 +343,7 @@ impl Contract {
 
                 filter_rule
             }
-            None => indexer_rules_engine::near_social_indexer_rule(),
+            None => indexer_rule_type::near_social_indexer_rule(),
         };
 
         log!(
@@ -435,7 +435,7 @@ impl Contract {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use indexer_rules_engine::types::indexer_rule::{IndexerRuleKind, MatchingRule, Status};
+    use indexer_rule_type::indexer_rule::{IndexerRuleKind, MatchingRule, Status};
 
     #[test]
     fn migrate() {
@@ -513,7 +513,7 @@ mod tests {
                 .get("my_function")
                 .unwrap()
                 .filter,
-            indexer_rules_engine::near_social_indexer_rule()
+            indexer_rule_type::near_social_indexer_rule()
         );
         assert_eq!(
             contract
@@ -742,7 +742,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
 
         contract.register_indexer_function(
@@ -773,7 +773,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
         contract.register_indexer_function(
             "test".to_string(),
@@ -886,7 +886,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
 
         contract.register_indexer_function(
@@ -989,7 +989,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1005,7 +1005,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
 
         contract.register_indexer_function(
@@ -1039,7 +1039,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1072,7 +1072,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1106,7 +1106,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1134,7 +1134,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1168,7 +1168,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1193,7 +1193,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         account_indexers.insert(
@@ -1202,7 +1202,7 @@ mod tests {
                 code: "var x= 2;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
-                filter: indexer_rules_engine::near_social_indexer_rule(),
+                filter: indexer_rule_type::near_social_indexer_rule(),
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1250,7 +1250,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
         let account_id = AccountId::new_unchecked("bob.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1276,7 +1276,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
         let account_id = AccountId::new_unchecked("alice.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1310,7 +1310,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
         let account_id = AccountId::new_unchecked("bob.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1339,7 +1339,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
         let account_id = AccountId::new_unchecked("bob.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1376,7 +1376,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
-            filter: indexer_rules_engine::near_social_indexer_rule(),
+            filter: indexer_rule_type::near_social_indexer_rule(),
         };
         let account_id = AccountId::new_unchecked("alice.near".to_string());
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(

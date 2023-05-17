@@ -16,7 +16,7 @@ use crate::indexer_reducer::FunctionCallInfo;
 use crate::indexer_types::{IndexerFunction, IndexerQueueMessage, IndexerRegistry};
 use crate::opts;
 use crate::opts::{Opts, Parser};
-use indexer_rules_engine::types::indexer_rule::{
+use indexer_rule_type::indexer_rule::{
     IndexerRule, IndexerRuleKind, MatchingRule, Status,
 };
 
@@ -456,7 +456,7 @@ async fn test_process_historical_messages() {
         start_block_height: Some(85376002),
         schema: None,
         provisioned: false,
-        indexer_rule: indexer_rules_engine::near_social_indexer_rule(),
+        indexer_rule: indexer_rule_type::near_social_indexer_rule(),
     };
 
     process_historical_messages(85376003, indexer_function).await;

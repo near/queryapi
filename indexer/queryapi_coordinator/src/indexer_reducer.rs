@@ -6,7 +6,7 @@ use near_lake_framework::near_indexer_primitives::{
 };
 
 use indexer_rules_engine::matcher;
-use indexer_rules_engine::types::indexer_rule::IndexerRule;
+use indexer_rule_type::indexer_rule::IndexerRule;
 use indexer_rules_engine::types::indexer_rule_match::ChainId;
 
 pub(crate) fn reduce_function_registry_from_outcomes(

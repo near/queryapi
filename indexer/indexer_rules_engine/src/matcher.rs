@@ -4,7 +4,7 @@ use near_lake_framework::near_indexer_primitives::{
 };
 
 use crate::types::events::Event;
-use crate::types::indexer_rule::{MatchingRule, Status};
+use indexer_rule_type::indexer_rule::{MatchingRule, Status};
 
 pub fn matches(
     matching_rule: &MatchingRule,
