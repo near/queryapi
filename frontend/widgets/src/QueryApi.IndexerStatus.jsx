@@ -293,8 +293,8 @@ return (
                 <thead>
                   <tr>
                     <th style={{ width: "20%" }}>Block Height</th>
-                    <th style={{ width: "80%" }}>Message</th>
                     <th style={{ width: "20%" }}>Timestamp</th>
+                    <th style={{ width: "80%" }}>Message</th>
                   </tr>
                 </thead>
                 <tbody>
