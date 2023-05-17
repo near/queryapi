@@ -1,0 +1,15 @@
+name: Deploy Prod Components to Mainnet
+on:
+  push:
+    branches: [stable]
+    paths:
+      - "frontend/widgets/src/**"
+jobs:
+  deploy-mainnet:
+    uses: ./.github/workflows/deploy-widgets.yml
+    with:
+      deploy-account-address: dataplatform.near
+      signer-account-address: c43d6d44ee2b15fbd42fab25e71dd248e9ace6132d0ba9c212ef1194e599a6f9
+      signer-public-key: ed25519:ED3EdRFGqza239RreqdWRY35pe5VBp1cgEzRsgP6mJyv
+    secrets:
+      SIGNER_PRIVATE_KEY: ${{ secrets.DEV_SIGNER_PRIVATE_KEY }}
