@@ -285,19 +285,28 @@ const Editor = ({
   }
 
   async function fetchBlockDetails(blockHeight) {
-    const response = await fetch(`${BLOCK_FETCHER_API}${String(blockHeight)}`);
-    const block_details = await response.json();
-    return block_details;
+    try {
+      const response = await fetch(
+        `${BLOCK_FETCHER_API}${String(blockHeight)}`
+      );
+      const block_details = await response.json();
+      return block_details;
+    } catch {
+      console.log(
+        `Error Fetching Block Height details at ${blockHeight}`
+      );
+    }
   }
 
   async function executeIndexerFunction() {
     setLogs(() => []);
-    console.log(heights, "running on these heights");
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     // for loop with await
     for await (const height of heights) {
       const block_details = await fetchBlockDetails(height);
-      await indexerRunner.runFunction(block_details, innerCode);
+      if (block_details) {
+        await indexerRunner.runFunction(block_details, innerCode);
+      }
     }
   }
 
