@@ -60,12 +60,11 @@ export const BlockPicker = ({
 
       <div>
         {heights.map((height, index) => (
-          <Badge pill variant="primary" className="pl-3 mr-2" key={index}>
+          <Badge pill bg="secondary" className="pl-3 mr-2" key={index}>
             {height}
             <XCircle
-              size={24}
-              style={{ cursor: "pointer" }}
-              className="pl-2"
+              size={18}
+              style={{ "padding-left": "4px", cursor: "pointer" }}
               onClick={() => removeHeight(index)}
             />
           </Badge>

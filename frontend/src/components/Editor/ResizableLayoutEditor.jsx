@@ -46,12 +46,17 @@ const ResizableEditor = ({
   schema,
   indexingCode,
   options,
-  firstRef,
-  secondRef,
-  dragBarRef,
   handleEditorWillMount,
   handleEditorMount,
 }) => {
+  const { firstRef, secondRef, dragBarRef } = useDragResize({
+    direction: "horizontal",
+    initiallyHidden: null,
+    defaultSizeRelation: 3,
+    sizeThresholdFirst: 60,
+    sizeThresholdSecond: 60,
+  });
+
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground accountId={accountId} />,
@@ -132,9 +137,6 @@ export default function ResizableLayoutEditor({
   schema,
   indexingCode,
   options,
-  firstRef,
-  secondRef,
-  dragBarRef,
   handleEditorWillMount,
   handleEditorMount,
   logs,
@@ -168,43 +170,40 @@ export default function ResizableLayoutEditor({
           originalIndexingCode={originalIndexingCode}
           schema={schema}
           options={options}
-          firstRef={firstRef}
-          secondRef={secondRef}
-          dragBarRef={dragBarRef}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
         />
       </div>
 
-      <div
-        ref={dragBarRefConsole}
-        style={{
-          height: "5px",
-          backgroundColor: "gray",
-          cursor: "ns-resize",
-        }}
-      />
-
-      <div
-        ref={secondRefConsole}
-        style={{
-          backgroundColor: "gray",
-          overflow: "auto",
-          color: "white",
-          padding: "10px",
-        }}
-      >
-        <div>
-          <div className="pb-3">Console</div>
-
-          {logs.map((log, i) => (
-            <div key={i}>
-              <p> {log}</p>
-              <hr style={{ borderTop: "1px solid white" }} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* <div */}
+      {/*   ref={dragBarRefConsole} */}
+      {/*   style={{ */}
+      {/*     height: "5px", */}
+      {/*     backgroundColor: "gray", */}
+      {/*     cursor: "ns-resize", */}
+      {/*   }} */}
+      {/* /> */}
+      {/**/}
+      {/* <div */}
+      {/*   ref={secondRefConsole} */}
+      {/*   style={{ */}
+      {/*     backgroundColor: "gray", */}
+      {/*     overflow: "auto", */}
+      {/*     color: "white", */}
+      {/*     padding: "10px", */}
+      {/*   }} */}
+      {/* > */}
+      {/*   <div> */}
+      {/*     <div className="pb-3">Console</div> */}
+      {/**/}
+      {/*     {logs.map((log, i) => ( */}
+      {/*       <div key={i}> */}
+      {/*         <p> {log}</p> */}
+      {/*         <hr style={{ borderTop: "1px solid white" }} /> */}
+      {/*       </div> */}
+      {/*     ))} */}
+      {/*   </div> */}
+      {/* </div> */}
     </div>
   );
 }

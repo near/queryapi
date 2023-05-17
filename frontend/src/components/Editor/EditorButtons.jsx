@@ -8,12 +8,7 @@ import {
   Tooltip,
   Button,
 } from "react-bootstrap";
-import {
-  ArrowCounterclockwise,
-  Justify,
-  BugFill,
-  SendFill,
-} from "react-bootstrap-icons";
+import { ArrowCounterclockwise, Justify } from "react-bootstrap-icons";
 import IndexerDetailsGroup from "../Form/IndexerDetailsGroup";
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup";
 import { BlockPicker } from "./BlockPicker";
@@ -42,7 +37,7 @@ const EditorButtons = ({
   return (
     <>
       <ButtonToolbar
-        className="pt-3 pb-1 flex-col"
+        className="px-3 pt-3 pb-1 flex-col"
         aria-label="Actions for Editor"
       >
         {options.create_new_indexer && (
@@ -62,7 +57,10 @@ const EditorButtons = ({
           isContractFilterValid={isContractFilterValid}
         />
       </ButtonToolbar>
-      <ButtonToolbar className="py-1 flex-col" aria-label="Actions for Editor">
+      <ButtonToolbar
+        className="px-3 py-1 flex-col"
+        aria-label="Actions for Editor"
+      >
         <ButtonGroup className="inline-block" aria-label="Action Button Group">
           <OverlayTrigger overlay={<Tooltip>Reset Changes To Code</Tooltip>}>
             <Button
@@ -98,7 +96,7 @@ const EditorButtons = ({
           )}
         </ButtonGroup>
       </ButtonToolbar>
-      <ButtonToolbar className="pt-1" aria-label="Debug Mode Options">
+      <ButtonToolbar className="px-3 pt-1" aria-label="Debug Mode Options">
         {debugMode && (
           <BlockPicker
             heights={heights}

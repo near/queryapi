@@ -8,10 +8,9 @@ import {
 import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import { Alert } from "react-bootstrap";
 import primitives from "!!raw-loader!../../../primitives.d.ts";
-import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
+import { request, useInitialPayload } from "near-social-bridge";
 import Indexer from "../../utils/indexerRunner";
 import { block_details } from "./block_details";
-import { useDragResize } from "../../utils/resize";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
@@ -44,13 +43,6 @@ const Editor = ({
 
   const indexerRunner = new Indexer(handleLog);
 
-  const { firstRef, secondRef, dragBarRef } = useDragResize({
-    direction: "horizontal",
-    initiallyHidden: null,
-    defaultSizeRelation: 3,
-    sizeThresholdFirst: 60,
-    sizeThresholdSecond: 60,
-  });
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
@@ -388,9 +380,6 @@ const Editor = ({
           originalIndexingCode={originalIndexingCode}
           schema={schema}
           options={options}
-          firstRef={firstRef}
-          secondRef={secondRef}
-          dragBarRef={dragBarRef}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
           logs={logs}
