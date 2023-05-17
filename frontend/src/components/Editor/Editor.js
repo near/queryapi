@@ -39,6 +39,7 @@ const Editor = ({
   const [showPublishModal, setShowPublishModal] = useState(false);
 
   const handleLog = (log) => {
+    console.log(log);
     setLogs((prevLogs) => [...prevLogs, log]);
   };
 
