@@ -1,0 +1,36 @@
+#https://github.com/near/near-ops/pull/1220# todo update to js checks for indexer-js-queue-handler
+
+
+name: Queue Handlers Deploy
+
+on:
+ push:
+   branches: [ main, stable ]
+
+jobs:
+ release:
+   runs-on: ubuntu-latest
+
+   steps:
+     - name: Checkout code
+       uses: actions/checkout@v3
+
+     - name: Setup Node
+       uses: actions/setup-node@v3
+       with:
+         node-version: '16.x'
+
+     - name: Install Node Dependencies
+       run: npm install
+
+     # - name: Configure AWS Credentials
+     #   uses: aws-actions/configure-aws-credentials@v2
+     #   with:
+     #     role-to-assume: arn:aws:iam::123456789100:role/my-github-actions-role
+     #     aws-region: eu-central-1
+     #
+     - name: Serverless Deploy Lambda
+       uses: serverless/github-action@v3.2
+       with:
+         args: deploy
+         stage: dev
