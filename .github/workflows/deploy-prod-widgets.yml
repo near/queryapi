@@ -8,6 +8,7 @@ jobs:
   deploy-mainnet:
     uses: ./.github/workflows/deploy-widgets.yml
     with:
+      directory-path: frontend/widgets/
       deploy-account-address: dataplatform.near
       signer-account-address: c43d6d44ee2b15fbd42fab25e71dd248e9ace6132d0ba9c212ef1194e599a6f9
       signer-public-key: ed25519:ED3EdRFGqza239RreqdWRY35pe5VBp1cgEzRsgP6mJyv

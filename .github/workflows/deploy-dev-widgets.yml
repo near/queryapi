@@ -8,6 +8,7 @@ jobs:
   deploy-mainnet:
     uses: ./.github/workflows/deploy-widgets.yml
     with:
+      directory-path: frontend/widgets/
       deploy-account-address: dev-queryapi.dataplatform.near
       signer-account-address: f085ac2c4032110e3809c24a27f3694500b76f48955b9e63ac72c56247d12ae
       signer-public-key: ed25519:HBu4xEfRCSt5pHDszmd2rpbZ9xdooAroR1TvpqtKX6vA
