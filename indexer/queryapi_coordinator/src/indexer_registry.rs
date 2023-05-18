@@ -54,7 +54,7 @@ fn build_indexer_function(
             indexer_rule: indexer_rule.clone(),
         })
     } else {
-        tracing::warn!("No code found for function {}", function_name);
+        tracing::warn!("No code found for account {} function {}", account_id, function_name);
         None
     }
 }
