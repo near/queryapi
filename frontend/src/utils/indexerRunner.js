@@ -32,10 +32,14 @@ export default class Indexer {
         );
         return {};
       },
-      graphql: async () => {
+      graphql: async (query, mutationData) => {
         this.handleLog(
           blockHeight,
           "Context.graphql() is not supported in debug mode."
+        );
+        this.handleLog(
+          blockHeight,
+          `mutationData: ${JSON.stringify(mutationData)}`
         );
         return {};
       },
