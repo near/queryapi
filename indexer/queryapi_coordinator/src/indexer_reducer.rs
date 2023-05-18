@@ -3,7 +3,7 @@ use borsh::BorshDeserialize;
 use near_lake_framework::near_indexer_primitives::views::{ActionView, ReceiptEnumView};
 use near_lake_framework::near_indexer_primitives::{IndexerExecutionOutcomeWithReceipt, StreamerMessage};
 
-use indexer_rules_engine::types::indexer_rule::IndexerRule;
+use indexer_rules_engine::types::indexer_rule::{IndexerRule, MatchingRule};
 use indexer_rules_engine::types::indexer_rule_match::ChainId;
 use indexer_rules_engine::matcher;
 
@@ -56,7 +56,11 @@ fn build_registry_info(
             .iter()
             .filter(|action| {
                 if let ActionView::FunctionCall { method_name, .. } = action {
-                    method_name.eq(method_name)
+                    if let MatchingRule::ActionFunctionCall {function, ..} = &indexer_rule.matching_rule {
+                        function.eq(method_name)
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }
