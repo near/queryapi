@@ -1,7 +1,7 @@
 name: Deploy Dev Components to Mainnet
 on:
   push:
-    branches: [main]
+    branches: [roshaan/github-actions-deploy-widgets]
     paths:
       - "frontend/widgets/src/**"
 jobs:
