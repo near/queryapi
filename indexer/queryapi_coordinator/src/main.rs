@@ -167,7 +167,7 @@ async fn handle_streamer_message(
         indexer_function_filter_matches_futures.next().await
     {
         if let Ok(indexer_function_with_matches) = indexer_function_with_matches {
-            let mut indexer_function = indexer_function_with_matches.indexer_function;
+            let indexer_function = indexer_function_with_matches.indexer_function;
             let indexer_rule_matches = indexer_function_with_matches.matches;
 
             let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
@@ -186,10 +186,14 @@ async fn handle_streamer_message(
                 };
                 indexer_function_messages.push(msg);
 
-                // TODO: restore provisioning tracking
-                // if !indexer_function.provisioned {
-                //     indexer_function.provisioned = true;
-                // }
+                if !indexer_function.provisioned {
+                    indexer_registry_locked
+                        .get_mut(&indexer_function.account_id)
+                        .unwrap()
+                        .get_mut(&indexer_function.function_name)
+                        .unwrap()
+                        .provisioned = true;
+                }
             }
 
             stream::iter(indexer_function_messages.into_iter())
