@@ -343,6 +343,7 @@ const Editor = ({
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}
         setShowPublishModal={setShowPublishModal}
+        latestHeight={height}
       />
       <ResetChangesModal
         showResetCodeModel={showResetCodeModel}

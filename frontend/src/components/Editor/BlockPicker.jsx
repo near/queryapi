@@ -14,8 +14,9 @@ export const BlockPicker = ({
   heights = [],
   setHeights,
   executeIndexerFunction,
+  latestHeight,
 }) => {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(String(latestHeight));
 
   const addHeight = () => {
     if (heights.length < 10 && inputValue !== "") {

@@ -26,6 +26,7 @@ const EditorButtons = ({
   heights,
   setHeights,
   setShowPublishModal,
+  latestHeight,
 }) => {
   return (
     <>
@@ -47,6 +48,7 @@ const EditorButtons = ({
             heights={heights}
             setHeights={setHeights}
             executeIndexerFunction={executeIndexerFunction}
+            latestHeight={latestHeight}
           />
         )}
       </ButtonToolbar>
