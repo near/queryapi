@@ -37,8 +37,8 @@ const Editor = ({
   const [logs, setLogs] = useState([]);
   const [heights, setHeights] = useState([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
-
-  const handleLog = (blockHeight,log) => {
+  const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
+  const handleLog = (blockHeight, log) => {
     console.log(`Block #${blockHeight}: ${log}`);
     setLogs((prevLogs) => [...prevLogs, log]);
   };
@@ -379,7 +379,17 @@ const Editor = ({
             {error}
           </Alert>
         )}
-
+        {debugMode && !debugModeInfoDisabled && (
+          <Alert
+            className="px-3 pt-3"
+            dismissible="true"
+            onClose={() => setDebugModeInfoDisabled(true)}
+            variant="info"
+          >
+            To debug, you will need to open your browser's console window in
+            order to see the logs.
+          </Alert>
+        )}
         <FileSwitcher
           fileName={fileName}
           setFileName={setFileName}
