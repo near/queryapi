@@ -16,9 +16,7 @@ use crate::indexer_reducer::FunctionCallInfo;
 use crate::indexer_types::{IndexerFunction, IndexerQueueMessage, IndexerRegistry};
 use crate::opts;
 use crate::opts::{Opts, Parser};
-use indexer_rule_type::indexer_rule::{
-    IndexerRule, IndexerRuleKind, MatchingRule, Status,
-};
+use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
 pub(crate) fn registry_as_vec_of_indexer_functions(
     registry: &IndexerRegistry,
@@ -54,7 +52,11 @@ fn build_indexer_function(
             indexer_rule: indexer_rule.clone(),
         })
     } else {
-        tracing::warn!("No code found for account {} function {}", account_id, function_name);
+        tracing::warn!(
+            "No code found for account {} function {}",
+            account_id,
+            function_name
+        );
         None
     }
 }
@@ -79,13 +81,15 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
                 }
             };
 
-            let idx_fn = build_indexer_function(
+            let idx_fn = match build_indexer_function(
                 function_config,
                 function_name.to_string(),
                 account.to_string().parse().unwrap(),
                 &indexer_rule,
-            )
-            .unwrap();
+            ) {
+                Some(idx_fn) => idx_fn,
+                None => continue,
+            };
             fns.insert(function_name.clone(), idx_fn);
         }
         registry.insert(account.parse().unwrap(), fns);

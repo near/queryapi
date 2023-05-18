@@ -5,10 +5,8 @@ use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt, StreamerMessage,
 };
 
-use indexer_rules_engine::types::indexer_rule::{IndexerRule, MatchingRule};
-use indexer_rules_engine::types::indexer_rule_match::ChainId;
+use indexer_rule_type::indexer_rule::{IndexerRule, MatchingRule};
 use indexer_rules_engine::matcher;
-use indexer_rule_type::indexer_rule::IndexerRule;
 use indexer_rules_engine::types::indexer_rule_match::ChainId;
 
 pub(crate) fn reduce_function_registry_from_outcomes(
@@ -65,7 +63,9 @@ fn build_registry_info(
             .iter()
             .filter(|action| {
                 if let ActionView::FunctionCall { method_name, .. } = action {
-                    if let MatchingRule::ActionFunctionCall {function, ..} = &indexer_rule.matching_rule {
+                    if let MatchingRule::ActionFunctionCall { function, .. } =
+                        &indexer_rule.matching_rule
+                    {
                         function.eq(method_name)
                     } else {
                         false
