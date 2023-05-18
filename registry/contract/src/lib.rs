@@ -910,7 +910,7 @@ mod tests {
     }
 
     #[test]
-    fn register_indexer_function_with_filter() {
+    fn register_indexer_function_with_filter_function_call() {
         let mut contract = Contract {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             account_roles: vec![AccountRole {
@@ -941,6 +941,50 @@ mod tests {
             config.schema.clone(),
             None,
             Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_FUNCTION_CALL","affected_account_id":"test","function":"test","status":"FAIL"}}"#.to_string()),
+        );
+
+        assert_eq!(
+            contract
+                .registry
+                .get(&AccountId::new_unchecked("bob.near".to_string()))
+                .unwrap()
+                .get("test")
+                .unwrap(),
+            &config
+        );
+    }
+
+    #[test]
+    fn register_indexer_function_with_filter() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: AccountId::new_unchecked("bob.near".to_string()),
+                role: Role::User,
+            }],
+        };
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: None,
+            schema: None,
+            filter: IndexerRule {
+                indexer_rule_kind: IndexerRuleKind::Action,
+                matching_rule: MatchingRule::ActionAny {
+                    affected_account_id: "test".to_string(),
+                    status: Status::Success,
+                },
+                id: None,
+                name: None,
+            },
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            config.code.clone(),
+            config.start_block_height,
+            config.schema.clone(),
+            None,
+            Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"test","status":"SUCCESS"}}"#.to_string()),
         );
 
         assert_eq!(
