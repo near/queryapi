@@ -38,8 +38,8 @@ const Editor = ({
   const [heights, setHeights] = useState([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
 
-  const handleLog = (log) => {
-    console.log(log);
+  const handleLog = (blockHeight,log) => {
+    console.log(`Block #${blockHeight}: ${log}`);
     setLogs((prevLogs) => [...prevLogs, log]);
   };
 
@@ -308,7 +308,7 @@ const Editor = ({
     for await (const height of heights) {
       const block_details = await fetchBlockDetails(height);
       if (block_details) {
-        await indexerRunner.runFunction(block_details, innerCode);
+        await indexerRunner.runFunction(block_details,height, innerCode);
       }
     }
   }
