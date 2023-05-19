@@ -3,22 +3,35 @@ const AWS = require('aws-sdk');
 const S3= new AWS.S3();
 
 const NETWORK = process.env.NETWORK || 'mainnet';
+const allowedOrigins = ['https://queryapi-frontend-24ktefolwq-ew.a.run.app', 'https://queryapi-frontend-vcqilefdcq-ew.a.run.app'];
 
 module.exports.block = async (event) => {
-    try {
-        // parse request params
-        const { block_height } = event.pathParameters;
-        const block = await fetchStreamerMessage(block_height);
-        return {
-            statusCode: 200,
-            body: JSON.stringify(block)
-        }
-    } catch (err) {
-        return {
-            statusCode: err.statusCode || 400,
-            body: err.message || JSON.stringify(err.message)
-        }
+  // Set CORS headers 
+  const origin = event.headers.origin;
+  let headers = {};
+  if (allowedOrigins.includes(origin)) {
+    headers = {
+      "Access-Control-Allow-Origin": origin,
+      "Access-Control-Allow-Credentials": true,
+    };
+  }
+
+  try {
+    // parse request params
+    const { block_height } = event.pathParameters;
+    const block = await fetchStreamerMessage(block_height);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(block)
     }
+  } catch (err) {
+    return {
+      statusCode: err.statusCode || 400,
+      headers,
+      body: err.message || JSON.stringify(err.message)
+    }
+  }
 };
 
 const normalizeBlockHeight = function(block_height) {
