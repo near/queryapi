@@ -54,7 +54,7 @@ const Editor = ({
   const [blockHeight, setBlockHeight] = useState("0");
 
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
-  const [contractFilter, setContractFilter] = useState("near.social");
+  const [contractFilter, setContractFilter] = useState("social.near");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
 
   const handleOptionChange = (event) => {
