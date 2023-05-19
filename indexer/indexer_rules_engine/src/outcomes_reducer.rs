@@ -2,8 +2,8 @@ use futures::future::try_join_all;
 
 use crate::matcher;
 use crate::types::events::Event;
-use indexer_rule_type::indexer_rule::{IndexerRule, MatchingRule};
 use crate::types::indexer_rule_match::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
+use indexer_rule_type::indexer_rule::{IndexerRule, MatchingRule};
 use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt, StreamerMessage,
 };

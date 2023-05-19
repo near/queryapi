@@ -1,7 +1,7 @@
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
@@ -183,12 +183,7 @@ async fn handle_streamer_message(
                 indexer_function_messages.push(msg);
 
                 if !indexer_function.provisioned {
-                    indexer_registry_locked
-                        .get_mut(&indexer_function.account_id)
-                        .unwrap()
-                        .get_mut(&indexer_function.function_name)
-                        .unwrap()
-                        .provisioned = true;
+                    set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
                 }
             }
 
@@ -234,6 +229,36 @@ async fn handle_streamer_message(
     );
 
     Ok(context.streamer_message.block.header.height)
+}
+
+fn set_provisioned_flag(
+    indexer_registry_locked: &mut MutexGuard<IndexerRegistry>,
+    indexer_function: &&IndexerFunction,
+) {
+    match indexer_registry_locked.get_mut(&indexer_function.account_id) {
+        Some(account_functions) => {
+            match account_functions.get_mut(&indexer_function.function_name) {
+                Some(indexer_function) => {
+                    indexer_function.provisioned = true;
+                }
+                None => {
+                    tracing::error!(
+                        target: INDEXER,
+                        "Unable to set provisioning status, Indexer function with account_id {} and function_name {} not found in registry",
+                        indexer_function.account_id,
+                        indexer_function.function_name
+                    );
+                }
+            }
+        }
+        None => {
+            tracing::error!(
+                target: INDEXER,
+                "Unable to set provisioning status, Indexer function account id '{}' not found in registry",
+                indexer_function.account_id
+            );
+        }
+    }
 }
 
 struct IndexerFunctionWithMatches<'b> {
