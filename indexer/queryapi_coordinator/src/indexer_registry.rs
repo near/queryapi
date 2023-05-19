@@ -73,7 +73,8 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
                 Ok(indexer_rule) => indexer_rule,
                 Err(e) => {
                     tracing::error!(
-                        "Error parsing indexer_rule filter for function {}: {}",
+                        "Error parsing indexer_rule filter for account {} function {}: {}",
+                        account,
                         function_name,
                         e
                     );
