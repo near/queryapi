@@ -23,14 +23,11 @@ const initialPayload = {
 };
 
 const registerFunctionHandler = (request, response) => {
+  const gas = 200000000000000;
   const { indexerName, code, schema, blockHeight, contractFilter } =
     request.payload;
 
-  const gas = 200000000000000;
-
-  // if (shouldFetchLatestBlockheight == true || blockHeight == null) {
-  //   blockHeight = Near.block("optimistic").header.height;
-  // }
+  const jsonFilter = `{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"${contractFilter || "social.near"}","status":"SUCCESS"}}`
 
   Near.call(
     REGISTRY_CONTRACT_ID,
@@ -40,7 +37,7 @@ const registerFunctionHandler = (request, response) => {
       code,
       schema,
       start_block_height: blockHeight,
-      contract_filter: contractFilter || "social.near",
+      filter_json: jsonFilter 
     },
     gas
   );
