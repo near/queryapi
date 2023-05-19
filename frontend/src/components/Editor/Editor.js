@@ -37,9 +37,9 @@ const Editor = ({
   const [logs, setLogs] = useState([]);
   const [heights, setHeights] = useState([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
-
-  const handleLog = (log) => {
-    console.log(log);
+  const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
+  const handleLog = (blockHeight, log) => {
+    console.log(`Block #${blockHeight}: ${log}`);
     setLogs((prevLogs) => [...prevLogs, log]);
   };
 
@@ -54,8 +54,9 @@ const Editor = ({
   const [blockHeight, setBlockHeight] = useState("0");
 
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
-  const [contractFilter, setContractFilter] = useState("near.social");
+  const [contractFilter, setContractFilter] = useState("social.near");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -139,9 +140,15 @@ const Editor = ({
       schema: formatted_schema,
       blockHeight: start_block_height,
     });
-    setShowPublishModal(false)
+    setShowPublishModal(false);
   };
 
+  const handleDeleteIndexer = () => {
+    request("delete-indexer", {
+      accountId: accountId,
+      indexerName: indexerName,
+    });
+  };
   const handleReload = useCallback(async () => {
     if (options?.create_new_indexer === true) {
       // setIndexingCode(defaultCode);
@@ -295,9 +302,7 @@ const Editor = ({
       const block_details = await response.json();
       return block_details;
     } catch {
-      console.log(
-        `Error Fetching Block Height details at ${blockHeight}`
-      );
+      console.log(`Error Fetching Block Height details at ${blockHeight}`);
     }
   }
 
@@ -308,7 +313,7 @@ const Editor = ({
     for await (const height of heights) {
       const block_details = await fetchBlockDetails(height);
       if (block_details) {
-        await indexerRunner.runFunction(block_details, innerCode);
+        await indexerRunner.runFunction(block_details, height, innerCode);
       }
     }
   }
@@ -343,6 +348,9 @@ const Editor = ({
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}
         setShowPublishModal={setShowPublishModal}
+        latestHeight={height}
+        isUserIndexer={accountId === currentUserAccountId}
+        handleDeleteIndexer={handleDeleteIndexer}
       />
       <ResetChangesModal
         showResetCodeModel={showResetCodeModel}
@@ -378,7 +386,17 @@ const Editor = ({
             {error}
           </Alert>
         )}
-
+        {debugMode && !debugModeInfoDisabled && (
+          <Alert
+            className="px-3 pt-3"
+            dismissible="true"
+            onClose={() => setDebugModeInfoDisabled(true)}
+            variant="info"
+          >
+            To debug, you will need to open your browser's console window in
+            order to see the logs.
+          </Alert>
+        )}
         <FileSwitcher
           fileName={fileName}
           setFileName={setFileName}

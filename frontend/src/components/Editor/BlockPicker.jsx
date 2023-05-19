@@ -8,14 +8,15 @@ import {
   FormControl,
 } from "react-bootstrap";
 
-import { XCircle, Play, Plus } from "react-bootstrap-icons";
+import { Play, Plus } from "react-bootstrap-icons";
 
 export const BlockPicker = ({
   heights = [],
   setHeights,
   executeIndexerFunction,
+  latestHeight,
 }) => {
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(String(latestHeight));
 
   const addHeight = () => {
     if (heights.length < 10 && inputValue !== "") {
@@ -24,14 +25,10 @@ export const BlockPicker = ({
     }
   };
 
-  const removeHeight = (index) => {
-    setHeights(heights.filter((_, i) => i !== index));
-  };
-
   return (
     <div>
-      <div style={{ width: "300px" }}>
-        <InputGroup className="mb-3">
+      <div className="w-100 flex">
+        <InputGroup className="fit-content">
           <FormControl
             placeholder="Block height"
             aria-label="Block height"
@@ -40,17 +37,15 @@ export const BlockPicker = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          <InputGroup>
-            <Button variant="outline-secondary" onClick={addHeight}>
-              <Plus size={24} style={{ cursor: "pointer" }} className="pl-2" />
-            </Button>
-          </InputGroup>
+          <Button variant="outline-secondary" onClick={addHeight}>
+            <Plus size={24} style={{ cursor: "pointer" }} />
+          </Button>
           <OverlayTrigger
             placement="bottom"
             overlay={<Tooltip>Test Indexer Function In Browser</Tooltip>}
           >
             <Button
-              className="mx-2 w-40"
+              className="mx-2"
               size="sm"
               variant="primary"
               onClick={() => executeIndexerFunction()}
@@ -59,18 +54,6 @@ export const BlockPicker = ({
             </Button>
           </OverlayTrigger>
         </InputGroup>
-      </div>
-      <div>
-        {heights.map((height, index) => (
-          <Badge pill bg="secondary" className="mx-1 mr-2" key={index}>
-            {height}
-            <XCircle
-              size={18}
-              style={{ paddingLeft: "4px", cursor: "pointer" }}
-              onClick={() => removeHeight(index)}
-            />
-          </Badge>
-        ))}
       </div>
     </div>
   );

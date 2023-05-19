@@ -46,6 +46,18 @@ const registerFunctionHandler = (request, response) => {
   );
 };
 
+let deleteIndexer = (request) => {
+  const { indexerName } = request.payload;
+  const gas = 200000000000000;
+  Near.call(
+    REGISTRY_CONTRACT_ID,
+    "remove_indexer_function",
+    {
+      function_name: indexerName,
+    },
+    gas
+  );
+};
 /**
  * Request Handlers here
  */
@@ -53,6 +65,9 @@ const requestHandler = (request, response) => {
   switch (request.type) {
     case "register-function":
       registerFunctionHandler(request, response);
+      break;
+    case "delete-indexer":
+      deleteIndexer(request, response);
       break;
     case "default":
       console.log("default case");

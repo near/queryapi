@@ -5,7 +5,7 @@ export default class Indexer {
   constructor(handleLog) {
     this.handleLog = handleLog;
   }
-  async runFunction(streamerMessage, indexerCode) {
+  async runFunction(streamerMessage, blockHeight, indexerCode) {
     const innerCodeWithBlockHelper =
       `
       const block = Block.fromStreamerMessage(streamerMessage);
@@ -26,15 +26,25 @@ export default class Indexer {
     // Define the custom context object
     const context = {
       set: async () => {
-        this.handleLog("Context.set() is not supported in debug mode.");
+        this.handleLog(
+          blockHeight,
+          "Context.set() is not supported in debug mode."
+        );
         return {};
       },
-      graphql: async () => {
-        this.handleLog("Context.graphql() is not supported in debug mode.");
+      graphql: async (query, mutationData) => {
+        this.handleLog(
+          blockHeight,
+          "Context.graphql() is not supported in debug mode."
+        );
+        this.handleLog(
+          blockHeight,
+          `mutationData: ${JSON.stringify(mutationData)}`
+        );
         return {};
       },
       log: async (message) => {
-        this.handleLog(message);
+        this.handleLog(blockHeight, message);
       },
     };
 
@@ -61,10 +71,6 @@ export default class Indexer {
       (acc, val) => val(acc),
       indexerFunction
     );
-  }
-
-  async writeLog(function_name, block_height, ...message) {
-    this.handleLog(message);
   }
 
   // async runGraphQLQuery(
