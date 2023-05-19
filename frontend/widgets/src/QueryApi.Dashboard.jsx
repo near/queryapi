@@ -283,8 +283,7 @@ const ButtonLink = styled.a`
     }}
 `;
 
-const indexerView = (accountId, indexerName, isUserView) => {
-  console.log(accountId, IndexerName, isUserView);
+const indexerView = (accountId, indexerName) => {
   const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
   const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
   // const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
@@ -293,17 +292,6 @@ const indexerView = (accountId, indexerName, isUserView) => {
     "_"
   )}`;
 
-  let removeIndexer = (name) => {
-    const gas = 200000000000000;
-    Near.call(
-      REGISTRY_CONTRACT_ID,
-      "remove_indexer_function",
-      {
-        function_name: name,
-      },
-      gas
-    );
-  };
   return (
     <Card>
       <CardBody>
@@ -352,11 +340,6 @@ const indexerView = (accountId, indexerName, isUserView) => {
         <ButtonLink href={playgroundLink} target="_blank">
           View In Playground
         </ButtonLink>
-        {isUserView && (
-          <ButtonLink danger onClick={() => removeIndexer(indexerName)}>
-            Delete Indexer
-          </ButtonLink>
-        )}
       </CardFooter>
     </Card>
   );
@@ -491,7 +474,6 @@ return (
             {indexerView(
               selected_accountId ?? state.indexers[0].accountId,
               selected_indexerName ?? state.indexers[0].indexerName,
-              context.accountId === selected_accountId
             )}
             <Widget
               src={`${APP_OWNER}/widget/QueryApi.IndexerStatus`}
@@ -521,11 +503,6 @@ return (
               ) : (
                 <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
               ))}
-            {indexerView(
-              selected_accountId ?? state.indexers[0].accountId,
-              selected_indexerName ?? state.indexers[0].indexerName,
-              context.accountId === selected_accountId
-            )}
             <Widget
               src={`${APP_OWNER}/widget/QueryApi.Editor`}
               props={{

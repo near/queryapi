@@ -139,9 +139,15 @@ const Editor = ({
       schema: formatted_schema,
       blockHeight: start_block_height,
     });
-    setShowPublishModal(false)
+    setShowPublishModal(false);
   };
 
+  const handleDeleteIndexer = () => {
+    request("delete-indexer", {
+      accountId: accountId,
+      indexerName: indexerName,
+    });
+  };
   const handleReload = useCallback(async () => {
     if (options?.create_new_indexer === true) {
       // setIndexingCode(defaultCode);
@@ -344,6 +350,8 @@ const Editor = ({
         isContractFilterValid={isContractFilterValid}
         setShowPublishModal={setShowPublishModal}
         latestHeight={height}
+        isUserIndexer={accountId === currentUserAccountId}
+        handleDeleteIndexer={handleDeleteIndexer}
       />
       <ResetChangesModal
         showResetCodeModel={showResetCodeModel}
