@@ -56,6 +56,7 @@ const Editor = ({
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("near.social");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -301,9 +302,7 @@ const Editor = ({
       const block_details = await response.json();
       return block_details;
     } catch {
-      console.log(
-        `Error Fetching Block Height details at ${blockHeight}`
-      );
+      console.log(`Error Fetching Block Height details at ${blockHeight}`);
     }
   }
 
@@ -314,7 +313,7 @@ const Editor = ({
     for await (const height of heights) {
       const block_details = await fetchBlockDetails(height);
       if (block_details) {
-        await indexerRunner.runFunction(block_details,height, innerCode);
+        await indexerRunner.runFunction(block_details, height, innerCode);
       }
     }
   }
