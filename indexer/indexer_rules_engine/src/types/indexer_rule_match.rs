@@ -118,10 +118,7 @@ impl IndexerRuleMatchPayload {
             }
             | Self::StateChanges {
                 transaction_hash, ..
-            } => match transaction_hash {
-                Some(transaction_hash) => Some(transaction_hash.to_string()),
-                None => None,
-            },
+            } => transaction_hash.clone(),
         }
     }
 }
