@@ -50,7 +50,6 @@ pub async fn get<V: FromRedisValue + std::fmt::Debug>(
     tracing::debug!(target: STORAGE, "GET: {:?}: {:?}", &key, &value,);
     Ok(value)
 }
-
 /// Sets the key `receipt_id: &str` with value `transaction_hash: &str` to the Redis storage.
 /// Increments the counter `receipts_{transaction_hash}` by one.
 /// The counter holds how many Receipts related to the Transaction are in watching list

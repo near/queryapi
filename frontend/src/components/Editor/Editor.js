@@ -1,42 +1,25 @@
 import React, { useEffect, useState, useCallback } from "react";
-import MonacoEditor, { DiffEditor } from "@monaco-editor/react";
-import { formatSQL, formatIndexingCode } from "../../utils/formatters";
-import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import {
-  Button,
-  Alert,
-  Modal,
-  ButtonGroup,
-  ButtonToolbar,
-  Form,
-  InputGroup,
-  ToggleButtonGroup,
-  ToggleButton,
-} from "react-bootstrap";
-import Switch from "react-switch";
+  formatSQL,
+  formatIndexingCode,
+  defaultCode,
+  defaultSchema,
+} from "../../utils/formatters";
+import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
+import { Alert } from "react-bootstrap";
 import primitives from "!!raw-loader!../../../primitives.d.ts";
-import IndexerDetailsGroup from "../Form/IndexerDetailsGroup.js";
-import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup.js";
-import GraphiQL from "graphiql";
-import "graphiql/graphiql.min.css";
-import { request, useInitialPayload, sessionStorage } from "near-social-bridge";
-
-const defaultCode = formatIndexingCode(
-  `
-  // Add your code here   
-  const h = block.header().height
-  await context.set('height', h);
-`,
-  true
-);
-
-const defaultSchema = `
-CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
-`;
+import { request, useInitialPayload } from "near-social-bridge";
+import Indexer from "../../utils/indexerRunner";
+import { block_details } from "./block_details";
+import ResizableLayoutEditor from "./ResizableLayoutEditor";
+import { ResetChangesModal } from "../Modals/resetChanges";
+import { FileSwitcher } from "./FileSwitcher";
+import EditorButtons from "./EditorButtons";
+import { PublishModal } from "../Modals/PublishModal";
 const BLOCKHEIGHT_LIMIT = 3600;
-const HASURA_ENDPOINT =
-  process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
+const BLOCK_FETCHER_API =
+  "https://70jshyr5cb.execute-api.eu-central-1.amazonaws.com/block/";
+
 const Editor = ({
   options,
   accountId,
@@ -44,21 +27,34 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [fileName, setFileName] = useState("indexingLogic.js");
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
+  const [debugMode, setDebugMode] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [heights, setHeights] = useState([]);
+  const [showPublishModal, setShowPublishModal] = useState(false);
+
+  const handleLog = (log) => {
+    console.log(log);
+    setLogs((prevLogs) => [...prevLogs, log]);
+  };
+
+  const indexerRunner = new Indexer(handleLog);
 
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
+  const [blockView, setBlockView] = useState(false);
   const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
-  const [blockHeight, setBlockHeight] = useState(undefined);
+  const [blockHeight, setBlockHeight] = useState("0");
 
+  const [isContractFilterValid, setIsContractFilterValid] = useState(true);
+  const [contractFilter, setContractFilter] = useState("near.social");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -78,12 +74,13 @@ const Editor = ({
     }
 
     if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-      setBlockHeightError(`Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
-        BLOCKHEIGHT_LIMIT / 3600
-      } hrs.
-Choose a start block height between ${
-        height - BLOCKHEIGHT_LIMIT
-      } - ${height}.`);
+      setBlockHeightError(
+        `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
+          BLOCKHEIGHT_LIMIT / 3600
+        } hrs. Choose a start block height between ${
+          height - BLOCKHEIGHT_LIMIT
+        } - ${height}.`
+      );
     } else if (blockHeight > height) {
       setBlockHeightError(
         `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
@@ -93,7 +90,7 @@ Choose a start block height between ${
     } else {
       setBlockHeightError(null);
     }
-  }, [blockHeight, selectedOption]);
+  }, [blockHeight, height, selectedOption]);
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -114,9 +111,7 @@ Choose a start block height between ${
     let formatted_schema = checkSQLSchemaFormatting();
     let isForking = accountId !== currentUserAccountId;
 
-    let innerCode = indexingCode.match(
-      /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
-    )[1];
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     if (indexerNameField == undefined || formatted_schema == undefined) {
       setError(
         () =>
@@ -144,19 +139,7 @@ Choose a start block height between ${
       schema: formatted_schema,
       blockHeight: start_block_height,
     });
-  };
-
-  const graphQLFetcher = (graphQLParams) => {
-    console.log(HASURA_ENDPOINT, "Hashura Endpoint");
-    return fetch(HASURA_ENDPOINT, {
-      method: "post",
-      credentials: "omit",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Hasura-Role": accountId.replaceAll(".", "_"),
-      },
-      body: JSON.stringify(graphQLParams || {}),
-    }).then((response) => response.json());
+    setShowPublishModal(false)
   };
 
   const handleReload = useCallback(async () => {
@@ -225,9 +208,7 @@ Choose a start block height between ${
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true);
       await handleReload();
-      setLoading(false);
     };
     load();
   }, [accountId, handleReload, indexerName]);
@@ -275,6 +256,7 @@ Choose a start block height between ${
     const modifiedEditor = editor.getModifiedEditor();
     modifiedEditor.onDidChangeModelContent((_) => {
       if (fileName == "indexingLogic.js") {
+        console.log("mountin");
         setIndexingCode(modifiedEditor.getValue());
       }
       if (fileName == "schema.sql") {
@@ -290,89 +272,105 @@ Choose a start block height between ${
     );
   }
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
-      {
-        <>
-          <ButtonToolbar
-            className="pt-3 pb-1 flex-col"
-            aria-label="Actions for Editor"
-          >
-            <IndexerDetailsGroup
-              accountId={accountId}
-              indexerNameField={indexerNameField}
-              setIndexerNameField={setIndexerNameField}
-              isCreateNewIndexerPage={options.create_new_indexer}
-            />
-            <BlockHeightOptions
-              selectedOption={selectedOption}
-              handleOptionChange={handleOptionChange}
-              blockHeight={blockHeight}
-              setBlockHeight={setBlockHeight}
-            />
-            <ButtonGroup
-              className="px-3 pt-3"
-              style={{ width: "100%" }}
-              aria-label="Action Button Group"
-            >
-              <Button
-                variant="secondary"
-                className="px-3"
-                onClick={() => setShowResetCodeModel(true)}
-              >
-                {" "}
-                Reset
-              </Button>{" "}
-              <Button
-                variant="secondary"
-                className="px-3"
-                onClick={() => handleFormating()}
-              >
-                {" "}
-                Format Code
-              </Button>{" "}
-              {currentUserAccountId && (
-                <Button
-                  variant="primary"
-                  className="px-3"
-                  onClick={() => submit()}
-                >
-                  {getActionButtonText()}
-                </Button>
-              )}
-            </ButtonGroup>
-          </ButtonToolbar>
-        </>
-      }
-      <Modal
-        show={showResetCodeModel}
-        onHide={() => setShowResetCodeModel(false)}
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Are you sure?</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          The changes you have made in the editor will be deleted.
-        </Modal.Body>
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={() => setShowResetCodeModel(false)}
-          >
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={() => handleReload()}>
-            Reload
-          </Button>
-        </Modal.Footer>
-      </Modal>
+  function handleSetContractFilter(e) {
+    // check if contract filter is greater than 2 and less than or equal to 64 chars
+    const contractFilter = e.target.value;
+    setContractFilter(contractFilter);
+    if (
+      contractFilter.length > 64 ||
+      contractFilter.length < 2 ||
+      !contractRegex.test(contractFilter)
+    ) {
+      setIsContractFilterValid(false);
+    } else {
+      setIsContractFilterValid(true);
+    }
+  }
 
+  async function fetchBlockDetails(blockHeight) {
+    try {
+      const response = await fetch(
+        `${BLOCK_FETCHER_API}${String(blockHeight)}`
+      );
+      const block_details = await response.json();
+      return block_details;
+    } catch {
+      console.log(
+        `Error Fetching Block Height details at ${blockHeight}`
+      );
+    }
+  }
+
+  async function executeIndexerFunction() {
+    setLogs(() => []);
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    // for loop with await
+    for await (const height of heights) {
+      const block_details = await fetchBlockDetails(height);
+      if (block_details) {
+        await indexerRunner.runFunction(block_details, innerCode);
+      }
+    }
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        width: "100%",
+        height: "85vh",
+      }}
+    >
+      <EditorButtons
+        accountId={accountId}
+        indexerNameField={indexerNameField}
+        setIndexerNameField={setIndexerNameField}
+        options={options}
+        selectedOption={selectedOption}
+        handleOptionChange={handleOptionChange}
+        blockHeight={blockHeight}
+        setBlockHeight={setBlockHeight}
+        setShowResetCodeModel={setShowResetCodeModel}
+        handleFormating={handleFormating}
+        executeIndexerFunction={executeIndexerFunction}
+        currentUserAccountId={currentUserAccountId}
+        getActionButtonText={getActionButtonText}
+        debugMode={debugMode}
+        heights={heights}
+        setHeights={setHeights}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
+        setShowPublishModal={setShowPublishModal}
+      />
+      <ResetChangesModal
+        showResetCodeModel={showResetCodeModel}
+        setShowResetCodeModel={setShowResetCodeModel}
+        handleReload={handleReload}
+      />
+      <PublishModal
+        showPublishModal={showPublishModal}
+        setShowPublishModal={setShowPublishModal}
+        registerFunction={registerFunction}
+        selectedOption={selectedOption}
+        handleOptionChange={handleOptionChange}
+        blockHeight={blockHeight}
+        setBlockHeight={setBlockHeight}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
+        actionButtonText={getActionButtonText()}
+        submit={submit}
+        blockHeightError={blockHeightError}
+      />
       <div
-        className="px-3"
+        className="px-3 pt-3"
         style={{
           flex: "display",
           justifyContent: "space-around",
           width: "100%",
+          height: "100%",
         }}
       >
         {error && (
@@ -380,132 +378,37 @@ Choose a start block height between ${
             {error}
           </Alert>
         )}
-        {blockHeightError && (
-          <Alert className="px-3 pt-3" variant="danger">
-            {blockHeightError}
-          </Alert>
-        )}
 
-        <ToggleButtonGroup
-          type="radio"
-          style={{ backgroundColor: "white" }}
-          name="options"
-          defaultValue={"indexingLogic.js"}
-        >
-          <ToggleButton
-            id="tbg-radio-1"
-            style={{
-              backgroundColor:
-                fileName === "indexingLogic.js" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"indexingLogic.js"}
-            onClick={() => setFileName("indexingLogic.js")}
-          >
-            indexingLogic.js
-          </ToggleButton>
-          <ToggleButton
-            id="tbg-radio-2"
-            style={{
-              backgroundColor: fileName === "schema.sql" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"schema.sql"}
-            onClick={() => setFileName("schema.sql")}
-          >
-            schema.sql
-          </ToggleButton>
-          <ToggleButton
-            id="tbg-radio-3"
-            style={{
-              backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"GraphiQL"}
-            onClick={() => setFileName("GraphiQL")}
-          >
-            GraphiQL
-          </ToggleButton>
-          <InputGroup>
-            <InputGroup.Text className="px-3">
-              {" "}
-              Diff View
-              <Switch
-                className="px-1"
-                checked={diffView}
-                onChange={(checked) => {
-                  setDiffView(checked);
-                }}
-              />
-            </InputGroup.Text>
-          </InputGroup>
-        </ToggleButtonGroup>
-        {fileName === "GraphiQL" && (
-          <div style={{ width: "100%", height: "50vh" }}>
-            <GraphiQL
-              fetcher={graphQLFetcher}
-              defaultQuery=""
-              storage={sessionStorage}
-            />
-          </div>
-        )}
-        {fileName === "indexingLogic.js" &&
-          (diffView ? (
-            <DiffEditor
-              original={originalIndexingCode}
-              modified={indexingCode}
-              height="50vh"
-              width="100%"
-              language="javascript"
-              theme="vs-dark"
-              onMount={handleEditorMount}
-              options={{ ...options, readOnly: false }}
-            />
-          ) : (
-            <MonacoEditor
-              value={indexingCode}
-              height="50vh"
-              width="100%"
-              defaultValue={defaultCode}
-              defaultLanguage="typescript"
-              theme="vs-dark"
-              onChange={(text) => setIndexingCode(text)}
-              beforeMount={handleEditorWillMount}
-              options={{ ...options, readOnly: false }}
-            />
-          ))}
-        {fileName === "schema.sql" &&
-          (diffView ? (
-            <DiffEditor
-              original={originalSQLCode}
-              modified={schema}
-              height="50vh"
-              width="100%"
-              language="sql"
-              onMount={handleEditorMount}
-              theme="vs-dark"
-              options={{
-                ...options,
-                readOnly: options?.create_new_indexer === true ? false : true,
-              }}
-            />
-          ) : (
-            <MonacoEditor
-              value={schema}
-              height="50vh"
-              width="100%"
-              defaultValue={defaultSchema}
-              defaultLanguage="sql"
-              theme="vs-dark"
-              onChange={(text) => setSchema(text)}
-              options={{
-                ...options,
-                readOnly: options?.create_new_indexer === true ? false : false,
-              }}
-            />
-          ))}
+        <FileSwitcher
+          fileName={fileName}
+          setFileName={setFileName}
+          diffView={diffView}
+          setDiffView={setDiffView}
+          blockView={blockView}
+          setBlockView={setBlockView}
+          debugMode={debugMode}
+          setDebugMode={setDebugMode}
+        />
+        <ResizableLayoutEditor
+          accountId={accountId}
+          fileName={fileName}
+          indexingCode={indexingCode}
+          blockView={blockView}
+          diffView={diffView}
+          setIndexingCode={setIndexingCode}
+          setSchema={setSchema}
+          block_details={block_details}
+          originalSQLCode={originalSQLCode}
+          originalIndexingCode={originalIndexingCode}
+          schema={schema}
+          options={options}
+          handleEditorWillMount={handleEditorWillMount}
+          handleEditorMount={handleEditorMount}
+          logs={logs}
+        />
       </div>
     </div>
   );
 };
+
 export default Editor;
