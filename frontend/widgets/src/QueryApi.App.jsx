@@ -3,7 +3,6 @@ const GRAPHQL_ENDPOINT =
 const APP_OWNER = "dataplatform.near";
 const EXTERNAL_APP_URL = "https://queryapi-frontend-24ktefolwq-ew.a.run.app";
 const REGISTRY_CONTRACT_ID = "queryapi.dataplatform.near";
-
 const view = props.view;
 const path = props.path;
 const tab = props.tab;
