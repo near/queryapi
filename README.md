@@ -9,6 +9,8 @@ With QueryApi you can
 1. [QueryApi Coordinator](./indexer)
 An Indexer that tracks changes to the QueryApi registry contract. It triggers the execution of those IndexerFunctions
 when they match new blocks by placing messages on an SQS queue. Spawns historical processing threads when needed.
+   1.a.  Subfolders provide crates for the different components of the Indexer: indexer_rule_type (shared with registry contract), 
+indexer_rules_engine, storage.
 2. [Indexer Runner](.indexer-js-queue-handler)
    Retrieves messages from the SQS queue, fetches the matching block and executes the IndexerFunction.
 3. [IndexerFunction Editor UI](./frontend)
