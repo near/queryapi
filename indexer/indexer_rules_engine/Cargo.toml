@@ -1,5 +1,5 @@
 [package]
-name = "alertexer-types"
+name = "indexer_rules_engine"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,10 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.57"
 borsh = "0.10.2"
+futures = "0.3.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.55"
+wildmatch = "2.1.1"
+
 near-lake-framework = "0.7.1"
+indexer_rule_type = { path = "../indexer_rule_type" }

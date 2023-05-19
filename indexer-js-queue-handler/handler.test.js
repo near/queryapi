@@ -6,8 +6,8 @@ describe('consumer', () => {
 
     const body = {
         "chain_id": "Mainnet",
-        "alert_rule_id": 1,
-        "alert_name": "Function set called in social.near",
+        "indexer_rule_id": 1,
+        "indexer_rule_name": "Function set called in social.near",
         "payload": {
             "Actions": {
                 "block_hash": "BmuLkzmAT36wANBvdsDckFGUioJSZHdiYQRyh2WKRun9",

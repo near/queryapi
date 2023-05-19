@@ -1,13 +1,8 @@
 [workspace]
 
 members = [
-    "alert-rules",
     "queryapi_coordinator",
-    "alertexer-types",
-    "shared",
     "storage",
-]
-
-exclude = [ 
-    "../hasura-authentication-service"
+    "indexer_rules_engine",
+    "indexer_rule_type"
 ]

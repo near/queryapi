@@ -1,5 +1,5 @@
-use crate::primitives::AlertQueueMessagePayload;
-use crate::ChainId;
+use indexer_rule_type::indexer_rule::IndexerRule;
+use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatchPayload};
 use near_lake_framework::near_indexer_primitives::types::AccountId;
 use std::collections::HashMap;
 
@@ -15,9 +15,9 @@ pub type IndexerRegistry = HashMap<AccountId, HashMap<String, IndexerFunction>>;
 )]
 pub struct IndexerQueueMessage {
     pub chain_id: ChainId,
-    pub alert_rule_id: i32,
-    pub alert_name: String,
-    pub payload: Option<AlertQueueMessagePayload>,
+    pub indexer_rule_id: u32,
+    pub indexer_rule_name: String,
+    pub payload: Option<IndexerRuleMatchPayload>,
     pub block_height: u64,
     pub indexer_function: IndexerFunction,
 }
@@ -37,5 +37,5 @@ pub struct IndexerFunction {
     pub start_block_height: Option<u64>,
     pub schema: Option<String>,
     pub provisioned: bool,
-    //pub alert_rule: AlertRule, // future
+    pub indexer_rule: IndexerRule,
 }

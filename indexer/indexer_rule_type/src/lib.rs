@@ -1,7 +1,6 @@
-pub mod types;
+pub mod indexer_rule;
 
-use types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
-
+use indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 pub fn near_social_indexer_rule() -> IndexerRule {
     let contract = "social.near";
     let method = "set";
@@ -13,5 +12,7 @@ pub fn near_social_indexer_rule() -> IndexerRule {
     IndexerRule {
         indexer_rule_kind: IndexerRuleKind::Action,
         matching_rule,
+        id: None,
+        name: None,
     }
 }

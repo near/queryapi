@@ -1,5 +1,4 @@
 use crate::QueryApiContext;
-use alert_rules::{AlertRule, AlertRuleKind, MatchingRule, Status};
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::query::{QueryResponseKind, RpcQueryRequest};
 use near_lake_framework::near_indexer_primitives::types::BlockReference::Finality;
@@ -12,12 +11,22 @@ use std::collections::HashMap;
 use tokio::sync::MutexGuard;
 use tokio::task::JoinHandle;
 
-use crate::outcomes_reducer::indexer_reducer;
-use crate::outcomes_reducer::indexer_reducer::FunctionCallInfo;
-use shared::alertexer_types::indexer_types::{
-    IndexerFunction, IndexerQueueMessage, IndexerRegistry,
-};
-use shared::{base64, Opts, Parser};
+use crate::indexer_reducer;
+use crate::indexer_reducer::FunctionCallInfo;
+use crate::indexer_types::{IndexerFunction, IndexerQueueMessage, IndexerRegistry};
+use crate::opts;
+use crate::opts::{Opts, Parser};
+use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+
+pub(crate) fn registry_as_vec_of_indexer_functions(
+    registry: &IndexerRegistry,
+) -> Vec<IndexerFunction> {
+    registry
+        .values()
+        .flat_map(|fns| fns.values())
+        .cloned()
+        .collect()
+}
 
 struct RegistryFunctionInvocation {
     pub account_id: AccountId,
@@ -28,14 +37,27 @@ fn build_indexer_function(
     function_config: &Value,
     function_name: String,
     account_id: String,
-) -> IndexerFunction {
-    IndexerFunction {
-        account_id: account_id.parse().unwrap(),
-        function_name,
-        code: function_config["code"].as_str().unwrap().to_string(),
-        start_block_height: function_config["start_block_height"].as_u64(),
-        schema: function_config["schema"].as_str().map(String::from),
-        provisioned: false,
+    indexer_rule: &IndexerRule,
+) -> Option<IndexerFunction> {
+    let code = function_config["code"].as_str();
+
+    if let Some(c) = code {
+        Some(IndexerFunction {
+            account_id: account_id.parse().unwrap(),
+            function_name,
+            code: c.to_string(),
+            start_block_height: function_config["start_block_height"].as_u64(),
+            schema: function_config["schema"].as_str().map(String::from),
+            provisioned: false,
+            indexer_rule: indexer_rule.clone(),
+        })
+    } else {
+        tracing::warn!(
+            "No code found for account {} function {}",
+            account_id,
+            function_name
+        );
+        None
     }
 }
 
@@ -47,18 +69,28 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
     for (account, functions) in raw_registry {
         let mut fns = HashMap::new();
         for (function_name, function_config) in functions.as_object().unwrap() {
-            let idx_fn = build_indexer_function(
+            let indexer_rule = match serde_json::from_value(function_config["filter"].clone()) {
+                Ok(indexer_rule) => indexer_rule,
+                Err(e) => {
+                    tracing::error!(
+                        "Error parsing indexer_rule filter for account {} function {}: {}",
+                        account,
+                        function_name,
+                        e
+                    );
+                    continue;
+                }
+            };
+
+            let idx_fn = match build_indexer_function(
                 function_config,
                 function_name.to_string(),
                 account.to_string().parse().unwrap(),
-            );
-            // future feature
-            // alert_rule: AlertRule {
-            //     kind: AlertRuleKind::from_str(function_config["alertRule"]["kind"].as_str()),
-            //     matching_rule: MatchingRule::from_str(function_config["alertRule"]["matchingRule"].as_str()),
-            //     status: Status::from_str(function_config["alertRule"]["status"].as_str()),
-            //     value: function_config["alertRule"]["value"].as_u64(),
-            // }
+                &indexer_rule,
+            ) {
+                Some(idx_fn) => idx_fn,
+                None => continue,
+            };
             fns.insert(function_name.clone(), idx_fn);
         }
         registry.insert(account.parse().unwrap(), fns);
@@ -83,9 +115,14 @@ fn index_and_process_register_calls(
     context: &QueryApiContext,
 ) -> Vec<JoinHandle<i64>> {
     let registry_method_name = "register_indexer_function";
-    let registry_calls = build_registry_alert(registry_method_name, context.registry_contract_id);
-    let registry_updates =
-        indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
+    let registry_calls_rule =
+        build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
+    let registry_updates = indexer_reducer::reduce_function_registry_from_outcomes(
+        &registry_calls_rule,
+        &context.streamer_message,
+        context.chain_id,
+        context.streamer_message.block.header.height,
+    );
     let mut spawned_start_from_block_threads = Vec::new();
 
     if !registry_updates.is_empty() {
@@ -93,6 +130,7 @@ fn index_and_process_register_calls(
             let new_indexer_function = build_indexer_function_from_args(
                 parse_indexer_function_args(&update),
                 update.signer_id,
+                &registry_calls_rule,
             );
 
             match new_indexer_function {
@@ -149,9 +187,15 @@ fn index_and_process_remove_calls(
     context: &QueryApiContext,
 ) {
     let registry_method_name = "remove_indexer_function";
-    let registry_calls = build_registry_alert(registry_method_name, context.registry_contract_id);
-    let registry_updates =
-        indexer_reducer::reduce_function_registry_from_outcomes(&registry_calls, context);
+    let registry_calls_rule =
+        build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
+    let registry_updates = indexer_reducer::reduce_function_registry_from_outcomes(
+        &registry_calls_rule,
+        &context.streamer_message,
+        context.chain_id,
+        context.streamer_message.block.header.height,
+    );
+
     if !registry_updates.is_empty() {
         for update in registry_updates {
             let function_invocation: Option<RegistryFunctionInvocation> =
@@ -216,6 +260,7 @@ fn build_function_invocation_from_args(
 fn build_indexer_function_from_args(
     args: Option<Value>,
     signer_id: String,
+    indexer_rule: &IndexerRule,
 ) -> Option<IndexerFunction> {
     match args {
         None => None,
@@ -224,11 +269,22 @@ fn build_indexer_function_from_args(
                 Value::String(ref account_id) => account_id.clone(),
                 _ => signer_id,
             };
-            Some(build_indexer_function(
-                &args,
-                args["function_name"].as_str().unwrap().to_string(),
-                account_id,
-            ))
+            let function_name = args["function_name"].as_str();
+            match function_name {
+                None => {
+                    tracing::error!(
+                        "Unable to parse function_name from indexer function: {:?}",
+                        &args
+                    );
+                    return None;
+                }
+                Some(function_name) => build_indexer_function(
+                    &args,
+                    function_name.to_string(),
+                    account_id,
+                    indexer_rule,
+                ),
+            }
         }
     }
 }
@@ -289,16 +345,15 @@ async fn process_historical_messages(
                 }
 
                 let msg = IndexerQueueMessage {
-                    chain_id: chain_id.clone(), // alert_queue_message.chain_id.clone(),
-                    alert_rule_id: 0,           // alert_queue_message.alert_rule_id,
-                    alert_name: "Unfiltered Start Block Height".to_string(), //alert_queue_message.alert_name.clone(),
-                    payload: None, //alert_queue_message.payload.clone(),
+                    chain_id: chain_id.clone(),
+                    indexer_rule_id: 0,
+                    indexer_rule_name: indexer_function.function_name.clone(),
+                    payload: None, //alert_queue_message.payload.clone(),  // todo populate with data from the Match
                     block_height: current_block,
                     indexer_function: indexer_function.clone(),
                 };
 
-                match shared::send_to_indexer_queue(queue_client, queue_url.clone(), vec![msg])
-                    .await
+                match opts::send_to_indexer_queue(queue_client, queue_url.clone(), vec![msg]).await
                 {
                     Ok(_) => {}
                     Err(err) => tracing::error!(
@@ -319,19 +374,19 @@ async fn process_historical_messages(
     block_difference
 }
 
-fn build_registry_alert(registry_method_name: &str, registry_contract_id: &str) -> AlertRule {
+fn build_registry_indexer_rule(
+    registry_method_name: &str,
+    registry_contract_id: &str,
+) -> IndexerRule {
     let matching_rule = MatchingRule::ActionFunctionCall {
         affected_account_id: registry_contract_id.to_string(),
         function: registry_method_name.to_string(),
         status: Status::Success,
     };
-    AlertRule {
-        id: 0,
-        name: format!("{}{}", registry_method_name, "_changes"),
-        chain_id: alert_rules::ChainId::Mainnet,
-        alert_rule_kind: AlertRuleKind::Actions,
-        is_paused: false,
-        updated_at: None,
+    IndexerRule {
+        id: None,
+        name: Some(format!("{}{}", registry_method_name, "_changes")),
+        indexer_rule_kind: IndexerRuleKind::Action,
         matching_rule,
     }
 }
@@ -406,6 +461,7 @@ async fn test_process_historical_messages() {
         start_block_height: Some(85376002),
         schema: None,
         provisioned: false,
+        indexer_rule: indexer_rule_type::near_social_indexer_rule(),
     };
 
     process_historical_messages(85376003, indexer_function).await;
