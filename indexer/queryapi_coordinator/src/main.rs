@@ -3,19 +3,19 @@ use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::Mutex;
 
-use indexer_rules_engine::types::indexer_rule::{IndexerRule};
-use indexer_rules_engine::types::indexer_rule_match::{ChainId};
-use near_lake_framework::near_indexer_primitives::types;
+use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
+use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
 
+use crate::indexer_types::IndexerFunction;
 use indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use opts::{Opts, Parser};
 use storage::ConnectionManager;
 
 pub(crate) mod cache;
-mod indexer_types;
-mod indexer_registry;
 mod indexer_reducer;
+mod indexer_registry;
+mod indexer_types;
 mod metrics;
 mod opts;
 mod utils;
@@ -129,25 +129,26 @@ async fn handle_streamer_message(
     context: QueryApiContext<'_>,
     indexer_registry: SharedIndexerRegistry,
 ) -> anyhow::Result<u64> {
-    // This is a single hardcoded filter, which is standing in for filters on IndexerFunctions.
-    let indexer_rules: Vec<IndexerRule> = vec![indexer_rules_engine::near_social_indexer_rule()];
+    // build context for enriching filter matches
+    cache::update_all(&context.streamer_message, context.redis_connection_manager).await?;
 
-    cache::cache_txs_and_receipts(&context.streamer_message, context.redis_connection_manager)
-        .await?;
+    let mut indexer_registry_locked = indexer_registry.lock().await;
+    let indexer_functions =
+        indexer_registry::registry_as_vec_of_indexer_functions(&indexer_registry_locked);
 
-    let mut reducer_futures = stream::iter(indexer_rules.iter())
-        .map(|indexer_rule| indexer_rules_engine::reduce_indexer_rule_matches(
-            indexer_rule,
-            &context.streamer_message,
-            context.redis_connection_manager,
-            context.chain_id.clone(),
-        ))
-        // TODO: fix this it takes 10 vecs of vecs while we want to take 10 AlertQueueMessages
+    let mut indexer_function_filter_matches_futures = stream::iter(indexer_functions.iter())
+        .map(|indexer_function| {
+            reduce_rule_matches_for_indexer_function(
+                indexer_function,
+                &context.streamer_message,
+                context.chain_id.clone(),
+            )
+        })
+        // TODO: fix the buffer size used to accumulate results, it takes 10 vecs of vecs while we want to take 10 IndexerRuleMatches
         .buffer_unordered(10usize);
 
     let block_height: BlockHeight = context.streamer_message.block.header.height;
 
-    let mut indexer_registry_locked = indexer_registry.lock().await;
     let spawned_indexers = indexer_registry::index_registry_changes(
         block_height,
         &mut indexer_registry_locked,
@@ -162,29 +163,36 @@ async fn handle_streamer_message(
         );
     }
 
-    while let Some(indexer_rule_matches) = reducer_futures.next().await {
-        if let Ok(indexer_rule_matches) = indexer_rule_matches {
-            // for each alert_queue_message from the reducer
-            //   for each indexer_function create a new alert_queue_message
-            // Once the filters are tied to indexer functions, these will de-nest
-            let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
-            for indexer_rule_match in indexer_rule_matches.iter() {
-                for (_account, functions) in &mut indexer_registry_locked.iter_mut() {
-                    for (_function_name, indexer_function) in &mut functions.iter_mut() {
-                        let msg = IndexerQueueMessage {
-                            chain_id: indexer_rule_match.chain_id.clone(),
-                            indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
-                            indexer_rule_name: indexer_rule_match.indexer_rule_name.clone().unwrap_or("".to_string()),
-                            payload: Some(indexer_rule_match.payload.clone()),
-                            block_height,
-                            indexer_function: indexer_function.clone(),
-                        };
-                        indexer_function_messages.push(msg);
+    while let Some(indexer_function_with_matches) =
+        indexer_function_filter_matches_futures.next().await
+    {
+        if let Ok(indexer_function_with_matches) = indexer_function_with_matches {
+            let indexer_function = indexer_function_with_matches.indexer_function;
+            let indexer_rule_matches = indexer_function_with_matches.matches;
 
-                        if !indexer_function.provisioned {
-                            indexer_function.provisioned = true;
-                        }
-                    }
+            let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
+
+            for indexer_rule_match in indexer_rule_matches.iter() {
+                let msg = IndexerQueueMessage {
+                    chain_id: indexer_rule_match.chain_id.clone(),
+                    indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
+                    indexer_rule_name: indexer_rule_match
+                        .indexer_rule_name
+                        .clone()
+                        .unwrap_or("".to_string()),
+                    payload: Some(indexer_rule_match.payload.clone()),
+                    block_height,
+                    indexer_function: indexer_function.clone(),
+                };
+                indexer_function_messages.push(msg);
+
+                if !indexer_function.provisioned {
+                    indexer_registry_locked
+                        .get_mut(&indexer_function.account_id)
+                        .unwrap()
+                        .get_mut(&indexer_function.function_name)
+                        .unwrap()
+                        .provisioned = true;
                 }
             }
 
@@ -219,4 +227,26 @@ async fn handle_streamer_message(
     .await?;
 
     Ok(context.streamer_message.block.header.height)
+}
+
+struct IndexerFunctionWithMatches<'b> {
+    pub indexer_function: &'b IndexerFunction,
+    pub matches: Vec<IndexerRuleMatch>,
+}
+
+async fn reduce_rule_matches_for_indexer_function<'x>(
+    indexer_function: &'x IndexerFunction,
+    streamer_message: &StreamerMessage,
+    chain_id: ChainId,
+) -> anyhow::Result<IndexerFunctionWithMatches<'x>> {
+    let matches = indexer_rules_engine::reduce_indexer_rule_matches(
+        &indexer_function.indexer_rule,
+        &streamer_message,
+        chain_id.clone(),
+    )
+    .await?;
+    Ok(IndexerFunctionWithMatches {
+        indexer_function,
+        matches,
+    })
 }

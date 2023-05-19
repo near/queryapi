@@ -20,6 +20,14 @@ pub(crate) struct CacheValue {
     pub children_receipt_ids: Vec<String>,
 }
 
+pub(crate) async fn update_all(
+    streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
+    redis_connection_manager: &storage::ConnectionManager,
+) -> anyhow::Result<()> {
+    cache_txs_and_receipts(streamer_message, redis_connection_manager).await?;
+    Ok(())
+}
+
 pub(crate) async fn cache_txs_and_receipts(
     streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
     redis_connection_manager: &storage::ConnectionManager,

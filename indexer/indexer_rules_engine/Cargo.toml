@@ -14,7 +14,4 @@ serde_json = "1.0.55"
 wildmatch = "2.1.1"
 
 near-lake-framework = "0.7.1"
-
-# temp for RedisConnectionManager type, pending further refactor of transaction cache
-redis = { version = "0.21.5", features = ["tokio-comp", "connection-manager"] }
-
+indexer_rule_type = { path = "../indexer_rule_type" }
