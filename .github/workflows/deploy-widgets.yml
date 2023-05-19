@@ -9,11 +9,7 @@ on:
         default: "0.3.1"
       deploy-account-address:
         required: true
-        description: "Account under which component code should be deployed"
-        type: string
-      signer-account-address:
-        required: true
-        description: "Account which will be used for signing deploy transaction, frequently the same as deploy-account-address"
+        description: "Account under which component code should be deployed. Also the Signer"
         type: string
       signer-public-key:
         required: true
@@ -33,7 +29,6 @@ jobs:
     name: Deploy widgets to social.near (mainnet)
     env:
       BOS_DEPLOY_ACCOUNT_ID: ${{ inputs.deploy-account-address }}
-      BOS_SIGNER_ACCOUNT_ID: ${{ inputs.signer-account-address }}
       BOS_SIGNER_PUBLIC_KEY: ${{ inputs.signer-public-key }}
       BOS_SIGNER_PRIVATE_KEY: ${{ secrets.SIGNER_PRIVATE_KEY }}
       DIRECTORY_PATH: ${{ inputs.directory-path }}
@@ -49,4 +44,4 @@ jobs:
       - name: Deploy widgets
         run: |
           cd $DIRECTORY_PATH
-          bos components deploy "$BOS_DEPLOY_ACCOUNT_ID" sign-as "$BOS_SIGNER_ACCOUNT_ID" network-config mainnet sign-with-plaintext-private-key --signer-public-key "$BOS_SIGNER_PUBLIC_KEY" --signer-private-key "$BOS_SIGNER_PRIVATE_KEY" send
+          bos components deploy "$BOS_DEPLOY_ACCOUNT_ID" sign-as "$BOS_DEPLOY_ACCOUNT_ID" network-config mainnet sign-with-plaintext-private-key --signer-public-key "$BOS_SIGNER_PUBLIC_KEY" --signer-private-key "$BOS_SIGNER_PRIVATE_KEY" send

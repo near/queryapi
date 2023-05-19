@@ -10,7 +10,6 @@ jobs:
     with:
       directory-path: frontend/widgets/
       deploy-account-address: ${{ vars.DEV_SIGNER_ACCOUNT_ID }}
-      signer-account-address: ${{ vars.DEV_SIGNER_ACCOUNT_ID }}
       signer-public-key: ${{ vars.DEV_SIGNER_PUBLIC_KEY }}
     secrets:
       SIGNER_PRIVATE_KEY: ${{ secrets.DEV_SIGNER_PRIVATE_KEY }}
