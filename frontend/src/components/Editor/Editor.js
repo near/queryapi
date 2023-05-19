@@ -139,6 +139,7 @@ const Editor = ({
       code: innerCode,
       schema: formatted_schema,
       blockHeight: start_block_height,
+      filter: contractFilterJson(contractFilter),
     });
     setShowPublishModal(false);
   };
@@ -294,6 +295,16 @@ const Editor = ({
     }
   }
 
+  function contractFilterJson(contractFilter) {
+    if (contractFilter === "") {
+      return null;
+    }
+    const filterJson = `{"indexer_rule_kind":"Action","matching_rule":` +
+      `{"rule":"ACTION_ANY","affected_account_id":"${contractFilter}","status":"SUCCESS"}}`;
+
+    return filterJson;
+  }
+
   async function fetchBlockDetails(blockHeight) {
     try {
       const response = await fetch(
@@ -365,7 +376,7 @@ const Editor = ({
         handleOptionChange={handleOptionChange}
         blockHeight={blockHeight}
         setBlockHeight={setBlockHeight}
-        contractFilter={contractFilter}
+        contractFilter={contractFilterJson(contractFilter)}
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}
         actionButtonText={getActionButtonText()}
