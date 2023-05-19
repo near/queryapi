@@ -10,15 +10,15 @@ pub type BlockHashString = String;
     Clone,
     Debug,
 )]
-pub struct AlertQueueMessage {
+pub struct IndexerRuleMatch {
     pub chain_id: ChainId,
-    pub alert_rule_id: i32,
-    pub alert_name: String,
-    pub payload: AlertQueueMessagePayload,
+    pub indexer_rule_id: Option<u32>,
+    pub indexer_rule_name: Option<String>,
+    pub payload: IndexerRuleMatchPayload,
     pub block_height: u64,
 }
 
-impl AlertQueueMessage {
+impl IndexerRuleMatch {
     pub fn explorer_link(&self) -> String {
         match self.chain_id {
             ChainId::Testnet => {
@@ -68,16 +68,16 @@ impl AlertQueueMessage {
     Debug,
 )]
 // todo add block height
-pub enum AlertQueueMessagePayload {
+pub enum IndexerRuleMatchPayload {
     Actions {
         block_hash: BlockHashString,
         receipt_id: ReceiptIdString,
-        transaction_hash: TransactionHashString,
+        transaction_hash: Option<TransactionHashString>,
     },
     Events {
         block_hash: BlockHashString,
         receipt_id: ReceiptIdString,
-        transaction_hash: TransactionHashString,
+        transaction_hash: Option<TransactionHashString>,
         event: String,
         standard: String,
         version: String,
@@ -86,11 +86,11 @@ pub enum AlertQueueMessagePayload {
     StateChanges {
         block_hash: BlockHashString,
         receipt_id: Option<ReceiptIdString>,
-        transaction_hash: TransactionHashString,
+        transaction_hash: Option<TransactionHashString>,
     },
 }
 
-impl AlertQueueMessagePayload {
+impl IndexerRuleMatchPayload {
     pub fn block_hash(&self) -> BlockHashString {
         match self {
             Self::Actions { block_hash, .. }
@@ -118,7 +118,7 @@ impl AlertQueueMessagePayload {
             }
             | Self::StateChanges {
                 transaction_hash, ..
-            } => Some(transaction_hash.to_string()),
+            } => transaction_hash.clone(),
         }
     }
 }
@@ -134,48 +134,4 @@ impl AlertQueueMessagePayload {
 pub enum ChainId {
     Mainnet,
     Testnet,
-}
-
-#[derive(
-    borsh::BorshSerialize,
-    borsh::BorshDeserialize,
-    serde::Serialize,
-    serde::Deserialize,
-    Clone,
-    Debug,
-)]
-pub struct AlertDeliveryTask {
-    pub triggered_alert_id: i32,
-    pub destination_config: DestinationConfig,
-    pub alert_message: AlertQueueMessage,
-}
-
-#[derive(
-    borsh::BorshSerialize,
-    borsh::BorshDeserialize,
-    serde::Serialize,
-    serde::Deserialize,
-    Clone,
-    Debug,
-)]
-pub enum DestinationConfig {
-    Webhook {
-        destination_id: i32,
-        url: String,
-        secret: String,
-    },
-    Telegram {
-        destination_id: i32,
-        chat_id: f64,
-    },
-    Email {
-        destination_id: i32,
-        email: String,
-        token: Option<String>,
-    },
-    Aggregation {
-        destination_id: i32,
-        indexer_name: String,
-        indexer_function_code: String,
-    },
 }
