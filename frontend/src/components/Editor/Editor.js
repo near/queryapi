@@ -20,6 +20,10 @@ const BLOCKHEIGHT_LIMIT = 3600;
 const BLOCK_FETCHER_API =
   "https://70jshyr5cb.execute-api.eu-central-1.amazonaws.com/block/";
 
+const contractRegex = RegExp(
+  "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
+);
+
 const Editor = ({
   options,
   accountId,
@@ -139,6 +143,8 @@ const Editor = ({
       code: innerCode,
       schema: formatted_schema,
       blockHeight: start_block_height,
+      contractFilter: contractFilter,
+
     });
     setShowPublishModal(false);
   };
