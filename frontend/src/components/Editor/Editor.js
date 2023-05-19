@@ -393,7 +393,7 @@ const Editor = ({
             onClose={() => setDebugModeInfoDisabled(true)}
             variant="info"
           >
-            To debug, you will need to open your browser's console window in
+            To debug, you will need to open your browser console window in
             order to see the logs.
           </Alert>
         )}
