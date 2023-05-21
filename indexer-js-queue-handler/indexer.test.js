@@ -5,6 +5,25 @@ import Indexer from './indexer';
 import {VM} from "vm2";
 import Provisioner from './provisioner';
 
+const mockAwsXray = {
+    resolveSegment: () => ({
+        addError: () => {},
+        close: () => {},
+        addAnnotation: () => {},
+        addNewSubsegment: () => ({
+            addAnnotation: () => {},
+            close: () => {}
+        }),
+    }),
+    getSegment: () => ({
+        addAnnotation: () => {},
+        addNewSubsegment: () => ({
+            addAnnotation: () => {},
+            close: () => {}
+        }),
+    }),
+};
+
 describe('Indexer unit tests', () => {
     const oldEnv = process.env;
 
@@ -43,7 +62,7 @@ describe('Indexer unit tests', () => {
                 })
             })),
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/test'] = {code:`
@@ -63,7 +82,7 @@ describe('Indexer unit tests', () => {
                 errors: null,
             }),
         }));
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, awsXray: mockAwsXray });
 
         const functionName = 'buildnear.testnet/test';
         const mutations = {mutations: [`mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`], variables: {}, keysValues: {}};
@@ -90,7 +109,7 @@ describe('Indexer unit tests', () => {
                 errors: null,
             }),
         }));
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, awsXray: mockAwsXray });
 
         const functionName = 'buildnear.testnet/test';
         const mutations = {mutations: [
@@ -128,7 +147,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 })
             })),
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3, awsXray: mockAwsXray });
 
         const blockHeight = '84333960';
         const block = await indexer.fetchBlockPromise(blockHeight);
@@ -151,7 +170,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 })
             })),
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3, awsXray: mockAwsXray });
 
         const blockHeight = 82699904;
         const shard = 0;
@@ -191,7 +210,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         const mockS3 = {
             getObject,
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { s3: mockS3, awsXray: mockAwsXray });
 
         const shard = 0;
         const streamerMessage = await indexer.fetchStreamerMessage(blockHeight);
@@ -213,7 +232,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     });
 
     test('Indexer.transformIndexerFunction() applies the necessary transformations', () => {
-        const indexer = new Indexer('mainnet', 'us-west-2');
+        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray })
 
         const transformedFunction = indexer.transformIndexerFunction(`console.log('hello')`);
 
@@ -245,7 +264,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                     }
                 })
             });
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, awsXray: mockAwsXray });
 
         const context = indexer.buildImperativeContextForFunction();
 
@@ -296,7 +315,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                     errors: ['boom']
                 })
             });
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, awsXray: mockAwsXray });
 
         const context = indexer.buildImperativeContextForFunction();
 
@@ -311,7 +330,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                     data: 'mock',
                 }),
             });
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, awsXray: mockAwsXray });
 
         const context = indexer.buildImperativeContextForFunction();
 
@@ -410,7 +429,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                     }),
                 }),
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/test'] = {code:`
@@ -490,7 +509,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 })
             })),
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/test'] = {code:`
@@ -538,7 +557,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             doesEndpointExist: jest.fn().mockReturnValue(false),
             createAuthenticatedEndpoint: jest.fn(),
         }
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray });
 
         const functions = {
             'morgs.near/test': {
@@ -593,7 +612,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             doesEndpointExist: jest.fn().mockReturnValue(true),
             createAuthenticatedEndpoint: jest.fn(),
         }
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray });
 
         const functions = {
             'morgs.near/test': {
@@ -643,7 +662,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             doesEndpointExist: jest.fn().mockReturnValue(true),
             createAuthenticatedEndpoint: jest.fn(),
         }
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray });
 
         const functions = {
             'morgs.near/test': {
@@ -697,7 +716,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             doesEndpointExist: jest.fn().mockReturnValue(false),
             createAuthenticatedEndpoint: jest.fn().mockRejectedValue(error),
         }
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray });
 
         const functions = {
             'morgs.near/test': {
@@ -737,7 +756,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 })
             })),
         };
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3 });
+        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/fails'] = {code:`
