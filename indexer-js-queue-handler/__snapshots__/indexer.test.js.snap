@@ -5,7 +5,7 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\\n    id\\n  }\\n}\\n","variables":{"function_name":"buildnear.testnet/test","block_height":82699904,"message":"[\\"Running function\\",\\"buildnear.testnet/test\\"]"}}",
+      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":82699904,"message":"Running function:buildnear.testnet/test"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Role": "append",
@@ -16,7 +16,7 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: indexer_status) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
+      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Role": "append",
@@ -174,7 +174,7 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\\n    id\\n  }\\n}\\n","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"[\\"Running function\\",\\"buildnear.testnet/test\\"]"}}",
+      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Running function:buildnear.testnet/test"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Role": "append",
@@ -185,7 +185,7 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: indexer_status) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
+      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Role": "append",
@@ -223,7 +223,7 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {\\n    id\\n  }\\n}\\n","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"[\\"Running function\\",\\"morgs.near/test\\"]"}}",
+      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Running function:morgs.near/test"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Role": "append",
@@ -234,7 +234,7 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: indexer_status) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"RUNNING"}}",
+      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Role": "append",
