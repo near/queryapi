@@ -1,7 +1,7 @@
 name: Deploy Lambdas
 
 on:
-  push:
+  pull_request:
     branches: [ main, stable ]
     paths:
       - "indexer-js-queue-handler/**"
@@ -9,7 +9,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -44,7 +43,7 @@ jobs:
         working-directory: ./indexer-js-queue-handler
 
       - name: Serverless Deploy
-        run: ./node_modules/.bin/sls deploy --stage dev
+        run: ./node_modules/.bin/sls deploy --stage ${{ github.ref == 'refs/heads/stable' && 'prod' || 'dev' }}
         working-directory: ./indexer-js-queue-handler
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
