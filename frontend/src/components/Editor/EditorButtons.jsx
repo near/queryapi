@@ -70,6 +70,8 @@ const EditorButtons = ({
                       type="text"
                       placeholder="Indexer Name"
                       aria-label="IndexerName"
+                      value={indexerNameField}
+                      onChange={(e) => setIndexerNameField(e.target.value)}
                     />
                   ) : (
                     indexerNameField
@@ -94,7 +96,7 @@ const EditorButtons = ({
                 className="inline-block"
                 aria-label="Action Button Group"
               >
-                {isUserIndexer && (
+                {isUserIndexer && !options.create_new_indexer && (
                   <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>Delete Indexer</Tooltip>}
