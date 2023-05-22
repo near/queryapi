@@ -1,8 +1,8 @@
-name: Deploy Lambdas
+name: Deploy Prod Lambdas
 
 on:
   push:
-    branches: [ main, stable ]
+    branches: [stable]
     paths:
       - "indexer-js-queue-handler/**"
 
@@ -13,8 +13,9 @@ jobs:
       working-directory: ./indexer-js-queue-handler
 
   deploy:
-    uses: ./.github/workflows/test-lambdas.yml
+    uses: ./.github/workflows/deploy-lambdas.yml
     needs: test
+    secrets: inherit
     with:
       working-directory: ./indexer-js-queue-handler
-      environment: dev
+      environment: LAMBDA_PROD
