@@ -432,6 +432,7 @@ return (
           <Widget
             src={`${APP_OWNER}/widget/QueryApi.IndexerExplorer`}
             props={{
+              GRAPHQL_ENDPOINT,
               REGISTRY_CONTRACT_ID,
               APP_OWNER,
               appPath,
