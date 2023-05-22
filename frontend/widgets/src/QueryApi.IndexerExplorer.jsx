@@ -2,6 +2,9 @@ const limitPerPage = 5;
 const REGISTRY_CONTRACT_ID =
   props.REGISTRY_CONTRACT_ID || "queryapi.dataplatform.near";
 let APP_OWNER = props.APP_OWNER || "dev-queryapi.dataplatform.near";
+const GRAPHQL_ENDPOINT =
+  props.GRAPHQL_ENDPOINT ||
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 let totalIndexers = 0;
 const accountId = context.accountId;
 State.init({
