@@ -23,6 +23,7 @@ export default class Indexer {
             fetch: traceFetch(fetch),
             s3: new AWS.S3({ region: aws_region }),
             provisioner: new Provisioner(),
+            awsXray: AWSXRay,
             ...deps,
         };
     }
@@ -36,7 +37,7 @@ export default class Indexer {
             try {
                 const indexerFunction = functions[function_name];
                 console.log('Running function', function_name);  // Lambda logs
-                const segment = AWSXRay.getSegment(); // segment is immutable, subsegments are mutable
+                const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
                 functionSubsegment.addAnnotation('indexer_function', function_name);
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
@@ -98,12 +99,12 @@ export default class Indexer {
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
             } catch (e) {
                 console.error(`${function_name}: Failed to run function`, e);
-                AWSXRay.resolveSegment().addError(e);
+                this.deps.awsXray.resolveSegment().addError(e);
                 await this.setStatus(function_name, block_height, 'STOPPED');
                 throw e;
             } finally {
                 await Promise.all(simultaneousPromises);
-                AWSXRay.resolveSegment().close();
+                this.deps.awsXray.resolveSegment().close();
             }
         }
         return allMutations;
@@ -276,7 +277,7 @@ export default class Indexer {
     }
 
     setStatus(functionName, blockHeight, status) {
-        const activeFunctionSubsegment = AWSXRay.resolveSegment()
+        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment()
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`setStatus`);
 
         return this.runGraphQLQuery(
@@ -301,7 +302,7 @@ export default class Indexer {
     }
 
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
-        const activeFunctionSubsegment = AWSXRay.resolveSegment();
+        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment();
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
         const parsedMessage = message
             .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
@@ -326,7 +327,7 @@ export default class Indexer {
     }
 
     async writeFunctionState(function_name, block_height) {
-        const activeFunctionSubsegment = AWSXRay.resolveSegment();
+        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment();
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeFunctionState`);
         const mutation =
             `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
@@ -370,7 +371,7 @@ export default class Indexer {
         if (response.status !== 200 || errors) {
             if(logError) {
                 console.log(`${function_name}: Error writing graphql `, errors); // temporary extra logging
-                AWSXRay.resolveSegment().addAnnotation('graphql_errors', true);
+                this.deps.awsXray.resolveSegment().addAnnotation('graphql_errors', true);
 
                 const message = errors ? errors.map((e) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
                 const mutation =

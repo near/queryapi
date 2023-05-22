@@ -25,7 +25,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({})
+                text: () => JSON.stringify({})
             });
         const client = new HasuraClient({ fetch })
 
@@ -40,7 +40,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({
+                text: () => JSON.stringify({
                     result: [['schema_name'], ['name']]
                 })
             });
@@ -58,7 +58,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({})
+                text: () => JSON.stringify({})
             });
         const client = new HasuraClient({ fetch })
 
@@ -73,7 +73,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({
+                text: () => JSON.stringify({
                     result: [
                         ['table_name'],
                         ['height'],
@@ -95,7 +95,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({})
+                text: () => JSON.stringify({})
             });
         const client = new HasuraClient({ fetch })
 
@@ -110,7 +110,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({})
+                text: () => JSON.stringify({})
             });
         const client = new HasuraClient({ fetch })
 
@@ -125,7 +125,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({
+                text: () => JSON.stringify({
                     result: [
                         [
                             "coalesce"
@@ -177,7 +177,7 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                json: () => ({
+                text: () => JSON.stringify({
                     result: [
                         [
                             "coalesce"

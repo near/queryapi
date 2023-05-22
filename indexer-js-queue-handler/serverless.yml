@@ -8,6 +8,9 @@ provider:
   runtime: nodejs16.x
   region: eu-central-1
   timeout: 60
+  environment:
+    HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
+    HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
   tracing:
     lambda: true #enable X-Ray tracing
 #  cfnRole: arn:aws:iam::754641474505:role/queryapi-cloudformation
