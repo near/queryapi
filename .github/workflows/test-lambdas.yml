@@ -1,0 +1,27 @@
+name: Test Lambdas
+
+on:
+  pull_request:
+    paths:
+      - "indexer-js-queue-handler/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./indexer-js-queue-handler
+
+      - name: Run tests
+        run: npm test
+        working-directory: ./indexer-js-queue-handler
