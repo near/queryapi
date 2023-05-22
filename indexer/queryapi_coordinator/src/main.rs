@@ -13,6 +13,7 @@ use opts::{Opts, Parser};
 use storage::ConnectionManager;
 
 pub(crate) mod cache;
+mod historical_block_processing;
 mod indexer_reducer;
 mod indexer_registry;
 mod indexer_types;
