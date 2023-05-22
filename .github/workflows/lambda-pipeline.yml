@@ -1,0 +1,20 @@
+name: Deploy Lambdas
+
+on:
+  push:
+    branches: [ main, stable ]
+    paths:
+      - "indexer-js-queue-handler/**"
+
+jobs:
+  test:
+    uses: ./.github/workflows/test-lambdas.yml
+    with:
+      working-directory: ./indexer-js-queue-handler
+
+  deploy:
+    uses: ./.github/workflows/test-lambdas.yml
+    needs: test
+    with:
+      working-directory: ./indexer-js-queue-handler
+      environment: dev
