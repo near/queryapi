@@ -1,0 +1,12 @@
+name: Lambda CI
+
+on:
+  pull_request:
+    paths:
+      - "indexer-js-queue-handler/**"
+
+jobs:
+  test:
+    uses: ./.github/workflows/test-lambdas.yml
+    with:
+      working-directory: ./indexer-js-queue-handler
