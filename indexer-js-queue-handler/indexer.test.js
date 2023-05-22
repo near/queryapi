@@ -515,8 +515,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         functions['buildnear.testnet/test'] = {code:`
             throw new Error('boom');
         `};
-        await indexer.runFunctions(block_height, functions, {imperative: true });
 
+        await expect(indexer.runFunctions(block_height, functions, {imperative: true })).rejects.toThrow(new Error('boom'))
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
@@ -727,8 +727,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         };
 
-        await indexer.runFunctions(blockHeight, functions, { provision: true })
-
+        await expect(indexer.runFunctions(blockHeight, functions, { provision: true })).rejects.toThrow(error)
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
