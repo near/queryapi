@@ -3,18 +3,12 @@ const AWS = require('aws-sdk');
 const S3= new AWS.S3();
 
 const NETWORK = process.env.NETWORK || 'mainnet';
-const allowedOrigins = ['https://queryapi-frontend-24ktefolwq-ew.a.run.app', 'https://queryapi-frontend-vcqilefdcq-ew.a.run.app'];
 
 module.exports.block = async (event) => {
-  // Set CORS headers 
-  const origin = event.headers.origin;
-  let headers = {};
-  if (allowedOrigins.includes(origin)) {
-    headers = {
-      "Access-Control-Allow-Origin": origin,
-      "Access-Control-Allow-Credentials": true,
-    };
-  }
+  let headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Credentials": true,
+  };
 
   try {
     // parse request params
