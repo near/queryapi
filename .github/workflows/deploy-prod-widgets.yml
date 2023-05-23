@@ -12,4 +12,4 @@ jobs:
       deploy-account-address: ${{ vars.PROD_SIGNER_ACCOUNT_ID }}
       signer-public-key: ${{ vars.PROD_SIGNER_PUBLIC_KEY }}
     secrets:
-      SIGNER_PRIVATE_KEY: ${{ secrets.DEV_SIGNER_PRIVATE_KEY }}
+      SIGNER_PRIVATE_KEY: ${{ secrets.PROD_SIGNER_PRIVATE_KEY }}
