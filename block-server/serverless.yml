@@ -46,6 +46,7 @@ functions:
       - httpApi:
           path: /block/{block_height}
           method: get
+          cors: true
 
 #    Define function environment variables here
 #    environment:
