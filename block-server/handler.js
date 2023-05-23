@@ -3,7 +3,7 @@ const AWS = require('aws-sdk');
 const S3= new AWS.S3();
 
 const NETWORK = process.env.NETWORK || 'mainnet';
-const allowedOrigins = ['https://queryapi-frontend-24ktefolwq-ew.a.run.app', 'https://queryapi-frontend-vcqilefdcq-ew.a.run.app'];
+const allowedOrigins = ['https://queryapi-frontend-24ktefolwq-ew.a.run.app', 'https://queryapi-frontend-vcqilefdcq-ew.a.run.app', 'https://near.org', "https://near.social"];
 
 module.exports.block = async (event) => {
   // Set CORS headers 
