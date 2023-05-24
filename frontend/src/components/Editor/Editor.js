@@ -310,7 +310,7 @@ const Editor = ({
       const block_details = await response.json();
       return block_details;
     } catch {
-      console.log(`Error Fetching Block Height details at ${blockHeight}`);
+      console.log(`Error Fetching Block Height details for Block #${blockHeight}`);
     }
   }
 
