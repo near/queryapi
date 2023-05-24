@@ -25,7 +25,16 @@ export default class Indexer {
 
     // Define the custom context object
     const context = {
-      set: async () => {
+      set: async (key, value) => {
+        this.handleLog(
+          blockHeight,
+          "",
+          () => {
+            console.group(`Setting Key/Value`);
+            console.log({key: value});
+            console.groupEnd();
+          }
+        );
         return {};
       },
       graphql: async (query, mutationData) => {
