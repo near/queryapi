@@ -26,17 +26,11 @@ export default class Indexer {
     // Define the custom context object
     const context = {
       set: async () => {
-        this.handleLog(
-          blockHeight,
-          "Context.set() is not supported in debug mode."
-        );
         return {};
       },
       graphql: async (query, mutationData) => {
         this.handleLog(
           blockHeight,
-          "Context.graphql() is not supported in debug mode."
-        );
         this.handleLog(
           blockHeight,
           `mutationData: ${JSON.stringify(mutationData)}`

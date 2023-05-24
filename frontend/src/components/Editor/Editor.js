@@ -42,8 +42,11 @@ const Editor = ({
   const [heights, setHeights] = useState([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
-  const handleLog = (blockHeight, log) => {
-    console.log(`Block #${blockHeight}: ${log}`);
+  const handleLog = (blockHeight, log, callback) => {
+    console.log(log);
+    if (callback) {
+      callback();
+    }
     setLogs((prevLogs) => [...prevLogs, log]);
   };
 
@@ -269,7 +272,6 @@ const Editor = ({
     const modifiedEditor = editor.getModifiedEditor();
     modifiedEditor.onDidChangeModelContent((_) => {
       if (fileName == "indexingLogic.js") {
-        console.log("mountin");
         setIndexingCode(modifiedEditor.getValue());
       }
       if (fileName == "schema.sql") {
@@ -313,15 +315,23 @@ const Editor = ({
   }
 
   async function executeIndexerFunction() {
+    console.clear()
+    console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
+    if(heights.length === 0) {
+      console.warn("No Block Heights Selected")
+    }
     setLogs(() => []);
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     // for loop with await
     for await (const height of heights) {
+      console.group(`Block Height #${height}`)
       const block_details = await fetchBlockDetails(height);
       if (block_details) {
         await indexerRunner.runFunction(block_details, height, innerCode);
       }
+      console.groupEnd()
     }
+    console.groupEnd()
   }
 
   return (
