@@ -43,6 +43,9 @@ const EditorButtons = ({
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
+  contractFilter,
+  handleSetContractFilter,
+  isContractFilterValid,
 }) => {
   const removeHeight = (index) => {
     setHeights(heights.filter((_, i) => i !== index));
@@ -59,7 +62,8 @@ const EditorButtons = ({
           }}
         >
           <Row className="w-100">
-            <Col style={{ display: "flex", justifyContent: "start" }}>
+            <Col style={{ display: "flex", justifyContent: "start", flexDirection: "column" }}>
+
               <Breadcrumb className="flex">
                 <Breadcrumb.Item className="flex align-center " href="#">
                   {accountId}
@@ -78,7 +82,21 @@ const EditorButtons = ({
                   )}
                 </Breadcrumb.Item>
               </Breadcrumb>
-            </Col>
+              <InputGroup size="sm" hasValidation={true} style = {{width: "fit-content"}}>
+                <InputGroup.Text> Contract Filter</InputGroup.Text>
+                <Form.Control
+                  value={contractFilter}
+                  onChange={handleSetContractFilter}
+                  type="text"
+                  placeholder="social.near"
+                  required={true}
+                  isValid={isContractFilterValid}
+                />
+                <Form.Control.Feedback type="invalid">
+                  Please provide a valid contract name.
+                </Form.Control.Feedback>
+              </InputGroup>
+</Col>
             <Col style={{ display: "flex", justifyContent: "center" }}>
               {debugMode && (
                 <BlockPicker
