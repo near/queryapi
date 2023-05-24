@@ -31,7 +31,7 @@ export default class Indexer {
       graphql: async (query, mutationData) => {
         this.handleLog(
           blockHeight,
-          mutationData,
+          "",
           () => {
             let operationType, operationName
         const match = query.match(/(query|mutation)\s+(\w+)\s*(\(.*?\))?\s*\{([\s\S]*)\}/);
@@ -45,6 +45,10 @@ export default class Indexer {
         console.group(`Data passed to ${operationType}`);
         console.dir(mutationData); 
         console.groupEnd();
+        console.group(`Data returned by ${operationType}`);
+        console.log({})
+        console.groupEnd();
+
         console.groupEnd();
           }
         );
