@@ -377,6 +377,9 @@ const Editor = ({
         actionButtonText={getActionButtonText()}
         submit={submit}
         blockHeightError={blockHeightError}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
       />
       <div
         className="px-3 pt-3"

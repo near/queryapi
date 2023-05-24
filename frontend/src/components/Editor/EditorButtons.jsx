@@ -85,12 +85,12 @@ const EditorButtons = ({
               <InputGroup size="sm" hasValidation={true} style = {{width: "fit-content"}}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
+                  disabled={!options.create_new_indexer}
                   value={contractFilter}
                   onChange={handleSetContractFilter}
                   type="text"
                   placeholder="social.near"
                   required={true}
-                  isValid={isContractFilterValid}
                 />
                 <Form.Control.Feedback type="invalid">
                   Please provide a valid contract name.
