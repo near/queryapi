@@ -43,7 +43,7 @@ export default class Indexer {
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
-                const functionNameWithoutAccount = function_name.split('/')[1];
+                const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
 
                 if (options.provision && !indexerFunction["provisioned"]) {
                     const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
