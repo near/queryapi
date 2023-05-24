@@ -320,6 +320,7 @@ const Editor = ({
     if(heights.length === 0) {
       console.warn("No Block Heights Selected")
     }
+    console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.")
     setLogs(() => []);
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     // for loop with await
