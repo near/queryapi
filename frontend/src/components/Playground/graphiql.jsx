@@ -7,7 +7,6 @@ const HASURA_ENDPOINT =
   "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
 
 const graphQLFetcher = async (graphQLParams, accountId) => {
-  console.log(HASURA_ENDPOINT, "Hashura Endpoint");
   const response = await fetch(HASURA_ENDPOINT, {
     method: "post",
     credentials: "omit",

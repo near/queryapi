@@ -43,7 +43,7 @@ const Editor = ({
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
   const handleLog = (blockHeight, log, callback) => {
-    console.log(log);
+    if(log) console.log(log);
     if (callback) {
       callback();
     }
