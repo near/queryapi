@@ -325,10 +325,12 @@ const Editor = ({
     // for loop with await
     for await (const height of heights) {
       console.group(`Block Height #${height}`)
+      console.time('Indexing Execution Complete')
       const block_details = await fetchBlockDetails(height);
       if (block_details) {
         await indexerRunner.runFunction(block_details, height, innerCode);
       }
+      console.timeEnd('Indexing Execution Complete')
       console.groupEnd()
     }
     console.groupEnd()
