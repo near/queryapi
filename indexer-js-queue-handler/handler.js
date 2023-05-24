@@ -8,7 +8,6 @@ AWSXRay.captureAWS(AWS);
 export const consumer = async (event) => {
     const indexer = new Indexer('mainnet', 'eu-central-1');
 
-    const results = [];
     for (const record of event.Records) {
         const jsonBody = JSON.parse(record.body);
         const block_height = jsonBody.block_height;
@@ -19,7 +18,5 @@ export const consumer = async (event) => {
         functions[function_name] = function_config;
 
         const mutations = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
-        results.push(...mutations);
     }
-    return results;
 };
