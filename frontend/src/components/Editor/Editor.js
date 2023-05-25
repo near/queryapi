@@ -184,6 +184,9 @@ const Editor = ({
           setSelectedOption("specificBlockHeight");
           setBlockHeight(data.start_block_height);
         }
+        if(data.filter) {
+          setContractFilter(data.filter.matching_rule.affected_account_id)
+        }
       } catch (error) {
         console.log(error);
         setError(() => "An Error occured while trying to format the code.");
@@ -371,12 +374,12 @@ const Editor = ({
         handleOptionChange={handleOptionChange}
         blockHeight={blockHeight}
         setBlockHeight={setBlockHeight}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
         actionButtonText={getActionButtonText()}
         submit={submit}
         blockHeightError={blockHeightError}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
       />
       <div
         className="px-3 pt-3"
