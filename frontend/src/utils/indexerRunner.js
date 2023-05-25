@@ -1,10 +1,35 @@
 import { Block } from "@near-lake/primitives";
 import { Buffer } from "buffer";
+import {fetchBlockDetails} from "./fetchBlock";
+
 global.Buffer = Buffer;
 export default class Indexer {
   constructor(handleLog) {
     this.handleLog = handleLog;
   }
+
+  async executeIndexerFunction(heights, indexingCode) {
+    console.clear()
+    console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
+    if(heights.length === 0) {
+      console.warn("No Block Heights Selected")
+    }
+    console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.")
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    // for loop with await
+    for await (const height of heights) {
+      console.group(`Block Height #${height}`)
+      const block_details = await fetchBlockDetails(height);
+      console.time('Indexing Execution Complete')
+      if (block_details) {
+        await this.runFunction(block_details, height, innerCode);
+      }
+      console.timeEnd('Indexing Execution Complete')
+      console.groupEnd()
+    }
+    console.groupEnd()
+  }
+
   async runFunction(streamerMessage, blockHeight, indexerCode) {
     const innerCodeWithBlockHelper =
       `
@@ -50,6 +75,8 @@ export default class Indexer {
         }
 
         console.group(`Executing GraphQL ${operationType}`);
+        if (operationType === 'mutation') console.log('%c Mutations in debug mode do not alter the database', 'color: black; background-color: yellow; padding: 5px;');
+
         console.log(`Name: ${operationName}`);
         console.group(`Data passed to ${operationType}`);
         console.dir(mutationData); 
@@ -57,7 +84,6 @@ export default class Indexer {
         console.group(`Data returned by ${operationType}`);
         console.log({})
         console.groupEnd();
-
         console.groupEnd();
           }
         );

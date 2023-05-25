@@ -139,7 +139,6 @@ export default function ResizableLayoutEditor({
   options,
   handleEditorWillMount,
   handleEditorMount,
-  logs,
 }) {
   const {
     dragBarRef: dragBarRefConsole,

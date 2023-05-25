@@ -17,8 +17,6 @@ import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 const BLOCKHEIGHT_LIMIT = 3600;
-const BLOCK_FETCHER_API =
-  "https://70jshyr5cb.execute-api.eu-central-1.amazonaws.com/block/";
 
 const contractRegex = RegExp(
   "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
@@ -38,7 +36,6 @@ const Editor = ({
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
   const [debugMode, setDebugMode] = useState(false);
-  const [logs, setLogs] = useState([]);
   const [heights, setHeights] = useState([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
@@ -47,7 +44,6 @@ const Editor = ({
     if (callback) {
       callback();
     }
-    setLogs((prevLogs) => [...prevLogs, log]);
   };
 
   const indexerRunner = new Indexer(handleLog);
@@ -302,39 +298,8 @@ const Editor = ({
     }
   }
 
-  async function fetchBlockDetails(blockHeight) {
-    try {
-      const response = await fetch(
-        `${BLOCK_FETCHER_API}${String(blockHeight)}`
-      );
-      const block_details = await response.json();
-      return block_details;
-    } catch {
-      console.log(`Error Fetching Block Height details for Block #${blockHeight}`);
-    }
-  }
-
   async function executeIndexerFunction() {
-    console.clear()
-    console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
-    if(heights.length === 0) {
-      console.warn("No Block Heights Selected")
-    }
-    console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.")
-    setLogs(() => []);
-    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    // for loop with await
-    for await (const height of heights) {
-      console.group(`Block Height #${height}`)
-      console.time('Indexing Execution Complete')
-      const block_details = await fetchBlockDetails(height);
-      if (block_details) {
-        await indexerRunner.runFunction(block_details, height, innerCode);
-      }
-      console.timeEnd('Indexing Execution Complete')
-      console.groupEnd()
-    }
-    console.groupEnd()
+    await indexerRunner.executeIndexerFunction(heights,indexingCode)
   }
 
   return (
@@ -441,7 +406,6 @@ const Editor = ({
           options={options}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
-          logs={logs}
         />
       </div>
     </div>
