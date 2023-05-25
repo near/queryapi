@@ -74,10 +74,8 @@ export default class Indexer {
           operationName = match[2];
         }
 
-        console.group(`Executing GraphQL ${operationType}`);
+        console.group(`Executing GraphQL ${operationType}: (${operationName})`);
         if (operationType === 'mutation') console.log('%c Mutations in debug mode do not alter the database', 'color: black; background-color: yellow; padding: 5px;');
-
-        console.log(`Name: ${operationName}`);
         console.group(`Data passed to ${operationType}`);
         console.dir(mutationData); 
         console.groupEnd();
