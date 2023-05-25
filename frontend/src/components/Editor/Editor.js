@@ -9,7 +9,7 @@ import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import { Alert } from "react-bootstrap";
 import primitives from "!!raw-loader!../../../primitives.d.ts";
 import { request, useInitialPayload } from "near-social-bridge";
-import Indexer from "../../utils/indexerRunner";
+import IndexerRunner from "../../utils/indexerRunner";
 import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
@@ -46,7 +46,7 @@ const Editor = ({
     }
   };
 
-  const indexerRunner = new Indexer(handleLog);
+  const indexerRunner = new IndexerRunner(handleLog);
 
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);

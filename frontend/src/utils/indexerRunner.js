@@ -3,7 +3,7 @@ import { Buffer } from "buffer";
 import {fetchBlockDetails} from "./fetchBlock";
 
 global.Buffer = Buffer;
-export default class Indexer {
+export default class IndexerRunner {
   constructor(handleLog) {
     this.handleLog = handleLog;
   }
