@@ -169,6 +169,14 @@ async fn handle_streamer_message(
             let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
 
             for indexer_rule_match in indexer_rule_matches.iter() {
+                tracing::debug!(
+                    target: INDEXER,
+                    "Matched filter {:?} for function {} {}",
+                    indexer_function.indexer_rule.matching_rule,
+                    indexer_function.account_id,
+                    indexer_function.function_name,
+                );
+
                 let msg = IndexerQueueMessage {
                     chain_id: indexer_rule_match.chain_id.clone(),
                     indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
@@ -189,11 +197,11 @@ async fn handle_streamer_message(
 
             stream::iter(indexer_function_messages.into_iter())
                 .chunks(10)
-                .for_each(|alert_queue_messages_batch| async {
+                .for_each(|indexer_queue_messages_batch| async {
                     match opts::send_to_indexer_queue(
                         context.queue_client,
                         context.queue_url.to_string(),
-                        alert_queue_messages_batch,
+                        indexer_queue_messages_batch,
                     )
                     .await
                     {
