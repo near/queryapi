@@ -1,7 +1,7 @@
 name: Deploy Dev Components to Mainnet
 on:
   push:
-    branches: [roshaan/prod-social-feed]
+    branches: [main]
     paths:
       - "frontend/widgets/**"
 jobs:
