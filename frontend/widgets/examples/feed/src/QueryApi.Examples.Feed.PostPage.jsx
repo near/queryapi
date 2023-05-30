@@ -1,6 +1,6 @@
 const GRAPHQL_ENDPOINT =
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
-const APP_OWNER = "dev-queryapi.dataplatform.near";
+  props.GRAPHQL_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const accountId = props.accountId;
 const commentBlockHeight = parseInt(props.commentBlockHeight);
 
@@ -94,6 +94,8 @@ if (state.parentPostLoaded && commentBlockHeight) {
         highlightComment: { accountId, blockHeight: commentBlockHeight },
         comments: state.comments,
         likes: state.likes,
+        GRAPHQL_ENDPOINT,
+        APP_OWNER,
       }}
     />
   );
@@ -102,6 +104,9 @@ if (state.parentPostLoaded && commentBlockHeight) {
 return (
   <Widget
     src={`${APP_OWNER}/widget/QueryApi.Examples.Feed.Post`}
-    props={{ ...props, commentsLimit: 30, subscribe: true }}
+    props={{
+      ...props, commentsLimit: 30, subscribe: true, GRAPHQL_ENDPOINT,
+      APP_OWNER,
+    }}
   />
 );

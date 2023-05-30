@@ -1,4 +1,3 @@
-
 const GRAPHQL_ENDPOINT =
   "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 const APP_OWNER = "dev-queryapi.dataplatform.near";
@@ -180,6 +179,8 @@ const renderComment = (a) => {
           highlight:
             a.account_id === props.highlightComment?.accountId &&
             a.block_height === props.highlightComment?.blockHeight,
+          GRAPHQL_ENDPOINT,
+          APP_OWNER,
         }}
       />
     </div>
@@ -246,6 +247,8 @@ return (
               item,
               notifyAccountId,
               likes: state.likes,
+              GRAPHQL_ENDPOINT,
+              APP_OWNER,
             }}
           />
           <Widget

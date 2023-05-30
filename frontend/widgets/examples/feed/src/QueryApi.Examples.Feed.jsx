@@ -1,7 +1,7 @@
 
 const GRAPHQL_ENDPOINT =
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
-const APP_OWNER = "dev-queryapi.dataplatform.near";
+  props.GRAPHQL_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const LIMIT = 10;
 const option = props.postsOrderOption ?? "blockHeight";
 
@@ -97,6 +97,8 @@ const renderItem = (item, i) => {
           content: item.content,
           comments: item.comments,
           likes: item.accounts_liked,
+          GRAPHQL_ENDPOINT,
+          APP_OWNER,
         }}
       />
     </Post>
