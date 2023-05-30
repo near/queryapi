@@ -1,4 +1,6 @@
 
+const GRAPHQL_ENDPOINT =
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 const APP_OWNER = "dev-queryapi.dataplatform.near";
 const accountId = props.accountId;
 const blockHeight =
@@ -20,12 +22,12 @@ const extractNotifyAccountId = (parentItem) => {
   return `${accountId}/post/main` === parentItem.path ? accountId : undefined;
 };
 
-const commentUrl = `https://alpha.near.org/#/roshaan.near/widget/PostPage?accountId=${accountId}&commentBlockHeight=${blockHeight}`;
+const commentUrl = `https://alpha.near.org/#/${APP_OWNER}/widget/QueryApi.Examples.Feed.PostPage?accountId=${accountId}&commentBlockHeight=${blockHeight}`;
 
 if (!state.content && accountId && blockHeight !== "now") {
   const commentQuery = `
 query CommentQuery {
-  roshaan_near_alphaindexer_comments(
+  roshaan_near_feed_indexer_comments(
     where: {_and: {account_id: {_eq: "${accountId}"}, block_height: {_eq: ${blockHeight}}}}
   ) {
     content
@@ -40,7 +42,7 @@ query CommentQuery {
 
   function fetchGraphQL(operationsDoc, operationName, variables) {
     return asyncFetch(
-      "https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql",
+     `${GRAPHQL_ENDPOINT}/v1/graphql`, 
       {
         method: "POST",
         headers: { "x-hasura-role": "roshaan_near" },
@@ -56,7 +58,7 @@ query CommentQuery {
   fetchGraphQL(commentQuery, "CommentQuery", {}).then((result) => {
     if (result.status === 200) {
       if (result.body.data) {
-        const comments = result.body.data.roshaan_near_alphaindexer_comments;
+        const comments = result.body.data.roshaan_near_feed_indexer_comments;
         if (comments.length > 0) {
           const comment = comments[0];
           let content = JSON.parse(comment.content);

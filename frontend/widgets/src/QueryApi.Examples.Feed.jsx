@@ -1,5 +1,7 @@
 
-const APP_OWNER = "dataplatform.near";
+const GRAPHQL_ENDPOINT =
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+const APP_OWNER = "dev-queryapi.dataplatform.near";
 const LIMIT = 10;
 const option = props.postsOrderOption ?? "blockHeight";
 
@@ -59,7 +61,7 @@ const indexerQueries = `
 
 function fetchGraphQL(operationsDoc, operationName, variables) {
   return asyncFetch(
-    "https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql",
+    `${GRAPHQL_ENDPOINT}/v1/graphql`,
     {
       method: "POST",
       headers: { "x-hasura-role": "roshaan_near" },

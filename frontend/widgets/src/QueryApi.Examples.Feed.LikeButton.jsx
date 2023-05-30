@@ -1,3 +1,5 @@
+const GRAPHQL_ENDPOINT =
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 const APP_OWNER = "dev-queryapi.dataplatform.near";
 const item = props.item;
 

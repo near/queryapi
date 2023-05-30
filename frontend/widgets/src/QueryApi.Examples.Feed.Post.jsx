@@ -1,11 +1,13 @@
 
+const GRAPHQL_ENDPOINT =
+  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 const APP_OWNER = "dev-queryapi.dataplatform.near";
 const accountId = props.accountId;
 const blockHeight =
   props.blockHeight === "now" ? "now" : parseInt(props.blockHeight);
 // const subscribe = !!props.subscribe;
 const notifyAccountId = accountId;
-const postUrl = `https://alpha.near.org/#/roshaan.near/widget/PostPage?accountId=${accountId}&blockHeight=${blockHeight}`;
+const postUrl = `https://alpha.near.org/#/${APP_OWNER}/widget/QueryApi.Examples.Feed.PostPage?accountId=${accountId}&blockHeight=${blockHeight}`;
 
 State.init({
   postExists: true,
@@ -25,7 +27,7 @@ if (!state.content || !state.comments || !state.likes) {
   console.log("making call again");
   const postsQuery = `
 query IndexerQuery {
-  roshaan_near_alphaindexer_posts(
+  roshaan_near_feed_indexer_posts(
     order_by: {block_height: desc}
     where: {_and: {block_height: {_eq: ${blockHeight}}, account_id: {_eq: "${accountId}"}}}
   ) {
@@ -47,7 +49,7 @@ query IndexerQuery {
 
   function fetchGraphQL(operationsDoc, operationName, variables) {
     return asyncFetch(
-      "https://query-api-hasura-vcqilefdcq-uc.a.run.app/v1/graphql",
+      `${GRAPHQL_ENDPOINT}/v1/graphql`,
       {
         method: "POST",
         headers: { "x-hasura-role": "roshaan_near" },
@@ -63,7 +65,7 @@ query IndexerQuery {
   fetchGraphQL(postsQuery, "IndexerQuery", {}).then((result) => {
     if (result.status === 200) {
       if (result.body.data) {
-        const posts = result.body.data.roshaan_near_alphaindexer_posts;
+        const posts = result.body.data.roshaan_near_feed_indexer_posts;
         if (posts.length > 0) {
           const post = posts[0];
           let content = JSON.parse(post.content);
