@@ -133,7 +133,7 @@ const sanitizedFunctionName = indexer_name;
 const fullFunctionName = accountName + "_" + sanitizedFunctionName;
 const logsDoc = `
   query QueryLogs($offset: Int) {
-    indexer_log_entries(order_by: {block_height: desc}, limit: ${LIMIT}, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
+    indexer_log_entries(order_by: {timestamp: desc}, limit: ${LIMIT}, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
       block_height
       message
       timestamp
