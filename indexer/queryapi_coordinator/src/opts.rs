@@ -227,7 +227,6 @@ pub async fn send_to_indexer_queue(
     queue_url: String,
     indexer_queue_messages: Vec<IndexerQueueMessage>,
 ) -> anyhow::Result<()> {
-
     let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
         .into_iter()
         .enumerate()

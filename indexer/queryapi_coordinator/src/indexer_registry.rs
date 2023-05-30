@@ -266,38 +266,36 @@ fn build_indexer_function_from_args(
                     );
                     return None;
                 }
-                Some(function_name) => {
-                    match unescape(&args["filter_json"].to_string()) {
-                        Some(filter_string) => {
-                            let filter_json_strip_quotes = &filter_string[1..filter_string.len() - 1];
-                            match serde_json::from_str(&filter_json_strip_quotes) {
-                                Ok(filter_json) => match serde_json::from_value(filter_json) {
-                                    Ok(indexer_rule) => build_indexer_function(
-                                        &args,
-                                        function_name.to_string(),
-                                        account_id,
-                                        &indexer_rule,
-                                    ),
-                                    Err(e) => {
-                                        tracing::warn!("Error parsing filter into indexer_rule for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
-                                        None
-                                    }
-                                },
+                Some(function_name) => match unescape(&args["filter_json"].to_string()) {
+                    Some(filter_string) => {
+                        let filter_json_strip_quotes = &filter_string[1..filter_string.len() - 1];
+                        match serde_json::from_str(&filter_json_strip_quotes) {
+                            Ok(filter_json) => match serde_json::from_value(filter_json) {
+                                Ok(indexer_rule) => build_indexer_function(
+                                    &args,
+                                    function_name.to_string(),
+                                    account_id,
+                                    &indexer_rule,
+                                ),
                                 Err(e) => {
-                                    tracing::warn!("Error parsing indexer_rule filter for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
+                                    tracing::warn!("Error parsing filter into indexer_rule for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
                                     None
                                 }
+                            },
+                            Err(e) => {
+                                tracing::warn!("Error parsing indexer_rule filter for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
+                                None
                             }
-                        },
-                        None => {
-                            tracing::warn!(
-                                "Unable to unescape filter_json from registration args: {:?}",
-                                &args
-                            );
-                            None
                         }
                     }
-                }
+                    None => {
+                        tracing::warn!(
+                            "Unable to unescape filter_json from registration args: {:?}",
+                            &args
+                        );
+                        None
+                    }
+                },
             }
         }
     }
