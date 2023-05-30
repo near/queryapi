@@ -1,5 +1,4 @@
 # QueryApi
-
 With QueryApi you can
 * Write your own custom indexer function at https://near.org/dataplatform.near/widget/QueryApi.Dashboard;
 * Specify the schema for your own custom hosted database and write to it with your indexer function;
