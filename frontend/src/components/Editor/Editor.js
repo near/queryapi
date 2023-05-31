@@ -17,6 +17,7 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
+import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
 
 const contractRegex = RegExp(
@@ -63,8 +64,7 @@ const Editor = ({
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
 
   const requestLatestBlockHeight = async () => {
-    const response = await request("get-latest-block-height")
-    const { blockHeight } = response
+    const blockHeight = getLatestBlockHeight()
     return blockHeight
   }
 
