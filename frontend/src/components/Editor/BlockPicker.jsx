@@ -41,7 +41,17 @@ export const BlockPicker = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          <OverlayTrigger
+          {isExecuting === true &&
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip>Stop Indexer Execution</Tooltip>}
+            >
+              <Button variant="outline-secondary" onClick={() => stopExecution()}>
+                <Stop size={24} style={{ cursor: "pointer" }} />
+              </Button>
+            </OverlayTrigger>
+          }
+          {!isExecuting && (<>          <OverlayTrigger
             placement="bottom"
             overlay={<Tooltip>Add Block To Debug List</Tooltip>}
           >
@@ -49,50 +59,39 @@ export const BlockPicker = ({
               <Plus size={24} style={{ cursor: "pointer" }} />
             </Button>
           </OverlayTrigger>
-          {isExecuting === true &&
             <OverlayTrigger
               placement="bottom"
-              overlay={<Tooltip>Stop Indexer Execution</Tooltip>}
+              overlay={<Tooltip>Test Indexer Function In Browser</Tooltip>}
             >
-
-              <Button variant="outline-secondary" onClick={() => stopExecution()}>
-                <Stop size={24} style={{ cursor: "pointer" }} />
-              </Button>
-            </OverlayTrigger>
-          }
-          {!isExecuting && <OverlayTrigger
-            placement="bottom"
-            overlay={<Tooltip>Test Indexer Function In Browser</Tooltip>}
-          >
-            <Dropdown as={ButtonGroup}>
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => {
-                  console.log("testing")
-                  if (heights.length > 0) {
-                    console.log("tesing selected")
-                    executeIndexerFunction("selected")
-                  } else if (inputValue) {
-                    console.log("testing specific")
-                    executeIndexerFunction("specific", inputValue)
-                  } else {
-                    console.log("testing latest")
-                    executeIndexerFunction("latest")
+              <Dropdown as={ButtonGroup}>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    console.log("testing")
+                    if (heights.length > 0) {
+                      console.log("tesing selected")
+                      executeIndexerFunction("selected")
+                    } else if (inputValue) {
+                      console.log("testing specific")
+                      executeIndexerFunction("specific", inputValue)
+                    } else {
+                      console.log("testing latest")
+                      executeIndexerFunction("latest")
+                    }
                   }
-                }
-                }
-              >
-                <Play size={24} />
-              </Button>
-              <Dropdown.Toggle split variant="primary" id="dropdown-split-basic" />
-              <Dropdown.Menu>
-                <Dropdown.Item onClick={() => executeIndexerFunction("latest")} href="#/action-1">Execute From Latest Block Height</Dropdown.Item>
-                <Dropdown.Item onClick={() => executeIndexerFunction("specific", inputValue)} href="#/action-3">Execute From Starting Block Height</Dropdown.Item>
-                <Dropdown.Item onClick={() => executeIndexerFunction("selected")} href="#/action-2">Execute Selected Block Heights</Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown>
-          </OverlayTrigger>
+                  }
+                >
+                  <Play size={24} />
+                </Button>
+                <Dropdown.Toggle split variant="primary" id="dropdown-split-basic" />
+                <Dropdown.Menu>
+                  <Dropdown.Item onClick={() => executeIndexerFunction("latest")}>Follow The Network</Dropdown.Item>
+                  <Dropdown.Item onClick={() => executeIndexerFunction("selected")}>Execute From Debug List</Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown>
+            </OverlayTrigger>
+          </>)
           }
 
 
