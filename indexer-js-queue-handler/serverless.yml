@@ -7,7 +7,7 @@ provider:
   name: aws
   runtime: nodejs16.x
   region: eu-central-1
-  timeout: 60
+  timeout: 15
   environment:
     HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
     HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
@@ -21,13 +21,13 @@ constructs:
     fifo: true
     worker:
       handler: handler.consumer
-      timeout: 60 # 6 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
+      timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
   startFromBlock-runner:
     type: queue
     fifo: true
     worker:
       handler: handler.consumer
-      timeout: 60 # 6 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
+      timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
 
 functions:
 

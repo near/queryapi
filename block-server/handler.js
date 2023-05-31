@@ -5,20 +5,27 @@ const S3= new AWS.S3();
 const NETWORK = process.env.NETWORK || 'mainnet';
 
 module.exports.block = async (event) => {
-    try {
-        // parse request params
-        const { block_height } = event.pathParameters;
-        const block = await fetchStreamerMessage(block_height);
-        return {
-            statusCode: 200,
-            body: JSON.stringify(block)
-        }
-    } catch (err) {
-        return {
-            statusCode: err.statusCode || 400,
-            body: err.message || JSON.stringify(err.message)
-        }
+  let headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Credentials": true,
+  };
+
+  try {
+    // parse request params
+    const { block_height } = event.pathParameters;
+    const block = await fetchStreamerMessage(block_height);
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(block)
     }
+  } catch (err) {
+    return {
+      statusCode: err.statusCode || 400,
+      headers,
+      body: err.message || JSON.stringify(err.message)
+    }
+  }
 };
 
 const normalizeBlockHeight = function(block_height) {

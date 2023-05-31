@@ -9,7 +9,7 @@ import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import { Alert } from "react-bootstrap";
 import primitives from "!!raw-loader!../../../primitives.d.ts";
 import { request, useInitialPayload } from "near-social-bridge";
-import Indexer from "../../utils/indexerRunner";
+import IndexerRunner from "../../utils/indexerRunner";
 import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
@@ -17,8 +17,6 @@ import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 const BLOCKHEIGHT_LIMIT = 3600;
-const BLOCK_FETCHER_API =
-  "https://70jshyr5cb.execute-api.eu-central-1.amazonaws.com/block/";
 
 const contractRegex = RegExp(
   "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
@@ -38,16 +36,17 @@ const Editor = ({
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
   const [debugMode, setDebugMode] = useState(false);
-  const [logs, setLogs] = useState([]);
   const [heights, setHeights] = useState([]);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
-  const handleLog = (blockHeight, log) => {
-    console.log(`Block #${blockHeight}: ${log}`);
-    setLogs((prevLogs) => [...prevLogs, log]);
+  const handleLog = (blockHeight, log, callback) => {
+    if(log) console.log(log);
+    if (callback) {
+      callback();
+    }
   };
 
-  const indexerRunner = new Indexer(handleLog);
+  const indexerRunner = new IndexerRunner(handleLog);
 
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
@@ -184,6 +183,9 @@ const Editor = ({
           setSelectedOption("specificBlockHeight");
           setBlockHeight(data.start_block_height);
         }
+        if(data.filter) {
+          setContractFilter(data.filter.matching_rule.affected_account_id)
+        }
       } catch (error) {
         console.log(error);
         setError(() => "An Error occured while trying to format the code.");
@@ -269,7 +271,6 @@ const Editor = ({
     const modifiedEditor = editor.getModifiedEditor();
     modifiedEditor.onDidChangeModelContent((_) => {
       if (fileName == "indexingLogic.js") {
-        console.log("mountin");
         setIndexingCode(modifiedEditor.getValue());
       }
       if (fileName == "schema.sql") {
@@ -300,28 +301,8 @@ const Editor = ({
     }
   }
 
-  async function fetchBlockDetails(blockHeight) {
-    try {
-      const response = await fetch(
-        `${BLOCK_FETCHER_API}${String(blockHeight)}`
-      );
-      const block_details = await response.json();
-      return block_details;
-    } catch {
-      console.log(`Error Fetching Block Height details at ${blockHeight}`);
-    }
-  }
-
   async function executeIndexerFunction() {
-    setLogs(() => []);
-    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    // for loop with await
-    for await (const height of heights) {
-      const block_details = await fetchBlockDetails(height);
-      if (block_details) {
-        await indexerRunner.runFunction(block_details, height, innerCode);
-      }
-    }
+    await indexerRunner.executeIndexerFunction(heights,indexingCode)
   }
 
   return (
@@ -371,12 +352,12 @@ const Editor = ({
         handleOptionChange={handleOptionChange}
         blockHeight={blockHeight}
         setBlockHeight={setBlockHeight}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
         actionButtonText={getActionButtonText()}
         submit={submit}
         blockHeightError={blockHeightError}
+        contractFilter={contractFilter}
+        handleSetContractFilter={handleSetContractFilter}
+        isContractFilterValid={isContractFilterValid}
       />
       <div
         className="px-3 pt-3"
@@ -428,7 +409,6 @@ const Editor = ({
           options={options}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
-          logs={logs}
         />
       </div>
     </div>

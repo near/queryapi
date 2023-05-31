@@ -42,7 +42,6 @@ const BlockHeightOptions = ({
           type="text"
           placeholder="social.near"
           required={true}
-          isValid={isContractFilterValid}
         />
         <Form.Control.Feedback type="invalid">
           Please provide a valid contract name.

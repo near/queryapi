@@ -10,6 +10,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use tokio::sync::MutexGuard;
 use tokio::task::JoinHandle;
+use unescape::unescape;
 
 use crate::indexer_reducer;
 use crate::indexer_reducer::FunctionCallInfo;
@@ -130,7 +131,6 @@ fn index_and_process_register_calls(
             let new_indexer_function = build_indexer_function_from_args(
                 parse_indexer_function_args(&update),
                 update.signer_id,
-                &registry_calls_rule,
             );
 
             match new_indexer_function {
@@ -260,7 +260,6 @@ fn build_function_invocation_from_args(
 fn build_indexer_function_from_args(
     args: Option<Value>,
     signer_id: String,
-    indexer_rule: &IndexerRule,
 ) -> Option<IndexerFunction> {
     match args {
         None => None,
@@ -272,18 +271,44 @@ fn build_indexer_function_from_args(
             let function_name = args["function_name"].as_str();
             match function_name {
                 None => {
-                    tracing::error!(
+                    tracing::warn!(
                         "Unable to parse function_name from indexer function: {:?}",
                         &args
                     );
                     return None;
                 }
-                Some(function_name) => build_indexer_function(
-                    &args,
-                    function_name.to_string(),
-                    account_id,
-                    indexer_rule,
-                ),
+                Some(function_name) => {
+                    match unescape(&args["filter_json"].to_string()) {
+                        Some(filter_string) => {
+                            let filter_json_strip_quotes = &filter_string[1..filter_string.len() - 1];
+                            match serde_json::from_str(&filter_json_strip_quotes) {
+                                Ok(filter_json) => match serde_json::from_value(filter_json) {
+                                    Ok(indexer_rule) => build_indexer_function(
+                                        &args,
+                                        function_name.to_string(),
+                                        account_id,
+                                        &indexer_rule,
+                                    ),
+                                    Err(e) => {
+                                        tracing::warn!("Error parsing filter into indexer_rule for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
+                                        None
+                                    }
+                                },
+                                Err(e) => {
+                                    tracing::warn!("Error parsing indexer_rule filter for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
+                                    None
+                                }
+                            }
+                        },
+                        None => {
+                            tracing::warn!(
+                                "Unable to unescape filter_json from registration args: {:?}",
+                                &args
+                            );
+                            None
+                        }
+                    }
+                }
             }
         }
     }
@@ -291,7 +316,6 @@ fn build_indexer_function_from_args(
 
 fn parse_indexer_function_args(update: &FunctionCallInfo) -> Option<Value> {
     if let Ok(mut args_json) = serde_json::from_str(&update.args) {
-        escape_json(&mut args_json);
         return Some(args_json);
     } else {
         tracing::error!(
