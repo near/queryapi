@@ -1,29 +1,95 @@
 import { Block } from "@near-lake/primitives";
 import { Buffer } from "buffer";
-import {fetchBlockDetails} from "./fetchBlock";
+import { fetchBlockDetails } from "./fetchBlock";
 
 global.Buffer = Buffer;
 export default class IndexerRunner {
   constructor(handleLog) {
     this.handleLog = handleLog;
+    this.currentHeight = 0;
+    this.shouldStop = false;
   }
 
-  async executeIndexerFunction(heights, indexingCode) {
+  get isExecuting() {
+    return !this.shouldStop;
+  }
+
+  async start(startingHeight, indexingCode, option) {
+    this.currentHeight = startingHeight;
+    this.shouldStop = false;
     console.clear()
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
-    if(heights.length === 0) {
+    if (!Number(startingHeight)) {
+      console.log("No Start Block Height Provided to Stream Blocks From")
+      this.stop()
+      console.groupEnd()
+      return
+    }
+    console.log(`Streaming Blocks Starting from ${option} Block #${this.currentHeight}`)
+    while (!this.shouldStop) {
+      console.group(`Block Height #${this.currentHeight}`)
+      let blockDetails;
+      try {
+        blockDetails = await fetchBlockDetails(this.currentHeight);
+      } catch (error) {
+        console.log(error)
+        this.stop()
+      }
+      if (blockDetails) {
+        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode);
+        this.currentHeight++;
+        await this.delay(1000);
+      }
+      console.groupEnd()
+
+    }
+  }
+
+  // Call this method to signal the block processing loop to stop
+  stop() {
+    this.shouldStop = true;
+    console.log("%c Stopping Block Processing", 'color: white; background-color: red; padding: 5px;')
+  }
+
+  delay(ms) {
+    // this.stop()
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async executeIndexerFunction(height, blockDetails, indexingCode) {
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    if (blockDetails) {
+      const block = Block.fromStreamerMessage(blockDetails);
+      block.actions()
+      block.receipts()
+      block.events()
+
+      // console.group("Block Details")
+      console.log(block)
+      // console.groupEnd()
+      await this.runFunction(blockDetails, height, innerCode);
+    }
+  }
+
+  async executeIndexerFunctionOnHeights(heights, indexingCode) {
+    console.clear()
+    console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
+    if (heights.length === 0) {
       console.warn("No Block Heights Selected")
+      return
     }
     console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.")
-    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     // for loop with await
     for await (const height of heights) {
       console.group(`Block Height #${height}`)
-      const block_details = await fetchBlockDetails(height);
-      console.time('Indexing Execution Complete')
-      if (block_details) {
-        await this.runFunction(block_details, height, innerCode);
+      let blockDetails;
+      try {
+        blockDetails = await fetchBlockDetails(height);
+      } catch (error) {
+        console.log(error)
       }
+      console.time('Indexing Execution Complete')
+      this.executeIndexerFunction(height, blockDetails, indexingCode)
       console.timeEnd('Indexing Execution Complete')
       console.groupEnd()
     }

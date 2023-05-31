@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   formatSQL,
   formatIndexingCode,
@@ -46,7 +47,7 @@ const Editor = ({
     }
   };
 
-  const indexerRunner = new IndexerRunner(handleLog);
+  const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
 
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
@@ -59,6 +60,7 @@ const Editor = ({
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("social.near");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -301,8 +303,29 @@ const Editor = ({
     }
   }
 
-  async function executeIndexerFunction() {
-    await indexerRunner.executeIndexerFunction(heights,indexingCode)
+  async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
+    switch (option) {
+      case "selected":
+        console.log("executing selected")
+        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
+        break
+      case "specific":
+        console.log("executing indexer specific")
+        setIsExecutingIndexerFunction(() => true)
+        console.log(startingBlockHeight, "block hegihth stating")
+        if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
+          console.log("Invalid Starting Block Height: starting block height is null or 0")
+          break
+        }
+
+        await indexerRunner.start(startingBlockHeight, indexingCode, option)
+        break
+      case "latest":
+        console.log("executing indexer func")
+        setIsExecutingIndexerFunction(() => true)
+        await indexerRunner.start(height, indexingCode, option)
+    }
+    setIsExecutingIndexerFunction(() => false)
   }
 
   return (
