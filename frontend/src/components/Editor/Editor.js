@@ -62,6 +62,12 @@ const Editor = ({
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
 
+  const requestLatestBlockHeight = async () => {
+    const response = await request("get-latest-block-height")
+    const { blockHeight } = response
+    return blockHeight
+  }
+
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     setBlockHeightError(null);
@@ -324,6 +330,8 @@ const Editor = ({
         console.log("executing indexer func")
         setIsExecutingIndexerFunction(() => true)
         await indexerRunner.start(height, indexingCode, option)
+        const latestHeight = await requestLatestBlockHeight()
+        if (latestHeight) await indexerRunner.start(latestHeight, indexingCode, option)
     }
     setIsExecutingIndexerFunction(() => false)
   }
@@ -354,6 +362,8 @@ const Editor = ({
         debugMode={debugMode}
         heights={heights}
         setHeights={setHeights}
+        isExecuting={isExecutingIndexerFunction}
+        stopExecution={() => indexerRunner.stop()}
         contractFilter={contractFilter}
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}
