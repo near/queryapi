@@ -15,9 +15,9 @@ on:
         required: true
         description: "Public key for signing transactions in the format: `ed25519:<public_key>`"
         type: string
-      directory-path:
+      directory-paths:
         required: true
-        description: "Path to the directory that contains the code to be deployed"
+        description: "Comma-separated paths to the directories that contain the code to be deployed"
         type: string
     secrets:
       SIGNER_PRIVATE_KEY:
@@ -31,7 +31,7 @@ jobs:
       BOS_DEPLOY_ACCOUNT_ID: ${{ inputs.deploy-account-address }}
       BOS_SIGNER_PUBLIC_KEY: ${{ inputs.signer-public-key }}
       BOS_SIGNER_PRIVATE_KEY: ${{ secrets.SIGNER_PRIVATE_KEY }}
-      DIRECTORY_PATH: ${{ inputs.directory-path }}
+      DIRECTORY_PATHS: ${{ inputs.directory-paths }}
 
     steps:
       - name: Checkout repository
@@ -43,5 +43,9 @@ jobs:
 
       - name: Deploy widgets
         run: |
-          cd $DIRECTORY_PATH
-          bos components deploy "$BOS_DEPLOY_ACCOUNT_ID" sign-as "$BOS_DEPLOY_ACCOUNT_ID" network-config mainnet sign-with-plaintext-private-key --signer-public-key "$BOS_SIGNER_PUBLIC_KEY" --signer-private-key "$BOS_SIGNER_PRIVATE_KEY" send
+          for DIR in $(echo $DIRECTORY_PATHS | tr "," "\n")
+          do
+            cd "$DIR"
+            bos components deploy "$BOS_DEPLOY_ACCOUNT_ID" sign-as "$BOS_DEPLOY_ACCOUNT_ID" network-config mainnet sign-with-plaintext-private-key --signer-public-key "$BOS_SIGNER_PUBLIC_KEY" --signer-private-key "$BOS_SIGNER_PRIVATE_KEY" send
+            cd -
+          done
