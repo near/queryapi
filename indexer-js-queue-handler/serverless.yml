@@ -15,6 +15,7 @@ provider:
     lambda: true #enable X-Ray tracing
 #  cfnRole: arn:aws:iam::754641474505:role/queryapi-cloudformation
 
+# See https://github.com/getlift/lift/blob/master/docs/queue.md for configuration of SQS constructs
 constructs:
   indexer-runner:
     type: queue
@@ -25,6 +26,7 @@ constructs:
   startFromBlock-runner:
     type: queue
     fifo: true
+    #    batchSize: 100
     worker:
       handler: handler.consumer
       timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)

@@ -31,16 +31,17 @@ export default class Indexer {
     async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
+        let lag = Date.now() - Math.floor(blockWithHelpers.header.timestamp_nanosec / 1000000);
         const simultaneousPromises = [];
         const allMutations = [];
         for (const function_name in functions) {
             try {
                 const indexerFunction = functions[function_name];
-                console.log('Running function', function_name);  // Lambda logs
+                console.log('Running function', function_name, ', lag in ms is: ', lag);  // Lambda logs
                 const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
                 functionSubsegment.addAnnotation('indexer_function', function_name);
-                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
+                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name, ', lag in ms is: ', lag));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');

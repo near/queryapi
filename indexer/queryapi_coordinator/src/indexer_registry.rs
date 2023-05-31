@@ -373,20 +373,3 @@ async fn read_only_call(
     }
     Err(anyhow::anyhow!("Unable to make rpc call: {:?}", response))
 }
-
-fn escape_json(object: &mut Value) {
-    match object {
-        Value::Object(ref mut value) => {
-            for (_key, val) in value {
-                escape_json(val);
-            }
-        }
-        Value::Array(ref mut values) => {
-            for element in values.iter_mut() {
-                escape_json(element)
-            }
-        }
-        Value::String(ref mut value) => *value = value.escape_default().to_string(),
-        _ => {}
-    }
-}
