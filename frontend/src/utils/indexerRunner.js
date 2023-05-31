@@ -45,14 +45,12 @@ export default class IndexerRunner {
     }
   }
 
-  // Call this method to signal the block processing loop to stop
   stop() {
     this.shouldStop = true;
     console.log("%c Stopping Block Processing", 'color: white; background-color: red; padding: 5px;')
   }
 
   delay(ms) {
-    // this.stop()
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
@@ -64,9 +62,7 @@ export default class IndexerRunner {
       block.receipts()
       block.events()
 
-      // console.group("Block Details")
       console.log(block)
-      // console.groupEnd()
       await this.runFunction(blockDetails, height, innerCode);
     }
   }
@@ -79,7 +75,6 @@ export default class IndexerRunner {
       return
     }
     console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.")
-    // for loop with await
     for await (const height of heights) {
       console.group(`Block Height #${height}`)
       let blockDetails;
@@ -158,7 +153,6 @@ export default class IndexerRunner {
       },
     };
 
-    // Call the wrapped function, passing the imported Block and streamerMessage
     wrappedFunction(Block, streamerMessage, context);
   }
 
@@ -182,45 +176,6 @@ export default class IndexerRunner {
       indexerFunction
     );
   }
-
-  // async runGraphQLQuery(
-  //   operation,
-  //   variables,
-  //   function_name,
-  //   block_height,
-  //   hasuraRoleName,
-  //   logError = true
-  // ) {
-  //   const response = await this.deps.fetch(
-  //     `${process.env.HASURA_ENDPOINT}/v1/graphql`,
-  //     {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         ...(hasuraRoleName && { "X-Hasura-Role": hasuraRoleName }),
-  //       },
-  //       body: JSON.stringify({
-  //         query: operation,
-  //         ...(variables && { variables }),
-  //       }),
-  //     }
-  //   );
-  //
-  //   const { data, errors } = await response.json();
-  //
-  //   if (response.status !== 200 || errors) {
-  //     if (logError) {
-  //     }
-  //     throw new Error(
-  //       `Failed to write graphql, http status: ${
-  //         response.status
-  //       }, errors: ${JSON.stringify(errors, null, 2)}`
-  //     );
-  //   }
-  //
-  //   return data;
-  // }
-  //
 
   renameUnderscoreFieldsToCamelCase(value) {
     if (value && typeof value === "object" && !Array.isArray(value)) {
