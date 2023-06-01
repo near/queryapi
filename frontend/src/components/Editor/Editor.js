@@ -30,7 +30,7 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
-  const DEBUG_LIST_STORAGE_KEY = useMemo(() => `QueryAPI:debugList:${accountId}#${indexerName}`, [accountId, indexerName])
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
@@ -80,7 +80,7 @@ const Editor = ({
   }, [selectedTab]);
 
   useEffect(() => {
-    localStorage.setItem(`QueryAPI:debugList:${accountId}#${indexerName}`, heights);
+    localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
   useEffect(() => {
