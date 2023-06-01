@@ -45,7 +45,7 @@ export default class Indexer {
                 functionSubsegment.addAnnotation('indexer_function', function_name);
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name, ', lag in ms is: ', lag));
 
-                await this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height);
+                simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
