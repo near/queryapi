@@ -30,6 +30,7 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
+  const DEBUG_LIST_STORAGE_KEY = useMemo(() => `QueryAPI:debugList:${accountId}#${indexerName}`, [accountId, indexerName])
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
@@ -37,7 +38,7 @@ const Editor = ({
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
   const [debugMode, setDebugMode] = useState(false);
-  const [heights, setHeights] = useState([]);
+  const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
   const handleLog = (blockHeight, log, callback) => {
@@ -77,6 +78,10 @@ const Editor = ({
       setFileName("GraphiQL");
     }
   }, [selectedTab]);
+
+  useEffect(() => {
+    localStorage.setItem(`QueryAPI:debugList:${accountId}#${indexerName}`, heights);
+  }, [heights]);
 
   useEffect(() => {
     if (selectedOption == "latestBlockHeight") {
