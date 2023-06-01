@@ -14,8 +14,8 @@ use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
 use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
 use tokio::task::JoinHandle;
 
-const INDEXED_DATA_FILES_BUCKET: &'static str = "near-delta-lake";
-const LAKE_BUCKET_PREFIX: &'static str = "near-lake-data-";
+const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
+const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
