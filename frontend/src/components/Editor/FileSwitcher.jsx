@@ -50,7 +50,7 @@ export function FileSwitcher({
           value={"GraphiQL"}
           onClick={() => setFileName("GraphiQL")}
         >
-          GraphiQL
+          Playground
         </ToggleButton>
         <InputGroup>
           <InputGroup.Text className="px-3">
