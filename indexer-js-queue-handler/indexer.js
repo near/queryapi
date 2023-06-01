@@ -3,9 +3,11 @@ import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
+
 import Provisioner from './provisioner.js'
 import AWSXRay from "aws-xray-sdk";
 import traceFetch from "./trace-fetch.js";
+import Metrics from './metrics.js'
 
 export default class Indexer {
 
@@ -21,6 +23,7 @@ export default class Indexer {
         this.deps = {
             fetch: traceFetch(fetch),
             s3: new AWS.S3({ region: process.env.AWS_REGION }),
+            metrics: new Metrics('QueryAPI'),
             provisioner: new Provisioner(),
             awsXray: AWSXRay,
             ...deps,
@@ -41,6 +44,8 @@ export default class Indexer {
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
                 functionSubsegment.addAnnotation('indexer_function', function_name);
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name, ', lag in ms is: ', lag));
+
+                await this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height);
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
