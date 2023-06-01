@@ -309,12 +309,13 @@ const Editor = ({
   }
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
+     setIsExecutingIndexerFunction(() => true)
+
     switch (option) {
       case "debugList":
         await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
         break
       case "specific":
-        setIsExecutingIndexerFunction(() => true)
         if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
           console.log("Invalid Starting Block Height: starting block height is null or 0")
           break
@@ -323,7 +324,6 @@ const Editor = ({
         await indexerRunner.start(startingBlockHeight, indexingCode, option)
         break
       case "latest":
-        setIsExecutingIndexerFunction(() => true)
         const latestHeight = await requestLatestBlockHeight()
         if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, option)
     }
