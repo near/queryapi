@@ -113,7 +113,7 @@ export default class IndexerRunner {
           "",
           () => {
             console.group(`Setting Key/Value`);
-            console.log({key: value});
+            console.log({[key]: value});
             console.groupEnd();
           }
         );
