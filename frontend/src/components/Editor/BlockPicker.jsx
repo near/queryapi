@@ -59,30 +59,30 @@ export const BlockPicker = ({
               <Plus size={24} style={{ cursor: "pointer" }} />
             </Button>
           </OverlayTrigger>
-              <Dropdown as={ButtonGroup}>
-                          <OverlayTrigger
-              placement="bottom"
-              overlay={<Tooltip>
- {
-                (() => {
-                    if(heights.length > 0) {
+            <Dropdown as={ButtonGroup}>
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<Tooltip>
+                  {
+                    (() => {
+                      if (heights.length > 0) {
                         return "Test Indexer Function With Debug List"
-                    } else if (inputValue) {
+                      } else if (inputValue) {
                         return "Test Indexer Function With Specific Block"
-                    } else {
-                        return "Follow the Tip of the Nework"
-                    }
-                })()
-            }
-        </Tooltip>}
-            >
+                      } else {
+                        return "Follow the Tip of the Network"
+                      }
+                    })()
+                  }
+                </Tooltip>}
+              >
 
                 <Button
                   size="sm"
                   variant="primary"
                   onClick={() => {
                     if (heights.length > 0) {
-                      executeIndexerFunction("selected")
+                      executeIndexerFunction("debugList")
                     } else if (inputValue) {
                       executeIndexerFunction("specific", inputValue)
                     } else {
@@ -93,20 +93,19 @@ export const BlockPicker = ({
                 >
                   <Play size={24} />
                 </Button>
-                            </OverlayTrigger>
-
-                <Dropdown.Toggle split variant="primary" id="dropdown-split-basic" />
-                <Dropdown.Menu>
-                  <Dropdown.Item onClick={() => executeIndexerFunction("latest")}>Follow The Network</Dropdown.Item>
-                  <Dropdown.Item disabled={heights.length === 0} onClick={() => executeIndexerFunction("selected")}>Execute From Debug List</Dropdown.Item>
-                </Dropdown.Menu>
-              </Dropdown>
+              </OverlayTrigger>
+              <Dropdown.Toggle split variant="primary" id="dropdown-split-basic" />
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => executeIndexerFunction("latest")}>Follow The Network</Dropdown.Item>
+                <Dropdown.Item disabled={heights.length === 0} onClick={() => executeIndexerFunction("debugList")}>Execute From Debug List</Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
           </>)
           }
 
 
-      </InputGroup>
-    </div>
+        </InputGroup>
+      </div>
     </div >
   );
 };

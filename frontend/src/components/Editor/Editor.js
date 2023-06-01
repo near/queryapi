@@ -310,7 +310,7 @@ const Editor = ({
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
     switch (option) {
-      case "selected":
+      case "debugList":
         await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
         break
       case "specific":
@@ -324,9 +324,8 @@ const Editor = ({
         break
       case "latest":
         setIsExecutingIndexerFunction(() => true)
-        await indexerRunner.start(height, indexingCode, option)
         const latestHeight = await requestLatestBlockHeight()
-        if (latestHeight) await indexerRunner.start(latestHeight, indexingCode, option)
+        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, option)
     }
     setIsExecutingIndexerFunction(() => false)
   }

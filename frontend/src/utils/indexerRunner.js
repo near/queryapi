@@ -10,16 +10,12 @@ export default class IndexerRunner {
     this.shouldStop = false;
   }
 
-  get isExecuting() {
-    return !this.shouldStop;
-  }
-
   async start(startingHeight, indexingCode, option) {
     this.currentHeight = startingHeight;
     this.shouldStop = false;
     console.clear()
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
-    if (!Number(startingHeight)) {
+    if (option == "specific" && !Number(startingHeight)) {
       console.log("No Start Block Height Provided to Stream Blocks From")
       this.stop()
       console.groupEnd()
