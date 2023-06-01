@@ -9,6 +9,7 @@ provider:
   region: eu-central-1
   timeout: 15
   environment:
+    AWS_REGION: ${self:provider.region}
     HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
     HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
   tracing:
