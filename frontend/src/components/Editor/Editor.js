@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   formatSQL,
   formatIndexingCode,
@@ -16,6 +16,7 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
+import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
 
 const contractRegex = RegExp(
@@ -46,7 +47,7 @@ const Editor = ({
     }
   };
 
-  const indexerRunner = new IndexerRunner(handleLog);
+  const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
 
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
@@ -59,6 +60,12 @@ const Editor = ({
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("social.near");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
+
+  const requestLatestBlockHeight = async () => {
+    const blockHeight = getLatestBlockHeight()
+    return blockHeight
+  }
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -301,8 +308,26 @@ const Editor = ({
     }
   }
 
-  async function executeIndexerFunction() {
-    await indexerRunner.executeIndexerFunction(heights,indexingCode)
+  async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
+     setIsExecutingIndexerFunction(() => true)
+
+    switch (option) {
+      case "debugList":
+        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
+        break
+      case "specific":
+        if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
+          console.log("Invalid Starting Block Height: starting block height is null or 0")
+          break
+        }
+
+        await indexerRunner.start(startingBlockHeight, indexingCode, option)
+        break
+      case "latest":
+        const latestHeight = await requestLatestBlockHeight()
+        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, option)
+    }
+    setIsExecutingIndexerFunction(() => false)
   }
 
   return (
@@ -331,6 +356,8 @@ const Editor = ({
         debugMode={debugMode}
         heights={heights}
         setHeights={setHeights}
+        isExecuting={isExecutingIndexerFunction}
+        stopExecution={() => indexerRunner.stop()}
         contractFilter={contractFilter}
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}

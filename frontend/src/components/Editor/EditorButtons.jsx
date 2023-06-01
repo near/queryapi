@@ -37,6 +37,8 @@ const EditorButtons = ({
   getActionButtonText,
   submit,
   debugMode,
+  isExecuting,
+  stopExecution,
   heights,
   setHeights,
   setShowPublishModal,
@@ -104,6 +106,8 @@ const EditorButtons = ({
                   setHeights={setHeights}
                   executeIndexerFunction={executeIndexerFunction}
                   latestHeight={latestHeight}
+                  isExecuting={isExecuting}
+                  stopExecution={stopExecution}
                 />
               )}
             </Col>

@@ -6,15 +6,19 @@ import {
   Badge,
   InputGroup,
   FormControl,
+  Dropdown,
+  ButtonGroup,
 } from "react-bootstrap";
 
-import { Play, Plus } from "react-bootstrap-icons";
+import { Play, Plus, Stop } from "react-bootstrap-icons";
 
 export const BlockPicker = ({
   heights = [],
   setHeights,
   executeIndexerFunction,
   latestHeight,
+  isExecuting,
+  stopExecution,
 }) => {
   const [inputValue, setInputValue] = useState(String(latestHeight));
 
@@ -37,24 +41,71 @@ export const BlockPicker = ({
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
           />
-          <Button variant="outline-secondary" onClick={addHeight}>
-            <Plus size={24} style={{ cursor: "pointer" }} />
-          </Button>
-          <OverlayTrigger
-            placement="bottom"
-            overlay={<Tooltip>Test Indexer Function In Browser</Tooltip>}
-          >
-            <Button
-              className="mx-2"
-              size="sm"
-              variant="primary"
-              onClick={() => executeIndexerFunction()}
+          {isExecuting === true &&
+            <OverlayTrigger
+              placement="bottom"
+              overlay={<Tooltip>Stop Indexer Execution</Tooltip>}
             >
-              <Play size={24} />
+              <Button variant="outline-secondary" onClick={() => stopExecution()}>
+                <Stop size={24} style={{ cursor: "pointer" }} />
+              </Button>
+            </OverlayTrigger>
+          }
+          {!isExecuting && (<>          <OverlayTrigger
+            placement="bottom"
+            overlay={<Tooltip>Add Block To Debug List</Tooltip>}
+          >
+            <Button variant="outline-secondary" onClick={addHeight}>
+              <Plus size={24} style={{ cursor: "pointer" }} />
             </Button>
           </OverlayTrigger>
+            <Dropdown as={ButtonGroup}>
+              <OverlayTrigger
+                placement="bottom"
+                overlay={<Tooltip>
+                  {
+                    (() => {
+                      if (heights.length > 0) {
+                        return "Test Indexer Function With Debug List"
+                      } else if (inputValue) {
+                        return "Test Indexer Function With Specific Block"
+                      } else {
+                        return "Follow the Tip of the Network"
+                      }
+                    })()
+                  }
+                </Tooltip>}
+              >
+
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => {
+                    if (heights.length > 0) {
+                      executeIndexerFunction("debugList")
+                    } else if (inputValue) {
+                      executeIndexerFunction("specific", inputValue)
+                    } else {
+                      executeIndexerFunction("latest")
+                    }
+                  }
+                  }
+                >
+                  <Play size={24} />
+                </Button>
+              </OverlayTrigger>
+              <Dropdown.Toggle split variant="primary" id="dropdown-split-basic" />
+              <Dropdown.Menu>
+                <Dropdown.Item onClick={() => executeIndexerFunction("latest")}>Follow The Network</Dropdown.Item>
+                <Dropdown.Item disabled={heights.length === 0} onClick={() => executeIndexerFunction("debugList")}>Execute From Debug List</Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
+          </>)
+          }
+
+
         </InputGroup>
       </div>
-    </div>
+    </div >
   );
 };
