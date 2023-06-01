@@ -365,9 +365,9 @@ async fn fetch_contract_index_files(
     }
 }
 
+/// check whether the filename is a date after the start date
+/// filename is in format 2022-10-03.json
 fn file_name_date_after(start_date: DateTime<Utc>, file_name: String) -> bool {
-    // check whether the filename is a date after the start date
-    // filename is in format 2022-10-03.json
     let file_name_date = file_name.split("/").last().unwrap().replace(".json", "");
     let file_name_date = NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d");
     match file_name_date {
