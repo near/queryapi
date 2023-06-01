@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Metrics writes the block height for an indexer function 1`] = `
+[
+  {
+    "MetricData": [
+      {
+        "Dimensions": [
+          {
+            "Name": "ACCOUNT_ID",
+            "Value": "morgs.near",
+          },
+          {
+            "Name": "FUNCTION_NAME",
+            "Value": "test",
+          },
+        ],
+        "MetricName": "INDEXER_FUNCTION_LATEST_BLOCK_HEIGHT",
+        "Unit": "None",
+        "Value": 2,
+      },
+    ],
+    "Namespace": "test",
+  },
+]
+`;
