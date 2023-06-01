@@ -141,30 +141,6 @@ export default class Indexer {
         }
     }
 
-    // deprecated
-    async fetchIndexerFunctions() {
-        const connectionConfig = {
-            networkId: "mainnet",
-            // keyStore: myKeyStore, // no keystore needed for reads
-            nodeUrl: "https://rpc.mainnet.near.org",
-            walletUrl: "https://wallet.mainnet.near.org",
-            helperUrl: "https://helper.mainnet.near.org",
-            explorerUrl: "https://explorer.mainnet.near.org",
-        };
-        const near = await connect(connectionConfig);
-        const response = await near.connection.provider.query({
-            request_type: "call_function",
-            finality: "optimistic",
-            account_id: "registry.queryapi.near",
-            method_name: "list_indexer_functions",
-            args_base64: "",
-        });
-
-        const stringResult = Buffer.from(response.result).toString();
-        const functions = JSON.parse(stringResult);
-        return functions;
-    }
-
     // pad with 0s to 12 digits
     normalizeBlockHeight(block_height) {
         return block_height.toString().padStart(12, '0');
