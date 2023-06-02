@@ -19,7 +19,7 @@ const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
-    new_indexer_function: &mut IndexerFunction,
+    new_indexer_function: &IndexerFunction,
 ) -> Option<JoinHandle<i64>> {
     new_indexer_function.start_block_height.map(|_| {
         let new_indexer_function_copy = new_indexer_function.clone();
@@ -39,20 +39,20 @@ async fn process_historical_messages(
     match block_difference {
         i64::MIN..=-1 => {
             tracing::error!(target: crate::INDEXER, "Skipping back fill, start_block_height is greater than current block height: {:?} {:?}",
-                                     indexer_function.account_id.clone(),
-                                     indexer_function.function_name.clone(),);
+                                     indexer_function.account_id,
+                                     indexer_function.function_name);
         }
         0 => {
             tracing::info!(target: crate::INDEXER, "Skipping back fill, start_block_height is equal to current block height: {:?} {:?}",
-                                     indexer_function.account_id.clone(),
-                                     indexer_function.function_name.clone(),);
+                                     indexer_function.account_id,
+                                     indexer_function.function_name);
         }
         1..=i64::MAX => {
             tracing::info!(
                 target: crate::INDEXER,
                 "Back filling {block_difference} blocks from {start_block} to current block height {block_height}: {:?} {:?}",
-                indexer_function.account_id.clone(),
-                indexer_function.function_name.clone(),
+                indexer_function.account_id,
+                indexer_function.function_name
             );
 
             let opts = Opts::parse();
@@ -282,7 +282,13 @@ async fn filter_matching_blocks_manually(
                             );
                         }
                     }
-                    Err(e) => {}
+                    Err(e) => {
+                        tracing::warn!(
+                            target: crate::INDEXER,
+                            "Error matching block {} against S3 file: {:?}",
+                            current_block,
+                            e);
+                    }
                 }
             }
             Err(e) => {

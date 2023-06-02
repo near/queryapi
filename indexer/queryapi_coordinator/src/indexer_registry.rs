@@ -302,7 +302,7 @@ fn build_indexer_function_from_args(
 }
 
 fn parse_indexer_function_args(update: &FunctionCallInfo) -> Option<Value> {
-    if let Ok(mut args_json) = serde_json::from_str(&update.args) {
+    if let Ok(args_json) = serde_json::from_str(&update.args) {
         return Some(args_json);
     } else {
         tracing::error!(
