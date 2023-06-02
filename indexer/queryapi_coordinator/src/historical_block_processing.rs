@@ -87,7 +87,7 @@ async fn process_historical_messages(
                 .await;
 
             let mut blocks_between_indexed_and_current_block: Vec<BlockHeight> =
-                filter_matching_blocks_manually(
+                filter_matching_unindexed_blocks_from_lake(
                     last_indexed_block,
                     block_height,
                     &indexer_function.indexer_rule,
@@ -213,7 +213,7 @@ fn parse_blocks_from_index_files(
         .collect::<Vec<u64>>()
 }
 
-async fn filter_matching_blocks_manually(
+async fn filter_matching_unindexed_blocks_from_lake(
     last_indexed_block: BlockHeight,
     ending_block_height: BlockHeight,
     indexer_rule: &IndexerRule,
