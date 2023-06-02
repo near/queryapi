@@ -10,7 +10,7 @@ overrideLocalStorage();
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <NearSocialBridgeProvider fallback={<Spinner />}>
+    <NearSocialBridgeProvider waitForStorage fallback={<Spinner />}>
       <Component {...pageProps} />
     </NearSocialBridgeProvider>
   );
