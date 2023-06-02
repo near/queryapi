@@ -3,7 +3,7 @@ import AWS from "aws-sdk";
 export default class Metrics {
     constructor(namespace, cloudwatch) {
         this.cloudwatch =
-            cloudwatch || new AWS.CloudWatch({ region: process.env.AWS_REGION });
+            cloudwatch || new AWS.CloudWatch({ region: process.env.REGION });
         this.namespace = namespace;
     }
 

@@ -19,10 +19,10 @@ export default class Indexer {
     ) {
         this.DEFAULT_HASURA_ROLE = 'append';
         this.network = network;
-        this.aws_region = process.env.AWS_REGION;
+        this.aws_region = process.env.REGION;
         this.deps = {
             fetch: traceFetch(fetch),
-            s3: new AWS.S3({ region: process.env.AWS_REGION }),
+            s3: new AWS.S3({ region: process.env.REGION }),
             metrics: new Metrics('QueryAPI'),
             provisioner: new Provisioner(),
             awsXray: AWSXRay,
