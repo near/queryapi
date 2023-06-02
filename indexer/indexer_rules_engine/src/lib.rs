@@ -1,7 +1,7 @@
 pub mod matcher;
 pub mod outcomes_reducer;
-pub mod types;
 mod outcomes_reducer_sync;
+pub mod types;
 
 use indexer_rule_type::indexer_rule::{IndexerRule, MatchingRule};
 use near_lake_framework::near_indexer_primitives::StreamerMessage;

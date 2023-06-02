@@ -1,5 +1,3 @@
-use futures::future::try_join_all;
-
 use crate::matcher;
 use crate::types::events::Event;
 use crate::types::indexer_rule_match::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
@@ -32,7 +30,8 @@ pub fn reduce_indexer_rule_matches_from_outcomes(
                 streamer_message.block.header.height,
                 chain_id.clone(),
             )
-        }).collect()
+        })
+        .collect()
 }
 
 fn build_indexer_rule_match(
@@ -112,4 +111,3 @@ fn build_indexer_rule_match_payload(
         }
     }
 }
-
