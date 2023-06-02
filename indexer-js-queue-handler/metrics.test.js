@@ -3,6 +3,19 @@ import { jest } from '@jest/globals';
 import Metrics from './metrics';
 
 describe('Metrics', () => {
+    const oldEnv = process.env;
+
+    beforeAll(() => {
+        process.env = {
+            ...oldEnv,
+            STAGE: 'dev',
+        };
+    });
+
+    afterAll(() => {
+        process.env = oldEnv;
+    });
+
     it('writes the block height for an indexer function', async () => {
         const cloudwatch = {
             putMetricData: jest.fn().mockReturnValueOnce({ promise: jest.fn() })

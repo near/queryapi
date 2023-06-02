@@ -22,6 +22,10 @@ export default class Metrics {
                                 Name: "FUNCTION_NAME",
                                 Value: functionName,
                             },
+                            {
+                                Name: "STAGE",
+                                Value: process.env.STAGE,
+                            },
                         ],
                         Unit: "None",
                         Value: height,

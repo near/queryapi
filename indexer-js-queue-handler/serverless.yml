@@ -10,6 +10,7 @@ provider:
   timeout: 15
   environment:
     REGION: ${self:provider.region}
+    STAGE: ${opt:stage, 'dev'}
     HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
     HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
   tracing:
