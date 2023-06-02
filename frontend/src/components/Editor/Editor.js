@@ -18,7 +18,7 @@ import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
-import { validateAccountId } from "../../utils/validators"
+import { validateContractId } from "../../utils/validators"
 
 
 const Editor = ({
@@ -299,7 +299,7 @@ const Editor = ({
   function handleSetContractFilter(e) {
     const contractFilter = e.target.value;
     setContractFilter(contractFilter);
-    const isValid = validateAccountId(contractFilter);
+    const isValid = validateContractId(contractFilter);
 
     if (isValid) {
       setIsContractFilterValid(true);
