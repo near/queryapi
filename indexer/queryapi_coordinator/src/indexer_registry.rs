@@ -14,9 +14,7 @@ use unescape::unescape;
 
 use crate::indexer_reducer;
 use crate::indexer_reducer::FunctionCallInfo;
-use crate::indexer_types::{IndexerFunction, IndexerQueueMessage, IndexerRegistry};
-use crate::opts;
-use crate::opts::{Opts, Parser};
+use crate::indexer_types::{IndexerFunction, IndexerRegistry};
 use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
 pub(crate) fn registry_as_vec_of_indexer_functions(
@@ -168,7 +166,10 @@ fn index_and_process_register_calls(
 
                     if new_indexer_function.start_block_height.is_some() {
                         if let Some(thread) =
-                            spawn_historical_message_thread(block_height, &mut new_indexer_function)
+                            crate::historical_block_processing::spawn_historical_message_thread(
+                                block_height,
+                                &mut new_indexer_function,
+                            )
                         {
                             spawned_start_from_block_threads.push(thread);
                         }
@@ -226,18 +227,6 @@ fn index_and_process_remove_calls(
     }
 }
 
-fn spawn_historical_message_thread(
-    block_height: BlockHeight,
-    new_indexer_function: &mut IndexerFunction,
-) -> Option<JoinHandle<i64>> {
-    new_indexer_function.start_block_height.map(|_| {
-        let new_indexer_function_copy = new_indexer_function.clone();
-        tokio::spawn(async move {
-            process_historical_messages(block_height, new_indexer_function_copy).await
-        })
-    })
-}
-
 fn build_function_invocation_from_args(
     args: Option<Value>,
     signer_id: String,
@@ -277,45 +266,43 @@ fn build_indexer_function_from_args(
                     );
                     return None;
                 }
-                Some(function_name) => {
-                    match unescape(&args["filter_json"].to_string()) {
-                        Some(filter_string) => {
-                            let filter_json_strip_quotes = &filter_string[1..filter_string.len() - 1];
-                            match serde_json::from_str(&filter_json_strip_quotes) {
-                                Ok(filter_json) => match serde_json::from_value(filter_json) {
-                                    Ok(indexer_rule) => build_indexer_function(
-                                        &args,
-                                        function_name.to_string(),
-                                        account_id,
-                                        &indexer_rule,
-                                    ),
-                                    Err(e) => {
-                                        tracing::warn!("Error parsing filter into indexer_rule for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
-                                        None
-                                    }
-                                },
+                Some(function_name) => match unescape(&args["filter_json"].to_string()) {
+                    Some(filter_string) => {
+                        let filter_json_strip_quotes = &filter_string[1..filter_string.len() - 1];
+                        match serde_json::from_str(&filter_json_strip_quotes) {
+                            Ok(filter_json) => match serde_json::from_value(filter_json) {
+                                Ok(indexer_rule) => build_indexer_function(
+                                    &args,
+                                    function_name.to_string(),
+                                    account_id,
+                                    &indexer_rule,
+                                ),
                                 Err(e) => {
-                                    tracing::warn!("Error parsing indexer_rule filter for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
+                                    tracing::warn!("Error parsing filter into indexer_rule for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
                                     None
                                 }
+                            },
+                            Err(e) => {
+                                tracing::warn!("Error parsing indexer_rule filter for account {} function {}: {}, {}", account_id, function_name, e, filter_string);
+                                None
                             }
-                        },
-                        None => {
-                            tracing::warn!(
-                                "Unable to unescape filter_json from registration args: {:?}",
-                                &args
-                            );
-                            None
                         }
                     }
-                }
+                    None => {
+                        tracing::warn!(
+                            "Unable to unescape filter_json from registration args: {:?}",
+                            &args
+                        );
+                        None
+                    }
+                },
             }
         }
     }
 }
 
 fn parse_indexer_function_args(update: &FunctionCallInfo) -> Option<Value> {
-    if let Ok(mut args_json) = serde_json::from_str(&update.args) {
+    if let Ok(args_json) = serde_json::from_str(&update.args) {
         return Some(args_json);
     } else {
         tracing::error!(
@@ -324,78 +311,6 @@ fn parse_indexer_function_args(update: &FunctionCallInfo) -> Option<Value> {
         );
     }
     None
-}
-
-async fn process_historical_messages(
-    block_height: BlockHeight,
-    indexer_function: IndexerFunction,
-) -> i64 {
-    let start_block = indexer_function.start_block_height.unwrap();
-    let block_difference: i64 = (block_height - start_block) as i64;
-    match block_difference {
-        i64::MIN..=-1 => {
-            tracing::error!(target: crate::INDEXER, "Skipping back fill, start_block_height is greater than current block height: {:?} {:?}",
-                                     indexer_function.account_id.clone(),
-                                     indexer_function.function_name.clone(),);
-        }
-        0 => {
-            tracing::info!(target: crate::INDEXER, "Skipping back fill, start_block_height is equal to current block height: {:?} {:?}",
-                                     indexer_function.account_id.clone(),
-                                     indexer_function.function_name.clone(),);
-        }
-        1..=3600 => {
-            tracing::info!(
-                target: crate::INDEXER,
-                "Back filling {block_difference} blocks from {start_block} to current block height {block_height}: {:?} {:?}",
-                indexer_function.account_id.clone(),
-                indexer_function.function_name.clone(),
-            );
-
-            let opts = Opts::parse();
-
-            let chain_id = opts.chain_id().clone();
-            let aws_region = opts.aws_queue_region.clone();
-            let queue_client = &opts.queue_client(aws_region);
-            let queue_url = opts.start_from_block_queue_url.clone();
-
-            // todo: fetch contract index files to get list of relevant blocks for our filter.
-
-            for current_block in start_block..block_height {
-                let mut indexer_function = indexer_function.clone();
-
-                // only request provisioning on the first block
-                if current_block != start_block {
-                    indexer_function.provisioned = true;
-                }
-
-                let msg = IndexerQueueMessage {
-                    chain_id: chain_id.clone(),
-                    indexer_rule_id: 0,
-                    indexer_rule_name: indexer_function.function_name.clone(),
-                    payload: None, //alert_queue_message.payload.clone(),  // todo populate with data from the Match
-                    block_height: current_block,
-                    indexer_function: indexer_function.clone(),
-                };
-
-                match opts::send_to_indexer_queue(queue_client, queue_url.clone(), vec![msg]).await
-                {
-                    Ok(_) => {}
-                    Err(err) => tracing::error!(
-                        target: crate::INDEXER,
-                        "#{} an error occurred during sending messages to the queue\n{:#?}",
-                        block_height,
-                        err
-                    ),
-                }
-            }
-        }
-        3601..=i64::MAX => {
-            tracing::error!(target: crate::INDEXER, "Skipping back fill, start_block_height is more than 1 hour before current block height: {:?} {:?}",
-                                     indexer_function.account_id.clone(),
-                                     indexer_function.function_name.clone(),);
-        }
-    }
-    block_difference
 }
 
 fn build_registry_indexer_rule(
@@ -457,36 +372,4 @@ async fn read_only_call(
         return Ok(serde_json::from_str(std::str::from_utf8(&result.result).unwrap()).unwrap());
     }
     Err(anyhow::anyhow!("Unable to make rpc call: {:?}", response))
-}
-
-fn escape_json(object: &mut Value) {
-    match object {
-        Value::Object(ref mut value) => {
-            for (_key, val) in value {
-                escape_json(val);
-            }
-        }
-        Value::Array(ref mut values) => {
-            for element in values.iter_mut() {
-                escape_json(element)
-            }
-        }
-        Value::String(ref mut value) => *value = value.escape_default().to_string(),
-        _ => {}
-    }
-}
-
-#[tokio::test]
-async fn test_process_historical_messages() {
-    let indexer_function = IndexerFunction {
-        account_id: "buildnear.testnet".to_string().parse().unwrap(),
-        function_name: "index_stuff".to_string(),
-        code: "".to_string(),
-        start_block_height: Some(85376002),
-        schema: None,
-        provisioned: false,
-        indexer_rule: indexer_rule_type::near_social_indexer_rule(),
-    };
-
-    process_historical_messages(85376003, indexer_function).await;
 }
