@@ -3,8 +3,12 @@ name: Rust
 on:
   push:
     branches: [ main ]
+    paths:
+      - "indexer/**"
   pull_request:
-    branches: [ main, staging, production ]
+    branches: [ main, stable ]
+    paths:
+      - "indexer/**"
 
 env:
   CARGO_TERM_COLOR: always
@@ -17,6 +21,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Run check
+      working-directory: ./indexer
       run: cargo check
 
   rustfmt:
@@ -33,7 +38,7 @@ jobs:
         profile: minimal
         components: rustfmt
     - name: Check formatting
-    - working-directory: ./indexer
+      working-directory: ./indexer
       run: |
         cargo fmt -- --check
 
@@ -51,6 +56,6 @@ jobs:
         profile: minimal
         components: clippy
     - name: Clippy check
-    - working-directory: ./indexer
+      working-directory: ./indexer
       run: |
         cargo clippy
