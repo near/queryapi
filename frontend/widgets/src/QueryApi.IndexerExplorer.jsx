@@ -60,6 +60,8 @@ const Header = styled.div`
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 200px;
+  max-width: 500px;
 `;
 
 const H1 = styled.h1`
@@ -200,15 +202,25 @@ const TabsButton = styled.a`
   }
 `;
 
+const TextLink = styled.a`
+  margin: 0;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: ${(p) => (p.bold ? "600" : "400")};
+  font-size: ${(p) => (p.small ? "12px" : "14px")};
+  overflow: ${(p) => (p.ellipsis ? "hidden" : "visible")};
+  text-overflow: ${(p) => (p.ellipsis ? "ellipsis" : "unset")};
+  white-space: nowrap;
+  outline: none;
+
+  &:focus,
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 return (
   <Wrapper className="container-xl">
-    {state.selectedTab == "my-indexers" && state.my_indexers.length == 0 && (
-      <Header>
-        <H1>
-          You currently have no indexers. Explore new Indexers and fork them!
-        </H1>
-      </Header>
-    )}
     <Tabs>
       <TabsButton
         onClick={() => State.update({ selectedTab: "my-indexers" })}
@@ -243,6 +255,19 @@ return (
           ))}
         </Items>
       </>
+    )}
+    {state.selectedTab == "my-indexers" && state.my_indexers.length == 0 && (
+      <Header>
+        <H2>
+          QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
+        </H2>
+        <H2>
+          To learn more about QueryAPI, visit
+          <TextLink target="_blank" href="https://docs.near.org/bos/community/indexers" as="a" bold>
+            QueryAPI Docs
+          </TextLink>
+        </H2>
+      </Header>
     )}
     <Items>
       {state.selectedTab == "my-indexers" && (
