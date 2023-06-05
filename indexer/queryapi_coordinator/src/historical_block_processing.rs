@@ -135,6 +135,11 @@ pub(crate) async fn last_indexed_block_from_metadata(aws_config: &SdkConfig) -> 
 
     let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
     let last_indexed_block = metadata["last_indexed_block"].clone();
+    tracing::info!(
+        target: crate::INDEXER,
+        "Last indexed block from latest_block.json: {:?}",
+        last_indexed_block
+    );
     let last_indexed_block: u64 = from_str(last_indexed_block.as_str().unwrap()).unwrap();
     last_indexed_block as BlockHeight
 }
