@@ -80,19 +80,22 @@ async fn process_historical_messages(
 
             let last_indexed_block = last_indexed_block_from_metadata(aws_config).await;
 
-            let mut blocks_from_index =
-                filter_matching_blocks_from_index_files(
-                    start_block,
-                    block_height,
-                    &indexer_function.indexer_rule,
-                    aws_config,
-                    start_date.unwrap(),
-                )
-                .await;
+            let mut blocks_from_index = filter_matching_blocks_from_index_files(
+                start_block,
+                block_height,
+                &indexer_function.indexer_rule,
+                aws_config,
+                start_date.unwrap(),
+            )
+            .await;
 
             // Check for the case where an index file is written right after we get the last_indexed_block metadata
             let last_block_in_data = blocks_from_index.last().unwrap_or(&start_block);
-            let last_indexed_block = if last_block_in_data > &last_indexed_block { *last_block_in_data } else { last_indexed_block};
+            let last_indexed_block = if last_block_in_data > &last_indexed_block {
+                *last_block_in_data
+            } else {
+                last_indexed_block
+            };
 
             let mut blocks_between_indexed_and_current_block: Vec<BlockHeight> =
                 filter_matching_unindexed_blocks_from_lake(
@@ -306,7 +309,8 @@ async fn filter_matching_unindexed_blocks_from_lake(
                             target: crate::INDEXER,
                             "Error matching block {} against S3 file: {:?}",
                             current_block,
-                            e);
+                            e
+                        );
                     }
                 }
             }
