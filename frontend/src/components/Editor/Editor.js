@@ -18,10 +18,8 @@ import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
+import { validateContractId } from "../../utils/validators"
 
-const contractRegex = RegExp(
-  "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
-);
 
 const Editor = ({
   options,
@@ -299,17 +297,14 @@ const Editor = ({
   }
 
   function handleSetContractFilter(e) {
-    // check if contract filter is greater than 2 and less than or equal to 64 chars
     const contractFilter = e.target.value;
     setContractFilter(contractFilter);
-    if (
-      contractFilter.length > 64 ||
-      contractFilter.length < 2 ||
-      !contractRegex.test(contractFilter)
-    ) {
-      setIsContractFilterValid(false);
-    } else {
+    const isValid = validateContractId(contractFilter);
+
+    if (isValid) {
       setIsContractFilterValid(true);
+    } else {
+      setIsContractFilterValid(false);
     }
   }
 

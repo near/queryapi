@@ -39,6 +39,7 @@ const BlockHeightOptions = ({
         <Form.Control
           value={contractFilter}
           onChange={handleSetContractFilter}
+          isValid={isContractFilterValid}
           type="text"
           placeholder="social.near"
           required={true}
