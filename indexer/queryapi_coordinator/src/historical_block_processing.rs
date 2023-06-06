@@ -12,10 +12,12 @@ use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatchP
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
 use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
+use serde_json::from_str;
 use tokio::task::JoinHandle;
 
 const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
 const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
+const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/metadata";
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
@@ -76,15 +78,32 @@ async fn process_historical_messages(
 
             let mut indexer_function = indexer_function.clone();
 
-            let (last_indexed_block, mut blocks_from_index) =
-                filter_matching_blocks_from_index_files(
-                    start_block,
-                    block_height,
-                    &indexer_function.indexer_rule,
-                    aws_config,
-                    start_date.unwrap(),
-                )
-                .await;
+            let last_indexed_block = last_indexed_block_from_metadata(aws_config).await;
+            if last_indexed_block.is_err() {
+                tracing::error!(
+                    target: crate::INDEXER,
+                    last_indexed_block = ?last_indexed_block,
+                );
+                return block_difference;
+            }
+            let last_indexed_block = last_indexed_block.unwrap();
+
+            let mut blocks_from_index = filter_matching_blocks_from_index_files(
+                start_block,
+                block_height,
+                &indexer_function.indexer_rule,
+                aws_config,
+                start_date.unwrap(),
+            )
+            .await;
+
+            // Check for the case where an index file is written right after we get the last_indexed_block metadata
+            let last_block_in_data = blocks_from_index.last().unwrap_or(&start_block);
+            let last_indexed_block = if last_block_in_data > &last_indexed_block {
+                *last_block_in_data
+            } else {
+                last_indexed_block
+            };
 
             let mut blocks_between_indexed_and_current_block: Vec<BlockHeight> =
                 filter_matching_unindexed_blocks_from_lake(
@@ -116,13 +135,45 @@ async fn process_historical_messages(
     block_difference
 }
 
+pub(crate) async fn last_indexed_block_from_metadata(
+    aws_config: &SdkConfig,
+) -> anyhow::Result<BlockHeight> {
+    let key = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, "latest_block.json");
+    let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
+    let s3_client: S3Client = S3Client::from_conf(s3_config);
+    let metadata = fetch_text_file_from_s3(INDEXED_DATA_FILES_BUCKET, key, s3_client).await;
+
+    let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
+    let last_indexed_block = metadata["last_indexed_block"].clone();
+    let last_indexed_block = last_indexed_block.as_str();
+    if last_indexed_block.is_none() {
+        return Err(anyhow::anyhow!(
+            "No last_indexed_block found in latest_block.json"
+        ));
+    }
+    let last_indexed_block = last_indexed_block.unwrap();
+    let last_indexed_block = from_str(last_indexed_block);
+    if last_indexed_block.is_err() {
+        return Err(anyhow::anyhow!(
+            "last_indexed_block couldn't be converted to u64"
+        ));
+    }
+    let last_indexed_block = last_indexed_block.unwrap();
+    tracing::info!(
+        target: crate::INDEXER,
+        "Last indexed block from latest_block.json: {:?}",
+        last_indexed_block
+    );
+    Ok(last_indexed_block)
+}
+
 async fn filter_matching_blocks_from_index_files(
     start_block_height: BlockHeight,
     end_block_height: BlockHeight,
     indexer_rule: &IndexerRule,
     aws_config: &SdkConfig,
     start_date: DateTime<Utc>,
-) -> (BlockHeight, Vec<BlockHeight>) {
+) -> Vec<BlockHeight> {
     let s3_bucket = INDEXED_DATA_FILES_BUCKET;
 
     let index_files_content = match &indexer_rule.matching_rule {
@@ -130,7 +181,7 @@ async fn filter_matching_blocks_from_index_files(
             affected_account_id,
             status,
         } => {
-            let s3_prefix = format!("silver/contracts/metadata/{}", affected_account_id);
+            let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
             fetch_contract_index_files(aws_config, s3_bucket, s3_prefix, start_date).await
         }
         MatchingRule::ActionFunctionCall {
@@ -142,7 +193,7 @@ async fn filter_matching_blocks_from_index_files(
                 target: crate::INDEXER,
                 "ActionFunctionCall matching rule not supported for historical processing"
             );
-            return (end_block_height, vec![]);
+            return vec![];
 
             // let s3_prefix = format!("silver/contracts/metadata/{}", affected_account_id);
             // fetch_contract_index_files(aws_config, s3_bucket, s3_prefix).await
@@ -153,7 +204,7 @@ async fn filter_matching_blocks_from_index_files(
                 target: crate::INDEXER,
                 "Event matching rule not supported for historical processing"
             );
-            return (end_block_height, vec![]);
+            return vec![];
         }
     };
 
@@ -171,9 +222,7 @@ async fn filter_matching_blocks_from_index_files(
         block_count = blocks_to_process.len()
     );
 
-    let last_indexed_block = blocks_to_process.last().unwrap_or(&start_block_height);
-
-    (*last_indexed_block, blocks_to_process)
+    blocks_to_process
 }
 
 fn parse_blocks_from_index_files(
@@ -224,6 +273,11 @@ async fn filter_matching_unindexed_blocks_from_lake(
     let s3_client: S3Client = S3Client::from_conf(s3_config);
     let lake_bucket = lake_bucket_for_chain(chain_id.clone());
 
+    let count = ending_block_height - last_indexed_block;
+    tracing::info!(
+        target: crate::INDEXER,
+        "Filtering {count} unindexed blocks from lake: from block {last_indexed_block} to {ending_block_height}",
+    );
     let mut blocks_to_process: Vec<u64> = vec![];
     for current_block in (last_indexed_block + 1)..ending_block_height {
         // fetch block file from S3
@@ -275,11 +329,6 @@ async fn filter_matching_unindexed_blocks_from_lake(
                     Ok(match_list) => {
                         if match_list.len() > 0 {
                             blocks_to_process.push(current_block);
-                            tracing::info!(
-                                target: crate::INDEXER,
-                                "Matched historical block {} against S3 file",
-                                current_block,
-                            );
                         }
                     }
                     Err(e) => {
@@ -287,7 +336,8 @@ async fn filter_matching_unindexed_blocks_from_lake(
                             target: crate::INDEXER,
                             "Error matching block {} against S3 file: {:?}",
                             current_block,
-                            e);
+                            e
+                        );
                     }
                 }
             }
@@ -301,6 +351,11 @@ async fn filter_matching_unindexed_blocks_from_lake(
             }
         }
     }
+    tracing::info!(
+        target: crate::INDEXER,
+        "Found {block_count} unindexed blocks to process.",
+        block_count = blocks_to_process.len()
+    );
     blocks_to_process
 }
 
