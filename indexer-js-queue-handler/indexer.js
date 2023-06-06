@@ -33,7 +33,7 @@ export default class Indexer {
     async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
-        let lag = Date.now() - Math.floor(blockWithHelpers.header.timestamp_nanosec / 1000000);
+        let lag = Date.now() - Math.floor(blockWithHelpers.header().timestampNanosec / 1000000);
         const simultaneousPromises = [];
         const allMutations = [];
         for (const function_name in functions) {
