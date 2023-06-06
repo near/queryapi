@@ -6,7 +6,7 @@ import AWS from "aws-sdk";
 AWSXRay.captureAWS(AWS);
 
 export const consumer = async (event) => {
-    const indexer = new Indexer('mainnet', 'eu-central-1');
+    const indexer = new Indexer('mainnet');
 
     for (const record of event.Records) {
         const jsonBody = JSON.parse(record.body);

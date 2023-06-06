@@ -24,7 +24,7 @@ const mockAwsXray = {
 describe('Indexer integration tests', () => {
 
     test('Indexer.runFunctions() should execute an imperative style test function against a given block using key-value storage', async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { fetch: fetch, awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { fetch: fetch, awsXray: mockAwsXray });
         const functions = {};
         functions['buildnear.testnet/itest1'] = {provisioned: false, code: 'context.set("BlockHeight", block.header().height);', schema: 'create table indexer_storage (function_name text, key_name text, value text, primary key (function_name, key_name));'};
         const block_height = 85376002;
@@ -40,7 +40,7 @@ describe('Indexer integration tests', () => {
     }, 30000);
 
     test('Indexer.runFunctions() should execute a test function against a given block using key-value storage', async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
         const functions = {};
         functions['buildnear.testnet/itest1'] = {code: 'context.set("BlockHeight", block.header().height);'};
         const block_height = 85376546;
@@ -51,7 +51,7 @@ describe('Indexer integration tests', () => {
     }, 30000);
 
     test('Indexer.runFunctions() should execute a test function against a given block using a full mutation to write to key-value storage', async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
         const functions = {};
         functions['buildnear.testnet/itest1'] = {code: 'context.graphql(`mutation { insert_buildnear_testnet_itest1_indexer_storage_one(object: {function_name: "buildnear.testnet/itest3", key_name: "BlockHeight", value: "${block.header().height}"} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}}`);'};
         const block_height = 85376546;
@@ -65,7 +65,7 @@ describe('Indexer integration tests', () => {
      * due to known Hasura issues with unique indexes vs unique constraints  */
     test('Indexer.runFunctions() should execute a near social function against a given block', async () => {
 
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
         const functions = {};
         functions['buildnear.testnet/test'] = {code:
 
@@ -128,7 +128,7 @@ describe('Indexer integration tests', () => {
      * due to known Hasura issues with unique indexes vs unique constraints  */
     // needs update to have schema
     test.skip('Indexer.runFunctions() should execute an imperative style near social function against a given block', async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
         const functions = {};
 
         functions['buildnear.testnet/itest5'] = {code:`
@@ -176,14 +176,14 @@ describe('Indexer integration tests', () => {
     });
 
     test("writeLog() should write a log to the database", async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
         const id = await indexer.writeLog("buildnear.testnet/itest", 85376002, "test message");
         expect(id).toBeDefined();
         expect(id.length).toBe(36);
     });
 
     test("writeFunctionState should write a function state to the database", async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
         const result = await indexer.writeFunctionState("buildnear.testnet/itest8", 85376002);
         expect(result).toBeDefined();
         expect(result.insert_indexer_state.returning[0].current_block_height).toBe(85376002);
@@ -191,7 +191,7 @@ describe('Indexer integration tests', () => {
 
     // Errors are now exposed to the lambda hander. This test will be relevant again if this changes.
     test.skip ("function that throws an error should catch the error", async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/test'] = {code:`
@@ -205,7 +205,7 @@ describe('Indexer integration tests', () => {
 
     // Errors are now exposed to the lambda hander. This test will be relevant again if this changes.
     test.skip("rejected graphql promise is awaited and caught", async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/itest3'] = {code:
@@ -219,7 +219,7 @@ describe('Indexer integration tests', () => {
     // Unreturned promise rejection seems to be uncatchable even with process.on('unhandledRejection'
     // However, the next function is run (in this test but not on Lambda).
     test.skip("function that rejects a promise should catch the error", async () => {
-        const indexer = new Indexer('mainnet', 'us-west-2', { awsXray: mockAwsXray });
+        const indexer = new Indexer('mainnet', { awsXray: mockAwsXray });
 
         const functions = {};
         functions['buildnear.testnet/fails'] = {code:`
