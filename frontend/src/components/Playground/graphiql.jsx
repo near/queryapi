@@ -6,10 +6,12 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 import { useExplorerPlugin } from '@graphiql/plugin-explorer';
 import '@graphiql/plugin-explorer/dist/style.css';
+import "graphiql/graphiql.min.css";
+
 const HASURA_ENDPOINT =
   process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
   "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
-import { useState } from "react";
+
 const graphQLFetcher = async (graphQLParams, accountId) => {
   const response = await fetch(HASURA_ENDPOINT, {
     method: "post",
