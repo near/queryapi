@@ -79,6 +79,14 @@ async fn process_historical_messages(
             let mut indexer_function = indexer_function.clone();
 
             let last_indexed_block = last_indexed_block_from_metadata(aws_config).await;
+            if last_indexed_block.is_err() {
+                tracing::error!(
+                    target: crate::INDEXER,
+                    last_indexed_block = ?last_indexed_block,
+                );
+                return block_difference;
+            }
+            let last_indexed_block = last_indexed_block.unwrap();
 
             let mut blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
@@ -127,7 +135,9 @@ async fn process_historical_messages(
     block_difference
 }
 
-pub(crate) async fn last_indexed_block_from_metadata(aws_config: &SdkConfig) -> BlockHeight {
+pub(crate) async fn last_indexed_block_from_metadata(
+    aws_config: &SdkConfig,
+) -> anyhow::Result<BlockHeight> {
     let key = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, "latest_block.json");
     let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
     let s3_client: S3Client = S3Client::from_conf(s3_config);
@@ -135,13 +145,26 @@ pub(crate) async fn last_indexed_block_from_metadata(aws_config: &SdkConfig) -> 
 
     let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
     let last_indexed_block = metadata["last_indexed_block"].clone();
+    let last_indexed_block = last_indexed_block.as_str();
+    if last_indexed_block.is_none() {
+        return Err(anyhow::anyhow!(
+            "No last_indexed_block found in latest_block.json"
+        ));
+    }
+    let last_indexed_block = last_indexed_block.unwrap();
+    let last_indexed_block = from_str(last_indexed_block);
+    if last_indexed_block.is_err() {
+        return Err(anyhow::anyhow!(
+            "last_indexed_block couldn't be converted to u64"
+        ));
+    }
+    let last_indexed_block = last_indexed_block.unwrap();
     tracing::info!(
         target: crate::INDEXER,
         "Last indexed block from latest_block.json: {:?}",
         last_indexed_block
     );
-    let last_indexed_block: u64 = from_str(last_indexed_block.as_str().unwrap()).unwrap();
-    last_indexed_block as BlockHeight
+    Ok(last_indexed_block)
 }
 
 async fn filter_matching_blocks_from_index_files(
