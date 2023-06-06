@@ -9,10 +9,17 @@ provider:
   region: eu-central-1
   timeout: 15
   environment:
+    REGION: ${self:provider.region}
+    STAGE: ${opt:stage, 'dev'}
     HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
     HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
   tracing:
     lambda: true #enable X-Ray tracing
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "cloudwatch:PutMetricData"
+      Resource: "*"
 #  cfnRole: arn:aws:iam::754641474505:role/queryapi-cloudformation
 
 # See https://github.com/getlift/lift/blob/master/docs/queue.md for configuration of SQS constructs
