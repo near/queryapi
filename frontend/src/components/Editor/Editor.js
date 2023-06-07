@@ -16,10 +16,10 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
-import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
-const BLOCKHEIGHT_LIMIT = 3600;
+import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { EditorContext } from '../../contexts/EditorContext';
 
+const BLOCKHEIGHT_LIMIT = 3600;
 
 const Editor = ({
   options,
@@ -41,16 +41,31 @@ const Editor = ({
     selectedOption,
     handleOptionChange,
   } = useContext(EditorContext);
+
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
+
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
+
   const [fileName, setFileName] = useState("indexingLogic.js");
+
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
+  const [indexingCode, setIndexingCode] = useState(defaultCode);
+  const [schema, setSchema] = useState(defaultSchema);
+
   const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
+
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
-  const handleLog = (blockHeight, log, callback) => {
-    if(log) console.log(log);
+  const [diffView, setDiffView] = useState(false);
+  const [blockView, setBlockView] = useState(false);
+
+  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
+
+  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+
+  const handleLog = (_, log, callback) => {
+    if (log) console.log(log);
     if (callback) {
       callback();
     }
@@ -58,13 +73,6 @@ const Editor = ({
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
 
-  const [indexingCode, setIndexingCode] = useState(defaultCode);
-  const [schema, setSchema] = useState(defaultSchema);
-  const [diffView, setDiffView] = useState(false);
-  const [blockView, setBlockView] = useState(false);
-
-  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
-  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
 
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
@@ -89,16 +97,13 @@ const Editor = ({
 
     if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
       setBlockHeightError(
-        `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
-          BLOCKHEIGHT_LIMIT / 3600
-        } hrs. Choose a start block height between ${
-          height - BLOCKHEIGHT_LIMIT
+        `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600
+        } hrs. Choose a start block height between ${height - BLOCKHEIGHT_LIMIT
         } - ${height}.`
       );
     } else if (blockHeight > height) {
       setBlockHeightError(
-        `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
-          height - BLOCKHEIGHT_LIMIT
+        `Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT
         } - ${height}.`
       );
     } else {
@@ -146,7 +151,7 @@ const Editor = ({
     if (selectedOption == "latestBlockHeight") {
       start_block_height = null;
     }
-    // Send a message to other sources
+
     request("register-function", {
       indexerName: indexerNameField.replaceAll(" ", "_"),
       code: innerCode,
@@ -164,10 +169,9 @@ const Editor = ({
       indexerName: indexerName,
     });
   };
-  const handleReload = useCallback(async () => {
+
+  const handleReload = async () => {
     if (options?.create_new_indexer === true) {
-      // setIndexingCode(defaultCode);
-      // setSchema(defaultSchema);
       setShowResetCodeModel(false);
       return;
     }
@@ -193,7 +197,7 @@ const Editor = ({
           setSelectedOption("specificBlockHeight");
           setBlockHeight(data.start_block_height);
         }
-        if(data.filter) {
+        if (data.filter) {
           setContractFilter(data.filter.matching_rule.affected_account_id)
         }
       } catch (error) {
@@ -203,12 +207,7 @@ const Editor = ({
     }
 
     setShowResetCodeModel(false);
-  }, [
-    accountId,
-    indexerNameField,
-    onLoadErrorText,
-    options?.create_new_indexer,
-  ]);
+  }
 
   const format_querried_code = (code) => {
     try {
@@ -271,12 +270,6 @@ const Editor = ({
     await reformat();
   }
 
-  async function submit() {
-    // Handle Register button click
-    await reformat();
-    await registerFunction();
-  }
-
   function handleEditorMount(editor) {
     const modifiedEditor = editor.getModifiedEditor();
     modifiedEditor.onDidChangeModelContent((_) => {
@@ -298,7 +291,7 @@ const Editor = ({
 
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
-     setIsExecutingIndexerFunction(() => true)
+    setIsExecutingIndexerFunction(() => true)
 
     switch (option) {
       case "debugList":
@@ -381,8 +374,6 @@ const Editor = ({
           setFileName={setFileName}
           diffView={diffView}
           setDiffView={setDiffView}
-          blockView={blockView}
-          setBlockView={setBlockView}
         />
         <ResizableLayoutEditor
           fileName={fileName}

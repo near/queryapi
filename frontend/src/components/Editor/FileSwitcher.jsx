@@ -7,8 +7,6 @@ export function FileSwitcher({
   setFileName,
   diffView,
   setDiffView,
-  blockView,
-  setBlockView,
 }) {
   const { debugMode, setDebugMode } = useContext(EditorContext);
   return (

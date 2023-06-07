@@ -10,7 +10,6 @@ const QueryApiEditorPage = ({ router }) => {
   const { setAccountId, setIndexerName } = useContext(EditorContext);
 
   useEffect(() => {
-    console.log("accountId", accountId, "indexerName", indexerName)
     if (accountId == undefined || indexerName == undefined) {
       return;
     }
