@@ -6,12 +6,16 @@ import {
   overrideLocalStorage,
   NearSocialBridgeProvider,
 } from "near-social-bridge";
+import { EditorProvider } from '../contexts/EditorContext';
 overrideLocalStorage();
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <NearSocialBridgeProvider waitForStorage fallback={<Spinner />}>
-      <Component {...pageProps} />
+      <EditorProvider>
+        <Component {...pageProps} />
+      </EditorProvider>
     </NearSocialBridgeProvider>
   );
 }
+
