@@ -2,7 +2,7 @@ import prettier from "prettier";
 import SqlPlugin from "prettier-plugin-sql";
 import parserBabel from "prettier/parser-babel";
 
-let unformatted_code = (code) => `import {Block} from "@near-lake/primitives"
+let wrap_code = (code) => `import {Block} from "@near-lake/primitives"
 /** 
  * Note: We only support javascript at the moment. We will support Rust, Typescript in a further release. 
  */
@@ -36,18 +36,19 @@ export const formatSQL = (schema) => {
   }
 };
 
-export const formatIndexingCode = (code, wrapCode) => {
+export const wrapCode = (code) => {
   code = code.replace(/(?:\\[n])+/g, "\r\n");
-  if (wrapCode) {
-    code = unformatted_code(code);
-  }
+  const wrappedCode = wrap_code(code);
+  return wrappedCode
+}
+
+export const formatIndexingCode = (code) => {
   try {
     return prettier.format(code, {
       parser: "babel",
       plugins: [parserBabel],
     });
   } catch (e) {
-    console.log(e);
     return code;
   }
 };

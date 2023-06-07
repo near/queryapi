@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo, useContext } from "react";
+import React, { useEffect, useState, useMemo, useContext } from "react";
 import {
   formatSQL,
   formatIndexingCode,
+  wrapCode,
   defaultCode,
   defaultSchema,
 } from "../../utils/formatters";
@@ -183,11 +184,11 @@ const Editor = ({
       setError(() => onLoadErrorText);
     } else {
       try {
-        let unformatted_indexing_code = format_querried_code(data.code);
+        let unformatted_wrapped_indexing_code = wrapCode(data.code)
         let unformatted_schema = data.schema;
-        if (unformatted_indexing_code !== null) {
-          setOriginalIndexingCode(unformatted_indexing_code);
-          setIndexingCode(unformatted_indexing_code);
+        if (unformatted_wrapped_indexing_code !== null) {
+          setOriginalIndexingCode(() => unformatted_wrapped_indexing_code);
+          setIndexingCode(() => unformatted_wrapped_indexing_code);
         }
         if (unformatted_schema !== null) {
           setOriginalSQLCode(unformatted_schema);
@@ -200,29 +201,13 @@ const Editor = ({
         if (data.filter) {
           setContractFilter(data.filter.matching_rule.affected_account_id)
         }
+        await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
       } catch (error) {
         console.log(error);
-        setError(() => "An Error occured while trying to format the code.");
       }
     }
-
     setShowResetCodeModel(false);
   }
-
-  const format_querried_code = (code) => {
-    try {
-      let formatted_code = formatIndexingCode(code, true);
-      setError(() => undefined);
-      return formatted_code;
-    } catch (error) {
-      setError(
-        () =>
-          "Oh snap! We could not format the queried code. The code in the registry contract may be invalid Javascript code. "
-      );
-      console.log(error);
-      return unformatted_code;
-    }
-  };
 
   const getActionButtonText = () => {
     const isUserIndexer = accountId === currentUserAccountId;
@@ -231,7 +216,7 @@ const Editor = ({
   };
 
   useEffect(() => {
-    if(!accountId || !indexerName) return;
+    if (!accountId || !indexerName) return;
     const load = async () => {
       await handleReload();
     };
@@ -247,12 +232,12 @@ const Editor = ({
     setError(() => errorMessage);
   };
 
-  const reformat = () => {
+  const reformat = (indexingCode, schema) => {
     return new Promise((resolve, reject) => {
       try {
         let formattedCode;
         if (fileName === "indexingLogic.js") {
-          formattedCode = formatIndexingCode(indexingCode, false);
+          formattedCode = formatIndexingCode(indexingCode);
           setIndexingCode(formattedCode);
         } else if (fileName === "schema.sql") {
           formattedCode = formatSQL(schema);
@@ -268,7 +253,7 @@ const Editor = ({
   };
 
   async function handleFormating() {
-    await reformat();
+    await reformat(indexingCode, schema);
   }
 
   function handleEditorMount(editor) {
