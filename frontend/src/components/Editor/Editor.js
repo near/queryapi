@@ -176,7 +176,7 @@ const Editor = ({
       return;
     }
 
-    const data = await queryIndexerFunctionDetails(accountId, indexerNameField);
+    const data = await queryIndexerFunctionDetails(accountId, indexerName);
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
@@ -231,11 +231,12 @@ const Editor = ({
   };
 
   useEffect(() => {
+    if(!accountId || !indexerName) return;
     const load = async () => {
       await handleReload();
     };
     load();
-  }, [accountId, handleReload, indexerName]);
+  }, [accountId, indexerName]);
 
   const handleFormattingError = (fileName) => {
     const errorMessage =
