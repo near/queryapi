@@ -1,21 +1,25 @@
-import { Button, Modal } from "react-bootstrap";
-import { Alert } from "react-bootstrap";
+import React, { useContext } from "react";
+import { Button, Modal, Alert } from "react-bootstrap";
 import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup";
+import { EditorContext } from '../../contexts/EditorContext';
 
 export const PublishModal = ({
-  showPublishModal,
-  setShowPublishModal,
   submit,
-  selectedOption,
-  handleOptionChange,
-  blockHeight,
-  setBlockHeight,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
   actionButtonText,
   blockHeightError,
 }) => {
+    const { 
+      showPublishModal,
+      setShowPublishModal,
+      selectedOption,
+      handleOptionChange,
+      blockHeight,
+      setBlockHeight,
+      contractFilter,
+      handleSetContractFilter,
+      isContractFilterValid,
+  } = useContext(EditorContext);
+
   return (
     <Modal
       centered={true}

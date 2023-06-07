@@ -1,14 +1,19 @@
+import React, { useContext } from "react";
 import { InputGroup } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
-const BlockHeightOptions = ({
-  selectedOption,
-  handleOptionChange,
-  blockHeight,
-  setBlockHeight,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
-}) => {
+import { EditorContext } from '../../contexts/EditorContext';
+
+const BlockHeightOptions = () => {
+  const {
+    selectedOption,
+    handleOptionChange,
+    blockHeight,
+    setBlockHeight,
+    contractFilter,
+    handleSetContractFilter,
+    isContractFilterValid,
+  } = useContext(EditorContext);
+
   return (
     <>
       <InputGroup size="sm" className="pt-3">

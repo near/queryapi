@@ -1,9 +1,13 @@
+import React, { useContext } from "react";
 import { Button, Modal } from "react-bootstrap";
+import { EditorContext } from '../../contexts/EditorContext';
 export const ResetChangesModal = ({
-  showResetCodeModel,
-  setShowResetCodeModel,
   handleReload,
 }) => {
+  const { 
+    showResetCodeModel,
+    setShowResetCodeModel,
+  } = useContext(EditorContext);
   return (
     <Modal
       centered={true}

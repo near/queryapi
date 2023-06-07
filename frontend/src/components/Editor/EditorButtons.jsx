@@ -1,14 +1,10 @@
-// EditorButtons.jsx
-
-import React from "react";
+import React, { useContext } from "react";
 import {
-  ButtonToolbar,
   Breadcrumb,
   Button,
   Form,
   InputGroup,
   Navbar,
-  Nav,
   Container,
   Col,
   Row,
@@ -24,34 +20,37 @@ import {
   XCircle,
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
+import { EditorContext } from '../../contexts/EditorContext';
 
 const EditorButtons = ({
-  accountId,
-  indexerNameField,
-  setIndexerNameField,
   options,
-  setShowResetCodeModel,
   handleFormating,
   executeIndexerFunction,
   currentUserAccountId,
   getActionButtonText,
-  submit,
-  debugMode,
   isExecuting,
   stopExecution,
   heights,
   setHeights,
-  setShowPublishModal,
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
 }) => {
+  const {
+    setShowPublishModal,
+    setShowResetCodeModel,
+    debugMode,
+    accountId,
+    indexerNameField,
+    setIndexerNameField,
+    contractFilter,
+    handleSetContractFilter,
+  } = useContext(EditorContext);
+
   const removeHeight = (index) => {
     setHeights(heights.filter((_, i) => i !== index));
   };
+
   return (
     <>
       <Navbar bg="light" variant="light">
@@ -84,7 +83,7 @@ const EditorButtons = ({
                   )}
                 </Breadcrumb.Item>
               </Breadcrumb>
-              <InputGroup size="sm" hasValidation={true} style = {{width: "fit-content"}}>
+              <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
                   disabled={!options.create_new_indexer}
@@ -98,7 +97,7 @@ const EditorButtons = ({
                   Please provide a valid contract name.
                 </Form.Control.Feedback>
               </InputGroup>
-</Col>
+            </Col>
             <Col style={{ display: "flex", justifyContent: "center" }}>
               {debugMode && (
                 <BlockPicker
