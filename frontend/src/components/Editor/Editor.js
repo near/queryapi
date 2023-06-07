@@ -18,7 +18,6 @@ import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
-import { validateContractId } from "../../utils/validators"
 import { EditorContext } from '../../contexts/EditorContext';
 
 
@@ -30,17 +29,25 @@ const Editor = ({
   const {
     accountId,
     indexerName,
+    indexerNameField,
+    blockHeight,
+    setBlockHeight,
+    setShowResetCodeModel,
+    setShowPublishModal,
+    debugMode,
+    setSelectedOption,
+    setContractFilter,
+    contractFilter,
+    selectedOption,
+    handleOptionChange,
   } = useContext(EditorContext);
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
-  const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [fileName, setFileName] = useState("indexingLogic.js");
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
-  const [debugMode, setDebugMode] = useState(false);
   const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
-  const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
   const handleLog = (blockHeight, log, callback) => {
     if(log) console.log(log);
@@ -55,12 +62,7 @@ const Editor = ({
   const [schema, setSchema] = useState(defaultSchema);
   const [diffView, setDiffView] = useState(false);
   const [blockView, setBlockView] = useState(false);
-  const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
-  const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
-  const [blockHeight, setBlockHeight] = useState("0");
 
-  const [isContractFilterValid, setIsContractFilterValid] = useState(true);
-  const [contractFilter, setContractFilter] = useState("social.near");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
 
@@ -68,11 +70,6 @@ const Editor = ({
     const blockHeight = getLatestBlockHeight()
     return blockHeight
   }
-
-  const handleOptionChange = (event) => {
-    setSelectedOption(event.target.value);
-    setBlockHeightError(null);
-  };
 
   useEffect(() => {
     if (selectedTab === "playground") {
@@ -299,17 +296,6 @@ const Editor = ({
     );
   }
 
-  function handleSetContractFilter(e) {
-    const contractFilter = e.target.value;
-    setContractFilter(contractFilter);
-    const isValid = validateContractId(contractFilter);
-
-    if (isValid) {
-      setIsContractFilterValid(true);
-    } else {
-      setIsContractFilterValid(false);
-    }
-  }
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
      setIsExecutingIndexerFunction(() => true)
@@ -343,51 +329,27 @@ const Editor = ({
       }}
     >
       <EditorButtons
-        accountId={accountId}
-        indexerNameField={indexerNameField}
-        setIndexerNameField={setIndexerNameField}
         options={options}
-        selectedOption={selectedOption}
-        handleOptionChange={handleOptionChange}
-        blockHeight={blockHeight}
-        setBlockHeight={setBlockHeight}
-        setShowResetCodeModel={setShowResetCodeModel}
         handleFormating={handleFormating}
         executeIndexerFunction={executeIndexerFunction}
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
-        debugMode={debugMode}
         heights={heights}
         setHeights={setHeights}
         isExecuting={isExecutingIndexerFunction}
         stopExecution={() => indexerRunner.stop()}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
-        setShowPublishModal={setShowPublishModal}
         latestHeight={height}
         isUserIndexer={accountId === currentUserAccountId}
         handleDeleteIndexer={handleDeleteIndexer}
       />
       <ResetChangesModal
-        showResetCodeModel={showResetCodeModel}
-        setShowResetCodeModel={setShowResetCodeModel}
         handleReload={handleReload}
       />
       <PublishModal
-        showPublishModal={showPublishModal}
-        setShowPublishModal={setShowPublishModal}
         registerFunction={registerFunction}
-        selectedOption={selectedOption}
         handleOptionChange={handleOptionChange}
-        blockHeight={blockHeight}
-        setBlockHeight={setBlockHeight}
         actionButtonText={getActionButtonText()}
-        submit={submit}
         blockHeightError={blockHeightError}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
       />
       <div
         className="px-3 pt-3"
@@ -421,11 +383,8 @@ const Editor = ({
           setDiffView={setDiffView}
           blockView={blockView}
           setBlockView={setBlockView}
-          debugMode={debugMode}
-          setDebugMode={setDebugMode}
         />
         <ResizableLayoutEditor
-          accountId={accountId}
           fileName={fileName}
           indexingCode={indexingCode}
           blockView={blockView}
