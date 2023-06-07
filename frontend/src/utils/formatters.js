@@ -31,8 +31,7 @@ export const formatSQL = (schema) => {
       database: "postgresql",
     });
   } catch (e) {
-    console.log(e);
-    return schema;
+    throw e;
   }
 };
 
@@ -49,7 +48,7 @@ export const formatIndexingCode = (code) => {
       plugins: [parserBabel],
     });
   } catch (e) {
-    return code;
+    throw e;
   }
 };
 

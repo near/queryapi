@@ -24,6 +24,7 @@ export const queryIndexerFunctionDetails = async (accountId, functionName) => {
       JSON.parse(Buffer.from(result.result).toString())
     );
   } catch (error) {
+    console.log(`Could not query indexer function details from registry ${REGISTRY_CONTRACT}, for ${accountId}/${functionName}`)
     console.log(error, "error");
     return null;
   }
