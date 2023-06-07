@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useContext } from "react";
 import {
   formatSQL,
   formatIndexingCode,
@@ -19,15 +19,18 @@ import { PublishModal } from "../Modals/PublishModal";
 import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
 import { validateContractId } from "../../utils/validators"
+import { EditorContext } from '../../contexts/EditorContext';
 
 
 const Editor = ({
   options,
-  accountId,
-  indexerName,
   onLoadErrorText,
   actionButtonText,
 }) => {
+  const {
+    accountId,
+    indexerName,
+  } = useContext(EditorContext);
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
