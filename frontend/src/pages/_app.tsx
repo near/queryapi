@@ -6,16 +6,16 @@ import {
   overrideLocalStorage,
   NearSocialBridgeProvider,
 } from "near-social-bridge";
-import { EditorProvider } from '../contexts/EditorContext';
+import { IndexerDetailsProvider } from '../contexts/IndexerDetailsContext';
 overrideLocalStorage();
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <NearSocialBridgeProvider waitForStorage fallback={<Spinner />}>
-      <EditorProvider>
+    <IndexerDetailsProvider>
+      <NearSocialBridgeProvider waitForStorage fallback={<Spinner />}>
         <Component {...pageProps} />
-      </EditorProvider>
-    </NearSocialBridgeProvider>
+      </NearSocialBridgeProvider>
+    </IndexerDetailsProvider>
   );
 }
 

@@ -20,7 +20,7 @@ import {
   XCircle,
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
-import { EditorContext } from '../../contexts/EditorContext';
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const EditorButtons = ({
   options,
@@ -36,7 +36,10 @@ const EditorButtons = ({
   isUserIndexer,
   handleDeleteIndexer,
 }) => {
+  
   const {
+    indexerDetails,
+    setIndexerName,
     setShowPublishModal,
     setShowResetCodeModel,
     debugMode,

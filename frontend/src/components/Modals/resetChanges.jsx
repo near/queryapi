@@ -1,13 +1,13 @@
+import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import React, { useContext } from "react";
 import { Button, Modal } from "react-bootstrap";
-import { EditorContext } from '../../contexts/EditorContext';
 export const ResetChangesModal = ({
   handleReload,
 }) => {
   const { 
     showResetCodeModel,
     setShowResetCodeModel,
-  } = useContext(EditorContext);
+  } = useContext(IndexerDetailsContext);
   return (
     <Modal
       centered={true}

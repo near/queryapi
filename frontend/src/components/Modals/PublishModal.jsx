@@ -1,24 +1,22 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { Button, Modal, Alert } from "react-bootstrap";
-import BlockHeightOptions from "../Form/BlockHeightOptionsInputGroup";
-import { EditorContext } from '../../contexts/EditorContext';
+import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 export const PublishModal = ({
-  submit,
+  registerFunction,
   actionButtonText,
   blockHeightError,
 }) => {
-    const { 
-      showPublishModal,
-      setShowPublishModal,
-      selectedOption,
-      handleOptionChange,
-      blockHeight,
-      setBlockHeight,
-      contractFilter,
-      handleSetContractFilter,
-      isContractFilterValid,
-  } = useContext(EditorContext);
+  const [indexerConfig, setIndexerConfig] = useState({filter: "social.near", startBlockHeight: 0})
+  const {
+    showPublishModal,
+    setShowPublishModal,
+  } = useContext(IndexerDetailsContext);
+
+  const updateConfig = (filter, startBlockHeight) => {
+    setIndexerConfig({ filter, startBlockHeight })
+  }
 
   return (
     <Modal
@@ -30,15 +28,7 @@ export const PublishModal = ({
         <Modal.Title> Enter Indexer Details</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <BlockHeightOptions
-          selectedOption={selectedOption}
-          handleOptionChange={handleOptionChange}
-          blockHeight={blockHeight}
-          setBlockHeight={setBlockHeight}
-          handleSetContractFilter={handleSetContractFilter}
-          contractFilter={contractFilter}
-          isContractFilterValid={isContractFilterValid}
-        />
+        <IndexerConfigOptions updateConfig={updateConfig} />
       </Modal.Body>
       <Modal.Footer>
         {blockHeightError && (
@@ -50,7 +40,7 @@ export const PublishModal = ({
         <Button variant="secondary" onClick={() => setShowPublishModal(false)}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => submit()}>
+        <Button variant="primary" onClick={() => registerFunction(indexerConfig)}>
           {actionButtonText}
         </Button>
       </Modal.Footer>

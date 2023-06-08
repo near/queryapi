@@ -1,14 +1,15 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { InputGroup, ToggleButtonGroup, ToggleButton } from "react-bootstrap";
 import Switch from "react-switch";
-import { EditorContext } from "../../contexts/EditorContext";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+
 export function FileSwitcher({
   fileName,
   setFileName,
   diffView,
   setDiffView,
 }) {
-  const { debugMode, setDebugMode } = useContext(EditorContext);
+  const { debugMode, setDebugMode } = useContext(IndexerDetailsContext);
   return (
     <>
       <ToggleButtonGroup

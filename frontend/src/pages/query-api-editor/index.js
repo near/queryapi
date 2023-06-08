@@ -3,12 +3,13 @@ import React, { useEffect, useContext } from "react";
 import Editor from "../../components/Editor";
 import { withRouter } from 'next/router'
 import { Alert } from 'react-bootstrap';
-import { EditorContext } from '../../contexts/EditorContext';
+// import { EditorContext } from '../../contexts/EditorContext';
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const QueryApiEditorPage = ({ router }) => {
   const { accountId, indexerName } = router.query
-  const { setAccountId, setIndexerName } = useContext(EditorContext);
-
+  // const { setAccountId, setIndexerName } = useContext(EditorContext);
+  const { setAccountId, setIndexerName } = useContext(IndexerDetailsContext);
   useEffect(() => {
     if (accountId == undefined || indexerName == undefined) {
       return;

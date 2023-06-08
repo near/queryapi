@@ -18,7 +18,7 @@ import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
-import { EditorContext } from '../../contexts/EditorContext';
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -27,23 +27,14 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
-  const {
-    accountId,
-    indexerName,
-    indexerNameField,
-    blockHeight,
-    setBlockHeight,
+  
+  const { indexerDetails,
     setShowResetCodeModel,
     setShowPublishModal,
     debugMode,
-    setSelectedOption,
-    setContractFilter,
-    contractFilter,
-    selectedOption,
-    handleOptionChange,
-  } = useContext(EditorContext);
+  } = useContext(IndexerDetailsContext);
 
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`
 
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
@@ -74,7 +65,6 @@ const Editor = ({
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
 
-
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
     return blockHeight
@@ -90,27 +80,27 @@ const Editor = ({
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
-  useEffect(() => {
-    if (selectedOption == "latestBlockHeight") {
-      setBlockHeightError(null);
-      return;
-    }
-
-    if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-      setBlockHeightError(
-        `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600
-        } hrs. Choose a start block height between ${height - BLOCKHEIGHT_LIMIT
-        } - ${height}.`
-      );
-    } else if (blockHeight > height) {
-      setBlockHeightError(
-        `Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT
-        } - ${height}.`
-      );
-    } else {
-      setBlockHeightError(null);
-    }
-  }, [blockHeight, height, selectedOption]);
+  // useEffect(() => {
+  //   if (selectedOption == "latestBlockHeight") {
+  //     setBlockHeightError(null);
+  //     return;
+  //   }
+  //
+  //   if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
+  //     setBlockHeightError(
+  //       `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600
+  //       } hrs. Choose a start block height between ${height - BLOCKHEIGHT_LIMIT
+  //       } - ${height}.`
+  //     );
+  //   } else if (blockHeight > height) {
+  //     setBlockHeightError(
+  //       `Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT
+  //       } - ${height}.`
+  //     );
+  //   } else {
+  //     setBlockHeightError(null);
+  //   }
+  // }, [blockHeight, height, selectedOption]);
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -127,12 +117,12 @@ const Editor = ({
     }
   };
 
-  const registerFunction = async () => {
+  const registerFunction = async (indexerConfig) => {
     let formatted_schema = checkSQLSchemaFormatting();
-    let isForking = accountId !== currentUserAccountId;
+    let isForking = indexerDetails.accountId !== currentUserAccountId;
 
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    if (indexerNameField == undefined || formatted_schema == undefined) {
+    if (indexerDetails.indexerName== undefined || formatted_schema == undefined) {
       setError(
         () =>
           "Please check your SQL schema formatting and specify an Indexer Name"
@@ -141,33 +131,28 @@ const Editor = ({
     }
 
     if (isForking) {
-      let prevAccountName = accountId.replace(".", "_");
+      let prevAccountName = indexerDetails.accountId.replace(".", "_");
       let newAccountName = currentUserAccountId.replace(".", "_");
 
       innerCode = innerCode.replaceAll(prevAccountName, newAccountName);
     }
 
     setError(() => undefined);
-    let start_block_height = blockHeight;
-    if (selectedOption == "latestBlockHeight") {
-      start_block_height = null;
-    }
 
     request("register-function", {
-      indexerName: indexerNameField.replaceAll(" ", "_"),
+      indexerName: indexerDetails.indexerName.replaceAll(" ", "_"),
       code: innerCode,
       schema: formatted_schema,
-      blockHeight: start_block_height,
-      contractFilter: contractFilter,
-
+      blockHeight: indexerConfig.startBlockHeight,
+      contractFilter: indexerConfig.filter,
     });
     setShowPublishModal(false);
   };
 
   const handleDeleteIndexer = () => {
     request("delete-indexer", {
-      accountId: accountId,
-      indexerName: indexerName,
+      accountId: indexerDetails.accountId,
+      indexerName: indexerDetails.indexerName,
     });
   };
 
@@ -177,7 +162,7 @@ const Editor = ({
       return;
     }
 
-    const data = await queryIndexerFunctionDetails(accountId, indexerName);
+    const data = await queryIndexerFunctionDetails(indexerDetails.accountId, indexerDetails.indexerName);
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
@@ -194,13 +179,13 @@ const Editor = ({
           setOriginalSQLCode(unformatted_schema);
           setSchema(unformatted_schema);
         }
-        if (data.start_block_height) {
-          setSelectedOption("specificBlockHeight");
-          setBlockHeight(data.start_block_height);
-        }
-        if (data.filter) {
-          setContractFilter(data.filter.matching_rule.affected_account_id)
-        }
+        // if (data.start_block_height) {
+        //   setSelectedOption("specificBlockHeight");
+        //   setBlockHeight(data.start_block_height);
+        // }
+        // if (data.filter) {
+        //   setContractFilter(data.filter.matching_rule.affected_account_id)
+        // }
         await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
       } catch (error) {
         console.log(error);
@@ -210,18 +195,18 @@ const Editor = ({
   }
 
   const getActionButtonText = () => {
-    const isUserIndexer = accountId === currentUserAccountId;
+    const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
 
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
   useEffect(() => {
-    if (!accountId || !indexerName) return;
+    if (!indexerDetails.accountId || !indexerDetails.indexerName) return;
     const load = async () => {
       await handleReload();
     };
     load();
-  }, [accountId, indexerName]);
+  }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
   const handleFormattingError = (fileName) => {
     const errorMessage =
@@ -318,7 +303,7 @@ const Editor = ({
         isExecuting={isExecutingIndexerFunction}
         stopExecution={() => indexerRunner.stop()}
         latestHeight={height}
-        isUserIndexer={accountId === currentUserAccountId}
+        isUserIndexer={indexerDetails.accountId === currentUserAccountId}
         handleDeleteIndexer={handleDeleteIndexer}
       />
       <ResetChangesModal
@@ -326,7 +311,6 @@ const Editor = ({
       />
       <PublishModal
         registerFunction={registerFunction}
-        handleOptionChange={handleOptionChange}
         actionButtonText={getActionButtonText()}
         blockHeightError={blockHeightError}
       />

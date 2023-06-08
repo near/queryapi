@@ -1,8 +1,8 @@
 import React, { useContext } from "react";
-import { EditorContext } from "../../contexts/EditorContext";
 import GraphiQL from "graphiql";
 import { sessionStorage } from "near-social-bridge";
 import "graphiql/graphiql.min.css";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const HASURA_ENDPOINT =
   process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
@@ -22,11 +22,11 @@ const graphQLFetcher = async (graphQLParams, accountId) => {
 };
 
 export const GraphqlPlayground = () => {
-  const { accountId } = useContext(EditorContext);
+  const { indexerDetails } = useContext(IndexerDetailsContext);
   return (
     <div style={{ width: "100%", height: "75vh" }}>
       <GraphiQL
-        fetcher={(params) => graphQLFetcher(params, accountId)}
+        fetcher={(params) => graphQLFetcher(params, indexerDetails.accountId)}
         defaultQuery=""
         storage={sessionStorage}
       />
