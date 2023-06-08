@@ -22,13 +22,8 @@ export const EditorProvider = ({ children }) => {
   function handleSetContractFilter(e) {
     const contractFilter = e.target.value;
     setContractFilter(contractFilter);
-    const isValid = validateContractId(contractFilter);
-
-    if (isValid) {
-      setIsContractFilterValid(true);
-    } else {
-      setIsContractFilterValid(false);
-    }
+    const isContractFilterValid = validateContractId(contractFilter);
+    setIsContractFilterValid(isContractFilterValid);
   }
 
   const handleOptionChange = (event) => {

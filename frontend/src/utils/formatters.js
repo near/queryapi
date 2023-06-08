@@ -21,18 +21,14 @@ async function getBlock(block: Block, context) {
 }`;
 
 export const formatSQL = (schema) => {
-  try {
-    return prettier.format(schema, {
-      parser: "sql",
-      formatter: "sql-formatter",
-      plugins: [SqlPlugin],
-      pluginSearchDirs: false,
-      language: "postgresql",
-      database: "postgresql",
-    });
-  } catch (e) {
-    throw e;
-  }
+  return prettier.format(schema, {
+    parser: "sql",
+    formatter: "sql-formatter",
+    plugins: [SqlPlugin],
+    pluginSearchDirs: false,
+    language: "postgresql",
+    database: "postgresql",
+  });
 };
 
 export const wrapCode = (code) => {
@@ -42,14 +38,10 @@ export const wrapCode = (code) => {
 }
 
 export const formatIndexingCode = (code) => {
-  try {
-    return prettier.format(code, {
-      parser: "babel",
-      plugins: [parserBabel],
-    });
-  } catch (e) {
-    throw e;
-  }
+  return prettier.format(code, {
+    parser: "babel",
+    plugins: [parserBabel],
+  });
 };
 
 export const defaultCode = formatIndexingCode(
