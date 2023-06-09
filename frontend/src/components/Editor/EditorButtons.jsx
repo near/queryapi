@@ -46,9 +46,6 @@ const EditorButtons = ({
     isCreateNewIndexer,
     indexerNameField,
     setIndexerNameField,
-    contractFilter,
-    handleSetContractFilter,
-  } = useContext(EditorContext);
 
   const removeHeight = (index) => {
     setHeights(heights.filter((_, i) => i !== index));
@@ -89,8 +86,6 @@ const EditorButtons = ({
               <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
-                  value={contractFilter}
-                  onChange={handleSetContractFilter}
                   disabled={isCreateNewIndexer}
                   type="text"
                   placeholder="social.near"

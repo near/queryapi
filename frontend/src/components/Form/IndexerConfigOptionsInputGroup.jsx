@@ -10,7 +10,7 @@ const IndexerConfigOptions = ({updateConfig}) => {
   const [selectedOption, setSelectedOption] = useState(indexerDetails.startBlockHeight ? "specificBlockHeight" : "latestBlockHeight");
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
 
-      const handleOptionChange = (event) => {
+  const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     // setBlockHeightError(null);
   };
