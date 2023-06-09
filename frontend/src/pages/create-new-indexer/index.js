@@ -8,11 +8,12 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 const CreateNewIndexerPage = ({ router }) => {
   const { accountId } = router.query
 
-  const { setAccountId } = useContext(IndexerDetailsContext);
+  const { setAccountId, setIsCreateNewIndexer } = useContext(IndexerDetailsContext);
 
   useEffect(() => {
+    setIsCreateNewIndexer(true);
     setAccountId(accountId);
-  }, [accountId, setAccountId]);
+  }, [accountId, setAccountId, setIsCreateNewIndexer]);
 
   if (accountId == undefined) {
     return (

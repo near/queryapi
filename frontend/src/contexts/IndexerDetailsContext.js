@@ -26,6 +26,8 @@ export const IndexerDetailsContext = React.createContext({
   setShowPublishModal: () => { },
   debugMode: false,
   setDebugMode: () => { },
+  isCreateNewIndexer: false,
+  setIsCreateNewIndexer: () => { },
 });
 
 export const IndexerDetailsProvider = ({ children }) => {
@@ -37,6 +39,7 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [debugMode, setDebugMode] = useState(false);
   // const [contractFilter, setContractFilter] = useState("social.near");
   // const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
+  const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
   useEffect(() => {
     if (!accountId || !indexerName) return

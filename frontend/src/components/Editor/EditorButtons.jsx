@@ -23,7 +23,6 @@ import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const EditorButtons = ({
-  options,
   handleFormating,
   executeIndexerFunction,
   currentUserAccountId,
@@ -44,6 +43,7 @@ const EditorButtons = ({
     setShowResetCodeModel,
     debugMode,
     accountId,
+    isCreateNewIndexer,
     indexerNameField,
     setIndexerNameField,
     contractFilter,
@@ -73,7 +73,7 @@ const EditorButtons = ({
                   {accountId}
                 </Breadcrumb.Item>
                 <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
-                  {options.create_new_indexer ? (
+                  {isCreateNewIndexer ? (
                     <Form.Control
                       type="text"
                       placeholder="Indexer Name"
@@ -89,9 +89,9 @@ const EditorButtons = ({
               <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
-                  disabled={!options.create_new_indexer}
                   value={contractFilter}
                   onChange={handleSetContractFilter}
+                  disabled={isCreateNewIndexer}
                   type="text"
                   placeholder="social.near"
                   required={true}
@@ -120,7 +120,7 @@ const EditorButtons = ({
                 className="inline-block"
                 aria-label="Action Button Group"
               >
-                {isUserIndexer && !options.create_new_indexer && (
+                {isUserIndexer && !isCreateNewIndexer && (
                   <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>Delete Indexer</Tooltip>}

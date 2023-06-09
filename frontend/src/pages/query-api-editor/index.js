@@ -28,7 +28,7 @@ const QueryApiEditorPage = ({ router }) => {
     )
   }
   return (
-      <Editor options={{ create_new_indexer: false }} actionButtonText="Publish" onLoadErrorText="An error occured while trying to query indexer function details from registry." />
+      <Editor  actionButtonText="Publish" onLoadErrorText="An error occured while trying to query indexer function details from registry." />
   );
 };
 

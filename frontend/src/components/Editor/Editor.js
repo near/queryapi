@@ -23,7 +23,6 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 const BLOCKHEIGHT_LIMIT = 3600;
 
 const Editor = ({
-  options,
   onLoadErrorText,
   actionButtonText,
 }) => {
@@ -32,6 +31,7 @@ const Editor = ({
     setShowResetCodeModel,
     setShowPublishModal,
     debugMode,
+    isCreateNewIndexer,
   } = useContext(IndexerDetailsContext);
 
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`
@@ -157,8 +157,10 @@ const Editor = ({
   };
 
   const handleReload = async () => {
-    if (options?.create_new_indexer === true) {
+    if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
+      setIndexingCode(defaultCode);
+      setSchema(defaultSchema);
       return;
     }
 
@@ -196,7 +198,7 @@ const Editor = ({
 
   const getActionButtonText = () => {
     const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
-
+    if (isCreateNewIndexer) return "Create New Indexer"
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
@@ -293,13 +295,13 @@ const Editor = ({
       }}
     >
       <EditorButtons
-        options={options}
         handleFormating={handleFormating}
         executeIndexerFunction={executeIndexerFunction}
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
         heights={heights}
         setHeights={setHeights}
+        isCreateNewIndexer={isCreateNewIndexer}
         isExecuting={isExecutingIndexerFunction}
         stopExecution={() => indexerRunner.stop()}
         latestHeight={height}
@@ -356,7 +358,7 @@ const Editor = ({
           originalSQLCode={originalSQLCode}
           originalIndexingCode={originalIndexingCode}
           schema={schema}
-          options={options}
+          isCreateNewIndexer={isCreateNewIndexer}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
         />

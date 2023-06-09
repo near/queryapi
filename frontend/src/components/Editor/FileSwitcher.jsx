@@ -9,7 +9,7 @@ export function FileSwitcher({
   diffView,
   setDiffView,
 }) {
-  const { debugMode, setDebugMode } = useContext(IndexerDetailsContext);
+  const { debugMode, setDebugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
   return (
     <>
       <ToggleButtonGroup
@@ -40,17 +40,18 @@ export function FileSwitcher({
         >
           schema.sql
         </ToggleButton>
-        <ToggleButton
-          id="tbg-radio-3"
-          style={{
-            backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
-            borderRadius: "0px",
-          }}
-          value={"GraphiQL"}
-          onClick={() => setFileName("GraphiQL")}
-        >
-          GraphiQL
-        </ToggleButton>
+        {!isCreateNewIndexer &&
+          <ToggleButton
+            id="tbg-radio-3"
+            style={{
+              backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
+              borderRadius: "0px",
+            }}
+            value={"GraphiQL"}
+            onClick={() => setFileName("GraphiQL")}
+          >
+            GraphiQL
+          </ToggleButton>}
         <InputGroup>
           <InputGroup.Text className="px-3">
             Diff View
