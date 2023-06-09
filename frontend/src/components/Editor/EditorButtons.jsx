@@ -79,7 +79,7 @@ const EditorButtons = ({
                       onChange={(e) => setIndexerNameField(e.target.value)}
                     />
                   ) : (
-                    indexerNameField
+                    indexerDetails.indexerName
                   )}
                 </Breadcrumb.Item>
               </Breadcrumb>
@@ -87,6 +87,7 @@ const EditorButtons = ({
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
                   disabled={isCreateNewIndexer}
+                  value={indexerDetails.filter}
                   type="text"
                   placeholder="social.near"
                   required={true}

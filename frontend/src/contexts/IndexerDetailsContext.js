@@ -3,8 +3,10 @@ import { queryIndexerFunctionDetails } from "../utils/queryIndexerFunction";
 import {
   defaultCode,
   defaultSchema,
+  wrapCode,
 } from "../utils/formatters";
 
+import { getLatestBlockHeight } from "../utils/getLatestBlockHeight";
 // interface IndexerDetails {
 //   accountId: String,
 //   indexerName: String,
@@ -19,13 +21,15 @@ import {
 // }
 
 export const IndexerDetailsContext = React.createContext({
-  indexerDetails: undefined,
+  indexerDetails: { code: defaultCode, schema: defaultSchema, config: { filter: "social.near", startBlockHeight: 0 }, accountId: "", indexerName: "" },
   showResetCodeModel: false,
   setShowResetCodeModel: () => { },
   showPublishModal: false,
   setShowPublishModal: () => { },
   debugMode: false,
   setDebugMode: () => { },
+  latestHeight: 0,
+  setLatestHeight: () => { },
   isCreateNewIndexer: false,
   setIsCreateNewIndexer: () => { },
 });
@@ -33,7 +37,7 @@ export const IndexerDetailsContext = React.createContext({
 export const IndexerDetailsProvider = ({ children }) => {
   const [accountId, setAccountId] = useState(undefined);
   const [indexerName, setIndexerName] = useState(undefined);
-  const [indexerDetails, setIndexerDetails] = useState({ code: defaultCode, schema: defaultSchema, config: { filter: "" }, accountId: accountId, indexerName: indexerName })
+  const [indexerDetails, setIndexerDetails] = useState({ code: defaultCode, schema: defaultSchema, config: { filter: "social.near", startBlockHeight: 0 }, accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
@@ -41,30 +45,49 @@ export const IndexerDetailsProvider = ({ children }) => {
   // const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
+  const requestIndexerDetails = async () => {
+    const data = await queryIndexerFunctionDetails(accountId, indexerName);
+    if (data) {
+      const indexerConfig = {
+        startBlockHeight: data.start_block_height,
+        filter: data.filter.matching_rule.affected_account_id,
+      }
+      const details = {
+        accountId: accountId,
+        indexerName: indexerName,
+        code: wrapCode(data.code),
+        schema: data.schema,
+        config: indexerConfig
+      }
+      return details
+    }
+  }
   useEffect(() => {
     if (!accountId || !indexerName) return
+  useEffect(() => {
     (async () => {
-      const data = await queryIndexerFunctionDetails(accountId, indexerName);
-      if (data) {
-        const indexerConfig = {
-          startBlockHeight: data.start_block_height,
-          filter: data.filter,
-        }
-        const details = {
-          accountId: accountId,
-          indexerName: indexerName,
-          code: data.code,
-          schema: data.schema,
-          config: indexerConfig
-        }
-        setIndexerDetails(details);
-      }
+      const latestHeight = await getLatestBlockHeight()
+      setLatestHeight(latestHeight)
+    })()
+  }, [])
+
+  useEffect(() => {
+    if (isCreateNewIndexer || !accountId || !indexerName) {
+      indexerDetails.accountId = accountId
+      indexerDetails.indexerName = indexerName
+      setIndexerDetails(indexerDetails)
+      return
+    }
+    (async () => {
+      const details = await requestIndexerDetails()
+      setIndexerDetails(details);
     })();
-  }, [accountId, indexerName]);
+  }, [accountId, indexerName, isCreateNewIndexer]);
 
   return (
     <IndexerDetailsContext.Provider
       value={{
+        accountId,
         setAccountId,
         setIndexerName,
         indexerDetails,
@@ -74,6 +97,7 @@ export const IndexerDetailsProvider = ({ children }) => {
         setShowPublishModal,
         debugMode,
         setDebugMode,
+        latestHeight,
       }}
     >
       {children}

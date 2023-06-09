@@ -27,7 +27,8 @@ const Editor = ({
   actionButtonText,
 }) => {
   
-  const { indexerDetails,
+  const {
+    indexerDetails,
     setShowResetCodeModel,
     setShowPublishModal,
     debugMode,
@@ -41,10 +42,10 @@ const Editor = ({
 
   const [fileName, setFileName] = useState("indexingLogic.js");
 
-  const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
-  const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
-  const [indexingCode, setIndexingCode] = useState(defaultCode);
-  const [schema, setSchema] = useState(defaultSchema);
+  const [originalSQLCode, setOriginalSQLCode] = useState(formatSQL(indexerDetails.schema));
+  const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(indexerDetails.code));
+  const [indexingCode, setIndexingCode] = useState(originalIndexingCode);
+  const [schema, setSchema] = useState(originalSQLCode);
 
   const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
 
@@ -104,8 +105,8 @@ const Editor = ({
 
   const checkSQLSchemaFormatting = () => {
     try {
-      let formatted_code = formatSQL(schema);
-      let formatted_schema = formatted_code;
+      let formatted_sql = formatSQL(schema);
+      let formatted_schema = formatted_sql;
       return formatted_schema;
     } catch (error) {
       console.log("error", error);
@@ -122,10 +123,18 @@ const Editor = ({
     let isForking = indexerDetails.accountId !== currentUserAccountId;
 
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    if (indexerDetails.indexerName== undefined || formatted_schema == undefined) {
+    let indexerName = isCreateNewIndexer ? indexerNameField.replaceAll(" ", "_") : indexerDetails?.indexerName.replaceAll(" ", "_");
+    if (indexerName === undefined || indexerName === "") {
       setError(
         () =>
-          "Please check your SQL schema formatting and specify an Indexer Name"
+          "Please provide an Indexer Name"
+      )
+      return
+    }
+    if (formatted_schema == undefined) {
+      setError(
+        () =>
+          "Please check your SQL schema formatting"
       );
       return;
     }
@@ -140,7 +149,7 @@ const Editor = ({
     setError(() => undefined);
 
     request("register-function", {
-      indexerName: indexerDetails.indexerName.replaceAll(" ", "_"),
+      indexerName: indexerName,
       code: innerCode,
       schema: formatted_schema,
       blockHeight: indexerConfig.startBlockHeight,
@@ -202,13 +211,6 @@ const Editor = ({
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
-  useEffect(() => {
-    if (!indexerDetails.accountId || !indexerDetails.indexerName) return;
-    const load = async () => {
-      await handleReload();
-    };
-    load();
-  }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
   const handleFormattingError = (fileName) => {
     const errorMessage =
