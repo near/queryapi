@@ -32,6 +32,7 @@ const Editor = ({
     setShowPublishModal,
     debugMode,
     isCreateNewIndexer,
+    indexerNameField,
   } = useContext(IndexerDetailsContext);
 
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`

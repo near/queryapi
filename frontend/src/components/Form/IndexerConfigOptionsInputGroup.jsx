@@ -5,15 +5,22 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractId } from "../../utils/validators";
 const IndexerConfigOptions = ({ updateConfig }) => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
-  const [blockHeight, setBlockHeight] = useState(String(indexerDetails.startBlockHeight) || "0");
+  const [blockHeight, setBlockHeight] = useState("0");
   const [contractFilter, setContractFilter] = useState(indexerDetails.filter || "social.near");
-  const [selectedOption, setSelectedOption] = useState(indexerDetails.startBlockHeight ? "specificBlockHeight" : "latestBlockHeight");
+  const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
     // setBlockHeightError(null);
   };
+
+  useEffect(() => {
+    if (indexerDetails.config?.startBlockHeight) {
+      setSelectedOption("specificBlockHeight")
+      setBlockHeight(indexerDetails.config.startBlockHeight)
+    }
+  }, [indexerDetails])
 
   function handleSetContractFilter(e) {
     const contractFilter = e.target.value;
