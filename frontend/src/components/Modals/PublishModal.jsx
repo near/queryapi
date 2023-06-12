@@ -13,12 +13,14 @@ export const PublishModal = ({
     setShowPublishModal,
   } = useContext(IndexerDetailsContext);
   const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null })
+  const [indexerName, setIndexerName] = useState("")
 
-  const updateConfig = (filter, startBlockHeight, option) => {
+  const updateConfig = (indexerName, filter, startBlockHeight, option) => {
     if (option === "latestBlockHeight") {
       startBlockHeight = null
     }
     setIndexerConfig({ filter, startBlockHeight })
+    setIndexerName(indexerName)
   }
 
   return (
@@ -43,7 +45,7 @@ export const PublishModal = ({
         <Button variant="secondary" onClick={() => setShowPublishModal(false)}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => registerFunction(indexerConfig)}>
+        <Button variant="primary" onClick={() => registerFunction(indexerName, indexerConfig)}>
           {actionButtonText}
         </Button>
       </Modal.Footer>

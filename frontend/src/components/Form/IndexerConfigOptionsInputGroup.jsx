@@ -4,11 +4,12 @@ import Form from "react-bootstrap/Form";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractId } from "../../utils/validators";
 const IndexerConfigOptions = ({ updateConfig }) => {
-  const { indexerDetails } = useContext(IndexerDetailsContext);
+  const { indexerDetails, showPublishModal } = useContext(IndexerDetailsContext);
   const [blockHeight, setBlockHeight] = useState("0");
   const [contractFilter, setContractFilter] = useState("social.near");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
+  const [indexerNameField, setIndexerNameField] = useState(indexerDetails.indexerName || "");
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -33,20 +34,31 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   }
 
   useEffect(() => {
-    updateConfig(contractFilter, blockHeight, selectedOption)
-  }, [contractFilter, selectedOption, blockHeight])
+    updateConfig(indexerNameField, contractFilter, blockHeight, selectedOption)
+}, [indexerNameField, contractFilter, selectedOption, blockHeight])
 
   return (
     <>
-      <InputGroup size="sm" className="pt-3">
-        <InputGroup.Checkbox
-          value="latestBlockHeight"
-          checked={selectedOption === "latestBlockHeight"}
-          onChange={handleOptionChange}
-          aria-label="Checkbox for following text input"
+   <InputGroup size = "sm" >
+          <InputGroup.Text> Indexer Name  </InputGroup.Text>
+        <Form.Control
+          type="text"
+          placeholder="Indexer Name"
+          aria-label="IndexerName"
+          value={indexerNameField}
+          disabled={showPublishModal}
+          onChange={(e) => setIndexerNameField(e.target.value)}
         />
-        <InputGroup.Text>From Latest Block Height</InputGroup.Text>
       </InputGroup>
+        <InputGroup size="sm" className="pt-3">
+          <InputGroup.Checkbox
+            value="latestBlockHeight"
+            checked={selectedOption === "latestBlockHeight"}
+            onChange={handleOptionChange}
+            aria-label="Checkbox for following text input"
+          />
+          <InputGroup.Text>From Latest Block Height</InputGroup.Text>
+        </InputGroup>
       <InputGroup size="sm" className="px-1 pt-3">
         <InputGroup.Checkbox
           value="specificBlockHeight"
