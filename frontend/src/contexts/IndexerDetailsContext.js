@@ -39,14 +39,11 @@ export const IndexerDetailsContext = React.createContext({
   indexerName: undefined,
   setIndexerName: () => { },
   setIndexerDetails: () => { },
-  indexerNameField: "",
-  setIndexerNameField: () => { },
 });
 
 export const IndexerDetailsProvider = ({ children }) => {
   const [accountId, setAccountId] = useState(undefined);
   const [indexerName, setIndexerName] = useState(undefined);
-  const [indexerNameField, setIndexerNameField] = useState("");
   const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: null }, accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
@@ -109,8 +106,6 @@ export const IndexerDetailsProvider = ({ children }) => {
         indexerName,
         setAccountId,
         setIndexerName,
-        indexerNameField,
-        setIndexerNameField,
         indexerDetails,
         showResetCodeModel,
         setShowResetCodeModel,
