@@ -1,16 +1,15 @@
+import React, { useContext, useState } from "react";
 import { InputGroup, ToggleButtonGroup, ToggleButton } from "react-bootstrap";
 import Switch from "react-switch";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 export function FileSwitcher({
   fileName,
   setFileName,
   diffView,
   setDiffView,
-  blockView,
-  setBlockView,
-  debugMode,
-  setDebugMode,
 }) {
+  const { debugMode, setDebugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
   return (
     <>
       <ToggleButtonGroup
@@ -41,17 +40,18 @@ export function FileSwitcher({
         >
           schema.sql
         </ToggleButton>
-        <ToggleButton
-          id="tbg-radio-3"
-          style={{
-            backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
-            borderRadius: "0px",
-          }}
-          value={"GraphiQL"}
-          onClick={() => setFileName("GraphiQL")}
-        >
-          GraphiQL
-        </ToggleButton>
+        {!isCreateNewIndexer &&
+          <ToggleButton
+            id="tbg-radio-3"
+            style={{
+              backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
+              borderRadius: "0px",
+            }}
+            value={"GraphiQL"}
+            onClick={() => setFileName("GraphiQL")}
+          >
+            GraphiQL
+          </ToggleButton>}
         <InputGroup>
           <InputGroup.Text className="px-3">
             Diff View

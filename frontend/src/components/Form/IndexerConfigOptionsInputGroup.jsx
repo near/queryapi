@@ -1,14 +1,41 @@
+import React, { useContext, useState, useEffect } from "react";
 import { InputGroup } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
-const BlockHeightOptions = ({
-  selectedOption,
-  handleOptionChange,
-  blockHeight,
-  setBlockHeight,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
-}) => {
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { validateContractId } from "../../utils/validators";
+const IndexerConfigOptions = ({ updateConfig }) => {
+  const { indexerDetails } = useContext(IndexerDetailsContext);
+  const [blockHeight, setBlockHeight] = useState("0");
+  const [contractFilter, setContractFilter] = useState("social.near");
+  const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
+  const [isContractFilterValid, setIsContractFilterValid] = useState(true);
+
+  const handleOptionChange = (event) => {
+    setSelectedOption(event.target.value);
+    // setBlockHeightError(null);
+  };
+
+  useEffect(() => {
+    if (indexerDetails.config?.startBlockHeight) {
+      setSelectedOption("specificBlockHeight")
+      setBlockHeight(indexerDetails.config.startBlockHeight)
+    }
+    if (indexerDetails.config?.filter) {
+      setContractFilter(indexerDetails.config.filter)
+    }
+  }, [indexerDetails])
+
+  function handleSetContractFilter(e) {
+    const contractFilter = e.target.value;
+    setContractFilter(contractFilter);
+    const isContractFilterValid = validateContractId(contractFilter);
+    setIsContractFilterValid(isContractFilterValid);
+  }
+
+  useEffect(() => {
+    updateConfig(contractFilter, blockHeight, selectedOption)
+  }, [contractFilter, selectedOption, blockHeight])
+
   return (
     <>
       <InputGroup size="sm" className="pt-3">
@@ -52,4 +79,4 @@ const BlockHeightOptions = ({
   );
 };
 
-export default BlockHeightOptions;
+export default IndexerConfigOptions;
