@@ -8,13 +8,16 @@ export const PublishModal = ({
   actionButtonText,
   blockHeightError,
 }) => {
-  const [indexerConfig, setIndexerConfig] = useState({filter: "social.near", startBlockHeight: 0})
   const {
     showPublishModal,
     setShowPublishModal,
   } = useContext(IndexerDetailsContext);
+  const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null })
 
-  const updateConfig = (filter, startBlockHeight) => {
+  const updateConfig = (filter, startBlockHeight, option) => {
+    if (option === "latestBlockHeight") {
+      startBlockHeight = null
+    }
     setIndexerConfig({ filter, startBlockHeight })
   }
 
