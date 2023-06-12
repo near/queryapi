@@ -35,7 +35,6 @@ const EditorButtons = ({
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
-  showForkYourOwnIndexerModal,
 }) => {
 
   const {
@@ -44,6 +43,7 @@ const EditorButtons = ({
     indexerDetails,
     setShowPublishModal,
     setShowResetCodeModel,
+    setShowForkIndexerModal,
     debugMode,
     isCreateNewIndexer,
     indexerNameField,
@@ -72,19 +72,11 @@ const EditorButtons = ({
                 <Breadcrumb.Item className="flex align-center " href="#">
                   {accountId}
                 </Breadcrumb.Item>
+                  {!isCreateNewIndexer && (
                 <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
-                  {isCreateNewIndexer ? (
-                    <Form.Control
-                      type="text"
-                      placeholder="Indexer Name"
-                      aria-label="IndexerName"
-                      value={indexerNameField}
-                      onChange={(e) => setIndexerNameField(e.target.value)}
-                    />
-                  ) : (
-                    indexerName
-                  )}
+                 {indexerName}
                 </Breadcrumb.Item>
+                  )}
               </Breadcrumb>
               {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
@@ -120,6 +112,7 @@ const EditorButtons = ({
                 aria-label="Action Button Group"
               >
                 {isUserIndexer && !isCreateNewIndexer && (
+                  <>
                   <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>Delete Indexer</Tooltip>}
@@ -133,6 +126,20 @@ const EditorButtons = ({
                       <TrashFill size={22} />
                     </Button>
                   </OverlayTrigger>
+                  <OverlayTrigger
+                  placement="bottom"
+                  overlay={<Tooltip>Fork this Indexer</Tooltip>}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex align-center"
+                    onClick={() => setShowForkIndexerModal(true)}
+                  >
+                    <NodePlus style={{ paddingRight: "2px" }} size={24} />
+                  </Button>
+                </OverlayTrigger>
+                    </>
                 )}
 
                 <OverlayTrigger
@@ -176,19 +183,6 @@ const EditorButtons = ({
                     </Button>
                   </OverlayTrigger>
                 )}
-                <OverlayTrigger
-                  placement="bottom"
-                  overlay={<Tooltip>Fork this Indexer</Tooltip>}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex align-center"
-                    onClick={() => showForkYourOwnIndexerModal(true)}
-                  >
-                    <NodePlus style={{ paddingRight: "2px" }} size={24} />
-                  </Button>
-                </OverlayTrigger>
 
               </ButtonGroup>
             </Col>
@@ -214,5 +208,6 @@ const EditorButtons = ({
     </>
   );
 };
+   
 
 export default EditorButtons;
