@@ -35,17 +35,17 @@ const EditorButtons = ({
   isUserIndexer,
   handleDeleteIndexer,
 }) => {
-  
+
   const {
+    accountId,
     indexerDetails,
-    setIndexerName,
     setShowPublishModal,
     setShowResetCodeModel,
     debugMode,
-    accountId,
     isCreateNewIndexer,
     indexerNameField,
-    setIndexerNameField,
+    setIndexerNameField
+  } = useContext(IndexerDetailsContext);
 
   const removeHeight = (index) => {
     setHeights(heights.filter((_, i) => i !== index));
@@ -83,10 +83,10 @@ const EditorButtons = ({
                   )}
                 </Breadcrumb.Item>
               </Breadcrumb>
-              <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
+              {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
-                  disabled={isCreateNewIndexer}
+                  disabled={!isCreateNewIndexer}
                   value={indexerDetails.filter}
                   type="text"
                   placeholder="social.near"
@@ -95,7 +95,7 @@ const EditorButtons = ({
                 <Form.Control.Feedback type="invalid">
                   Please provide a valid contract name.
                 </Form.Control.Feedback>
-              </InputGroup>
+              </InputGroup>}
             </Col>
             <Col style={{ display: "flex", justifyContent: "center" }}>
               {debugMode && (

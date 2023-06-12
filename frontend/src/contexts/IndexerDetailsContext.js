@@ -32,17 +32,26 @@ export const IndexerDetailsContext = React.createContext({
   setLatestHeight: () => { },
   isCreateNewIndexer: false,
   setIsCreateNewIndexer: () => { },
+  accountId: undefined,
+  setAccountId: () => { },
+  indexerName: undefined,
+  setIndexerName: () => { },
+  setIndexerDetails: () => { },
+  indexerNameField: "",
+  setIndexerNameField: () => { },
 });
 
 export const IndexerDetailsProvider = ({ children }) => {
   const [accountId, setAccountId] = useState(undefined);
   const [indexerName, setIndexerName] = useState(undefined);
+  const [indexerNameField, setIndexerNameField] = useState("");
   const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: 0 }, accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   // const [contractFilter, setContractFilter] = useState("social.near");
   // const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
+  const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
   const requestIndexerDetails = async () => {
@@ -100,6 +109,8 @@ export const IndexerDetailsProvider = ({ children }) => {
         accountId,
         setAccountId,
         setIndexerName,
+        indexerNameField,
+        setIndexerNameField,
         indexerDetails,
         showResetCodeModel,
         setShowResetCodeModel,
@@ -108,6 +119,8 @@ export const IndexerDetailsProvider = ({ children }) => {
         debugMode,
         setDebugMode,
         latestHeight,
+        isCreateNewIndexer,
+        setIsCreateNewIndexer
       }}
     >
       {children}
