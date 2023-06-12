@@ -2,8 +2,8 @@ import React, { useContext, useState, useEffect } from "react";
 import { InputGroup } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-
-const IndexerConfigOptions = ({updateConfig}) => {
+import { validateContractId } from "../../utils/validators";
+const IndexerConfigOptions = ({ updateConfig }) => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
   const [blockHeight, setBlockHeight] = useState(String(indexerDetails.startBlockHeight) || "0");
   const [contractFilter, setContractFilter] = useState(indexerDetails.filter || "social.near");
@@ -22,9 +22,10 @@ const IndexerConfigOptions = ({updateConfig}) => {
     setIsContractFilterValid(isContractFilterValid);
   }
 
-  useEffect(()=> {
+  useEffect(() => {
     updateConfig(contractFilter, blockHeight, selectedOption)
   }, [contractFilter, selectedOption, blockHeight])
+
   return (
     <>
       <InputGroup size="sm" className="pt-3">

@@ -49,8 +49,6 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
-  // const [contractFilter, setContractFilter] = useState("social.near");
-  // const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
@@ -71,8 +69,6 @@ export const IndexerDetailsProvider = ({ children }) => {
       return details
     }
   }
-  useEffect(() => {
-    if (!accountId || !indexerName) return
   useEffect(() => {
     (async () => {
       const latestHeight = await getLatestBlockHeight()
