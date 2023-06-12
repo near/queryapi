@@ -4,7 +4,7 @@ import Form from "react-bootstrap/Form";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractId } from "../../utils/validators";
 const IndexerConfigOptions = ({ updateConfig }) => {
-  const { indexerDetails, showPublishModal } = useContext(IndexerDetailsContext);
+  const { indexerDetails, showPublishModal, isCreateNewIndexer } = useContext(IndexerDetailsContext); 
   const [blockHeight, setBlockHeight] = useState("0");
   const [contractFilter, setContractFilter] = useState("social.near");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
@@ -41,12 +41,14 @@ const IndexerConfigOptions = ({ updateConfig }) => {
     <>
    <InputGroup size = "sm" >
           <InputGroup.Text> Indexer Name  </InputGroup.Text>
+      <InputGroup size="sm" >
+        <InputGroup.Text> Indexer Name  </InputGroup.Text>
         <Form.Control
           type="text"
           placeholder="Indexer Name"
           aria-label="IndexerName"
           value={indexerNameField}
-          disabled={showPublishModal}
+          disabled={!isCreateNewIndexer && showPublishModal}
           onChange={(e) => setIndexerNameField(e.target.value)}
         />
       </InputGroup>
