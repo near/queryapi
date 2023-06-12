@@ -26,6 +26,8 @@ export const IndexerDetailsContext = React.createContext({
   setShowResetCodeModel: () => { },
   showPublishModal: false,
   setShowPublishModal: () => { },
+  showForkIndexerModal: false,
+  setShowForkIndexerModal: () => { },
   debugMode: false,
   setDebugMode: () => { },
   latestHeight: 0,
@@ -48,6 +50,7 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: null }, accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showForkIndexerModal, setShowForkIndexerModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
@@ -113,6 +116,8 @@ export const IndexerDetailsProvider = ({ children }) => {
         setShowResetCodeModel,
         showPublishModal,
         setShowPublishModal,
+        showForkIndexerModal,
+        setShowForkIndexerModal,   
         debugMode,
         setDebugMode,
         latestHeight,

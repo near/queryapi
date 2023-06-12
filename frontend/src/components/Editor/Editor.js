@@ -17,6 +17,7 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
+import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
@@ -336,6 +337,10 @@ const Editor = ({
         actionButtonText={getActionButtonText()}
         blockHeightError={blockHeightError}
       />
+      <ForkIndexerModal
+        registerFunction={registerFunction}
+      />
+
       <div
         className="px-3 pt-3"
         style={{
