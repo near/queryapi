@@ -13,7 +13,6 @@ export async function fetchBlockDetails(blockHeight) {
     const block_details = await response.json();
     return block_details;
   } catch {
-    // console.log(`Error Fetching Block Height details at ${blockHeight}`);
     throw new Error(`Error Fetching Block Height details at BlockHeight #${blockHeight}`);
   }
 }

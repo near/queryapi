@@ -1,40 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useContext } from "react";
 
 import Editor from "../../components/Editor";
 import { withRouter } from 'next/router'
 import { Alert } from 'react-bootstrap';
-
-import { providers } from "near-api-js";
-
-
-// get latest block height
-const getLatestBlockHeight = async () => {
-    const provider = new providers.JsonRpcProvider(
-        "https://archival-rpc.mainnet.near.org"
-    );
-    const latestBlock = await provider.block({
-        finality: "final"
-    });
-    return latestBlock.header.height;
-}
-
+// import { EditorContext } from '../../contexts/EditorContext';
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const QueryApiEditorPage = ({ router }) => {
-    const { accountId, indexerName } = router.query
+  const { accountId, indexerName } = router.query
+  // const { setAccountId, setIndexerName } = useContext(EditorContext);
+  const { setAccountId, setIndexerName } = useContext(IndexerDetailsContext);
+  useEffect(() => {
     if (accountId == undefined || indexerName == undefined) {
-        return (
-            <>
-                <Alert className="px-3 pt-3" variant="info">
-                    Both accountId and IndexerName need to be specified in the URL.
-                </Alert>
-            </>
-        )
+      return;
     }
+    setAccountId(accountId);
+    setIndexerName(indexerName);
+  }, [accountId, indexerName, setAccountId, setIndexerName]);
+
+  if (accountId == undefined || indexerName == undefined) {
     return (
-        <>
-            <Editor accountId={accountId} indexerName={indexerName} options={{ create_new_indexer: false }} actionButtonText="Publish" onLoadErrorText="An error occured while trying to query indexer function details from registry." />
-        </>
-    );
+      <>
+        <Alert className="px-3 pt-3" variant="info">
+          Both accountId and IndexerName need to be specified in the URL.
+        </Alert>
+      </>
+    )
+  }
+  return (
+      <Editor  actionButtonText="Publish" onLoadErrorText="An error occured while trying to query indexer function details from registry." />
+  );
 };
 
 export default withRouter(QueryApiEditorPage);

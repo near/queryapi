@@ -4,7 +4,7 @@ const REGISTRY_CONTRACT =
   "dev-queryapi.dataplatform.near";
 //network config (replace testnet with mainnet or betanet)
 const provider = new providers.JsonRpcProvider(
-  "https://archival-rpc.mainnet.near.org"
+  "https://rpc.mainnet.near.org"
 );
 
 export const queryIndexerFunctionDetails = async (accountId, functionName) => {
@@ -24,6 +24,7 @@ export const queryIndexerFunctionDetails = async (accountId, functionName) => {
       JSON.parse(Buffer.from(result.result).toString())
     );
   } catch (error) {
+    console.log(`Could not query indexer function details from registry ${REGISTRY_CONTRACT}, for ${accountId}/${functionName}`)
     console.log(error, "error");
     return null;
   }

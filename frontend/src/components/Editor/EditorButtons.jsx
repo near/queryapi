@@ -1,14 +1,10 @@
-// EditorButtons.jsx
-
-import React from "react";
+import React, { useContext } from "react";
 import {
-  ButtonToolbar,
   Breadcrumb,
   Button,
   Form,
   InputGroup,
   Navbar,
-  Nav,
   Container,
   Col,
   Row,
@@ -24,34 +20,38 @@ import {
   XCircle,
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const EditorButtons = ({
-  accountId,
-  indexerNameField,
-  setIndexerNameField,
-  options,
-  setShowResetCodeModel,
   handleFormating,
   executeIndexerFunction,
   currentUserAccountId,
   getActionButtonText,
-  submit,
-  debugMode,
   isExecuting,
   stopExecution,
   heights,
   setHeights,
-  setShowPublishModal,
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
 }) => {
+
+  const {
+    indexerName,
+    accountId,
+    indexerDetails,
+    setShowPublishModal,
+    setShowResetCodeModel,
+    debugMode,
+    isCreateNewIndexer,
+    indexerNameField,
+    setIndexerNameField
+  } = useContext(IndexerDetailsContext);
+
   const removeHeight = (index) => {
     setHeights(heights.filter((_, i) => i !== index));
   };
+
   return (
     <>
       <Navbar bg="light" variant="light">
@@ -71,7 +71,7 @@ const EditorButtons = ({
                   {accountId}
                 </Breadcrumb.Item>
                 <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
-                  {options.create_new_indexer ? (
+                  {isCreateNewIndexer ? (
                     <Form.Control
                       type="text"
                       placeholder="Indexer Name"
@@ -80,16 +80,15 @@ const EditorButtons = ({
                       onChange={(e) => setIndexerNameField(e.target.value)}
                     />
                   ) : (
-                    indexerNameField
+                    indexerName
                   )}
                 </Breadcrumb.Item>
               </Breadcrumb>
-              <InputGroup size="sm" hasValidation={true} style = {{width: "fit-content"}}>
+              {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
-                  disabled={!options.create_new_indexer}
-                  value={contractFilter}
-                  onChange={handleSetContractFilter}
+                  disabled={!isCreateNewIndexer}
+                  value={indexerDetails.config.filter}
                   type="text"
                   placeholder="social.near"
                   required={true}
@@ -97,8 +96,8 @@ const EditorButtons = ({
                 <Form.Control.Feedback type="invalid">
                   Please provide a valid contract name.
                 </Form.Control.Feedback>
-              </InputGroup>
-</Col>
+              </InputGroup>}
+            </Col>
             <Col style={{ display: "flex", justifyContent: "center" }}>
               {debugMode && (
                 <BlockPicker
@@ -118,7 +117,7 @@ const EditorButtons = ({
                 className="inline-block"
                 aria-label="Action Button Group"
               >
-                {isUserIndexer && !options.create_new_indexer && (
+                {isUserIndexer && !isCreateNewIndexer && (
                   <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>Delete Indexer</Tooltip>}

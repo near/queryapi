@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useContext } from "react";
 import {
   formatSQL,
   formatIndexingCode,
+  wrapCode,
   defaultCode,
   defaultSchema,
 } from "../../utils/formatters";
@@ -16,60 +17,67 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
-import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
-const BLOCKHEIGHT_LIMIT = 3600;
-import { validateContractId } from "../../utils/validators"
+import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
+const BLOCKHEIGHT_LIMIT = 3600;
 
 const Editor = ({
-  options,
-  accountId,
-  indexerName,
   onLoadErrorText,
   actionButtonText,
 }) => {
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
+  const {
+    indexerDetails,
+    setShowResetCodeModel,
+    setShowPublishModal,
+    debugMode,
+    isCreateNewIndexer,
+    indexerNameField,
+  } = useContext(IndexerDetailsContext);
+
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`
+
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
-  const [showResetCodeModel, setShowResetCodeModel] = useState(false);
+
   const [fileName, setFileName] = useState("indexingLogic.js");
-  const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
-  const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
-  const [debugMode, setDebugMode] = useState(false);
+
+  const [originalSQLCode, setOriginalSQLCode] = useState(formatSQL(defaultSchema));
+  const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(defaultCode));
+  const [indexingCode, setIndexingCode] = useState(originalIndexingCode);
+  const [schema, setSchema] = useState(originalSQLCode);
+
   const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
-  const [showPublishModal, setShowPublishModal] = useState(false);
+
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
-  const handleLog = (blockHeight, log, callback) => {
-    if(log) console.log(log);
+  const [diffView, setDiffView] = useState(false);
+  const [blockView, setBlockView] = useState(false);
+
+  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
+
+  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+
+  const handleLog = (_, log, callback) => {
+    if (log) console.log(log);
     if (callback) {
       callback();
     }
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
-
-  const [indexingCode, setIndexingCode] = useState(defaultCode);
-  const [schema, setSchema] = useState(defaultSchema);
-  const [diffView, setDiffView] = useState(false);
-  const [blockView, setBlockView] = useState(false);
-  const [indexerNameField, setIndexerNameField] = useState(indexerName ?? "");
-  const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
-  const [blockHeight, setBlockHeight] = useState("0");
-
-  const [isContractFilterValid, setIsContractFilterValid] = useState(true);
-  const [contractFilter, setContractFilter] = useState("social.near");
-  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
-  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
+  useEffect(() => {
+    if (!indexerDetails.code || !indexerDetails.schema) return
+    const { formattedCode, formattedSchema } = reformatAll(indexerDetails.code, indexerDetails.schema)
+    setOriginalSQLCode(formattedSchema)
+    setOriginalIndexingCode(formattedCode)
+    setIndexingCode(formattedCode)
+    setSchema(formattedSchema)
+  }, [indexerDetails.code, indexerDetails.schema]);
 
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
     return blockHeight
   }
-
-  const handleOptionChange = (event) => {
-    setSelectedOption(event.target.value);
-    setBlockHeightError(null);
-  };
 
   useEffect(() => {
     if (selectedTab === "playground") {
@@ -81,35 +89,32 @@ const Editor = ({
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
-  useEffect(() => {
-    if (selectedOption == "latestBlockHeight") {
-      setBlockHeightError(null);
-      return;
-    }
-
-    if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-      setBlockHeightError(
-        `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${
-          BLOCKHEIGHT_LIMIT / 3600
-        } hrs. Choose a start block height between ${
-          height - BLOCKHEIGHT_LIMIT
-        } - ${height}.`
-      );
-    } else if (blockHeight > height) {
-      setBlockHeightError(
-        `Warning: Start Block Hieght can not be in the future. Please choose a value between ${
-          height - BLOCKHEIGHT_LIMIT
-        } - ${height}.`
-      );
-    } else {
-      setBlockHeightError(null);
-    }
-  }, [blockHeight, height, selectedOption]);
+  // useEffect(() => {
+  //   if (selectedOption == "latestBlockHeight") {
+  //     setBlockHeightError(null);
+  //     return;
+  //   }
+  //
+  //   if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
+  //     setBlockHeightError(
+  //       `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600
+  //       } hrs. Choose a start block height between ${height - BLOCKHEIGHT_LIMIT
+  //       } - ${height}.`
+  //     );
+  //   } else if (blockHeight > height) {
+  //     setBlockHeightError(
+  //       `Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT
+  //       } - ${height}.`
+  //     );
+  //   } else {
+  //     setBlockHeightError(null);
+  //   }
+  // }, [blockHeight, height, selectedOption]);
 
   const checkSQLSchemaFormatting = () => {
     try {
-      let formatted_code = formatSQL(schema);
-      let formatted_schema = formatted_code;
+      let formatted_sql = formatSQL(schema);
+      let formatted_schema = formatted_sql;
       return formatted_schema;
     } catch (error) {
       console.log("error", error);
@@ -121,122 +126,99 @@ const Editor = ({
     }
   };
 
-  const registerFunction = async () => {
+  const registerFunction = async (indexerConfig) => {
     let formatted_schema = checkSQLSchemaFormatting();
-    let isForking = accountId !== currentUserAccountId;
+    let isForking = indexerDetails.accountId !== currentUserAccountId;
 
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    if (indexerNameField == undefined || formatted_schema == undefined) {
+    let indexerName = isCreateNewIndexer ? indexerNameField.replaceAll(" ", "_") : indexerDetails?.indexerName.replaceAll(" ", "_");
+    if (indexerName === undefined || indexerName === "") {
       setError(
         () =>
-          "Please check your SQL schema formatting and specify an Indexer Name"
+          "Please provide an Indexer Name"
+      )
+      return
+    }
+    if (formatted_schema == undefined) {
+      setError(
+        () =>
+          "Please check your SQL schema formatting"
       );
       return;
     }
 
     if (isForking) {
-      let prevAccountName = accountId.replace(".", "_");
+      let prevAccountName = indexerDetails.accountId.replace(".", "_");
       let newAccountName = currentUserAccountId.replace(".", "_");
 
       innerCode = innerCode.replaceAll(prevAccountName, newAccountName);
     }
 
     setError(() => undefined);
-    let start_block_height = blockHeight;
-    if (selectedOption == "latestBlockHeight") {
-      start_block_height = null;
-    }
-    // Send a message to other sources
+
     request("register-function", {
-      indexerName: indexerNameField.replaceAll(" ", "_"),
+      indexerName: indexerName,
       code: innerCode,
       schema: formatted_schema,
-      blockHeight: start_block_height,
-      contractFilter: contractFilter,
-
+      blockHeight: indexerConfig.startBlockHeight,
+      contractFilter: indexerConfig.filter,
     });
     setShowPublishModal(false);
   };
 
   const handleDeleteIndexer = () => {
     request("delete-indexer", {
-      accountId: accountId,
-      indexerName: indexerName,
+      accountId: indexerDetails.accountId,
+      indexerName: indexerDetails.indexerName,
     });
   };
-  const handleReload = useCallback(async () => {
-    if (options?.create_new_indexer === true) {
-      // setIndexingCode(defaultCode);
-      // setSchema(defaultSchema);
+
+  const handleReload = async () => {
+    if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
+      setIndexingCode(defaultCode);
+      setSchema(defaultSchema);
       return;
     }
 
-    const data = await queryIndexerFunctionDetails(accountId, indexerNameField);
+    const data = await queryIndexerFunctionDetails(indexerDetails.accountId, indexerDetails.indexerName);
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
       setError(() => onLoadErrorText);
     } else {
       try {
-        let unformatted_indexing_code = format_querried_code(data.code);
+        let unformatted_wrapped_indexing_code = wrapCode(data.code)
         let unformatted_schema = data.schema;
-        if (unformatted_indexing_code !== null) {
-          setOriginalIndexingCode(unformatted_indexing_code);
-          setIndexingCode(unformatted_indexing_code);
+        if (unformatted_wrapped_indexing_code !== null) {
+          setOriginalIndexingCode(() => unformatted_wrapped_indexing_code);
+          setIndexingCode(() => unformatted_wrapped_indexing_code);
         }
         if (unformatted_schema !== null) {
           setOriginalSQLCode(unformatted_schema);
           setSchema(unformatted_schema);
         }
-        if (data.start_block_height) {
-          setSelectedOption("specificBlockHeight");
-          setBlockHeight(data.start_block_height);
-        }
-        if(data.filter) {
-          setContractFilter(data.filter.matching_rule.affected_account_id)
-        }
+        // if (data.start_block_height) {
+        //   setSelectedOption("specificBlockHeight");
+        //   setBlockHeight(data.start_block_height);
+        // }
+        // if (data.filter) {
+        //   setContractFilter(data.filter.matching_rule.affected_account_id)
+        // }
+        await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
       } catch (error) {
         console.log(error);
-        setError(() => "An Error occured while trying to format the code.");
       }
     }
-
     setShowResetCodeModel(false);
-  }, [
-    accountId,
-    indexerNameField,
-    onLoadErrorText,
-    options?.create_new_indexer,
-  ]);
-
-  const format_querried_code = (code) => {
-    try {
-      let formatted_code = formatIndexingCode(code, true);
-      setError(() => undefined);
-      return formatted_code;
-    } catch (error) {
-      setError(
-        () =>
-          "Oh snap! We could not format the queried code. The code in the registry contract may be invalid Javascript code. "
-      );
-      console.log(error);
-      return unformatted_code;
-    }
-  };
+  }
 
   const getActionButtonText = () => {
-    const isUserIndexer = accountId === currentUserAccountId;
-
+    const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
+    if (isCreateNewIndexer) return "Create New Indexer"
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
-  useEffect(() => {
-    const load = async () => {
-      await handleReload();
-    };
-    load();
-  }, [accountId, handleReload, indexerName]);
 
   const handleFormattingError = (fileName) => {
     const errorMessage =
@@ -247,12 +229,22 @@ const Editor = ({
     setError(() => errorMessage);
   };
 
-  const reformat = () => {
+  const reformatAll = (indexingCode, schema) => {
+    const formattedCode = formatIndexingCode(indexingCode);
+    setIndexingCode(formattedCode);
+
+    const formattedSchema = formatSQL(schema);
+    setSchema(formattedSchema);
+
+    return { formattedCode, formattedSchema }
+  }
+
+  const reformat = (indexingCode, schema) => {
     return new Promise((resolve, reject) => {
       try {
         let formattedCode;
         if (fileName === "indexingLogic.js") {
-          formattedCode = formatIndexingCode(indexingCode, false);
+          formattedCode = formatIndexingCode(indexingCode);
           setIndexingCode(formattedCode);
         } else if (fileName === "schema.sql") {
           formattedCode = formatSQL(schema);
@@ -268,13 +260,7 @@ const Editor = ({
   };
 
   async function handleFormating() {
-    await reformat();
-  }
-
-  async function submit() {
-    // Handle Register button click
-    await reformat();
-    await registerFunction();
+    await reformat(indexingCode, schema);
   }
 
   function handleEditorMount(editor) {
@@ -296,20 +282,9 @@ const Editor = ({
     );
   }
 
-  function handleSetContractFilter(e) {
-    const contractFilter = e.target.value;
-    setContractFilter(contractFilter);
-    const isValid = validateContractId(contractFilter);
-
-    if (isValid) {
-      setIsContractFilterValid(true);
-    } else {
-      setIsContractFilterValid(false);
-    }
-  }
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
-     setIsExecutingIndexerFunction(() => true)
+    setIsExecutingIndexerFunction(() => true)
 
     switch (option) {
       case "debugList":
@@ -340,51 +315,26 @@ const Editor = ({
       }}
     >
       <EditorButtons
-        accountId={accountId}
-        indexerNameField={indexerNameField}
-        setIndexerNameField={setIndexerNameField}
-        options={options}
-        selectedOption={selectedOption}
-        handleOptionChange={handleOptionChange}
-        blockHeight={blockHeight}
-        setBlockHeight={setBlockHeight}
-        setShowResetCodeModel={setShowResetCodeModel}
         handleFormating={handleFormating}
         executeIndexerFunction={executeIndexerFunction}
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
-        debugMode={debugMode}
         heights={heights}
         setHeights={setHeights}
+        isCreateNewIndexer={isCreateNewIndexer}
         isExecuting={isExecutingIndexerFunction}
         stopExecution={() => indexerRunner.stop()}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
-        setShowPublishModal={setShowPublishModal}
         latestHeight={height}
-        isUserIndexer={accountId === currentUserAccountId}
+        isUserIndexer={indexerDetails.accountId === currentUserAccountId}
         handleDeleteIndexer={handleDeleteIndexer}
       />
       <ResetChangesModal
-        showResetCodeModel={showResetCodeModel}
-        setShowResetCodeModel={setShowResetCodeModel}
         handleReload={handleReload}
       />
       <PublishModal
-        showPublishModal={showPublishModal}
-        setShowPublishModal={setShowPublishModal}
         registerFunction={registerFunction}
-        selectedOption={selectedOption}
-        handleOptionChange={handleOptionChange}
-        blockHeight={blockHeight}
-        setBlockHeight={setBlockHeight}
         actionButtonText={getActionButtonText()}
-        submit={submit}
         blockHeightError={blockHeightError}
-        contractFilter={contractFilter}
-        handleSetContractFilter={handleSetContractFilter}
-        isContractFilterValid={isContractFilterValid}
       />
       <div
         className="px-3 pt-3"
@@ -416,13 +366,8 @@ const Editor = ({
           setFileName={setFileName}
           diffView={diffView}
           setDiffView={setDiffView}
-          blockView={blockView}
-          setBlockView={setBlockView}
-          debugMode={debugMode}
-          setDebugMode={setDebugMode}
         />
         <ResizableLayoutEditor
-          accountId={accountId}
           fileName={fileName}
           indexingCode={indexingCode}
           blockView={blockView}
@@ -433,7 +378,7 @@ const Editor = ({
           originalSQLCode={originalSQLCode}
           originalIndexingCode={originalIndexingCode}
           schema={schema}
-          options={options}
+          isCreateNewIndexer={isCreateNewIndexer}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
         />
