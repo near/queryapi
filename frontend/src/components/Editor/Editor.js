@@ -132,13 +132,6 @@ const Editor = ({
     let isForking = indexerDetails.accountId !== currentUserAccountId;
 
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    if (indexerName === undefined || indexerName === "") {
-      setError(
-        () =>
-          "Please provide an Indexer Name"
-      )
-      return
-    }
     indexerName = indexerName.replaceAll(" ", "_");
     if (formatted_schema == undefined) {
       setError(
