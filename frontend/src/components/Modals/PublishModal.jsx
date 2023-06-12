@@ -2,11 +2,11 @@ import React, { useContext, useState } from "react";
 import { Button, Modal, Alert } from "react-bootstrap";
 import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { validateContractId } from "../../utils/validators";
 
 export const PublishModal = ({
   registerFunction,
   actionButtonText,
-  blockHeightError,
 }) => {
   const {
     showPublishModal,
@@ -14,6 +14,7 @@ export const PublishModal = ({
   } = useContext(IndexerDetailsContext);
   const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null })
   const [indexerName, setIndexerName] = useState("")
+  const [error, setError] = useState(null)
 
   const updateConfig = (indexerName, filter, startBlockHeight, option) => {
     if (option === "latestBlockHeight") {
@@ -21,6 +22,26 @@ export const PublishModal = ({
     }
     setIndexerConfig({ filter, startBlockHeight })
     setIndexerName(indexerName)
+  }
+
+  const register = async () => {
+    if (indexerName === undefined || indexerName === "") {
+      setError(
+        () =>
+          "Please provide an Indexer Name"
+      )
+      return
+    }
+
+    if (!validateContractId(indexerConfig.filter)) {
+      setError(
+        () =>
+          "Please provide a valid contract name"
+      )
+      return
+    }
+    setError(null)
+    registerFunction(indexerName, indexerConfig)
   }
 
   return (
@@ -34,18 +55,18 @@ export const PublishModal = ({
       </Modal.Header>
       <Modal.Body>
         <IndexerConfigOptions updateConfig={updateConfig} />
-      </Modal.Body>
-      <Modal.Footer>
-        {blockHeightError && (
-          <Alert className="px-3 pt-3" variant="danger">
-            {blockHeightError}
+        {error && (
+          <Alert className="px-3 mt-3" variant="danger">
+            {error}
           </Alert>
         )}
+      </Modal.Body>
+      <Modal.Footer>
 
         <Button variant="secondary" onClick={() => setShowPublishModal(false)}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => registerFunction(indexerName, indexerConfig)}>
+        <Button variant="primary" onClick={() => register()}>
           {actionButtonText}
         </Button>
       </Modal.Footer>
