@@ -103,6 +103,7 @@ export const IndexerDetailsProvider = ({ children }) => {
     <IndexerDetailsContext.Provider
       value={{
         accountId,
+        indexerName,
         setAccountId,
         setIndexerName,
         indexerNameField,

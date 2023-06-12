@@ -37,6 +37,7 @@ const EditorButtons = ({
 }) => {
 
   const {
+    indexerName,
     accountId,
     indexerDetails,
     setShowPublishModal,
@@ -79,7 +80,7 @@ const EditorButtons = ({
                       onChange={(e) => setIndexerNameField(e.target.value)}
                     />
                   ) : (
-                    indexerDetails.indexerName
+                    indexerName
                   )}
                 </Breadcrumb.Item>
               </Breadcrumb>
@@ -87,7 +88,7 @@ const EditorButtons = ({
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
                   disabled={!isCreateNewIndexer}
-                  value={indexerDetails.filter}
+                  value={indexerDetails.config.filter}
                   type="text"
                   placeholder="social.near"
                   required={true}

@@ -6,7 +6,7 @@ import { validateContractId } from "../../utils/validators";
 const IndexerConfigOptions = ({ updateConfig }) => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
   const [blockHeight, setBlockHeight] = useState("0");
-  const [contractFilter, setContractFilter] = useState(indexerDetails.filter || "social.near");
+  const [contractFilter, setContractFilter] = useState("social.near");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
 
@@ -19,6 +19,9 @@ const IndexerConfigOptions = ({ updateConfig }) => {
     if (indexerDetails.config?.startBlockHeight) {
       setSelectedOption("specificBlockHeight")
       setBlockHeight(indexerDetails.config.startBlockHeight)
+    }
+    if (indexerDetails.config?.filter) {
+      setContractFilter(indexerDetails.config.filter)
     }
   }, [indexerDetails])
 

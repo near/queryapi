@@ -4,7 +4,7 @@ const REGISTRY_CONTRACT =
   "dev-queryapi.dataplatform.near";
 //network config (replace testnet with mainnet or betanet)
 const provider = new providers.JsonRpcProvider(
-  "https://archival-rpc.mainnet.near.org"
+  "https://rpc.mainnet.near.org"
 );
 
 export const queryIndexerFunctionDetails = async (accountId, functionName) => {
