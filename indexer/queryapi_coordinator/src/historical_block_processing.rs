@@ -17,7 +17,7 @@ use tokio::task::JoinHandle;
 
 const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
 const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
-const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/metadata";
+const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
@@ -195,7 +195,7 @@ async fn filter_matching_blocks_from_index_files(
             );
             return vec![];
 
-            // let s3_prefix = format!("silver/contracts/metadata/{}", affected_account_id);
+            // let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
             // fetch_contract_index_files(aws_config, s3_bucket, s3_prefix).await
             // // todo implement, use function name selector
         }
