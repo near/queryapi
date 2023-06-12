@@ -126,12 +126,11 @@ const Editor = ({
     }
   };
 
-  const registerFunction = async (indexerConfig) => {
+  const registerFunction = async (indexerName, indexerConfig) => {
     let formatted_schema = checkSQLSchemaFormatting();
     let isForking = indexerDetails.accountId !== currentUserAccountId;
 
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    let indexerName = isCreateNewIndexer ? indexerNameField.replaceAll(" ", "_") : indexerDetails?.indexerName.replaceAll(" ", "_");
     if (indexerName === undefined || indexerName === "") {
       setError(
         () =>
@@ -139,6 +138,7 @@ const Editor = ({
       )
       return
     }
+    indexerName = indexerName.replaceAll(" ", "_");
     if (formatted_schema == undefined) {
       setError(
         () =>

@@ -18,6 +18,7 @@ import {
   Justify,
   TrashFill,
   XCircle,
+  NodePlus
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
@@ -34,6 +35,7 @@ const EditorButtons = ({
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
+  showForkYourOwnIndexerModal,
 }) => {
 
   const {
@@ -174,6 +176,20 @@ const EditorButtons = ({
                     </Button>
                   </OverlayTrigger>
                 )}
+                <OverlayTrigger
+                  placement="bottom"
+                  overlay={<Tooltip>Fork this Indexer</Tooltip>}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex align-center"
+                    onClick={() => showForkYourOwnIndexerModal(true)}
+                  >
+                    <NodePlus style={{ paddingRight: "2px" }} size={24} />
+                  </Button>
+                </OverlayTrigger>
+
               </ButtonGroup>
             </Col>
           </Row>
