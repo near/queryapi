@@ -42,6 +42,7 @@ export const PublishModal = ({
     }
     setError(null)
     registerFunction(indexerName, indexerConfig)
+    setShowPublishModal(false)
   }
 
   return (
