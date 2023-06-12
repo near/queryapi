@@ -26,7 +26,6 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
-  
   const {
     indexerDetails,
     setShowResetCodeModel,
@@ -42,8 +41,8 @@ const Editor = ({
 
   const [fileName, setFileName] = useState("indexingLogic.js");
 
-  const [originalSQLCode, setOriginalSQLCode] = useState(formatSQL(indexerDetails.schema));
-  const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(indexerDetails.code));
+  const [originalSQLCode, setOriginalSQLCode] = useState(formatSQL(defaultSchema));
+  const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(defaultCode));
   const [indexingCode, setIndexingCode] = useState(originalIndexingCode);
   const [schema, setSchema] = useState(originalSQLCode);
 
@@ -65,6 +64,14 @@ const Editor = ({
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
+  useEffect(() => {
+    if (!indexerDetails.code || !indexerDetails.schema) return
+    const { formattedCode, formattedSchema } = reformatAll(indexerDetails.code, indexerDetails.schema)
+    setOriginalSQLCode(formattedSchema)
+    setOriginalIndexingCode(formattedCode)
+    setIndexingCode(formattedCode)
+    setSchema(formattedSchema)
+  }, [indexerDetails.code, indexerDetails.schema]);
 
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
@@ -220,6 +227,16 @@ const Editor = ({
 
     setError(() => errorMessage);
   };
+
+  const reformatAll = (indexingCode, schema) => {
+    const formattedCode = formatIndexingCode(indexingCode);
+    setIndexingCode(formattedCode);
+
+    const formattedSchema = formatSQL(schema);
+    setSchema(formattedSchema);
+
+    return { formattedCode, formattedSchema }
+  }
 
   const reformat = (indexingCode, schema) => {
     return new Promise((resolve, reject) => {

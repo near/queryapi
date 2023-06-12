@@ -21,7 +21,7 @@ import { getLatestBlockHeight } from "../utils/getLatestBlockHeight";
 // }
 
 export const IndexerDetailsContext = React.createContext({
-  indexerDetails: { code: defaultCode, schema: defaultSchema, config: { filter: "social.near", startBlockHeight: 0 }, accountId: "", indexerName: "" },
+  indexerDetails: { code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: 0 }, accountId: "", indexerName: "" },
   showResetCodeModel: false,
   setShowResetCodeModel: () => { },
   showPublishModal: false,
@@ -37,7 +37,7 @@ export const IndexerDetailsContext = React.createContext({
 export const IndexerDetailsProvider = ({ children }) => {
   const [accountId, setAccountId] = useState(undefined);
   const [indexerName, setIndexerName] = useState(undefined);
-  const [indexerDetails, setIndexerDetails] = useState({ code: defaultCode, schema: defaultSchema, config: { filter: "social.near", startBlockHeight: 0 }, accountId: accountId, indexerName: indexerName })
+  const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: 0 }, accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
@@ -73,15 +73,25 @@ export const IndexerDetailsProvider = ({ children }) => {
 
   useEffect(() => {
     if (isCreateNewIndexer || !accountId || !indexerName) {
-      indexerDetails.accountId = accountId
-      indexerDetails.indexerName = indexerName
-      setIndexerDetails(indexerDetails)
+      setIndexerDetails(prevDetails => ({
+        ...prevDetails,
+        accountId: accountId,
+        indexerName: indexerName,
+      }));
       return
     }
     (async () => {
-      const details = await requestIndexerDetails()
+      const indexer = await requestIndexerDetails()
+      const details = {
+        accountId: indexer.accountId,
+        indexerName: indexer.indexerName,
+        code: indexer.code,
+        schema: indexer.schema,
+        config: indexer.indexerConfig
+      }
       setIndexerDetails(details);
     })();
+
   }, [accountId, indexerName, isCreateNewIndexer]);
 
   return (
