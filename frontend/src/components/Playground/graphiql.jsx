@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import GraphiQL from "graphiql";
 import { sessionStorage } from "near-social-bridge";
 import "graphiql/graphiql.min.css";
@@ -27,11 +27,6 @@ const graphQLFetcher = async (graphQLParams, accountId) => {
 
 export const GraphqlPlayground = () => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
-  return (
-    <div style={{ width: "100%", height: "75vh" }}>
-      <GraphiQL
-        fetcher={(params) => graphQLFetcher(params, indexerDetails.accountId)}
-export const GraphqlPlayground = ({ accountId }) => {
   const [query, setQuery] = useState("");
   const explorerPlugin = useExplorerPlugin({
     query,
@@ -40,7 +35,7 @@ export const GraphqlPlayground = ({ accountId }) => {
   return (
     <div style={{ width: "100%", height: "75vh" }}>
       <GraphiQL
-        fetcher={(params) => graphQLFetcher(params, accountId)}
+        fetcher={(params) => graphQLFetcher(params, indexerDetails.accountId)}
         query={query}
         onEditQuery={setQuery}
         plugins={[explorerPlugin]}
