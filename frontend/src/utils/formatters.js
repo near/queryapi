@@ -44,14 +44,12 @@ export const formatIndexingCode = (code) => {
   });
 };
 
-export const defaultCode = formatIndexingCode(
+export const defaultCode = formatIndexingCode(wrapCode(
   `
   // Add your code here   
   const h = block.header().height
   await context.set('height', h);
-`,
-  true
-);
+`));
 
 export const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
