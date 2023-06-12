@@ -26,18 +26,12 @@ export const PublishModal = ({
 
   const register = async () => {
     if (indexerName === undefined || indexerName === "") {
-      setError(
-        () =>
-          "Please provide an Indexer Name"
-      )
+      setError( () => "Please provide an Indexer Name")
       return
     }
 
     if (!validateContractId(indexerConfig.filter)) {
-      setError(
-        () =>
-          "Please provide a valid contract name"
-      )
+      setError( () => "Please provide a valid contract name")
       return
     }
     setError(null)
