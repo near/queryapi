@@ -7,6 +7,7 @@ import {
   NearSocialBridgeProvider,
 } from "near-social-bridge";
 import { IndexerDetailsProvider } from '../contexts/IndexerDetailsContext';
+import "@babel/polyfill";
 overrideLocalStorage();
 
 export default function App({ Component, pageProps }: AppProps) {

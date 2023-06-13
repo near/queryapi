@@ -59,7 +59,7 @@ const ResizableEditor = ({
 
   // Render logic based on fileName
   const editorComponents = {
-    GraphiQL: () => <GraphqlPlayground accountId={accountId} />,
+    GraphiQL: () => <GraphqlPlayground />,
     "indexingLogic.js": () =>
       diffView ? (
         <DiffEditorComponent

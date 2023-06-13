@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@graphiql/plugin-explorer": "^0.1.20",
+    "@graphiql/plugin-code-exporter": "^0.1.2",
     "@monaco-editor/react": "^4.1.3",
     "@near-lake/primitives": "0.1.0",
     "@next/font": "13.1.6",
@@ -37,6 +38,9 @@
     "buffer": "^6.0.3"
   },
   "devDependencies": {
+    "@babel/core": "^7.22.5",
+    "@babel/plugin-transform-runtime": "^7.22.5",
+    "@babel/polyfill": "^7.12.1",
     "raw-loader": "^4.0.2"
   }
 }
