@@ -36,7 +36,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   }
 
   useEffect(() => {
-  if (blockHeight <= GENESIS_BLOCK_HEIGHT) {
+  if (selectedOption == "specificBlockHeight" && blockHeight <= GENESIS_BLOCK_HEIGHT) {
     setBlockHeightError(() => `Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`)
     return
   }
