@@ -1,14 +1,17 @@
 import React, { useContext, useState, useEffect } from "react";
-import { InputGroup } from "react-bootstrap";
+import { InputGroup, Alert } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractId } from "../../utils/validators";
+const  GENESIS_BLOCK_HEIGHT = 9820210;
 const IndexerConfigOptions = ({ updateConfig }) => {
-  const { indexerDetails } = useContext(IndexerDetailsContext);
+  const { indexerDetails, showPublishModal, isCreateNewIndexer, latestHeight } = useContext(IndexerDetailsContext); 
   const [blockHeight, setBlockHeight] = useState("0");
   const [contractFilter, setContractFilter] = useState("social.near");
   const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
+  const [indexerNameField, setIndexerNameField] = useState(indexerDetails.indexerName || "");
+  const [blockHeightError, setBlockHeightError] = useState(null)
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -33,20 +36,37 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   }
 
   useEffect(() => {
-    updateConfig(contractFilter, blockHeight, selectedOption)
-  }, [contractFilter, selectedOption, blockHeight])
+  if (selectedOption == "specificBlockHeight" && blockHeight <= GENESIS_BLOCK_HEIGHT) {
+    setBlockHeightError(() => `Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`)
+    return
+  }
+  setBlockHeightError(() => null)
+  updateConfig(indexerNameField, contractFilter, blockHeight, selectedOption)
+  },
+   [indexerNameField, contractFilter, selectedOption, blockHeight])
 
   return (
     <>
-      <InputGroup size="sm" className="pt-3">
-        <InputGroup.Checkbox
-          value="latestBlockHeight"
-          checked={selectedOption === "latestBlockHeight"}
-          onChange={handleOptionChange}
-          aria-label="Checkbox for following text input"
+      <InputGroup size="sm" >
+        <InputGroup.Text> Indexer Name  </InputGroup.Text>
+        <Form.Control
+          type="text"
+          placeholder="Indexer Name"
+          aria-label="IndexerName"
+          value={indexerNameField}
+          disabled={!isCreateNewIndexer && showPublishModal}
+          onChange={(e) => setIndexerNameField(e.target.value)}
         />
-        <InputGroup.Text>From Latest Block Height</InputGroup.Text>
       </InputGroup>
+        <InputGroup size="sm" className="pt-3">
+          <InputGroup.Checkbox
+            value="latestBlockHeight"
+            checked={selectedOption === "latestBlockHeight"}
+            onChange={handleOptionChange}
+            aria-label="Checkbox for following text input"
+          />
+          <InputGroup.Text>From Latest Block Height</InputGroup.Text>
+        </InputGroup>
       <InputGroup size="sm" className="px-1 pt-3">
         <InputGroup.Checkbox
           value="specificBlockHeight"
@@ -60,6 +80,11 @@ const IndexerConfigOptions = ({ updateConfig }) => {
           onChange={(e) => setBlockHeight(parseInt(e.target.value))}
           type="number"
         />
+        {blockHeightError && (
+          <Alert className="px-3 mt-3" variant="danger">
+            {blockHeightError}
+          </Alert>
+        )}
       </InputGroup>
       <InputGroup size="sm" hasValidation={true} className="px-1 pt-3">
         <InputGroup.Text> Contract Filter</InputGroup.Text>
