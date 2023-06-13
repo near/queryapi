@@ -4,46 +4,49 @@ import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractId } from "../../utils/validators";
 
-export const PublishModal = ({
+export const ForkIndexerModal = ({
   registerFunction,
-  actionButtonText,
 }) => {
   const {
-    showPublishModal,
-    setShowPublishModal,
+    indexerDetails,
+    showForkIndexerModal,
+    setShowForkIndexerModal,
   } = useContext(IndexerDetailsContext);
   const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null })
   const [indexerName, setIndexerName] = useState("")
   const [error, setError] = useState(null)
 
   const updateConfig = (indexerName, filter, startBlockHeight, option) => {
-    if (option === "latestBlockHeight") {
-      startBlockHeight = null
-    }
-    setIndexerConfig({ filter, startBlockHeight })
+    let finalStartBlockHeight = option === "latestBlockHeight" ? null : startBlockHeight;
+    setIndexerConfig({ filter, startBlockHeight: finalStartBlockHeight })
     setIndexerName(indexerName)
   }
-
   const register = async () => {
-    if (indexerName === undefined || indexerName === "") {
-      setError( () => "Please provide an Indexer Name")
+    if (!indexerName) {
+      setError("Please provide an Indexer Name")
       return
     }
 
+    if (indexerName === indexerDetails.indexerName) {
+      setError("Please provide a different Indexer Name than the orginal Indexer")
+      return
+    }
+
+
     if (!validateContractId(indexerConfig.filter)) {
-      setError( () => "Please provide a valid contract name")
+      setError("Please provide a valid contract name")
       return
     }
     setError(null)
     registerFunction(indexerName, indexerConfig)
-    setShowPublishModal(false)
+    setShowForkIndexerModal(false)
   }
 
   return (
     <Modal
       centered={true}
-      show={showPublishModal}
-      onHide={() => setShowPublishModal(false)}
+      show={showForkIndexerModal}
+      onHide={() => setShowForkIndexerModal(false)}
     >
       <Modal.Header closeButton>
         <Modal.Title> Enter Indexer Details</Modal.Title>
@@ -57,12 +60,11 @@ export const PublishModal = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-
         <Button variant="secondary" onClick={() => setShowPublishModal(false)}>
           Cancel
         </Button>
         <Button variant="primary" onClick={() => register()}>
-          {actionButtonText}
+          Fork Your Own Indexer
         </Button>
       </Modal.Footer>
     </Modal>

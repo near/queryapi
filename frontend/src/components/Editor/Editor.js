@@ -17,6 +17,7 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
+import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
@@ -126,19 +127,12 @@ const Editor = ({
     }
   };
 
-  const registerFunction = async (indexerConfig) => {
+  const registerFunction = async (indexerName, indexerConfig) => {
     let formatted_schema = checkSQLSchemaFormatting();
     let isForking = indexerDetails.accountId !== currentUserAccountId;
 
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    let indexerName = isCreateNewIndexer ? indexerNameField.replaceAll(" ", "_") : indexerDetails?.indexerName.replaceAll(" ", "_");
-    if (indexerName === undefined || indexerName === "") {
-      setError(
-        () =>
-          "Please provide an Indexer Name"
-      )
-      return
-    }
+    indexerName = indexerName.replaceAll(" ", "_");
     if (formatted_schema == undefined) {
       setError(
         () =>
@@ -336,6 +330,10 @@ const Editor = ({
         actionButtonText={getActionButtonText()}
         blockHeightError={blockHeightError}
       />
+      <ForkIndexerModal
+        registerFunction={registerFunction}
+      />
+
       <div
         className="px-3 pt-3"
         style={{

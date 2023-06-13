@@ -26,6 +26,8 @@ export const IndexerDetailsContext = React.createContext({
   setShowResetCodeModel: () => { },
   showPublishModal: false,
   setShowPublishModal: () => { },
+  showForkIndexerModal: false,
+  setShowForkIndexerModal: () => { },
   debugMode: false,
   setDebugMode: () => { },
   latestHeight: 0,
@@ -37,17 +39,15 @@ export const IndexerDetailsContext = React.createContext({
   indexerName: undefined,
   setIndexerName: () => { },
   setIndexerDetails: () => { },
-  indexerNameField: "",
-  setIndexerNameField: () => { },
 });
 
 export const IndexerDetailsProvider = ({ children }) => {
   const [accountId, setAccountId] = useState(undefined);
   const [indexerName, setIndexerName] = useState(undefined);
-  const [indexerNameField, setIndexerNameField] = useState("");
   const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: null }, accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
+  const [showForkIndexerModal, setShowForkIndexerModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
@@ -106,13 +106,13 @@ export const IndexerDetailsProvider = ({ children }) => {
         indexerName,
         setAccountId,
         setIndexerName,
-        indexerNameField,
-        setIndexerNameField,
         indexerDetails,
         showResetCodeModel,
         setShowResetCodeModel,
         showPublishModal,
         setShowPublishModal,
+        showForkIndexerModal,
+        setShowForkIndexerModal,   
         debugMode,
         setDebugMode,
         latestHeight,
