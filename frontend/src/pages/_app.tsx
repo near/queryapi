@@ -7,7 +7,6 @@ import {
   NearSocialBridgeProvider,
 } from "near-social-bridge";
 import { IndexerDetailsProvider } from '../contexts/IndexerDetailsContext';
-import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 overrideLocalStorage();
 
