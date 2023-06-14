@@ -34,18 +34,19 @@ const extractTableName = query => {
   return match ? match[1].trim() : null;
 };
 
-const bosQuerySnippet = {
-  name: `BOS Widget`,
-  language: `JavaScript`,
-  codeMirrorMode: `jsx`,
-  options: [],
-  generate: arg => {
-    const { operationDataList } = arg;
-    const { query } = operationDataList[0];
-    const queryName = extractQueryName(query)
-    const tableName = extractTableName(query)
-    const formattedQuery = query.replace(/\n/g, `\n` + ` `.repeat(2));
-    return `
+const bosQuerySnippet = (accountId) => {
+  return {
+    name: `BOS Widget`,
+    language: `JavaScript`,
+    codeMirrorMode: `jsx`,
+    options: [],
+    generate: arg => {
+      const { operationDataList } = arg;
+      const { query } = operationDataList[0];
+      const queryName = extractQueryName(query)
+      const tableName = extractTableName(query)
+      const formattedQuery = query.replace(/\n/g, `\n` + ` `.repeat(2));
+      return `
 const QUERYAPI_ENDPOINT = \`${HASURA_ENDPOINT}\`;
 
 State.init({
@@ -58,7 +59,7 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
         QUERYAPI_ENDPOINT,
         {
           method: "POST",
-          headers: { "x-hasura-role": "roshaan_near" },
+          headers: { "x-hasura-role": \`${accountId?.replaceAll(".", "_")}\` },
           body: JSON.stringify({
             query: operationsDoc,
             variables: variables,
@@ -93,12 +94,13 @@ return (
 </>
 )
 `;
-  },
+    }
+  }
 };
 
 export default () => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
-  const snippets = [bosQuerySnippet];
+  const snippets = [bosQuerySnippet(indexerDetails.accountId)];
   const [query, setQuery] = useState("");
 
   const explorerPlugin = useExplorerPlugin({
