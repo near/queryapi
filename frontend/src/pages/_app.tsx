@@ -7,6 +7,7 @@ import {
   NearSocialBridgeProvider,
 } from "near-social-bridge";
 import { IndexerDetailsProvider } from '../contexts/IndexerDetailsContext';
+import 'regenerator-runtime/runtime';
 overrideLocalStorage();
 
 export default function App({ Component, pageProps }: AppProps) {
