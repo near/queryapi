@@ -96,7 +96,7 @@ return (
   }
 };
 
-export default () => {
+export const GraphqlPlayground = () => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
   const snippets = [bosQuerySnippet(indexerDetails.accountId)];
   const [query, setQuery] = useState("");
@@ -117,9 +117,6 @@ export default () => {
         query={query}
         onEditQuery={setQuery}
         fetcher={(params) => graphQLFetcher(params, indexerDetails.accountId)}
-        query={query}
-        onEditQuery={setQuery}
-        plugins={[explorerPlugin]}
         defaultQuery=""
         storage={sessionStorage}
         plugins={[explorerPlugin, exporterPlugin]}
