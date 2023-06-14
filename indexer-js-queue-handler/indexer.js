@@ -30,7 +30,7 @@ export default class Indexer {
         };
     }
 
-    async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
+    async runFunctions(block_height, functions, is_historical, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         let lag = Date.now() - Math.floor(blockWithHelpers.header().timestampNanosec / 1000000);
