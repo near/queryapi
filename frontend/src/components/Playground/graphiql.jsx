@@ -46,7 +46,7 @@ const bosQuerySnippet = {
     const tableName = extractTableName(query)
     const formattedQuery = query.replace(/\n/g, `\n` + ` `.repeat(2));
     return `
-const HASURA_ENDPOINT = \`${HASURA_ENDPOINT}\`;
+const QUERYAPI_ENDPOINT = \`${HASURA_ENDPOINT}\`;
 
 State.init({
 data: []
@@ -55,7 +55,7 @@ data: []
 const query = \`${formattedQuery}\`
 function fetchGraphQL(operationsDoc, operationName, variables) {
       return asyncFetch(
-        HASURA_ENDPOINT,
+        QUERYAPI_ENDPOINT,
         {
           method: "POST",
           headers: { "x-hasura-role": "roshaan_near" },
