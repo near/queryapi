@@ -29,8 +29,9 @@ const extractQueryName = query => {
   const match = query.match(/^[^{(]+\s([^{\s(]+)/);
   return match ? match[1] : null;
 };
+
 const extractTableName = query => {
-  const match = query.match(/query\s*\w*\s*{\s*([^{\s]+)/);
+  const match = query.match(/query\s*\w*\s*{\s*([^({\s]+)/);
   return match ? match[1].trim() : null;
 };
 
