@@ -169,6 +169,55 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
 ]
 `;
 
+exports[`Indexer unit tests Indexer.runFunctions() sets the current historical block height 1`] = `
+[
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Running function:buildnear.testnet/test:, lag in ms is: :NaN"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Role": "append",
+      },
+      "method": "POST",
+    },
+  ],
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Role": "append",
+      },
+      "method": "POST",
+    },
+  ],
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"hey"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Role": "append",
+      },
+      "method": "POST",
+    },
+  ],
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"\\n            mutation WriteBlock($function_name: String!, $block_height: numeric!) {\\n              insert_indexer_state(\\n                objects: {current_historical_block_height: $block_height, current_block_height: 0 function_name: $function_name}\\n                on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}\\n              ) {\\n                returning {\\n                  current_block_height\\n                  current_historical_block_height\\n                  function_name\\n                }\\n              }\\n            }\\n        ","variables":{"function_name":"buildnear.testnet/test","block_height":456}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Role": "append",
+      },
+      "method": "POST",
+    },
+  ],
+]
+`;
+
 exports[`Indexer unit tests Indexer.runFunctions() should execute all functions against the current block 1`] = `
 [
   [

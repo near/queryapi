@@ -735,6 +735,46 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
+    test('Indexer.runFunctions() sets the current historical block height', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => Promise.resolve({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const metrics = {
+            putBlockHeight: jest.fn().mockReturnValueOnce({ promise: jest.fn() }),
+        };
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray, metrics });
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {
+            code:`
+                console.log('hey')
+            `,
+            account_id: 'buildnear.testnet',
+            function_name: 'test'
+        };
+        await indexer.runFunctions(block_height, functions, true);
+
+        expect(mockFetch.mock.calls).toMatchSnapshot();
+    });
+
     test('Indexer.runFunctions() publishes the current block height', async () => {
         const mockFetch = jest.fn(() => ({
             status: 200,
