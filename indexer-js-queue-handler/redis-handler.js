@@ -2,7 +2,7 @@ import { createClient } from 'redis';
 
 import Indexer from "./indexer.js";
 
-const client = createClient();
+const client = createClient({ url: process.env.REDIS_CONNECTION_STRING });
 const indexer = new Indexer('mainnet')
 
 client.on('error', err => console.log('Redis Client Error', err));
@@ -21,7 +21,20 @@ while (true) {
 
     const message = results[0].messages[0].message;
 
-    console.log(JSON.stringify(message, null, 2));
+    const functions = {};
+
+    const function_name = message.account_id + '/' + message.function_name;
+    functions[function_name] = {
+        account_id: message.account_id,
+        function_name: message.function_name,
+        code: message.code,
+        schema: message.schema,
+        provisioned: false,
+    };
+
+    try {
+        await indexer.runFunctions(Number(message.block_height), functions, false, {imperative: true, provision: true});
+    } catch {}
 }
 
 await client.disconnect();
