@@ -1,19 +1,31 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
-  actions_queryapi_coordinator:
+  # actions_queryapi_coordinator:
+  #   build:
+  #     context: ./indexer
+  #     args:
+  #       - chain_id=mainnet
+  #   env_file: ./indexer/queryapi_coordinator/.env
+  #   links:
+  #     - redis
+  #   environment:
+  #     - REDIS_CONNECTION_STRING=redis://redis
+  #   command:
+  #     - mainnet
+  #     - from-interruption
+
+  runner:
     build:
-      context: ./indexer/queryapi_coordinator
-      args:
-        - chain_id=mainnet
-    env_file: ./indexer/queryapi_coordinator/.env
-    links:
-      - redis
+      context: ./indexer-js-queue-handler
+    depends_on:
+    - "graphql-engine"
+    - "redis"
     environment:
-      - REDIS_CONNECTION_STRING=redis://redis
-    command:
-      - mainnet
-      - from-interruption
+    - REGION=eu-central-1
+    - HASURA_ENDPOINT=http://graphql-engine:8080
+    - HASURA_ADMIN_SECRET=
+    - REDIS_CONNECTION_STRING=redis://redis
 
   redis:
     image: redis
