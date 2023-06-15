@@ -34,8 +34,16 @@ pub async fn xadd(
     schema: &str,
     block_height: u64,
 ) -> anyhow::Result<()> {
+    let indexer = format!("{}/{}", account_id, function_name);
+
+    redis::cmd("SADD")
+        .arg("indexers")
+        .arg(indexer.clone())
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+
     redis::cmd("XADD")
-        .arg("functions")
+        .arg(indexer)
         .arg("*")
         .arg(&["account_id", account_id])
         .arg(&["function_name", function_name])
