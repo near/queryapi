@@ -5,9 +5,6 @@ import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
 
 import Provisioner from './provisioner.js'
-import AWSXRay from "aws-xray-sdk";
-import traceFetch from "./trace-fetch.js";
-import Metrics from './metrics.js'
 
 export default class Indexer {
 
@@ -21,11 +18,9 @@ export default class Indexer {
         this.network = network;
         this.aws_region = process.env.REGION;
         this.deps = {
-            fetch: traceFetch(fetch),
+            fetch,
             s3: new AWS.S3({ region: process.env.REGION }),
-            metrics: new Metrics('QueryAPI'),
             provisioner: new Provisioner(),
-            awsXray: AWSXRay,
             ...deps,
         };
     }
@@ -40,12 +35,7 @@ export default class Indexer {
             try {
                 const indexerFunction = functions[function_name];
                 console.log('Running function', function_name, ', lag in ms is: ', lag);  // Lambda logs
-                const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
-                const functionSubsegment = segment.addNewSubsegment('indexer_function');
-                functionSubsegment.addAnnotation('indexer_function', function_name);
                 simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name, ', lag in ms is: ', lag));
-
-                simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
@@ -104,12 +94,10 @@ export default class Indexer {
                 simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
             } catch (e) {
                 console.error(`${function_name}: Failed to run function`, e);
-                this.deps.awsXray.resolveSegment().addError(e);
                 await this.setStatus(function_name, block_height, 'STOPPED');
                 throw e;
             } finally {
                 await Promise.all(simultaneousPromises);
-                this.deps.awsXray.resolveSegment().close();
             }
         }
         return allMutations;
@@ -258,9 +246,6 @@ export default class Indexer {
     }
 
     setStatus(functionName, blockHeight, status) {
-        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment()
-        const subsegment = activeFunctionSubsegment.addNewSubsegment(`setStatus`);
-
         return this.runGraphQLQuery(
             `
                 mutation SetStatus($function_name: String, $status: String) {
@@ -278,13 +263,10 @@ export default class Indexer {
             blockHeight,
             this.DEFAULT_HASURA_ROLE
         ).finally(() => {
-            subsegment.close();
         });
     }
 
     async writeLog(function_name, block_height, ...message) { // accepts multiple arguments
-        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment();
-        const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeLog`);
         const parsedMessage = message
             .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
             .join(':');
@@ -303,13 +285,10 @@ export default class Indexer {
                 console.error(`${function_name}: Error writing log`, e);
             })
             .finally(() => {
-                subsegment.close();
             });
     }
 
     async writeFunctionState(function_name, block_height) {
-        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment();
-        const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeFunctionState`);
         const mutation =
             `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
                   insert_indexer_state(
@@ -331,7 +310,6 @@ export default class Indexer {
                 console.error(`${function_name}: Error writing function state`, e);
             })
             .finally(() => {
-                subsegment.close();
             });
     }
     async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
@@ -352,7 +330,6 @@ export default class Indexer {
         if (response.status !== 200 || errors) {
             if(logError) {
                 console.log(`${function_name}: Error writing graphql `, errors); // temporary extra logging
-                this.deps.awsXray.resolveSegment().addAnnotation('graphql_errors', true);
 
                 const message = errors ? errors.map((e) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
                 const mutation =
