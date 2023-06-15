@@ -25,6 +25,30 @@ pub async fn del(
     Ok(())
 }
 
+// json?
+pub async fn xadd(
+    redis_connection_manager: &ConnectionManager,
+    account_id: &str,
+    function_name: &str,
+    code: &str,
+    schema: &str,
+    block_height: u64,
+) -> anyhow::Result<()> {
+    redis::cmd("XADD")
+        .arg("functions")
+        .arg("*")
+        .arg(&["account_id", account_id])
+        .arg(&["function_name", function_name])
+        .arg(&["code", code])
+        .arg(&["schema", schema])
+        .arg("block_height")
+        .arg(block_height)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+    tracing::debug!(target: STORAGE, "XADD");
+    Ok(())
+}
+
 pub async fn set(
     redis_connection_manager: &ConnectionManager,
     key: impl ToRedisArgs + std::fmt::Debug,

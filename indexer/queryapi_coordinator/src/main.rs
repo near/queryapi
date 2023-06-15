@@ -189,6 +189,17 @@ async fn handle_streamer_message(
                     block_height,
                     indexer_function: indexer_function.clone(),
                 };
+
+                storage::xadd(
+                    context.redis_connection_manager,
+                    &indexer_function.account_id,
+                    &indexer_function.function_name,
+                    &indexer_function.code,
+                    &indexer_function.schema.clone().unwrap_or("".to_string()),
+                    block_height,
+                )
+                .await?;
+
                 indexer_function_messages.push(msg);
 
                 if !indexer_function.provisioned {
