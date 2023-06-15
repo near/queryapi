@@ -21,6 +21,7 @@ services:
     depends_on:
     - "graphql-engine"
     - "redis"
+    env_file: .env
     environment:
     - REGION=eu-central-1
     - HASURA_ENDPOINT=http://graphql-engine:8080

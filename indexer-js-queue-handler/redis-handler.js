@@ -34,7 +34,10 @@ while (true) {
 
     try {
         await indexer.runFunctions(Number(message.block_height), functions, false, {imperative: true, provision: true});
-    } catch {}
+        console.log(`Success: ${message.account_id}/${message.function_name}`)
+    } catch {
+        console.log(`Failed: ${message.account_id}/${message.function_name}`)
+    }
 }
 
 await client.disconnect();
