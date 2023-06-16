@@ -1,19 +1,27 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
-  # actions_queryapi_coordinator:
-  #   build:
-  #     context: ./indexer
-  #     args:
-  #       - chain_id=mainnet
-  #   env_file: ./indexer/queryapi_coordinator/.env
-  #   links:
-  #     - redis
-  #   environment:
-  #     - REDIS_CONNECTION_STRING=redis://redis
-  #   command:
-  #     - mainnet
-  #     - from-interruption
+  actions_queryapi_coordinator:
+    build:
+      context: ./indexer
+      args:
+        - chain_id=mainnet
+    links:
+      - redis
+    environment:
+      - REDIS_CONNECTION_STRING=redis://redis
+      - LAKE_AWS_SECRET_ACCESS_KEY=
+      - LAKE_AWS_ACCESS_KEY=
+      - QUEUE_AWS_ACCESS_KEY=
+      - QUEUE_AWS_SECRET_ACCESS_KEY=
+      - QUEUE_URL=https://sqs.eu-central-1.amazonaws.com/754641474505/morgan-test.fifo
+      - START_FROM_BLOCK_QUEUE_URL=https://sqs.eu-central-1.amazonaws.com/754641474505/morgan-test.fifo
+      - PORT=9180
+      - REGISTRY_CONTRACT_ID=dev-queryapi.dataplatform.near
+      - AWS_QUEUE_REGION=eu-central-1
+    command:
+      - mainnet
+      - from-interruption
 
   runner:
     build:
@@ -27,6 +35,8 @@ services:
     - HASURA_ENDPOINT=http://graphql-engine:8080
     - HASURA_ADMIN_SECRET=
     - REDIS_CONNECTION_STRING=redis://redis
+    - AWS_ACCESS_KEY_ID=
+    - AWS_SECRET_ACCESS_KEY=
 
   redis:
     image: redis
