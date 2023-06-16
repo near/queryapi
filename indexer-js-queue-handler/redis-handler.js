@@ -7,6 +7,8 @@ const indexer = new Indexer("mainnet");
 
 const BATCH_SIZE = 1;
 const DEFAULT_ID = "0";
+const STREAM_THROTTLE_MS = 250;
+const STREAM_HANDLER_THROTTLE_MS = 500;
 
 client.on("error", (err) => console.log("Redis Client Error", err));
 
@@ -23,18 +25,12 @@ const runFunction = async (message) => {
         provisioned: false,
     };
 
-    try {
-        await indexer.runFunctions(Number(message.block_height), functions, false, {
-            imperative: true,
-            provision: true,
-        });
-        console.log(`Success: ${functionName}`);
-    } catch (err) {
-        console.log(`Failed: ${functionName}`, err);
-    }
+    await indexer.runFunctions(Number(message.block_height), functions, false, {
+        imperative: true,
+        provision: true,
+    });
 };
 
-// should probably store this in redis
 const lastIdByIndexer = {};
 
 const getLatestMessageFromStream = async (indexerName) => {
@@ -51,19 +47,42 @@ const getLatestMessageFromStream = async (indexerName) => {
 
     const { message } = results[0].messages[0];
 
-    return message
+    return message;
 };
+
+const processStream = async (indexerName) => {
+    while (true) {
+        try {
+            const message = await getLatestMessageFromStream(indexerName);
+            if (message) {
+                await runFunction(message);
+                console.log(`Success: ${indexerName}`);
+            } else {
+                console.log(`Waiting: ${indexerName}`)
+                await new Promise((resolve) => setTimeout(resolve, STREAM_THROTTLE_MS));
+            }
+        } catch (err) {
+            console.log(`Failed: ${indexerName}`, err);
+        }
+    }
+};
+
+const streamHandlers = {};
 
 while (true) {
     const indexers = await client.sMembers("indexers");
 
-    await Promise.all(
-        indexers.map(async (indexer_name) => {
-            const message = await getLatestMessageFromStream(indexer_name);
-            if (message) {
-                await runFunction(message);
-            }
-        })
+    indexers.forEach((indexerName) => {
+        if (!!streamHandlers[indexerName]) {
+            return;
+        }
+
+        const handler = processStream(indexerName);
+        streamHandlers[indexerName] = handler;
+    });
+
+    await new Promise((resolve) =>
+        setTimeout(resolve, STREAM_HANDLER_THROTTLE_MS)
     );
 }
 
