@@ -20,6 +20,7 @@ pub struct IndexerQueueMessage {
     pub payload: Option<IndexerRuleMatchPayload>,
     pub block_height: u64,
     pub indexer_function: IndexerFunction,
+    pub is_historical: bool,
 }
 
 #[derive(
