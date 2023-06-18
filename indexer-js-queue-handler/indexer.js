@@ -325,7 +325,7 @@ export default class Indexer {
         const historical_mutation = `
             mutation WriteBlock($function_name: String!, $block_height: numeric!) {
               insert_indexer_state(
-                objects: {current_historical_block_height: $block_height, current_block_height: 0 function_name: $function_name}
+                objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
                 on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
               ) {
                 returning {
