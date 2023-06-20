@@ -138,9 +138,10 @@ impl Opts {
     }
 
     pub fn rpc_url(&self) -> &str {
+        // To query metadata (timestamp) about blocks more than 5 epochs old we need an archival node
         match self.chain_id {
-            ChainId::Mainnet(_) => "https://rpc.mainnet.near.org",
-            ChainId::Testnet(_) => "https://rpc.testnet.near.org",
+            ChainId::Mainnet(_) => "https://archival-rpc.mainnet.near.org", //https://rpc.mainnet.near.org",
+            ChainId::Testnet(_) => "https://archival-rpc.testnet.near.org",
         }
     }
 }
@@ -227,7 +228,6 @@ pub async fn send_to_indexer_queue(
     queue_url: String,
     indexer_queue_messages: Vec<IndexerQueueMessage>,
 ) -> anyhow::Result<()> {
-
     let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
         .into_iter()
         .enumerate()

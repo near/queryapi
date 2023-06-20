@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub type TransactionHashString = String;
 pub type ReceiptIdString = String;
 pub type BlockHashString = String;
@@ -134,4 +136,12 @@ impl IndexerRuleMatchPayload {
 pub enum ChainId {
     Mainnet,
     Testnet,
+}
+impl fmt::Display for ChainId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ChainId::Mainnet => write!(f, "mainnet"),
+            ChainId::Testnet => write!(f, "testnet"),
+        }
+    }
 }

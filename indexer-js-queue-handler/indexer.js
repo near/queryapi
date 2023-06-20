@@ -3,9 +3,11 @@ import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
+
 import Provisioner from './provisioner.js'
 import AWSXRay from "aws-xray-sdk";
 import traceFetch from "./trace-fetch.js";
+import Metrics from './metrics.js'
 
 export default class Indexer {
 
@@ -13,15 +15,15 @@ export default class Indexer {
 
     constructor(
         network,
-        aws_region,
         deps
     ) {
         this.DEFAULT_HASURA_ROLE = 'append';
         this.network = network;
-        this.aws_region = aws_region;
+        this.aws_region = process.env.REGION;
         this.deps = {
             fetch: traceFetch(fetch),
-            s3: new AWS.S3({ region: aws_region }),
+            s3: new AWS.S3({ region: process.env.REGION }),
+            metrics: new Metrics('QueryAPI'),
             provisioner: new Provisioner(),
             awsXray: AWSXRay,
             ...deps,
@@ -31,16 +33,19 @@ export default class Indexer {
     async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
+        let lag = Date.now() - Math.floor(blockWithHelpers.header.timestamp_nanosec / 1000000);
         const simultaneousPromises = [];
         const allMutations = [];
         for (const function_name in functions) {
             try {
                 const indexerFunction = functions[function_name];
-                console.log('Running function', function_name);  // Lambda logs
+                console.log('Running function', function_name, ', lag in ms is: ', lag);  // Lambda logs
                 const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
                 functionSubsegment.addAnnotation('indexer_function', function_name);
-                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name));
+                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name, ', lag in ms is: ', lag));
+
+                simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
@@ -138,30 +143,6 @@ export default class Indexer {
         } catch (e) {
             console.error(`${functionName}: Failed to write mutations for function`, e);
         }
-    }
-
-    // deprecated
-    async fetchIndexerFunctions() {
-        const connectionConfig = {
-            networkId: "mainnet",
-            // keyStore: myKeyStore, // no keystore needed for reads
-            nodeUrl: "https://rpc.mainnet.near.org",
-            walletUrl: "https://wallet.mainnet.near.org",
-            helperUrl: "https://helper.mainnet.near.org",
-            explorerUrl: "https://explorer.mainnet.near.org",
-        };
-        const near = await connect(connectionConfig);
-        const response = await near.connection.provider.query({
-            request_type: "call_function",
-            finality: "optimistic",
-            account_id: "registry.queryapi.near",
-            method_name: "list_indexer_functions",
-            args_base64: "",
-        });
-
-        const stringResult = Buffer.from(response.result).toString();
-        const functions = JSON.parse(stringResult);
-        return functions;
     }
 
     // pad with 0s to 12 digits

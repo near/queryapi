@@ -3,12 +3,12 @@ on:
   push:
     branches: [main]
     paths:
-      - "frontend/widgets/src/**"
+      - "frontend/widgets/**"
 jobs:
   deploy-mainnet:
     uses: ./.github/workflows/deploy-widgets.yml
     with:
-      directory-path: frontend/widgets/
+      directory-paths: ${{vars.WIDGETS_DIRECTORY_PATHS}}
       deploy-account-address: ${{ vars.DEV_SIGNER_ACCOUNT_ID }}
       signer-public-key: ${{ vars.DEV_SIGNER_PUBLIC_KEY }}
     secrets:

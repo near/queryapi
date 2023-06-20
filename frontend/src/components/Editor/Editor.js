@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   formatSQL,
   formatIndexingCode,
@@ -16,11 +16,10 @@ import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
+import {getLatestBlockHeight} from "../../utils/getLatestBlockHeight";
 const BLOCKHEIGHT_LIMIT = 3600;
+import { validateContractId } from "../../utils/validators"
 
-const contractRegex = RegExp(
-  "^(([a-zd]+[-_])*[a-zd]+.)*([a-zd]+[-_])*[a-zd]+$"
-);
 
 const Editor = ({
   options,
@@ -29,6 +28,7 @@ const Editor = ({
   onLoadErrorText,
   actionButtonText,
 }) => {
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${accountId}#${indexerName}`
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
@@ -36,7 +36,7 @@ const Editor = ({
   const [originalSQLCode, setOriginalSQLCode] = useState(defaultSchema);
   const [originalIndexingCode, setOriginalIndexingCode] = useState(defaultCode);
   const [debugMode, setDebugMode] = useState(false);
-  const [heights, setHeights] = useState([]);
+  const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
   const handleLog = (blockHeight, log, callback) => {
@@ -46,7 +46,7 @@ const Editor = ({
     }
   };
 
-  const indexerRunner = new IndexerRunner(handleLog);
+  const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
 
   const [indexingCode, setIndexingCode] = useState(defaultCode);
   const [schema, setSchema] = useState(defaultSchema);
@@ -59,6 +59,12 @@ const Editor = ({
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [contractFilter, setContractFilter] = useState("social.near");
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+  const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false)
+
+  const requestLatestBlockHeight = async () => {
+    const blockHeight = getLatestBlockHeight()
+    return blockHeight
+  }
 
   const handleOptionChange = (event) => {
     setSelectedOption(event.target.value);
@@ -70,6 +76,10 @@ const Editor = ({
       setFileName("GraphiQL");
     }
   }, [selectedTab]);
+
+  useEffect(() => {
+    localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
+  }, [heights]);
 
   useEffect(() => {
     if (selectedOption == "latestBlockHeight") {
@@ -287,22 +297,37 @@ const Editor = ({
   }
 
   function handleSetContractFilter(e) {
-    // check if contract filter is greater than 2 and less than or equal to 64 chars
     const contractFilter = e.target.value;
     setContractFilter(contractFilter);
-    if (
-      contractFilter.length > 64 ||
-      contractFilter.length < 2 ||
-      !contractRegex.test(contractFilter)
-    ) {
-      setIsContractFilterValid(false);
-    } else {
+    const isValid = validateContractId(contractFilter);
+
+    if (isValid) {
       setIsContractFilterValid(true);
+    } else {
+      setIsContractFilterValid(false);
     }
   }
 
-  async function executeIndexerFunction() {
-    await indexerRunner.executeIndexerFunction(heights,indexingCode)
+  async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
+     setIsExecutingIndexerFunction(() => true)
+
+    switch (option) {
+      case "debugList":
+        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
+        break
+      case "specific":
+        if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
+          console.log("Invalid Starting Block Height: starting block height is null or 0")
+          break
+        }
+
+        await indexerRunner.start(startingBlockHeight, indexingCode, option)
+        break
+      case "latest":
+        const latestHeight = await requestLatestBlockHeight()
+        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, option)
+    }
+    setIsExecutingIndexerFunction(() => false)
   }
 
   return (
@@ -331,6 +356,8 @@ const Editor = ({
         debugMode={debugMode}
         heights={heights}
         setHeights={setHeights}
+        isExecuting={isExecutingIndexerFunction}
+        stopExecution={() => indexerRunner.stop()}
         contractFilter={contractFilter}
         handleSetContractFilter={handleSetContractFilter}
         isContractFilterValid={isContractFilterValid}
