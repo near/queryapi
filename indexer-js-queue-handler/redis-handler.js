@@ -16,8 +16,8 @@ await client.connect();
 
 const runFunction = async (message) => {
     const functions = {};
-    const functionName = message.account_id + "/" + message.function_name;
-    functions[functionName] = {
+    const indexerName = message.account_id + "/" + message.function_name;
+    functions[indexerName] = {
         account_id: message.account_id,
         function_name: message.function_name,
         code: message.code,
@@ -36,7 +36,7 @@ const lastIdByIndexer = {};
 const getLatestMessageFromStream = async (indexerName) => {
     const id = lastIdByIndexer[indexerName] ?? DEFAULT_ID;
 
-    const results = await client.xRead({ key: indexerName, id }, { COUNT: 1 });
+    const results = await client.xRead({ key: `${indexerName}/stream`, id }, { COUNT: 1 });
 
     if (!results) {
         return null;
@@ -50,12 +50,26 @@ const getLatestMessageFromStream = async (indexerName) => {
     return message;
 };
 
+const getIndexerData = async (indexerName) => {
+    const results = await client.get(`${indexerName}/storage`);
+
+    if (!results) {
+        throw new Error(`${indexerName} does not have any data`);
+    }
+
+    return JSON.parse(results);
+}
+
 const processStream = async (indexerName) => {
     while (true) {
         try {
             const message = await getLatestMessageFromStream(indexerName);
             if (message) {
-                await runFunction(message);
+                const { block_height } = message;
+                const indexerData = await getIndexerData(indexerName);
+
+                await runFunction({ ...indexerData, block_height });
+
                 console.log(`Success: ${indexerName}`);
             } else {
                 console.log(`Waiting: ${indexerName}`)

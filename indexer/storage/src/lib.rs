@@ -2,6 +2,14 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 const STORAGE: &str = "storage_alertexer";
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct IndexerStreamMessageJson {
+    account_id: String,
+    function_name: String,
+    code: String,
+    schema: String,
+}
+
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
 }
@@ -25,8 +33,39 @@ pub async fn del(
     Ok(())
 }
 
-// json?
-pub async fn xadd(
+async fn sadd(
+    redis_connection_manager: &ConnectionManager,
+    value: impl ToRedisArgs + std::fmt::Debug,
+) -> anyhow::Result<()> {
+    redis::cmd("SADD")
+        .arg("indexers")
+        .arg(&value)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    Ok(())
+}
+
+async fn xadd(
+    redis_connection_manager: &ConnectionManager,
+    stream_key: &str,
+    fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
+) -> anyhow::Result<()> {
+    tracing::debug!(target: STORAGE, "XADD: {}, {:?}", stream_key, fields);
+    let mut cmd = redis::cmd("XADD");
+    cmd.arg(stream_key).arg("*");
+
+    for (field, value) in fields {
+        cmd.arg(*field).arg(value);
+    }
+
+    cmd.query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    Ok(())
+}
+
+pub async fn add_to_indexer_stream(
     redis_connection_manager: &ConnectionManager,
     account_id: &str,
     function_name: &str,
@@ -36,24 +75,28 @@ pub async fn xadd(
 ) -> anyhow::Result<()> {
     let indexer = format!("{}/{}", account_id, function_name);
 
-    redis::cmd("SADD")
-        .arg("indexers")
-        .arg(indexer.clone())
-        .query_async(&mut redis_connection_manager.clone())
-        .await?;
+    sadd(redis_connection_manager, &indexer).await?;
 
-    redis::cmd("XADD")
-        .arg(indexer)
-        .arg("*")
-        .arg(&["account_id", account_id])
-        .arg(&["function_name", function_name])
-        .arg(&["code", code])
-        .arg(&["schema", schema])
-        .arg("block_height")
-        .arg(block_height)
-        .query_async(&mut redis_connection_manager.clone())
-        .await?;
-    tracing::debug!(target: STORAGE, "XADD");
+    // // TODO only set if needed?
+    set(
+        redis_connection_manager,
+        format!("{}/storage", &indexer),
+        serde_json::to_string(&IndexerStreamMessageJson {
+            account_id: account_id.to_string(),
+            function_name: function_name.to_string(),
+            code: code.to_string(),
+            schema: schema.to_string(),
+        })?,
+    )
+    .await?;
+
+    xadd(
+        redis_connection_manager,
+        &format!("{}/stream", &indexer),
+        &[("block_height", block_height)],
+    )
+    .await?;
+
     Ok(())
 }
 

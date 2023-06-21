@@ -190,7 +190,7 @@ async fn handle_streamer_message(
                     indexer_function: indexer_function.clone(),
                 };
 
-                storage::xadd(
+                storage::add_to_indexer_stream(
                     context.redis_connection_manager,
                     &indexer_function.account_id,
                     &indexer_function.function_name,
