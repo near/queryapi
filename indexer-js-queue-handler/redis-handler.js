@@ -36,11 +36,7 @@ const lastIdByIndexer = {};
 const getLatestMessageFromStream = async (indexerName) => {
     const id = lastIdByIndexer[indexerName] ?? DEFAULT_ID;
 
-    const results = await client.xRead({ key: `${indexerName}/stream`, id }, { COUNT: 1 });
-
-    if (!results) {
-        return null;
-    }
+    const results = await client.xRead({ key: `${indexerName}/stream`, id }, { COUNT: 1, BLOCK: 0 });
 
     const lastId = results[0].messages[0].id;
     lastIdByIndexer[indexerName] = lastId;
@@ -64,17 +60,12 @@ const processStream = async (indexerName) => {
     while (true) {
         try {
             const message = await getLatestMessageFromStream(indexerName);
-            if (message) {
-                const { block_height } = message;
-                const indexerData = await getIndexerData(indexerName);
+            const { block_height } = message;
+            const indexerData = await getIndexerData(indexerName);
 
-                await runFunction({ ...indexerData, block_height });
+            await runFunction({ ...indexerData, block_height });
 
-                console.log(`Success: ${indexerName}`);
-            } else {
-                console.log(`Waiting: ${indexerName}`)
-                await new Promise((resolve) => setTimeout(resolve, STREAM_THROTTLE_MS));
-            }
+            console.log(`Success: ${indexerName}`);
         } catch (err) {
             console.log(`Failed: ${indexerName}`, err);
         }
