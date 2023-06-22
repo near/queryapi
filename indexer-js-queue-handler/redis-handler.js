@@ -14,81 +14,84 @@ client.on("error", (err) => console.log("Redis Client Error", err));
 
 await client.connect();
 
-const runFunction = async (message) => {
-    const functions = {};
-    const indexerName = message.account_id + "/" + message.function_name;
-    functions[indexerName] = {
-        account_id: message.account_id,
-        function_name: message.function_name,
-        code: message.code,
-        schema: message.schema,
-        provisioned: false,
-    };
+const runFunction = async (indexerName, blockHeight) => {
+  const { account_id, function_name, code, schema } = await getIndexerData(indexerName);
 
-    await indexer.runFunctions(Number(message.block_height), functions, false, {
-        imperative: true,
-        provision: true,
-    });
+  const functions = {
+    [indexerName]: {
+      account_id,
+      function_name,
+      code,
+      schema,
+      provisioned: false,
+    },
+  };
+
+  await indexer.runFunctions(Number(blockHeight), functions, false, {
+    imperative: true,
+    provision: true,
+  });
 };
 
 const lastIdByIndexer = {};
 
-const getLatestMessageFromStream = async (indexerName) => {
-    const id = lastIdByIndexer[indexerName] ?? DEFAULT_ID;
+const getLatestBlockHeightFromStream = async (indexerName) => {
+  const id = lastIdByIndexer[indexerName] ?? DEFAULT_ID;
 
-    const results = await client.xRead({ key: `${indexerName}/stream`, id }, { COUNT: 1, BLOCK: 0 });
+  const results = await client.xRead(
+    { key: `${indexerName}/stream`, id },
+    { COUNT: 1, BLOCK: 0 }
+  );
 
-    const lastId = results[0].messages[0].id;
-    lastIdByIndexer[indexerName] = lastId;
+  const lastId = results[0].messages[0].id;
+  lastIdByIndexer[indexerName] = lastId;
 
-    const { message } = results[0].messages[0];
+  const { block_height } = results[0].messages[0].message;
 
-    return message;
+  return block_height;
 };
 
 const getIndexerData = async (indexerName) => {
-    const results = await client.get(`${indexerName}/storage`);
+  const results = await client.get(`${indexerName}/storage`);
 
-    if (!results) {
-        throw new Error(`${indexerName} does not have any data`);
-    }
+  if (!results) {
+    throw new Error(`${indexerName} does not have any data`);
+  }
 
-    return JSON.parse(results);
-}
+  return JSON.parse(results);
+};
 
 const processStream = async (indexerName) => {
-    while (true) {
-        try {
-            const message = await getLatestMessageFromStream(indexerName);
-            const { block_height } = message;
-            const indexerData = await getIndexerData(indexerName);
+  while (true) {
+    try {
+      const blockHeight = await getLatestBlockHeightFromStream(indexerName);
 
-            await runFunction({ ...indexerData, block_height });
+      await runFunction(indexerName, blockHeight);
 
-            console.log(`Success: ${indexerName}`);
-        } catch (err) {
-            console.log(`Failed: ${indexerName}`, err);
-        }
+      console.log(`Success: ${indexerName}`);
+    } catch (err) {
+      console.log(`Failed: ${indexerName}`, err);
     }
+  }
 };
 
 const streamHandlers = {};
 
 while (true) {
-    const indexers = await client.sMembers("indexers");
+  const indexers = await client.sMembers("indexers");
 
-    indexers.forEach((indexerName) => {
-        if (!!streamHandlers[indexerName]) {
-            return;
-        }
+  indexers.forEach((indexerName) => {
+    if (!!streamHandlers[indexerName]) {
+      return;
+    }
 
-        const handler = processStream(indexerName);
-        streamHandlers[indexerName] = handler;
-    });
+    const handler = processStream(indexerName);
+    streamHandlers[indexerName] = handler;
+  });
 
-    await new Promise((resolve) =>
-        setTimeout(resolve, STREAM_HANDLER_THROTTLE_MS)
-    );
+  await new Promise((resolve) =>
+    setTimeout(resolve, STREAM_HANDLER_THROTTLE_MS)
+  );
 }
 
 await client.disconnect();
