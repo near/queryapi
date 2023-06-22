@@ -6,7 +6,7 @@ const client = createClient({ url: process.env.REDIS_CONNECTION_STRING });
 const runner = new Runner("mainnet");
 
 // const BATCH_SIZE = 1;
-const DEFAULT_ID = "0";
+const STREAM_START_ID = "0";
 // const STREAM_THROTTLE_MS = 250;
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
@@ -31,34 +31,41 @@ const runFunction = async (indexerName: string, blockHeight: string) => {
   });
 };
 
-const lastIdByIndexer: { [name: string]: string } = {};
+type StreamMessages<Message> = {
+  id: string;
+  message: Message
+}[];
 
-// type IndexerStreamMessage = {
-//   block_height: string;
-// };
-
-const getLatestBlockHeightFromStream = async (indexerName: string) => {
-  const id = lastIdByIndexer[indexerName] ?? DEFAULT_ID;
+const getMessagesFromStream = async <Message extends { [x: string]: string }>(indexerName: string, lastId: string | null, count: number): Promise<StreamMessages<Message> | null> => {
+  const id = lastId ?? STREAM_START_ID;
+  const streamName = `${indexerName}/stream`;
 
   const results = await client.xRead(
-    { key: `${indexerName}/stream`, id },
-    { COUNT: 1, BLOCK: 0 }
+    { key: streamName, id },
+    // can't use blocking calls as running single threaded
+    { COUNT: count }
   );
 
-  if (!results) {
-    throw new Error(`Unable to fetch latest block height from stream: ${indexerName}`);
-  }
-
-  const lastId = results[0].messages[0].id;
-  lastIdByIndexer[indexerName] = lastId;
-
-  const { block_height } = results[0].messages[0].message;
-
-  return block_height;
+  return results && results[0].messages as StreamMessages<Message>;
 };
 
-const getIndexerData = async (indexerName: string) => {
-  const results = await client.get(`${indexerName}/storage`);
+const getLastProcessedId = async (indexerName: string): Promise<string | null> => {
+  return client.get(`${indexerName}/stream/lastId`);
+}
+
+const setLastProcessedId = async (indexerName: string, lastId: string): Promise<void> => {
+  await client.set(`${indexerName}/stream/lastId`, lastId);
+}
+
+type IndexerConfig = {
+  account_id: string;
+  function_name: string;
+  code: string;
+  schema: string;
+}
+
+const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
+  const results = await client.get(`${indexerName}/config`);
 
   if (!results) {
     throw new Error(`${indexerName} does not have any data`);
@@ -67,12 +74,25 @@ const getIndexerData = async (indexerName: string) => {
   return JSON.parse(results);
 };
 
+type IndexerStreamMessage = {
+  block_height: string
+}
+
 const processStream = async (indexerName: string) => {
   while (true) {
     try {
-      const blockHeight = await getLatestBlockHeightFromStream(indexerName);
+      const lastProcessedId = await getLastProcessedId(indexerName);
+      const messages = await getMessagesFromStream<IndexerStreamMessage>(indexerName, lastProcessedId, 1);
 
-      await runFunction(indexerName, blockHeight);
+      if (!messages) {
+        continue
+      }
+
+      const [{ id, message }] = messages;
+
+      await runFunction(indexerName, message.block_height);
+
+      await setLastProcessedId(indexerName, id);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
@@ -81,10 +101,14 @@ const processStream = async (indexerName: string) => {
   }
 };
 
+type StreamHandlers = {
+  [indexerName: string]: Promise<void>
+}
+
 (async function main() {
   await client.connect();
 
-  const streamHandlers: { [name: string]: Promise<any> } = {};
+  const streamHandlers: StreamHandlers = {};
 
   while (true) {
     const indexers = await client.sMembers("indexers");
