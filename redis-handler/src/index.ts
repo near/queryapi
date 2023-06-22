@@ -1,9 +1,9 @@
 import { createClient } from "redis";
 
-// import Indexer from "./indexer.js";
+import Runner from "./runner";
 
 const client = createClient({ url: process.env.REDIS_CONNECTION_STRING });
-// const indexer = new Indexer("mainnet");
+const runner = new Runner("mainnet");
 
 // const BATCH_SIZE = 1;
 const DEFAULT_ID = "0";
@@ -25,11 +25,10 @@ const runFunction = async (indexerName: string, blockHeight: string) => {
     },
   };
 
-  console.log('Running: ', functions, blockHeight);
-  // await indexer.runFunctions(Number(blockHeight), functions, false, {
-  //   imperative: true,
-  //   provision: true,
-  // });
+  await runner.runFunctions(Number(blockHeight), functions, {
+    imperative: true,
+    provision: true,
+  });
 };
 
 const lastIdByIndexer: { [name: string]: string } = {};
