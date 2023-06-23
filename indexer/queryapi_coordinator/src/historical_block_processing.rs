@@ -17,7 +17,8 @@ use tokio::task::JoinHandle;
 
 const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
 const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
-const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/metadata";
+const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
+const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
@@ -195,7 +196,7 @@ async fn filter_matching_blocks_from_index_files(
             );
             return vec![];
 
-            // let s3_prefix = format!("silver/contracts/metadata/{}", affected_account_id);
+            // let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
             // fetch_contract_index_files(aws_config, s3_bucket, s3_prefix).await
             // // todo implement, use function name selector
         }
@@ -274,6 +275,13 @@ async fn filter_matching_unindexed_blocks_from_lake(
     let lake_bucket = lake_bucket_for_chain(chain_id.clone());
 
     let count = ending_block_height - last_indexed_block;
+    if count > MAX_UNINDEXED_BLOCKS_TO_PROCESS {
+        tracing::error!(
+            target: crate::INDEXER,
+            "Too many unindexed blocks to filter: {count}. Last indexed block is {last_indexed_block}.",
+        );
+        return vec![];
+    }
     tracing::info!(
         target: crate::INDEXER,
         "Filtering {count} unindexed blocks from lake: from block {last_indexed_block} to {ending_block_height}",
@@ -518,6 +526,7 @@ async fn send_execution_message(
         payload,
         block_height: current_block,
         indexer_function: indexer_function.clone(),
+        is_historical: true,
     };
 
     match opts::send_to_indexer_queue(queue_client, queue_url, vec![msg]).await {

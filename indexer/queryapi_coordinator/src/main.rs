@@ -188,6 +188,7 @@ async fn handle_streamer_message(
                     payload: Some(indexer_rule_match.payload.clone()),
                     block_height,
                     indexer_function: indexer_function.clone(),
+                    is_historical: false,
                 };
                 indexer_function_messages.push(msg);
 

@@ -74,7 +74,7 @@ describe('Indexer unit tests', () => {
             block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\$\{block.blockHeight\}")}\`);
             mutationsReturnValue['hack'] = function() {return 'bad'}
         `};
-        await indexer.runFunctions(block_height, functions);
+        await indexer.runFunctions(block_height, functions, false);
 
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
@@ -466,7 +466,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             return (\`Created comment \${id} on post \${post.id}\`)
         `};
 
-        await indexer.runFunctions(blockHeight, functions, { imperative: true });
+        await indexer.runFunctions(blockHeight, functions, false, { imperative: true });
 
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
@@ -520,7 +520,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             throw new Error('boom');
         `};
 
-        await expect(indexer.runFunctions(block_height, functions, {imperative: true })).rejects.toThrow(new Error('boom'))
+        await expect(indexer.runFunctions(block_height, functions, false, {imperative: true })).rejects.toThrow(new Error('boom'))
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
@@ -569,7 +569,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 schema: 'schema',
             }
         };
-        await indexer.runFunctions(1, functions, { provision: true });
+        await indexer.runFunctions(1, functions, false, { provision: true });
 
         expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledTimes(1);
         expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledWith(
@@ -624,7 +624,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 schema: 'schema',
             }
         };
-        await indexer.runFunctions(1, functions, { provision: true });
+        await indexer.runFunctions(1, functions, false, { provision: true });
 
         expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
     });
@@ -676,7 +676,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 schema: 'schema',
             }
         };
-        await indexer.runFunctions(blockHeight, functions, { provision: true });
+        await indexer.runFunctions(blockHeight, functions, false, { provision: true });
 
         expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
         expect(mockFetch.mock.calls).toMatchSnapshot();
@@ -731,7 +731,47 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             }
         };
 
-        await expect(indexer.runFunctions(blockHeight, functions, { provision: true })).rejects.toThrow(error)
+        await expect(indexer.runFunctions(blockHeight, functions, false, { provision: true })).rejects.toThrow(error)
+        expect(mockFetch.mock.calls).toMatchSnapshot();
+    });
+
+    test('Indexer.runFunctions() sets the current historical block height', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => Promise.resolve({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const metrics = {
+            putBlockHeight: jest.fn().mockReturnValueOnce({ promise: jest.fn() }),
+        };
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray, metrics });
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {
+            code:`
+                console.log('hey')
+            `,
+            account_id: 'buildnear.testnet',
+            function_name: 'test'
+        };
+        await indexer.runFunctions(block_height, functions, true);
+
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
@@ -772,7 +812,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             account_id: 'buildnear.testnet',
             function_name: 'test'
         };
-        await indexer.runFunctions(block_height, functions);
+        await indexer.runFunctions(block_height, functions, false);
 
         expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', block_height);
     });
@@ -810,7 +850,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         functions['buildnear.testnet/succeeds'] = {code:`
                 console.log('succeeded');
         `};
-        await indexer.runFunctions(block_height, functions, {imperative: true});
+        await indexer.runFunctions(block_height, functions, false, {imperative: true});
 
         // console.log('"Indexer.runFunctions() catches errors" calls:', mockFetch.mock.calls);
         expect(mockFetch).toHaveBeenCalledTimes(5); // 2 logs, 1 state

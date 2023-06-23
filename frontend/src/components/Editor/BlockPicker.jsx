@@ -3,7 +3,6 @@ import {
   OverlayTrigger,
   Tooltip,
   Button,
-  Badge,
   InputGroup,
   FormControl,
   Dropdown,

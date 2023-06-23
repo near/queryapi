@@ -1,14 +1,10 @@
-// EditorButtons.jsx
-
-import React from "react";
+import React, { useContext } from "react";
 import {
-  ButtonToolbar,
   Breadcrumb,
   Button,
   Form,
   InputGroup,
   Navbar,
-  Nav,
   Container,
   Col,
   Row,
@@ -22,36 +18,42 @@ import {
   Justify,
   TrashFill,
   XCircle,
+  NodePlus
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const EditorButtons = ({
-  accountId,
-  indexerNameField,
-  setIndexerNameField,
-  options,
-  setShowResetCodeModel,
   handleFormating,
   executeIndexerFunction,
   currentUserAccountId,
   getActionButtonText,
-  submit,
-  debugMode,
   isExecuting,
   stopExecution,
   heights,
   setHeights,
-  setShowPublishModal,
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
-  contractFilter,
-  handleSetContractFilter,
-  isContractFilterValid,
 }) => {
+
+  const {
+    indexerName,
+    accountId,
+    indexerDetails,
+    setShowPublishModal,
+    setShowResetCodeModel,
+    setShowForkIndexerModal,
+    debugMode,
+    isCreateNewIndexer,
+    indexerNameField,
+    setIndexerNameField
+  } = useContext(IndexerDetailsContext);
+
   const removeHeight = (index) => {
     setHeights(heights.filter((_, i) => i !== index));
   };
+
   return (
     <>
       <Navbar bg="light" variant="light">
@@ -70,26 +72,17 @@ const EditorButtons = ({
                 <Breadcrumb.Item className="flex align-center " href="#">
                   {accountId}
                 </Breadcrumb.Item>
+                  {!isCreateNewIndexer && (
                 <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
-                  {options.create_new_indexer ? (
-                    <Form.Control
-                      type="text"
-                      placeholder="Indexer Name"
-                      aria-label="IndexerName"
-                      value={indexerNameField}
-                      onChange={(e) => setIndexerNameField(e.target.value)}
-                    />
-                  ) : (
-                    indexerNameField
-                  )}
+                 {indexerName}
                 </Breadcrumb.Item>
+                  )}
               </Breadcrumb>
-              <InputGroup size="sm" hasValidation={true} style = {{width: "fit-content"}}>
+              {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
-                  disabled={!options.create_new_indexer}
-                  value={contractFilter}
-                  onChange={handleSetContractFilter}
+                  disabled={!isCreateNewIndexer}
+                  value={indexerDetails.config.filter}
                   type="text"
                   placeholder="social.near"
                   required={true}
@@ -97,8 +90,8 @@ const EditorButtons = ({
                 <Form.Control.Feedback type="invalid">
                   Please provide a valid contract name.
                 </Form.Control.Feedback>
-              </InputGroup>
-</Col>
+              </InputGroup>}
+            </Col>
             <Col style={{ display: "flex", justifyContent: "center" }}>
               {debugMode && (
                 <BlockPicker
@@ -118,7 +111,8 @@ const EditorButtons = ({
                 className="inline-block"
                 aria-label="Action Button Group"
               >
-                {isUserIndexer && !options.create_new_indexer && (
+                {isUserIndexer && !isCreateNewIndexer && (
+                  <>
                   <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>Delete Indexer</Tooltip>}
@@ -132,6 +126,20 @@ const EditorButtons = ({
                       <TrashFill size={22} />
                     </Button>
                   </OverlayTrigger>
+                  <OverlayTrigger
+                  placement="bottom"
+                  overlay={<Tooltip>Fork this Indexer</Tooltip>}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex align-center"
+                    onClick={() => setShowForkIndexerModal(true)}
+                  >
+                    <NodePlus style={{ paddingRight: "2px" }} size={24} />
+                  </Button>
+                </OverlayTrigger>
+                    </>
                 )}
 
                 <OverlayTrigger
@@ -175,6 +183,7 @@ const EditorButtons = ({
                     </Button>
                   </OverlayTrigger>
                 )}
+
               </ButtonGroup>
             </Col>
           </Row>
@@ -199,5 +208,6 @@ const EditorButtons = ({
     </>
   );
 };
+   
 
 export default EditorButtons;

@@ -45,9 +45,9 @@ const ResizableEditor = ({
   originalIndexingCode,
   schema,
   indexingCode,
-  options,
   handleEditorWillMount,
   handleEditorMount,
+  isCreateNewIndexer
 }) => {
   const { firstRef, secondRef, dragBarRef } = useDragResize({
     direction: "horizontal",
@@ -59,7 +59,7 @@ const ResizableEditor = ({
 
   // Render logic based on fileName
   const editorComponents = {
-    GraphiQL: () => <GraphqlPlayground accountId={accountId} />,
+    GraphiQL: () => <GraphqlPlayground />,
     "indexingLogic.js": () =>
       diffView ? (
         <DiffEditorComponent
@@ -68,7 +68,6 @@ const ResizableEditor = ({
           modified={indexingCode}
           language="typescript"
           readOnly={false}
-          options={options}
           handleEditorMount={undefined}
         />
       ) : (
@@ -80,7 +79,6 @@ const ResizableEditor = ({
           readOnly={false}
           onChange={(text) => setIndexingCode(text)}
           handleEditorWillMount={handleEditorWillMount}
-          options={options}
         />
       ),
     "schema.sql": () =>
@@ -90,8 +88,7 @@ const ResizableEditor = ({
           original={originalSQLCode}
           modified={schema}
           language="sql"
-          readOnly={options?.create_new_indexer === true ? false : true}
-          options={options}
+          readOnly={isCreateNewIndexer === true ? false : true}
           handleEditorMount={undefined}
         />
       ) : (
@@ -100,10 +97,9 @@ const ResizableEditor = ({
           value={schema}
           defaultValue={defaultSchema}
           defaultLanguage="sql"
-          readOnly={options?.create_new_indexer === true ? false : false}
+          readOnly={isCreateNewIndexer === true ? false : false}
           onChange={(text) => setSchema(text)}
           handleEditorWillMount={undefined}
-          options={options}
         />
       ),
   };
@@ -136,9 +132,9 @@ export default function ResizableLayoutEditor({
   originalIndexingCode,
   schema,
   indexingCode,
-  options,
   handleEditorWillMount,
   handleEditorMount,
+  isCreateNewIndexer
 }) {
   const {
     dragBarRef: dragBarRefConsole,
@@ -168,7 +164,6 @@ export default function ResizableLayoutEditor({
           originalSQLCode={originalSQLCode}
           originalIndexingCode={originalIndexingCode}
           schema={schema}
-          options={options}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
         />

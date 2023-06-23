@@ -2,7 +2,7 @@ import prettier from "prettier";
 import SqlPlugin from "prettier-plugin-sql";
 import parserBabel from "prettier/parser-babel";
 
-let unformatted_code = (code) => `import {Block} from "@near-lake/primitives"
+let wrap_code = (code) => `import {Block} from "@near-lake/primitives"
 /** 
  * Note: We only support javascript at the moment. We will support Rust, Typescript in a further release. 
  */
@@ -21,45 +21,35 @@ async function getBlock(block: Block, context) {
 }`;
 
 export const formatSQL = (schema) => {
-  try {
-    return prettier.format(schema, {
-      parser: "sql",
-      formatter: "sql-formatter",
-      plugins: [SqlPlugin],
-      pluginSearchDirs: false,
-      language: "postgresql",
-      database: "postgresql",
-    });
-  } catch (e) {
-    console.log(e);
-    return schema;
-  }
+  return prettier.format(schema, {
+    parser: "sql",
+    formatter: "sql-formatter",
+    plugins: [SqlPlugin],
+    pluginSearchDirs: false,
+    language: "postgresql",
+    database: "postgresql",
+  });
 };
 
-export const formatIndexingCode = (code, wrapCode) => {
+export const wrapCode = (code) => {
   code = code.replace(/(?:\\[n])+/g, "\r\n");
-  if (wrapCode) {
-    code = unformatted_code(code);
-  }
-  try {
-    return prettier.format(code, {
-      parser: "babel",
-      plugins: [parserBabel],
-    });
-  } catch (e) {
-    console.log(e);
-    return code;
-  }
+  const wrappedCode = wrap_code(code);
+  return wrappedCode
+}
+
+export const formatIndexingCode = (code) => {
+  return prettier.format(code, {
+    parser: "babel",
+    plugins: [parserBabel],
+  });
 };
 
-export const defaultCode = formatIndexingCode(
+export const defaultCode = formatIndexingCode(wrapCode(
   `
   // Add your code here   
   const h = block.header().height
   await context.set('height', h);
-`,
-  true
-);
+`));
 
 export const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))

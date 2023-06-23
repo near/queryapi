@@ -18,7 +18,8 @@ pub fn reduce_indexer_rule_matches_from_outcomes(
             shard
                 .receipt_execution_outcomes
                 .iter()
-                .filter(|receipt_execution_outcome| {
+                // future: when extracting Actions, Events, etc this will be a filter operation
+                .find(|receipt_execution_outcome| {
                     matcher::matches(&indexer_rule.matching_rule, receipt_execution_outcome)
                 })
         })
