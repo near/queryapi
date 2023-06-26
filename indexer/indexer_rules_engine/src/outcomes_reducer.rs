@@ -127,7 +127,7 @@ mod tests {
         std::fs::read_to_string(path).unwrap()
     }
     fn read_local_streamer_message(block_height: u64) -> StreamerMessage {
-        let path = format!("../test_blocks/blocks/{}.json", block_height);
+        let path = format!("../blocks/{}.json", block_height);
         let json = serde_json::from_str(&read_local_file(&path)).unwrap();
         serde_json::from_value(json).unwrap()
     }
@@ -153,7 +153,7 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(result.len(), 2);
+        assert_eq!(result.len(), 1); // There are two matches, until we add Extraction we are just matching the first one (block matching)
     }
 
     #[tokio::test]
@@ -177,7 +177,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(result.len(), 2);
+        assert_eq!(result.len(), 1); // see Extraction note in previous test
 
         let wildcard_rule = IndexerRule {
             indexer_rule_kind: IndexerRuleKind::Action,
@@ -197,7 +197,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(result.len(), 2);
+        assert_eq!(result.len(), 1); // see Extraction note in previous test
     }
 
 }
