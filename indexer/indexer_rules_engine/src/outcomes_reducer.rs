@@ -118,10 +118,10 @@ fn build_indexer_rule_match_payload(
 
 #[cfg(test)]
 mod tests {
-    use near_lake_framework::near_indexer_primitives::{StreamerMessage};
     use crate::outcomes_reducer::reduce_indexer_rule_matches_from_outcomes;
     use crate::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
     use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use near_lake_framework::near_indexer_primitives::StreamerMessage;
 
     fn read_local_file(path: &str) -> String {
         std::fs::read_to_string(path).unwrap()
@@ -174,8 +174,8 @@ mod tests {
             &streamer_message,
             ChainId::Testnet,
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         assert_eq!(result.len(), 1); // see Extraction note in previous test
 
@@ -194,10 +194,9 @@ mod tests {
             &streamer_message,
             ChainId::Testnet,
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         assert_eq!(result.len(), 1); // see Extraction note in previous test
     }
-
 }
