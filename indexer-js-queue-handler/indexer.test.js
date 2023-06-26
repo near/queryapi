@@ -99,6 +99,7 @@ describe('Indexer unit tests', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true'
                 },
                 body: JSON.stringify({ query: `mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`,
                     variables: {}}),
@@ -129,6 +130,7 @@ describe('Indexer unit tests', () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true'
                 },
                 body: JSON.stringify({ query:
                         `mutation _0 { set(functionName: "buildnear.testnet/test", key: "foo1", data: "indexer test") }
@@ -295,7 +297,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true',
                 },
                 body: JSON.stringify({ query: query })
             }
@@ -305,7 +308,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true',
                 },
                 body: JSON.stringify({ query: mutation })
             }
@@ -347,7 +351,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
             {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true',
                 },
                 body: JSON.stringify({
                     query,
