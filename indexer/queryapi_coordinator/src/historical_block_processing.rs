@@ -526,6 +526,7 @@ async fn send_execution_message(
         payload,
         block_height: current_block,
         indexer_function: indexer_function.clone(),
+        is_historical: true,
     };
 
     match opts::send_to_indexer_queue(queue_client, queue_url, vec![msg]).await {

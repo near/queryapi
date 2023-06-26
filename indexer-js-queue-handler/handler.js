@@ -11,12 +11,13 @@ export const consumer = async (event) => {
     for (const record of event.Records) {
         const jsonBody = JSON.parse(record.body);
         const block_height = jsonBody.block_height;
+        const is_historical = jsonBody.is_historical;
         const functions = {};
 
         const function_config = jsonBody.indexer_function;
         const function_name = function_config.account_id + '/' + function_config.function_name;
         functions[function_name] = function_config;
 
-        const mutations = await indexer.runFunctions(block_height, functions, {imperative: true, provision: true});
+        const mutations = await indexer.runFunctions(block_height, functions, is_historical, {imperative: true, provision: true});
     }
 };

@@ -152,6 +152,7 @@ const indexerStateDoc = `
       status
       function_name
       current_block_height
+      current_historical_block_height
     }
     indexer_state_aggregate(where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
     aggregate {
@@ -262,6 +263,7 @@ return (
                 <tr>
                   <th>Function Name</th>
                   <th>Current Block Height</th>
+                  <th>Current Historical Block Height</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -270,6 +272,7 @@ return (
                   <tr>
                     <TableElement>{x.function_name}</TableElement>
                     <TableElement>{x.current_block_height}</TableElement>
+                    <TableElement>{x.current_historical_block_height}</TableElement>
                     <TableElement>{x.status}</TableElement>
                   </tr>
                 ))}

@@ -30,7 +30,7 @@ export default class Indexer {
         };
     }
 
-    async runFunctions(block_height, functions, options = { imperative: false, provision: false }) {
+    async runFunctions(block_height, functions, is_historical, options = { imperative: false, provision: false }) {
         const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(block_height));
 
         let lag = Date.now() - Math.floor(blockWithHelpers.header().timestampNanosec / 1000000);
@@ -101,7 +101,7 @@ export default class Indexer {
                     }
                 }
 
-                simultaneousPromises.push(this.writeFunctionState(function_name, block_height));
+                simultaneousPromises.push(this.writeFunctionState(function_name, block_height, is_historical));
             } catch (e) {
                 console.error(`${function_name}: Failed to run function`, e);
                 this.deps.awsXray.resolveSegment().addError(e);
@@ -307,10 +307,10 @@ export default class Indexer {
             });
     }
 
-    async writeFunctionState(function_name, block_height) {
+    async writeFunctionState(function_name, block_height, is_historical) {
         const activeFunctionSubsegment = this.deps.awsXray.resolveSegment();
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`writeFunctionState`);
-        const mutation =
+        const real_time_mutation =
             `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
                   insert_indexer_state(
                     objects: {current_block_height: $block_height, function_name: $function_name}
@@ -322,11 +322,25 @@ export default class Indexer {
                     }
                   }
                 }`;
+        const historical_mutation = `
+            mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+              insert_indexer_state(
+                objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
+                on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
+              ) {
+                returning {
+                  current_block_height
+                  current_historical_block_height
+                  function_name
+                }
+              }
+            }
+        `;
         const variables = {
             function_name,
             block_height,
         };
-        return this.runGraphQLQuery(mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE)
+        return this.runGraphQLQuery(is_historical ? historical_mutation : real_time_mutation, variables, function_name, block_height, this.DEFAULT_HASURA_ROLE)
             .catch((e) => {
                 console.error(`${function_name}: Error writing function state`, e);
             })
@@ -334,6 +348,7 @@ export default class Indexer {
                 subsegment.close();
             });
     }
+
     async runGraphQLQuery(operation, variables, function_name, block_height, hasuraRoleName, logError = true) {
         const response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
             method: 'POST',
