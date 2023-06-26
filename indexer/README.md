@@ -17,13 +17,18 @@ This project is using `workspace` feature of Cargo.
 
 ### Crates
 
-- [`alert-rules`](./alert-rules) crate provides the `AlertRule` type for usage in other crates
-- [`shared`](./shared) crate holds the common `clap` structs for every indexer in the workspace. Also, it includes shared types and utils.
-- [`storage`](./storage) crate provides the functions to work with Redis that are common for all indexers in the workspace
+- [`indexer_rule_type`](./indexer_rule_type) provides the IndexerRule type to this app and the registry contract.
+- [`indexer_rules_engine`](./indexer_rules_engine) contains logic for matching IndexerRules against StreamerMessages
+- [`storage`](./storage) crate provides the functions to work with Redis
 
 ### Indexers
 
-- [`queryapi_coordinator`](./queryapi_coordinator) an indexer to watch for `AlertRules` and index changes to the QueryApi registry contract.
+- [`queryapi_coordinator`](./queryapi_coordinator) an indexer to index changes to the QueryApi registry contract and
+  to watch for `IndexerRules` associated with the IndexerFunctions in the registry.
+
+### Tests
+Some tests require blocks with matching data. To download the test block, run 
+`./download_test_blocks.sh 93085141`. Some other useful blocks are 80854399 92476362 93085141 93659695.
 
 ## Design concept
 
