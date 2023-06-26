@@ -13,7 +13,9 @@ const STREAM_HANDLER_THROTTLE_MS = 500;
 client.on("error", (err) => console.log("Redis Client Error", err));
 
 const runFunction = async (indexerName: string, blockHeight: string) => {
-  const { account_id, function_name, code, schema } = await getIndexerData(indexerName);
+  const { account_id, function_name, code, schema } = await getIndexerData(
+    indexerName
+  );
 
   const functions = {
     [indexerName]: {
@@ -33,10 +35,14 @@ const runFunction = async (indexerName: string, blockHeight: string) => {
 
 type StreamMessages<Message> = {
   id: string;
-  message: Message
+  message: Message;
 }[];
 
-const getMessagesFromStream = async <Message extends { [x: string]: string }>(indexerName: string, lastId: string | null, count: number): Promise<StreamMessages<Message> | null> => {
+const getMessagesFromStream = async <Message extends { [x: string]: string }>(
+  indexerName: string,
+  lastId: string | null,
+  count: number
+): Promise<StreamMessages<Message> | null> => {
   const id = lastId ?? STREAM_START_ID;
   const streamName = `${indexerName}/stream`;
 
@@ -46,23 +52,28 @@ const getMessagesFromStream = async <Message extends { [x: string]: string }>(in
     { COUNT: count }
   );
 
-  return results && results[0].messages as StreamMessages<Message>;
+  return results && (results[0].messages as StreamMessages<Message>);
 };
 
-const getLastProcessedId = async (indexerName: string): Promise<string | null> => {
+const getLastProcessedId = async (
+  indexerName: string
+): Promise<string | null> => {
   return client.get(`${indexerName}/stream/lastId`);
-}
+};
 
-const setLastProcessedId = async (indexerName: string, lastId: string): Promise<void> => {
+const setLastProcessedId = async (
+  indexerName: string,
+  lastId: string
+): Promise<void> => {
   await client.set(`${indexerName}/stream/lastId`, lastId);
-}
+};
 
 type IndexerConfig = {
   account_id: string;
   function_name: string;
   code: string;
   schema: string;
-}
+};
 
 const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
   const results = await client.get(`${indexerName}/config`);
@@ -75,17 +86,21 @@ const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
 };
 
 type IndexerStreamMessage = {
-  block_height: string
-}
+  block_height: string;
+};
 
 const processStream = async (indexerName: string) => {
   while (true) {
     try {
       const lastProcessedId = await getLastProcessedId(indexerName);
-      const messages = await getMessagesFromStream<IndexerStreamMessage>(indexerName, lastProcessedId, 1);
+      const messages = await getMessagesFromStream<IndexerStreamMessage>(
+        indexerName,
+        lastProcessedId,
+        1
+      );
 
       if (!messages) {
-        continue
+        continue;
       }
 
       const [{ id, message }] = messages;
@@ -102,8 +117,8 @@ const processStream = async (indexerName: string) => {
 };
 
 type StreamHandlers = {
-  [indexerName: string]: Promise<void>
-}
+  [indexerName: string]: Promise<void>;
+};
 
 (async function main() {
   await client.connect();
@@ -128,5 +143,4 @@ type StreamHandlers = {
   }
 
   await client.disconnect();
-})()
-
+})();
