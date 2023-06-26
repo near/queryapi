@@ -19,6 +19,8 @@ mod indexer_registry;
 mod indexer_types;
 mod metrics;
 mod opts;
+mod queue;
+mod s3;
 mod utils;
 
 pub(crate) const INDEXER: &str = "queryapi_coordinator";
@@ -39,7 +41,7 @@ pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<AccountId, BalanceDetail
 pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
     pub chain_id: &'a ChainId,
-    pub queue_client: &'a opts::QueueClient,
+    pub queue_client: &'a queue::QueueClient,
     pub queue_url: &'a str,
     pub registry_contract_id: &'a str,
     pub balance_cache: &'a BalanceCache,
@@ -57,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
 
     let chain_id = &opts.chain_id();
     let aws_region = opts.aws_queue_region.clone();
-    let queue_client = &opts.queue_client(aws_region);
+    let queue_client = queue::queue_client(aws_region, opts.queue_credentials());
     let queue_url = opts.queue_url.clone();
     let registry_contract_id = opts.registry_contract_id.clone();
 
@@ -105,7 +107,7 @@ async fn main() -> anyhow::Result<()> {
                 registry_contract_id: &registry_contract_id,
                 streamer_message,
                 chain_id,
-                queue_client,
+                queue_client: &queue_client,
             };
             handle_streamer_message(context, indexer_registry.clone())
         })
@@ -200,7 +202,7 @@ async fn handle_streamer_message(
             stream::iter(indexer_function_messages.into_iter())
                 .chunks(10)
                 .for_each(|indexer_queue_messages_batch| async {
-                    match opts::send_to_indexer_queue(
+                    match queue::send_to_indexer_queue(
                         context.queue_client,
                         context.queue_url.to_string(),
                         indexer_queue_messages_batch,
@@ -292,3 +294,6 @@ async fn reduce_rule_matches_for_indexer_function<'x>(
         matches,
     })
 }
+
+#[cfg(test)]
+mod historical_block_processing_integration_tests;
