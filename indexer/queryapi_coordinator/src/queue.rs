@@ -4,6 +4,8 @@ pub use aws_sdk_sqs::{
     error::SendMessageError, model::SendMessageBatchRequestEntry, Client as QueueClient, Region,
 };
 
+pub const MOCK_QUEUE_URL: &str = "MOCK";
+
 /// Creates AWS SQS Client for QueryApi SQS
 pub fn queue_client(region: String, credentials: SharedCredentialsProvider) -> aws_sdk_sqs::Client {
     let shared_config = queue_aws_sdk_config(region, credentials);
@@ -26,12 +28,17 @@ pub async fn send_to_indexer_queue(
     queue_url: String,
     indexer_queue_messages: Vec<IndexerQueueMessage>,
 ) -> anyhow::Result<()> {
-    for m in indexer_queue_messages.clone() {
-        println!(
-            "Sending messages to SQS: {:?} {:?}",
-            m.indexer_function.function_name, m.block_height
-        );
+    if queue_url == MOCK_QUEUE_URL {
+        for m in indexer_queue_messages.clone() {
+            tracing::info!(
+                "Mock sending messages to SQS: {:?} {:?}",
+                m.indexer_function.function_name,
+                m.block_height
+            );
+        }
+        return Ok(());
     }
+
     let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
         .into_iter()
         .enumerate()

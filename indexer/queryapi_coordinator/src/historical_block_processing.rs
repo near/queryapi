@@ -15,10 +15,10 @@ use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, 
 use serde_json::from_str;
 use tokio::task::JoinHandle;
 
-const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
-const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
-const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
-const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
+pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
+pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
+pub const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
+pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
@@ -182,7 +182,7 @@ async fn filter_matching_blocks_from_index_files(
             affected_account_id,
             status,
         } => {
-            let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
+            let s3_prefix = format!("{}/{}/", INDEXED_DATA_FILES_FOLDER, affected_account_id);
             s3::fetch_contract_index_files(aws_config, s3_bucket, s3_prefix, start_date).await
         }
         MatchingRule::ActionFunctionCall {

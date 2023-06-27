@@ -30,6 +30,8 @@ This project is using `workspace` feature of Cargo.
 Some tests require blocks with matching data. To download the test block, run 
 `./download_test_blocks.sh 93085141`. Some other useful blocks are 80854399 92476362 93085141 93659695.
 
+To log a message instead of sending SQS messages set your `QUEUE_URL` to `MOCK` in your `.env` file.
+
 ## Design concept
 
 Identified major types of the events on the network:

@@ -20,7 +20,6 @@ async fn test_indexing_metadata_file() {
 }
 
 /// Run with export $(grep -v '^#' .env | xargs) && cargo test historical_block_processing_integration_tests::test_process_historical_messages -- mainnet from-latest;
-// next step is to mock the queue
 #[tokio::test]
 async fn test_process_historical_messages() {
     opts::init_tracing();
