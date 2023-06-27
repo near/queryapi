@@ -13,5 +13,9 @@ pub(crate) async fn auth(req: HttpRequest) -> impl Responder {
         None => std::env::var("DEFAULT_HASURA_ROLE").unwrap(),
     };
 
+    if role_header == "admin" {
+        return HttpResponse::Unauthorized().finish();
+    }
+
     HttpResponse::Ok().json(AuthResponse { role_header })
 }
