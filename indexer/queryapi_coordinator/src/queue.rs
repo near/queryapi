@@ -29,7 +29,7 @@ pub async fn send_to_indexer_queue(
     indexer_queue_messages: Vec<IndexerQueueMessage>,
 ) -> anyhow::Result<()> {
     if queue_url == MOCK_QUEUE_URL {
-        for m in indexer_queue_messages.clone() {
+        for m in &indexer_queue_messages {
             tracing::info!(
                 "Mock sending messages to SQS: {:?} {:?}",
                 m.indexer_function.function_name,

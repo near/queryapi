@@ -172,7 +172,8 @@ mod tests {
     use crate::s3::list_s3_bucket_by_prefix;
     use aws_types::SdkConfig;
 
-    ///export $(grep -v '^#' .env | xargs) && cargo test s3::tests::list_delta_bucket -- mainnet from-latest;
+    /// Parses env vars from .env, Run with
+    /// cargo test s3::tests::list_delta_bucket -- mainnet from-latest;
     #[tokio::test]
     async fn list_delta_bucket() {
         let opts = Opts::parse();
