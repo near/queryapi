@@ -32,11 +32,13 @@ describe('Indexer unit tests', () => {
     const oldEnv = process.env;
 
     const HASURA_ENDPOINT = 'mock-hasura-endpoint';
+    const HASURA_ADMIN_SECRET = 'mock-hasura-secret';
 
     beforeAll(() => {
         process.env = {
             ...oldEnv,
             HASURA_ENDPOINT,
+            HASURA_ADMIN_SECRET
         };
     });
 
@@ -820,6 +822,77 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         await indexer.runFunctions(block_height, functions, false);
 
         expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', block_height);
+    });
+
+    test('does not attach the hasura admin secret header when no role specified', async () => {
+        const mockFetch = jest.fn()
+            .mockResolvedValueOnce({
+                status: 200,
+                json: async () => ({
+                    data: {}
+                })
+            });
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, awsXray: mockAwsXray, metrics: mockMetrics });
+        const context = indexer.buildImperativeContextForFunction();
+
+        const mutation = `
+            mutation {
+                newGreeting(greeting: "howdy") {
+                    success
+                }
+            }
+        `;
+
+        await context.graphql(mutation);
+
+        expect(mockFetch.mock.calls[0]).toEqual([
+            `${HASURA_ENDPOINT}/v1/graphql`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                },
+                body: JSON.stringify({ query: mutation })
+            }
+        ]);
+    });
+
+    test('attaches the backend only header to requests to hasura', async () => {
+        const mockFetch = jest.fn()
+            .mockResolvedValueOnce({
+                status: 200,
+                json: async () => ({
+                    data: {}
+                })
+            });
+        const role = 'morgs_near';
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, awsXray: mockAwsXray, metrics: mockMetrics });
+        const context = indexer.buildImperativeContextForFunction(null, null, null, role);
+
+        const mutation = `
+            mutation {
+                newGreeting(greeting: "howdy") {
+                    success
+                }
+            }
+        `;
+
+        await context.graphql(mutation);
+
+        expect(mockFetch.mock.calls[0]).toEqual([
+            `${HASURA_ENDPOINT}/v1/graphql`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                    'X-Hasura-Role': role,
+                    'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
+                },
+                body: JSON.stringify({ query: mutation })
+            }
+        ]);
     });
 
     // The unhandled promise causes problems with test reporting.
