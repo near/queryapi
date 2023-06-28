@@ -354,7 +354,12 @@ export default class Indexer {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(hasuraRoleName && { 'X-Hasura-Role': hasuraRoleName })
+                'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                ...(hasuraRoleName && {
+                        'X-Hasura-Role': hasuraRoleName,
+                        'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
+                    }
+                ),
             },
             body: JSON.stringify({
                 query: operation,

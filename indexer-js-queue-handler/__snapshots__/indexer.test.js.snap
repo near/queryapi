@@ -8,7 +8,9 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":82699904,"message":"Running function:buildnear.testnet/test:, lag in ms is: :NaN"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -19,7 +21,9 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -30,7 +34,9 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
       "body": "{"query":"\\n                query {\\n                    posts(where: { id: { _eq: 1 } }) {\\n                        id\\n                    }\\n                }\\n            "}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "buildnear_testnet",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -41,7 +47,9 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
       "body": "{"query":"\\n                mutation {\\n                    insert_comments(\\n                        objects: {account_id: \\"morgs.near\\", block_height: 82699904, content: \\"cool post\\", post_id: 1}\\n                    ) {\\n                        returning {\\n                            id\\n                        }\\n                    }\\n                }\\n            "}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "buildnear_testnet",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -52,7 +60,9 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
       "body": "{"query":"mutation WriteBlock($function_name: String!, $block_height: numeric!) {\\n                  insert_indexer_state(\\n                    objects: {current_block_height: $block_height, function_name: $function_name}\\n                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}\\n                  ) {\\n                    returning {\\n                      current_block_height\\n                      function_name\\n                    }\\n                  }\\n                }","variables":{"function_name":"buildnear.testnet/test","block_height":82699904}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -68,7 +78,9 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Running function:buildnear.testnet/test:, lag in ms is: :NaN"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -79,7 +91,9 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -90,7 +104,9 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Error running IndexerFunction:boom"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -101,7 +117,9 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"STOPPED"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -117,7 +135,9 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Running function:morgs.near/test:, lag in ms is: :NaN"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -128,7 +148,9 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"PROVISIONING"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -139,7 +161,9 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Provisioning endpoint: starting"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -150,7 +174,9 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Provisioning endpoint: failure:something went wrong with provisioning"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -161,7 +187,9 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"STOPPED"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -177,7 +205,9 @@ exports[`Indexer unit tests Indexer.runFunctions() sets the current historical b
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Running function:buildnear.testnet/test:, lag in ms is: :NaN"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -188,7 +218,9 @@ exports[`Indexer unit tests Indexer.runFunctions() sets the current historical b
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -199,7 +231,9 @@ exports[`Indexer unit tests Indexer.runFunctions() sets the current historical b
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"hey"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -210,7 +244,9 @@ exports[`Indexer unit tests Indexer.runFunctions() sets the current historical b
       "body": "{"query":"\\n            mutation WriteBlock($function_name: String!, $block_height: numeric!) {\\n              insert_indexer_state(\\n                objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}\\n                on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}\\n              ) {\\n                returning {\\n                  current_block_height\\n                  current_historical_block_height\\n                  function_name\\n                }\\n              }\\n            }\\n        ","variables":{"function_name":"buildnear.testnet/test","block_height":456}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -226,7 +262,9 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Running function:buildnear.testnet/test:, lag in ms is: :NaN"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -237,7 +275,9 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -248,7 +288,9 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
       "body": "{"query":"mutation { set(functionName: \\"buildnear.testnet/test\\", key: \\"height\\", data: \\"456\\")}","variables":{}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "buildnear_testnet",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -259,7 +301,9 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
       "body": "{"query":"mutation WriteBlock($function_name: String!, $block_height: numeric!) {\\n                  insert_indexer_state(\\n                    objects: {current_block_height: $block_height, function_name: $function_name}\\n                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}\\n                  ) {\\n                    returning {\\n                      current_block_height\\n                      function_name\\n                    }\\n                  }\\n                }","variables":{"function_name":"buildnear.testnet/test","block_height":456}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -275,7 +319,9 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Running function:morgs.near/test:, lag in ms is: :NaN"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -286,7 +332,9 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
       "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -297,7 +345,9 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
       "body": "{"query":"mutation { set(functionName: \\"buildnear.testnet/test\\", key: \\"height\\", data: \\"82699904\\")}","variables":{}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "morgs_near",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
@@ -308,7 +358,9 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
       "body": "{"query":"mutation WriteBlock($function_name: String!, $block_height: numeric!) {\\n                  insert_indexer_state(\\n                    objects: {current_block_height: $block_height, function_name: $function_name}\\n                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}\\n                  ) {\\n                    returning {\\n                      current_block_height\\n                      function_name\\n                    }\\n                  }\\n                }","variables":{"function_name":"morgs.near/test","block_height":82699904}}",
       "headers": {
         "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
         "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
       },
       "method": "POST",
     },
