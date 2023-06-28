@@ -1,5 +1,5 @@
 const GRAPHQL_ENDPOINT =
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = "dev-queryapi.dataplatform.near";
 const accountId = props.accountId;
 const blockHeight =
