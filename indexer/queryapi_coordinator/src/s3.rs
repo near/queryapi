@@ -212,9 +212,7 @@ fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
     let file_name_date = file_name.split('/').last().unwrap().replace(".json", "");
     let file_name_date = NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d");
     match file_name_date {
-        Ok(file_name_date) => {
-            file_name_date >= start_date.date_naive()
-        }
+        Ok(file_name_date) => file_name_date >= start_date.date_naive(),
         Err(e) => {
             tracing::error!(
                 target: crate::INDEXER,
