@@ -16,12 +16,12 @@ pub async fn find_index_files_by_pattern(
     pattern: &str,
 ) -> Vec<String> {
     match pattern {
-        x if x.contains(",") => {
-            let contract_array = x.split(",");
+        x if x.contains(',') => {
+            let contract_array = x.split(',');
             let mut results = vec![];
             for contract in contract_array {
                 let contract = contract.trim();
-                let sub_results = if contract.contains("*") {
+                let sub_results = if contract.contains('*') {
                     list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &contract).await
                 } else {
                     list_s3_bucket_by_prefix(
@@ -35,7 +35,7 @@ pub async fn find_index_files_by_pattern(
             }
             results
         }
-        x if x.contains("*") => {
+        x if x.contains('*') => {
             list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &x).await
         }
         _ => {
@@ -59,7 +59,7 @@ async fn list_index_files_by_wildcard(
 ) -> Vec<String> {
     // fetch all folders and filter by regex
     let folders = list_s3_bucket_by_prefix(aws_config, s3_bucket, &format!("{}/", s3_folder)).await;
-    let regex_string = &x.replace(".", "\\.").replace("*", ".*");
+    let regex_string = &x.replace('.', "\\.").replace('*', ".*");
     let re = Regex::new(regex_string).unwrap();
     let matching_folders = folders.into_iter().filter(|folder| re.is_match(folder));
     // for each matching folder list files
@@ -86,7 +86,7 @@ async fn list_s3_bucket_by_prefix(
         let mut configured_client = s3_client
             .list_objects_v2()
             .bucket(s3_bucket)
-            .prefix(s3_prefix.clone())
+            .prefix(s3_prefix)
             .delimiter("/");
 
         if continuation_token.is_some() {
@@ -156,7 +156,7 @@ pub async fn fetch_contract_index_files(
     let file_contents: Vec<String> = join_all(fetch_and_parse_tasks).await;
     file_contents
         .into_iter()
-        .filter(|file_contents| file_contents.len() > 0)
+        .filter(|file_contents| !file_contents.is_empty())
         .collect::<Vec<String>>()
 }
 
@@ -209,15 +209,11 @@ pub async fn fetch_text_file_from_s3(s3_bucket: &str, key: String, s3_client: S3
 /// check whether the filename is a date after the start date
 /// filename is in format 2022-10-03.json
 fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
-    let file_name_date = file_name.split("/").last().unwrap().replace(".json", "");
+    let file_name_date = file_name.split('/').last().unwrap().replace(".json", "");
     let file_name_date = NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d");
     match file_name_date {
         Ok(file_name_date) => {
-            if file_name_date >= start_date.date_naive() {
-                true
-            } else {
-                false
-            }
+            file_name_date >= start_date.date_naive()
         }
         Err(e) => {
             tracing::error!(

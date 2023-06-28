@@ -285,7 +285,7 @@ async fn reduce_rule_matches_for_indexer_function<'x>(
 ) -> anyhow::Result<IndexerFunctionWithMatches<'x>> {
     let matches = indexer_rules_engine::reduce_indexer_rule_matches(
         &indexer_function.indexer_rule,
-        &streamer_message,
+        streamer_message,
         chain_id.clone(),
     )
     .await?;

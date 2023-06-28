@@ -247,11 +247,11 @@ fn parse_blocks_from_index_files(
 ) -> Vec<BlockHeight> {
     index_files_content
         .into_iter()
-        .map(|file_content| {
+        .flat_map(|file_content| {
             if let Ok(file_json) = serde_json::from_str::<serde_json::Value>(&file_content) {
                 if let Some(block_heights) = file_json["heights"].as_array() {
                     block_heights
-                        .into_iter()
+                        .iter()
                         .map(|block_height| block_height.as_u64().unwrap())
                         .collect::<Vec<u64>>()
                         .into_iter()
@@ -274,7 +274,6 @@ fn parse_blocks_from_index_files(
                 vec![]
             }
         })
-        .flatten()
         .collect::<Vec<u64>>()
 }
 
@@ -345,13 +344,13 @@ async fn filter_matching_unindexed_blocks_from_lake(
 
                 // // filter block
                 let matches = indexer_rules_engine::reduce_indexer_rule_matches_sync(
-                    &indexer_rule,
+                    indexer_rule,
                     &streamer_message,
                     chain_id.clone(),
                 );
                 match matches {
                     Ok(match_list) => {
-                        if match_list.len() > 0 {
+                        if !match_list.is_empty() {
                             blocks_to_process.push(current_block);
                         }
                     }
