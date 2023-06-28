@@ -1,6 +1,3 @@
-pub use aws_sdk_sqs::{
-    error::SendMessageError, model::SendMessageBatchRequestEntry, Client as QueueClient, Region,
-};
 pub use base64;
 pub use borsh::{self, BorshDeserialize, BorshSerialize};
 pub use clap::{Parser, Subcommand};
@@ -9,8 +6,6 @@ use tracing_subscriber::EnvFilter;
 
 use near_jsonrpc_client::{methods, JsonRpcClient};
 use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finality};
-
-use crate::indexer_types::IndexerQueueMessage;
 
 #[derive(Parser, Debug, Clone)]
 #[clap(
@@ -92,7 +87,7 @@ impl Opts {
     }
 
     // Creates AWS Credentials for NEAR Lake
-    fn lake_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
+    pub fn lake_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
         let provider = aws_credential_types::Credentials::new(
             self.lake_aws_access_key.clone(),
             self.lake_aws_secret_access_key.clone(),
@@ -104,7 +99,7 @@ impl Opts {
     }
 
     // Creates AWS Credentials for SQS Queue
-    fn queue_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
+    pub fn queue_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
         let provider = aws_credential_types::Credentials::new(
             self.queue_aws_access_key.clone(),
             self.queue_aws_secret_access_key.clone(),
@@ -121,20 +116,6 @@ impl Opts {
             .credentials_provider(self.lake_credentials())
             .region(aws_types::region::Region::new("eu-central-1"))
             .build()
-    }
-
-    /// Creates AWS Shared Config for QueryApi SQS queue
-    pub fn queue_aws_sdk_config(&self, region: String) -> aws_types::sdk_config::SdkConfig {
-        aws_types::sdk_config::SdkConfig::builder()
-            .credentials_provider(self.queue_credentials())
-            .region(aws_types::region::Region::new(region))
-            .build()
-    }
-
-    /// Creates AWS SQS Client for QueryApi SQS
-    pub fn queue_client(&self, region: String) -> aws_sdk_sqs::Client {
-        let shared_config = self.queue_aws_sdk_config(region);
-        aws_sdk_sqs::Client::new(&shared_config)
     }
 
     pub fn rpc_url(&self) -> &str {
@@ -221,44 +202,6 @@ pub fn init_tracing() {
         .with_env_filter(env_filter)
         .with_writer(std::io::stderr)
         .init();
-}
-
-pub async fn send_to_indexer_queue(
-    client: &aws_sdk_sqs::Client,
-    queue_url: String,
-    indexer_queue_messages: Vec<IndexerQueueMessage>,
-) -> anyhow::Result<()> {
-    let message_bodies: Vec<SendMessageBatchRequestEntry> = indexer_queue_messages
-        .into_iter()
-        .enumerate()
-        .map(|(index, indexer_queue_message)| {
-            SendMessageBatchRequestEntry::builder()
-                .id(index.to_string())
-                .message_body(
-                    serde_json::to_string(&indexer_queue_message)
-                        .expect("Failed to Json Serialize IndexerQueueMessage"),
-                )
-                .message_group_id(format!(
-                    "{}_{}",
-                    indexer_queue_message.indexer_function.account_id,
-                    indexer_queue_message.indexer_function.function_name
-                ))
-                .build()
-        })
-        .collect();
-
-    let rsp = client
-        .send_message_batch()
-        .queue_url(queue_url)
-        .set_entries(Some(message_bodies))
-        .send()
-        .await?;
-    tracing::debug!(
-        target: crate::INDEXER,
-        "Response from sending a message to SQS\n{:#?}",
-        rsp
-    );
-    Ok(())
 }
 
 async fn final_block_height(opts: &Opts) -> u64 {

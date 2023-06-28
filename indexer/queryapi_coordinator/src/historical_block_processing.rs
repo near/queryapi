@@ -1,12 +1,12 @@
 use crate::indexer_types::{IndexerFunction, IndexerQueueMessage};
-use crate::opts;
 use crate::opts::{Opts, Parser};
+use crate::queue;
+use crate::s3;
 use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::Config;
 use aws_sdk_sqs::Client;
 use aws_types::SdkConfig;
-use chrono::{DateTime, LocalResult, NaiveDate, TimeZone, Utc};
-use futures::future::join_all;
+use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use indexer_rule_type::indexer_rule::{IndexerRule, MatchingRule};
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatchPayload};
 use near_jsonrpc_client::JsonRpcClient;
@@ -15,10 +15,10 @@ use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, 
 use serde_json::from_str;
 use tokio::task::JoinHandle;
 
-const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
-const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
-const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
-const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
+pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
+pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
+pub const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
+pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
@@ -33,7 +33,7 @@ pub fn spawn_historical_message_thread(
     })
 }
 
-async fn process_historical_messages(
+pub(crate) async fn process_historical_messages(
     block_height: BlockHeight,
     indexer_function: IndexerFunction,
 ) -> i64 {
@@ -62,7 +62,7 @@ async fn process_historical_messages(
 
             let chain_id = opts.chain_id().clone();
             let aws_region = opts.aws_queue_region.clone();
-            let queue_client = &opts.queue_client(aws_region);
+            let queue_client = queue::queue_client(aws_region, opts.queue_credentials());
             let queue_url = opts.start_from_block_queue_url.clone();
             let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
@@ -91,7 +91,6 @@ async fn process_historical_messages(
 
             let mut blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
-                block_height,
                 &indexer_function.indexer_rule,
                 aws_config,
                 start_date.unwrap(),
@@ -123,7 +122,7 @@ async fn process_historical_messages(
                     block_height,
                     start_block,
                     chain_id.clone(),
-                    queue_client,
+                    &queue_client,
                     queue_url.clone(),
                     &mut indexer_function,
                     current_block,
@@ -142,7 +141,7 @@ pub(crate) async fn last_indexed_block_from_metadata(
     let key = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, "latest_block.json");
     let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
     let s3_client: S3Client = S3Client::from_conf(s3_config);
-    let metadata = fetch_text_file_from_s3(INDEXED_DATA_FILES_BUCKET, key, s3_client).await;
+    let metadata = s3::fetch_text_file_from_s3(INDEXED_DATA_FILES_BUCKET, key, s3_client).await;
 
     let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
     let last_indexed_block = metadata["last_indexed_block"].clone();
@@ -168,22 +167,32 @@ pub(crate) async fn last_indexed_block_from_metadata(
     Ok(last_indexed_block)
 }
 
-async fn filter_matching_blocks_from_index_files(
+pub(crate) async fn filter_matching_blocks_from_index_files(
     start_block_height: BlockHeight,
-    end_block_height: BlockHeight,
     indexer_rule: &IndexerRule,
     aws_config: &SdkConfig,
     start_date: DateTime<Utc>,
 ) -> Vec<BlockHeight> {
     let s3_bucket = INDEXED_DATA_FILES_BUCKET;
 
+    let mut needs_dedupe_and_sort = false;
+
     let index_files_content = match &indexer_rule.matching_rule {
         MatchingRule::ActionAny {
             affected_account_id,
             status,
         } => {
-            let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
-            fetch_contract_index_files(aws_config, s3_bucket, s3_prefix, start_date).await
+            if affected_account_id.contains('*') || affected_account_id.contains(',') {
+                needs_dedupe_and_sort = true;
+            }
+            s3::fetch_contract_index_files(
+                aws_config,
+                s3_bucket,
+                INDEXED_DATA_FILES_FOLDER,
+                start_date,
+                affected_account_id,
+            )
+            .await
         }
         MatchingRule::ActionFunctionCall {
             affected_account_id,
@@ -196,6 +205,9 @@ async fn filter_matching_blocks_from_index_files(
             );
             return vec![];
 
+            // if affected_account_id.contains('*') || affected_account_id.contains(',) {
+            //     needs_dedupe_and_sort = true;
+            // }
             // let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
             // fetch_contract_index_files(aws_config, s3_bucket, s3_prefix).await
             // // todo implement, use function name selector
@@ -214,9 +226,12 @@ async fn filter_matching_blocks_from_index_files(
         "Found {file_count} index files matching rule {indexer_rule:?}",
         file_count = index_files_content.len()
     );
-
-    let blocks_to_process: Vec<BlockHeight> =
+    let mut blocks_to_process: Vec<BlockHeight> =
         parse_blocks_from_index_files(index_files_content, start_block_height);
+    if needs_dedupe_and_sort {
+        blocks_to_process.sort();
+        blocks_to_process.dedup();
+    }
     tracing::info!(
         target: crate::INDEXER,
         "Found {block_count} indexed blocks to process.",
@@ -290,7 +305,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
     for current_block in (last_indexed_block + 1)..ending_block_height {
         // fetch block file from S3
         let key = format!("{}/block.json", normalize_block_height(current_block));
-        let block = fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await;
+        let block = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await;
         let block_view = serde_json::from_slice::<
             near_lake_framework::near_indexer_primitives::views::BlockView,
         >(block.as_ref());
@@ -303,7 +318,8 @@ async fn filter_matching_unindexed_blocks_from_lake(
                         normalize_block_height(current_block),
                         shard_id
                     );
-                    let shard = fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await;
+                    let shard =
+                        s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await;
                     match serde_json::from_slice::<
                         near_lake_framework::near_indexer_primitives::IndexerShard,
                     >(shard.as_ref())
@@ -375,135 +391,6 @@ fn normalize_block_height(block_height: BlockHeight) -> String {
     format!("{:0>12}", block_height)
 }
 
-async fn fetch_contract_index_files(
-    aws_config: &SdkConfig,
-    s3_bucket: &str,
-    s3_prefix: String,
-    start_date: DateTime<Utc>,
-) -> Vec<String> {
-    let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
-    let s3_client: S3Client = S3Client::from_conf(s3_config);
-
-    match s3_client
-        .list_objects_v2()
-        .bucket(s3_bucket)
-        .prefix(s3_prefix)
-        .send()
-        .await
-    {
-        Ok(file_list) => {
-            if let Some(objects) = file_list.contents {
-                let fetch_and_parse_tasks = objects
-                    .into_iter()
-                    .filter(|index_file_listing| {
-                        file_name_date_after(start_date, index_file_listing.key.clone().unwrap())
-                    })
-                    .map(|index_file_listing| {
-                        let key = index_file_listing.key.clone().unwrap();
-
-                        let s3_client = s3_client.clone();
-                        async move {
-                            // Fetch the file
-                            fetch_text_file_from_s3(s3_bucket, key, s3_client).await
-                        }
-                    })
-                    .collect::<Vec<_>>();
-
-                // Execute all tasks in parallel and wait for completion
-                let file_contents: Vec<String> = join_all(fetch_and_parse_tasks).await;
-                file_contents
-                    .into_iter()
-                    .filter(|file_contents| file_contents.len() > 0)
-                    .collect::<Vec<String>>()
-            } else {
-                tracing::error!(
-                    target: crate::INDEXER,
-                    "Error listing files in S3 bucket, no files found."
-                );
-                vec![]
-            }
-        }
-        Err(e) => {
-            tracing::error!(
-                target: crate::INDEXER,
-                "Error listing files in S3 bucket: {:?}",
-                e
-            );
-            vec![]
-        }
-    }
-}
-
-/// check whether the filename is a date after the start date
-/// filename is in format 2022-10-03.json
-fn file_name_date_after(start_date: DateTime<Utc>, file_name: String) -> bool {
-    let file_name_date = file_name.split("/").last().unwrap().replace(".json", "");
-    let file_name_date = NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d");
-    match file_name_date {
-        Ok(file_name_date) => {
-            if file_name_date >= start_date.date_naive() {
-                true
-            } else {
-                false
-            }
-        }
-        Err(e) => {
-            tracing::error!(
-                target: crate::INDEXER,
-                "Error parsing file name date: {:?}",
-                e
-            );
-            false
-        }
-    }
-}
-
-async fn fetch_text_file_from_s3(s3_bucket: &str, key: String, s3_client: S3Client) -> String {
-    let get_object_output = s3_client
-        .get_object()
-        .bucket(s3_bucket)
-        .key(key.clone())
-        .send()
-        .await;
-
-    match get_object_output {
-        Ok(object_output) => {
-            let bytes = object_output.body.collect().await;
-            match bytes {
-                Ok(bytes) => {
-                    let file_contents = String::from_utf8(bytes.to_vec());
-                    match file_contents {
-                        Ok(file_contents) => {
-                            tracing::debug!(
-                                target: crate::INDEXER,
-                                "Fetched S3 file {}",
-                                key.clone(),
-                            );
-                            file_contents
-                        }
-                        Err(e) => {
-                            tracing::error!(
-                                target: crate::INDEXER,
-                                "Error parsing index file: {:?}",
-                                e
-                            );
-                            "".to_string()
-                        }
-                    }
-                }
-                Err(e) => {
-                    tracing::error!(target: crate::INDEXER, "Error fetching index file: {:?}", e);
-                    "".to_string()
-                }
-            }
-        }
-        Err(e) => {
-            tracing::error!(target: crate::INDEXER, "Error fetching index file: {:?}", e);
-            "".to_string()
-        }
-    }
-}
-
 async fn send_execution_message(
     block_height: BlockHeight,
     start_block: u64,
@@ -529,7 +416,7 @@ async fn send_execution_message(
         is_historical: true,
     };
 
-    match opts::send_to_indexer_queue(queue_client, queue_url, vec![msg]).await {
+    match queue::send_to_indexer_queue(queue_client, queue_url, vec![msg]).await {
         Ok(_) => {}
         Err(err) => tracing::error!(
             target: crate::INDEXER,
@@ -564,19 +451,3 @@ pub async fn block_to_date(block_height: u64, client: &JsonRpcClient) -> Option<
         }
     }
 }
-
-// #[tokio::test]
-// async fn test_process_historical_messages() {
-//     let indexer_function = IndexerFunction {
-//         account_id: "buildnear.testnet".to_string().parse().unwrap(),
-//         function_name: "index_stuff".to_string(),
-//         code: "".to_string(),
-//         start_block_height: Some(85376002),
-//         schema: None,
-//         provisioned: false,
-//         indexer_rule: indexer_rule_type::near_social_indexer_rule(),
-//     };
-//
-//     // this depends on Opts now
-//     process_historical_messages(85376003, indexer_function, need_a_mock_rpc_client).await;
-// }
