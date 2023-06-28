@@ -3371,6 +3371,7 @@ dependencies = [
  "near-jsonrpc-primitives",
  "near-lake-framework",
  "prometheus",
+ "regex",
  "serde",
  "serde_json",
  "storage",

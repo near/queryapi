@@ -3,10 +3,63 @@ use aws_sdk_s3::Config;
 use aws_types::SdkConfig;
 use chrono::{DateTime, NaiveDate, Utc};
 use futures::future::join_all;
+use regex::Regex;
 
 // Sanity check, if we hit this we have 1M S3 results.
 // Currently that would be either 2,700 years of FunctionCall data or 1M contract folders.
 const MAX_S3_LIST_REQUESTS: usize = 1000;
+
+pub async fn find_index_files_by_pattern(
+    aws_config: &SdkConfig,
+    s3_bucket: &str,
+    s3_folder: String,
+    pattern: &str,
+) -> Vec<String> {
+    match pattern {
+        x if x.contains(",") => {
+            let contract_array = x.split(",");
+            let mut results = vec![];
+            for contract in contract_array {
+                let contract = contract.trim();
+                results.extend(
+                    list_index_files_by_wildcard(
+                        aws_config,
+                        s3_bucket,
+                        s3_folder.to_string(),
+                        &contract,
+                    )
+                    .await,
+                );
+            }
+            results
+        }
+        x if x.contains("*") => {
+            list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &x).await
+        }
+        _ => list_s3_bucket_by_prefix(aws_config, s3_bucket, pattern.to_string()).await,
+    }
+
+    // todo will need to dedupe and sort the block output now
+}
+
+async fn list_index_files_by_wildcard(
+    aws_config: &SdkConfig,
+    s3_bucket: &str,
+    s3_folder: String,
+    x: &&str,
+) -> Vec<String> {
+    // fetch all folders and filter by regex
+    let folders = list_s3_bucket_by_prefix(aws_config, s3_bucket, s3_folder).await;
+    let regex_string = &x.replace(".", "\\.").replace("*", ".*");
+    let re = Regex::new(regex_string).unwrap();
+    let matching_folders = folders.into_iter().filter(|folder| re.is_match(folder));
+    // for each matching folder list files
+    let mut results = vec![];
+    for folder in matching_folders {
+        results.extend(list_s3_bucket_by_prefix(aws_config, s3_bucket, folder).await);
+    }
+    results
+}
 
 async fn list_s3_bucket_by_prefix(
     aws_config: &SdkConfig,
@@ -169,7 +222,7 @@ fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::opts::{Opts, Parser};
-    use crate::s3::list_s3_bucket_by_prefix;
+    use crate::s3::{find_index_files_by_pattern, list_s3_bucket_by_prefix};
     use aws_types::SdkConfig;
 
     /// Parses env vars from .env, Run with
@@ -189,5 +242,62 @@ mod tests {
         )
         .await;
         assert!(list.len() > 35000);
+    }
+
+    /// cargo test s3::tests::list_with_csv_contracts -- mainnet from-latest
+    #[tokio::test]
+    async fn list_with_csv_contracts() {
+        let opts = Opts::parse();
+        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+
+        let list = find_index_files_by_pattern(
+            &opts.lake_aws_sdk_config(),
+            crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
+            format!(
+                "{}/",
+                crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
+            ),
+            "hackathon.agency.near, hackathon.aurora-silo-dev.near, hackathon.sputnik-dao.near",
+        )
+        .await;
+        assert!(list.len() >= 13); // expecting 13 but these contracts could get randomly called sometime
+    }
+
+    /// cargo test s3::tests::list_with_wildcard_contracts -- mainnet from-latest
+    #[tokio::test]
+    async fn list_with_wildcard_contracts() {
+        let opts = Opts::parse();
+        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+
+        let list = find_index_files_by_pattern(
+            &opts.lake_aws_sdk_config(),
+            crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
+            format!(
+                "{}/",
+                crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
+            ),
+            "*.keypom.near",
+        )
+        .await;
+        assert!(list.len() >= 550);
+    }
+
+    /// cargo test s3::tests::list_with_csv_and_wildcard_contracts -- mainnet from-latest
+    #[tokio::test]
+    async fn list_with_csv_and_wildcard_contracts() {
+        let opts = Opts::parse();
+        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+
+        let list = find_index_files_by_pattern(
+            &opts.lake_aws_sdk_config(),
+            crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
+            format!(
+                "{}/",
+                crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
+            ),
+            "*.keypom.near, hackathon.agency.near, *.nearcrowd.near",
+        )
+        .await;
+        assert!(list.len() > 1370);
     }
 }

@@ -117,6 +117,8 @@ fn match_account(
     wildmatch::WildMatch::new(account_id).matches(&outcome_with_receipt.receipt.receiver_id)
         || wildmatch::WildMatch::new(account_id)
             .matches(&outcome_with_receipt.receipt.predecessor_id)
+    // todo handle CSV
+    // handle CSV that contain wildcards?
 }
 
 fn match_status(status: &Status, execution_outcome_status: &ExecutionStatusView) -> bool {
