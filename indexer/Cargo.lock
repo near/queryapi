@@ -2114,6 +2114,7 @@ dependencies = [
  "near-lake-framework",
  "serde",
  "serde_json",
+ "tokio",
  "wildmatch",
 ]
 
@@ -3370,6 +3371,7 @@ dependencies = [
  "near-jsonrpc-primitives",
  "near-lake-framework",
  "prometheus",
+ "regex",
  "serde",
  "serde_json",
  "storage",
