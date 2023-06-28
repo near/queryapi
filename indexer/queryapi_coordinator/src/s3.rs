@@ -12,7 +12,7 @@ const MAX_S3_LIST_REQUESTS: usize = 1000;
 pub async fn find_index_files_by_pattern(
     aws_config: &SdkConfig,
     s3_bucket: &str,
-    s3_folder: String,
+    s3_folder: &str,
     pattern: &str,
 ) -> Vec<String> {
     match pattern {
@@ -21,22 +21,31 @@ pub async fn find_index_files_by_pattern(
             let mut results = vec![];
             for contract in contract_array {
                 let contract = contract.trim();
-                results.extend(
-                    list_index_files_by_wildcard(
+                let sub_results = if contract.contains("*") {
+                    list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &contract).await
+                } else {
+                    list_s3_bucket_by_prefix(
                         aws_config,
                         s3_bucket,
-                        s3_folder.to_string(),
-                        &contract,
+                        &format!("{}/{}/", s3_folder, contract),
                     )
-                    .await,
-                );
+                    .await
+                };
+                results.extend(sub_results);
             }
             results
         }
         x if x.contains("*") => {
             list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &x).await
         }
-        _ => list_s3_bucket_by_prefix(aws_config, s3_bucket, pattern.to_string()).await,
+        _ => {
+            list_s3_bucket_by_prefix(
+                aws_config,
+                s3_bucket,
+                &format!("{}/{}/", s3_folder, pattern),
+            )
+            .await
+        }
     }
 
     // todo will need to dedupe and sort the block output now
@@ -45,18 +54,18 @@ pub async fn find_index_files_by_pattern(
 async fn list_index_files_by_wildcard(
     aws_config: &SdkConfig,
     s3_bucket: &str,
-    s3_folder: String,
+    s3_folder: &str,
     x: &&str,
 ) -> Vec<String> {
     // fetch all folders and filter by regex
-    let folders = list_s3_bucket_by_prefix(aws_config, s3_bucket, s3_folder).await;
+    let folders = list_s3_bucket_by_prefix(aws_config, s3_bucket, &format!("{}/", s3_folder)).await;
     let regex_string = &x.replace(".", "\\.").replace("*", ".*");
     let re = Regex::new(regex_string).unwrap();
     let matching_folders = folders.into_iter().filter(|folder| re.is_match(folder));
     // for each matching folder list files
     let mut results = vec![];
     for folder in matching_folders {
-        results.extend(list_s3_bucket_by_prefix(aws_config, s3_bucket, folder).await);
+        results.extend(list_s3_bucket_by_prefix(aws_config, s3_bucket, &folder).await);
     }
     results
 }
@@ -64,7 +73,7 @@ async fn list_index_files_by_wildcard(
 async fn list_s3_bucket_by_prefix(
     aws_config: &SdkConfig,
     s3_bucket: &str,
-    s3_prefix: String,
+    s3_prefix: &str,
 ) -> Vec<String> {
     let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
     let s3_client: S3Client = S3Client::from_conf(s3_config);
@@ -120,14 +129,16 @@ async fn list_s3_bucket_by_prefix(
 pub async fn fetch_contract_index_files(
     aws_config: &SdkConfig,
     s3_bucket: &str,
-    s3_prefix: String,
+    s3_folder: &str,
     start_date: DateTime<Utc>,
+    contract_pattern: &str,
 ) -> Vec<String> {
     let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
     let s3_client: S3Client = S3Client::from_conf(s3_config);
 
     // list all index files
-    let file_list = list_s3_bucket_by_prefix(aws_config, s3_bucket, s3_prefix).await;
+    let file_list =
+        find_index_files_by_pattern(aws_config, s3_bucket, s3_folder, contract_pattern).await;
 
     let fetch_and_parse_tasks = file_list
         .into_iter()
@@ -235,13 +246,29 @@ mod tests {
         let list = list_s3_bucket_by_prefix(
             aws_config,
             crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
-            format!(
+            &format!(
                 "{}/",
                 crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
             ),
         )
         .await;
         assert!(list.len() > 35000);
+    }
+
+    /// cargo test s3::tests::list_with_single_contract -- mainnet from-latest
+    #[tokio::test]
+    async fn list_with_single_contract() {
+        let opts = Opts::parse();
+        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+
+        let list = find_index_files_by_pattern(
+            &opts.lake_aws_sdk_config(),
+            crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
+            crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER,
+            "hackathon.agency.near",
+        )
+        .await;
+        assert_eq!(list.len(), 1);
     }
 
     /// cargo test s3::tests::list_with_csv_contracts -- mainnet from-latest
@@ -253,10 +280,7 @@ mod tests {
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),
             crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
-            format!(
-                "{}/",
-                crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
-            ),
+            crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER,
             "hackathon.agency.near, hackathon.aurora-silo-dev.near, hackathon.sputnik-dao.near",
         )
         .await;
@@ -272,10 +296,7 @@ mod tests {
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),
             crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
-            format!(
-                "{}/",
-                crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
-            ),
+            crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER,
             "*.keypom.near",
         )
         .await;
@@ -291,10 +312,7 @@ mod tests {
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),
             crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET,
-            format!(
-                "{}/",
-                crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER.to_string()
-            ),
+            crate::historical_block_processing::INDEXED_DATA_FILES_FOLDER,
             "*.keypom.near, hackathon.agency.near, *.nearcrowd.near",
         )
         .await;

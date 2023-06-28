@@ -1,8 +1,11 @@
+use crate::historical_block_processing::filter_matching_blocks_from_index_files;
 use crate::indexer_types::IndexerFunction;
 use crate::opts::{Opts, Parser};
 use crate::{historical_block_processing, opts};
 use aws_types::SdkConfig;
+use chrono::{DateTime, NaiveDate, Utc};
 use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+use near_lake_framework::near_indexer_primitives::types::BlockHeight;
 use std::ops::Range;
 
 /// Parses env vars from .env, Run with
@@ -58,4 +61,80 @@ async fn test_process_historical_messages() {
         indexer_function,
     )
     .await;
+}
+
+/// Parses env vars from .env, Run with
+/// cargo test historical_block_processing_integration_tests::test_filter_matching_wildcard_blocks_from_index_files -- mainnet from-latest;
+#[tokio::test]
+async fn test_filter_matching_wildcard_blocks_from_index_files() {
+    let contract = "*.keypom.near";
+    let matching_rule = MatchingRule::ActionAny {
+        affected_account_id: contract.to_string(),
+        status: Status::Any,
+    };
+    let filter_rule = IndexerRule {
+        indexer_rule_kind: IndexerRuleKind::Action,
+        matching_rule,
+        id: None,
+        name: None,
+    };
+
+    let opts = Opts::parse();
+    let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+
+    let start_block_height = 75472603;
+    let naivedatetime_utc = NaiveDate::from_ymd_opt(2022, 10, 03)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    let datetime_utc = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
+    let blocks = filter_matching_blocks_from_index_files(
+        start_block_height,
+        &filter_rule,
+        aws_config,
+        datetime_utc,
+    )
+    .await;
+
+    // // remove any blocks from after when the test was written -- not working, due to new contracts?
+    // let fixed_blocks: Vec<BlockHeight> = blocks.into_iter().filter(|&b| b <= 95175853u64).collect(); // 95175853u64  95242647u64
+    assert!(blocks.len() > 21830); // 22913 raw, deduped to 21830
+}
+
+/// Parses env vars from .env, Run with
+/// cargo test historical_block_processing_integration_tests::test_filter_matching_blocks_from_index_files -- mainnet from-latest;
+#[tokio::test]
+async fn test_filter_matching_blocks_from_index_files() {
+    let contract = "*.agency.near";
+    let matching_rule = MatchingRule::ActionAny {
+        affected_account_id: contract.to_string(),
+        status: Status::Any,
+    };
+    let filter_rule = IndexerRule {
+        indexer_rule_kind: IndexerRuleKind::Action,
+        matching_rule,
+        id: None,
+        name: None,
+    };
+
+    let opts = Opts::parse();
+    let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+
+    let start_block_height = 45894620;
+    let naivedatetime_utc = NaiveDate::from_ymd_opt(2021, 08, 01)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+    let datetime_utc = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
+    let blocks = filter_matching_blocks_from_index_files(
+        start_block_height,
+        &filter_rule,
+        aws_config,
+        datetime_utc,
+    )
+    .await;
+
+    // remove any blocks from after when the test was written
+    let fixed_blocks: Vec<BlockHeight> = blocks.into_iter().filter(|&b| b <= 95175853u64).collect();
+    assert_eq!(fixed_blocks.len(), 6); // hackathon.agency.near = 45894627,45898423, hacker.agency.near = 45897358, hack.agency.near = 45894872,45895120,45896237
 }

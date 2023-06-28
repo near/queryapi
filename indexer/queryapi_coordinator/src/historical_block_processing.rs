@@ -91,7 +91,6 @@ pub(crate) async fn process_historical_messages(
 
             let mut blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
-                block_height,
                 &indexer_function.indexer_rule,
                 aws_config,
                 start_date.unwrap(),
@@ -168,22 +167,32 @@ pub(crate) async fn last_indexed_block_from_metadata(
     Ok(last_indexed_block)
 }
 
-async fn filter_matching_blocks_from_index_files(
+pub(crate) async fn filter_matching_blocks_from_index_files(
     start_block_height: BlockHeight,
-    end_block_height: BlockHeight,
     indexer_rule: &IndexerRule,
     aws_config: &SdkConfig,
     start_date: DateTime<Utc>,
 ) -> Vec<BlockHeight> {
     let s3_bucket = INDEXED_DATA_FILES_BUCKET;
 
+    let mut needs_dedupe_and_sort = false;
+
     let index_files_content = match &indexer_rule.matching_rule {
         MatchingRule::ActionAny {
             affected_account_id,
             status,
         } => {
-            let s3_prefix = format!("{}/{}/", INDEXED_DATA_FILES_FOLDER, affected_account_id);
-            s3::fetch_contract_index_files(aws_config, s3_bucket, s3_prefix, start_date).await
+            if affected_account_id.contains('*') || affected_account_id.contains(',') {
+                needs_dedupe_and_sort = true;
+            }
+            s3::fetch_contract_index_files(
+                aws_config,
+                s3_bucket,
+                INDEXED_DATA_FILES_FOLDER,
+                start_date,
+                affected_account_id,
+            )
+            .await
         }
         MatchingRule::ActionFunctionCall {
             affected_account_id,
@@ -196,6 +205,9 @@ async fn filter_matching_blocks_from_index_files(
             );
             return vec![];
 
+            // if affected_account_id.contains('*') || affected_account_id.contains(',) {
+            //     needs_dedupe_and_sort = true;
+            // }
             // let s3_prefix = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, affected_account_id);
             // fetch_contract_index_files(aws_config, s3_bucket, s3_prefix).await
             // // todo implement, use function name selector
@@ -214,9 +226,12 @@ async fn filter_matching_blocks_from_index_files(
         "Found {file_count} index files matching rule {indexer_rule:?}",
         file_count = index_files_content.len()
     );
-
-    let blocks_to_process: Vec<BlockHeight> =
+    let mut blocks_to_process: Vec<BlockHeight> =
         parse_blocks_from_index_files(index_files_content, start_block_height);
+    if needs_dedupe_and_sort {
+        blocks_to_process.sort();
+        blocks_to_process.dedup();
+    }
     tracing::info!(
         target: crate::INDEXER,
         "Found {block_count} indexed blocks to process.",

@@ -114,11 +114,16 @@ fn match_account(
     account_id: &str,
     outcome_with_receipt: &IndexerExecutionOutcomeWithReceipt,
 ) -> bool {
-    wildmatch::WildMatch::new(account_id).matches(&outcome_with_receipt.receipt.receiver_id)
-        || wildmatch::WildMatch::new(account_id)
-            .matches(&outcome_with_receipt.receipt.predecessor_id)
-    // todo handle CSV
-    // handle CSV that contain wildcards?
+    match account_id {
+        x if x.contains(",") => x
+            .split(",")
+            .any(|sub_account_id| match_account(sub_account_id.trim(), outcome_with_receipt)),
+        _ => {
+            wildmatch::WildMatch::new(account_id).matches(&outcome_with_receipt.receipt.receiver_id)
+                || wildmatch::WildMatch::new(account_id)
+                    .matches(&outcome_with_receipt.receipt.predecessor_id)
+        }
+    }
 }
 
 fn match_status(status: &Status, execution_outcome_status: &ExecutionStatusView) -> bool {
