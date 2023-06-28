@@ -70,17 +70,13 @@ export default class HasuraClient {
     return result.length > 1;
   };
 
-  createSchema (schemaName) {
-    return this.executeSql(
-      `CREATE schema ${schemaName}`,
-      { readOnly: false }
-    );
-  }
-
   runMigrations(schemaName, migration) {
     return this.executeSql(
       `
-      set schema '${schemaName}';
+      CREATE SCHEMA ${schemaName}
+
+      SET SCHEMA '${schemaName}';
+
       ${migration}
       `,
       { readOnly: false }

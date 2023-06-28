@@ -20,21 +20,6 @@ describe('HasuraClient', () => {
         process.env = oldEnv;
     });
 
-    it('creates a schema', async () => {
-        const fetch = jest
-            .fn()
-            .mockResolvedValue({
-                status: 200,
-                text: () => JSON.stringify({})
-            });
-        const client = new HasuraClient({ fetch })
-
-        await client.createSchema('name');
-
-        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
-        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
-    });
-
     it('checks if a schema exists', async () => {
         const fetch = jest
             .fn()

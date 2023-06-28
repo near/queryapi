@@ -89,17 +89,6 @@ exports[`HasuraClient checks if a schema exists 1`] = `
 }
 `;
 
-exports[`HasuraClient creates a schema 1`] = `
-{
-  "args": {
-    "read_only": false,
-    "source": "default",
-    "sql": "CREATE schema name",
-  },
-  "type": "run_sql",
-}
-`;
-
 exports[`HasuraClient gets table names within a schema 1`] = `
 {
   "args": {
@@ -117,7 +106,10 @@ exports[`HasuraClient runs migrations for the specified schema 1`] = `
     "read_only": false,
     "source": "default",
     "sql": "
-      set schema 'schema';
+      CREATE SCHEMA schema
+
+      SET SCHEMA 'schema';
+
       CREATE TABLE blocks (height numeric)
       ",
   },

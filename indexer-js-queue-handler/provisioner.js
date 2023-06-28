@@ -13,14 +13,6 @@ export default class Provisioner {
         return this.hasuraClient.isSchemaCreated(schemaName);
     }
 
-    async createSchema(schemaName) {
-        try {
-            await this.hasuraClient.createSchema(schemaName);
-        } catch (error) {
-            throw new VError(error, `Failed to create schema`);
-        }
-    }
-
     async runMigrations(schemaName, migration) {
         try {
             await this.hasuraClient.runMigrations(schemaName, migration);
@@ -68,8 +60,6 @@ export default class Provisioner {
 
     async createAuthenticatedEndpoint(schemaName, roleName, migration) {
         try {
-            await this.createSchema(schemaName);
-
             await this.runMigrations(schemaName, migration);
 
             const tableNames = await this.getTableNames(schemaName);
