@@ -106,11 +106,27 @@ exports[`HasuraClient runs migrations for the specified schema 1`] = `
     "read_only": false,
     "source": "default",
     "sql": "
-      CREATE SCHEMA schema
+      -- Create the role for the indexer
+      CREATE ROLE schema_role;
 
+      -- Create the schema and assign its ownership to the indexer role
+      CREATE SCHEMA schema AUTHORIZATION schema_role;
+
+      -- Grant necessary privileges to the indexer role
+      GRANT USAGE ON SCHEMA schema TO schema_role;
+      ALTER DEFAULT PRIVILEGES IN SCHEMA schema GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO schema_role;
+
+      -- Allow the role to create tables
+      GRANT CREATE ON SCHEMA schema TO schema_role;
+
+      -- Switch to the indexer role and schema
+      SET ROLE schema_role;
       SET SCHEMA 'schema';
 
-      CREATE TABLE blocks (height numeric)
+      -- indexer provided migration
+      CREATE TABLE blocks (height numeric);
+
+      RESET ROLE;
       ",
   },
   "type": "run_sql",

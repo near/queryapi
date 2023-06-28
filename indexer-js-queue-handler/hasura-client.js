@@ -71,13 +71,31 @@ export default class HasuraClient {
   };
 
   runMigrations(schemaName, migration) {
+    const roleName = `${schemaName}_role`;
+
     return this.executeSql(
       `
-      CREATE SCHEMA ${schemaName}
+      -- Create the role for the indexer
+      CREATE ROLE ${roleName};
 
+      -- Create the schema and assign its ownership to the indexer role
+      CREATE SCHEMA ${schemaName} AUTHORIZATION ${roleName};
+
+      -- Grant necessary privileges to the indexer role
+      GRANT USAGE ON SCHEMA ${schemaName} TO ${roleName};
+      ALTER DEFAULT PRIVILEGES IN SCHEMA ${schemaName} GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO ${roleName};
+
+      -- Allow the role to create tables
+      GRANT CREATE ON SCHEMA ${schemaName} TO ${roleName};
+
+      -- Switch to the indexer role and schema
+      SET ROLE ${roleName};
       SET SCHEMA '${schemaName}';
 
-      ${migration}
+      -- indexer provided migration
+      ${migration};
+
+      RESET ROLE;
       `,
       { readOnly: false }
     ); 
