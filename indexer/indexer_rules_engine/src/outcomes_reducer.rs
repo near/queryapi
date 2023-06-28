@@ -133,6 +133,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn match_wildcard_no_match() {
+        let wildcard_rule = IndexerRule {
+            indexer_rule_kind: IndexerRuleKind::Action,
+            matching_rule: MatchingRule::ActionAny {
+                affected_account_id: "*.nearcrow.near".to_string(),
+                status: Status::Success,
+            },
+            id: None,
+            name: None,
+        };
+
+        let streamer_message = read_local_streamer_message(93085141);
+        let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
+            &wildcard_rule,
+            &streamer_message,
+            ChainId::Testnet,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    #[tokio::test]
     async fn match_wildcard_contract_subaccount_name() {
         let wildcard_rule = IndexerRule {
             indexer_rule_kind: IndexerRuleKind::Action,
@@ -198,5 +222,53 @@ mod tests {
         .unwrap();
 
         assert_eq!(result.len(), 1); // see Extraction note in previous test
+    }
+
+    #[tokio::test]
+    async fn match_csv_account() {
+        let wildcard_rule = IndexerRule {
+            indexer_rule_kind: IndexerRuleKind::Action,
+            matching_rule: MatchingRule::ActionAny {
+                affected_account_id: "notintheblockaccount.near, app.nearcrowd.near".to_string(),
+                status: Status::Success,
+            },
+            id: None,
+            name: None,
+        };
+
+        let streamer_message = read_local_streamer_message(93085141);
+        let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
+            &wildcard_rule,
+            &streamer_message,
+            ChainId::Testnet,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.len(), 1); // There are two matches, until we add Extraction we are just matching the first one (block matching)
+    }
+
+    #[tokio::test]
+    async fn match_csv_wildcard_account() {
+        let wildcard_rule = IndexerRule {
+            indexer_rule_kind: IndexerRuleKind::Action,
+            matching_rule: MatchingRule::ActionAny {
+                affected_account_id: "notintheblockaccount.near, *.nearcrowd.near".to_string(),
+                status: Status::Success,
+            },
+            id: None,
+            name: None,
+        };
+
+        let streamer_message = read_local_streamer_message(93085141);
+        let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
+            &wildcard_rule,
+            &streamer_message,
+            ChainId::Testnet,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.len(), 1); // There are two matches, until we add Extraction we are just matching the first one (block matching)
     }
 }
