@@ -37,12 +37,12 @@ export default class Provisioner {
         }
     }
 
-    async addPermissionsToTables(schemaName, tableNames, roleName, permissions) {
+    async addPermissionsToTables(schemaName, tableNames, hasuraRoleName, permissions) {
         try {
             await this.hasuraClient.addPermissionsToTables(
                 schemaName,
                 tableNames,
-                roleName,
+                hasuraRoleName,
                 ['select', 'insert', 'update', 'delete']
             );
         } catch (error) {
@@ -58,7 +58,7 @@ export default class Provisioner {
         }
     }
 
-    async createAuthenticatedEndpoint(schemaName, roleName, migration) {
+    async createAuthenticatedEndpoint(schemaName, hasuraRoleName, migration) {
         try {
             await this.runMigrations(schemaName, migration);
 
@@ -67,14 +67,14 @@ export default class Provisioner {
 
             await this.trackForeignKeyRelationships(schemaName);
 
-            await this.addPermissionsToTables(schemaName, tableNames, roleName, ['select', 'insert', 'update', 'delete']);
+            await this.addPermissionsToTables(schemaName, tableNames, hasuraRoleName, ['select', 'insert', 'update', 'delete']);
         } catch (error) {
             throw new VError(
                 {
                     cause: error,
                     info: {
                         schemaName,
-                        roleName,
+                        hasuraRoleName,
                         migration,
                     }
                 },

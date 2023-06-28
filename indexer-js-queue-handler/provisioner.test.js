@@ -25,9 +25,9 @@ describe('Provision', () => {
         const provisioner = new Provisioner(hasuraClient);
 
         const schemaName = 'schema';
-        const roleName = 'role';
+        const hasuraRoleName = 'role';
         const migration = 'CREATE TABLE blocks (height numeric)';
-        await provisioner.createAuthenticatedEndpoint(schemaName, roleName, migration);
+        await provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, migration);
 
         expect(hasuraClient.runMigrations).toBeCalledWith(schemaName, migration);
         expect(hasuraClient.getTableNames).toBeCalledWith(schemaName);
@@ -35,7 +35,7 @@ describe('Provision', () => {
         expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
             schemaName,
             tableNames,
-            roleName,
+            hasuraRoleName,
             [
                 'select',
                 'insert',
@@ -59,7 +59,7 @@ describe('Provision', () => {
             expect(error.message).toBe('Failed to provision endpoint: Failed to run migrations: some http error');
             expect(VError.info(error)).toEqual({
                 schemaName: 'name',
-                roleName: 'role',
+                hasuraRoleName: 'role',
                 migration: 'CREATE TABLE blocks (height numeric)',
             });
         }
@@ -80,7 +80,7 @@ describe('Provision', () => {
             expect(error.message).toBe('Failed to provision endpoint: Failed to fetch table names: some http error');
             expect(VError.info(error)).toEqual({
                 schemaName: 'name',
-                roleName: 'role',
+                hasuraRoleName: 'role',
                 migration: 'CREATE TABLE blocks (height numeric)',
             });
         }
@@ -103,7 +103,7 @@ describe('Provision', () => {
             expect(error.message).toBe('Failed to provision endpoint: Failed to track tables: some http error');
             expect(VError.info(error)).toEqual({
                 schemaName: 'name',
-                roleName: 'role',
+                hasuraRoleName: 'role',
                 migration: 'CREATE TABLE blocks (height numeric)',
             });
         }
@@ -127,7 +127,7 @@ describe('Provision', () => {
             expect(error.message).toBe('Failed to provision endpoint: Failed to track foreign key relationships: some http error');
             expect(VError.info(error)).toEqual({
                 schemaName: 'name',
-                roleName: 'role',
+                hasuraRoleName: 'role',
                 migration: 'CREATE TABLE blocks (height numeric)',
             });
         }
@@ -153,7 +153,7 @@ describe('Provision', () => {
             expect(VError.info(error)).toEqual({
                 migration: 'CREATE TABLE blocks (height numeric)',
                 schemaName: 'name',
-                roleName: 'role',
+                hasuraRoleName: 'role',
             });
         }
     });
