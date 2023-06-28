@@ -39,6 +39,10 @@ constructs:
       timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
 
 functions:
+  latestPostMetricsWriter:
+    handler: latest-post-metrics-writer.handler
+    events:
+      - schedule: rate(1 minute)
 
 plugins:
   - serverless-lift
