@@ -26,7 +26,7 @@ const commentUrl = `https://alpha.near.org/#/${APP_OWNER}/widget/QueryApi.Exampl
 if (!state.content && accountId && blockHeight !== "now") {
   const commentQuery = `
 query CommentQuery {
-  roshaan_near_feed_indexer_comments(
+  dataplatform_near_feed_indexer_comments(
     where: {_and: {account_id: {_eq: "${accountId}"}, block_height: {_eq: ${blockHeight}}}}
   ) {
     content
@@ -44,7 +44,7 @@ query CommentQuery {
      `${GRAPHQL_ENDPOINT}/v1/graphql`, 
       {
         method: "POST",
-        headers: { "x-hasura-role": "roshaan_near" },
+        headers: { "x-hasura-role": "dataplatform_near" },
         body: JSON.stringify({
           query: operationsDoc,
           variables: variables,
@@ -57,7 +57,7 @@ query CommentQuery {
   fetchGraphQL(commentQuery, "CommentQuery", {}).then((result) => {
     if (result.status === 200) {
       if (result.body.data) {
-        const comments = result.body.data.roshaan_near_feed_indexer_comments;
+        const comments = result.body.data.dataplatform_near_feed_indexer_comments;
         if (comments.length > 0) {
           const comment = comments[0];
           let content = JSON.parse(comment.content);

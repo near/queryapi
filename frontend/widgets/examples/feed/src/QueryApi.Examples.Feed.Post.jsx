@@ -26,7 +26,7 @@ if (!state.content || !state.comments || !state.likes) {
   console.log("making call again");
   const postsQuery = `
 query IndexerQuery {
-  roshaan_near_feed_indexer_posts(
+  dataplatform_near_feed_indexer_posts(
     order_by: {block_height: desc}
     where: {_and: {block_height: {_eq: ${blockHeight}}, account_id: {_eq: "${accountId}"}}}
   ) {
@@ -51,7 +51,7 @@ query IndexerQuery {
       `${GRAPHQL_ENDPOINT}/v1/graphql`,
       {
         method: "POST",
-        headers: { "x-hasura-role": "roshaan_near" },
+        headers: { "x-hasura-role": "dataplatform_near" },
         body: JSON.stringify({
           query: operationsDoc,
           variables: variables,
@@ -64,7 +64,7 @@ query IndexerQuery {
   fetchGraphQL(postsQuery, "IndexerQuery", {}).then((result) => {
     if (result.status === 200) {
       if (result.body.data) {
-        const posts = result.body.data.roshaan_near_feed_indexer_posts;
+        const posts = result.body.data.dataplatform_near_feed_indexer_posts;
         if (posts.length > 0) {
           const post = posts[0];
           let content = JSON.parse(post.content);
