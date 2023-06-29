@@ -2,3 +2,4 @@
 .env*
 redis/
 *.log
+/indexer/blocks/

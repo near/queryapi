@@ -13,7 +13,9 @@ module.exports.block = async (event) => {
   try {
     // parse request params
     const { block_height } = event.pathParameters;
-    const block = await fetchStreamerMessage(block_height);
+    const options = event.queryStringParameters || {};
+    options.snake_case = options.snake_case === 'true';
+    const block = await fetchStreamerMessage(block_height, options);
     return {
       statusCode: 200,
       headers,
@@ -32,10 +34,10 @@ const normalizeBlockHeight = function(block_height) {
     return block_height.toString().padStart(12, '0');
 }
 
-const fetchStreamerMessage = async function(block_height) {
-    const blockPromise = fetchBlockPromise(block_height);
+const fetchStreamerMessage = async function(block_height, options) {
+    const blockPromise = fetchBlockPromise(block_height, options);
     // hardcoding 4 shards to test performance
-    const shardsPromises = await fetchShardsPromises(block_height, 4); // block.chunks.length)
+    const shardsPromises = await fetchShardsPromises(block_height, 4, options); // block.chunks.length)
 
     const results = await Promise.all([blockPromise, ...shardsPromises]);
     const block = results.shift();
@@ -46,22 +48,25 @@ const fetchStreamerMessage = async function(block_height) {
     };
 }
 
-const fetchShardsPromises = async function(block_height, number_of_shards) {
+const fetchShardsPromises = async function(block_height, number_of_shards, options) {
     return ([...Array(number_of_shards).keys()].map((shard_id) =>
-        fetchShardPromise(block_height, shard_id)));
+        fetchShardPromise(block_height, shard_id, options)));
 }
 
-const fetchShardPromise = function(block_height, shard_id) {
+const fetchShardPromise = function(block_height, shard_id, options) {
     const params = {
         Bucket: `near-lake-data-${NETWORK}`,
         Key: `${normalizeBlockHeight(block_height)}/shard_${shard_id}.json`,
     };
     return S3.getObject(params).promise().then((response) => {
-        return JSON.parse(response.Body.toString(), (key, value) => renameUnderscoreFieldsToCamelCase(value));
+        return JSON.parse(response.Body.toString(), (key, value) => {
+            if(options.snake_case) return value
+            return renameUnderscoreFieldsToCamelCase(value)
+        });
     });
 }
 
-const fetchBlockPromise = function(block_height) {
+const fetchBlockPromise = function(block_height, options) {
     const file = 'block.json';
     const folder = normalizeBlockHeight(block_height);
     const params = {
@@ -69,7 +74,11 @@ const fetchBlockPromise = function(block_height) {
         Key: `${folder}/${file}`,
     };
     return S3.getObject(params).promise().then((response) => {
-        const block = JSON.parse(response.Body.toString(), (key, value) => renameUnderscoreFieldsToCamelCase(value));
+        const block = JSON.parse(response.Body.toString(), (key, value) => {
+            if(options.snake_case) return value
+            return renameUnderscoreFieldsToCamelCase(value)
+        });
+
         return block;
     });
 }

@@ -69,7 +69,6 @@ impl IndexerRuleMatch {
     Clone,
     Debug,
 )]
-// todo add block height
 pub enum IndexerRuleMatchPayload {
     Actions {
         block_hash: BlockHashString,
