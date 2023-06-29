@@ -39,7 +39,7 @@ export default class Indexer {
         for (const function_name in functions) {
             try {
                 const indexerFunction = functions[function_name];
-                const runningMessage = `Running function ${function_name}` +  is_historical ? ' historical backfill' : `, lag is: ${lag}ms from block timestamp`;
+                const runningMessage = `Running function ${function_name}` +  (is_historical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
                 console.log(runningMessage);  // Lambda logs
                 const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
