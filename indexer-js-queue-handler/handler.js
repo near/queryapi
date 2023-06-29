@@ -2,7 +2,7 @@ import Indexer from "./indexer.js";
 import AWSXRay from "aws-xray-sdk";
 import AWS from "aws-sdk";
 
-// capture calls to AWS services in X-ray traces
+// Capture calls to AWS services in X-ray traces
 AWSXRay.captureAWS(AWS);
 
 export const consumer = async (event) => {
