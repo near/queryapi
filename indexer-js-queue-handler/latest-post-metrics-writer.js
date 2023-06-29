@@ -1,13 +1,16 @@
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
 
-import Metrics from './metrics.js'
+import Metrics from "./metrics.js";
 
 export const handler = async () => {
     const metrics = new Metrics("QueryAPI");
 
     const response = await fetch("https://api.near.social/index", {
         method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
         body: JSON.stringify({
             action: "post",
             key: "main",
@@ -21,7 +24,7 @@ export const handler = async () => {
     const body = await response.text();
 
     if (response.status !== 200) {
-      throw new Error(body);
+        throw new Error(body);
     }
 
     const [{ blockHeight }] = JSON.parse(body);
