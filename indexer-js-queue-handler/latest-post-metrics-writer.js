@@ -18,7 +18,13 @@ export const handler = async () => {
         }),
     });
 
-    const [{ blockHeight }] = await response.json();
+    const body = await response.text();
+
+    if (response.status !== 200) {
+      throw new Error(body);
+    }
+
+    const [{ blockHeight }] = JSON.parse(body);
 
     await metrics.putBlockHeight("social.near", "posts", blockHeight);
 };
