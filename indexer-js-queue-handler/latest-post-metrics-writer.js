@@ -1,7 +1,7 @@
 import fetch from "node-fetch";
 import AWS from "aws-sdk";
 
-import Metrics from "./metrics";
+import Metrics from './metrics.js'
 
 export const handler = async () => {
     const metrics = new Metrics("QueryAPI");
