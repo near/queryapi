@@ -39,11 +39,12 @@ export default class Indexer {
         for (const function_name in functions) {
             try {
                 const indexerFunction = functions[function_name];
-                console.log('Running function', function_name, ', lag in ms is: ', lag);  // Lambda logs
+                const runningMessage = `Running function ${function_name}` +  is_historical ? ' historical backfill' : `, lag is: ${lag}ms from block timestamp`;
+                console.log(runningMessage);  // Lambda logs
                 const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
                 const functionSubsegment = segment.addNewSubsegment('indexer_function');
                 functionSubsegment.addAnnotation('indexer_function', function_name);
-                simultaneousPromises.push(this.writeLog(function_name, block_height, 'Running function', function_name, ', lag in ms is: ', lag));
+                simultaneousPromises.push(this.writeLog(function_name, block_height, runningMessage));
 
                 simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height));
 
