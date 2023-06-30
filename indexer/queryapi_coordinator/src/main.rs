@@ -1,6 +1,4 @@
-use std::time::SystemTime;
 use cached::SizedCache;
-use chrono::{Timelike, Utc};
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::{Mutex, MutexGuard};
@@ -130,13 +128,6 @@ async fn handle_streamer_message(
     context: QueryApiContext<'_>,
     indexer_registry: SharedIndexerRegistry,
 ) -> anyhow::Result<u64> {
-
-    let timestamp = context.streamer_message.block.header.timestamp_nanosec;
-    let now: u64 = Utc::now().timestamp_nanos() as u64;
-    let difference = now - timestamp;
-    let ms = difference / 1_000_000;
-    tracing::info!("Block lag is: {ms}ms");
-
     // build context for enriching filter matches
     cache::update_all(&context.streamer_message, context.redis_connection_manager).await?;
 
