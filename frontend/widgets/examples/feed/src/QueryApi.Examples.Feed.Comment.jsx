@@ -1,6 +1,6 @@
 const GRAPHQL_ENDPOINT =
   props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
-const APP_OWNER = "dev-queryapi.dataplatform.near";
+const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const accountId = props.accountId;
 const blockHeight =
   props.blockHeight === "now" ? "now" : parseInt(props.blockHeight);
