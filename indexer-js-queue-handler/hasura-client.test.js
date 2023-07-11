@@ -114,7 +114,7 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        await client.addPermissionsToTables('schema', ['height', 'width'], 'role', ['select', 'insert']);
+        await client.addPermissionsToTables('schema', ['height', 'width'], 'role', ['select', 'insert', 'update', 'delete']);
 
         expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
         expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
