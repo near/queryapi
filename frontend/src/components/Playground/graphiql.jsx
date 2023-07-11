@@ -1,9 +1,9 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useMemo } from "react";
 import GraphiQL from "graphiql";
 import { sessionStorage } from "near-social-bridge";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import { useExporterPlugin } from '@graphiql/plugin-code-exporter';
-import { useExplorerPlugin } from '@graphiql/plugin-explorer';
+import { codeExporterPlugin } from '@graphiql/plugin-code-exporter';
+import { explorerPlugin } from '@graphiql/plugin-explorer';
 import "graphiql/graphiql.min.css";
 import '@graphiql/plugin-code-exporter/dist/style.css';
 import '@graphiql/plugin-explorer/dist/style.css';
@@ -98,30 +98,20 @@ return (
   }
 };
 
+
+const explorer = explorerPlugin();
+
 export const GraphqlPlayground = () => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
-  const snippets = [bosQuerySnippet(indexerDetails.accountId)];
-  const [query, setQuery] = useState("");
-
-  const explorerPlugin = useExplorerPlugin({
-    query,
-    onEdit: setQuery,
-  });
-  const exporterPlugin = useExporterPlugin({
-    query,
-    snippets,
-    codeMirrorTheme: 'graphiql',
-  });
+  const snippets = useMemo(()=>[bosQuerySnippet(indexerDetails.accountId)], [indexerDetails.accountId]);
+  const exporter = useMemo(()=> codeExporterPlugin({snippets}), [snippets])
 
   return (
     <div style={{ width: "100%", height: "75vh" }}>
       <GraphiQL
-        query={query}
-        onEditQuery={setQuery}
         fetcher={(params) => graphQLFetcher(params, indexerDetails.accountId)}
-        defaultQuery=""
         storage={sessionStorage}
-        plugins={[explorerPlugin, exporterPlugin]}
+        plugins={[exporter, explorer]}
       />
     </div>
   );
