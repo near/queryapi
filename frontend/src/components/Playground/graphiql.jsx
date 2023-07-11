@@ -90,7 +90,9 @@ const renderData = (a) => {
 
 const renderedData = state.data.map(renderData);
 return (
+  <>
   {renderedData}
+  </>
 );`;
     }
   }
