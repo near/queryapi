@@ -24,6 +24,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -37,6 +38,42 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
         },
       },
       "type": "pg_create_insert_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "backend_only": true,
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "height",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_update_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "backend_only": true,
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "height",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_delete_permission",
     },
     {
       "args": {
@@ -59,6 +96,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -72,6 +110,42 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
         },
       },
       "type": "pg_create_insert_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "backend_only": true,
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "width",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_update_permission",
+    },
+    {
+      "args": {
+        "permission": {
+          "backend_only": true,
+          "check": {},
+          "columns": "*",
+          "computed_fields": [],
+          "filter": {},
+        },
+        "role": "role",
+        "source": "default",
+        "table": {
+          "name": "width",
+          "schema": "schema",
+        },
+      },
+      "type": "pg_create_delete_permission",
     },
   ],
   "type": "bulk",
