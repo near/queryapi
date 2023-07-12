@@ -55,7 +55,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
           aria-label="IndexerName"
           value={indexerNameField}
           disabled={!isCreateNewIndexer && showPublishModal}
-          onChange={(e) => setIndexerNameField(e.target.value)}
+          onChange={(e) => setIndexerNameField(e.target.value.toLowerCase().trim())}
         />
       </InputGroup>
         <InputGroup size="sm" className="pt-3">
