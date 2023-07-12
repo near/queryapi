@@ -1,5 +1,5 @@
 const GRAPHQL_ENDPOINT =
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+  "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = "dataplatform.near";
 
 return (

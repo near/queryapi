@@ -1,6 +1,5 @@
-
 const GRAPHQL_ENDPOINT =
-  props.GRAPHQL_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const LIMIT = 10;
 const option = props.postsOrderOption ?? "blockHeight";
@@ -36,7 +35,7 @@ switch (option) {
 
 const indexerQueries = `
   query GetPostsQuery($offset: Int) {
-  roshaan_near_feed_indexer_posts(order_by: [${querySortFilter} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
+  dataplatform_near_feed_indexer_posts(order_by: [${querySortFilter} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
     account_id
     block_height
     block_timestamp
@@ -51,7 +50,7 @@ const indexerQueries = `
       content
     }
   }
-  roshaan_near_feed_indexer_posts_aggregate {
+  dataplatform_near_feed_indexer_posts_aggregate {
     aggregate {
       count
     }
@@ -64,7 +63,7 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
     `${GRAPHQL_ENDPOINT}/v1/graphql`,
     {
       method: "POST",
-      headers: { "x-hasura-role": "roshaan_near" },
+      headers: { "x-hasura-role": "dataplatform_near" },
       body: JSON.stringify({
         query: operationsDoc,
         variables: variables,
@@ -112,10 +111,10 @@ const loadMorePosts = () => {
     if (result.status === 200) {
       let data = result.body.data;
       if (data) {
-        const newPosts = data.roshaan_near_feed_indexer_posts;
+        const newPosts = data.dataplatform_near_feed_indexer_posts;
         console.log(newPosts);
         const postsCount =
-          data.roshaan_near_feed_indexer_posts_aggregate.aggregate.count;
+          data.dataplatform_near_feed_indexer_posts_aggregate.aggregate.count;
         if (newPosts.length > 0) {
           State.update({
             posts: [...state.posts, ...newPosts],

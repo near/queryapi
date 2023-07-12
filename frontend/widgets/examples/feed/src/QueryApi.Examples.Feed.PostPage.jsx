@@ -1,5 +1,5 @@
 const GRAPHQL_ENDPOINT =
-  props.GRAPHQL_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const accountId = props.accountId;
 const commentBlockHeight = parseInt(props.commentBlockHeight);
@@ -13,7 +13,7 @@ State.init({
 });
 
 const parentPostByComment = `query ParentPostByComment {
-  roshaan_near_feed_indexer_comments(
+  dataplatform_near_feed_indexer_comments(
     where: {_and: {account_id: {_eq: "${accountId}"}, block_height: {_eq: ${commentBlockHeight}}}}
   ) {
     post {
@@ -49,7 +49,7 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
     `${GRAPHQL_ENDPOINT}/v1/graphql`,
     {
       method: "POST",
-      headers: { "x-hasura-role": "roshaan_near" },
+      headers: { "x-hasura-role": "dataplatform_near" },
       body: JSON.stringify({
         query: operationsDoc,
         variables: variables,
@@ -64,7 +64,7 @@ if (commentBlockHeight) {
     (result) => {
       if (result.status === 200) {
         if (result.body.data) {
-          const posts = result.body.data.roshaan_near_feed_indexer_comments;
+          const posts = result.body.data.dataplatform_near_feed_indexer_comments;
           if (posts.length > 0) {
             const post = posts[0].post;
             let content = JSON.parse(post.content);
