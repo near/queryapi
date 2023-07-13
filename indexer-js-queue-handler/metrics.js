@@ -8,11 +8,15 @@ export default class Metrics {
     }
 
     putBlockHeight(accountId, functionName, height) {
+        return this.putCustomMetric(accountId, functionName, "INDEXER_FUNCTION_LATEST_BLOCK_HEIGHT", height);
+    }
+
+    putCustomMetric(accountId, functionName, metricName, value) {
         return this.cloudwatch
             .putMetricData({
                 MetricData: [
                     {
-                        MetricName: "INDEXER_FUNCTION_LATEST_BLOCK_HEIGHT",
+                        MetricName: metricName,
                         Dimensions: [
                             {
                                 Name: "ACCOUNT_ID",
@@ -28,7 +32,7 @@ export default class Metrics {
                             },
                         ],
                         Unit: "None",
-                        Value: height,
+                        Value: value,
                     },
                 ],
                 Namespace: this.namespace,

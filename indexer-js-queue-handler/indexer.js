@@ -254,7 +254,16 @@ export default class Indexer {
             },
             log: async (log) => {
                 return await this.writeLog(functionName, block_height, log);
-            }
+            },
+            putMetric: (name, value) => {
+                const [accountId, fnName] = functionName.split('/');
+                return this.deps.metrics.putCustomMetric(
+                    accountId,
+                    fnName,
+                    `CUSTOM_${name}`,
+                    value
+                );
+            },
         };
     }
 

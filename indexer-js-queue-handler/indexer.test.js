@@ -895,6 +895,48 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         ]);
     });
 
+    test('allows writing of custom metrics', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => Promise.resolve({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const metrics = {
+            putBlockHeight: () => {},
+            putCustomMetric: jest.fn(),
+        };
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray, metrics });
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {code:`
+            context.putMetric('TEST_METRIC', 1)
+        `};
+        await indexer.runFunctions(block_height, functions, false, { imperative: true });
+
+        expect(metrics.putCustomMetric).toHaveBeenCalledWith(
+            'buildnear.testnet',
+            'test',
+            'CUSTOM_TEST_METRIC',
+            1
+        );
+    });
+
     // The unhandled promise causes problems with test reporting.
     // Note unhandled promise rejections fail to proceed to the next function on AWS Lambda
     test.skip('Indexer.runFunctions() continues despite promise rejection, unable to log rejection', async () => {
