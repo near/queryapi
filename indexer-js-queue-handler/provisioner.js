@@ -1,12 +1,47 @@
-import VError from 'verror';
+import VError from "verror";
+import PG from "pg";
 
-import HasuraClient from './hasura-client.js';
+import HasuraClient from "./hasura-client.js";
 
 export default class Provisioner {
     constructor(
         hasuraClient = new HasuraClient(),
+        pgClient = new PG.Client({
+            user: process.env.PG_ADMIN_USER,
+            password: process.env.PG_ADMIN_PASSWORD,
+            database: process.env.PG_ADMIN_DATABASE,
+            host: process.env.PG_HOST,
+            port: process.env.PG_PORT,
+        })
     ) {
         this.hasuraClient = hasuraClient;
+        this.pgConnection = pgClient.connect();
+        this.pgClient = pgClient;
+    }
+
+    async createDatabase(name) {
+        await this.pgConnection;
+        await this.pgClient.query(`CREATE DATABASE ${name}`);
+    }
+
+    async createUser(name, password) {
+        await this.pgConnection;
+        await this.pgClient.query(`CREATE USER ${name} WITH PASSWORD '${password}';`)
+    }
+
+    async restrictDatabaseToUser(databaseName, userName) {
+        await this.pgConnection;
+        await this.pgClient.query(`GRANT ALL PRIVILEGES ON DATABASE ${databaseName} TO ${userName};`);
+        await this.pgClient.query(`REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC;`);
+    }
+
+    async createUserDb(name, password) {
+        const userName = `${name}_user`;
+        const databaseName = `${name}_db`;
+
+        await this.createDatabase(databaseName);
+        await this.createUser(userName, userName);
+        await this.restrictDatabaseToUser(databaseName, userName);
     }
 
     doesEndpointExist(schemaName) {
