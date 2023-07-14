@@ -253,7 +253,6 @@ mod tests {
     #[tokio::test]
     async fn list_with_single_contract() {
         let opts = Opts::parse();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),
@@ -269,7 +268,6 @@ mod tests {
     #[tokio::test]
     async fn list_with_csv_contracts() {
         let opts = Opts::parse();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),
@@ -285,7 +283,6 @@ mod tests {
     #[tokio::test]
     async fn list_with_wildcard_contracts() {
         let opts = Opts::parse();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),
@@ -301,7 +298,6 @@ mod tests {
     #[tokio::test]
     async fn list_with_csv_and_wildcard_contracts() {
         let opts = Opts::parse();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
         let list = find_index_files_by_pattern(
             &opts.lake_aws_sdk_config(),

@@ -181,7 +181,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     let index_files_content = match &indexer_rule.matching_rule {
         MatchingRule::ActionAny {
             affected_account_id,
-            status,
+            ..
         } => {
             if affected_account_id.contains('*') || affected_account_id.contains(',') {
                 needs_dedupe_and_sort = true;
@@ -195,11 +195,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
             )
             .await
         }
-        MatchingRule::ActionFunctionCall {
-            affected_account_id,
-            status,
-            function,
-        } => {
+        MatchingRule::ActionFunctionCall { .. } => {
             tracing::error!(
                 target: crate::INDEXER,
                 "ActionFunctionCall matching rule not supported for historical processing"

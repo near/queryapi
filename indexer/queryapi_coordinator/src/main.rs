@@ -46,7 +46,6 @@ pub(crate) struct QueryApiContext<'a> {
     pub registry_contract_id: &'a str,
     pub balance_cache: &'a BalanceCache,
     pub redis_connection_manager: &'a ConnectionManager,
-    pub json_rpc_client: &'a JsonRpcClient,
 }
 
 #[tokio::main]
@@ -102,7 +101,6 @@ async fn main() -> anyhow::Result<()> {
             let context = QueryApiContext {
                 redis_connection_manager: &redis_connection_manager,
                 queue_url: &queue_url,
-                json_rpc_client: &json_rpc_client,
                 balance_cache: &balances_cache,
                 registry_contract_id: &registry_contract_id,
                 streamer_message,
