@@ -91,28 +91,6 @@ const Editor = ({
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
-  // useEffect(() => {
-  //   if (selectedOption == "latestBlockHeight") {
-  //     setBlockHeightError(null);
-  //     return;
-  //   }
-  //
-  //   if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-  //     setBlockHeightError(
-  //       `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600
-  //       } hrs. Choose a start block height between ${height - BLOCKHEIGHT_LIMIT
-  //       } - ${height}.`
-  //     );
-  //   } else if (blockHeight > height) {
-  //     setBlockHeightError(
-  //       `Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT
-  //       } - ${height}.`
-  //     );
-  //   } else {
-  //     setBlockHeightError(null);
-  //   }
-  // }, [blockHeight, height, selectedOption]);
-
   const checkSQLSchemaFormatting = () => {
     try {
       let formatted_sql = formatSQL(schema);
@@ -131,9 +109,7 @@ const Editor = ({
 
   const forkIndexer = async(indexerName) => {
       let code = indexingCode;
-
       setAccountId(currentUserAccountId)
-
       let prevAccountId = indexerDetails.accountId.replaceAll(".", "_");
       let newAccountId = currentUserAccountId.replaceAll(".", "_");
       let prevIndexerName = indexerDetails.indexerName.replaceAll("-", "_").trim().toLowerCase();

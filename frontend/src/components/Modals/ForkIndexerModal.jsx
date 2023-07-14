@@ -14,13 +14,8 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
     setIndexerConfig,
     isCreateNewIndexer,
   } = useContext(IndexerDetailsContext);
-  const [indexerConfig, setIndexerConfigField] = useState({
-    filter: "social.near",
-    startBlockHeight: null,
-  });
   const [indexerName, setIndexerNameField] = useState("");
   const [error, setError] = useState(null);
-
 
   const fork = async () => {
     if (!indexerName) {
@@ -35,18 +30,13 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
       return;
     }
 
-    if (!validateContractId(indexerConfig.filter)) {
-      setError("Please provide a valid contract name");
-      return;
-    }
     setError(null);
     setIndexerName(indexerName);
     setIsCreateNewIndexer(true);
-    forkIndexer(indexerName, indexerConfig);
+    forkIndexer(indexerName);
     setShowForkIndexerModal(false);
   };
 
-        // <IndexerConfigOptions updateConfig={updateConfig} />
   return (
     <Modal
       centered={true}
