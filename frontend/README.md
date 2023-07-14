@@ -2,6 +2,9 @@ Frontend for Near QueryAPI that allows users to create, manage, and explore inde
 
 Visit the app [here](https://near.org/dataplatform.near/widget/QueryApi.App)
 
+
+BOS widgets are stored in the `widgets/` folder while the main NextJS application lives in the root.
+
 ## Getting Started
 
 First, download the bos-loader cli by following this guide [here](https://docs.near.org/bos/dev/bos-loader). 
