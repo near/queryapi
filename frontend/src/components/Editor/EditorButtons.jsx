@@ -72,7 +72,7 @@ const EditorButtons = ({
                 <Breadcrumb.Item className="flex align-center " href="#">
                   {accountId}
                 </Breadcrumb.Item>
-                  {!isCreateNewIndexer && (
+                  {indexerName && (
                 <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
                  {indexerName}
                 </Breadcrumb.Item>
@@ -169,21 +169,33 @@ const EditorButtons = ({
                     <Justify style={{ paddingRight: "2px" }} size={24} />
                   </Button>
                 </OverlayTrigger>
-                {currentUserAccountId && (
+                {(!isUserIndexer && !isCreateNewIndexer) ? (
                   <OverlayTrigger
                     placement="bottom"
-                    overlay={<Tooltip>{getActionButtonText()}</Tooltip>}
+                    overlay={<Tooltip>Fork Indexer</Tooltip>}
+                  >
+                    <Button
+                      variant="primary"
+                      className="px-3"
+                      onClick={() => setShowForkIndexerModal(true)}
+                    >
+                      Fork Indexer
+                    </Button>
+                  </OverlayTrigger>
+                ) : (
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Publish</Tooltip>}
                   >
                     <Button
                       variant="primary"
                       className="px-3"
                       onClick={() => setShowPublishModal(true)}
                     >
-                      {getActionButtonText()}
+                      Publish
                     </Button>
                   </OverlayTrigger>
                 )}
-
               </ButtonGroup>
             </Col>
           </Row>
@@ -208,6 +220,5 @@ const EditorButtons = ({
     </>
   );
 };
-   
 
 export default EditorButtons;
