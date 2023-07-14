@@ -1,38 +1,27 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+Frontend for Near QueryAPI that allows users to create, manage, and explore indexers stored on-chain. 
+
+Visit the app [here](https://near.org/dataplatform.near/widget/QueryApi.App)
 
 ## Getting Started
 
-First, run the development server:
+First, download the bos-loader cli by following this guide [here](https://docs.near.org/bos/dev/bos-loader). 
+
+From the root of QueryAPI Frontend repo, run the following command
 
 ```bash
-npm run dev
-# or
+bos-loader dev-queryapi.dataplatform.near --path widgets/src
+```
+> This tool takes the widgets that would normally be stored on-chain and serves them locally to be consumed by a BOS gateway like Near.org. It should provide you with a local link where the widgets will be served from. e.g http://127.0.0.1:3030
+
+Now, run the following to serve the local NextJS frontend
+```bash
 yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+After that, head to `near.org/flag` and enter the URL you got from the first step. If you have not changed any configurations then the default should be `http://127.0.0.1:3030`
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+Finally, head to the path where the widgets are served on the BOS. 
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+Dev Environment: `https://near.org/dev-queryapi.dataplatform.near/widget/QueryApi.dev-App`
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
-
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+Prod Environment: `https://near.org/dataplatform.near/widget/QueryApi.App`
