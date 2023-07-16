@@ -821,7 +821,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         await indexer.runFunctions(block_height, functions, false);
 
-        expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', block_height);
+        expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', false, block_height);
     });
 
     test('does not attach the hasura admin secret header when no role specified', async () => {
@@ -927,11 +927,12 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         functions['buildnear.testnet/test'] = {code:`
             context.putMetric('TEST_METRIC', 1)
         `};
-        await indexer.runFunctions(block_height, functions, false, { imperative: true });
+        await indexer.runFunctions(block_height, functions, true, { imperative: true });
 
         expect(metrics.putCustomMetric).toHaveBeenCalledWith(
             'buildnear.testnet',
             'test',
+            true,
             'CUSTOM_TEST_METRIC',
             1
         );

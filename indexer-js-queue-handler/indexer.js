@@ -46,7 +46,7 @@ export default class Indexer {
                 functionSubsegment.addAnnotation('indexer_function', function_name);
                 simultaneousPromises.push(this.writeLog(function_name, block_height, runningMessage));
 
-                simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, block_height));
+                simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, is_historical, block_height));
 
                 const hasuraRoleName = function_name.split('/')[0].replace(/[.-]/g, '_');
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
@@ -74,7 +74,7 @@ export default class Indexer {
                 const vm = new VM({timeout: 3000, allowAsync: true});
                 const mutationsReturnValue = {mutations: [], variables: {}, keysValues: {}};
                 const context = options.imperative
-                    ? this.buildImperativeContextForFunction(function_name, functionNameWithoutAccount, block_height, hasuraRoleName)
+                    ? this.buildImperativeContextForFunction(function_name, functionNameWithoutAccount, block_height, hasuraRoleName, is_historical)
                     : this.buildFunctionalContextForFunction(mutationsReturnValue, function_name, block_height);
 
                 vm.freeze(blockWithHelpers, 'block');
@@ -225,7 +225,7 @@ export default class Indexer {
         };
     }
 
-    buildImperativeContextForFunction(functionName, functionNameWithoutAccount,  block_height, hasuraRoleName) {
+    buildImperativeContextForFunction(functionName, functionNameWithoutAccount,  block_height, hasuraRoleName, is_historical) {
         return {
             graphql: async (operation, variables) => {
                 try {
@@ -260,6 +260,7 @@ export default class Indexer {
                 return this.deps.metrics.putCustomMetric(
                     accountId,
                     fnName,
+                    is_historical,
                     `CUSTOM_${name}`,
                     value
                 );
