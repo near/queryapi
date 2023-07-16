@@ -31,8 +31,8 @@ export default class Metrics {
                                 Value: process.env.STAGE,
                             },
                             {
-                                Name: "HISTORICAL",
-                                Value: isHistorical,
+                                Name: "EXECUTION_TYPE",
+                                Value: isHistorical ? "historical" : "real-time",
                             },
                         ],
                         Unit: "None",
