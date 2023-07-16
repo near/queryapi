@@ -18,6 +18,10 @@ exports[`Metrics writes the block height for an indexer function 1`] = `
             "Name": "STAGE",
             "Value": "dev",
           },
+          {
+            "Name": "HISTORICAL",
+            "Value": false,
+          },
         ],
         "MetricName": "INDEXER_FUNCTION_LATEST_BLOCK_HEIGHT",
         "Unit": "None",

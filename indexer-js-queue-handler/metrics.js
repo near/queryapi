@@ -7,12 +7,16 @@ export default class Metrics {
         this.namespace = namespace;
     }
 
-    putBlockHeight(accountId, functionName, height) {
+    putBlockHeight(accountId, functionName, isHistorical, height) {
+        return this.putCustomMetric(accountId, functionName, isHistorical, "INDEXER_FUNCTION_LATEST_BLOCK_HEIGHT", height);
+    }
+
+    putCustomMetric(accountId, functionName, isHistorical, metricName, value) {
         return this.cloudwatch
             .putMetricData({
                 MetricData: [
                     {
-                        MetricName: "INDEXER_FUNCTION_LATEST_BLOCK_HEIGHT",
+                        MetricName: metricName,
                         Dimensions: [
                             {
                                 Name: "ACCOUNT_ID",
@@ -26,9 +30,13 @@ export default class Metrics {
                                 Name: "STAGE",
                                 Value: process.env.STAGE,
                             },
+                            {
+                                Name: "HISTORICAL",
+                                Value: isHistorical,
+                            },
                         ],
                         Unit: "None",
-                        Value: height,
+                        Value: value,
                     },
                 ],
                 Namespace: this.namespace,

@@ -821,7 +821,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         await indexer.runFunctions(block_height, functions, false);
 
-        expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', block_height);
+        expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', false, block_height);
     });
 
     test('does not attach the hasura admin secret header when no role specified', async () => {
@@ -893,6 +893,49 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 body: JSON.stringify({ query: mutation })
             }
         ]);
+    });
+
+    test('allows writing of custom metrics', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => Promise.resolve({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const metrics = {
+            putBlockHeight: () => {},
+            putCustomMetric: jest.fn(),
+        };
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray, metrics });
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {code:`
+            context.putMetric('TEST_METRIC', 1)
+        `};
+        await indexer.runFunctions(block_height, functions, true, { imperative: true });
+
+        expect(metrics.putCustomMetric).toHaveBeenCalledWith(
+            'buildnear.testnet',
+            'test',
+            true,
+            'CUSTOM_TEST_METRIC',
+            1
+        );
     });
 
     // The unhandled promise causes problems with test reporting.

@@ -22,7 +22,7 @@ describe('Metrics', () => {
         };
         const metrics = new Metrics('test', cloudwatch);
 
-        await metrics.putBlockHeight('morgs.near', 'test', 2);
+        await metrics.putBlockHeight('morgs.near', 'test', false, 2);
 
         expect(cloudwatch.putMetricData).toBeCalledTimes(1);
         expect(cloudwatch.putMetricData.mock.calls[0]).toMatchSnapshot()
