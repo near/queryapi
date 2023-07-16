@@ -80,6 +80,7 @@ export default class Indexer {
                 vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
                 vm.freeze(context, 'console'); // provide console.log via context.log
+                vm.freeze(fetch, 'fetch');
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
                 const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
