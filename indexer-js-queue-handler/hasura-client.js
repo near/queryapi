@@ -242,26 +242,28 @@ export default class HasuraClient {
     );
   }
 
-  async addDatasource(username, password, database) {
+  async addDatasource(userName, password, database) {
     return this.executeMetadataRequest("pg_add_source", {
-      name: "pg1",
+      name: userName,
       configuration: {
         connection_info: {
           database_url: {
-            username,
-            password,
-            database,
-            host: process.env.PG_HOST,
-            port: process.env.PG_PORT,
+            connection_parameters: {
+              password,
+              database,
+              username: userName,
+              host: process.env.PG_HOST,
+              port: Number(process.env.PG_PORT),
+            }
           },
         },
       },
       customization: {
         root_fields: {
-          namespace: username,
+          namespace: userName,
         },
         type_names: {
-          prefix: username,
+          prefix: userName,
         },
       },
     });

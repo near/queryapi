@@ -36,11 +36,11 @@ export default class Provisioner {
     }
 
     async createUserDb(name, password) {
-        const userName = `${name}_user`;
-        const databaseName = `${name}_db`;
+        const userName = name;
+        const databaseName = name;
 
         await this.createDatabase(databaseName);
-        await this.createUser(userName, userName);
+        await this.createUser(userName, password);
         await this.restrictDatabaseToUser(databaseName, userName);
     }
 
@@ -99,6 +99,14 @@ export default class Provisioner {
         } catch (error) {
             throw new VError(error, `Failed to track foreign key relationships`);
         }
+    }
+
+    async provisionUserApi(userName, migration) {
+        const databaseName = userName;
+        const password = 'password';
+
+        await this.createUserDb(userName, password);
+        await this.hasuraClient.addDatasource(userName, password, databaseName);
     }
 
     async createAuthenticatedEndpoint(schemaName, roleName, migration) {
