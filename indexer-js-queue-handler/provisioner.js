@@ -1,38 +1,47 @@
 import VError from "verror";
-import PG from "pg";
+import pg from "pg";
 
 import HasuraClient from "./hasura-client.js";
+
+const pool = new pg.Pool({
+    user: process.env.PG_ADMIN_USER,
+    password: process.env.PG_ADMIN_PASSWORD,
+    database: process.env.PG_ADMIN_DATABASE,
+    host: process.env.PG_HOST,
+    port: process.env.PG_PORT,
+    max: 10, 
+    idleTimeoutMillis: 30000,
+});
 
 export default class Provisioner {
     constructor(
         hasuraClient = new HasuraClient(),
-        pgClient = new PG.Client({
-            user: process.env.PG_ADMIN_USER,
-            password: process.env.PG_ADMIN_PASSWORD,
-            database: process.env.PG_ADMIN_DATABASE,
-            host: process.env.PG_HOST,
-            port: process.env.PG_PORT,
-        })
+        pgPool = pool
     ) {
         this.hasuraClient = hasuraClient;
-        this.pgConnection = pgClient.connect();
-        this.pgClient = pgClient;
+        this.pgPool = pgPool;
+    }
+
+    async query(query) {
+        const client = await this.pgPool.connect();
+        try {
+            await client.query(query);
+        } finally {
+            client.release();
+        }
     }
 
     async createDatabase(name) {
-        await this.pgConnection;
-        await this.pgClient.query(`CREATE DATABASE ${name}`);
+        await this.query(`CREATE DATABASE ${name}`);
     }
 
     async createUser(name, password) {
-        await this.pgConnection;
-        await this.pgClient.query(`CREATE USER ${name} WITH PASSWORD '${password}';`)
+        await this.query(`CREATE USER ${name} WITH PASSWORD '${password}';`)
     }
 
     async restrictDatabaseToUser(databaseName, userName) {
-        await this.pgConnection;
-        await this.pgClient.query(`GRANT ALL PRIVILEGES ON DATABASE ${databaseName} TO ${userName};`);
-        await this.pgClient.query(`REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC;`);
+        await this.query(`GRANT ALL PRIVILEGES ON DATABASE ${databaseName} TO ${userName};`);
+        await this.query(`REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC;`);
     }
 
     async createUserDb(name, password) {
