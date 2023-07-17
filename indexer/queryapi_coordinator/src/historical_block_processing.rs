@@ -117,16 +117,17 @@ pub(crate) async fn process_historical_messages(
 
             blocks_from_index.append(&mut blocks_between_indexed_and_current_block);
 
+            let first_block_in_data = *blocks_from_index.first().unwrap_or(&start_block);
             for current_block in blocks_from_index {
                 send_execution_message(
                     block_height,
-                    start_block,
+                    first_block_in_data,
                     chain_id.clone(),
                     &queue_client,
                     queue_url.clone(),
                     &mut indexer_function,
                     current_block,
-                    None, //alert_queue_message.payload.clone(),  // future: populate with data from the Match
+                    None,
                 )
                 .await;
             }
@@ -180,7 +181,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     let index_files_content = match &indexer_rule.matching_rule {
         MatchingRule::ActionAny {
             affected_account_id,
-            status,
+            ..
         } => {
             if affected_account_id.contains('*') || affected_account_id.contains(',') {
                 needs_dedupe_and_sort = true;
@@ -194,11 +195,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
             )
             .await
         }
-        MatchingRule::ActionFunctionCall {
-            affected_account_id,
-            status,
-            function,
-        } => {
+        MatchingRule::ActionFunctionCall { .. } => {
             tracing::error!(
                 target: crate::INDEXER,
                 "ActionFunctionCall matching rule not supported for historical processing"
@@ -392,7 +389,7 @@ fn normalize_block_height(block_height: BlockHeight) -> String {
 
 async fn send_execution_message(
     block_height: BlockHeight,
-    start_block: u64,
+    first_block: BlockHeight,
     chain_id: ChainId,
     queue_client: &Client,
     queue_url: String,
@@ -401,7 +398,7 @@ async fn send_execution_message(
     payload: Option<IndexerRuleMatchPayload>,
 ) {
     // only request provisioning on the first block
-    if current_block != start_block {
+    if current_block != first_block {
         indexer_function.provisioned = true;
     }
 
