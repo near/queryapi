@@ -22,10 +22,10 @@ export default class Provisioner {
         this.pgPool = pgPool;
     }
 
-    async query(query) {
+    async query(query, params = []) {
         const client = await this.pgPool.connect();
         try {
-            await client.query(query);
+            await client.query(query, params);
         } finally {
             client.release();
         }
@@ -48,9 +48,13 @@ export default class Provisioner {
         const userName = name;
         const databaseName = name;
 
-        await this.createDatabase(databaseName);
-        await this.createUser(userName, password);
-        await this.restrictDatabaseToUser(databaseName, userName);
+        try {
+            await this.createDatabase(databaseName);
+            await this.createUser(userName, password);
+            await this.restrictDatabaseToUser(databaseName, userName);
+        } catch (error) {
+            throw new VError(error, `Failed to create user db`);
+        }
     }
 
     doesEndpointExist(schemaName) {
@@ -65,34 +69,35 @@ export default class Provisioner {
         }
     }
 
-    async runMigrations(schemaName, migration) {
+    async runMigrations(source, migration) {
         try {
-            await this.hasuraClient.runMigrations(schemaName, migration);
+            await this.hasuraClient.runSql(source, migration);
         } catch (error) {
             throw new VError(error, `Failed to run migrations`);
         }
     }
 
-    async getTableNames(schemaName) {
+    async getTableNames(schemaName, databaseName) {
         try {
-            return await this.hasuraClient.getTableNames(schemaName);
+            return await this.hasuraClient.getTableNames(schemaName, databaseName);
         } catch (error) {
             throw new VError(error, `Failed to fetch table names`);
         }
     }
 
-    async trackTables(schemaName, tableNames) {
+    async trackTables(schemaName, tableNames, databaseName) {
         try {
-            await this.hasuraClient.trackTables(schemaName, tableNames);
+            await this.hasuraClient.trackTables(schemaName, tableNames, databaseName);
         } catch (error) {
             throw new VError(error, `Failed to track tables`);
         }
     }
 
-    async addPermissionsToTables(schemaName, tableNames, roleName, permissions) {
+    async addPermissionsToTables(schemaName, databaseName, tableNames, roleName, permissions) {
         try {
             await this.hasuraClient.addPermissionsToTables(
                 schemaName,
+                databaseName,
                 tableNames,
                 roleName,
                 ['select', 'insert', 'update', 'delete']
@@ -102,42 +107,47 @@ export default class Provisioner {
         }
     }
 
-    async trackForeignKeyRelationships(schemaName) {
+    async trackForeignKeyRelationships(schemaName, databaseName) {
         try {
-            await this.hasuraClient.trackForeignKeyRelationships(schemaName);
+            await this.hasuraClient.trackForeignKeyRelationships(schemaName, databaseName);
         } catch (error) {
             throw new VError(error, `Failed to track foreign key relationships`);
         }
     }
 
-    async provisionUserApi(userName, migration) {
-        const databaseName = userName;
-        const password = 'password';
-
-        await this.createUserDb(userName, password);
-        await this.hasuraClient.addDatasource(userName, password, databaseName);
+    async addDatasource(userName, password, databaseName) {
+        try {
+            await this.hasuraClient.addDatasource(userName, password, databaseName);
+        } catch (error) {
+            throw new VError(error, `Failed to add datasource`);
+        }
     }
 
-    async createAuthenticatedEndpoint(schemaName, roleName, migration) {
+    async provisionUserApi(userName, databaseSchema) {
+        const databaseName = userName;
+        const password = 'password';
+        const defaultSchema = 'public';
+
         try {
-            await this.createSchema(schemaName);
+            await this.createUserDb(userName, password);
+            await this.addDatasource(userName, password, databaseName);
+            await this.runMigrations(databaseName, databaseSchema);
 
-            await this.runMigrations(schemaName, migration);
+            const tableNames = await this.getTableNames(defaultSchema, databaseName);
+            await this.trackTables(defaultSchema, tableNames, databaseName);
 
-            const tableNames = await this.getTableNames(schemaName);
-            await this.trackTables(schemaName, tableNames);
+            await this.trackForeignKeyRelationships(defaultSchema, databaseName);
 
-            await this.trackForeignKeyRelationships(schemaName);
-
-            await this.addPermissionsToTables(schemaName, tableNames, roleName, ['select', 'insert', 'update', 'delete']);
+            await this.addPermissionsToTables(defaultSchema, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
         } catch (error) {
             throw new VError(
                 {
                     cause: error,
                     info: {
-                        schemaName,
-                        roleName,
-                        migration,
+                        schemaName: defaultSchema,
+                        userName,
+                        databaseSchema,
+                        databaseName,
                     }
                 },
                 `Failed to provision endpoint`

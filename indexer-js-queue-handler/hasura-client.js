@@ -22,7 +22,7 @@ export default class HasuraClient {
         args: {
           sql,
           read_only: opts.readOnly,
-          source: 'default',
+          source: opts.source || 'default',
         }
       }),
     });
@@ -77,6 +77,10 @@ export default class HasuraClient {
     );
   }
 
+  runSql(source, sql) {
+    return this.executeSql(sql, { source, readOnly: false })
+  }
+
   runMigrations(schemaName, migration) {
     return this.executeSql(
       `
@@ -87,20 +91,24 @@ export default class HasuraClient {
     ); 
   }
 
-  async getTableNames(schemaName) {
+  async getTableNames(schemaName, source) {
     const { result } = await this.executeSql(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = '${schemaName}'`,
-      { readOnly: true }
+      {
+        source,
+        readOnly: true
+      }
     );
     const [_columnNames, ...tableNames] = result;
     return tableNames.flat();
   };
 
-  async trackTables(schemaName, tableNames) {
+  async trackTables(schemaName, tableNames, source) {
     return this.executeBulkMetadataRequest(
       tableNames.map((name) => ({
         type: 'pg_track_table',
         args: {
+          source,
           table: {
             name,
             schema: schemaName,
@@ -110,7 +118,7 @@ export default class HasuraClient {
     );
   } 
 
-  async getForeignKeys(schemaName) {
+  async getForeignKeys(schemaName, source) {
     const { result } = await this.executeSql(
       `
       SELECT
@@ -158,7 +166,7 @@ export default class HasuraClient {
             q.table_name,
             q.constraint_name) AS info;
       `,
-      { readOnly: true }
+      { readOnly: true, source }
     );
 
     const [_, [foreignKeysJsonString]] = result;
@@ -166,8 +174,8 @@ export default class HasuraClient {
     return JSON.parse(foreignKeysJsonString);
   }
 
-  async trackForeignKeyRelationships(schemaName) {
-    const foreignKeys = await this.getForeignKeys(schemaName);
+  async trackForeignKeyRelationships(schemaName, source) {
+    const foreignKeys = await this.getForeignKeys(schemaName, source);
 
     if (foreignKeys.length === 0) {
       return;
@@ -179,6 +187,7 @@ export default class HasuraClient {
           {
             type: "pg_create_array_relationship",
             args: {
+              source,
               name: foreignKey.table_name,
               table: {
                 name: foreignKey.ref_table,
@@ -198,6 +207,7 @@ export default class HasuraClient {
           {
             type: "pg_create_object_relationship",
             args: {
+              source,
               name: pluralize.singular(foreignKey.ref_table),
               table: {
                 name: foreignKey.table_name,
@@ -213,13 +223,14 @@ export default class HasuraClient {
     );
   }
 
-  async addPermissionsToTables(schemaName, tableNames, roleName, permissions) {
+  async addPermissionsToTables(schemaName, source, tableNames, roleName, permissions) {
     return this.executeBulkMetadataRequest(
       tableNames
         .map((tableName) => (
           permissions.map((permission) => ({
             type: `pg_create_${permission}_permission`,
             args: {
+              source,
               table: {
                 name: tableName,
                 schema: schemaName, 
@@ -234,7 +245,6 @@ export default class HasuraClient {
                   ? { allow_aggregations: true }
                   : { backend_only: true }),
               },
-              source: 'default'
             },
           }))
         ))
@@ -242,15 +252,15 @@ export default class HasuraClient {
     );
   }
 
-  async addDatasource(userName, password, database) {
+  async addDatasource(userName, password, databaseName) {
     return this.executeMetadataRequest("pg_add_source", {
-      name: userName,
+      name: databaseName,
       configuration: {
         connection_info: {
           database_url: {
             connection_parameters: {
               password,
-              database,
+              database: databaseName,
               username: userName,
               host: process.env.PG_HOST,
               port: Number(process.env.PG_PORT),
