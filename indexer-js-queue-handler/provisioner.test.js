@@ -17,6 +17,16 @@ describe('Provisioner', () => {
     const databaseSchema = 'CREATE TABLE blocks (height numeric)';
     const error = new Error('some error');
 
+    const password = 'password';
+    const crypto = {
+        randomBytes: () => ({
+            toString: () => ({
+                slice: () => ({
+                    replace: () => password,
+                }),
+            }),
+        }),
+    };
 
     beforeEach(() => {
         hasuraClient = {
@@ -46,7 +56,7 @@ describe('Provisioner', () => {
     });
 
     it('provisions an API for the user', async () => {
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await provisioner.provisionUserApi(userName, databaseSchema);
 
@@ -56,7 +66,7 @@ describe('Provisioner', () => {
             ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near;', []],
             ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC;', []],
         ]);
-        expect(hasuraClient.addDatasource).toBeCalledWith(userName, 'password', databaseName);
+        expect(hasuraClient.addDatasource).toBeCalledWith(userName, password, databaseName);
         expect(hasuraClient.runSql).toBeCalledWith(databaseName, databaseSchema);
         expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, databaseName);
         expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, databaseName);
@@ -77,7 +87,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to create a postgres db', async () => {
         pgClient.query = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create user db: some error');
     });
@@ -85,7 +95,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to add the db to hasura', async () => {
         hasuraClient.addDatasource = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add datasource: some error');
     });
@@ -93,7 +103,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to run migrations', async () => {
         hasuraClient.runSql = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run migrations: some error');
     });
@@ -101,7 +111,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to fetch table names', async () => {
         hasuraClient.getTableNames = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to fetch table names: some error');
     });
@@ -109,7 +119,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to track tables', async () => {
         hasuraClient.trackTables = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to track tables: some error');
     });
@@ -117,7 +127,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to track foreign key relationships', async () => {
         hasuraClient.trackForeignKeyRelationships = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to track foreign key relationships: some error');
     })
@@ -125,7 +135,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to add permissions to tables', async () => {
         hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool);
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
         await expect(provisioner.provisionUserApi(userName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
     });

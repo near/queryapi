@@ -1,7 +1,10 @@
 import VError from "verror";
 import pg from "pg";
+import cryptoModule from "crypto";
 
 import HasuraClient from "./hasura-client.js";
+
+const DEFAULT_PASSWORD_LENGTH = 16;
 
 const pool = new pg.Pool({
     user: process.env.PG_ADMIN_USER,
@@ -16,10 +19,12 @@ const pool = new pg.Pool({
 export default class Provisioner {
     constructor(
         hasuraClient = new HasuraClient(),
-        pgPool = pool
+        pgPool = pool,
+        crypto = cryptoModule
     ) {
         this.hasuraClient = hasuraClient;
         this.pgPool = pgPool;
+        this.crypto = crypto;
     }
 
     async query(query, params = []) {
@@ -29,6 +34,15 @@ export default class Provisioner {
         } finally {
             client.release();
         }
+    }
+
+    generatePassword(length) {
+        return this.crypto
+            .randomBytes(length)
+            .toString('base64')
+            .slice(0,length)
+            .replace(/\+/g, '0')
+            .replace(/\//g, '0');
     }
 
     async createDatabase(name) {
@@ -125,10 +139,10 @@ export default class Provisioner {
 
     async provisionUserApi(userName, databaseSchema) {
         const databaseName = userName;
-        const password = 'password';
         const defaultSchema = 'public';
 
         try {
+            const password = this.generatePassword(DEFAULT_PASSWORD_LENGTH)
             await this.createUserDb(userName, password);
             await this.addDatasource(userName, password, databaseName);
             await this.runMigrations(databaseName, databaseSchema);
