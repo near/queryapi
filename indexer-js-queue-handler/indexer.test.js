@@ -480,14 +480,14 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
     test('Indexer.runFunctions() console.logs', async () => {
         const logs = []
-        const context = {log: (m) => {
-            logs.push(m)
+        const context = {log: (...m) => {
+            logs.push(...m)
         }};
         const vm = new VM();
         vm.freeze(context, 'context');
         vm.freeze(context, 'console');
-        await vm.run('console.log("hello"); context.log("world")');
-        expect(logs).toEqual(['hello','world']);
+        await vm.run('console.log("hello", "brave new"); context.log("world")');
+        expect(logs).toEqual(['hello','brave new','world']);
     });
 
     test("Errors thrown in VM can be caught outside the VM", async () => {
