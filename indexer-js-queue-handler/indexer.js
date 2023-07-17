@@ -219,8 +219,8 @@ export default class Indexer {
             set: (key, value) => {
                 mutationsReturnValue.keysValues[key] = value;
             },
-            log: async (log) => {  // starting with imperative logging for both imperative and functional contexts
-                return await this.writeLog(functionName, block_height, log);
+            log: async (...log) => {  // starting with imperative logging for both imperative and functional contexts
+                return await this.writeLog(functionName, block_height, ...log);
             }
 
         };
@@ -253,8 +253,8 @@ export default class Indexer {
                     throw e; // allow catch outside of vm.run to receive the error
                 }
             },
-            log: async (log) => {
-                return await this.writeLog(functionName, block_height, log);
+            log: async (...log) => {
+                return await this.writeLog(functionName, block_height, ...log);
             },
             putMetric: (name, value) => {
                 const [accountId, fnName] = functionName.split('/');
