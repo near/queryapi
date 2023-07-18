@@ -281,7 +281,7 @@ export default class HasuraClient {
           namespace: userName,
         },
         type_names: {
-          prefix: userName,
+          prefix: `${userName}_`,
         },
       },
     });

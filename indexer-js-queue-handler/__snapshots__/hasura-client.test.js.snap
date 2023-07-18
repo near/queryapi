@@ -21,7 +21,7 @@ exports[`HasuraClient adds a datasource 1`] = `
         "namespace": "morgs_near",
       },
       "type_names": {
-        "prefix": "morgs_near",
+        "prefix": "morgs_near_",
       },
     },
     "name": "morgs_near",
