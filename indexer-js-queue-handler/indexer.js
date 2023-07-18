@@ -221,9 +221,6 @@ export default class Indexer {
             log: async (...log) => {  // starting with imperative logging for both imperative and functional contexts
                 return await this.writeLog(functionName, block_height, ...log);
             },
-            // pass through fetch via context to provide (eventual) greater control
-            fetch
-
         };
     }
 
@@ -267,8 +264,9 @@ export default class Indexer {
                     value
                 );
             },
-            // pass through fetch via context to provide (eventual) greater control
-            fetch
+            fetchFromSocialApi: async (path, options) => {
+                return this.deps.fetch(`https://api.near.social${path}`, options);
+            }
         };
     }
 
