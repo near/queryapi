@@ -87,14 +87,9 @@ describe('Provisioner', () => {
     it('formats user input before executing the query', async () => {
         const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await provisioner.createUserDb('morgs_near UNION SELECT * FROM users --', 'pass; DROP TABLE users;--');
+        await provisioner.createUserDb('morgs_near', 'pass; DROP TABLE users;--', 'databaseName UNION SELECT * FROM users --');
 
-        expect(pgClient.query.mock.calls).toEqual([
-            ['CREATE DATABASE "morgs_near UNION SELECT * FROM users --"', []],
-            ["CREATE USER \"morgs_near UNION SELECT * FROM users --\" WITH PASSWORD 'pass; DROP TABLE users;--'", []],
-            ["GRANT ALL PRIVILEGES ON DATABASE \"morgs_near UNION SELECT * FROM users --\" TO \"morgs_near UNION SELECT * FROM users --\"", []],
-            ["REVOKE CONNECT ON DATABASE \"morgs_near UNION SELECT * FROM users --\" FROM PUBLIC", []]
-        ]);
+        expect(pgClient.query.mock.calls).toMatchSnapshot();
     });
 
     it('throws an error when it fails to create a postgres db', async () => {

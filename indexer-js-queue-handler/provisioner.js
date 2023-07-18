@@ -62,10 +62,7 @@ export default class Provisioner {
         await this.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
     }
 
-    async createUserDb(name, password) {
-        const userName = name;
-        const databaseName = name;
-
+    async createUserDb(userName, password, databaseName) {
         try {
             await this.createDatabase(databaseName);
             await this.createUser(userName, password);
@@ -79,7 +76,8 @@ export default class Provisioner {
         return this.hasuraClient.isSchemaCreated(schemaName);
     }
 
-    async isUserApiProvisioned(databaseName) {
+    async isUserApiProvisioned(accountId) {
+        const databaseName = this.replaceSpecialChars(accountId);
         return this.hasuraClient.doesSourceExist(databaseName);
     }
 
@@ -91,9 +89,9 @@ export default class Provisioner {
         }
     }
 
-    async runMigrations(source, migration) {
+    async runMigrations(databaseName, migration) {
         try {
-            await this.hasuraClient.runSql(source, migration);
+            await this.hasuraClient.runSql(databaseName, migration);
         } catch (error) {
             throw new VError(error, `Failed to run migrations`);
         }
@@ -122,7 +120,7 @@ export default class Provisioner {
                 databaseName,
                 tableNames,
                 roleName,
-                ['select', 'insert', 'update', 'delete']
+                permissions
             );
         } catch (error) {
             throw new VError(error, `Failed to add permissions to tables`);
@@ -145,12 +143,19 @@ export default class Provisioner {
         }
     }
 
-    async provisionUserApi(userName, databaseSchema) {
-        const databaseName = userName;
+    replaceSpecialChars(str) {
+        return str.replaceAll(/[.-]/g, '_')
+    }
+
+    async provisionUserApi(accountId, databaseSchema) {
+        const sanitizedAccountId = this.replaceSpecialChars(accountId);
+
+        const databaseName = sanitizedAccountId;
+        const userName = sanitizedAccountId;
 
         try {
             const password = this.generatePassword()
-            await this.createUserDb(userName, password);
+            await this.createUserDb(userName, password, databaseName);
             await this.addDatasource(userName, password, databaseName);
             await this.runMigrations(databaseName, databaseSchema);
 

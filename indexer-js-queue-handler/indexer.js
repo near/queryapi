@@ -52,15 +52,12 @@ export default class Indexer {
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
 
                 if (options.provision && !indexerFunction["provisioned"]) {
-                    const userName = function_name.split('/')[0].replace(/[.-]/g, '_');
-                    const databaseName = userName;
-
                     try {
-                        if (!await this.deps.provisioner.isUserApiProvisioned(databaseName)) {
+                        if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id)) {
                             await this.setStatus(function_name, block_height, 'PROVISIONING');
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 
-                            await this.deps.provisioner.provisionUserApi(userName, indexerFunction.schema);
+                            await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.schema);
 
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
                         }

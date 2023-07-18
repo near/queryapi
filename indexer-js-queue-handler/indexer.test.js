@@ -572,6 +572,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         const functions = {
             'morgs.near/test': {
+                account_id: 'morgs.near',
+                function_name: 'test',
                 code: '',
                 schema: 'schema',
             }
@@ -580,7 +582,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
         expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
         expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
-            'morgs_near',
+            'morgs.near',
             'schema'
         )
     });
