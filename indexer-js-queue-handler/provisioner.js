@@ -6,6 +6,7 @@ import pgFormatModule from "pg-format";
 import HasuraClient from "./hasura-client.js";
 
 const DEFAULT_PASSWORD_LENGTH = 16;
+const DEFAULT_SCHEMA = 'public';
 
 const pool = new pg.Pool({
     user: process.env.PG_ADMIN_USER,
@@ -142,7 +143,6 @@ export default class Provisioner {
 
     async provisionUserApi(userName, databaseSchema) {
         const databaseName = userName;
-        const defaultSchema = 'public';
 
         try {
             const password = this.generatePassword(DEFAULT_PASSWORD_LENGTH)
@@ -150,18 +150,18 @@ export default class Provisioner {
             await this.addDatasource(userName, password, databaseName);
             await this.runMigrations(databaseName, databaseSchema);
 
-            const tableNames = await this.getTableNames(defaultSchema, databaseName);
-            await this.trackTables(defaultSchema, tableNames, databaseName);
+            const tableNames = await this.getTableNames(DEFAULT_SCHEMA, databaseName);
+            await this.trackTables(DEFAULT_SCHEMA, tableNames, databaseName);
 
-            await this.trackForeignKeyRelationships(defaultSchema, databaseName);
+            await this.trackForeignKeyRelationships(DEFAULT_SCHEMA, databaseName);
 
-            await this.addPermissionsToTables(defaultSchema, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+            await this.addPermissionsToTables(DEFAULT_SCHEMA, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
         } catch (error) {
             throw new VError(
                 {
                     cause: error,
                     info: {
-                        schemaName: defaultSchema,
+                        schemaName: DEFAULT_SCHEMA,
                         userName,
                         databaseSchema,
                         databaseName,
