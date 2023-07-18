@@ -40,10 +40,9 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        await client.createSchema('name');
+        await client.createSchema('dbName', 'schemaName');
 
-        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
-        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+        expect(fetch.mock.calls).toMatchSnapshot();
     });
 
     it('checks if a schema exists', async () => {
@@ -95,10 +94,9 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        await client.runMigrations('schema', 'CREATE TABLE blocks (height numeric)');
+        await client.runMigrations('dbName', 'schemaName', 'CREATE TABLE blocks (height numeric)');
 
-        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
-        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+        expect(fetch.mock.calls).toMatchSnapshot();
     });
 
     it('gets table names within a schema', async () => {

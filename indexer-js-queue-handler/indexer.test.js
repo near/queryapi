@@ -583,6 +583,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
         expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
             'morgs.near',
+            'test',
             'schema'
         )
     });

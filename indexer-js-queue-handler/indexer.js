@@ -57,7 +57,7 @@ export default class Indexer {
                             await this.setStatus(function_name, block_height, 'PROVISIONING');
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 
-                            await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.schema);
+                            await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
 
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
                         }

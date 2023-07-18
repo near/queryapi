@@ -202,14 +202,18 @@ exports[`HasuraClient checks if datasource exists 1`] = `
 `;
 
 exports[`HasuraClient creates a schema 1`] = `
-{
-  "args": {
-    "read_only": false,
-    "source": "default",
-    "sql": "CREATE schema name",
-  },
-  "type": "run_sql",
-}
+[
+  [
+    "mock-hasura-endpoint/v2/query",
+    {
+      "body": "{"type":"run_sql","args":{"sql":"CREATE schema schemaName","read_only":false,"source":"dbName"}}",
+      "headers": {
+        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
+      },
+      "method": "POST",
+    },
+  ],
+]
 `;
 
 exports[`HasuraClient gets table names within a schema 1`] = `
@@ -222,17 +226,18 @@ exports[`HasuraClient gets table names within a schema 1`] = `
 `;
 
 exports[`HasuraClient runs migrations for the specified schema 1`] = `
-{
-  "args": {
-    "read_only": false,
-    "source": "default",
-    "sql": "
-      set schema 'schema';
-      CREATE TABLE blocks (height numeric)
-      ",
-  },
-  "type": "run_sql",
-}
+[
+  [
+    "mock-hasura-endpoint/v2/query",
+    {
+      "body": "{"type":"run_sql","args":{"sql":"\\n      set schema 'schemaName';\\n      CREATE TABLE blocks (height numeric)\\n      ","read_only":false,"source":"dbName"}}",
+      "headers": {
+        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
+      },
+      "method": "POST",
+    },
+  ],
+]
 `;
 
 exports[`HasuraClient tracks foreign key relationships 1`] = `

@@ -81,17 +81,17 @@ export default class Provisioner {
         return this.hasuraClient.doesSourceExist(databaseName);
     }
 
-    async createSchema(schemaName) {
+    async createSchema(databaseName, schemaName) {
         try {
-            await this.hasuraClient.createSchema(schemaName);
+            await this.hasuraClient.createSchema(databaseName, schemaName);
         } catch (error) {
             throw new VError(error, `Failed to create schema`);
         }
     }
 
-    async runMigrations(databaseName, migration) {
+    async runMigrations(databaseName, schemaName, migration) {
         try {
-            await this.hasuraClient.runSql(databaseName, migration);
+            await this.hasuraClient.runMigrations(databaseName, schemaName, migration);
         } catch (error) {
             throw new VError(error, `Failed to run migrations`);
         }
@@ -147,30 +147,33 @@ export default class Provisioner {
         return str.replaceAll(/[.-]/g, '_')
     }
 
-    async provisionUserApi(accountId, databaseSchema) {
+    async provisionUserApi(accountId, functionName, databaseSchema) {
         const sanitizedAccountId = this.replaceSpecialChars(accountId);
+        const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
         const databaseName = sanitizedAccountId;
         const userName = sanitizedAccountId;
+        const schemaName = sanitizedFunctionName;
 
         try {
             const password = this.generatePassword()
             await this.createUserDb(userName, password, databaseName);
             await this.addDatasource(userName, password, databaseName);
-            await this.runMigrations(databaseName, databaseSchema);
+            await this.createSchema(databaseName, schemaName);
+            await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-            const tableNames = await this.getTableNames(DEFAULT_SCHEMA, databaseName);
-            await this.trackTables(DEFAULT_SCHEMA, tableNames, databaseName);
+            const tableNames = await this.getTableNames(schemaName, databaseName);
+            await this.trackTables(schemaName, tableNames, databaseName);
 
-            await this.trackForeignKeyRelationships(DEFAULT_SCHEMA, databaseName);
+            await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-            await this.addPermissionsToTables(DEFAULT_SCHEMA, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+            await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
         } catch (error) {
             throw new VError(
                 {
                     cause: error,
                     info: {
-                        schemaName: DEFAULT_SCHEMA,
+                        schemaName,
                         userName,
                         databaseSchema,
                         databaseName,
