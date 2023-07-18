@@ -72,13 +72,18 @@ export default class Provisioner {
         }
     }
 
-    doesEndpointExist(schemaName) {
-        return this.hasuraClient.isSchemaCreated(schemaName);
-    }
-
-    async isUserApiProvisioned(accountId) {
+    async isUserApiProvisioned(accountId, functionName) {
         const databaseName = this.replaceSpecialChars(accountId);
-        return this.hasuraClient.doesSourceExist(databaseName);
+        const schemaName = this.replaceSpecialChars(functionName);
+
+        const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
+        if (!sourceExists) {
+            return false;
+        }
+
+        const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
+
+        return schemaExists;
     }
 
     async createSchema(databaseName, schemaName) {

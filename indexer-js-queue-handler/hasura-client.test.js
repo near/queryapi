@@ -45,7 +45,7 @@ describe('HasuraClient', () => {
         expect(fetch.mock.calls).toMatchSnapshot();
     });
 
-    it('checks if a schema exists', async () => {
+    it('checks if a schema exists within source', async () => {
         const fetch = jest
             .fn()
             .mockResolvedValue({
@@ -56,11 +56,10 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        const result = await client.isSchemaCreated('name');
+        const result = await client.doesSchemaExist('source', 'schema');
 
         expect(result).toBe(true);
-        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
-        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+        expect(fetch.mock.calls).toMatchSnapshot();
     });
 
     it('checks if datasource exists', async () => {

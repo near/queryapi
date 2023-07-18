@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Provisioner formats user input before executing the query 1`] = `
+exports[`Provisioner provisionUserApi formats user input before executing the query 1`] = `
 [
   [
     "CREATE DATABASE "databaseName UNION SELECT * FROM users --"",

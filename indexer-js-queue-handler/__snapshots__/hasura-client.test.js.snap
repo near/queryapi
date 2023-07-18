@@ -182,15 +182,19 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
 }
 `;
 
-exports[`HasuraClient checks if a schema exists 1`] = `
-{
-  "args": {
-    "read_only": true,
-    "source": "default",
-    "sql": "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'name'",
-  },
-  "type": "run_sql",
-}
+exports[`HasuraClient checks if a schema exists within source 1`] = `
+[
+  [
+    "mock-hasura-endpoint/v2/query",
+    {
+      "body": "{"type":"run_sql","args":{"sql":"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'schema'","read_only":true,"source":"source"}}",
+      "headers": {
+        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
+      },
+      "method": "POST",
+    },
+  ],
+]
 `;
 
 exports[`HasuraClient checks if datasource exists 1`] = `

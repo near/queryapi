@@ -67,19 +67,19 @@ export default class HasuraClient {
     return metadata;
   }
 
-  async doesSourceExist(sourceName) {
+  async doesSourceExist(source) {
     const metadata = await this.exportMetadata();
-    return metadata.sources.filter(({ name }) => name === sourceName).length > 0;
+    return metadata.sources.filter(({ name }) => name === source).length > 0;
   }
 
-  async isSchemaCreated (schemaName) {
+  async doesSchemaExist(source, schemaName) {
     const { result } = await this.executeSql(
       `SELECT schema_name FROM information_schema.schemata WHERE schema_name = '${schemaName}'`,
-      { readOnly: true }
+      { source, readOnly: true }
     );
 
     return result.length > 1;
-  };
+  }
 
   createSchema (source, schemaName) {
     return this.executeSql(

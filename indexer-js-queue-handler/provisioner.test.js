@@ -37,6 +37,8 @@ describe('Provisioner', () => {
             addDatasource: jest.fn().mockReturnValueOnce(),
             runMigrations: jest.fn().mockReturnValueOnce(),
             createSchema: jest.fn().mockReturnValueOnce(),
+            doesSourceExist: jest.fn().mockReturnValueOnce(false),
+            doesSchemaExist: jest.fn().mockReturnValueOnce(false),
         };
 
         pgClient = {
@@ -48,104 +50,127 @@ describe('Provisioner', () => {
         };
     });
 
-    it('checks if the endpoint already exists', async () => {
-        const provisioner = new Provisioner({
-            isSchemaCreated: jest.fn().mockResolvedValueOnce(true)
+    describe('isUserApiProvisioned', () => {
+        it('returns false if datasource doesnt exists', async () => {
+            hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
+
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+
+            await expect(provisioner.isUserApiProvisioned(accountId, functionName)).resolves.toBe(false);
         });
 
-        expect(await provisioner.doesEndpointExist('schema')).toBe(true);
+        it('returns false if datasource and schema dont exists', async () => {
+            hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
+            hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(false);
+
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+
+            await expect(provisioner.isUserApiProvisioned(accountId, functionName)).resolves.toBe(false);
+        });
+
+        it('returns true if datasource and schema exists', async () => {
+            hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
+            hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
+
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+
+            await expect(provisioner.isUserApiProvisioned(accountId, functionName)).resolves.toBe(true);
+        });
     });
 
-    it('provisions an API for the user', async () => {
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+    describe('provisionUserApi', () => {
+        it('provisions an API for the user', async () => {
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
+            await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
 
-        expect(pgClient.query.mock.calls).toEqual([
-            ['CREATE DATABASE morgs_near', []],
-            ['CREATE USER morgs_near WITH PASSWORD \'password\'', []],
-            ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near', []],
-            ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC', []],
-        ]);
-        expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
-        expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName, databaseSchema);
-        expect(hasuraClient.getTableNames).toBeCalledWith(sanitizedFunctionName, sanitizedAccountId);
-        expect(hasuraClient.trackTables).toBeCalledWith(sanitizedFunctionName, tableNames, sanitizedAccountId);
-        expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
-            sanitizedFunctionName,
-            sanitizedAccountId,
-            tableNames,
-            sanitizedAccountId,
-            [
-                'select',
-                'insert',
-                'update',
-                'delete'
-            ]
-        );
-    });
+            expect(pgClient.query.mock.calls).toEqual([
+                ['CREATE DATABASE morgs_near', []],
+                ['CREATE USER morgs_near WITH PASSWORD \'password\'', []],
+                ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near', []],
+                ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC', []],
+            ]);
+            expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
+            expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName);
+            expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName, databaseSchema);
+            expect(hasuraClient.getTableNames).toBeCalledWith(sanitizedFunctionName, sanitizedAccountId);
+            expect(hasuraClient.trackTables).toBeCalledWith(sanitizedFunctionName, tableNames, sanitizedAccountId);
+            expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
+                sanitizedFunctionName,
+                sanitizedAccountId,
+                tableNames,
+                sanitizedAccountId,
+                [
+                    'select',
+                    'insert',
+                    'update',
+                    'delete'
+                ]
+            );
+        });
 
-    it('formats user input before executing the query', async () => {
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+        it('formats user input before executing the query', async () => {
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await provisioner.createUserDb('morgs_near', 'pass; DROP TABLE users;--', 'databaseName UNION SELECT * FROM users --');
+            await provisioner.createUserDb('morgs_near', 'pass; DROP TABLE users;--', 'databaseName UNION SELECT * FROM users --');
 
-        expect(pgClient.query.mock.calls).toMatchSnapshot();
-    });
+            expect(pgClient.query.mock.calls).toMatchSnapshot();
+        });
 
-    it('throws an error when it fails to create a postgres db', async () => {
-        pgClient.query = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to create a postgres db', async () => {
+            pgClient.query = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create user db: some error');
-    });
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create user db: some error');
+        });
 
-    it('throws an error when it fails to add the db to hasura', async () => {
-        hasuraClient.addDatasource = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to add the db to hasura', async () => {
+            hasuraClient.addDatasource = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add datasource: some error');
-    });
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add datasource: some error');
+        });
 
-    it('throws an error when it fails to run migrations', async () => {
-        hasuraClient.runMigrations = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to run migrations', async () => {
+            hasuraClient.runMigrations = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run migrations: some error');
-    });
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run migrations: some error');
+        });
 
-    it('throws an error when it fails to fetch table names', async () => {
-        hasuraClient.getTableNames = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to fetch table names', async () => {
+            hasuraClient.getTableNames = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to fetch table names: some error');
-    });
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to fetch table names: some error');
+        });
 
-    it('throws an error when it fails to track tables', async () => {
-        hasuraClient.trackTables = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to track tables', async () => {
+            hasuraClient.trackTables = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to track tables: some error');
-    });
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to track tables: some error');
+        });
 
-    it('throws an error when it fails to track foreign key relationships', async () => {
-        hasuraClient.trackForeignKeyRelationships = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to track foreign key relationships', async () => {
+            hasuraClient.trackForeignKeyRelationships = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to track foreign key relationships: some error');
-    })
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to track foreign key relationships: some error');
+        })
 
-    it('throws an error when it fails to add permissions to tables', async () => {
-        hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
+        it('throws an error when it fails to add permissions to tables', async () => {
+            hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
 
-        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
-        await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
+            await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
+        });
     });
 })
