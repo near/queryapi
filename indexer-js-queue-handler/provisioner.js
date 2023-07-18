@@ -161,9 +161,12 @@ export default class Provisioner {
         const schemaName = sanitizedFunctionName;
 
         try {
-            const password = this.generatePassword()
-            await this.createUserDb(userName, password, databaseName);
-            await this.addDatasource(userName, password, databaseName);
+            if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+                const password = this.generatePassword()
+                await this.createUserDb(userName, password, databaseName);
+                await this.addDatasource(userName, password, databaseName);
+            }
+
             await this.createSchema(databaseName, schemaName);
             await this.runMigrations(databaseName, schemaName, databaseSchema);
 

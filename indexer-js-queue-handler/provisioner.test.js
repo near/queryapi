@@ -109,6 +109,34 @@ describe('Provisioner', () => {
             );
         });
 
+        it('skips provisioning the datasource if it already exists', async () => {
+            hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
+
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+
+            await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
+
+            expect(pgClient.query).not.toBeCalled();
+            expect(hasuraClient.addDatasource).not.toBeCalled();
+
+            expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName);
+            expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName, databaseSchema);
+            expect(hasuraClient.getTableNames).toBeCalledWith(sanitizedFunctionName, sanitizedAccountId);
+            expect(hasuraClient.trackTables).toBeCalledWith(sanitizedFunctionName, tableNames, sanitizedAccountId);
+            expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
+                sanitizedFunctionName,
+                sanitizedAccountId,
+                tableNames,
+                sanitizedAccountId,
+                [
+                    'select',
+                    'insert',
+                    'update',
+                    'delete'
+                ]
+            );
+        });
+
         it('formats user input before executing the query', async () => {
             const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
 
