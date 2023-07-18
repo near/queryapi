@@ -36,7 +36,7 @@ export default class HasuraClient {
     return JSON.parse(body)
   };
 
-  async executeMetadataRequest (type, args) {
+  async executeMetadataRequest (type, args, version) {
     const response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/metadata`, {
       method: 'POST',
       headers: {
@@ -45,6 +45,7 @@ export default class HasuraClient {
       body: JSON.stringify({
         type,
         args,
+        ...(version && { version })
       }),
     });
 
@@ -60,6 +61,16 @@ export default class HasuraClient {
   async executeBulkMetadataRequest (metadataRequests) {
     return this.executeMetadataRequest('bulk', metadataRequests);
   } 
+
+  async exportMetadata() {
+    const { metadata } = await this.executeMetadataRequest('export_metadata', {}, 2);
+    return metadata;
+  }
+
+  async doesSourceExist(sourceName) {
+    const metadata = await this.exportMetadata();
+    return metadata.sources.filter(({ name }) => name === sourceName).length > 0;
+  }
 
   async isSchemaCreated (schemaName) {
     const { result } = await this.executeSql(

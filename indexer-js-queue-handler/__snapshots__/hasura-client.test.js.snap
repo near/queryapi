@@ -193,6 +193,14 @@ exports[`HasuraClient checks if a schema exists 1`] = `
 }
 `;
 
+exports[`HasuraClient checks if datasource exists 1`] = `
+{
+  "args": {},
+  "type": "export_metadata",
+  "version": 2,
+}
+`;
+
 exports[`HasuraClient creates a schema 1`] = `
 {
   "args": {

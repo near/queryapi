@@ -79,6 +79,10 @@ export default class Provisioner {
         return this.hasuraClient.isSchemaCreated(schemaName);
     }
 
+    async isUserApiProvisioned(databaseName) {
+        return this.hasuraClient.doesSourceExist(databaseName);
+    }
+
     async createSchema(schemaName) {
         try {
             await this.hasuraClient.createSchema(schemaName);

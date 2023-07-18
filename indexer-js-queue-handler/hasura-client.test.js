@@ -64,6 +64,28 @@ describe('HasuraClient', () => {
         expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
+    it('checks if datasource exists', async () => {
+        const fetch = jest
+            .fn()
+            .mockResolvedValue({
+                status: 200,
+                text: () => JSON.stringify({
+                    metadata: {
+                        sources: [ 
+                            {
+                                name: 'name'
+                            }
+                        ]
+                    },
+                }),
+            });
+        const client = new HasuraClient({ fetch })
+
+        await expect(client.doesSourceExist('name')).resolves.toBe(true);
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+    })
+
     it('runs migrations for the specified schema', async () => {
         const fetch = jest
             .fn()
