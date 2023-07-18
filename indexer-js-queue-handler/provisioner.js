@@ -53,10 +53,10 @@ export default class Provisioner {
     }
 
     async createUser(name, password) {
-        await this.query(this.pgFormat(`CREATE USER %I WITH PASSWORD '%I'`, name, password))
+        await this.query(this.pgFormat(`CREATE USER %I WITH PASSWORD %L`, name, password))
     }
 
-    async restrictDatabaseToUser(databaseName, userName) {
+    async restrictUserToDatabase(databaseName, userName) {
         await this.query(this.pgFormat('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
         await this.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
     }
@@ -68,7 +68,7 @@ export default class Provisioner {
         try {
             await this.createDatabase(databaseName);
             await this.createUser(userName, password);
-            await this.restrictDatabaseToUser(databaseName, userName);
+            await this.restrictUserToDatabase(databaseName, userName);
         } catch (error) {
             throw new VError(error, `Failed to create user db`);
         }

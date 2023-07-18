@@ -91,7 +91,7 @@ describe('Provisioner', () => {
 
         expect(pgClient.query.mock.calls).toEqual([
             ['CREATE DATABASE "morgs_near UNION SELECT * FROM users --"', []],
-            ["CREATE USER \"morgs_near UNION SELECT * FROM users --\" WITH PASSWORD '\"pass; DROP TABLE users;--\"'", []],
+            ["CREATE USER \"morgs_near UNION SELECT * FROM users --\" WITH PASSWORD 'pass; DROP TABLE users;--'", []],
             ["GRANT ALL PRIVILEGES ON DATABASE \"morgs_near UNION SELECT * FROM users --\" TO \"morgs_near UNION SELECT * FROM users --\"", []],
             ["REVOKE CONNECT ON DATABASE \"morgs_near UNION SELECT * FROM users --\" FROM PUBLIC", []]
         ]);
