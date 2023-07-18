@@ -40,7 +40,7 @@ export default class Provisioner {
         }
     }
 
-    generatePassword(length) {
+    generatePassword(length = DEFAULT_PASSWORD_LENGTH) {
         return this.crypto
             .randomBytes(length)
             .toString('base64')
@@ -149,7 +149,7 @@ export default class Provisioner {
         const databaseName = userName;
 
         try {
-            const password = this.generatePassword(DEFAULT_PASSWORD_LENGTH)
+            const password = this.generatePassword()
             await this.createUserDb(userName, password);
             await this.addDatasource(userName, password, databaseName);
             await this.runMigrations(databaseName, databaseSchema);
