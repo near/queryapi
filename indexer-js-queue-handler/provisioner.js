@@ -1,6 +1,7 @@
 import VError from "verror";
 import pg from "pg";
 import cryptoModule from "crypto";
+import pgFormatModule from "pg-format";
 
 import HasuraClient from "./hasura-client.js";
 
@@ -20,11 +21,13 @@ export default class Provisioner {
     constructor(
         hasuraClient = new HasuraClient(),
         pgPool = pool,
-        crypto = cryptoModule
+        crypto = cryptoModule,
+        pgFormat = pgFormatModule
     ) {
         this.hasuraClient = hasuraClient;
         this.pgPool = pgPool;
         this.crypto = crypto;
+        this.pgFormat = pgFormat;
     }
 
     async query(query, params = []) {
@@ -46,16 +49,16 @@ export default class Provisioner {
     }
 
     async createDatabase(name) {
-        await this.query(`CREATE DATABASE ${name}`);
+        await this.query(this.pgFormat('CREATE DATABASE %I', name));
     }
 
     async createUser(name, password) {
-        await this.query(`CREATE USER ${name} WITH PASSWORD '${password}';`)
+        await this.query(this.pgFormat(`CREATE USER %I WITH PASSWORD '%I'`, name, password))
     }
 
     async restrictDatabaseToUser(databaseName, userName) {
-        await this.query(`GRANT ALL PRIVILEGES ON DATABASE ${databaseName} TO ${userName};`);
-        await this.query(`REVOKE CONNECT ON DATABASE ${databaseName} FROM PUBLIC;`);
+        await this.query(this.pgFormat('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
+        await this.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
     }
 
     async createUserDb(name, password) {

@@ -62,9 +62,9 @@ describe('Provisioner', () => {
 
         expect(pgClient.query.mock.calls).toEqual([
             ['CREATE DATABASE morgs_near', []],
-            ['CREATE USER morgs_near WITH PASSWORD \'password\';', []],
-            ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near;', []],
-            ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC;', []],
+            ['CREATE USER morgs_near WITH PASSWORD \'password\'', []],
+            ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near', []],
+            ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC', []],
         ]);
         expect(hasuraClient.addDatasource).toBeCalledWith(userName, password, databaseName);
         expect(hasuraClient.runSql).toBeCalledWith(databaseName, databaseSchema);
@@ -82,6 +82,19 @@ describe('Provisioner', () => {
                 'delete'
             ]
         );
+    });
+
+    it('formats user input before executing the query', async () => {
+        const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+
+        await provisioner.createUserDb('morgs_near UNION SELECT * FROM users --', 'pass; DROP TABLE users;--');
+
+        expect(pgClient.query.mock.calls).toEqual([
+            ['CREATE DATABASE "morgs_near UNION SELECT * FROM users --"', []],
+            ["CREATE USER \"morgs_near UNION SELECT * FROM users --\" WITH PASSWORD '\"pass; DROP TABLE users;--\"'", []],
+            ["GRANT ALL PRIVILEGES ON DATABASE \"morgs_near UNION SELECT * FROM users --\" TO \"morgs_near UNION SELECT * FROM users --\"", []],
+            ["REVOKE CONNECT ON DATABASE \"morgs_near UNION SELECT * FROM users --\" FROM PUBLIC", []]
+        ]);
     });
 
     it('throws an error when it fails to create a postgres db', async () => {
