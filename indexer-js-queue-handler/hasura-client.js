@@ -92,15 +92,16 @@ export default class HasuraClient {
   }
 
   async getTableNames(schemaName, source) {
-    const { result } = await this.executeSql(
-      `SELECT table_name FROM information_schema.tables WHERE table_schema = '${schemaName}'`,
+    const tablesInSource = await this.executeMetadataRequest(
+      'pg_get_source_tables',
       {
-        source,
-        readOnly: true
+        source
       }
     );
-    const [_columnNames, ...tableNames] = result;
-    return tableNames.flat();
+
+    return tablesInSource
+      .filter(({ name, schema }) => schema === schemaName)
+      .map(({ name }) => name);
   };
 
   async trackTables(schemaName, tableNames, source) {

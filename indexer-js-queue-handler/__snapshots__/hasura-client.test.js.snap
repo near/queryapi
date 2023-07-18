@@ -207,11 +207,9 @@ exports[`HasuraClient creates a schema 1`] = `
 exports[`HasuraClient gets table names within a schema 1`] = `
 {
   "args": {
-    "read_only": true,
-    "source": "default",
-    "sql": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'schema'",
+    "source": "source",
   },
-  "type": "run_sql",
+  "type": "pg_get_source_tables",
 }
 `;
 

@@ -84,17 +84,15 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                text: () => JSON.stringify({
-                    result: [
-                        ['table_name'],
-                        ['height'],
-                        ['width']
-                    ]
-                })
+                text: () => JSON.stringify([
+                    { name: 'table_name', schema: 'morgs_near' },
+                    { name: 'height', schema: 'schema' },
+                    { name: 'width', schema: 'schema' }
+                ])
             });
         const client = new HasuraClient({ fetch })
 
-        const names = await client.getTableNames('schema');
+        const names = await client.getTableNames('schema', 'source');
 
         expect(names).toEqual(['height', 'width']);
         expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
