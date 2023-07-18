@@ -29,6 +29,7 @@ pub fn spawn_historical_message_thread(
         tokio::spawn(process_historical_messages(
             block_height,
             new_indexer_function_copy,
+            Opts::parse()
         ))
     })
 }
@@ -36,6 +37,7 @@ pub fn spawn_historical_message_thread(
 pub(crate) async fn process_historical_messages(
     block_height: BlockHeight,
     indexer_function: IndexerFunction,
+    opts: Opts,
 ) -> i64 {
     let start_block = indexer_function.start_block_height.unwrap();
     let block_difference: i64 = (block_height - start_block) as i64;
@@ -57,8 +59,6 @@ pub(crate) async fn process_historical_messages(
                 indexer_function.account_id,
                 indexer_function.function_name
             );
-
-            let opts = Opts::parse();
 
             let chain_id = opts.chain_id().clone();
             let aws_region = opts.aws_queue_region.clone();
