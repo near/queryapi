@@ -9,6 +9,7 @@ const filterOption = accountsFollowing.length > 0 ? "following" : ""
 State.init({
   posts: [],
   postsCount: 0,
+  prevOption: ""
 });
 
 const Subheading = styled.h2`
@@ -151,6 +152,12 @@ const loadMorePosts = () => {
         const newPosts = data.dataplatform_near_feed_indexer_posts;
         const postsCount =
           data.dataplatform_near_feed_indexer_posts_aggregate.aggregate.count;
+
+        if (state.prevOption !== filterOption) {
+          State.update({posts: [], prevOption: filterOption})
+          
+        }
+
         if (newPosts.length > 0) {
           State.update({
             posts: [...state.posts, ...newPosts],
@@ -161,6 +168,8 @@ const loadMorePosts = () => {
     }
   });
 };
+
+if (filterOption != state.prevOption) { loadMorePosts() }
 
 const renderedItems = state.posts.map(renderItem);
 return (
