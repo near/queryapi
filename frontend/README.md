@@ -12,19 +12,29 @@ First, download the bos-loader cli by following this guide [here](https://docs.n
 From the root of QueryAPI Frontend repo, run the following command
 
 ```bash
-bos-loader dev-queryapi.dataplatform.near --path widgets/src
+yarn serve:widgets
 ```
-> This tool takes the widgets that would normally be stored on-chain and serves them locally to be consumed by a BOS gateway like Near.org. It should provide you with a local link where the widgets will be served from. e.g http://127.0.0.1:3030
+> Near.org or any other BOS gateway queries the blockchain state to pull the latest widgets code and renders it. If we would like to test our BOS widgets, we need to override the path at which the gateway(near.org) queries for the widget code. We do this using the Bos-loader tool (the underlying CLI tool used in the `yarn serve:widgets` command) which allows us to serve out widgets locally(http://127.0.0.1:3030 by default). At this point, we have served our widgets locally but have not yet told the BOS gateway(near.org) where to load our local widgets from. 
 
-Now, run the following to serve the local NextJS frontend
+In order to tell our BOS gateway (near.org), where to load the local widgets from, we head to `near.org/flags` and enter the local path we got from running the previous command. If you have not changed any configurations then the default should be `http://127.0.0.1:3030`
+
+Finally, run the following to serve the local NextJS frontend
 ```bash
 yarn dev
 ```
 
-After that, head to `near.org/flag` and enter the URL you got from the first step. If you have not changed any configurations then the default should be `http://127.0.0.1:3030`
+Now, head to the path where the widgets are served on the BOS. 
 
-Finally, head to the path where the widgets are served on the BOS. 
+Prod Environment: `https://near.org/dataplatform.near/widget/QueryApi.App`
 
 Dev Environment: `https://near.org/dev-queryapi.dataplatform.near/widget/QueryApi.dev-App`
 
-Prod Environment: `https://near.org/dataplatform.near/widget/QueryApi.App`
+
+> Note: Make sure to change your widgets (while testing only) to point to where your local nextJS app is being served. 
+
+```QueryApi.App.jsx
+---const EXTERNAL_APP_URL = "https://queryapi.io";
++++const EXTERNAL_APP_URL = "http://localhost:3000";
+```
+
+
