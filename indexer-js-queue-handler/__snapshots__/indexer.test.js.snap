@@ -1,5 +1,20 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Indexer unit tests Indexer.buildImperativeContextForFunction() can fetch from the near social api 1`] = `
+[
+  [
+    "https://api.near.social/index",
+    {
+      "body": "{"action":"post","key":"main","options":{"limit":1,"order":"desc"}}",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "POST",
+    },
+  ],
+]
+`;
+
 exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution of GraphQL operations 1`] = `
 [
   [

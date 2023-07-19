@@ -318,6 +318,30 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         ]);
     });
 
+    test('Indexer.buildImperativeContextForFunction() can fetch from the near social api', async () => {
+        const mockFetch = jest.fn();
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, awsXray: mockAwsXray, metrics: mockMetrics });
+
+        const context = indexer.buildImperativeContextForFunction();
+
+        await context.fetchFromSocialApi('/index', {
+            method: 'POST',
+            headers: {
+                ['Content-Type']: 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'post',
+                key: 'main',
+                options: {
+                    limit: 1,
+                    order: 'desc'
+                }
+            })
+        });
+
+        expect(mockFetch.mock.calls).toMatchSnapshot();
+    });
+
     test('Indexer.buildImperativeContextForFunction() throws when a GraphQL response contains errors', async () => {
         const mockFetch = jest.fn()
             .mockResolvedValue({

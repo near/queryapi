@@ -80,7 +80,6 @@ export default class Indexer {
                 vm.freeze(blockWithHelpers, 'block');
                 vm.freeze(context, 'context');
                 vm.freeze(context, 'console'); // provide console.log via context.log
-                vm.freeze(fetch, 'fetch');
                 vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
                 const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
@@ -221,8 +220,7 @@ export default class Indexer {
             },
             log: async (...log) => {  // starting with imperative logging for both imperative and functional contexts
                 return await this.writeLog(functionName, block_height, ...log);
-            }
-
+            },
         };
     }
 
@@ -266,6 +264,9 @@ export default class Indexer {
                     value
                 );
             },
+            fetchFromSocialApi: async (path, options) => {
+                return this.deps.fetch(`https://api.near.social${path}`, options);
+            }
         };
     }
 
