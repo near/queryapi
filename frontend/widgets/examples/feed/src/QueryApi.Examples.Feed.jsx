@@ -1,8 +1,10 @@
 const GRAPHQL_ENDPOINT =
   props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = props.APP_OWNER || "dataplatform.near";
-const LIMIT = 10;
-const option = props.postsOrderOption ?? "blockHeight";
+const LIMIT = 25;
+const accountsFollowing = props.accountsFollowing ?? [];
+const sortOption = props.postsOrderOption || "blockHeight"; // following, blockHeight
+const filterOption = accountsFollowing.length > 0 ? "following" : ""
 
 State.init({
   posts: [],
@@ -23,19 +25,53 @@ const Subheading = styled.h2`
   outline: none;
 `;
 
-let querySortFilter = "";
-switch (option) {
+let querySortOption = "";
+switch (sortOption) {
   case "recentComments":
-    querySortFilter = `{ last_comment_timestamp: desc_nulls_last },`;
+    querySortOption = `{ last_comment_timestamp: desc_nulls_last },`;
     break;
   // More options...
   default:
-    querySortFilter = "";
+    querySortOption = "";
 }
+
+let queryFilter = "";
+switch (filterOption) {
+  case "following":
+    let queryAccountsString = accountsFollowing.map(account => `"${account}"`).join(", ");
+    queryFilter =  `account_id: { _in: [${queryAccountsString}]}`;
+    break;
+  // More options...
+  default:
+    queryFilter = "";
+}
+
 
 const indexerQueries = `
   query GetPostsQuery($offset: Int) {
-  dataplatform_near_feed_indexer_posts(order_by: [${querySortFilter} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
+  dataplatform_near_feed_indexer_posts(order_by: [${querySortOption} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
+    account_id
+    block_height
+    block_timestamp
+    content
+    receipt_id
+    accounts_liked
+    last_comment_timestamp
+    comments(order_by: {block_height: asc}) {
+      account_id
+      block_height
+      block_timestamp
+      content
+    }
+  }
+  dataplatform_near_feed_indexer_posts_aggregate {
+    aggregate {
+      count
+    }
+  }
+}
+query GetFollowingPosts($offset: Int) {
+  dataplatform_near_feed_indexer_posts(where: {${queryFilter}}, order_by: [${querySortOption} { block_height: desc }], offset: $offset) {
     account_id
     block_height
     block_timestamp
@@ -105,14 +141,14 @@ const renderItem = (item, i) => {
 };
 
 const loadMorePosts = () => {
-  fetchGraphQL(indexerQueries, "GetPostsQuery", {
+  const queryName = filterOption == "following" ? "GetFollowingPosts" : "GetPostsQuery"
+  fetchGraphQL(indexerQueries, queryName, {
     offset: state.posts.length,
   }).then((result) => {
     if (result.status === 200) {
       let data = result.body.data;
       if (data) {
         const newPosts = data.dataplatform_near_feed_indexer_posts;
-        console.log(newPosts);
         const postsCount =
           data.dataplatform_near_feed_indexer_posts_aggregate.aggregate.count;
         if (newPosts.length > 0) {

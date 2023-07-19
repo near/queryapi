@@ -4,7 +4,7 @@ const APP_OWNER = "dataplatform.near";
 
 return (
   <Widget
-    src={`${APP_OWNER}/widget/QueryApi.Examples.Feed`}
+    src={`${APP_OWNER}/widget/QueryApi.Examples.Feed.Posts`}
     props={{
       GRAPHQL_ENDPOINT,
       APP_OWNER,
