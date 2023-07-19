@@ -1,0 +1,12 @@
+{
+  "description": "Main entrypoint to Near QueryAPI's production widget which allows you to seamlessly create, manage, and discover new indexers",
+  "image": {
+    "ipfs_cid": "bafkreihx3wowmjrv3taztqxwgubt6mijaqwzvo6573wi6lv4omxfh3ogdm"
+  },
+  "name": "Near QueryAPI",
+  "tags": {
+    "app": "",
+    "indexers": "",
+    "data-platform": ""
+  }
+}

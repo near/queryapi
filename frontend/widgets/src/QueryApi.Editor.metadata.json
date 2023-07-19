@@ -1,10 +1,11 @@
 {
-  "description": "Helper widget for QueryApi.Dashboard to help write indexer",
+  "description": "Helper widget for QueryApi.Dashboard. Loads QueryAPI's React App which allows you to edit indexers inside the browser",
   "image": {
   },
   "name": "Editor",
   "tags": {
     "indexers": "",
-    "data-platform": ""
+    "data-platform": "",
+    "react": ""
   }
 }
