@@ -29,7 +29,7 @@ pub fn spawn_historical_message_thread(
         tokio::spawn(process_historical_messages(
             block_height,
             new_indexer_function_copy,
-            Opts::parse()
+            Opts::parse(),
         ))
     })
 }
