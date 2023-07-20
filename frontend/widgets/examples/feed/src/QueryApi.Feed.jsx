@@ -6,7 +6,6 @@ let accountsFollowing = undefined;
 
 if (context.accountId) {
   const graph = Social.keys(`${context.accountId}/graph/follow/*`, "final");
-  console.log('graph', graph)
   if (graph !== null) {
     accountsFollowing = Object.keys(graph[context.accountId].graph.follow || {});
     accountsFollowing.push(context.accountId);
