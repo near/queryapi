@@ -1,34 +1,143 @@
 const APP_OWNER = props.APP_OWNER || "dataplatform.near";
+const GRAPHQL_ENDPOINT =
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
+const sortOption = props.postsOrderOption || "blockHeight"; // following, blockHeight
+const LIMIT = 25;
+let accountsFollowing =  props.accountsFollowing
 
 State.init({
   selectedTab: Storage.privateGet("selectedTab") || "all",
+  posts: [],
+  postsCountLeft: 0,
+  initLoadPosts: false,
+  initLoadPostsAll: false
 });
 
-const previousSelectedTab = Storage.privateGet("selectedTab");
+function fetchGraphQL(operationsDoc, operationName, variables) {
+  return asyncFetch(
+    `${GRAPHQL_ENDPOINT}/v1/graphql`,
+    {
+      method: "POST",
+      headers: { "x-hasura-role": "dataplatform_near" },
+      body: JSON.stringify({
+        query: operationsDoc,
+        variables: variables,
+        operationName: operationName,
+      }),
+    }
+  );
+}
 
+const createQuery = (sortOption, type) => {
+let querySortOption = "";
+switch (sortOption) {
+  case "recentComments":
+    querySortOption = `{ last_comment_timestamp: desc_nulls_last },`;
+    break;
+  // More options...
+  default:
+    querySortOption = "";
+}
+
+let queryFilter = "";
+switch (type) {
+  case "following":
+    let queryAccountsString = accountsFollowing.map(account => `"${account}"`).join(", ");
+    queryFilter =  `account_id: { _in: [${queryAccountsString}]}`;
+    break;
+  // More options...
+  default:
+    queryFilter = "";
+}
+
+const indexerQueries = `
+  query GetPostsQuery($offset: Int) {
+  dataplatform_near_social_feed_posts(order_by: [${querySortOption} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
+    account_id
+    block_height
+    block_timestamp
+    content
+    receipt_id
+    accounts_liked
+    last_comment_timestamp
+    comments(order_by: {block_height: asc}) {
+      account_id
+      block_height
+      block_timestamp
+      content
+    }
+  }
+  dataplatform_near_social_feed_posts_aggregate(order_by: [${querySortOption} { block_height: desc }], offset: $offset){
+    aggregate {
+      count
+    }
+  }
+}
+query GetFollowingPosts($offset: Int) {
+  dataplatform_near_social_feed_posts(where: {${queryFilter}}, order_by: [${querySortOption} { block_height: desc }], offset: $offset) {
+    account_id
+    block_height
+    block_timestamp
+    content
+    receipt_id
+    accounts_liked
+    last_comment_timestamp
+    comments(order_by: {block_height: asc}) {
+      account_id
+      block_height
+      block_timestamp
+      content
+    }
+  }
+  dataplatform_near_social_feed_posts_aggregate(where: {${queryFilter}}, order_by: [${querySortOption} { block_height: desc }], offset: $offset) {
+    aggregate {
+      count
+    }
+  }
+}
+`;
+return indexerQueries
+}
+
+const loadMorePosts = () => {
+  const queryName = state.selectedTab == "following" && accountsFollowing ? "GetFollowingPosts" : "GetPostsQuery"
+  const type = state.selectedTab == "following" && accountsFollowing ? "following" : "all"
+
+  fetchGraphQL(createQuery(sortOption, type), queryName, {
+    offset: state.posts.length,
+  }).then((result) => {
+    if (result.status === 200) {
+      let data = result.body.data;
+      if (data) {
+        const newPosts = data.dataplatform_near_social_feed_posts;
+        const postsCountLeft =
+          data.dataplatform_near_social_feed_posts_aggregate.aggregate.count;
+        if (newPosts.length > 0) {
+          State.update({
+            posts: [...state.posts, ...newPosts],
+            postsCountLeft,
+          });
+        }
+      }
+    }
+  });
+};
+
+const previousSelectedTab = Storage.privateGet("selectedTab");
 if (previousSelectedTab && previousSelectedTab !== state.selectedTab) {
   State.update({
     selectedTab: previousSelectedTab,
   });
 }
 
-let accounts = undefined;
-
-if (state.selectedTab === "following" && context.accountId) {
-  const graph = Social.keys(`${context.accountId}/graph/follow/*`, "final");
-  if (graph !== null) {
-    accounts = Object.keys(graph[context.accountId].graph.follow || {});
-    accounts.push(context.accountId);
-  } else {
-    accounts = [];
-  }
-} else {
-  accounts = undefined;
-}
-
 function selectTab(selectedTab) {
   Storage.privateSet("selectedTab", selectedTab);
-  State.update({ selectedTab });
+  State.update({
+    posts: [],
+    postsCountLeft: 0,
+    selectedTab 
+  });
+  loadMorePosts()
 }
 
 const H2 = styled.h2`
@@ -124,6 +233,20 @@ const FeedWrapper = styled.div`
   }
 `;
 
+const hasMore = state.postsCountLeft != state.posts.length
+
+if(!state.initLoadPostsAll) {
+  loadMorePosts()
+  State.update({initLoadPostsAll: true})
+}
+
+if(state.initLoadPostsAll == true && !state.initLoadPosts && accountsFollowing) {
+  if (accountsFollowing.length > 0 && state.selectedTab == "following") {
+     selectTab("following")
+  }
+  State.update({initLoadPosts: true})
+}
+
 return (
   <>
     <H2>Posts</H2>
@@ -145,20 +268,20 @@ return (
                 All
               </PillSelectButton>
 
-              <PillSelectButton
+        {accountsFollowing &&  <PillSelectButton
                 type="button"
                 onClick={() => selectTab("following")}
                 selected={state.selectedTab === "following"}
               >
                 Following
-              </PillSelectButton>
+              </PillSelectButton>}
             </PillSelect>
           </FilterWrapper>
         </>
       )}
 
       <FeedWrapper>
-        <Widget src={`${APP_OWNER}/widget/QueryApi.Examples.Feed`} props={{ accountsFollowing: accounts }} />
+      <Widget src={`${APP_OWNER}/widget/QueryApi.Examples.Feed`} props={{ hasMore, loadMorePosts, posts: state.posts}} />
       </FeedWrapper>
     </Content>
   </>
