@@ -103,6 +103,10 @@ const loadMorePosts = () => {
   const queryName = state.selectedTab == "following" && accountsFollowing ? "GetFollowingPosts" : "GetPostsQuery"
   const type = state.selectedTab == "following" && accountsFollowing ? "following" : "all"
 
+  if(state.selectedTab == "following" && accountsSelected && accountsSelected.length == 0) {
+    console.log("user has no followers")
+    return
+  }
   fetchGraphQL(createQuery(sortOption, type), queryName, {
     offset: state.posts.length,
   }).then((result) => {
@@ -268,13 +272,13 @@ return (
                 All
               </PillSelectButton>
 
-        {accountsFollowing &&  <PillSelectButton
+            <PillSelectButton
                 type="button"
                 onClick={() => selectTab("following")}
                 selected={state.selectedTab === "following"}
               >
                 Following
-              </PillSelectButton>}
+              </PillSelectButton>
             </PillSelect>
           </FilterWrapper>
         </>
