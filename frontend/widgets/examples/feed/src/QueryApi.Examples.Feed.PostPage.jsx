@@ -13,7 +13,7 @@ State.init({
 });
 
 const parentPostByComment = `query ParentPostByComment {
-  dataplatform_near_feed_indexer_comments(
+  dataplatform_near_social_feed_comments(
     where: {_and: {account_id: {_eq: "${accountId}"}, block_height: {_eq: ${commentBlockHeight}}}}
   ) {
     post {
@@ -64,7 +64,7 @@ if (commentBlockHeight) {
     (result) => {
       if (result.status === 200) {
         if (result.body.data) {
-          const posts = result.body.data.dataplatform_near_feed_indexer_comments;
+          const posts = result.body.data.dataplatform_near_social_feed_comments;
           if (posts.length > 0) {
             const post = posts[0].post;
             let content = JSON.parse(post.content);
