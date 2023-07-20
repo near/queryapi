@@ -8,7 +8,6 @@ if (context.accountId) {
   const graph = Social.keys(`${context.accountId}/graph/follow/*`, "final");
   if (graph !== null) {
     accountsFollowing = Object.keys(graph[context.accountId].graph.follow || {});
-    accountsFollowing.push(context.accountId);
   }
 }
 
