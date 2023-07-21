@@ -53,7 +53,7 @@ export default class Indexer {
 
                 if (options.provision && !indexerFunction["provisioned"]) {
                     try {
-                        if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
+                        if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id)) {
                             await this.setStatus(function_name, block_height, 'PROVISIONING');
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 

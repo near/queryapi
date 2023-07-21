@@ -604,7 +604,6 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         await indexer.runFunctions(1, functions, false, { provision: true });
 
-        expect(provisioner.isUserApiProvisioned).toHaveBeenCalledWith('morgs.near', 'test');
         expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
         expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
             'morgs.near',
