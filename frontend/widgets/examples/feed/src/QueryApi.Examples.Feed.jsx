@@ -1,3 +1,5 @@
+const GRAPHQL_ENDPOINT =
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const loadMorePosts = props.loadMorePosts;
 const hasMore = props.hasMore || false;
