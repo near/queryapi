@@ -13,6 +13,11 @@ provider:
     STAGE: ${opt:stage, 'dev'}
     HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
     HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
+    PG_ADMIN_USER: ${env:PG_ADMIN_USER}
+    PG_ADMIN_PASSWORD: ${env:PG_ADMIN_PASSWORD}
+    PG_ADMIN_DATABASE: ${env:PG_ADMIN_DATABASE}
+    PG_HOST: ${env:PG_HOST}
+    PG_PORT: ${env:PG_PORT}
   tracing:
     lambda: true #enable X-Ray tracing
   iamRoleStatements:
