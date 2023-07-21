@@ -7,7 +7,7 @@ provider:
   name: aws
   runtime: nodejs16.x
   region: eu-central-1
-  timeout: 15
+  timeout: 30
   environment:
     REGION: ${self:provider.region}
     STAGE: ${opt:stage, 'dev'}
