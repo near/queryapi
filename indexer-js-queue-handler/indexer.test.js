@@ -589,26 +589,23 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }),
         };
         const provisioner = {
-            isUserApiProvisioned: jest.fn().mockReturnValue(false),
-            provisionUserApi: jest.fn(),
+            doesEndpointExist: jest.fn().mockReturnValue(false),
+            createAuthenticatedEndpoint: jest.fn(),
         }
         const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray, metrics: mockMetrics });
 
         const functions = {
             'morgs.near/test': {
-                account_id: 'morgs.near',
-                function_name: 'test',
                 code: '',
                 schema: 'schema',
             }
         };
         await indexer.runFunctions(1, functions, false, { provision: true });
 
-        expect(provisioner.isUserApiProvisioned).toHaveBeenCalledWith('morgs.near', 'test');
-        expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
-        expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
-            'morgs.near',
-            'test',
+        expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledTimes(1);
+        expect(provisioner.createAuthenticatedEndpoint).toHaveBeenCalledWith(
+            'morgs_near_test',
+            'morgs_near',
             'schema'
         )
     });
@@ -647,8 +644,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }),
         };
         const provisioner = {
-            isUserApiProvisioned: jest.fn().mockReturnValue(true),
-            provisionUserApi: jest.fn(),
+            doesEndpointExist: jest.fn().mockReturnValue(true),
+            createAuthenticatedEndpoint: jest.fn(),
         }
         const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray, metrics: mockMetrics });
 
@@ -660,7 +657,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         await indexer.runFunctions(1, functions, false, { provision: true });
 
-        expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
+        expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
     });
 
     test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
@@ -697,8 +694,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 }),
         };
         const provisioner = {
-            isUserApiProvisioned: jest.fn().mockReturnValue(true),
-            provisionUserApi: jest.fn(),
+            doesEndpointExist: jest.fn().mockReturnValue(true),
+            createAuthenticatedEndpoint: jest.fn(),
         }
         const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray, metrics: mockMetrics });
 
@@ -712,7 +709,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         await indexer.runFunctions(blockHeight, functions, false, { provision: true });
 
-        expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
+        expect(provisioner.createAuthenticatedEndpoint).not.toHaveBeenCalled();
         expect(mockFetch.mock.calls).toMatchSnapshot();
     });
 
@@ -751,8 +748,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         const error = new Error('something went wrong with provisioning');
         const provisioner = {
-            isUserApiProvisioned: jest.fn().mockReturnValue(false),
-            provisionUserApi: jest.fn().mockRejectedValue(error),
+            doesEndpointExist: jest.fn().mockReturnValue(false),
+            createAuthenticatedEndpoint: jest.fn().mockRejectedValue(error),
         }
         const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, provisioner, awsXray: mockAwsXray, metrics: mockMetrics });
 

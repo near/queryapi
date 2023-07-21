@@ -1,35 +1,5 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`HasuraClient adds a datasource 1`] = `
-{
-  "args": {
-    "configuration": {
-      "connection_info": {
-        "database_url": {
-          "connection_parameters": {
-            "database": "morgs_near",
-            "host": "localhost",
-            "password": "password",
-            "port": 5432,
-            "username": "morgs_near",
-          },
-        },
-      },
-    },
-    "customization": {
-      "root_fields": {
-        "namespace": "morgs_near",
-      },
-      "type_names": {
-        "prefix": "morgs_near_",
-      },
-    },
-    "name": "morgs_near",
-  },
-  "type": "pg_add_source",
-}
-`;
-
 exports[`HasuraClient adds the specified permissions for the specified roles/table/schema 1`] = `
 {
   "args": [
@@ -182,66 +152,51 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
 }
 `;
 
-exports[`HasuraClient checks if a schema exists within source 1`] = `
-[
-  [
-    "mock-hasura-endpoint/v2/query",
-    {
-      "body": "{"type":"run_sql","args":{"sql":"SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'schema'","read_only":true,"source":"source"}}",
-      "headers": {
-        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
-      },
-      "method": "POST",
-    },
-  ],
-]
-`;
-
-exports[`HasuraClient checks if datasource exists 1`] = `
+exports[`HasuraClient checks if a schema exists 1`] = `
 {
-  "args": {},
-  "type": "export_metadata",
-  "version": 2,
+  "args": {
+    "read_only": true,
+    "source": "default",
+    "sql": "SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'name'",
+  },
+  "type": "run_sql",
 }
 `;
 
 exports[`HasuraClient creates a schema 1`] = `
-[
-  [
-    "mock-hasura-endpoint/v2/query",
-    {
-      "body": "{"type":"run_sql","args":{"sql":"CREATE schema schemaName","read_only":false,"source":"dbName"}}",
-      "headers": {
-        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
-      },
-      "method": "POST",
-    },
-  ],
-]
+{
+  "args": {
+    "read_only": false,
+    "source": "default",
+    "sql": "CREATE schema name",
+  },
+  "type": "run_sql",
+}
 `;
 
 exports[`HasuraClient gets table names within a schema 1`] = `
 {
   "args": {
-    "source": "source",
+    "read_only": true,
+    "source": "default",
+    "sql": "SELECT table_name FROM information_schema.tables WHERE table_schema = 'schema'",
   },
-  "type": "pg_get_source_tables",
+  "type": "run_sql",
 }
 `;
 
 exports[`HasuraClient runs migrations for the specified schema 1`] = `
-[
-  [
-    "mock-hasura-endpoint/v2/query",
-    {
-      "body": "{"type":"run_sql","args":{"sql":"\\n      set schema 'schemaName';\\n      CREATE TABLE blocks (height numeric)\\n      ","read_only":false,"source":"dbName"}}",
-      "headers": {
-        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
-      },
-      "method": "POST",
-    },
-  ],
-]
+{
+  "args": {
+    "read_only": false,
+    "source": "default",
+    "sql": "
+      set schema 'schema';
+      CREATE TABLE blocks (height numeric)
+      ",
+  },
+  "type": "run_sql",
+}
 `;
 
 exports[`HasuraClient tracks foreign key relationships 1`] = `
