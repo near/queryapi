@@ -52,14 +52,12 @@ export default class Indexer {
                 const functionNameWithoutAccount = function_name.split('/')[1].replace(/[.-]/g, '_');
 
                 if (options.provision && !indexerFunction["provisioned"]) {
-                    const schemaName = `${function_name.replace(/[.\/-]/g, '_')}`
-
                     try {
-                        if (!await this.deps.provisioner.doesEndpointExist(schemaName)) {
+                        if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id)) {
                             await this.setStatus(function_name, block_height, 'PROVISIONING');
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: starting'));
 
-                            await this.deps.provisioner.createAuthenticatedEndpoint(schemaName, hasuraRoleName, indexerFunction.schema);
+                            await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
 
                             simultaneousPromises.push(this.writeLog(function_name, block_height, 'Provisioning endpoint: successful'));
                         }

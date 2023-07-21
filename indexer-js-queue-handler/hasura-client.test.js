@@ -8,11 +8,22 @@ describe('HasuraClient', () => {
     const HASURA_ENDPOINT = 'mock-hasura-endpoint';
     const HASURA_ADMIN_SECRET = 'mock-hasura-admin-secret';
 
+    const PG_ADMIN_USER = 'postgres'
+    const PG_ADMIN_PASSWORD = 'postgrespassword'
+    const PG_ADMIN_DATABASE = 'postgres'
+    const PG_HOST = 'localhost'
+    const PG_PORT = 5432
+
     beforeAll(() => {
         process.env = {
             ...oldEnv,
             HASURA_ENDPOINT,
             HASURA_ADMIN_SECRET,
+            PG_ADMIN_USER,
+            PG_ADMIN_PASSWORD,
+            PG_ADMIN_DATABASE,
+            PG_HOST,
+            PG_PORT,
         };
     });
 
@@ -29,13 +40,12 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        await client.createSchema('name');
+        await client.createSchema('dbName', 'schemaName');
 
-        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
-        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+        expect(fetch.mock.calls).toMatchSnapshot();
     });
 
-    it('checks if a schema exists', async () => {
+    it('checks if a schema exists within source', async () => {
         const fetch = jest
             .fn()
             .mockResolvedValue({
@@ -46,12 +56,33 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        const result = await client.isSchemaCreated('name');
+        const result = await client.doesSchemaExist('source', 'schema');
 
         expect(result).toBe(true);
+        expect(fetch.mock.calls).toMatchSnapshot();
+    });
+
+    it('checks if datasource exists', async () => {
+        const fetch = jest
+            .fn()
+            .mockResolvedValue({
+                status: 200,
+                text: () => JSON.stringify({
+                    metadata: {
+                        sources: [ 
+                            {
+                                name: 'name'
+                            }
+                        ]
+                    },
+                }),
+            });
+        const client = new HasuraClient({ fetch })
+
+        await expect(client.doesSourceExist('name')).resolves.toBe(true);
         expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
         expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
-    });
+    })
 
     it('runs migrations for the specified schema', async () => {
         const fetch = jest
@@ -62,10 +93,9 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        await client.runMigrations('schema', 'CREATE TABLE blocks (height numeric)');
+        await client.runMigrations('dbName', 'schemaName', 'CREATE TABLE blocks (height numeric)');
 
-        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
-        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+        expect(fetch.mock.calls).toMatchSnapshot();
     });
 
     it('gets table names within a schema', async () => {
@@ -73,17 +103,15 @@ describe('HasuraClient', () => {
             .fn()
             .mockResolvedValue({
                 status: 200,
-                text: () => JSON.stringify({
-                    result: [
-                        ['table_name'],
-                        ['height'],
-                        ['width']
-                    ]
-                })
+                text: () => JSON.stringify([
+                    { name: 'table_name', schema: 'morgs_near' },
+                    { name: 'height', schema: 'schema' },
+                    { name: 'width', schema: 'schema' }
+                ])
             });
         const client = new HasuraClient({ fetch })
 
-        const names = await client.getTableNames('schema');
+        const names = await client.getTableNames('schema', 'source');
 
         expect(names).toEqual(['height', 'width']);
         expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
@@ -114,7 +142,22 @@ describe('HasuraClient', () => {
             });
         const client = new HasuraClient({ fetch })
 
-        await client.addPermissionsToTables('schema', ['height', 'width'], 'role', ['select', 'insert', 'update', 'delete']);
+        await client.addPermissionsToTables('schema', 'default', ['height', 'width'], 'role', ['select', 'insert', 'update', 'delete']);
+
+        expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
+        expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
+    });
+
+    it('adds a datasource', async () => {
+        const fetch = jest
+            .fn()
+            .mockResolvedValue({
+                status: 200,
+                text: () => JSON.stringify({})
+            });
+        const client = new HasuraClient({ fetch })
+
+        await client.addDatasource('morgs_near', 'password', 'morgs_near');
 
         expect(fetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET)
         expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();

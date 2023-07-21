@@ -1,0 +1,22 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Provisioner provisionUserApi formats user input before executing the query 1`] = `
+[
+  [
+    "CREATE DATABASE "databaseName UNION SELECT * FROM users --"",
+    [],
+  ],
+  [
+    "CREATE USER morgs_near WITH PASSWORD 'pass; DROP TABLE users;--'",
+    [],
+  ],
+  [
+    "GRANT ALL PRIVILEGES ON DATABASE "databaseName UNION SELECT * FROM users --" TO morgs_near",
+    [],
+  ],
+  [
+    "REVOKE CONNECT ON DATABASE "databaseName UNION SELECT * FROM users --" FROM PUBLIC",
+    [],
+  ],
+]
+`;
