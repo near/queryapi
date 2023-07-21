@@ -37,8 +37,3 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           HASURA_ENDPOINT: ${{ vars.HASURA_ENDPOINT }}
           HASURA_ADMIN_SECRET: ${{ secrets.HASURA_ADMIN_SECRET }}
-          PG_ADMIN_USER: ${{ secrets.PG_ADMIN_USER }}
-          PG_ADMIN_PASSWORD: ${{ secrets.PG_ADMIN_PASSWORD }}
-          PG_ADMIN_DATABASE: ${{ secrets.PG_ADMIN_DATABASE }}
-          PG_HOST: ${{ secrets.PG_HOST }}
-          PG_PORT: ${{ secrets.PG_PORT }}
