@@ -5,6 +5,13 @@ const sortOption = props.postsOrderOption || "blockHeight"; // following, blockH
 const LIMIT = 25;
 let accountsFollowing =  props.accountsFollowing
 
+if (context.accountId && !accountsFollowing) {
+  const graph = Social.keys(`${context.accountId}/graph/follow/*`, "final");
+  if (graph !== null) {
+    accountsFollowing = Object.keys(graph[context.accountId].graph.follow || {});
+  }
+}
+
 State.init({
   selectedTab: Storage.privateGet("selectedTab") || "all",
   posts: [],
