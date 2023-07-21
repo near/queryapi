@@ -1,38 +1,51 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+## What is this repo?
+
+Frontend for Near QueryAPI that allows users to create, manage, and explore indexers stored on-chain. You can visit the app [here](https://near.org/dataplatform.near/widget/QueryApi.App)
+
+
+BOS widgets are stored in the `widgets/` folder while the main NextJS application lives in the root.
 
 ## Getting Started
 
-First, run the development server:
+First, download the bos-loader cli by following this guide [here](https://docs.near.org/bos/dev/bos-loader). 
+
+From the root of QueryAPI Frontend repo, run the following command
 
 ```bash
-npm run dev
-# or
+yarn serve:widgets
+```
+> Near.org or any other BOS gateway queries the blockchain state to pull the latest widgets code and renders it. If we would like to test our BOS widgets, we need to override the path at which the gateway (near.org) queries for the widget code. We do this using the Bos-loader tool (the underlying CLI tool used in the `yarn serve:widgets` command) which allows us to serve out widgets locally (http://127.0.0.1:3030 by default). At this point, we have served our widgets locally but have not yet told the BOS gateway (near.org) where to load our local widgets from. 
+
+
+**Then, Head to `near.org/flags` and enter `http://127.0.0.1:3030`**
+
+> In order to tell our BOS gateway (near.org), where to load the local widgets from, we head to `near.org/flags` and enter the local path we got from running the previous command. If you have not changed any configurations then the default should be `http://127.0.0.1:3030`
+
+**Finally**, run the following to serve the local NextJS frontend
+```bash
 yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+**Now, head to the path where the widgets are served on the BOS.**
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+- Prod Environment: `https://near.org/dataplatform.near/widget/QueryApi.App`
+- Dev Environment: `https://near.org/dev-queryapi.dataplatform.near/widget/QueryApi.dev-App`
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+---
+### Notes
+> **Make sure to change your widgets code (while testing only) to point to where your local nextJS app is being served.**
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+```QueryApi.App.jsx
+---const EXTERNAL_APP_URL = "https://queryapi.io";
++++const EXTERNAL_APP_URL = "http://localhost:3000";
+```
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+> **You may need to change the accountId argument to the bos-loader CLI command in `package.json` to load from `dataplatform.near` or `dev-queryapi.dataplatform.near`. This depends on what environment you are testing for.**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`bos-loader dev-queryapi.dataplatform.near --path widgets/src`
+`bos-loader dataplatform.near --path widgets/src`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.

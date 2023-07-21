@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "social::dev": "cd near.social && yarn run dev",
+    "serve:widgets": "bos-loader dev-queryapi.dataplatform.near --path widgets/src",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
