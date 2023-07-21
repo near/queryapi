@@ -110,7 +110,11 @@ const loadMorePosts = () => {
   fetchGraphQL(createQuery(sortOption, type), queryName, {
     offset: state.posts.length,
   }).then((result) => {
-    if (result.status === 200) {
+    if (result.status === 200 && result.body) {
+      if(result.body.errors) {
+        console.log('error:', result.body.errors)
+        return
+      }
       let data = result.body.data;
       if (data) {
         const newPosts = data.dataplatform_near_social_feed_posts;
