@@ -23,10 +23,9 @@ const item = {
 
 // Load post if not contents and comments are not passed in
 if (!state.content || !state.comments || !state.likes) {
-  console.log("making call again");
   const postsQuery = `
 query IndexerQuery {
-  dataplatform_near_feed_indexer_posts(
+  dataplatform_near_social_feed_posts(
     order_by: {block_height: desc}
     where: {_and: {block_height: {_eq: ${blockHeight}}, account_id: {_eq: "${accountId}"}}}
   ) {
@@ -64,7 +63,7 @@ query IndexerQuery {
   fetchGraphQL(postsQuery, "IndexerQuery", {}).then((result) => {
     if (result.status === 200) {
       if (result.body.data) {
-        const posts = result.body.data.dataplatform_near_feed_indexer_posts;
+        const posts = result.body.data.dataplatform_near_social_feed_posts;
         if (posts.length > 0) {
           const post = posts[0];
           let content = JSON.parse(post.content);
