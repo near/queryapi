@@ -4,6 +4,8 @@ const GRAPHQL_ENDPOINT =
 const sortOption = props.postsOrderOption || "blockHeight"; // following, blockHeight
 const LIMIT = 25;
 let accountsFollowing =  props.accountsFollowing
+const sort = props.sort ?? Storage.get(`queryapi-feed-sort`) ?? "timedesc";
+
 
 if (context.accountId && !accountsFollowing) {
   const graph = Social.keys(`${context.accountId}/graph/follow/*`, "final");
@@ -17,7 +19,8 @@ State.init({
   posts: [],
   postsCountLeft: 0,
   initLoadPosts: false,
-  initLoadPostsAll: false
+  initLoadPostsAll: false,
+  sort
 });
 
 function fetchGraphQL(operationsDoc, operationName, variables) {
@@ -35,10 +38,10 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
   );
 }
 
-const createQuery = (tab, type) => {
+const createQuery = (sortOption, type) => {
 let querySortOption = "";
-switch (tab) {
-  case "recentComments":
+switch (sortOption) {
+  case "recentcommentdesc":
     querySortOption = `{ last_comment_timestamp: desc_nulls_last },`;
     break;
   // More options...
@@ -114,7 +117,7 @@ const loadMorePosts = () => {
     console.log("user has no followers")
     return
   }
-  fetchGraphQL(createQuery(state.selectedTab, type), queryName, {
+  fetchGraphQL(createQuery(state.sort, type), queryName, {
     offset: state.posts.length,
     limit: LIMIT
   }).then((result) => {
@@ -189,6 +192,16 @@ const FilterWrapper = styled.div`
   }
 `;
 
+const SortContainer = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding: 24px 24px 0;
+
+  @media (max-width: 1200px) {
+    padding: 12px;
+  }
+`;
 const PillSelect = styled.div`
   display: inline-flex;
   align-items: center;
@@ -249,6 +262,37 @@ const FeedWrapper = styled.div`
   }
 `;
 
+const Sort = styled.div`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+
+  & > span.label {
+    font-family: "Inter";
+    font-style: normal;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 18px;
+    color: #11181c;
+    white-space: nowrap;
+  }
+
+  &:last-child {
+    width: 40%;
+
+    @media screen and (max-width: 768px) {
+      width: 50%;
+    }
+  }
+`;
+
+const optionsMap = {
+  timedesc: "Most Recent",
+  recentcommentdesc: "Recent Comments",
+};
+
 const hasMore = state.postsCountLeft != state.posts.length
 
 if(!state.initLoadPostsAll) {
@@ -291,15 +335,34 @@ return (
               >
                 Following
               </PillSelectButton>
-            <PillSelectButton
-                type="button"
-                onClick={() => selectTab("recentComments")}
-                selected={state.selectedTab === "recentComments"}
-              >
-                Recent Comments
-              </PillSelectButton>
             </PillSelect>
           </FilterWrapper>
+          <SortContainer>
+        {state.selectedTab == "all" &&
+         <Sort>
+        <span className="label">Sort by:</span>
+        <Widget
+          src={`roshaan.near/widget/Inputs.Select`}
+          props={{
+            noLabel: true,
+            value: { text: optionsMap[sort], value: state.sort },
+            onChange: ({ value }) => {
+              Storage.set(`queryapi-feed-sort`, value);
+              State.update({ 
+                sort: value,
+                posts: [],
+                postsCountLeft: 0,
+              });
+              loadMorePosts()
+            },
+            options: [
+              { text: "Most Recent", value: "timedesc" },
+              { text: "Recent Comments", value: "recentcommentdesc" },
+            ],
+          }}
+        />
+      </Sort>}
+      </SortContainer>
         </>
       )}
 
