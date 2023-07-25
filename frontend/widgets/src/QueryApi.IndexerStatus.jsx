@@ -1,6 +1,8 @@
 //props indexer_name
 const indexer_name = props.indexer_name;
 
+const GRAPHQL_ENDPOINT =
+  props.GRAPHQL_ENDPOINT || "near-queryapi.api.pagoda.co";
 const LIMIT = 20;
 const accountId = props.accountId || context.accountId;
 
@@ -105,8 +107,180 @@ State.init({
   indexer_resPage: 0,
   logsPage: 0,
   statePage: 0,
+  startWebSocketLogs: null,
+  startWebSocketStatus: null,
+  initialFetch: false,
 });
 
+const logsDocSubscription = `
+  subscription QueryLogs($offset, $limit) {
+    indexer_log_entries(order_by: {timestamp: desc}, limit: $limit, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
+      block_height
+      message
+      timestamp
+    }
+  }
+`;
+
+const statusDocSubscription = `
+  subscription IndexerState {
+    indexer_state(where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
+      status
+      function_name
+      current_block_height
+      current_historical_block_height
+    }
+  }
+`;
+
+const subscriptionLogs = {
+  type: "start",
+  id: "logs",
+  payload: {
+    operationName: "QueryLogs",
+    query: logsDocSubscription,
+    variables: {},
+  },
+};
+
+const subscriptionStatus = {
+  type: "start",
+  id: "state",
+  payload: {
+    operationName: "IndexerState",
+    query: statusDocSubscription,
+    variables: {},
+  },
+};
+
+function startWebSocketStatus(processStatus) {
+  let ws = State.get().ws_status;
+
+  if (ws) {
+    ws.close();
+    return;
+  }
+
+  ws = new WebSocket(`wss://${GRAPHQL_ENDPOINT}/v1/graphql`, "graphql-ws");
+
+  ws.onopen = () => {
+    console.log(`Connection to WS has been established`);
+    ws.send(
+      JSON.stringify({
+        type: "connection_init",
+        payload: {
+          headers: {
+            "Content-Type": "application/json",
+            "Hasura-Client-Name": "hasura-console",
+          },
+          lazy: true,
+        },
+      })
+    );
+
+    setTimeout(() => ws.send(JSON.stringify(subscriptionStatus)), 50);
+  };
+
+  ws.onclose = () => {
+    State.update({ ws_status: null });
+    console.log(`WS Connection has been closed`);
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === "data" && data.id === "state") {
+      processStatus(data.payload.data);
+    }
+  };
+
+  ws.onerror = (err) => {
+    State.update({ ws_status: null });
+    console.log("WebSocket error", err);
+  };
+
+  State.update({ ws_status: ws });
+}
+
+function startWebSocketLogs(processLogs) {
+  let ws = State.get().ws_logs;
+
+  if (ws) {
+    ws.close();
+    return;
+  }
+
+  ws = new WebSocket(`wss://${GRAPHQL_ENDPOINT}/v1/graphql`, "graphql-ws");
+
+  ws.onopen = () => {
+    console.log("starting web socket logs");
+    console.log(`Connection to WS has been established`);
+    ws.send(
+      JSON.stringify({
+        type: "connection_init",
+        payload: {
+          headers: {
+            "Content-Type": "application/json",
+            "Hasura-Client-Name": "hasura-console",
+          },
+          lazy: true,
+        },
+      })
+    );
+
+    setTimeout(() => ws.send(JSON.stringify(subscriptionLogs)), 50);
+  };
+
+  ws.onclose = () => {
+    State.update({ ws_logs: null });
+    console.log(`WS Connection has been closed`);
+    // State.get().startWebSocket(processLogs);
+  };
+
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    console.log("received data", data);
+    if (data.type === "data" && data.id === "logs") {
+      processLogs(data.payload.data);
+    }
+  };
+
+  ws.onerror = (err) => {
+    State.update({ ws_logs: null });
+    console.log("WebSocket error", err);
+  };
+
+  State.update({ ws_logs: ws });
+}
+function processLog(log) {
+  return {
+    ...log,
+  };
+}
+function processWidgetActivity(activity) {
+  return { ...activity };
+}
+function processLogs(incoming_data) {
+  let incoming_logs = incoming_data.indexer_log_entries.flatMap(processLog);
+  const newLogs = [
+    ...incoming_logs.filter((log) => {
+      return (
+        state.logs.length == 0 || log.block_height > state.logs[0].block_height
+      );
+    }),
+  ];
+  State.update((state) => {
+    const prevlogs = state.logs || [];
+    state.logs = [...newLogs];
+    return state;
+  });
+}
+
+function processStatus(incoming_data) {
+  let incoming_state = incoming_data.indexer_state;
+  State.update({
+    state: incoming_state,
+  });
+}
 function fetchGraphQL(operationsDoc, operationName, variables) {
   return asyncFetch(`${REPL_GRAPHQL_ENDPOINT}/v1/graphql`, {
     method: "POST",
@@ -131,7 +305,7 @@ const sanitizedFunctionName = indexer_name;
 const fullFunctionName = accountName + "_" + sanitizedFunctionName;
 const logsDoc = `
   query QueryLogs($offset: Int) {
-    indexer_log_entries(order_by: {timestamp: desc}, limit: ${LIMIT}, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
+    indexer_log_entries(order_by: {block_height: desc}, limit: ${LIMIT}, offset: $offset, where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
       block_height
       message
       timestamp
@@ -159,6 +333,7 @@ const indexerStateDoc = `
     }
   }
 `;
+
 if (!state.initialFetch) {
   fetchGraphQL(logsDoc, "QueryLogs", {
     offset: state.logsPage * LIMIT,
@@ -169,23 +344,35 @@ if (!state.initialFetch) {
         logsCount:
           result.body.data[`indexer_log_entries_aggregate`].aggregate.count,
       });
+      State.update({ initialFetch: true });
     }
   });
-
-  fetchGraphQL(indexerStateDoc, "IndexerState", {
-    offset: 0,
-  }).then((result) => {
-    if (result.status === 200) {
-      if (result.body.data.indexer_state.length == 1) {
-        State.update({
-          state: result.body.data.indexer_state,
-          stateCount: result.body.data.indexer_state_aggregate.aggregate.count,
-        });
-      }
-    }
-  });
-  State.update({ initialFetch: true });
 }
+
+if (state.ws_status === undefined) {
+  // let ws = State.get().ws_logs;
+  State.update({
+    startWebSocketStatus: startWebSocketStatus,
+  });
+  state.startWebSocketStatus(processStatus);
+}
+
+if (state.logsPage === 0) {
+  // Start subscription for logs if on first page
+  if (state.ws_logs === undefined && state.logsPage === 0) {
+    // let ws = State.get().ws_logs;
+    State.update({
+      startWebSocketLogs: startWebSocketLogs,
+    });
+    state.startWebSocketLogs(processLogs);
+  }
+} else {
+  if (state.ws_logs) {
+    state.ws_logs.close();
+  }
+  State.update({ ws_logs: undefined });
+}
+
 const onLogsPageChange = (page) => {
   page = page - 1;
   if (page === state.logsPage) {
@@ -270,7 +457,10 @@ return (
                   <tr>
                     <TableElement>{x.function_name}</TableElement>
                     <TableElement>{x.current_block_height}</TableElement>
-                    <TableElement>{x.current_historical_block_height}</TableElement>
+                    <TableElement>
+                      {x.current_historical_block_height ||
+                        "Not Running Historical"}
+                    </TableElement>
                     <TableElement>{x.status}</TableElement>
                   </tr>
                 ))}
