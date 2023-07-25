@@ -58,8 +58,8 @@ switch (type) {
 }
 
 const indexerQueries = `
-  query GetPostsQuery($offset: Int) {
-  dataplatform_near_social_feed_posts(order_by: [${querySortOption} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
+query GetPostsQuery($offset: Int, $limit: Int) {
+  dataplatform_near_social_feed_posts(order_by: [${querySortOption} { block_height: desc }], offset: $offset, limit: $limit) {
     account_id
     block_height
     block_timestamp
@@ -80,8 +80,8 @@ const indexerQueries = `
     }
   }
 }
-query GetFollowingPosts($offset: Int) {
-  dataplatform_near_social_feed_posts(where: {${queryFilter}}, order_by: [${querySortOption} { block_height: desc }], offset: $offset) {
+query GetFollowingPosts($offset: Int, $limit: Int) {
+  dataplatform_near_social_feed_posts(where: {${queryFilter}}, order_by: [${querySortOption} { block_height: desc }], offset: $offset, limit: $limit) {
     account_id
     block_height
     block_timestamp
@@ -116,6 +116,7 @@ const loadMorePosts = () => {
   }
   fetchGraphQL(createQuery(sortOption, type), queryName, {
     offset: state.posts.length,
+    limit: LIMIT
   }).then((result) => {
     if (result.status === 200 && result.body) {
       if(result.body.errors) {
