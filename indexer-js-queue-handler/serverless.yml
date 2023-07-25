@@ -7,7 +7,7 @@ provider:
   name: aws
   runtime: nodejs16.x
   region: eu-central-1
-  timeout: 30
+  timeout: 120
   environment:
     REGION: ${self:provider.region}
     STAGE: ${opt:stage, 'dev'}
@@ -35,7 +35,7 @@ constructs:
     maxRetries: 1
     worker:
       handler: handler.consumer
-      timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
+      timeout: 120 # 12 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
   startFromBlock-runner:
     type: queue
     fifo: true
@@ -43,7 +43,7 @@ constructs:
     #    batchSize: 100
     worker:
       handler: handler.consumer
-      timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
+      timeout: 120 # 12 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
 
 functions:
   socialLagMetricsWriter:
