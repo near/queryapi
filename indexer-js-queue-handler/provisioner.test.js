@@ -16,6 +16,8 @@ describe('Provisioner', () => {
     const sanitizedFunctionName = 'test_function';
     const databaseSchema = 'CREATE TABLE blocks (height numeric)';
     const error = new Error('some error');
+    const defaultDatabase = 'default';
+    const oldSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
     const password = 'password';
     const crypto = {
@@ -39,6 +41,7 @@ describe('Provisioner', () => {
             createSchema: jest.fn().mockReturnValueOnce(),
             doesSourceExist: jest.fn().mockReturnValueOnce(false),
             doesSchemaExist: jest.fn().mockReturnValueOnce(false),
+            untrackTables: jest.fn().mockReturnValueOnce(),
         };
 
         pgClient = {
@@ -107,6 +110,17 @@ describe('Provisioner', () => {
                     'delete'
                 ]
             );
+        });
+
+        it('untracks tables from the previous schema if it exists', async () => {
+            hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
+
+            const provisioner = new Provisioner(hasuraClient, pgPool, crypto);
+
+            await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
+
+            expect(hasuraClient.getTableNames).toBeCalledWith(oldSchemaName, defaultDatabase)
+            expect(hasuraClient.untrackTables).toBeCalledWith(defaultDatabase, oldSchemaName, tableNames);
         });
 
         it('skips provisioning the datasource if it already exists', async () => {

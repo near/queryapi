@@ -133,6 +133,20 @@ describe('HasuraClient', () => {
         expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchSnapshot();
     });
 
+    it('untracks the specified tables', async () => {
+        const fetch = jest
+            .fn()
+            .mockResolvedValue({
+                status: 200,
+                text: () => JSON.stringify({})
+            });
+        const client = new HasuraClient({ fetch })
+
+        await client.untrackTables('default', 'schema', ['height', 'width']);
+
+        expect(fetch.mock.calls).toMatchSnapshot();
+    });
+
     it('adds the specified permissions for the specified roles/table/schema', async () => {
         const fetch = jest
             .fn()

@@ -397,3 +397,18 @@ exports[`HasuraClient tracks the specified tables for a specified schema 1`] = `
   "type": "bulk",
 }
 `;
+
+exports[`HasuraClient untracks the specified tables 1`] = `
+[
+  [
+    "mock-hasura-endpoint/v1/metadata",
+    {
+      "body": "{"type":"pg_untrack_tables","args":{"tables":[{"table":{"schema":"schema","name":"height"},"source":"default","cascade":true},{"table":{"schema":"schema","name":"width"},"source":"default","cascade":true}]}}",
+      "headers": {
+        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
+      },
+      "method": "POST",
+    },
+  ],
+]
+`;

@@ -2,6 +2,9 @@ import fetch from 'node-fetch';
 import pluralize from 'pluralize';
 
 export default class HasuraClient {
+  static DEFAULT_DATABASE = 'default';
+  static DEFAULT_SCHEMA = 'public';
+
   constructor(
     deps
   ) {
@@ -125,6 +128,19 @@ export default class HasuraClient {
       }))
     );
   } 
+
+  async untrackTables(source, schema, tableNames, cascade = true) {
+    return this.executeMetadataRequest('pg_untrack_tables', {
+      tables: tableNames.map((name) => ({
+        table: {
+          schema,
+          name,
+        },
+        source,
+        cascade,
+      }))
+    });
+  }
 
   async getForeignKeys(schemaName, source) {
     const { result } = await this.executeSql(
