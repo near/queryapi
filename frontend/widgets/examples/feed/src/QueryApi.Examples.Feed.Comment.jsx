@@ -173,7 +173,7 @@ return (
       {blockHeight !== "now" && (
         <Actions>
           <Widget
-            src={`${APP_OWNER}/widget/QueryApi.Examples.Feed.LikeButton`}
+            src={`mob.near/widget/LikeButton`}
             props={{
               item: {
                 type: "social",
@@ -181,9 +181,6 @@ return (
                 blockHeight,
               },
               notifyAccountId: state.notifyAccountId,
-              likes: [],
-              GRAPHQL_ENDPOINT,
-              APP_OWNER,
             }}
           />
           <Widget
