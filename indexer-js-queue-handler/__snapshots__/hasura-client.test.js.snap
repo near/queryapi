@@ -18,7 +18,7 @@ exports[`HasuraClient adds a datasource 1`] = `
     },
     "customization": {
       "root_fields": {
-        "namespace": "morgs_near",
+        "prefix": "morgs_near_",
       },
       "type_names": {
         "prefix": "morgs_near_",

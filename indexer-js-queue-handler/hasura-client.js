@@ -294,7 +294,7 @@ export default class HasuraClient {
       },
       customization: {
         root_fields: {
-          namespace: userName,
+          prefix: `${userName}_`,
         },
         type_names: {
           prefix: `${userName}_`,
