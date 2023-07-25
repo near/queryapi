@@ -35,9 +35,9 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
   );
 }
 
-const createQuery = (sortOption, type) => {
+const createQuery = (tab, type) => {
 let querySortOption = "";
-switch (sortOption) {
+switch (tab) {
   case "recentComments":
     querySortOption = `{ last_comment_timestamp: desc_nulls_last },`;
     break;
@@ -114,7 +114,7 @@ const loadMorePosts = () => {
     console.log("user has no followers")
     return
   }
-  fetchGraphQL(createQuery(sortOption, type), queryName, {
+  fetchGraphQL(createQuery(state.selectedTab, type), queryName, {
     offset: state.posts.length,
     limit: LIMIT
   }).then((result) => {
@@ -290,6 +290,13 @@ return (
                 selected={state.selectedTab === "following"}
               >
                 Following
+              </PillSelectButton>
+            <PillSelectButton
+                type="button"
+                onClick={() => selectTab("recentComments")}
+                selected={state.selectedTab === "recentComments"}
+              >
+                Recent Comments
               </PillSelectButton>
             </PillSelect>
           </FilterWrapper>
