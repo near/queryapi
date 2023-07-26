@@ -26,15 +26,21 @@ DATABASE="${ACCOUNT}_near"
 USER="$DATABASE"
 PASSWORD=$(openssl rand -base64 $PASSWORD_LENGTH | tr -d '/+' | cut -c 1-$PASSWORD_LENGTH)
 
-echo "Creating user $USER with password $PASSWORD"
-psql --command="CREATE USER \"$USER\" WITH PASSWORD '$PASSWORD';"
+DB_EXISTS=$(psql -t -c "SELECT 1 FROM pg_database WHERE datname='$DATABASE'")
+if [[ -z "$DB_EXISTS" ]]; then
+    echo "Database $DATABASE does not exist, creating it..."
 
-echo "Creating database $DATABASE..."
-createdb --owner="$USER" --template=template0 "$DATABASE"
+    echo "Creating user $USER with password $PASSWORD"
+    psql --command="CREATE USER \"$USER\" WITH PASSWORD '$PASSWORD';"
 
-echo "Restricting connection to database $DATABASE to $USER..."
-psql --command="REVOKE CONNECT ON DATABASE \"$DATABASE\" FROM PUBLIC;"
-psql --command="GRANT ALL PRIVILEGES ON DATABASE \"$DATABASE\" TO \"$USER\";"
+    createdb --owner="$USER" --template=template0 "$DATABASE"
+
+    echo "Restricting connection to database $DATABASE to $USER..."
+    psql --command="REVOKE CONNECT ON DATABASE \"$DATABASE\" FROM PUBLIC;"
+    psql --command="GRANT ALL PRIVILEGES ON DATABASE \"$DATABASE\" TO \"$USER\";"
+else
+    echo "Database $DATABASE already exists, skipping creation..."
+fi
 
 echo "Dumping schema $SCHEMA..."
 pg_dump --schema=$SCHEMA --file="$SCHEMA.sql"
