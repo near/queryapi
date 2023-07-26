@@ -147,16 +147,16 @@ export default class Provisioner {
 
         try {
             if (!await this.hasuraClient.doesSourceExist(databaseName)) {
-                // Untrack tables from old schema to prevent conflicts with new DB
-                const oldSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
-                if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, oldSchemaName)) {
-                    const tableNames = await this.getTableNames(oldSchemaName, HasuraClient.DEFAULT_DATABASE);
-                    await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, oldSchemaName, tableNames);
-                }
-
                 const password = this.generatePassword()
                 await this.createUserDb(userName, password, databaseName);
                 await this.addDatasource(userName, password, databaseName);
+            }
+
+            // Untrack tables from old schema to prevent conflicts with new DB
+            const oldSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+            if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, oldSchemaName)) {
+                const tableNames = await this.getTableNames(oldSchemaName, HasuraClient.DEFAULT_DATABASE);
+                await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, oldSchemaName, tableNames);
             }
 
             await this.createSchema(databaseName, schemaName);

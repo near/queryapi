@@ -109,7 +109,7 @@ describe('Provisioner', () => {
             );
         });
 
-        it('untracks tables from the previous schema if it exists', async () => {
+        it('untracks tables from the previous schema if they exists', async () => {
             hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
 
             const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
