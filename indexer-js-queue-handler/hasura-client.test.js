@@ -7,10 +7,6 @@ describe('HasuraClient', () => {
 
     const HASURA_ENDPOINT = 'mock-hasura-endpoint';
     const HASURA_ADMIN_SECRET = 'mock-hasura-admin-secret';
-
-    const PG_ADMIN_USER = 'postgres'
-    const PG_ADMIN_PASSWORD = 'postgrespassword'
-    const PG_ADMIN_DATABASE = 'postgres'
     const PG_HOST = 'localhost'
     const PG_PORT = 5432
 
@@ -19,9 +15,6 @@ describe('HasuraClient', () => {
             ...oldEnv,
             HASURA_ENDPOINT,
             HASURA_ADMIN_SECRET,
-            PG_ADMIN_USER,
-            PG_ADMIN_PASSWORD,
-            PG_ADMIN_DATABASE,
             PG_HOST,
             PG_PORT,
         };
