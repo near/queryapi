@@ -1,42 +1,28 @@
 import VError from "verror";
-import pg from "pg";
 import cryptoModule from "crypto";
-import pgFormatModule from "pg-format";
 
 import HasuraClient from "./hasura-client.js";
+import PgClient from './pg-client.js'
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
-const pool = new pg.Pool({
+const sharedPgClient = new PgClient({
     user: process.env.PG_ADMIN_USER,
     password: process.env.PG_ADMIN_PASSWORD,
     database: process.env.PG_ADMIN_DATABASE,
     host: process.env.PG_HOST,
     port: process.env.PG_PORT,
-    max: 10, 
-    idleTimeoutMillis: 30000,
 });
 
 export default class Provisioner {
     constructor(
         hasuraClient = new HasuraClient(),
-        pgPool = pool,
+        pgClient = sharedPgClient,
         crypto = cryptoModule,
-        pgFormat = pgFormatModule
     ) {
         this.hasuraClient = hasuraClient;
-        this.pgPool = pgPool;
+        this.pgClient = pgClient;
         this.crypto = crypto;
-        this.pgFormat = pgFormat;
-    }
-
-    async query(query, params = []) {
-        const client = await this.pgPool.connect();
-        try {
-            await client.query(query, params);
-        } finally {
-            client.release();
-        }
     }
 
     generatePassword(length = DEFAULT_PASSWORD_LENGTH) {
@@ -49,16 +35,16 @@ export default class Provisioner {
     }
 
     async createDatabase(name) {
-        await this.query(this.pgFormat('CREATE DATABASE %I', name));
+        await this.pgClient.query(this.pgClient.format('CREATE DATABASE %I', name));
     }
 
     async createUser(name, password) {
-        await this.query(this.pgFormat(`CREATE USER %I WITH PASSWORD %L`, name, password))
+        await this.pgClient.query(this.pgClient.format(`CREATE USER %I WITH PASSWORD %L`, name, password))
     }
 
     async restrictUserToDatabase(databaseName, userName) {
-        await this.query(this.pgFormat('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
-        await this.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
+        await this.pgClient.query(this.pgClient.format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
+        await this.pgClient.query(this.pgClient.format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
     }
 
     async createUserDb(userName, password, databaseName) {
