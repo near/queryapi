@@ -318,6 +318,30 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         ]);
     });
 
+    test('Indexer.buildImperativeContextForFunction() can fetch from the near social api', async () => {
+        const mockFetch = jest.fn();
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, awsXray: mockAwsXray, metrics: mockMetrics });
+
+        const context = indexer.buildImperativeContextForFunction();
+
+        await context.fetchFromSocialApi('/index', {
+            method: 'POST',
+            headers: {
+                ['Content-Type']: 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'post',
+                key: 'main',
+                options: {
+                    limit: 1,
+                    order: 'desc'
+                }
+            })
+        });
+
+        expect(mockFetch.mock.calls).toMatchSnapshot();
+    });
+
     test('Indexer.buildImperativeContextForFunction() throws when a GraphQL response contains errors', async () => {
         const mockFetch = jest.fn()
             .mockResolvedValue({
@@ -480,14 +504,14 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
 
     test('Indexer.runFunctions() console.logs', async () => {
         const logs = []
-        const context = {log: (m) => {
-            logs.push(m)
+        const context = {log: (...m) => {
+            logs.push(...m)
         }};
         const vm = new VM();
         vm.freeze(context, 'context');
         vm.freeze(context, 'console');
-        await vm.run('console.log("hello"); context.log("world")');
-        expect(logs).toEqual(['hello','world']);
+        await vm.run('console.log("hello", "brave new"); context.log("world")');
+        expect(logs).toEqual(['hello','brave new','world']);
     });
 
     test("Errors thrown in VM can be caught outside the VM", async () => {
@@ -821,7 +845,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         };
         await indexer.runFunctions(block_height, functions, false);
 
-        expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', block_height);
+        expect(metrics.putBlockHeight).toHaveBeenCalledWith('buildnear.testnet', 'test', false, block_height);
     });
 
     test('does not attach the hasura admin secret header when no role specified', async () => {
@@ -893,6 +917,49 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 body: JSON.stringify({ query: mutation })
             }
         ]);
+    });
+
+    test('allows writing of custom metrics', async () => {
+        const mockFetch = jest.fn(() => ({
+            status: 200,
+            json: async () => ({
+                errors: null,
+            }),
+        }));
+        const block_height = 456;
+        const mockS3 = {
+            getObject: jest.fn(() => ({
+                promise: () => Promise.resolve({
+                    Body: {
+                        toString: () => JSON.stringify({
+                            chunks: [],
+                            header: {
+                                height: block_height
+                            }
+                        })
+                    }
+                })
+            })),
+        };
+        const metrics = {
+            putBlockHeight: () => {},
+            putCustomMetric: jest.fn(),
+        };
+        const indexer = new Indexer('mainnet', { fetch: mockFetch, s3: mockS3, awsXray: mockAwsXray, metrics });
+
+        const functions = {};
+        functions['buildnear.testnet/test'] = {code:`
+            context.putMetric('TEST_METRIC', 1)
+        `};
+        await indexer.runFunctions(block_height, functions, true, { imperative: true });
+
+        expect(metrics.putCustomMetric).toHaveBeenCalledWith(
+            'buildnear.testnet',
+            'test',
+            true,
+            'CUSTOM_TEST_METRIC',
+            1
+        );
     });
 
     // The unhandled promise causes problems with test reporting.

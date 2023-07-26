@@ -51,11 +51,11 @@ const IndexerConfigOptions = ({ updateConfig }) => {
         <InputGroup.Text> Indexer Name  </InputGroup.Text>
         <Form.Control
           type="text"
-          placeholder="Indexer Name"
+          placeholder="indexer_name"
           aria-label="IndexerName"
           value={indexerNameField}
           disabled={!isCreateNewIndexer && showPublishModal}
-          onChange={(e) => setIndexerNameField(e.target.value)}
+          onChange={(e) => setIndexerNameField(e.target.value.toLowerCase().trim())}
         />
       </InputGroup>
         <InputGroup size="sm" className="pt-3">

@@ -6,6 +6,7 @@
   "name": "Near Query API waitlist",
   "tags": {
     "indexers": "",
-    "data-platform": ""
+    "data-platform": "",
+    "waitlist": ""
   }
 }

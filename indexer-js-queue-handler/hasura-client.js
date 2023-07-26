@@ -230,7 +230,7 @@ export default class HasuraClient {
                 check: {},
                 computed_fields: [],
                 filter: {},
-                ...(permission == 'select' && { allow_aggregations: true })
+                ...(permission === "select" && { allow_aggregations: true })
               },
               source: 'default'
             },

@@ -34,6 +34,7 @@ const Editor = ({
     debugMode,
     isCreateNewIndexer,
     indexerNameField,
+    setAccountId,
   } = useContext(IndexerDetailsContext);
 
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`
@@ -90,28 +91,6 @@ const Editor = ({
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
-  // useEffect(() => {
-  //   if (selectedOption == "latestBlockHeight") {
-  //     setBlockHeightError(null);
-  //     return;
-  //   }
-  //
-  //   if (height - blockHeight > BLOCKHEIGHT_LIMIT) {
-  //     setBlockHeightError(
-  //       `Warning: Please enter a valid start block height. At the moment we only support historical indexing of the last ${BLOCKHEIGHT_LIMIT} blocks or ${BLOCKHEIGHT_LIMIT / 3600
-  //       } hrs. Choose a start block height between ${height - BLOCKHEIGHT_LIMIT
-  //       } - ${height}.`
-  //     );
-  //   } else if (blockHeight > height) {
-  //     setBlockHeightError(
-  //       `Warning: Start Block Hieght can not be in the future. Please choose a value between ${height - BLOCKHEIGHT_LIMIT
-  //       } - ${height}.`
-  //     );
-  //   } else {
-  //     setBlockHeightError(null);
-  //   }
-  // }, [blockHeight, height, selectedOption]);
-
   const checkSQLSchemaFormatting = () => {
     try {
       let formatted_sql = formatSQL(schema);
@@ -127,10 +106,21 @@ const Editor = ({
     }
   };
 
+
+  const forkIndexer = async(indexerName) => {
+      let code = indexingCode;
+      setAccountId(currentUserAccountId)
+      let prevAccountId = indexerDetails.accountId.replaceAll(".", "_");
+      let newAccountId = currentUserAccountId.replaceAll(".", "_");
+      let prevIndexerName = indexerDetails.indexerName.replaceAll("-", "_").trim().toLowerCase();
+      let newIndexerName = indexerName.replaceAll("-", "_").trim().toLowerCase();
+      code = code.replaceAll(prevAccountId, newAccountId);
+      code = code.replaceAll(prevIndexerName, newIndexerName);
+      setIndexingCode(formatIndexingCode(code))
+  }
+
   const registerFunction = async (indexerName, indexerConfig) => {
     let formatted_schema = checkSQLSchemaFormatting();
-    let isForking = indexerDetails.accountId !== currentUserAccountId;
-
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerName = indexerName.replaceAll(" ", "_");
     if (formatted_schema == undefined) {
@@ -140,14 +130,6 @@ const Editor = ({
       );
       return;
     }
-
-    if (isForking) {
-      let prevAccountName = indexerDetails.accountId.replace(".", "_");
-      let newAccountName = currentUserAccountId.replace(".", "_");
-
-      innerCode = innerCode.replaceAll(prevAccountName, newAccountName);
-    }
-
     setError(() => undefined);
 
     request("register-function", {
@@ -170,8 +152,8 @@ const Editor = ({
   const handleReload = async () => {
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
-      setIndexingCode(defaultCode);
-      setSchema(defaultSchema);
+      setIndexingCode((formatIndexingCode(indexerDetails.code)));
+      setSchema(formatSQL(indexerDetails.schema))
       return;
     }
 
@@ -331,7 +313,7 @@ const Editor = ({
         blockHeightError={blockHeightError}
       />
       <ForkIndexerModal
-        registerFunction={registerFunction}
+        forkIndexer={forkIndexer}
       />
 
       <div

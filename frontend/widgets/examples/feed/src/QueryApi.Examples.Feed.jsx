@@ -1,14 +1,9 @@
-
 const GRAPHQL_ENDPOINT =
-  props.GRAPHQL_ENDPOINT || "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
 const APP_OWNER = props.APP_OWNER || "dataplatform.near";
-const LIMIT = 10;
-const option = props.postsOrderOption ?? "blockHeight";
-
-State.init({
-  posts: [],
-  postsCount: 0,
-});
+const loadMorePosts = props.loadMorePosts;
+const hasMore = props.hasMore || false;
+const posts = props.posts || [];
 
 const Subheading = styled.h2`
   display: block;
@@ -24,55 +19,6 @@ const Subheading = styled.h2`
   outline: none;
 `;
 
-let querySortFilter = "";
-switch (option) {
-  case "recentComments":
-    querySortFilter = `{ last_comment_timestamp: desc_nulls_last },`;
-    break;
-  // More options...
-  default:
-    querySortFilter = "";
-}
-
-const indexerQueries = `
-  query GetPostsQuery($offset: Int) {
-  roshaan_near_feed_indexer_posts(order_by: [${querySortFilter} { block_height: desc }], offset: $offset, limit: ${LIMIT}) {
-    account_id
-    block_height
-    block_timestamp
-    content
-    receipt_id
-    accounts_liked
-    last_comment_timestamp
-    comments(order_by: {block_height: asc}) {
-      account_id
-      block_height
-      block_timestamp
-      content
-    }
-  }
-  roshaan_near_feed_indexer_posts_aggregate {
-    aggregate {
-      count
-    }
-  }
-}
-`;
-
-function fetchGraphQL(operationsDoc, operationName, variables) {
-  return asyncFetch(
-    `${GRAPHQL_ENDPOINT}/v1/graphql`,
-    {
-      method: "POST",
-      headers: { "x-hasura-role": "roshaan_near" },
-      body: JSON.stringify({
-        query: operationsDoc,
-        variables: variables,
-        operationName: operationName,
-      }),
-    }
-  );
-}
 
 const Post = styled.div`
   border-bottom: 1px solid #ECEEF0;
@@ -105,34 +51,27 @@ const renderItem = (item, i) => {
   );
 };
 
-const loadMorePosts = () => {
-  fetchGraphQL(indexerQueries, "GetPostsQuery", {
-    offset: state.posts.length,
-  }).then((result) => {
-    if (result.status === 200) {
-      let data = result.body.data;
-      if (data) {
-        const newPosts = data.roshaan_near_feed_indexer_posts;
-        console.log(newPosts);
-        const postsCount =
-          data.roshaan_near_feed_indexer_posts_aggregate.aggregate.count;
-        if (newPosts.length > 0) {
-          State.update({
-            posts: [...state.posts, ...newPosts],
-            postsCount: postsCount,
-          });
-        }
-      }
-    }
-  });
-};
+const renderedItems = posts.map(renderItem);
 
-const renderedItems = state.posts.map(renderItem);
+const Loader = () => {
+return(        
+  <div className="loader">
+    <span
+      className="spinner-grow spinner-grow-sm me-1"
+      role="status"
+      aria-hidden="true"
+    />
+    Loading ...
+  </div>)
+}
+
+if (!posts) return(<Loader/>)
+
 return (
   <InfiniteScroll
     pageStart={0}
     loadMore={loadMorePosts}
-    hasMore={state.posts.length < state.postsCount || state.posts.length == 0}
+    hasMore={hasMore}
     loader={
       <div className="loader">
         <span

@@ -1,46 +1,41 @@
 import React, { useContext, useState } from "react";
-import { Button, Modal, Alert } from "react-bootstrap";
+import { Button, Modal, Alert, InputGroup, Form  } from "react-bootstrap";
 import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
-import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import { validateContractId } from "../../utils/validators";
 
-export const ForkIndexerModal = ({
-  registerFunction,
-}) => {
+export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
   const {
     indexerDetails,
     showForkIndexerModal,
     setShowForkIndexerModal,
+    setIsCreateNewIndexer,
+    setIndexerName,
+    setIndexerConfig,
+    isCreateNewIndexer,
   } = useContext(IndexerDetailsContext);
-  const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null })
-  const [indexerName, setIndexerName] = useState("")
-  const [error, setError] = useState(null)
+  const [indexerName, setIndexerNameField] = useState("");
+  const [error, setError] = useState(null);
 
-  const updateConfig = (indexerName, filter, startBlockHeight, option) => {
-    let finalStartBlockHeight = option === "latestBlockHeight" ? null : startBlockHeight;
-    setIndexerConfig({ filter, startBlockHeight: finalStartBlockHeight })
-    setIndexerName(indexerName)
-  }
-  const register = async () => {
+  const fork = async () => {
     if (!indexerName) {
-      setError("Please provide an Indexer Name")
-      return
+      setError("Please provide an Indexer Name");
+      return;
     }
 
     if (indexerName === indexerDetails.indexerName) {
-      setError("Please provide a different Indexer Name than the orginal Indexer")
-      return
+      setError(
+        "Please provide a different Indexer Name than the orginal Indexer"
+      );
+      return;
     }
 
-
-    if (!validateContractId(indexerConfig.filter)) {
-      setError("Please provide a valid contract name")
-      return
-    }
-    setError(null)
-    registerFunction(indexerName, indexerConfig)
-    setShowForkIndexerModal(false)
-  }
+    setError(null);
+    setIndexerName(indexerName);
+    setIsCreateNewIndexer(true);
+    forkIndexer(indexerName);
+    setShowForkIndexerModal(false);
+  };
 
   return (
     <Modal
@@ -52,7 +47,16 @@ export const ForkIndexerModal = ({
         <Modal.Title> Enter Indexer Details</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <IndexerConfigOptions updateConfig={updateConfig} />
+        <InputGroup size="sm">
+          <InputGroup.Text> Indexer Name </InputGroup.Text>
+          <Form.Control
+            type="text"
+            placeholder="indexer_name"
+            aria-label="IndexerName"
+            value={indexerName}
+            onChange={(e) => setIndexerNameField(e.target.value.trim().toLowerCase())}
+          />
+        </InputGroup>
         {error && (
           <Alert className="px-3 mt-3" variant="danger">
             {error}
@@ -60,11 +64,14 @@ export const ForkIndexerModal = ({
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={() => setShowPublishModal(false)}>
+        <Button
+          variant="secondary"
+          onClick={() => setShowForkIndexerModal(false)}
+        >
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => register()}>
-          Fork Your Own Indexer
+        <Button variant="primary" onClick={() => fork()}>
+          Fork Indexer
         </Button>
       </Modal.Footer>
     </Modal>

@@ -1,7 +1,6 @@
-
 const GRAPHQL_ENDPOINT =
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
-const APP_OWNER = "dev-queryapi.dataplatform.near";
+  props.GRAPHQL_ENDPOINT || "https://near-queryapi.api.pagoda.co";
+const APP_OWNER = props.APP_OWNER || "dataplatform.near";
 const item = props.item;
 
 const likes = JSON.parse(props.likes?.length ? props.likes : "[]") ?? [];
