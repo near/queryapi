@@ -58,8 +58,11 @@ export default class Provisioner {
     }
 
     async isUserApiProvisioned(accountId, functionName) {
-        const databaseName = this.replaceSpecialChars(accountId);
-        const schemaName = this.replaceSpecialChars(functionName);
+        const sanitizedAccountId = this.replaceSpecialChars(accountId);
+        const sanitizedFunctionName = this.replaceSpecialChars(functionName);
+
+        const databaseName = sanitizedAccountId;
+        const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
         const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
         if (!sourceExists) {

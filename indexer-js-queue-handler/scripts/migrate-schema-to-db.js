@@ -1,9 +1,9 @@
-// export HASURA_ENDPOINT='https://queryapi-hasura-graphql-vcqilefdcq-ew.a.run.app'
+// export HASURA_ENDPOINT=''
 // export HASURA_ADMIN_SECRET=''
 // export PG_ADMIN_USER='hasura'
 // export PG_ADMIN_PASSWORD=''
 // export PG_ADMIN_DATABASE='postgres'
-// export PG_HOST=''
+// export PG_HOST='104.199.4.194'
 // export PG_PORT=5432
 // export CHAIN_ID='mainnet'
 // export ENV='dev'
