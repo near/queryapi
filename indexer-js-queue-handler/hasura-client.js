@@ -130,16 +130,19 @@ export default class HasuraClient {
   } 
 
   async untrackTables(source, schema, tableNames, cascade = true) {
-    return this.executeMetadataRequest('pg_untrack_tables', {
-      tables: tableNames.map((name) => ({
-        table: {
-          schema,
-          name,
-        },
-        source,
-        cascade,
+    return this.executeBulkMetadataRequest(
+      tableNames.map((name) => ({
+        type: 'pg_untrack_table',
+        args: {
+          table: {
+            schema,
+            name,
+          },
+          source,
+          cascade,
+        }
       }))
-    });
+    );
   }
 
   async getForeignKeys(schemaName, source) {
