@@ -1,14 +1,12 @@
-process.env.HASURA_ENDPOINT = 'http://localhost:8080'
-process.env.HASURA_ADMIN_SECRET = 'myadminsecretkey'
-
-process.env.PG_ADMIN_USER = 'postgres'
-process.env.PG_ADMIN_PASSWORD = 'postgrespassword'
-process.env.PG_ADMIN_DATABASE = 'postgres'
-process.env.PG_HOST = 'localhost'
-process.env.PG_PORT = 5432
-
-process.env.CHAIN_ID = 'mainnet'
-process.env.ENV = 'dev'
+// export HASURA_ENDPOINT='https://queryapi-hasura-graphql-vcqilefdcq-ew.a.run.app'
+// export HASURA_ADMIN_SECRET=''
+// export PG_ADMIN_USER='hasura'
+// export PG_ADMIN_PASSWORD=''
+// export PG_ADMIN_DATABASE='postgres'
+// export PG_HOST=''
+// export PG_PORT=5432
+// export CHAIN_ID='mainnet'
+// export ENV='dev'
 
 import { execSync } from 'child_process'
 import { providers } from 'near-api-js'
@@ -59,8 +57,8 @@ const schemaName = sanitizedFunctionName;
 
 const existingSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
+const password = provisioner.generatePassword()
 if (!await provisioner.hasuraClient.doesSourceExist(databaseName)) {
-    const password = provisioner.generatePassword()
     console.log(`Creating user: ${userName} and database: ${databaseName} with password: ${password}`);
     await provisioner.createUserDb(userName, password, databaseName);
     console.log('Adding datasource to Hasura')
@@ -77,13 +75,19 @@ await provisioner.createSchema(databaseName, existingSchemaName);
 await provisioner.runMigrations(databaseName, existingSchemaName, databaseSchema);
 
 console.log('Dumping existing data');
-execSync(`pg_dump --data-only --schema=${existingSchemaName} --file="${existingSchemaName}.sql"`);
+execSync(
+    `pg_dump ${`postgres://${process.env.PG_ADMIN_USER}:${process.env.PG_ADMIN_PASSWORD}@${process.env.PG_HOST}:${process.env.PG_PORT}/${process.env.PG_ADMIN_DATABASE}`} --data-only --schema=${existingSchemaName} --file="${existingSchemaName}.sql"`
+);
 
 console.log(`Restoring data to schema ${existingSchemaName} in DB ${databaseName}`);
-execSync(`psql --dbname=${databaseName} < "${existingSchemaName}.sql"`);
+execSync(
+    `psql ${`postgres://${userName}:${password}@${process.env.PG_HOST}:${process.env.PG_PORT}/${databaseName}`} < "${existingSchemaName}.sql"`
+);
 
 console.log(`Renaming schema ${existingSchemaName} to ${schemaName}`);
-execSync(`psql --dbname=${databaseName} --command="ALTER SCHEMA \"${existingSchemaName}\" RENAME TO \"${schemaName}\";"`)
+execSync(
+    `psql ${`postgres://${userName}:${password}@${process.env.PG_HOST}:${process.env.PG_PORT}/${databaseName}`} --command="ALTER SCHEMA \"${existingSchemaName}\" RENAME TO \"${schemaName}\";"`
+)
 
 console.log('Tracking tables');
 await provisioner.trackTables(schemaName, tableNames, databaseName);
