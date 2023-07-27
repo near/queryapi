@@ -17,7 +17,7 @@ describe('Provisioner', () => {
     const databaseSchema = 'CREATE TABLE blocks (height numeric)';
     const error = new Error('some error');
     const defaultDatabase = 'default';
-    const oldSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
     const password = 'password';
     const crypto = {
@@ -91,12 +91,12 @@ describe('Provisioner', () => {
                 ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC'],
             ]);
             expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
-            expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName);
-            expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName, databaseSchema);
-            expect(hasuraClient.getTableNames).toBeCalledWith(sanitizedFunctionName, sanitizedAccountId);
-            expect(hasuraClient.trackTables).toBeCalledWith(sanitizedFunctionName, tableNames, sanitizedAccountId);
+            expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
+            expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
+            expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
+            expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
             expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
-                sanitizedFunctionName,
+                schemaName,
                 sanitizedAccountId,
                 tableNames,
                 sanitizedAccountId,
@@ -116,8 +116,8 @@ describe('Provisioner', () => {
 
             await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
 
-            expect(hasuraClient.getTableNames).toBeCalledWith(oldSchemaName, defaultDatabase)
-            expect(hasuraClient.untrackTables).toBeCalledWith(defaultDatabase, oldSchemaName, tableNames);
+            expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, defaultDatabase)
+            expect(hasuraClient.untrackTables).toBeCalledWith(defaultDatabase, schemaName, tableNames);
         });
 
         it('skips provisioning the datasource if it already exists', async () => {
@@ -130,12 +130,12 @@ describe('Provisioner', () => {
             expect(pgClient.query).not.toBeCalled();
             expect(hasuraClient.addDatasource).not.toBeCalled();
 
-            expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName);
-            expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, sanitizedFunctionName, databaseSchema);
-            expect(hasuraClient.getTableNames).toBeCalledWith(sanitizedFunctionName, sanitizedAccountId);
-            expect(hasuraClient.trackTables).toBeCalledWith(sanitizedFunctionName, tableNames, sanitizedAccountId);
+            expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
+            expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
+            expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
+            expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
             expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
-                sanitizedFunctionName,
+                schemaName,
                 sanitizedAccountId,
                 tableNames,
                 sanitizedAccountId,

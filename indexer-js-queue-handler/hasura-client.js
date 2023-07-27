@@ -293,14 +293,6 @@ export default class HasuraClient {
           },
         },
       },
-      customization: {
-        root_fields: {
-          prefix: `${userName}_`,
-        },
-        type_names: {
-          prefix: `${userName}_`,
-        },
-      },
     });
   }
 }

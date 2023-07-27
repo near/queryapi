@@ -143,7 +143,7 @@ export default class Provisioner {
 
         const databaseName = sanitizedAccountId;
         const userName = sanitizedAccountId;
-        const schemaName = sanitizedFunctionName;
+        const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
         try {
             if (!await this.hasuraClient.doesSourceExist(databaseName)) {
@@ -153,10 +153,9 @@ export default class Provisioner {
             }
 
             // Untrack tables from old schema to prevent conflicts with new DB
-            const oldSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
-            if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, oldSchemaName)) {
-                const tableNames = await this.getTableNames(oldSchemaName, HasuraClient.DEFAULT_DATABASE);
-                await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, oldSchemaName, tableNames);
+            if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
+                const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
+                await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
             }
 
             await this.createSchema(databaseName, schemaName);
