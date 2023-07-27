@@ -53,9 +53,7 @@ const sanitizedFunctionName = provisioner.replaceSpecialChars(functionName);
 
 const databaseName = sanitizedAccountId;
 const userName = sanitizedAccountId;
-const schemaName = sanitizedFunctionName;
-
-const existingSchemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
 const password = provisioner.generatePassword()
 if (!await provisioner.hasuraClient.doesSourceExist(databaseName)) {
@@ -65,29 +63,24 @@ if (!await provisioner.hasuraClient.doesSourceExist(databaseName)) {
     await provisioner.addDatasource(userName, password, databaseName);
 }
 
-const tableNames = await provisioner.getTableNames(existingSchemaName, HasuraClient.DEFAULT_DATABASE);
+const tableNames = await provisioner.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
 
 console.log('Untracking existing tables')
-await provisioner.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, existingSchemaName, tableNames);
+await provisioner.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
 
-console.log(`Restoring existing schema ${existingSchemaName} in new DB ${databaseName}`);
-await provisioner.createSchema(databaseName, existingSchemaName);
-await provisioner.runMigrations(databaseName, existingSchemaName, databaseSchema);
+console.log(`Restoring existing schema ${schemaName} in new DB ${databaseName}`);
+await provisioner.createSchema(databaseName, schemaName);
+await provisioner.runMigrations(databaseName, schemaName, databaseSchema);
 
 console.log('Dumping existing data');
 execSync(
-    `pg_dump ${`postgres://${process.env.PG_ADMIN_USER}:${process.env.PG_ADMIN_PASSWORD}@${process.env.PG_HOST}:${process.env.PG_PORT}/${process.env.PG_ADMIN_DATABASE}`} --data-only --schema=${existingSchemaName} --file="${existingSchemaName}.sql"`
+    `pg_dump ${`postgres://${process.env.PG_ADMIN_USER}:${process.env.PG_ADMIN_PASSWORD}@${process.env.PG_HOST}:${process.env.PG_PORT}/${process.env.PG_ADMIN_DATABASE}`} --data-only --schema=${schemaName} --file="${schemaName}.sql"`
 );
 
-console.log(`Restoring data to schema ${existingSchemaName} in DB ${databaseName}`);
+console.log(`Restoring data to schema ${schemaName} in DB ${databaseName}`);
 execSync(
-    `psql ${`postgres://${userName}:${password}@${process.env.PG_HOST}:${process.env.PG_PORT}/${databaseName}`} < "${existingSchemaName}.sql"`
+    `psql ${`postgres://${userName}:${password}@${process.env.PG_HOST}:${process.env.PG_PORT}/${databaseName}`} < "${schemaName}.sql"`
 );
-
-console.log(`Renaming schema ${existingSchemaName} to ${schemaName}`);
-execSync(
-    `psql ${`postgres://${userName}:${password}@${process.env.PG_HOST}:${process.env.PG_PORT}/${databaseName}`} --command="ALTER SCHEMA \"${existingSchemaName}\" RENAME TO \"${schemaName}\";"`
-)
 
 console.log('Tracking tables');
 await provisioner.trackTables(schemaName, tableNames, databaseName);

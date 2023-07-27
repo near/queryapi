@@ -16,14 +16,6 @@ exports[`HasuraClient adds a datasource 1`] = `
         },
       },
     },
-    "customization": {
-      "root_fields": {
-        "prefix": "morgs_near_",
-      },
-      "type_names": {
-        "prefix": "morgs_near_",
-      },
-    },
     "name": "morgs_near",
   },
   "type": "pg_add_source",
