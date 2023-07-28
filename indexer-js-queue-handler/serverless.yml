@@ -7,12 +7,17 @@ provider:
   name: aws
   runtime: nodejs16.x
   region: eu-central-1
-  timeout: 15
+  timeout: 120
   environment:
     REGION: ${self:provider.region}
     STAGE: ${opt:stage, 'dev'}
     HASURA_ENDPOINT: ${env:HASURA_ENDPOINT}
     HASURA_ADMIN_SECRET: ${env:HASURA_ADMIN_SECRET}
+    PG_ADMIN_USER: ${env:PG_ADMIN_USER}
+    PG_ADMIN_PASSWORD: ${env:PG_ADMIN_PASSWORD}
+    PG_ADMIN_DATABASE: ${env:PG_ADMIN_DATABASE}
+    PG_HOST: ${env:PG_HOST}
+    PG_PORT: ${env:PG_PORT}
   tracing:
     lambda: true #enable X-Ray tracing
   iamRoleStatements:
@@ -30,7 +35,7 @@ constructs:
     maxRetries: 1
     worker:
       handler: handler.consumer
-      timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
+      timeout: 120 # 12 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
   startFromBlock-runner:
     type: queue
     fifo: true
@@ -38,7 +43,7 @@ constructs:
     #    batchSize: 100
     worker:
       handler: handler.consumer
-      timeout: 15 # 1.5 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
+      timeout: 120 # 12 minutes as lift multiplies this value by 6 (https://github.com/getlift/lift/blob/master/docs/queue.md#retry-delay)
 
 functions:
   socialLagMetricsWriter:
