@@ -22,7 +22,7 @@ export default class PgClient {
     async query(query, params = []) {
         const client = await this.pgPool.connect();
         try {
-            await client.query(query, params);
+            return await client.query(query, params);
         } finally {
             client.release();
         }
