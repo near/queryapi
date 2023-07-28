@@ -80,12 +80,13 @@ mod tests {
             historical_block_processing::last_indexed_block_from_metadata(aws_config)
                 .await
                 .unwrap();
-        historical_block_processing::process_historical_messages(
+        let result = historical_block_processing::process_historical_messages(
             fake_block_height + 1,
             indexer_function,
             opts,
         )
         .await;
+        assert!(result.unwrap() > 0);
     }
 
     /// Parses env vars from .env, Run with
@@ -103,6 +104,15 @@ mod tests {
             id: None,
             name: None,
         };
+        let indexer_function = IndexerFunction {
+            account_id: "buildnear.testnet".to_string().parse().unwrap(),
+            function_name: "index_stuff".to_string(),
+            code: "".to_string(),
+            start_block_height: Some(85376002),
+            schema: None,
+            provisioned: false,
+            indexer_rule: filter_rule,
+        };
 
         let opts = Opts::test_opts_with_aws();
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
@@ -115,15 +125,25 @@ mod tests {
         let datetime_utc = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
         let blocks = filter_matching_blocks_from_index_files(
             start_block_height,
-            &filter_rule,
+            &indexer_function,
             aws_config,
             datetime_utc,
         )
         .await;
 
-        // // remove any blocks from after when the test was written -- not working, due to new contracts?
-        // let fixed_blocks: Vec<BlockHeight> = blocks.into_iter().filter(|&b| b <= 95175853u64).collect(); // 95175853u64  95242647u64
-        assert!(blocks.len() >= 71899);
+        match blocks {
+            Ok(blocks) => {
+                // remove any blocks from after when the test was written
+                let fixed_blocks: Vec<BlockHeight> =
+                    blocks.into_iter().filter(|&b| b <= 95175853u64).collect();
+                println!("Found {} blocks", fixed_blocks.len());
+                assert!(fixed_blocks.len() >= 71899);
+            }
+            Err(e) => {
+                println!("Error: {:?}", e);
+                assert!(false);
+            }
+        }
     }
 
     /// Parses env vars from .env, Run with
@@ -141,6 +161,15 @@ mod tests {
             id: None,
             name: None,
         };
+        let indexer_function = IndexerFunction {
+            account_id: "buildnear.testnet".to_string().parse().unwrap(),
+            function_name: "index_stuff".to_string(),
+            code: "".to_string(),
+            start_block_height: Some(85376002),
+            schema: None,
+            provisioned: false,
+            indexer_rule: filter_rule,
+        };
 
         let opts = Opts::test_opts_with_aws();
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
@@ -153,11 +182,12 @@ mod tests {
         let datetime_utc = DateTime::<Utc>::from_utc(naivedatetime_utc, Utc);
         let blocks = filter_matching_blocks_from_index_files(
             start_block_height,
-            &filter_rule,
+            &indexer_function,
             aws_config,
             datetime_utc,
         )
         .await;
+        let blocks = blocks.unwrap();
 
         // remove any blocks from after when the test was written
         let fixed_blocks: Vec<BlockHeight> =

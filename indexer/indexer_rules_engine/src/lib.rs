@@ -30,8 +30,8 @@ pub fn reduce_indexer_rule_matches_sync(
     indexer_rule: &IndexerRule,
     streamer_message: &StreamerMessage,
     chain_id: ChainId,
-) -> anyhow::Result<Vec<IndexerRuleMatch>> {
-    Ok(match &indexer_rule.matching_rule {
+) -> Vec<IndexerRuleMatch> {
+    match &indexer_rule.matching_rule {
         MatchingRule::ActionAny { .. }
         | MatchingRule::ActionFunctionCall { .. }
         | MatchingRule::Event { .. } => {
@@ -39,7 +39,7 @@ pub fn reduce_indexer_rule_matches_sync(
                 indexer_rule,
                 streamer_message,
                 chain_id,
-            )?
+            )
         }
-    })
+    }
 }
