@@ -40,3 +40,9 @@ pub struct IndexerFunction {
     pub provisioned: bool,
     pub indexer_rule: IndexerRule,
 }
+
+impl IndexerFunction {
+    pub fn get_full_name(&self) -> String {
+        format!("{}/{}", self.account_id, self.function_name)
+    }
+}
