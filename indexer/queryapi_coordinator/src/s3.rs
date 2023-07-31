@@ -31,8 +31,7 @@ pub async fn find_index_files_by_pattern(
             for account in account_array {
                 let account = account.trim();
                 let sub_results = if account.contains('*') {
-                    list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &account)
-                        .await?
+                    list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &account).await?
                 } else {
                     list_s3_bucket_by_prefix(
                         aws_config,
@@ -216,10 +215,10 @@ fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use crate::historical_block_processing::INDEXED_ACTIONS_FILES_FOLDER;
+    use crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET;
     use crate::opts::Opts;
     use crate::s3::{find_index_files_by_pattern, list_s3_bucket_by_prefix};
-    use crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET;
-    use crate::historical_block_processing::INDEXED_ACTIONS_FILES_FOLDER;
 
     /// Parses env vars from .env, Run with
     /// cargo test s3::tests::list_delta_bucket -- mainnet from-latest;
@@ -230,10 +229,7 @@ mod tests {
         let list = list_s3_bucket_by_prefix(
             &opts.lake_aws_sdk_config(),
             INDEXED_DATA_FILES_BUCKET,
-            &format!(
-                "{}/",
-                INDEXED_ACTIONS_FILES_FOLDER.to_string()
-            ),
+            &format!("{}/", INDEXED_ACTIONS_FILES_FOLDER.to_string()),
         )
         .await
         .unwrap();
