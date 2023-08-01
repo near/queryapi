@@ -7,7 +7,8 @@
     "build": "rm -rf ./dist && tsc",
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
-    "test": "node --experimental-vm-modules ./node_modules/.bin/jest"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest",
+    "lint": "eslint -c .eslintrc.js"
   },
   "keywords": [],
   "author": "",
