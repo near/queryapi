@@ -1,7 +1,7 @@
 import VError from 'verror';
 import cryptoModule from 'crypto';
-import HasuraClient from './hasura-client';
-import PgClient from './pg-client';
+import HasuraClient from '../hasura-client';
+import PgClient from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 

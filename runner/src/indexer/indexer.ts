@@ -3,7 +3,7 @@ import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives';
 
-import Provisioner from './provisioner';
+import Provisioner from '../provisioner';
 
 interface Dependencies {
   fetch: typeof fetch
