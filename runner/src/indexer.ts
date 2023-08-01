@@ -3,7 +3,7 @@ import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives';
 
-import Provisioner from './provisioner.js';
+import Provisioner from './provisioner';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -24,7 +24,7 @@ interface FunctionalContext {
 }
 
 interface ImperativeContext {
-  graphql: (operation: string, variables: Record<string, any>) => Promise<any>
+  graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
   log: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
@@ -383,13 +383,13 @@ export default class Indexer {
       });
   }
 
-  async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string, logError: boolean = true): Promise<any> {
+  async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
     const response: Response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Hasura-Use-Backend-Only-Permissions': 'true',
-        ...(hasuraRoleName !== '' && {
+        ...(hasuraRoleName && {
           'X-Hasura-Role': hasuraRoleName,
           'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
         }),
@@ -402,11 +402,11 @@ export default class Indexer {
 
     const { data, errors } = await response.json();
 
-    if (response.status !== 200 || errors !== undefined) {
+    if (response.status !== 200 || errors) {
       if (logError) {
         console.log(`${functionName}: Error writing graphql `, errors); // temporary extra logging
 
-        const message: string = errors !== undefined ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
+        const message: string = errors ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
         const mutation: string = `
                 mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
                 insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {

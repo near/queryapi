@@ -17,6 +17,7 @@ module.exports = {
   ],
   rules: {
     '@typescript-eslint/semi': ['error', 'always'],
-    '@typescript-eslint/comma-dangle': ['error', 'only-multiline']
+    '@typescript-eslint/comma-dangle': ['error', 'only-multiline'],
+    '@typescript-eslint/strict-boolean-expressions': 'off'
   }
 };
