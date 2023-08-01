@@ -111,7 +111,11 @@ async fn main() -> anyhow::Result<()> {
         })
         .buffer_unordered(1usize);
 
-    while let Some(_handle_message) = handlers.next().await {}
+    while let Some(handle_message) = handlers.next().await {
+        if let Err(err) = handle_message {
+            tracing::error!(target: INDEXER, "{:#?}", err);
+        }
+    }
     drop(handlers); // close the channel so the sender will stop
 
     // propagate errors from the sender
@@ -208,7 +212,7 @@ async fn handle_streamer_message(
                     &format!("{}:stream", indexer_function.get_full_name()),
                     &[("block_height", block_height)],
                 )
-                .await?
+                .await?;
             }
 
             stream::iter(indexer_function_messages.into_iter())
