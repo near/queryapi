@@ -4,13 +4,11 @@ import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives';
 
 import Provisioner from './provisioner.js';
-import Metrics from './metrics.js';
 
 interface Dependencies {
   fetch: typeof fetch
   s3: AWS.S3
   provisioner: Provisioner
-  metrics: Metrics
 };
 
 interface MutationsReturnValue {
@@ -29,7 +27,6 @@ interface ImperativeContext {
   graphql: (operation: string, variables: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
   log: (...log: any[]) => Promise<void>
-  putMetric: (name: string, value: any) => Promise<any>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
 }
 
@@ -55,7 +52,6 @@ export default class Indexer {
     this.deps = {
       fetch,
       s3: new AWS.S3({ region: process.env.REGION }),
-      metrics: new Metrics('QueryAPI'),
       provisioner: new Provisioner(),
       ...deps,
     };
@@ -82,7 +78,6 @@ export default class Indexer {
         console.log(runningMessage); // Print the running message to the console (Lambda logs)
 
         simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));
-        simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, isHistorical, blockHeight));
 
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
         const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
@@ -109,7 +104,7 @@ export default class Indexer {
         const vm = new VM({ timeout: 3000, allowAsync: true });
         const mutationsReturnValue: MutationsReturnValue = { mutations: [], variables: {}, keysValues: {} };
         const context = options.imperative === true
-          ? this.buildImperativeContextForFunction(functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName, isHistorical)
+          ? this.buildImperativeContextForFunction(functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName)
           : this.buildFunctionalContextForFunction(mutationsReturnValue, functionName, blockHeight);
 
         vm.freeze(blockWithHelpers, 'block');
@@ -285,7 +280,7 @@ export default class Indexer {
     };
   }
 
-  buildImperativeContextForFunction (functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string, isHistorical: boolean): ImperativeContext {
+  buildImperativeContextForFunction (functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string): ImperativeContext {
     return {
       graphql: async (operation, variables) => {
         console.log(`${functionName}: Running context graphql`, operation);
@@ -305,16 +300,6 @@ export default class Indexer {
       },
       log: async (...log) => {
         return await this.writeLog(functionName, blockHeight, ...log);
-      },
-      putMetric: (name, value) => {
-        const [accountId, fnName] = functionName.split('/');
-        return this.deps.metrics.putCustomMetric(
-          accountId,
-          fnName,
-          isHistorical,
-          `CUSTOM_${name}`,
-          value
-        );
       },
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
