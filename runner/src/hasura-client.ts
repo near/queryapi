@@ -250,51 +250,44 @@ export default class HasuraClient {
     }
 
     return await this.executeBulkMetadataRequest(
-      foreignKeys.map(fk => ({
-        type: 'create_array_relationship',
-        args: {
-          source,
-          table: {
-            schema: schemaName,
-            name: fk.table_name,
-          },
-          name: pluralize(fk.ref_table),
-          using: {
-            foreign_key_constraint_on: {
+      foreignKeys
+        .map((foreignKey) => ([
+          {
+            type: 'pg_create_array_relationship',
+            args: {
+              source,
+              name: foreignKey.table_name,
               table: {
+                name: foreignKey.ref_table,
                 schema: schemaName,
-                name: fk.ref_table,
               },
-              column: Object.values(fk.column_mapping)[0],
-            },
+              using: {
+                foreign_key_constraint_on: {
+                  table: {
+                    name: foreignKey.table_name,
+                    schema: schemaName,
+                  },
+                  column: Object.keys(foreignKey.column_mapping)[0],
+                }
+              },
+            }
           },
-        },
-      }))
-    );
-  }
-
-  async untrackForeignKeyRelationships (
-    schemaName: string,
-    source: string
-  ): Promise<any> {
-    const foreignKeys = await this.getForeignKeys(schemaName, source);
-
-    if (foreignKeys.length === 0) {
-      return;
-    }
-
-    return await this.executeBulkMetadataRequest(
-      foreignKeys.map(fk => ({
-        type: 'drop_relationship',
-        args: {
-          source,
-          table: {
-            schema: schemaName,
-            name: fk.table_name,
+          {
+            type: 'pg_create_object_relationship',
+            args: {
+              source,
+              name: pluralize.singular(foreignKey.ref_table),
+              table: {
+                name: foreignKey.table_name,
+                schema: schemaName,
+              },
+              using: {
+                foreign_key_constraint_on: Object.keys(foreignKey.column_mapping)[0],
+              },
+            }
           },
-          relationship: pluralize(fk.ref_table),
-        },
-      }))
+        ]))
+        .flat()
     );
   }
 

@@ -291,43 +291,71 @@ exports[`HasuraClient tracks foreign key relationships 2`] = `
   "args": [
     {
       "args": {
-        "name": "posts",
+        "name": "comments",
+        "source": "source",
+        "table": {
+          "name": "posts",
+          "schema": "public",
+        },
+        "using": {
+          "foreign_key_constraint_on": {
+            "column": "post_id",
+            "table": {
+              "name": "comments",
+              "schema": "public",
+            },
+          },
+        },
+      },
+      "type": "pg_create_array_relationship",
+    },
+    {
+      "args": {
+        "name": "post",
         "source": "source",
         "table": {
           "name": "comments",
           "schema": "public",
         },
         "using": {
+          "foreign_key_constraint_on": "post_id",
+        },
+      },
+      "type": "pg_create_object_relationship",
+    },
+    {
+      "args": {
+        "name": "post_likes",
+        "source": "source",
+        "table": {
+          "name": "posts",
+          "schema": "public",
+        },
+        "using": {
           "foreign_key_constraint_on": {
-            "column": "id",
+            "column": "post_id",
             "table": {
-              "name": "posts",
+              "name": "post_likes",
               "schema": "public",
             },
           },
         },
       },
-      "type": "create_array_relationship",
+      "type": "pg_create_array_relationship",
     },
     {
       "args": {
-        "name": "posts",
+        "name": "post",
         "source": "source",
         "table": {
           "name": "post_likes",
           "schema": "public",
         },
         "using": {
-          "foreign_key_constraint_on": {
-            "column": "id",
-            "table": {
-              "name": "posts",
-              "schema": "public",
-            },
-          },
+          "foreign_key_constraint_on": "post_id",
         },
       },
-      "type": "create_array_relationship",
+      "type": "pg_create_object_relationship",
     },
   ],
   "type": "bulk",
@@ -373,23 +401,6 @@ exports[`HasuraClient untracks the specified tables 1`] = `
       },
       "method": "POST",
     },
-  ],
-]
-`;
-
-exports[`Provisioner provisionUserApi formats user input before executing the query 1`] = `
-[
-  [
-    "CREATE DATABASE "databaseName UNION SELECT * FROM users --"",
-  ],
-  [
-    "CREATE USER morgs_near WITH PASSWORD 'pass; DROP TABLE users;--'",
-  ],
-  [
-    "GRANT ALL PRIVILEGES ON DATABASE "databaseName UNION SELECT * FROM users --" TO morgs_near",
-  ],
-  [
-    "REVOKE CONNECT ON DATABASE "databaseName UNION SELECT * FROM users --" FROM PUBLIC",
   ],
 ]
 `;
