@@ -70,7 +70,7 @@ export default class HasuraClient {
         body: JSON.stringify({
           type,
           args,
-          ...(version !== null && { version }),
+          ...(version && { version }),
         }),
       }
     );
