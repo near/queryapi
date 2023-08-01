@@ -82,7 +82,7 @@ export default class Indexer {
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
         const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
 
-        if (options.provision === true && indexerFunction.provisioned !== false) {
+        if (options.provision && !indexerFunction.provisioned) {
           try {
             if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
               await this.setStatus(functionName, blockHeight, 'PROVISIONING');
@@ -103,7 +103,7 @@ export default class Indexer {
 
         const vm = new VM({ timeout: 3000, allowAsync: true });
         const mutationsReturnValue: MutationsReturnValue = { mutations: [], variables: {}, keysValues: {} };
-        const context = options.imperative === true
+        const context = options.imperative
           ? this.buildImperativeContextForFunction(functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName)
           : this.buildFunctionalContextForFunction(mutationsReturnValue, functionName, blockHeight);
 
@@ -124,8 +124,9 @@ export default class Indexer {
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
+        console.log({ mutationsReturnValue });
 
-        if (options.imperative === true) {
+        if (!options.imperative) {
           console.log(`Function ${functionName} returned`, mutationsReturnValue); // debug output
           const writtenMutations = await this.writeMutations(functionName, functionNameWithoutAccount, mutationsReturnValue, blockHeight, hasuraRoleName); // await can be dropped once it's all tested so writes can happen in parallel
           if ((writtenMutations != null) && writtenMutations.length > 0) {
@@ -152,19 +153,9 @@ export default class Indexer {
   ): string {
     if (Object.keys(keysValues).length === 0) return '';
 
-    return `mutation writeKeyValues($function_name: String!, ${Object.keys(keysValues)
-    .map(
-      (_key, index) =>
-        `$key_name${index}: String!, $value${index}: String!`
-    )
-    .join(', ')}) {
-            ${Object.keys(keysValues)
-              .map(
-                (_key, index) =>
-                  `_${index}: insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name${index}, value: $value${index}} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}`
-              )
-              .join('\n')}
-        }`;
+    return `mutation writeKeyValues($function_name: String!, ${Object.keys(keysValues).map((_key, index) => `$key_name${index}: String!, $value${index}: String!`).join(', ')}) {
+        ${Object.keys(keysValues).map((_key, index) => `_${index}: insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name${index}, value: $value${index}} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}`).join('\n')}
+    }`;
   }
 
   buildKeyValueVariables (
@@ -175,7 +166,7 @@ export default class Indexer {
 
     return Object.keys(keysValues).reduce((acc: Record<string, any>, key, index) => {
       acc[`key_name${index.toString()}`] = key;
-      acc[`value${index.toString()}`] = keysValues[key] !== undefined ? JSON.stringify(keysValues[key]) : null;
+      acc[`value${index.toString()}`] = keysValues[key] ? JSON.stringify(keysValues[key]) : null;
       return acc;
     }, { function_name: functionName });
   }
@@ -252,10 +243,10 @@ export default class Indexer {
 
   enableAwaitTransform (indexerFunction: string): string {
     return `
-      async function f() {
-        ${indexerFunction}
-      };
-      f();
+            async function f(){
+                ${indexerFunction}
+            };
+            f();
     `;
   }
 
@@ -268,6 +259,7 @@ export default class Indexer {
   buildFunctionalContextForFunction (mutationsReturnValue: MutationsReturnValue, functionName: string, blockHeight: number): FunctionalContext {
     return {
       graphql: (mutation, variables) => {
+        console.log({ mutation });
         mutationsReturnValue.mutations.push(mutation);
         mutationsReturnValue.variables = Object.assign(mutationsReturnValue.variables, variables);
       },
@@ -287,13 +279,14 @@ export default class Indexer {
         return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
       },
       set: async (key, value) => {
-        const mutation = `mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
-          insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
-        }`;
+        const mutation =
+                    `mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
+                        insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+                     }`;
         const variables = {
           function_name: functionName,
           key,
-          value: value !== undefined ? JSON.stringify(value) : null
+          value: value ? JSON.stringify(value) : null
         };
         console.log(`${functionName}: Running set:`, mutation, variables);
         return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
@@ -309,21 +302,21 @@ export default class Indexer {
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
     return await this.runGraphQLQuery(
-        `
-            mutation SetStatus($function_name: String, $status: String) {
-              insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                function_name
-                status
-              }
-            }
-        `,
-        {
-          function_name: functionName,
-          status,
-        },
-        functionName,
-        blockHeight,
-        this.DEFAULT_HASURA_ROLE
+            `
+                mutation SetStatus($function_name: String, $status: String) {
+                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
+                    function_name
+                    status
+                  }
+                }
+            `,
+            {
+              function_name: functionName,
+              status,
+            },
+            functionName,
+            blockHeight,
+            this.DEFAULT_HASURA_ROLE
     );
   }
 
@@ -332,10 +325,10 @@ export default class Indexer {
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');
 
-    const mutation: string = `
-        mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-            insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
-         }`;
+    const mutation =
+            `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+             }`;
 
     return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
       functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
@@ -348,31 +341,32 @@ export default class Indexer {
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
-    const realTimeMutation: string = `
-        mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+    const realTimeMutation: string =
+            `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+                  insert_indexer_state(
+                    objects: {current_block_height: $block_height, function_name: $function_name}
+                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                  ) {
+                    returning {
+                      current_block_height
+                      function_name
+                    }
+                  }
+                }`;
+    const historicalMutation: string = `
+            mutation WriteBlock($function_name: String!, $block_height: numeric!) {
               insert_indexer_state(
-                objects: {current_block_height: $block_height, function_name: $function_name}
-                on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
+                on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
               ) {
                 returning {
                   current_block_height
+                  current_historical_block_height
                   function_name
                 }
               }
-            }`;
-    const historicalMutation: string = `
-        mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-          insert_indexer_state(
-            objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
-            on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
-          ) {
-            returning {
-              current_block_height
-              current_historical_block_height
-              function_name
             }
-          }
-        }`;
+        `;
     const variables: any = {
       function_name: functionName,
       block_height: blockHeight,
@@ -396,7 +390,7 @@ export default class Indexer {
       },
       body: JSON.stringify({
         query: operation,
-        ...(variables !== null && { variables }),
+        ...(variables && { variables }),
       }),
     });
 
@@ -407,12 +401,12 @@ export default class Indexer {
         console.log(`${functionName}: Error writing graphql `, errors); // temporary extra logging
 
         const message: string = errors ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
-        const mutation: string = `
-                mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
-                id
-              }
-            }`;
+        const mutation: string =
+                    `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                    insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
+                    id
+                  }
+                }`;
         try {
           await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message }, functionName, blockHeight, this.DEFAULT_HASURA_ROLE, false);
         } catch (e) {

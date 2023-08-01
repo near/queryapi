@@ -23,7 +23,7 @@ describe('Indexer unit tests', () => {
     process.env = oldEnv;
   });
 
-  test.only('Indexer.runFunctions() should execute all functions against the current block', async () => {
+  test('Indexer.runFunctions() should execute all functions against the current block', async () => {
     const mockFetch = jest.fn(() => ({
       status: 200,
       json: async () => ({
@@ -71,7 +71,7 @@ describe('Indexer unit tests', () => {
 
     const functionName = 'buildnear.testnet/test';
     const mutations = { mutations: [`mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`], variables: {}, keysValues: {} };
-    await indexer.writeMutations(functionName, 'test', mutations, 1, 'role');
+    await indexer.writeMutations(functionName, 'test', mutations, 1, 'morgs_near');
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
@@ -80,7 +80,9 @@ describe('Indexer unit tests', () => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true'
+                'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                'X-Hasura-Role': 'morgs_near',
+                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
               },
               body: JSON.stringify({
                 query: `mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`,
@@ -108,7 +110,7 @@ describe('Indexer unit tests', () => {
       variables: {},
       keysValues: {}
     };
-    await indexer.writeMutations(functionName, 'test', mutations, 1, 'role');
+    await indexer.writeMutations(functionName, 'test', mutations, 1, 'morgs_near');
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
@@ -117,7 +119,9 @@ describe('Indexer unit tests', () => {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true'
+                'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                'X-Hasura-Role': 'morgs_near',
+                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
               },
               body: JSON.stringify({
                 query:
@@ -235,7 +239,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
                 console.log('hello')
             };
             f();
-        `);
+    `);
   });
 
   test('Indexer.buildImperativeContextForFunction() allows execution of arbitrary GraphQL operations', async () => {
@@ -260,7 +264,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'role');
+    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'morgs_near');
 
     const query = `
             query {
@@ -287,6 +291,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
               headers: {
                 'Content-Type': 'application/json',
                 'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                'X-Hasura-Role': 'morgs_near',
+                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
               },
               body: JSON.stringify({ query })
             }
@@ -298,6 +304,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
               headers: {
                 'Content-Type': 'application/json',
                 'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                'X-Hasura-Role': 'morgs_near',
+                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
               },
               body: JSON.stringify({ query: mutation })
             }
@@ -352,7 +360,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'role');
+    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'morgs_near');
 
     const query = 'query($name: String) { hello(name: $name) }';
     const variables = { name: 'morgan' };
@@ -365,6 +373,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
               headers: {
                 'Content-Type': 'application/json',
                 'X-Hasura-Use-Backend-Only-Permissions': 'true',
+                'X-Hasura-Role': 'morgs_near',
+                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
               },
               body: JSON.stringify({
                 query,
@@ -761,7 +771,8 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         })
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'role');
+    // @ts-expect-error legacy test
+    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, null);
 
     const mutation = `
             mutation {

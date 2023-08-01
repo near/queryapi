@@ -7,7 +7,7 @@
     "build": "rm -rf ./dist && tsc",
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
-    "test": "jest"
+    "test": "node --experimental-vm-modules ./node_modules/.bin/jest"
   },
   "keywords": [],
   "author": "",
