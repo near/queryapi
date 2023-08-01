@@ -78,6 +78,7 @@ async fn xadd(
 
     // TODO: Remove stream cap when we finally start processing it
     redis::cmd("XTRIM")
+        .arg(stream_key)
         .arg("MAXLEN")
         .arg(100)
         .query_async(&mut redis_connection_manager.clone())
