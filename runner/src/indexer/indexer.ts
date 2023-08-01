@@ -11,19 +11,7 @@ interface Dependencies {
   provisioner: Provisioner
 };
 
-interface MutationsReturnValue {
-  mutations: string[]
-  keysValues: Record<string, any>
-  variables: Record<string, any>
-}
-
-interface FunctionalContext {
-  graphql: (mutation: string, variables: Record<string, any>) => void
-  set: (key: string, value: any) => void
-  log: (...log: any[]) => Promise<void>
-}
-
-interface ImperativeContext {
+interface Context {
   graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
   log: (...log: any[]) => Promise<void>
@@ -61,7 +49,7 @@ export default class Indexer {
     blockHeight: number,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
-    options: { imperative?: boolean, provision?: boolean } = { imperative: false, provision: false }
+    options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
     const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight));
 
@@ -102,15 +90,11 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, 'RUNNING');
 
         const vm = new VM({ timeout: 3000, allowAsync: true });
-        const mutationsReturnValue: MutationsReturnValue = { mutations: [], variables: {}, keysValues: {} };
-        const context = options.imperative
-          ? this.buildImperativeContextForFunction(functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName)
-          : this.buildFunctionalContextForFunction(mutationsReturnValue, functionName, blockHeight);
+        const context = this.buildContext(functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName);
 
         vm.freeze(blockWithHelpers, 'block');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
-        vm.freeze(mutationsReturnValue, 'mutationsReturnValue'); // this still allows context.set to modify it
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
         try {
@@ -125,14 +109,6 @@ export default class Indexer {
           throw e;
         }
 
-        if (!options.imperative) {
-          console.log(`Function ${functionName} returned`, mutationsReturnValue); // debug output
-          const writtenMutations = await this.writeMutations(functionName, functionNameWithoutAccount, mutationsReturnValue, blockHeight, hasuraRoleName); // await can be dropped once it's all tested so writes can happen in parallel
-          if ((writtenMutations != null) && writtenMutations.length > 0) {
-            allMutations.push(...writtenMutations);
-          }
-        }
-
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
@@ -143,54 +119,6 @@ export default class Indexer {
       }
     }
     return allMutations;
-  }
-
-  buildKeyValueMutations (
-    hasuraRoleName: string,
-    functionNameWithoutAccount: string,
-    keysValues: Record<string, string>
-  ): string {
-    if (Object.keys(keysValues).length === 0) return '';
-
-    return `mutation writeKeyValues($function_name: String!, ${Object.keys(keysValues).map((_key, index) => `$key_name${index}: String!, $value${index}: String!`).join(', ')}) {
-        ${Object.keys(keysValues).map((_key, index) => `_${index}: insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key_name${index}, value: $value${index}} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}`).join('\n')}
-    }`;
-  }
-
-  buildKeyValueVariables (
-    functionName: string,
-    keysValues: Record<string, any>
-  ): Record<string, any> {
-    if (Object.keys(keysValues).length === 0) return {};
-
-    return Object.keys(keysValues).reduce((acc: Record<string, any>, key, index) => {
-      acc[`key_name${index.toString()}`] = key;
-      acc[`value${index.toString()}`] = keysValues[key] ? JSON.stringify(keysValues[key]) : null;
-      return acc;
-    }, { function_name: functionName });
-  }
-
-  async writeMutations (
-    functionName: string,
-    functionNameWithoutAccount: string,
-    mutationsReturnValue: MutationsReturnValue,
-    blockHeight: number,
-    hasuraRoleName: string
-  ): Promise<string[] | undefined> {
-    if (mutationsReturnValue?.mutations.length === 0 && Object.keys(mutationsReturnValue?.keysValues).length === 0) return undefined;
-    try {
-      const keyValuesMutations = this.buildKeyValueMutations(hasuraRoleName, functionNameWithoutAccount, mutationsReturnValue.keysValues);
-      const allMutations = mutationsReturnValue.mutations.join('\n') + keyValuesMutations;
-      const variablesPlusKeyValues = { ...mutationsReturnValue.variables, ...this.buildKeyValueVariables(functionName, mutationsReturnValue.keysValues) };
-
-      console.log('Writing mutations for function: ' + functionName, allMutations, variablesPlusKeyValues); // debug output
-      await this.runGraphQLQuery(allMutations, variablesPlusKeyValues, functionName, blockHeight, hasuraRoleName);
-
-      return keyValuesMutations.length > 0 ? mutationsReturnValue.mutations.concat(keyValuesMutations) : mutationsReturnValue.mutations;
-    } catch (e) {
-      console.error(`${functionName}: Failed to write mutations for function`, e);
-      return undefined;
-    }
   }
 
   // pad with 0s to 12 digits
@@ -255,23 +183,7 @@ export default class Indexer {
     ].reduce((acc, val) => val(acc), indexerFunction);
   }
 
-  buildFunctionalContextForFunction (mutationsReturnValue: MutationsReturnValue, functionName: string, blockHeight: number): FunctionalContext {
-    return {
-      graphql: (mutation, variables) => {
-        console.log({ mutation });
-        mutationsReturnValue.mutations.push(mutation);
-        mutationsReturnValue.variables = Object.assign(mutationsReturnValue.variables, variables);
-      },
-      set: (key, value) => {
-        mutationsReturnValue.keysValues[key] = value;
-      },
-      log: async (...log) => {
-        return await this.writeLog(functionName, blockHeight, ...log);
-      },
-    };
-  }
-
-  buildImperativeContextForFunction (functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string): ImperativeContext {
+  buildContext (functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string): Context {
     return {
       graphql: async (operation, variables) => {
         console.log(`${functionName}: Running context graphql`, operation);

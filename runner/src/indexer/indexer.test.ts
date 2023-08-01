@@ -60,79 +60,6 @@ describe('Indexer unit tests', () => {
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.writeMutations() should POST a graphQL mutation from a mutation string', async () => {
-    const mockFetch = jest.fn(() => ({
-      status: 200,
-      json: async () => ({
-        errors: null,
-      }),
-    }));
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-
-    const functionName = 'buildnear.testnet/test';
-    const mutations = { mutations: [`mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`], variables: {}, keysValues: {} };
-    await indexer.writeMutations(functionName, 'test', mutations, 1, 'morgs_near');
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledWith(
-            `${HASURA_ENDPOINT}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': 'morgs_near',
-                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-              },
-              body: JSON.stringify({
-                query: `mutation { _0: set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`,
-                variables: {}
-              }),
-            }
-    );
-  });
-
-  test('Indexer.writeMutations() should batch multiple mutations in to a single request', async () => {
-    const mockFetch = jest.fn(() => ({
-      status: 200,
-      json: async () => ({
-        errors: null,
-      }),
-    }));
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-
-    const functionName = 'buildnear.testnet/test';
-    const mutations = {
-      mutations: [
-                `mutation _0 { set(functionName: "${functionName}", key: "foo1", data: "indexer test") }`,
-                `mutation _1 { set(functionName: "${functionName}", key: "foo2", data: "indexer test") }`
-      ],
-      variables: {},
-      keysValues: {}
-    };
-    await indexer.writeMutations(functionName, 'test', mutations, 1, 'morgs_near');
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(mockFetch).toHaveBeenCalledWith(
-            `${HASURA_ENDPOINT}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': 'morgs_near',
-                'X-Hasura-Admin-Secret': HASURA_ADMIN_SECRET
-              },
-              body: JSON.stringify({
-                query:
-                        `mutation _0 { set(functionName: "buildnear.testnet/test", key: "foo1", data: "indexer test") }
-mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "indexer test") }`,
-                variables: {}
-              }),
-            }
-    );
-  });
-
   test('Indexer.fetchBlock() should fetch a block from the S3', async () => {
     const author = 'dokiacapital.poolv1.near';
     const mockS3 = {
@@ -242,7 +169,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     `);
   });
 
-  test('Indexer.buildImperativeContextForFunction() allows execution of arbitrary GraphQL operations', async () => {
+  test('Indexer.buildContext() allows execution of arbitrary GraphQL operations', async () => {
     const mockFetch = jest.fn()
       .mockResolvedValueOnce({
         status: 200,
@@ -264,7 +191,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'morgs_near');
+    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'morgs_near');
 
     const query = `
             query {
@@ -312,11 +239,11 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     ]);
   });
 
-  test('Indexer.buildImperativeContextForFunction() can fetch from the near social api', async () => {
+  test('Indexer.buildContext() can fetch from the near social api', async () => {
     const mockFetch = jest.fn();
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'role');
+    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'role');
 
     await context.fetchFromSocialApi('/index', {
       method: 'POST',
@@ -336,7 +263,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.buildImperativeContextForFunction() throws when a GraphQL response contains errors', async () => {
+  test('Indexer.buildContext() throws when a GraphQL response contains errors', async () => {
     const mockFetch = jest.fn()
       .mockResolvedValue({
         json: async () => ({
@@ -345,12 +272,12 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'role');
+    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'role');
 
     await expect(async () => await context.graphql('query { hello }')).rejects.toThrow('boom');
   });
 
-  test('Indexer.buildImperativeContextForFunction() handles GraphQL variables', async () => {
+  test('Indexer.buildContext() handles GraphQL variables', async () => {
     const mockFetch = jest.fn()
       .mockResolvedValue({
         status: 200,
@@ -360,7 +287,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, 'morgs_near');
+    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'morgs_near');
 
     const query = 'query($name: String) { hello(name: $name) }';
     const variables = { name: 'morgan' };
@@ -495,7 +422,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         `
     };
 
-    await indexer.runFunctions(blockHeight, functions, false, { imperative: true });
+    await indexer.runFunctions(blockHeight, functions, false);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -552,7 +479,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
         `
     };
 
-    await expect(indexer.runFunctions(blockHeight, functions, false, { imperative: true })).rejects.toThrow(new Error('boom'));
+    await expect(indexer.runFunctions(blockHeight, functions, false)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
@@ -772,7 +699,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
     // @ts-expect-error legacy test
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, null);
+    const context = indexer.buildContext('test', 'morgs.near/test', 1, null);
 
     const mutation = `
             mutation {
@@ -807,7 +734,7 @@ mutation _1 { set(functionName: "buildnear.testnet/test", key: "foo2", data: "in
       });
     const role = 'morgs_near';
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-    const context = indexer.buildImperativeContextForFunction('test', 'morgs.near/test', 1, role);
+    const context = indexer.buildContext('test', 'morgs.near/test', 1, role);
 
     const mutation = `
             mutation {

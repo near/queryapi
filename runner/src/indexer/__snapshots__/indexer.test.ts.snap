@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Indexer unit tests Indexer.buildImperativeContextForFunction() can fetch from the near social api 1`] = `
+exports[`Indexer unit tests Indexer.buildContext() can fetch from the near social api 1`] = `
 [
   [
     "https://api.near.social/index",
@@ -300,7 +300,7 @@ exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"mutation { set(functionName: \\"buildnear.testnet/test\\", key: \\"height\\", data: \\"82699904\\")}","variables":{}}",
+      "body": "{"query":"mutation { set(functionName: \\"buildnear.testnet/test\\", key: \\"height\\", data: \\"82699904\\")}"}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",
