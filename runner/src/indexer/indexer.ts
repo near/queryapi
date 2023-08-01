@@ -124,7 +124,6 @@ export default class Indexer {
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
-        console.log({ mutationsReturnValue });
 
         if (!options.imperative) {
           console.log(`Function ${functionName} returned`, mutationsReturnValue); // debug output
