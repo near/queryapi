@@ -7,5 +7,6 @@ declare namespace NodeJS {
     PG_ADMIN_USER: string
     PG_ADMIN_PASSWORD: string
     PG_ADMIN_DATABASE: string
+    REGION: string
   }
 }
