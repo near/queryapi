@@ -4,7 +4,6 @@ import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives';
 
 import Provisioner from './provisioner.js';
-import AWSXRay from 'aws-xray-sdk';
 import Metrics from './metrics.js';
 
 interface Dependencies {
@@ -58,7 +57,6 @@ export default class Indexer {
       s3: new AWS.S3({ region: process.env.REGION }),
       metrics: new Metrics('QueryAPI'),
       provisioner: new Provisioner(),
-      awsXray: AWSXRay,
       ...deps,
     };
   }
@@ -82,10 +80,6 @@ export default class Indexer {
 
         const runningMessage = `Running function ${functionName}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
         console.log(runningMessage); // Print the running message to the console (Lambda logs)
-
-        const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
-        const functionSubsegment = segment.addNewSubsegment('indexer_function');
-        functionSubsegment.addAnnotation('indexer_function', functionName);
 
         simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));
         simultaneousPromises.push(this.deps.metrics.putBlockHeight(indexerFunction.account_id, indexerFunction.function_name, isHistorical, blockHeight));
@@ -147,12 +141,10 @@ export default class Indexer {
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
-        this.deps.awsXray.resolveSegment().addError(e);
         await this.setStatus(functionName, blockHeight, 'STOPPED');
         throw e;
       } finally {
         await Promise.all(simultaneousPromises);
-        this.deps.awsXray.resolveSegment().close();
       }
     }
     return allMutations;
@@ -331,9 +323,6 @@ export default class Indexer {
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
-    const activeFunctionSubsegment: any = this.deps.awsXray.resolveSegment();
-    const subsegment: any = activeFunctionSubsegment.addNewSubsegment('setStatus');
-
     return await this.runGraphQLQuery(
         `
             mutation SetStatus($function_name: String, $status: String) {
@@ -350,14 +339,10 @@ export default class Indexer {
         functionName,
         blockHeight,
         this.DEFAULT_HASURA_ROLE
-    ).finally(() => {
-      subsegment.close();
-    });
+    );
   }
 
   async writeLog (functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
-    const activeFunctionSubsegment: any = this.deps.awsXray.resolveSegment();
-    const subsegment: any = activeFunctionSubsegment.addNewSubsegment('writeLog');
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');
@@ -374,15 +359,10 @@ export default class Indexer {
       })
       .catch((e: any) => {
         console.error(`${functionName}: Error writing log`, e);
-      })
-      .finally(() => {
-        subsegment.close();
       });
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
-    const activeFunctionSubsegment: any = this.deps.awsXray.resolveSegment();
-    const subsegment: any = activeFunctionSubsegment.addNewSubsegment('writeFunctionState');
     const realTimeMutation: string = `
         mutation WriteBlock($function_name: String!, $block_height: numeric!) {
               insert_indexer_state(
@@ -415,9 +395,6 @@ export default class Indexer {
     return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
       .catch((e: any) => {
         console.error(`${functionName}: Error writing function state`, e);
-      })
-      .finally(() => {
-        subsegment.close();
       });
   }
 
@@ -443,7 +420,6 @@ export default class Indexer {
     if (response.status !== 200 || errors !== undefined) {
       if (logError) {
         console.log(`${functionName}: Error writing graphql `, errors); // temporary extra logging
-        this.deps.awsXray.resolveSegment().addAnnotation('graphql_errors', true);
 
         const message: string = errors !== undefined ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
         const mutation: string = `
