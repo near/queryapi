@@ -7,8 +7,8 @@ const blockHeight =
 // const subscribe = !!props.subscribe;
 const notifyAccountId = accountId;
 const postUrl = `https://alpha.near.org/#/${APP_OWNER}/widget/QueryApi.Examples.Feed.PostPage?accountId=${accountId}&blockHeight=${blockHeight}`;
-
 State.init({
+  hasBeenFlagged: false,
   postExists: true,
   comments: props.comments ?? undefined,
   content: JSON.parse(props.content) ?? undefined,
@@ -185,7 +185,13 @@ const renderComment = (a) => {
     </div>
   );
 };
-
+if (state.hasBeenFlagged) {
+  return (
+    <div className="alert alert-secondary">
+      <i className="bi bi-flag" /> This content has been flagged for moderation
+    </div>
+  );
+}
 const renderedComments = state.comments.map(renderComment);
 return (
   <Post>
@@ -263,9 +269,17 @@ return (
               url: postUrl,
             }}
           />
+          <Widget
+            src="near/widget/FlagButton"
+            props={{
+              item,
+              onFlag: () => {
+                State.update({ hasBeenFlagged: true });
+              },
+            }}
+          />
         </Actions>
       )}
-
       {state.showReply && (
         <div className="mb-2">
           <Widget
