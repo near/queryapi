@@ -200,16 +200,21 @@ async fn handle_streamer_message(
                     set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
                 }
 
+                storage::sadd(
+                    context.redis_connection_manager,
+                    storage::INDEXER_SET_KEY,
+                    indexer_function.get_full_name(),
+                )
+                .await?;
                 storage::set(
                     context.redis_connection_manager,
-                    &format!("{}:storage", indexer_function.get_full_name()),
+                    storage::generate_storage_key(&indexer_function.get_full_name()),
                     serde_json::to_string(indexer_function)?,
                 )
                 .await?;
-
-                storage::add_to_registered_stream(
+                storage::xadd(
                     context.redis_connection_manager,
-                    &format!("{}:stream", indexer_function.get_full_name()),
+                    storage::generate_stream_key(&indexer_function.get_full_name()),
                     &[("block_height", block_height)],
                 )
                 .await?;

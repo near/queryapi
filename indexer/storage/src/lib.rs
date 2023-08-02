@@ -2,10 +2,18 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 const STORAGE: &str = "storage_alertexer";
 
-const STREAMS_SET_KEY: &str = "streams";
+pub const INDEXER_SET_KEY: &str = "indexers";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
+}
+
+pub fn generate_storage_key(name: &str) -> String {
+    format!("{}:storage", name)
+}
+
+pub fn generate_stream_key(name: &str) -> String {
+    format!("{}:stream", name)
 }
 
 pub async fn connect(redis_connection_str: &str) -> anyhow::Result<ConnectionManager> {
@@ -53,7 +61,7 @@ pub async fn get<V: FromRedisValue + std::fmt::Debug>(
     Ok(value)
 }
 
-async fn sadd(
+pub async fn sadd(
     redis_connection_manager: &ConnectionManager,
     key: impl ToRedisArgs + std::fmt::Debug,
     value: impl ToRedisArgs + std::fmt::Debug,
@@ -69,16 +77,16 @@ async fn sadd(
     Ok(())
 }
 
-async fn xadd(
+pub async fn xadd(
     redis_connection_manager: &ConnectionManager,
-    stream_key: &str,
+    stream_key: impl ToRedisArgs + std::fmt::Debug,
     fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
 ) -> anyhow::Result<()> {
-    tracing::debug!(target: STORAGE, "XADD: {}, {:?}", stream_key, fields);
+    tracing::debug!(target: STORAGE, "XADD: {:?}, {:?}", stream_key, fields);
 
     // TODO: Remove stream cap when we finally start processing it
     redis::cmd("XTRIM")
-        .arg(stream_key)
+        .arg(&stream_key)
         .arg("MAXLEN")
         .arg(100)
         .query_async(&mut redis_connection_manager.clone())
@@ -97,16 +105,6 @@ async fn xadd(
     Ok(())
 }
 
-pub async fn add_to_registered_stream(
-    redis_connection_manager: &ConnectionManager,
-    key: &str,
-    fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
-) -> anyhow::Result<()> {
-    sadd(redis_connection_manager, STREAMS_SET_KEY, key).await?;
-    xadd(redis_connection_manager, key, fields).await?;
-
-    Ok(())
-}
 /// Sets the key `receipt_id: &str` with value `transaction_hash: &str` to the Redis storage.
 /// Increments the counter `receipts_{transaction_hash}` by one.
 /// The counter holds how many Receipts related to the Transaction are in watching list
