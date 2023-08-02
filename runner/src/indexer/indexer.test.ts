@@ -52,7 +52,6 @@ describe('Indexer unit tests', () => {
       code: `
             const foo = 3;
             block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
-            mutationsReturnValue['hack'] = function() {return 'bad'}
         `
     };
     await indexer.runFunctions(blockHeight, functions, false);

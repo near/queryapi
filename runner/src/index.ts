@@ -10,7 +10,21 @@ const STREAM_START_ID = '0';
 // const STREAM_THROTTLE_MS = 250;
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
+const INDEXER_SET_KEY = 'indexers';
+
 client.on('error', (err) => { console.log('Redis Client Error', err); });
+
+const generateStreamKey = (name: string): string => {
+  return `${name}:stream`;
+};
+
+const generateStorageKey = (name: string): string => {
+  return `${name}:storage`;
+};
+
+const generateStreamLastIdKey = (name: string): string => {
+  return `${name}:stream:lastId`;
+};
 
 const runFunction = async (indexerName: string, blockHeight: string): Promise<void> => {
   const { account_id: accountId, function_name: functionName, code, schema } = await getIndexerData(
@@ -28,7 +42,6 @@ const runFunction = async (indexerName: string, blockHeight: string): Promise<vo
   };
 
   await indexer.runFunctions(Number(blockHeight), functions, false, {
-    imperative: true,
     provision: true,
   });
 };
@@ -39,16 +52,16 @@ type StreamMessages<Message> = Array<{
 }>;
 
 const getMessagesFromStream = async <Message extends Record<string, string>>(
-  streamName: string,
+  indexerName: string,
   lastId: string | null,
   count: number,
 ): Promise<StreamMessages<Message> | null> => {
   const id = lastId ?? STREAM_START_ID;
 
   const results = await client.xRead(
-    { key: streamName, id },
+    { key: generateStreamKey(indexerName), id },
     // can't use blocking calls as running single threaded
-    { COUNT: count, BLOCK: 0 }
+    { COUNT: count }
   );
 
   return results?.[0].messages as StreamMessages<Message>;
@@ -57,14 +70,14 @@ const getMessagesFromStream = async <Message extends Record<string, string>>(
 const getLastProcessedId = async (
   indexerName: string,
 ): Promise<string | null> => {
-  return await client.get(`${indexerName}/stream/lastId`);
+  return await client.get(generateStreamLastIdKey(indexerName));
 };
 
 const setLastProcessedId = async (
   indexerName: string,
   lastId: string,
 ): Promise<void> => {
-  await client.set(`${indexerName}/stream/lastId`, lastId);
+  await client.set(generateStreamLastIdKey(indexerName), lastId);
 };
 
 interface IndexerConfig {
@@ -75,7 +88,7 @@ interface IndexerConfig {
 }
 
 const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
-  const results = await client.get(`${indexerName}:storage`);
+  const results = await client.get(generateStorageKey(indexerName));
 
   if (results === null) {
     throw new Error(`${indexerName} does not have any data`);
@@ -86,20 +99,17 @@ const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
 
 type IndexerStreamMessage = Record<string, string>;
 
-const processStream = async (streamName: string): Promise<void> => {
-  const indexerName = streamName.split(':')[0];
-  // eslint-disable-next-line no-constant-condition
+const processStream = async (indexerName: string): Promise<void> => {
   while (true) {
     try {
       const lastProcessedId = await getLastProcessedId(indexerName);
       const messages = await getMessagesFromStream<IndexerStreamMessage>(
-        streamName,
+        indexerName,
         lastProcessedId,
         1,
       );
 
       if (messages == null) {
-        console.log(`No messages: ${indexerName}`);
         continue;
       }
 
@@ -124,17 +134,16 @@ void (async function main () {
 
     const streamHandlers: StreamHandlers = {};
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
-      const streams = await client.sMembers('streams');
+      const indexers = await client.sMembers(INDEXER_SET_KEY);
 
-      streams.forEach((streamName) => {
-        if (streamHandlers[streamName] !== undefined) {
+      indexers.forEach((indexerName) => {
+        if (streamHandlers[indexerName] !== undefined) {
           return;
         }
 
-        const handler = processStream(streamName);
-        streamHandlers[streamName] = handler;
+        const handler = processStream(indexerName);
+        streamHandlers[indexerName] = handler;
       });
 
       await new Promise((resolve) =>

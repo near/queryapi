@@ -243,7 +243,7 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"mutation { set(functionName: \\"buildnear.testnet/test\\", key: \\"height\\", data: \\"456\\")}","variables":{}}",
+      "body": "{"query":"mutation { set(functionName: \\"buildnear.testnet/test\\", key: \\"height\\", data: \\"456\\")}"}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",
