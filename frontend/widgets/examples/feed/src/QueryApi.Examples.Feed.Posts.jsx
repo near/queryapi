@@ -4,6 +4,7 @@ const GRAPHQL_ENDPOINT =
 const sortOption = props.postsOrderOption || "blockHeight"; // following, blockHeight
 const LIMIT = 25;
 let accountsFollowing =  props.accountsFollowing
+const moderatorAccount = props?.moderatorAccount || "bosmod.near";
 
 if (context.accountId && !accountsFollowing) {
   const graph = Social.keys(`${context.accountId}/graph/follow/*`, "final");
@@ -11,6 +12,25 @@ if (context.accountId && !accountsFollowing) {
     accountsFollowing = Object.keys(graph[context.accountId].graph.follow || {});
   }
 }
+
+let filterUsersRaw = Social.get(
+  `${moderatorAccount}/moderate/users`,
+  "optimistic",
+  {
+    subscribe: true,
+  }
+);
+
+if (filterUsers === null) {
+  // haven't loaded filter list yet, return early
+  return "";
+}
+
+const filterUsers = filterUsersRaw ? JSON.parse(filterUsersRaw) : [];
+
+const shouldFilter = (item) => {
+  return filterUsers.includes(item.accountId);
+};
 
 State.init({
   selectedTab: Storage.privateGet("selectedTab") || "all",
@@ -297,7 +317,7 @@ return (
       )}
 
       <FeedWrapper>
-      <Widget src={`${APP_OWNER}/widget/QueryApi.Examples.Feed`} props={{ hasMore, loadMorePosts, posts: state.posts}} />
+      <Widget src={`${APP_OWNER}/widget/QueryApi.Examples.Feed`} props={{ hasMore, loadMorePosts, posts: state.posts.filter((i) => !shouldFilter(i))}} />
       </FeedWrapper>
     </Content>
   </>
