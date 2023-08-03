@@ -2,6 +2,8 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 const STORAGE: &str = "storage_alertexer";
 
+const STREAMS_SET_KEY: &str = "streams";
+
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
 }
@@ -49,6 +51,61 @@ pub async fn get<V: FromRedisValue + std::fmt::Debug>(
         .await?;
     tracing::debug!(target: STORAGE, "GET: {:?}: {:?}", &key, &value,);
     Ok(value)
+}
+
+async fn sadd(
+    redis_connection_manager: &ConnectionManager,
+    key: impl ToRedisArgs + std::fmt::Debug,
+    value: impl ToRedisArgs + std::fmt::Debug,
+) -> anyhow::Result<()> {
+    tracing::debug!(target: STORAGE, "SADD: {:?}: {:?}", key, value);
+
+    redis::cmd("SADD")
+        .arg(key)
+        .arg(value)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    Ok(())
+}
+
+async fn xadd(
+    redis_connection_manager: &ConnectionManager,
+    stream_key: &str,
+    fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
+) -> anyhow::Result<()> {
+    tracing::debug!(target: STORAGE, "XADD: {}, {:?}", stream_key, fields);
+
+    // TODO: Remove stream cap when we finally start processing it
+    redis::cmd("XTRIM")
+        .arg(stream_key)
+        .arg("MAXLEN")
+        .arg(100)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    let mut cmd = redis::cmd("XADD");
+    cmd.arg(stream_key).arg("*");
+
+    for (field, value) in fields {
+        cmd.arg(*field).arg(value);
+    }
+
+    cmd.query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    Ok(())
+}
+
+pub async fn add_to_registered_stream(
+    redis_connection_manager: &ConnectionManager,
+    key: &str,
+    fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
+) -> anyhow::Result<()> {
+    sadd(redis_connection_manager, STREAMS_SET_KEY, key).await?;
+    xadd(redis_connection_manager, key, fields).await?;
+
+    Ok(())
 }
 /// Sets the key `receipt_id: &str` with value `transaction_hash: &str` to the Redis storage.
 /// Increments the counter `receipts_{transaction_hash}` by one.
