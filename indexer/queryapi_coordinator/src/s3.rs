@@ -34,11 +34,7 @@ pub async fn find_index_files_by_pattern(
                     list_s3_bucket_by_prefix(
                         aws_config,
                         s3_bucket,
-                        &format!(
-                            "{}/{}/",
-                            s3_folder,
-                            storage_path_for_account(account)
-                        ),
+                        &format!("{}/{}/", s3_folder, storage_path_for_account(account)),
                     )
                     .await?
                 };
@@ -53,11 +49,7 @@ pub async fn find_index_files_by_pattern(
             list_s3_bucket_by_prefix(
                 aws_config,
                 s3_bucket,
-                &format!(
-                    "{}/{}/",
-                    s3_folder,
-                    storage_path_for_account(pattern),
-                ),
+                &format!("{}/{}/", s3_folder, storage_path_for_account(pattern),),
             )
             .await?
         }
