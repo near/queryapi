@@ -18,7 +18,7 @@ use tokio::task::JoinHandle;
 
 pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
 pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
-pub const INDEXED_DATA_FILES_FOLDER: &str = "silver/contracts/action_receipt_actions/metadata";
+pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions/metadata";
 pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
@@ -145,7 +145,7 @@ pub(crate) async fn process_historical_messages(
 pub(crate) async fn last_indexed_block_from_metadata(
     aws_config: &SdkConfig,
 ) -> anyhow::Result<BlockHeight> {
-    let key = format!("{}/{}", INDEXED_DATA_FILES_FOLDER, "latest_block.json");
+    let key = format!("{}/{}", INDEXED_ACTIONS_FILES_FOLDER, "latest_block.json");
     let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
     let s3_client: S3Client = S3Client::from_conf(s3_config);
     let metadata = s3::fetch_text_file_from_s3(INDEXED_DATA_FILES_BUCKET, key, s3_client).await?;
@@ -187,7 +187,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
             s3::fetch_contract_index_files(
                 aws_config,
                 s3_bucket,
-                INDEXED_DATA_FILES_FOLDER,
+                INDEXED_ACTIONS_FILES_FOLDER,
                 start_date,
                 affected_account_id,
             )

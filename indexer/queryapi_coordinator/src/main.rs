@@ -270,11 +270,17 @@ fn set_provisioned_flag(
                     indexer_function.provisioned = true;
                 }
                 None => {
+                    let keys = account_functions
+                        .keys()
+                        .map(|s| &**s)
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     tracing::error!(
                         target: INDEXER,
-                        "Unable to set provisioning status, Indexer function with account_id {} and function_name {} not found in registry",
+                        "Unable to set provisioning status, Indexer function with account_id {} and function_name {} not found in registry. Functions for this account are: {}",
                         indexer_function.account_id,
-                        indexer_function.function_name
+                        indexer_function.function_name,
+                        keys
                     );
                 }
             }
