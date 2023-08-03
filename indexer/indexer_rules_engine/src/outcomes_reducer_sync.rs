@@ -10,7 +10,7 @@ pub fn reduce_indexer_rule_matches_from_outcomes(
     indexer_rule: &IndexerRule,
     streamer_message: &StreamerMessage,
     chain_id: ChainId,
-) -> anyhow::Result<Vec<IndexerRuleMatch>> {
+) -> Vec<IndexerRuleMatch> {
     streamer_message
         .shards
         .iter()
@@ -41,8 +41,8 @@ fn build_indexer_rule_match(
     block_header_hash: String,
     block_height: u64,
     chain_id: ChainId,
-) -> anyhow::Result<IndexerRuleMatch> {
-    Ok(IndexerRuleMatch {
+) -> IndexerRuleMatch {
+    IndexerRuleMatch {
         chain_id: chain_id.clone(),
         indexer_rule_id: indexer_rule.id,
         indexer_rule_name: indexer_rule.name.clone(),
@@ -52,7 +52,7 @@ fn build_indexer_rule_match(
             block_header_hash,
         ),
         block_height,
-    })
+    }
 }
 
 fn build_indexer_rule_match_payload(

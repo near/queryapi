@@ -10,7 +10,7 @@ use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
 use crate::indexer_types::IndexerFunction;
 use indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use opts::{Opts, Parser};
-use storage::ConnectionManager;
+use storage::{self, ConnectionManager};
 
 pub(crate) mod cache;
 mod historical_block_processing;
@@ -111,7 +111,11 @@ async fn main() -> anyhow::Result<()> {
         })
         .buffer_unordered(1usize);
 
-    while let Some(_handle_message) = handlers.next().await {}
+    while let Some(handle_message) = handlers.next().await {
+        if let Err(err) = handle_message {
+            tracing::error!(target: INDEXER, "{:#?}", err);
+        }
+    }
     drop(handlers); // close the channel so the sender will stop
 
     // propagate errors from the sender
@@ -195,6 +199,20 @@ async fn handle_streamer_message(
                 if !indexer_function.provisioned {
                     set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
                 }
+
+                storage::set(
+                    context.redis_connection_manager,
+                    &format!("{}:storage", indexer_function.get_full_name()),
+                    serde_json::to_string(indexer_function)?,
+                )
+                .await?;
+
+                storage::add_to_registered_stream(
+                    context.redis_connection_manager,
+                    &format!("{}:stream", indexer_function.get_full_name()),
+                    &[("block_height", block_height)],
+                )
+                .await?;
             }
 
             stream::iter(indexer_function_messages.into_iter())
@@ -252,11 +270,17 @@ fn set_provisioned_flag(
                     indexer_function.provisioned = true;
                 }
                 None => {
+                    let keys = account_functions
+                        .keys()
+                        .map(|s| &**s)
+                        .collect::<Vec<_>>()
+                        .join(", ");
                     tracing::error!(
                         target: INDEXER,
-                        "Unable to set provisioning status, Indexer function with account_id {} and function_name {} not found in registry",
+                        "Unable to set provisioning status, Indexer function with account_id {} and function_name {} not found in registry. Functions for this account are: {}",
                         indexer_function.account_id,
-                        indexer_function.function_name
+                        indexer_function.function_name,
+                        keys
                     );
                 }
             }
