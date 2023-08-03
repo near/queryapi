@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "engines": {
+    "node": "18.17"
+  },
   "scripts": {
     "build": "rm -rf ./dist && tsc",
     "start": "npm run build && node dist/index.js",
