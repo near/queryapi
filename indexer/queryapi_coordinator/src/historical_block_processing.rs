@@ -18,9 +18,7 @@ use tokio::task::JoinHandle;
 
 pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
 pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
-pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions";
-pub const METADATA_FOLDER: &str = "metadata";
-pub const DATA_FOLDER: &str = "data";
+pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions/metadata";
 pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 

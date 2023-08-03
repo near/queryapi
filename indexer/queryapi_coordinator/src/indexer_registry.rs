@@ -138,12 +138,14 @@ fn index_and_process_register_calls(
                         .entry(new_indexer_function.account_id.clone())
                         .or_default();
 
-                    match fns.get(new_indexer_function.function_name.as_str()) {
+                    let functions = fns.get(new_indexer_function.function_name.as_str());
+                    match functions {
                         // if there is no existing function then we will insert the new one with the default state of provisioned = false
                         None => {
                             tracing::info!(
                                 target: crate::INDEXER,
-                                "indexed creation call to {registry_method_name}: {:?} {:?}",
+                                "Block {}. Indexed creation call to {registry_method_name}: {:?} {:?}",
+                                block_height,
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone()
                             );
@@ -153,7 +155,8 @@ fn index_and_process_register_calls(
                         Some(old_indexer_function) => {
                             tracing::info!(
                                 target: crate::INDEXER,
-                                "indexed update call to {registry_method_name}: {:?} {:?}",
+                                "Block {}. Indexed update call to {registry_method_name}: {:?} {:?}",
+                                block_height,
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone(),
                             );

@@ -192,6 +192,6 @@ mod tests {
         // remove any blocks from after when the test was written
         let fixed_blocks: Vec<BlockHeight> =
             blocks.into_iter().filter(|&b| b <= 95175853u64).collect();
-        assert_eq!(fixed_blocks.len(), 6); // hackathon.agency.near = 45894627,45898423, hacker.agency.near = 45897358, hack.agency.near = 45894872,45895120,45896237
+        assert_eq!(fixed_blocks.len(), 197); // hackathon.agency.near = 45894627,45898423, hacker.agency.near = 45897358, hack.agency.near = 45894872,45895120,45896237
     }
 }

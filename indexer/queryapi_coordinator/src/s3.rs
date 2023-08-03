@@ -1,11 +1,9 @@
-use crate::historical_block_processing::METADATA_FOLDER;
 use anyhow::{bail, Context, Result};
 use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::Config;
 use aws_types::SdkConfig;
 use chrono::{DateTime, NaiveDate, Utc};
 use futures::future::try_join_all;
-use regex::Regex;
 
 // Sanity check, if we hit this we have 1M S3 results.
 // Currently that would be either 2,700 years of FunctionCall data or 1M contract folders.
@@ -37,10 +35,9 @@ pub async fn find_index_files_by_pattern(
                         aws_config,
                         s3_bucket,
                         &format!(
-                            "{}/{}/{}/",
+                            "{}/{}/",
                             s3_folder,
-                            storage_path_for_account(account),
-                            METADATA_FOLDER
+                            storage_path_for_account(account)
                         ),
                     )
                     .await?
@@ -57,10 +54,9 @@ pub async fn find_index_files_by_pattern(
                 aws_config,
                 s3_bucket,
                 &format!(
-                    "{}/{}/{}/",
+                    "{}/{}/",
                     s3_folder,
                     storage_path_for_account(pattern),
-                    METADATA_FOLDER
                 ),
             )
             .await?
@@ -233,7 +229,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(list.len() > 35000);
+        assert_eq!(list.len(), 4);
     }
 
     /// cargo test s3::tests::list_with_single_contract -- mainnet from-latest
@@ -265,7 +261,7 @@ mod tests {
         )
         .await
         .unwrap();
-        assert!(list.len() >= 13); // expecting 13 but these contracts could get randomly called sometime
+        assert!(list.len() >= 15); // expecting 15 but these contracts could get randomly called sometime
     }
 
     /// cargo test s3::tests::list_with_wildcard_contracts -- mainnet from-latest
