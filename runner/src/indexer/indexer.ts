@@ -39,7 +39,7 @@ export default class Indexer {
     this.network = network;
     this.deps = {
       fetch,
-      s3: new AWS.S3({ region: process.env.REGION }),
+      s3: new AWS.S3({ region: process.env.AWS_REGION }),
       provisioner: new Provisioner(),
       ...deps,
     };
