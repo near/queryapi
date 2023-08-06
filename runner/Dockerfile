@@ -1,13 +1,12 @@
-FROM node:18.17
-
+FROM node:18.17 AS builder
 WORKDIR /usr/src/app
-
-COPY package*.json ./
-
-RUN npm install --only=production
-
+COPY . .
+RUN npm install
 RUN npm run build
 
-COPY ./dist ./dist
-
+FROM node:18.17
+WORKDIR /usr/src/app
+COPY --from=builder /usr/src/app/package*.json ./
+RUN npm install --omit=dev
+COPY --from=builder /usr/src/app/dist ./dist
 CMD [ "npm", "run", "start:docker" ]
