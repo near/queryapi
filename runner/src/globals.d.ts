@@ -7,6 +7,5 @@ declare namespace NodeJS {
     PGUSER: string
     PGPASSWORD: string
     PGDATABASE: string
-    REGION: string
   }
 }
