@@ -16,8 +16,9 @@ const EXTERNAL_APP_URL =
   props.EXTERNAL_APP_URL || "https://queryapi-frontend-24ktefolwq-ew.a.run.app";
 
 let appPath = props.isDev ? "dev-App" : "App";
+
 State.init({
-  activeTab: activeTab,
+  activeTab: Storage.privateGet("queryapi:activeTab") || activeTab,
   my_indexers: [],
   all_indexers: [],
   selected_indexer: undefined,
@@ -283,6 +284,20 @@ const ButtonLink = styled.a`
     }}
 `;
 
+const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
+if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
+  State.update({
+    activeTab: previousSelectedTab,
+  });
+}
+
+const selectTab = (tabName) => {
+  Storage.privateSet("queryapi:activeTab", tabName);
+  State.update({
+    activeTab: tabName,
+  });
+};
+
 const indexerView = (accountId, indexerName) => {
   const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
   const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
@@ -318,23 +333,10 @@ const indexerView = (accountId, indexerName) => {
       </CardBody>
 
       <CardFooter className="flex justify-center items-center">
-        <ButtonLink
-          onClick={() =>
-            State.update({
-              activeTab: "indexer-status",
-            })
-          }
-        >
+        <ButtonLink onClick={() => selectTab("indexer-status")}>
           View Status
         </ButtonLink>
-        <ButtonLink
-          primary
-          onClick={() =>
-            State.update({
-              activeTab: "editor-window",
-            })
-          }
-        >
+        <ButtonLink primary onClick={() => selectTab("editor-window")}>
           {accountId === context.accountId ? "Edit Indexer" : "View Indexer"}
         </ButtonLink>
         <ButtonLink href={playgroundLink} target="_blank">
@@ -350,7 +352,7 @@ return (
     <Tabs>
       <TabsButton
         type="button"
-        onClick={() => State.update({ activeTab: "indexers" })}
+        onClick={() => selectTab("indexers")}
         selected={state.activeTab === "indexers"}
       >
         Indexers
@@ -358,7 +360,7 @@ return (
       {props.view === "create-new-indexer" && (
         <TabsButton
           type="button"
-          onClick={() => State.update({ activeTab: "create-new-indexer" })}
+          onClick={() => selectTab("create-new-indexer")}
           selected={state.activeTab === "create-new-indexer"}
         >
           Create New Indexer
@@ -369,7 +371,7 @@ return (
         <>
           <TabsButton
             type="button"
-            onClick={() => State.update({ activeTab: "editor-window" })}
+            onClick={() => selectTab("editor-window")}
             selected={state.activeTab === "editor-window"}
           >
             Indexer Editor
@@ -377,7 +379,7 @@ return (
 
           <TabsButton
             type="button"
-            onClick={() => State.update({ activeTab: "indexer-status" })}
+            onClick={() => selectTab("indexer-status")}
             selected={state.activeTab === "indexer-status"}
           >
             Indexer Status
@@ -390,11 +392,7 @@ return (
         <NavBarLogo
           href={`https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}`}
           title="QueryApi"
-          onClick={() => {
-            State.update({
-              activeTab: "indexers",
-            });
-          }}
+          onClick={() => selectTab("indexers")}
         >
           <Widget
             src="mob.near/widget/Image"
@@ -414,12 +412,13 @@ return (
           <ButtonLink
             href={`/#/${APP_OWNER}/widget/QueryApi.${appPath}/?view=create-new-indexer`}
             style={{ "margin-top": "10px" }}
-            onClick={() =>
+            onClick={() => {
               State.update({
                 activeTab: "create-new-indexer",
                 selected_indexer: "",
-              })
-            }
+              });
+              selectTab("create-new-indexer");
+            }}
           >
             Create New Indexer
           </ButtonLink>
@@ -474,7 +473,7 @@ return (
               ))}
             {indexerView(
               selected_accountId ?? state.indexers[0].accountId,
-              selected_indexerName ?? state.indexers[0].indexerName,
+              selected_indexerName ?? state.indexers[0].indexerName
             )}
             <Widget
               src={`${APP_OWNER}/widget/QueryApi.IndexerStatus`}
