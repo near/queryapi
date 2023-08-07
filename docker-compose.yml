@@ -1,0 +1,93 @@
+version: "3.9"  # optional since v1.27.0
+services:
+
+  actions_queryapi_coordinator:
+    build:
+      context: ./indexer
+      args:
+        - chain_id=mainnet
+    links:
+      - redis
+    environment:
+      REDIS_CONNECTION_STRING: redis://redis
+      LAKE_AWS_SECRET_ACCESS_KEY: 
+      LAKE_AWS_ACCESS_KEY: 
+      QUEUE_AWS_ACCESS_KEY: 
+      QUEUE_AWS_SECRET_ACCESS_KEY: 
+      QUEUE_URL:
+      START_FROM_BLOCK_QUEUE_URL:
+      PORT: 9180
+      REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
+      AWS_QUEUE_REGION: eu-central-1
+    command:
+      - mainnet
+      - from-interruption
+
+  runner:
+    build:
+      context: ./runner
+    depends_on:
+    - "graphql-engine"
+    - "redis"
+    environment:
+      REGION: eu-central-1
+      HASURA_ENDPOINT: http://hasura-graphql:8080
+      HASURA_ADMIN_SECRET: myadminsecretkey
+      REDIS_CONNECTION_STRING: redis://redis
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgrespassword
+      PGDATABASE: postgres
+      AWS_ACCESS_KEY_ID: 
+      AWS_SECRET_ACCESS_KEY: 
+
+  redis:
+    image: redis
+    command:
+      - redis-server
+      - "--save 60 1"
+      - "--loglevel warning"
+    volumes:
+      - ./redis/data:/data
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:12
+    restart: always
+    volumes:
+    - db_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+
+  hasura-auth:
+    build:
+      context: ./hasura-authentication-service
+    ports:
+    - "4000:4000"
+    depends_on:
+    - "hasura-graphql"
+    environment:
+      PORT: 4000
+      DEFAULT_HASURA_ROLE: append
+
+  hasura-graphql:
+    image: hasura/graphql-engine:latest
+    ports:
+    - "8080:8080"
+    depends_on:
+    - "postgres"
+    restart: always
+    environment:
+      HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres
+      HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
+      HASURA_GRAPHQL_DEV_MODE: "true"
+      HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
+      HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
+      HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:4000/auth
+      
+volumes:
+  db_data:
