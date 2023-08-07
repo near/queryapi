@@ -4,11 +4,13 @@ import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives';
 
 import Provisioner from '../provisioner';
+import DmlHandler from '../dml-handler/dml-handler';
 
 interface Dependencies {
   fetch: typeof fetch
   s3: AWS.S3
   provisioner: Provisioner
+  dmlHandler: DmlHandler
 };
 
 interface Context {
@@ -16,6 +18,7 @@ interface Context {
   set: (key: string, value: any) => Promise<any>
   log: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
+  db: any
 }
 
 interface IndexerFunction {
@@ -41,6 +44,7 @@ export default class Indexer {
       fetch,
       s3: new AWS.S3(),
       provisioner: new Provisioner(),
+      dmlHandler: new DmlHandler(),
       ...deps,
     };
   }
@@ -90,7 +94,7 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, 'RUNNING');
 
         const vm = new VM({ timeout: 3000, allowAsync: true });
-        const context = this.buildContext(functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName);
+        const context = this.buildContext(indexerFunction.schema, functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName);
 
         vm.freeze(blockWithHelpers, 'block');
         vm.freeze(context, 'context');
@@ -183,7 +187,17 @@ export default class Indexer {
     ].reduce((acc, val) => val(acc), indexerFunction);
   }
 
-  buildContext (functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string): Context {
+  getTableNames (schema: string): string[] {
+    const tableNameMatcher = /CREATE TABLE\s+"(\w+)"/g;
+    const tableNames = Array.from(schema.matchAll(tableNameMatcher), match => match[1]); // Get first capturing group of each match
+    console.log('Retrieved the following table names from schema: ', tableNames);
+    return tableNames;
+  }
+
+  buildContext (schema: string, functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string): Context {
+    const tables = this.getTableNames(schema);
+    const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
+
     return {
       graphql: async (operation, variables) => {
         console.log(`${functionName}: Running context graphql`, operation);
@@ -207,8 +221,31 @@ export default class Indexer {
       },
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
-      }
+      },
+      db: this.buildDatabaseContext(schemaName, tables)
     };
+  }
+
+  buildDatabaseContext (schemaName: string, tables: string[]): any {
+    try {
+      const result = tables.reduce((prev, tableName) => ({
+        ...prev,
+        [`insert_${tableName}`]: async (objects: any[]) => await this.deps.dmlHandler.insert(schemaName, tableName, objects),
+        [`select_${tableName}`]: async (object: any, limit = 0) => await this.deps.dmlHandler.select(schemaName, tableName, object, limit),
+      }), {});
+      console.log(result);
+      return result;
+    } catch (error) {
+      console.error('Caught error when generating DB methods. Falling back to generic methods.', error);
+      return {
+        insert: async (tableName: string, objects: any[]) => {
+          return await this.deps.dmlHandler.insert(schemaName, tableName, objects);
+        },
+        select: async (tableName: string, object: any, limit = 0) => {
+          return await this.deps.dmlHandler.select(schemaName, tableName, object, limit);
+        }
+      };
+    }
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {

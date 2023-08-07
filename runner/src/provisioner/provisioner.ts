@@ -1,4 +1,4 @@
-import VError from 'verror';
+import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
 import PgClient from '../pg-client';
@@ -47,7 +47,7 @@ export default class Provisioner {
   }
 
   async createUserDb (userName: string, password: string, databaseName: string): Promise<void> {
-    await this.wrapError(
+    await wrapError(
       async () => {
         await this.createDatabase(databaseName);
         await this.createUser(userName, password);
@@ -74,35 +74,24 @@ export default class Provisioner {
     return schemaExists;
   }
 
-  async wrapError<T>(fn: () => Promise<T>, errorMessage: string): Promise<T> {
-    try {
-      return await fn();
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new VError(error, errorMessage);
-      }
-      throw new VError(errorMessage);
-    }
-  }
-
   async createSchema (databaseName: string, schemaName: string): Promise<void> {
-    return await this.wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
+    return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
   async runMigrations (databaseName: string, schemaName: string, migration: any): Promise<void> {
-    return await this.wrapError(async () => await this.hasuraClient.runMigrations(databaseName, schemaName, migration), 'Failed to run migrations');
+    return await wrapError(async () => await this.hasuraClient.runMigrations(databaseName, schemaName, migration), 'Failed to run migrations');
   }
 
   async getTableNames (schemaName: string, databaseName: string): Promise<string[]> {
-    return await this.wrapError(async () => await this.hasuraClient.getTableNames(schemaName, databaseName), 'Failed to fetch table names');
+    return await wrapError(async () => await this.hasuraClient.getTableNames(schemaName, databaseName), 'Failed to fetch table names');
   }
 
   async trackTables (schemaName: string, tableNames: string[], databaseName: string): Promise<void> {
-    return await this.wrapError(async () => await this.hasuraClient.trackTables(schemaName, tableNames, databaseName), 'Failed to track tables');
+    return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, tableNames, databaseName), 'Failed to track tables');
   }
 
   async addPermissionsToTables (schemaName: string, databaseName: string, tableNames: string[], roleName: string, permissions: string[]): Promise<void> {
-    return await this.wrapError(async () => await this.hasuraClient.addPermissionsToTables(
+    return await wrapError(async () => await this.hasuraClient.addPermissionsToTables(
       schemaName,
       databaseName,
       tableNames,
@@ -112,11 +101,11 @@ export default class Provisioner {
   }
 
   async trackForeignKeyRelationships (schemaName: string, databaseName: string): Promise<void> {
-    return await this.wrapError(async () => await this.hasuraClient.trackForeignKeyRelationships(schemaName, databaseName), 'Failed to track foreign key relationships');
+    return await wrapError(async () => await this.hasuraClient.trackForeignKeyRelationships(schemaName, databaseName), 'Failed to track foreign key relationships');
   }
 
   async addDatasource (userName: string, password: string, databaseName: string): Promise<void> {
-    return await this.wrapError(async () => await this.hasuraClient.addDatasource(userName, password, databaseName), 'Failed to add datasource');
+    return await wrapError(async () => await this.hasuraClient.addDatasource(userName, password, databaseName), 'Failed to add datasource');
   }
 
   replaceSpecialChars (str: string): string {
@@ -131,7 +120,7 @@ export default class Provisioner {
     const userName = sanitizedAccountId;
     const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
-    await this.wrapError(
+    await wrapError(
       async () => {
         if (!await this.hasuraClient.doesSourceExist(databaseName)) {
           const password = this.generatePassword();
