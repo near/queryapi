@@ -417,7 +417,7 @@ return (
                 activeTab: "create-new-indexer",
                 selected_indexer: "",
               });
-              selectTab("indexers");
+              selectTab("create-new-indexer");
             }}
           >
             Create New Indexer
