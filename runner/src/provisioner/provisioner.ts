@@ -6,11 +6,11 @@ import PgClient from '../pg-client';
 const DEFAULT_PASSWORD_LENGTH = 16;
 
 const sharedPgClient = new PgClient({
-  user: process.env.PG_ADMIN_USER,
-  password: process.env.PG_ADMIN_PASSWORD,
-  database: process.env.PG_ADMIN_DATABASE,
-  host: process.env.PG_HOST,
-  port: Number(process.env.PG_PORT),
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE,
+  host: process.env.PGHOST,
+  port: Number(process.env.PGPORT),
 });
 
 export default class Provisioner {
