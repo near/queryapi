@@ -1,0 +1,2 @@
+- "!include public_indexer_log_entries.yaml"
+- "!include public_indexer_state.yaml"

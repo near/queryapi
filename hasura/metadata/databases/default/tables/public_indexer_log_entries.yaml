@@ -1,0 +1,23 @@
+table:
+  name: indexer_log_entries
+  schema: public
+insert_permissions:
+- permission:
+    check: {}
+    columns:
+    - block_height
+    - function_name
+    - message
+    - timestamp
+    - id
+  role: append
+select_permissions:
+- permission:
+    columns:
+    - block_height
+    - function_name
+    - message
+    - timestamp
+    - id
+    filter: {}
+  role: append
