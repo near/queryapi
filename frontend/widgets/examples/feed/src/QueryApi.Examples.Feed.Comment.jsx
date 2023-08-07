@@ -6,6 +6,7 @@ const blockHeight =
   props.blockHeight === "now" ? "now" : parseInt(props.blockHeight);
 
 State.init({
+  hasBeenFlagged: false,
   content: JSON.parse(props.content) ?? undefined,
   notifyAccountId: undefined,
 });
@@ -122,6 +123,14 @@ const Actions = styled.div`
   margin: -6px -6px 6px;
 `;
 
+if (state.hasBeenFlagged) {
+  return (
+    <div className="alert alert-secondary">
+      <i className="bi bi-flag" /> This content has been flagged for moderation
+    </div>
+  );
+}
+
 return (
   <Comment>
     <Header>
@@ -194,6 +203,19 @@ return (
             src="calebjacob.near/widget/CopyUrlButton"
             props={{
               url: commentUrl,
+            }}
+          />
+          <Widget
+            src="near/widget/FlagButton"
+            props={{
+              item: {
+                type: "social",
+                path: `${accountId}/post/comment`,
+                blockHeight,
+              },
+              onFlag: () => {
+                State.update({ hasBeenFlagged: true });
+              },
             }}
           />
         </Actions>
