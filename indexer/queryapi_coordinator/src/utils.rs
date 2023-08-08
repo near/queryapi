@@ -1,7 +1,7 @@
 use crate::metrics;
 
 pub(crate) async fn stats(redis_connection_manager: storage::ConnectionManager) {
-    let interval_secs = 10;
+    let interval_secs = 5;
     let mut previous_processed_blocks: u64 =
         storage::get::<u64>(&redis_connection_manager, "blocks_processed")
             .await
