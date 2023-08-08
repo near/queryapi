@@ -124,6 +124,8 @@ type IndexerStreamMessage = {
 const processStream = async (indexerName: string): Promise<void> => {
   while (true) {
     try {
+      const startTime = performance.now();
+
       const lastProcessedId = await getLastProcessedId(indexerName);
       const messages = await getMessagesFromStream<IndexerStreamMessage>(
         indexerName,
@@ -140,6 +142,10 @@ const processStream = async (indexerName: string): Promise<void> => {
       await runFunction(indexerName, message.block_height);
 
       await setLastProcessedId(indexerName, id);
+
+      const endTime = performance.now();
+
+      metrics.EXECUTION_DURATION.labels({ indexer: indexerName }).set(endTime - startTime);
 
       const unprocessedMessages = await getUnprocessedMessages<IndexerStreamMessage>(indexerName, lastProcessedId ?? '-');
       metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName }).set(unprocessedMessages?.length ?? 0);

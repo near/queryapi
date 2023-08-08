@@ -7,6 +7,12 @@ export const UNPROCESSED_STREAM_MESSAGES = new promClient.Gauge({
   labelNames: ['indexer'],
 });
 
+export const EXECUTION_DURATION = new promClient.Gauge({
+  name: 'queryapi_runner_execution_duration_milliseconds',
+  help: 'Time taken to execute an indexer function',
+  labelNames: ['indexer'],
+});
+
 export const startServer = async (): Promise<void> => {
   const app = express();
 
