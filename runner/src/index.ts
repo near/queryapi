@@ -1,9 +1,14 @@
 import { createClient } from 'redis';
 
 import Indexer from './indexer';
+import * as metrics from './metrics';
 
 const client = createClient({ url: process.env.REDIS_CONNECTION_STRING });
 const indexer = new Indexer('mainnet');
+
+metrics.startServer().catch((err) => {
+  console.error('Failed to start metrics server', err);
+});
 
 // const BATCH_SIZE = 1;
 const STREAM_START_ID = '0';
@@ -46,10 +51,12 @@ const runFunction = async (indexerName: string, blockHeight: string): Promise<vo
   });
 };
 
-type StreamMessages<Message> = Array<{
+interface StreamMessage<Message> {
   id: string
   message: Message
-}>;
+}
+
+type StreamMessages<Message> = Array<StreamMessage<Message>>;
 
 const getMessagesFromStream = async <Message extends Record<string, string>>(
   indexerName: string,
@@ -65,6 +72,19 @@ const getMessagesFromStream = async <Message extends Record<string, string>>(
   );
 
   return results?.[0].messages as StreamMessages<Message>;
+};
+
+const getUnprocessedMessages = async <Message extends Record<string, string>>(
+  indexerName: string,
+  startId: string
+): Promise<Array<StreamMessage<Message>>> => {
+  const [timestamp, sequenceNumber] = startId.split('-');
+  const nextSequenceNumber = Number(sequenceNumber) + 1;
+  const nextId = `${timestamp}-${nextSequenceNumber}`;
+
+  const results = await client.xRange(generateStreamKey(indexerName), nextId, '+');
+
+  return results as Array<StreamMessage<Message>>;
 };
 
 const getLastProcessedId = async (
@@ -97,11 +117,15 @@ const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
   return JSON.parse(results);
 };
 
-type IndexerStreamMessage = Record<string, string>;
+type IndexerStreamMessage = {
+  block_height: string
+} & Record<string, string>;
 
 const processStream = async (indexerName: string): Promise<void> => {
   while (true) {
     try {
+      const startTime = performance.now();
+
       const lastProcessedId = await getLastProcessedId(indexerName);
       const messages = await getMessagesFromStream<IndexerStreamMessage>(
         indexerName,
@@ -118,6 +142,13 @@ const processStream = async (indexerName: string): Promise<void> => {
       await runFunction(indexerName, message.block_height);
 
       await setLastProcessedId(indexerName, id);
+
+      const endTime = performance.now();
+
+      metrics.EXECUTION_DURATION.labels({ indexer: indexerName }).set(endTime - startTime);
+
+      const unprocessedMessages = await getUnprocessedMessages<IndexerStreamMessage>(indexerName, lastProcessedId ?? '-');
+      metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName }).set(unprocessedMessages?.length ?? 0);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
