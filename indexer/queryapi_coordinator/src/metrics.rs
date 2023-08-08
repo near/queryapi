@@ -1,6 +1,6 @@
 use actix_web::{get, App, HttpServer, Responder};
 use lazy_static::lazy_static;
-use prometheus::{Encoder, IntCounter, IntGauge, Opts};
+use prometheus::{Encoder, IntCounter, IntGauge, IntGaugeVec, Opts};
 use tracing::info;
 
 lazy_static! {
@@ -14,6 +14,23 @@ lazy_static! {
         "Number of indexed blocks"
     )
     .unwrap();
+    pub(crate) static ref UNPROCESSED_STREAM_MESSAGES: IntGaugeVec = try_create_int_gauge_vec(
+        "queryapi_coordinator_unprocessed_stream_messages",
+        "Number of Redis Stream messages not processed by Runner",
+        &["stream"]
+    )
+    .unwrap();
+}
+
+fn try_create_int_gauge_vec(
+    name: &str,
+    help: &str,
+    labels: &[&str],
+) -> prometheus::Result<IntGaugeVec> {
+    let opts = Opts::new(name, help);
+    let gauge = IntGaugeVec::new(opts, labels)?;
+    prometheus::register(Box::new(gauge.clone()))?;
+    Ok(gauge)
 }
 
 fn try_create_int_gauge(name: &str, help: &str) -> prometheus::Result<IntGauge> {
