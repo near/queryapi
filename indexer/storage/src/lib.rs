@@ -3,6 +3,8 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 const STORAGE: &str = "storage_alertexer";
 
 pub const INDEXER_SET_KEY: &str = "indexers";
+pub const STREAM_SMALLEST_ID: &str = "-";
+pub const STREAM_LARGEST_ID: &str = "+";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
@@ -14,6 +16,10 @@ pub fn generate_storage_key(name: &str) -> String {
 
 pub fn generate_stream_key(name: &str) -> String {
     format!("{}:stream", name)
+}
+
+pub fn generate_stream_last_id_key(name: &str) -> String {
+    format!("{}:stream:lastId", name)
 }
 
 pub async fn connect(redis_connection_str: &str) -> anyhow::Result<ConnectionManager> {
@@ -103,6 +109,44 @@ pub async fn xadd(
         .await?;
 
     Ok(())
+}
+
+pub async fn smembers(
+    redis_connection_manager: &ConnectionManager,
+    key: &str,
+) -> anyhow::Result<Vec<String>> {
+    tracing::debug!(target: STORAGE, "SMEMBERS: {:?}", key);
+
+    let members: Vec<String> = redis::cmd("SMEMBERS")
+        .arg(key)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    Ok(members)
+}
+
+pub async fn xrange(
+    redis_connection_manager: &ConnectionManager,
+    stream_key: impl ToRedisArgs + std::fmt::Debug,
+    start_id: &str,
+    end_id: &str,
+) -> anyhow::Result<Vec<redis::Value>> {
+    tracing::debug!(
+        target: STORAGE,
+        "XRANGE: {:?}, {:?}, {:?}",
+        stream_key,
+        start_id,
+        end_id
+    );
+
+    let results = redis::cmd("XRANGE")
+        .arg(stream_key)
+        .arg(start_id)
+        .arg(end_id)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+
+    Ok(results)
 }
 
 /// Sets the key `receipt_id: &str` with value `transaction_hash: &str` to the Redis storage.
