@@ -1,9 +1,14 @@
 import { createClient } from 'redis';
 
 import Indexer from './indexer';
+import * as metrics from './metrics';
 
 const client = createClient({ url: process.env.REDIS_CONNECTION_STRING });
 const indexer = new Indexer('mainnet');
+
+metrics.startServer().catch((err) => {
+  console.error('Failed to start metrics server', err);
+});
 
 // const BATCH_SIZE = 1;
 const STREAM_START_ID = '0';
