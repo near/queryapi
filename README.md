@@ -5,7 +5,7 @@ With QueryApi you can
 * Specify the schema for your own custom hosted database and write to it with your indexer function;
 * Retrieve that data through a GraphQL API.
 
-## Table of Contents / Applications
+## 🧩 Components
 1. [QueryApi Coordinator](./indexer)
 An Indexer that tracks changes to the QueryApi registry contract. It triggers the execution of those IndexerFunctions
 when they match new blocks by placing messages on an SQS queue. Spawns historical processing threads when needed.
@@ -22,7 +22,7 @@ indexer_rules_engine, storage.
 6. [Lake Block server](./block-server)
    Serves blocks from the S3 lake for in browser testing of IndexerFunctions.
 
-## Getting Started
+## 🚀 Getting Started
 
 The majority of the QueryApi components can be set up locally using Docker. For this purpose, a [Docker Compose file](./docker-compose.yml) has been provided. However, the local system still relies on the NEAR Mainnet, rather than running on a localnet.
 
