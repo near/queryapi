@@ -1,0 +1,63 @@
+name: Runner CI
+
+on:
+  pull_request:
+    paths:
+      - "runner/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./runner
+
+      - name: Test
+        run: npm test
+        working-directory: ./runner
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./runner
+
+      - name: Lint
+        run: npm run lint
+        working-directory: ./runner
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./runner
+
+      - name: Build
+        run: npm run build
+        working-directory: ./runner
