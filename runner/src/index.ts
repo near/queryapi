@@ -11,7 +11,7 @@ metrics.startServer().catch((err) => {
 });
 
 // const BATCH_SIZE = 1;
-const STREAM_START_ID = '0';
+const STREAM_SMALLEST_ID = '0';
 // const STREAM_THROTTLE_MS = 250;
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
@@ -63,7 +63,7 @@ const getMessagesFromStream = async <Message extends Record<string, string>>(
   lastId: string | null,
   count: number,
 ): Promise<StreamMessages<Message> | null> => {
-  const id = lastId ?? STREAM_START_ID;
+  const id = lastId ?? STREAM_SMALLEST_ID;
 
   const results = await client.xRead(
     { key: generateStreamKey(indexerName), id },
@@ -74,13 +74,17 @@ const getMessagesFromStream = async <Message extends Record<string, string>>(
   return results?.[0].messages as StreamMessages<Message>;
 };
 
+const incrementStreamId = (id: string): string => {
+  const [timestamp, sequenceNumber] = id.split('-');
+  const nextSequenceNumber = Number(sequenceNumber) + 1;
+  return `${timestamp}-${nextSequenceNumber}`;
+};
+
 const getUnprocessedMessages = async <Message extends Record<string, string>>(
   indexerName: string,
-  startId: string
+  startId: string | null
 ): Promise<Array<StreamMessage<Message>>> => {
-  const [timestamp, sequenceNumber] = startId.split('-');
-  const nextSequenceNumber = Number(sequenceNumber) + 1;
-  const nextId = `${timestamp}-${nextSequenceNumber}`;
+  const nextId = startId ? incrementStreamId(startId) : STREAM_SMALLEST_ID;
 
   const results = await client.xRange(generateStreamKey(indexerName), nextId, '+');
 
@@ -147,7 +151,7 @@ const processStream = async (indexerName: string): Promise<void> => {
 
       metrics.EXECUTION_DURATION.labels({ indexer: indexerName }).set(endTime - startTime);
 
-      const unprocessedMessages = await getUnprocessedMessages<IndexerStreamMessage>(indexerName, lastProcessedId ?? '-');
+      const unprocessedMessages = await getUnprocessedMessages<IndexerStreamMessage>(indexerName, lastProcessedId);
       metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName }).set(unprocessedMessages?.length ?? 0);
 
       console.log(`Success: ${indexerName}`);
