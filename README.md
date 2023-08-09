@@ -70,5 +70,6 @@ docker compose up
 - Coordinator watches the dev registry contract by default (`dev-queryapi.dataplatform.near`). To use a different contract, you can update the `REGISTRY_CONTRACT_ID` environment variable.
 - Coodinator will log SQS messages rather than sending them. To use an actual Queue, you can update the `QUEUE_URL` and `START_FROM_BLOCK_QUEUE_URL` environment variables.
 
-### Initial Provisioning
-It is expected to see some errors when starting the QueryAPI Runner for the first time. Before an indexer is executed, it is first provisioned. In the current registry there are most likely many accounts with many indexers under them. On first start up, all Indexers will attempt to provision, and most will fail due to the duplicate attempts to create shared resources. These indexers will eventually retry, and skip provisioning since it has already been setup.
+### Known Issues
+
+It is expected to see some provisioning errors from `Runner` when starting QueryAPI for the first time. These occur when multiple indexers under the same account attempt to provision the same shared infrastructure. These should self resolve after a few seconds.
