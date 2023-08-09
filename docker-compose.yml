@@ -1,21 +1,21 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
-  actions_queryapi_coordinator:
+  coordinator:
     build:
       context: ./indexer
       args:
-        - chain_id=mainnet
-    links:
+        - CARGO_BUILD_MODE=debug
+    depends_on:
       - redis
     environment:
       REDIS_CONNECTION_STRING: redis://redis
-      LAKE_AWS_SECRET_ACCESS_KEY: 
-      LAKE_AWS_ACCESS_KEY: 
-      QUEUE_AWS_ACCESS_KEY: 
-      QUEUE_AWS_SECRET_ACCESS_KEY: 
-      QUEUE_URL:
-      START_FROM_BLOCK_QUEUE_URL:
+      LAKE_AWS_ACCESS_KEY:
+      LAKE_AWS_SECRET_ACCESS_KEY:
+      QUEUE_AWS_ACCESS_KEY:
+      QUEUE_AWS_SECRET_ACCESS_KEY:
+      QUEUE_URL: MOCK
+      START_FROM_BLOCK_QUEUE_URL: MOCK
       PORT: 9180
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       AWS_QUEUE_REGION: eu-central-1
@@ -27,7 +27,7 @@ services:
     build:
       context: ./runner
     depends_on:
-    - "graphql-engine"
+    - "hasura-graphql"
     - "redis"
     environment:
       REGION: eu-central-1
@@ -39,8 +39,9 @@ services:
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres
-      AWS_ACCESS_KEY_ID: 
-      AWS_SECRET_ACCESS_KEY: 
+      PORT: 9180
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
 
   redis:
     image: redis
@@ -49,7 +50,7 @@ services:
       - "--save 60 1"
       - "--loglevel warning"
     volumes:
-      - ./redis/data:/data
+      - redis:/data
     ports:
       - "6379:6379"
 
@@ -57,7 +58,7 @@ services:
     image: postgres:12
     restart: always
     volumes:
-    - db_data:/var/lib/postgresql/data
+    - postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: postgrespassword
     ports:
@@ -68,8 +69,6 @@ services:
       context: ./hasura-authentication-service
     ports:
     - "4000:4000"
-    depends_on:
-    - "hasura-graphql"
     environment:
       PORT: 4000
       DEFAULT_HASURA_ROLE: append
@@ -80,6 +79,7 @@ services:
     - "8080:8080"
     depends_on:
     - "postgres"
+    - "hasura-auth"
     restart: always
     environment:
       HASURA_GRAPHQL_DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/postgres
@@ -90,4 +90,5 @@ services:
       HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:4000/auth
       
 volumes:
-  db_data:
+  postgres:
+  redis:
