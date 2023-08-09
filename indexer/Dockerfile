@@ -3,9 +3,9 @@ ARG CARGO_BUILD_MODE=release
 WORKDIR /tmp/
 COPY ./ ./
 RUN if [ "$CARGO_BUILD_MODE" = "debug" ]; then \
-        cargo build --package queryapi_coordinator --offline; \
+        cargo build --package queryapi_coordinator; \
     else \
-        cargo build --release --package queryapi_coordinator --offline; \
+        cargo build --release --package queryapi_coordinator; \
     fi
 
 FROM ubuntu:20.04
