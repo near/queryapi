@@ -7,16 +7,16 @@ describe('HasuraClient', () => {
 
   const HASURA_ENDPOINT = 'mock-hasura-endpoint';
   const HASURA_ADMIN_SECRET = 'mock-hasura-admin-secret';
-  const PG_HOST = 'localhost';
-  const PG_PORT = '5432';
+  const PGHOST = 'localhost';
+  const PGPORT = '5432';
 
   beforeAll(() => {
     process.env = {
       ...oldEnv,
       HASURA_ENDPOINT,
       HASURA_ADMIN_SECRET,
-      PG_HOST,
-      PG_PORT,
+      PGHOST,
+      PGPORT,
     };
   });
 
