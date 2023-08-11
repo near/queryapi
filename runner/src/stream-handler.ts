@@ -2,7 +2,7 @@ import Indexer from './indexer';
 import RedisClient from './redis-client';
 import * as metrics from './metrics';
 
-const indexer = new Indexer('mainnet');
+const indexer = new Indexer('mainnet', '', '', '', '');
 
 export default class StreamHandler {
   private readonly errors: Error[] = [];

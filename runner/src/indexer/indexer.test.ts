@@ -45,7 +45,11 @@ describe('Indexer unit tests', () => {
         })
       })),
     } as unknown as AWS.S3;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
+    const code = `
+          const foo = 3;
+          block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
+      `;
+    const indexer = new Indexer('mainnet', 'buildnear.testnet', 'test', code, '', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -54,7 +58,7 @@ describe('Indexer unit tests', () => {
             block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
         `
     };
-    await indexer.runFunctions(blockHeight, functions, false);
+    await indexer.executeBlock(blockHeight, false);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -72,7 +76,7 @@ describe('Indexer unit tests', () => {
         })
       })),
     } as unknown as AWS.S3;
-    const indexer = new Indexer('mainnet', { s3: mockS3 });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { s3: mockS3 });
 
     const blockHeight = 84333960;
     const block = await indexer.fetchBlockPromise(blockHeight);
@@ -95,7 +99,7 @@ describe('Indexer unit tests', () => {
         })
       })),
     } as unknown as AWS.S3;
-    const indexer = new Indexer('mainnet', { s3: mockS3 });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { s3: mockS3 });
 
     const blockHeight = 82699904;
     const shard = 0;
@@ -135,7 +139,7 @@ describe('Indexer unit tests', () => {
     const mockS3 = {
       getObject,
     } as unknown as AWS.S3;
-    const indexer = new Indexer('mainnet', { s3: mockS3 });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { s3: mockS3 });
 
     const streamerMessage = await indexer.fetchStreamerMessage(blockHeight);
 
@@ -156,7 +160,7 @@ describe('Indexer unit tests', () => {
   });
 
   test('Indexer.transformIndexerFunction() applies the necessary transformations', () => {
-    const indexer = new Indexer('mainnet');
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '');
 
     const transformedFunction = indexer.transformIndexerFunction('console.log(\'hello\')');
 
@@ -188,9 +192,9 @@ describe('Indexer unit tests', () => {
           }
         })
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'morgs_near');
+    const context = indexer.buildContext(1);
 
     const query = `
             query {
@@ -240,9 +244,9 @@ describe('Indexer unit tests', () => {
 
   test('Indexer.buildContext() can fetch from the near social api', async () => {
     const mockFetch = jest.fn();
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'role');
+    const context = indexer.buildContext(1);
 
     await context.fetchFromSocialApi('/index', {
       method: 'POST',
@@ -269,9 +273,9 @@ describe('Indexer unit tests', () => {
           errors: ['boom']
         })
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'role');
+    const context = indexer.buildContext(1);
 
     await expect(async () => await context.graphql('query { hello }')).rejects.toThrow('boom');
   });
@@ -284,9 +288,9 @@ describe('Indexer unit tests', () => {
           data: 'mock',
         }),
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', '', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, 'morgs_near');
+    const context = indexer.buildContext(1);
 
     const query = 'query($name: String) { hello(name: $name) }';
     const variables = { name: 'morgan' };
@@ -386,7 +390,36 @@ describe('Indexer unit tests', () => {
           }),
         }),
     } as unknown as AWS.S3;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
+    const code = `
+            const { posts } = await context.graphql(\`
+                query {
+                    posts(where: { id: { _eq: 1 } }) {
+                        id
+                    }
+                }
+            \`);
+
+            if (!posts || posts.length === 0) {
+                return;
+            }
+
+            const [post] = posts;
+
+            const { insert_comments: { returning: { id } } } = await context.graphql(\`
+                mutation {
+                    insert_comments(
+                        objects: {account_id: "morgs.near", block_height: \${block.blockHeight}, content: "cool post", post_id: \${post.id}}
+                    ) {
+                        returning {
+                            id
+                        }
+                    }
+                }
+            \`);
+
+            return (\`Created comment \${id} on post \${post.id}\`)
+    `;
+    const indexer = new Indexer('mainnet', 'buildnear.testnet', 'test', code, '', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -421,7 +454,7 @@ describe('Indexer unit tests', () => {
         `
     };
 
-    await indexer.runFunctions(blockHeight, functions, false);
+    await indexer.executeBlock(blockHeight, false);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -469,7 +502,10 @@ describe('Indexer unit tests', () => {
         })
       })),
     } as unknown as AWS.S3;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
+    const code = `
+            throw new Error('boom');
+    `;
+    const indexer = new Indexer('mainnet', 'buildnear.testnet', 'test', code, '', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -478,7 +514,7 @@ describe('Indexer unit tests', () => {
         `
     };
 
-    await expect(indexer.runFunctions(blockHeight, functions, false)).rejects.toThrow(new Error('boom'));
+    await expect(indexer.executeBlock(blockHeight, false)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
@@ -517,7 +553,7 @@ describe('Indexer unit tests', () => {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', 'schema', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
 
     const functions = {
       'morgs.near/test': {
@@ -573,7 +609,7 @@ describe('Indexer unit tests', () => {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', '', 'schema', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {
@@ -617,23 +653,13 @@ describe('Indexer unit tests', () => {
           }),
         }),
     } as unknown as AWS.S3;
-    const provisioner: any = {
-      isUserApiProvisioned: jest.fn().mockReturnValue(true),
-      provisionUserApi: jest.fn(),
-    };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
-
-    const functions: Record<string, any> = {
-      'morgs.near/test': {
-        code: `
+    const code = `
                     context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
-                `,
-        schema: 'schema',
-      }
-    };
-    await indexer.runFunctions(blockHeight, functions, false, { provision: true });
+    `;
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', code, 'schema', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
-    expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
+    await indexer.executeBlock(blockHeight, false);
+
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
@@ -673,13 +699,13 @@ describe('Indexer unit tests', () => {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn().mockRejectedValue(error),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
-
+    const code = `
+                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
+    `;
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', code, 'schema', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
     const functions: Record<string, any> = {
       'morgs.near/test': {
-        code: `
-                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
-                `,
+        code,
         schema: 'schema',
       }
     };
@@ -696,9 +722,7 @@ describe('Indexer unit tests', () => {
           data: {}
         })
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-    // @ts-expect-error legacy test
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, null);
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', 'code', 'schema', { fetch: mockFetch as unknown as typeof fetch });
 
     const mutation = `
             mutation {
@@ -708,7 +732,7 @@ describe('Indexer unit tests', () => {
             }
         `;
 
-    await context.graphql(mutation);
+    await indexer.runGraphQLQuery(mutation, null, 1, null);
 
     expect(mockFetch.mock.calls[0]).toEqual([
             `${HASURA_ENDPOINT}/v1/graphql`,
@@ -732,8 +756,8 @@ describe('Indexer unit tests', () => {
         })
       });
     const role = 'morgs_near';
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, role);
+    const indexer = new Indexer('mainnet', 'morgs.near', 'test', 'code', 'schema', { fetch: mockFetch as unknown as typeof fetch });
+    const context = indexer.buildContext(1);
 
     const mutation = `
             mutation {

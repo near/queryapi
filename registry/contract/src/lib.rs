@@ -69,6 +69,8 @@ pub struct IndexerConfig {
     start_block_height: Option<u64>,
     schema: Option<String>,
     filter: IndexerRule,
+    // use for versioning
+    updated_at_block_height: u64,
 }
 
 // Migration types

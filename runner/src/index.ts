@@ -12,6 +12,7 @@ metrics.startServer().catch((err) => {
 // const BATCH_SIZE = 1;
 // const STREAM_THROTTLE_MS = 250;
 const STREAM_HANDLER_THROTTLE_MS = 500;
+// CONTROL_LOOP_THROTTLE
 
 type StreamHandlers = Record<string, StreamHandler>;
 
@@ -22,7 +23,13 @@ void (async function main () {
     while (true) {
       // it would be ideal if we had the whole contract here
       // then it would be the job of this application to ensure the configuration is live
+      // and could compare the current configuration to the desired configuration
+      // indexer.code === config.code etc.
+      // we would check what has changed and update as necessary
       const indexers = await redisClient.getIndexers();
+      // group indexers by account
+      // filter out active indexers
+      // provision if needed, doing each account sequentially to avoid overload
 
       indexers.forEach((indexerName) => {
         // should also check if the indexer version has changed
