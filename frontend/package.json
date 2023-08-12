@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "serve:widgets": "bos-loader dev-queryapi.dataplatform.near --path widgets/src",
+    "serve:widgets": "bos-loader dataplatform.near --path widgets/src -r replacement.mainnet.json",
+    "serve:widgets:local": "bos-loader dataplatform.near --path widgets/src -r replacement.local.json",
+    "serve:widgets:dev": "bos-loader dev-queryapi.dataplatform.near --path widgets/src -r replacement.dev.json",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
