@@ -26,7 +26,7 @@ const accountIdsSet = schemaNames.reduce((accountIdsSet, schemaName) => {
     return accountIdsSet;
 }, new Set());
 
-const accountIds = ['morgs.near', 'flatirons.near', 'roshaan.near', 'dataplatform.near'];
+const accountIds = Array.from(accountIdsSet);
 
 console.log(`Creating datasources for accounts: ${accountIds.join(', ')}`)
 

@@ -287,7 +287,7 @@ export default class HasuraClient {
               password,
               database: databaseName,
               username: userName,
-              host: 'postgres',
+              host: process.env.PG_HOST,
               port: Number(process.env.PG_PORT),
             }
           },
