@@ -24,6 +24,7 @@ interface IndexerFunction {
   provisioned?: boolean
   schema: string
   code: string
+  updated?: boolean
 }
 
 export default class Indexer {
@@ -61,6 +62,13 @@ export default class Indexer {
     for (const functionName in functions) {
       try {
         const indexerFunction = functions[functionName];
+        if (!isHistorical && !indexerFunction.updated) {
+          // check status and skip if STOPPED
+          if (await this.getStatus(functionName) === 'STOPPED') {
+            console.log(`Skipping function ${functionName} because it's stopped and the indexer function hasn't been updated`);
+            continue;
+          }
+        }
 
         const runningMessage = `Running function ${functionName}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
         console.log(runningMessage); // Print the running message to the console (Lambda logs)
@@ -210,7 +218,25 @@ export default class Indexer {
       }
     };
   }
-
+  async getStatus(functionName: string) {
+    return await this.runGraphQLQuery(
+        `
+                query GetStatus($function_name: String) {
+                  indexer_state(where: {function_name: {_eq: $function_name}}) {
+                    status
+                  }
+                }
+            `,
+        {
+          function_name: functionName,
+        },
+        functionName,
+        0,
+        this.DEFAULT_HASURA_ROLE
+    ).then((result) => {
+      return result?.indexer_state?.[0]?.status;
+    });
+  }
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
     return await this.runGraphQLQuery(
             `

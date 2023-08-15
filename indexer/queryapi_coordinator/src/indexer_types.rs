@@ -23,6 +23,8 @@ pub struct IndexerQueueMessage {
     pub is_historical: bool,
 }
 
+// provisioned and updated fields are used to communicate between the registry indexer
+// and main indexer, to then communicate to the runner.
 #[derive(
     borsh::BorshSerialize,
     borsh::BorshDeserialize,
@@ -39,6 +41,7 @@ pub struct IndexerFunction {
     pub schema: Option<String>,
     pub provisioned: bool,
     pub indexer_rule: IndexerRule,
+    pub updated: bool,
 }
 
 impl IndexerFunction {

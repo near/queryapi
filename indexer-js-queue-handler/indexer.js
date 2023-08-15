@@ -39,6 +39,14 @@ export default class Indexer {
         for (const function_name in functions) {
             try {
                 const indexerFunction = functions[function_name];
+                if(!is_historical && !indexerFunction.updated) {
+                    // check status and skip if STOPPED
+                    if(await this.getStatus(function_name) === 'STOPPED') {
+                        console.log(`Skipping function ${function_name} because it's stopped and the indexer function hasn't been updated`);
+                        continue;
+                    }
+                }
+
                 const runningMessage = `Running function ${function_name}` +  (is_historical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
                 console.log(runningMessage);  // Lambda logs
                 const segment = this.deps.awsXray.getSegment(); // segment is immutable, subsegments are mutable
@@ -268,6 +276,30 @@ export default class Indexer {
         };
     }
 
+    getStatus(functionName) {
+        const activeFunctionSubsegment = this.deps.awsXray.resolveSegment()
+        const subsegment = activeFunctionSubsegment.addNewSubsegment(`getStatus`);
+
+        return this.runGraphQLQuery(
+            `
+                query GetStatus($function_name: String) {
+                  indexer_state(where: {function_name: {_eq: $function_name}}) {
+                    status
+                  }
+                }
+            `,
+            {
+                function_name: functionName,
+            },
+            functionName,
+            0,
+            this.DEFAULT_HASURA_ROLE
+        ).then((result) => {
+            return result?.indexer_state?.[0]?.status;
+        }).finally(() => {
+            subsegment.close();
+        });
+    }
     setStatus(functionName, blockHeight, status) {
         const activeFunctionSubsegment = this.deps.awsXray.resolveSegment()
         const subsegment = activeFunctionSubsegment.addNewSubsegment(`setStatus`);

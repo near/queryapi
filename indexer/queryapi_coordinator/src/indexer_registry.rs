@@ -48,6 +48,7 @@ fn build_indexer_function(
             start_block_height: function_config["start_block_height"].as_u64(),
             schema: function_config["schema"].as_str().map(String::from),
             provisioned: false,
+            updated: true,
             indexer_rule: indexer_rule.clone(),
         })
     } else {
@@ -140,7 +141,8 @@ fn index_and_process_register_calls(
 
                     let functions = fns.get(new_indexer_function.function_name.as_str());
                     match functions {
-                        // if there is no existing function then we will insert the new one with the default state of provisioned = false
+                        // if there is no existing function then we will insert the new one with the
+                        // default state of provisioned = false and updated = true
                         None => {
                             tracing::info!(
                                 target: crate::INDEXER,

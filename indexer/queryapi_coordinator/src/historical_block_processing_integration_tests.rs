@@ -71,6 +71,7 @@ mod tests {
             start_block_height: Some(85376002),
             schema: None,
             provisioned: false,
+            updated: true,
             indexer_rule: filter_rule,
         };
 
@@ -111,6 +112,7 @@ mod tests {
             start_block_height: Some(85376002),
             schema: None,
             provisioned: false,
+            updated: true,
             indexer_rule: filter_rule,
         };
 
@@ -168,6 +170,7 @@ mod tests {
             start_block_height: Some(85376002),
             schema: None,
             provisioned: false,
+            updated: true,
             indexer_rule: filter_rule,
         };
 

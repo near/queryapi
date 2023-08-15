@@ -217,7 +217,7 @@ mod tests {
         let list = list_s3_bucket_by_prefix(
             &opts.lake_aws_sdk_config(),
             INDEXED_DATA_FILES_BUCKET,
-            &format!("{}/", INDEXED_ACTIONS_FILES_FOLDER.to_string()),
+            &format!("{}/near/", INDEXED_ACTIONS_FILES_FOLDER.to_string()),
         )
         .await
         .unwrap();

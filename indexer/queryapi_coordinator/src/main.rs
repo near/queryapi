@@ -220,6 +220,14 @@ async fn handle_streamer_message(
                 .await?;
             }
 
+            // after flags have been sent to the runner once, we clear them
+            if !indexer_function.provisioned {
+                set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
+            }
+            if indexer_function.updated {
+                clear_updated_flag(&mut indexer_registry_locked, &indexer_function);
+            }
+
             stream::iter(indexer_function_messages.into_iter())
                 .chunks(10)
                 .for_each(|indexer_queue_messages_batch| async {
@@ -262,6 +270,46 @@ async fn handle_streamer_message(
     );
 
     Ok(context.streamer_message.block.header.height)
+}
+
+fn clear_updated_flag(
+    indexer_registry_locked: &mut MutexGuard<IndexerRegistry>,
+    indexer_function: &IndexerFunction,
+) {
+    match indexer_registry_locked.get_mut(&indexer_function.account_id) {
+        Some(account_functions) => {
+            match account_functions.get_mut(&indexer_function.function_name) {
+                Some(indexer_function) => {
+                    tracing::info!(
+                        "Set updated status for function {} to false",
+                        indexer_function.function_name
+                    );
+                    indexer_function.updated = false;
+                }
+                None => {
+                    let keys = account_functions
+                        .keys()
+                        .map(|s| &**s)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    tracing::error!(
+                        target: INDEXER,
+                        "Unable to set updated status, Indexer function with account_id {} and function_name {} not found in registry. Functions for this account are: {}",
+                        indexer_function.account_id,
+                        indexer_function.function_name,
+                        keys
+                    );
+                }
+            }
+        }
+        None => {
+            tracing::error!(
+                target: INDEXER,
+                "Unable to set updated status, Indexer function account id '{}' not found in registry",
+                indexer_function.account_id
+            );
+        }
+    }
 }
 
 fn set_provisioned_flag(
