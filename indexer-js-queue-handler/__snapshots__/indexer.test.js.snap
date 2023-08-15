@@ -20,6 +20,19 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
   [
     "mock-hasura-endpoint/v1/graphql",
     {
+      "body": "{"query":"\\n                query GetStatus($function_name: String) {\\n                  indexer_state(where: {function_name: {_eq: $function_name}}) {\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
+        "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
+      },
+      "method": "POST",
+    },
+  ],
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":82699904,"message":"Running function buildnear.testnet/test, lag is: NaNms from block timestamp"}}",
       "headers": {
         "Content-Type": "application/json",
@@ -59,19 +72,6 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n                mutation {\\n                    insert_comments(\\n                        objects: {account_id: \\"morgs.near\\", block_height: 82699904, content: \\"cool post\\", post_id: 1}\\n                    ) {\\n                        returning {\\n                            id\\n                        }\\n                    }\\n                }\\n            "}",
-      "headers": {
-        "Content-Type": "application/json",
-        "X-Hasura-Admin-Secret": "mock-hasura-secret",
-        "X-Hasura-Role": "buildnear_testnet",
-        "X-Hasura-Use-Backend-Only-Permissions": "true",
-      },
-      "method": "POST",
-    },
-  ],
-  [
-    "mock-hasura-endpoint/v1/graphql",
-    {
       "body": "{"query":"mutation WriteBlock($function_name: String!, $block_height: numeric!) {\\n                  insert_indexer_state(\\n                    objects: {current_block_height: $block_height, function_name: $function_name}\\n                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}\\n                  ) {\\n                    returning {\\n                      current_block_height\\n                      function_name\\n                    }\\n                  }\\n                }","variables":{"function_name":"buildnear.testnet/test","block_height":82699904}}",
       "headers": {
         "Content-Type": "application/json",
@@ -87,6 +87,19 @@ exports[`Indexer unit tests Indexer.runFunctions() allows imperative execution o
 
 exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
 [
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"\\n                query GetStatus($function_name: String) {\\n                  indexer_state(where: {function_name: {_eq: $function_name}}) {\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
+        "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
+      },
+      "method": "POST",
+    },
+  ],
   [
     "mock-hasura-endpoint/v1/graphql",
     {
@@ -144,6 +157,19 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
 
 exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`] = `
 [
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"\\n                query GetStatus($function_name: String) {\\n                  indexer_state(where: {function_name: {_eq: $function_name}}) {\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
+        "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
+      },
+      "method": "POST",
+    },
+  ],
   [
     "mock-hasura-endpoint/v1/graphql",
     {
@@ -274,6 +300,19 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
   [
     "mock-hasura-endpoint/v1/graphql",
     {
+      "body": "{"query":"\\n                query GetStatus($function_name: String) {\\n                  indexer_state(where: {function_name: {_eq: $function_name}}) {\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
+        "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
+      },
+      "method": "POST",
+    },
+  ],
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
       "body": "{"query":"mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n             }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Running function buildnear.testnet/test, lag is: NaNms from block timestamp"}}",
       "headers": {
         "Content-Type": "application/json",
@@ -328,6 +367,19 @@ exports[`Indexer unit tests Indexer.runFunctions() should execute all functions 
 
 exports[`Indexer unit tests Indexer.runFunctions() supplies the required role to the GraphQL endpoint 1`] = `
 [
+  [
+    "mock-hasura-endpoint/v1/graphql",
+    {
+      "body": "{"query":"\\n                query GetStatus($function_name: String) {\\n                  indexer_state(where: {function_name: {_eq: $function_name}}) {\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test"}}",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Hasura-Admin-Secret": "mock-hasura-secret",
+        "X-Hasura-Role": "append",
+        "X-Hasura-Use-Backend-Only-Permissions": "true",
+      },
+      "method": "POST",
+    },
+  ],
   [
     "mock-hasura-endpoint/v1/graphql",
     {
