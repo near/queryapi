@@ -8,7 +8,7 @@ const limit = 7;
 let totalIndexers = 0;
 
 State.init({
-  activeTab: Storage.privateGet("queryapi:activeTab") || activeTab,
+  activeTab: activeTab,
   my_indexers: [],
   all_indexers: [],
   selected_indexer: undefined,
@@ -274,12 +274,13 @@ const ButtonLink = styled.a`
     }}
 `;
 
-const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
-if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
-  State.update({
-    activeTab: previousSelectedTab,
-  });
-}
+// TODO fix activeTab
+// const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
+// if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
+//   State.update({
+//     activeTab: previousSelectedTab,
+//   });
+// }
 
 const selectTab = (tabName) => {
   Storage.privateSet("queryapi:activeTab", tabName);
@@ -346,7 +347,7 @@ return (
       >
         Indexers
       </TabsButton>
-      {props.view === "create-new-indexer" && (
+      {state.activeTab == "create-new-indexer" && (
         <TabsButton
           type="button"
           onClick={() => selectTab("create-new-indexer")}
