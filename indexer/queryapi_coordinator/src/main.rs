@@ -214,7 +214,7 @@ async fn handle_streamer_message(
                 .await?;
                 storage::xadd(
                     context.redis_connection_manager,
-                    storage::generate_stream_key(&indexer_function.get_full_name()),
+                    storage::generate_real_time_stream_key(&indexer_function.get_full_name()),
                     &[("block_height", block_height)],
                 )
                 .await?;
