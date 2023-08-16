@@ -76,6 +76,9 @@ mod tests {
 
         let opts = Opts::test_opts_with_aws();
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+        let redis_connection_manager = storage::connect(&opts.redis_connection_string)
+            .await
+            .unwrap();
         let fake_block_height =
             historical_block_processing::last_indexed_block_from_metadata(aws_config)
                 .await
@@ -84,6 +87,7 @@ mod tests {
             fake_block_height + 1,
             indexer_function,
             opts,
+            &redis_connection_manager,
         )
         .await;
         assert!(result.unwrap() > 0);
