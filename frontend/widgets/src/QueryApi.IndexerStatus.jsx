@@ -1,8 +1,6 @@
 //props indexer_name
 const indexer_name = props.indexer_name;
 
-const GRAPHQL_ENDPOINT =
-  props.GRAPHQL_ENDPOINT || "near-queryapi.api.pagoda.co";
 const LIMIT = 20;
 const accountId = props.accountId || context.accountId;
 
@@ -161,7 +159,7 @@ function startWebSocketStatus(processStatus) {
     return;
   }
 
-  ws = new WebSocket(`wss://${GRAPHQL_ENDPOINT}/v1/graphql`, "graphql-ws");
+  ws = new WebSocket(`wss://${REPL_GRAPHQL_ENDPOINT}/v1/graphql`, "graphql-ws");
 
   ws.onopen = () => {
     console.log(`Connection to WS has been established`);
@@ -209,7 +207,7 @@ function startWebSocketLogs(processLogs) {
     return;
   }
 
-  ws = new WebSocket(`wss://${GRAPHQL_ENDPOINT}/v1/graphql`, "graphql-ws");
+  ws = new WebSocket(`wss://${REPL_GRAPHQL_ENDPOINT}/v1/graphql`, "graphql-ws");
 
   ws.onopen = () => {
     console.log("starting web socket logs");
