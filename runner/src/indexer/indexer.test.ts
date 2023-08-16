@@ -13,10 +13,22 @@ describe('Indexer unit tests', () => {
   const HASURA_ROLE = 'morgs_near';
   const INVALID_HASURA_ROLE = 'other_near';
 
-  const FUNC_NAME = 'morgs.near/test_fn';
-  const FUNC_NAME_WITHOUT_ACCOUNT = 'test_fn';
+  const INDEXER_NAME = 'morgs.near/test_fn';
 
-  const SOCIAL_SCHEMA_TABLES = `CREATE TABLE
+  const SIMPLE_SCHEMA = `CREATE TABLE
+  "posts" (
+    "id" SERIAL NOT NULL,
+    "account_id" VARCHAR NOT NULL,
+    "block_height" DECIMAL(58, 0) NOT NULL,
+    "receipt_id" VARCHAR NOT NULL,
+    "content" TEXT NOT NULL,
+    "block_timestamp" DECIMAL(20, 0) NOT NULL,
+    "accounts_liked" JSONB NOT NULL DEFAULT '[]',
+    "last_comment_timestamp" DECIMAL(20, 0),
+    CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
+  );`;
+
+  const SOCIAL_SCHEMA = `CREATE TABLE
   "posts" (
     "id" SERIAL NOT NULL,
     "account_id" VARCHAR NOT NULL,
@@ -51,7 +63,7 @@ CREATE TABLE
     CONSTRAINT "post_likes_pkey" PRIMARY KEY ("post_id", "account_id")
   );'`;
 
-  beforeAll(() => {
+  beforeEach(() => {
     process.env = {
       ...oldEnv,
       HASURA_ENDPOINT,
@@ -93,7 +105,7 @@ CREATE TABLE
             const foo = 3;
             block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
         `,
-      schema: ''
+      schema: SIMPLE_SCHEMA
     };
     await indexer.runFunctions(blockHeight, functions, false);
 
@@ -231,7 +243,7 @@ CREATE TABLE
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('', FUNC_NAME, FUNC_NAME_WITHOUT_ACCOUNT, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
     const query = `
             query {
@@ -283,7 +295,7 @@ CREATE TABLE
     const mockFetch = jest.fn();
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('', FUNC_NAME, FUNC_NAME_WITHOUT_ACCOUNT, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
     await context.fetchFromSocialApi('/index', {
       method: 'POST',
@@ -312,7 +324,7 @@ CREATE TABLE
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('', FUNC_NAME, FUNC_NAME_WITHOUT_ACCOUNT, 1, INVALID_HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, INVALID_HASURA_ROLE);
 
     await expect(async () => await context.graphql('query { hello }')).rejects.toThrow('boom');
   });
@@ -327,7 +339,7 @@ CREATE TABLE
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
 
-    const context = indexer.buildContext('', FUNC_NAME, FUNC_NAME_WITHOUT_ACCOUNT, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
     const query = 'query($name: String) { hello(name: $name) }';
     const variables = { name: 'morgan' };
@@ -352,12 +364,17 @@ CREATE TABLE
   });
 
   test('indexer builds context and inserts an objects into existing table', async () => {
+    // Set HASURA_ENDPOINT and HASURA_ADMIN_SECRET values in process.env before running with actual mockDmlHandler
+    // process.env.HASURA_ENDPOINT = '';
+    // process.env.HASURA_ADMIN_SECRET = '';
+
     const mockDmlHandler: any = {
       insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }])
     };
 
     const indexer = new Indexer('mainnet', { dmlHandler: mockDmlHandler });
-    const context = indexer.buildContext(SOCIAL_SCHEMA_TABLES, 'morgs.near/social_feed1', 'social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+
     const objToInsert = [{
       account_id: 'morgs_near',
       block_height: 1,
@@ -374,16 +391,15 @@ CREATE TABLE
       block_timestamp: 801,
       accounts_liked: JSON.stringify(['cwpuzzles.near'])
     }];
+
     const result = await context.db.insert_posts(objToInsert);
     expect(result.length).toEqual(2);
   });
 
   test('indexer builds context and selects objects from existing table', async () => {
-    const objToSelect = {
-      account_id: 'morgs_near',
-      receipt_id: 'abc',
-    };
-
+    // Set HASURA_ENDPOINT and HASURA_ADMIN_SECRET values in process.env before running with actual mockDmlHandler
+    // process.env.HASURA_ENDPOINT = '';
+    // process.env.HASURA_ADMIN_SECRET = '';
     const selectFn = jest.fn();
     selectFn.mockImplementation((...lim) => {
       // Expects limit to be last parameter
@@ -394,11 +410,42 @@ CREATE TABLE
     };
 
     const indexer = new Indexer('mainnet', { dmlHandler: mockDmlHandler });
-    const context = indexer.buildContext(SOCIAL_SCHEMA_TABLES, 'morgs.near/social_feed1', 'social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+
+    const objToSelect = {
+      account_id: 'morgs_near',
+      receipt_id: 'abc',
+    };
     const result = await context.db.select_posts(objToSelect);
     expect(result.length).toEqual(2);
     const resultLimit = await context.db.select_posts(objToSelect, 1);
     expect(resultLimit.length).toEqual(1);
+  });
+
+  test('indexer builds context and verifies all methods generated', async () => {
+    const mockDmlHandler: any = {
+      insert: jest.fn().mockReturnValue(true),
+      select: jest.fn().mockReturnValue(true)
+    };
+
+    const indexer = new Indexer('mainnet', { dmlHandler: mockDmlHandler });
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const objToPassIn = {};
+
+    // These calls would fail on a real database, but we are merely checking to ensure they exist
+    let result = await context.db.insert_posts([objToPassIn]);
+    expect(result).toEqual(true);
+    result = await context.db.insert_comments(objToPassIn); // Verifying both array and single object input is supported for insert
+    expect(result).toEqual(true);
+    result = await context.db.insert_post_likes([objToPassIn]);
+    expect(result).toEqual(true);
+
+    result = await context.db.select_posts(objToPassIn);
+    expect(result).toEqual(true);
+    result = await context.db.select_comments(objToPassIn);
+    expect(result).toEqual(true);
+    result = await context.db.select_post_likes(objToPassIn);
+    expect(result).toEqual(true);
   });
 
   test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {
@@ -510,7 +557,7 @@ CREATE TABLE
 
             return (\`Created comment \${id} on post \${post.id}\`)
         `,
-      schema: ''
+      schema: SIMPLE_SCHEMA
     };
 
     await indexer.runFunctions(blockHeight, functions, false);
@@ -568,7 +615,7 @@ CREATE TABLE
       code: `
             throw new Error('boom');
         `,
-      schema: ''
+      schema: SIMPLE_SCHEMA
     };
 
     await expect(indexer.runFunctions(blockHeight, functions, false)).rejects.toThrow(new Error('boom'));
@@ -617,7 +664,7 @@ CREATE TABLE
         account_id: 'morgs.near',
         function_name: 'test',
         code: '',
-        schema: 'schema',
+        schema: SIMPLE_SCHEMA,
       }
     };
     await indexer.runFunctions(1, functions, false, { provision: true });
@@ -627,7 +674,7 @@ CREATE TABLE
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
       'morgs.near',
       'test',
-      'schema'
+      SIMPLE_SCHEMA
     );
   });
 
@@ -671,7 +718,7 @@ CREATE TABLE
     const functions: Record<string, any> = {
       'morgs.near/test': {
         code: '',
-        schema: 'schema',
+        schema: SIMPLE_SCHEMA,
       }
     };
     await indexer.runFunctions(1, functions, false, { provision: true });
@@ -721,7 +768,7 @@ CREATE TABLE
         code: `
                     context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
                 `,
-        schema: 'schema',
+        schema: SIMPLE_SCHEMA,
       }
     };
     await indexer.runFunctions(blockHeight, functions, false, { provision: true });
@@ -791,7 +838,7 @@ CREATE TABLE
       });
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
     // @ts-expect-error legacy test
-    const context = indexer.buildContext('test', 'morgs.near/test', 1, null);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, null);
 
     const mutation = `
             mutation {
@@ -826,7 +873,7 @@ CREATE TABLE
       });
     const role = 'morgs_near';
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
-    const context = indexer.buildContext('', FUNC_NAME, FUNC_NAME_WITHOUT_ACCOUNT, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
     const mutation = `
             mutation {

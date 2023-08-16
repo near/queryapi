@@ -10,7 +10,7 @@ export default class IndexerRunner {
     this.shouldStop = false;
   }
 
-  async start(startingHeight, indexingCode, schema, option) {
+  async start(startingHeight, indexingCode, schema, schemaName, option) {
     this.currentHeight = startingHeight;
     this.shouldStop = false;
     console.clear()
@@ -32,7 +32,7 @@ export default class IndexerRunner {
         this.stop()
       }
       if (blockDetails) {
-        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode, schema);
+        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode, schema, schemaName);
         this.currentHeight++;
         await this.delay(1000);
       }
@@ -50,10 +50,23 @@ export default class IndexerRunner {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async executeIndexerFunction(height, blockDetails, indexingCode, schema) {
+  validateTableNames(tableNames) {
+    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
+      throw new Error("Schema does not have any tables. There should be at least one table.");
+    }
+    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+    tableNames.forEach(name => {
+      if (!correctTableNameFormat.test(name)) {
+        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
+      }
+    });
+  }
+
+  async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     let tableNames = Array.from(schema.matchAll(/CREATE TABLE\s+"(\w+)"/g), match => match[1]); // Get first capturing group of each match
-    console.log('Retrieved the following table names from schema: ', tableNames);
+    this.validateTableNames(tableNames);
 
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
@@ -62,11 +75,11 @@ export default class IndexerRunner {
       block.events()
 
       console.log(block)
-      await this.runFunction(blockDetails, height, innerCode, tableNames);
+      await this.runFunction(blockDetails, height, innerCode, schemaName, tableNames);
     }
   }
 
-  async executeIndexerFunctionOnHeights(heights, indexingCode, schema) {
+  async executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName) {
     console.clear()
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
     if (heights.length === 0) {
@@ -83,14 +96,14 @@ export default class IndexerRunner {
         console.log(error)
       }
       console.time('Indexing Execution Complete')
-      this.executeIndexerFunction(height, blockDetails, indexingCode, schema)
+      this.executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName)
       console.timeEnd('Indexing Execution Complete')
       console.groupEnd()
     }
     console.groupEnd()
   }
 
-  async runFunction(streamerMessage, blockHeight, indexerCode, tableNames) {
+  async runFunction(streamerMessage, blockHeight, indexerCode, schemaName, tableNames) {
     const innerCodeWithBlockHelper =
       `
       const block = Block.fromStreamerMessage(streamerMessage);
@@ -149,7 +162,7 @@ export default class IndexerRunner {
       log: async (message) => {
         this.handleLog(blockHeight, message);
       },
-      db: this.buildDatabaseContext(blockHeight, 'debug', tableNames)
+      db: this.buildDatabaseContext(blockHeight, schemaName, tableNames)
     };
 
     wrappedFunction(Block, streamerMessage, context);

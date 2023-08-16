@@ -18,7 +18,7 @@ interface Context {
   set: (key: string, value: any) => Promise<any>
   log: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
-  db: any
+  db: Record<string, (...args: any[]) => any>
 }
 
 interface IndexerFunction {
@@ -72,7 +72,6 @@ export default class Indexer {
         simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));
 
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
-        const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
 
         if (options.provision && !indexerFunction.provisioned) {
           try {
@@ -94,7 +93,7 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, 'RUNNING');
 
         const vm = new VM({ timeout: 3000, allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, functionNameWithoutAccount, blockHeight, hasuraRoleName);
+        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(blockWithHelpers, 'block');
         vm.freeze(context, 'context');
@@ -187,15 +186,31 @@ export default class Indexer {
     ].reduce((acc, val) => val(acc), indexerFunction);
   }
 
+  validateTableNames (tableNames: string[]): void {
+    if (!(tableNames.length > 0)) {
+      throw new Error('Schema does not have any tables. There should be at least one table.');
+    }
+    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+    tableNames.forEach((name: string) => {
+      if (!correctTableNameFormat.test(name)) {
+        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
+      }
+    });
+  }
+
   getTableNames (schema: string): string[] {
     const tableNameMatcher = /CREATE TABLE\s+"(\w+)"/g;
     const tableNames = Array.from(schema.matchAll(tableNameMatcher), match => match[1]); // Get first capturing group of each match
+    this.validateTableNames(tableNames);
     console.log('Retrieved the following table names from schema: ', tableNames);
     return tableNames;
   }
 
-  buildContext (schema: string, functionName: string, functionNameWithoutAccount: string, blockHeight: number, hasuraRoleName: string): Context {
+  buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string): Context {
     const tables = this.getTableNames(schema);
+    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
+    const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
 
     return {
@@ -222,30 +237,23 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(schemaName, tables)
+      db: this.buildDatabaseContext(account, schemaName, tables, blockHeight)
     };
   }
 
-  buildDatabaseContext (schemaName: string, tables: string[]): any {
-    try {
-      const result = tables.reduce((prev, tableName) => ({
-        ...prev,
-        [`insert_${tableName}`]: async (objects: any[]) => await this.deps.dmlHandler.insert(schemaName, tableName, objects),
-        [`select_${tableName}`]: async (object: any, limit = 0) => await this.deps.dmlHandler.select(schemaName, tableName, object, limit),
-      }), {});
-      console.log(result);
-      return result;
-    } catch (error) {
-      console.error('Caught error when generating DB methods. Falling back to generic methods.', error);
-      return {
-        insert: async (tableName: string, objects: any[]) => {
-          return await this.deps.dmlHandler.insert(schemaName, tableName, objects);
-        },
-        select: async (tableName: string, object: any, limit = 0) => {
-          return await this.deps.dmlHandler.select(schemaName, tableName, object, limit);
-        }
-      };
-    }
+  buildDatabaseContext (account: string, schemaName: string, tables: string[], blockHeight: number): Record<string, (...args: any[]) => any> {
+    const result = tables.reduce((prev, tableName) => ({
+      ...prev,
+      [`insert_${tableName}`]: async (objects: any) => {
+        await this.writeLog(`context.db.insert_${tableName}`, blockHeight, `Calling context.db.insert_${tableName}.`, `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
+        return await this.deps.dmlHandler.insert(account, schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
+      },
+      [`select_${tableName}`]: async (object: any, limit = 0) => {
+        await this.writeLog(`context.db.select_${tableName}`, blockHeight, `Calling context.db.select_${tableName}.`, `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === 0 ? 'no' : limit}`);
+        return await this.deps.dmlHandler.select(account, schemaName, tableName, object, limit);
+      },
+    }), {});
+    return result;
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
