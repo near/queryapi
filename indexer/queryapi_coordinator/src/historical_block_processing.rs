@@ -143,8 +143,8 @@ pub(crate) async fn process_historical_messages(
             if !blocks_from_index.is_empty() {
                 storage::sadd(
                     redis_connection_manager,
-                    storage::EXECUTOR_SET_KEY,
-                    storage::generate_historical_executor_key(&indexer_function.get_full_name()),
+                    storage::STREAMS_SET_KEY,
+                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
                 )
                 .await?;
                 storage::set(

@@ -202,8 +202,8 @@ async fn handle_streamer_message(
 
                 storage::sadd(
                     context.redis_connection_manager,
-                    storage::EXECUTOR_SET_KEY,
-                    storage::generate_real_time_executor_key(&indexer_function.get_full_name()),
+                    storage::STREAMS_SET_KEY,
+                    storage::generate_real_time_stream_key(&indexer_function.get_full_name()),
                 )
                 .await?;
                 storage::set(

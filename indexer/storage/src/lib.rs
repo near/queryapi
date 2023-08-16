@@ -2,26 +2,18 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 const STORAGE: &str = "storage_alertexer";
 
-pub const EXECUTOR_SET_KEY: &str = "executors";
+pub const STREAMS_SET_KEY: &str = "streams";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
-}
-
-pub fn generate_real_time_executor_key(prefix: &str) -> String {
-    format!("{}:real_time", prefix)
-}
-
-pub fn generate_real_time_storage_key(prefix: &str) -> String {
-    format!("{}:real_time:storage", prefix)
 }
 
 pub fn generate_real_time_stream_key(prefix: &str) -> String {
     format!("{}:real_time:stream", prefix)
 }
 
-pub fn generate_historical_executor_key(prefix: &str) -> String {
-    format!("{}:historical", prefix)
+pub fn generate_real_time_storage_key(prefix: &str) -> String {
+    format!("{}:real_time:stream:storage", prefix)
 }
 
 pub fn generate_historical_stream_key(prefix: &str) -> String {
@@ -29,7 +21,7 @@ pub fn generate_historical_stream_key(prefix: &str) -> String {
 }
 
 pub fn generate_historical_storage_key(prefix: &str) -> String {
-    format!("{}:historical:storage", prefix)
+    format!("{}:historical:stream:storage", prefix)
 }
 
 pub async fn connect(redis_connection_str: &str) -> anyhow::Result<ConnectionManager> {
