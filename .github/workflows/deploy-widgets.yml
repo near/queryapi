@@ -1,4 +1,4 @@
-name: Deploy Components to Mainnet
+name: Deploy Components
 on:
   workflow_call:
     inputs:
@@ -19,6 +19,10 @@ on:
         required: true
         description: "Comma-separated paths to the directories that contain the code to be deployed"
         type: string
+      environment:
+        required: true
+        description: "mainnet or dev"
+        type: string
     secrets:
       SIGNER_PRIVATE_KEY:
         description: "Private key in `ed25519:<private_key>` format for signing transaction"
@@ -26,16 +30,31 @@ on:
 jobs:
   deploy-widgets:
     runs-on: ubuntu-latest
-    name: Deploy widgets to social.near (mainnet)
+    name: Deploy widgets to social.near
     env:
       BOS_DEPLOY_ACCOUNT_ID: ${{ inputs.deploy-account-address }}
       BOS_SIGNER_PUBLIC_KEY: ${{ inputs.signer-public-key }}
-      BOS_SIGNER_PRIVATE_KEY: ${{ secrets.SIGNER_PRIVATE_KEY }}
       DIRECTORY_PATHS: ${{ inputs.directory-paths }}
+      ENVIRONMENT: ${{inputs.environment}}
+      BOS_SIGNER_PRIVATE_KEY: ${{ secrets.SIGNER_PRIVATE_KEY }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Set replacements
+        id: set_replacements
+        run: |
+          cd "frontend/widgets/"
+          echo "replacements=$(jq -r '[to_entries[] | .["find"] = "${" + .key + "}" | .["replace"] = .value | del(.key, .value)]' ../replacement.${ENVIRONMENT}.json | tr -d "\n\r")" >> $GITHUB_OUTPUT
+
+      - name: Replace placeholders
+        uses: flcdrg/replace-multiple-action@v1
+        with:
+          files: '**/*.jsx'
+          find: '${{ steps.set_replacements.outputs.replacements }}'
+          prefix: '(^|.*)'
+          suffix: '($|.*)'
 
       - name: Install near-social CLI
         run: |

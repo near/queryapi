@@ -1,7 +1,7 @@
 name: Deploy Dev Components to Mainnet
 on:
   push:
-    branches: [main]
+    branches: [feat/use-replacement-maps]
     paths:
       - "frontend/widgets/**"
 jobs:
@@ -11,5 +11,6 @@ jobs:
       directory-paths: ${{vars.WIDGETS_DIRECTORY_PATHS}}
       deploy-account-address: ${{ vars.DEV_SIGNER_ACCOUNT_ID }}
       signer-public-key: ${{ vars.DEV_SIGNER_PUBLIC_KEY }}
+      environment: dev
     secrets:
       SIGNER_PRIVATE_KEY: ${{ secrets.DEV_SIGNER_PRIVATE_KEY }}
