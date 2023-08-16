@@ -202,13 +202,13 @@ async fn handle_streamer_message(
 
                 storage::sadd(
                     context.redis_connection_manager,
-                    storage::INDEXER_SET_KEY,
-                    indexer_function.get_full_name(),
+                    storage::EXECUTOR_SET_KEY,
+                    storage::generate_real_time_executor_key(&indexer_function.get_full_name()),
                 )
                 .await?;
                 storage::set(
                     context.redis_connection_manager,
-                    storage::generate_storage_key(&indexer_function.get_full_name()),
+                    storage::generate_real_time_storage_key(&indexer_function.get_full_name()),
                     serde_json::to_string(indexer_function)?,
                 )
                 .await?;
