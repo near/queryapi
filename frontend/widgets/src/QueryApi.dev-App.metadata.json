@@ -1,9 +1,0 @@
-{
-  "description": "Entrypoint to Near QueryAPI's development widget which allows you to seamlessly create, manage, and discover new indexers",
-  "image": {
-  },
-  "name": "QueryAPI Development",
-  "tags": {
-    "development": ""
-  }
-}
