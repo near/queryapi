@@ -15,7 +15,7 @@ State.init({
   selected_account: undefined,
 });
 
-Near.asyncView(`${REGISTRY_CONTRACT_ID}`, "list_indexer_functions").then((data) => {
+Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_indexer_functions").then((data) => {
   const indexers = [];
   const total_indexers = 0;
   Object.keys(data.All).forEach((accountId) => {
