@@ -15,7 +15,8 @@ interface StreamStorage {
 }
 
 export default class RedisClient {
-  STREAM_SMALLEST_ID = '0';
+  SMALLEST_STREAM_ID = '0';
+  LARGEST_STREAM_ID = '+';
   STREAMS_SET_KEY = 'streams';
 
   constructor (
@@ -25,12 +26,12 @@ export default class RedisClient {
     client.connect().catch(console.error);
   }
 
-  private generateStorageKey (name: string): string {
-    return `${name}:storage`;
+  private generateStorageKey (streamkey: string): string {
+    return `${streamkey}:storage`;
   };
 
-  private generateStreamLastIdKey (name: string): string {
-    return `${name}:lastId`;
+  private generateStreamLastIdKey (streamkey: string): string {
+    return `${streamkey}:lastId`;
   };
 
   private incrementStreamId (id: string): string {
@@ -52,7 +53,7 @@ export default class RedisClient {
   async getNextStreamMessage (
     streamKey: string,
   ): Promise<StreamMessage[] | null> {
-    const id = await this.getLastProcessedStreamId(streamKey) ?? this.STREAM_SMALLEST_ID;
+    const id = await this.getLastProcessedStreamId(streamKey) ?? this.SMALLEST_STREAM_ID;
 
     const results = await this.client.xRead(
       { key: streamKey, id },
@@ -73,9 +74,9 @@ export default class RedisClient {
     streamKey: string,
   ): Promise<StreamMessage[]> {
     const lastProcessedId = await this.getLastProcessedStreamId(streamKey);
-    const nextId = lastProcessedId ? this.incrementStreamId(lastProcessedId) : this.STREAM_SMALLEST_ID;
+    const nextId = lastProcessedId ? this.incrementStreamId(lastProcessedId) : this.SMALLEST_STREAM_ID;
 
-    const results = await this.client.xRange(streamKey, nextId, '+');
+    const results = await this.client.xRange(streamKey, nextId, this.LARGEST_STREAM_ID);
 
     return results as StreamMessage[];
   };
