@@ -2,18 +2,27 @@ import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
 
 describe('DML Handler tests', () => {
-  let pgClient: any;
+  const hasuraClient: any = {
+    getDbConnectionParameters: jest.fn().mockReturnValue({
+      database: 'test_near',
+      host: 'postgres',
+      password: 'test_pass',
+      port: 5432,
+      username: 'test_near'
+    })
+  };
+  let PgClient: any;
+  let query: any;
 
   const ACCOUNT = 'test_near';
   const SCHEMA = 'test_schema';
   const TABLE_NAME = 'test_table';
 
   beforeEach(() => {
-    pgClient = {
-      setUser: jest.fn(),
-      query: jest.fn().mockReturnValue({ rows: [] }),
-      format: pgFormat,
-    };
+    query = jest.fn().mockReturnValue({ rows: [] });
+    PgClient = jest.fn().mockImplementation(() => {
+      return { query, format: pgFormat };
+    });
   });
 
   test('Test valid insert one with array', async () => {
@@ -26,10 +35,10 @@ describe('DML Handler tests', () => {
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
 
-    const dmlHandler = new DmlHandler(pgClient);
+    const dmlHandler = new DmlHandler(ACCOUNT, hasuraClient, PgClient);
 
-    await dmlHandler.insert(ACCOUNT, SCHEMA, TABLE_NAME, [inputObj]);
-    expect(pgClient.query.mock.calls).toEqual([
+    await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
+    expect(query.mock.calls).toEqual([
       ['INSERT INTO test_schema.test_table (account_id,block_height,block_timestamp,content,receipt_id,accounts_liked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *;', []]
     ]);
   });
@@ -46,10 +55,10 @@ describe('DML Handler tests', () => {
       receipt_id: 'abc',
     }];
 
-    const dmlHandler = new DmlHandler(pgClient);
+    const dmlHandler = new DmlHandler(ACCOUNT, hasuraClient, PgClient);
 
-    await dmlHandler.insert(ACCOUNT, SCHEMA, TABLE_NAME, [inputObj]);
-    expect(pgClient.query.mock.calls).toEqual([
+    await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
+    expect(query.mock.calls).toEqual([
       ['INSERT INTO test_schema.test_table (0,1) VALUES (\'{"account_id":"morgs_near","block_height":1,"receipt_id":"abc"}\'::jsonb, \'{"account_id":"morgs_near","block_height":2,"receipt_id":"abc"}\'::jsonb) RETURNING *;', []]
     ]);
   });
@@ -60,10 +69,10 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = new DmlHandler(pgClient);
+    const dmlHandler = new DmlHandler(ACCOUNT, hasuraClient, PgClient);
 
-    await dmlHandler.select(ACCOUNT, SCHEMA, TABLE_NAME, inputObj, 0);
-    expect(pgClient.query.mock.calls).toEqual([
+    await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
+    expect(query.mock.calls).toEqual([
       ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
     ]);
   });
@@ -74,10 +83,10 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = new DmlHandler(pgClient);
+    const dmlHandler = new DmlHandler(ACCOUNT, hasuraClient, PgClient);
 
-    await dmlHandler.select(ACCOUNT, SCHEMA, TABLE_NAME, inputObj, 1);
-    expect(pgClient.query.mock.calls).toEqual([
+    await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
+    expect(query.mock.calls).toEqual([
       ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2 LIMIT 1', Object.values(inputObj)]
     ]);
   });

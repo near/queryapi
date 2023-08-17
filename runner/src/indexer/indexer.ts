@@ -10,7 +10,7 @@ interface Dependencies {
   fetch: typeof fetch
   s3: AWS.S3
   provisioner: Provisioner
-  dmlHandler: DmlHandler
+  DmlHandler: typeof DmlHandler
 };
 
 interface Context {
@@ -44,7 +44,7 @@ export default class Indexer {
       fetch,
       s3: new AWS.S3(),
       provisioner: new Provisioner(),
-      dmlHandler: new DmlHandler(),
+      DmlHandler,
       ...deps,
     };
   }
@@ -242,15 +242,18 @@ export default class Indexer {
   }
 
   buildDatabaseContext (account: string, schemaName: string, tables: string[], blockHeight: number): Record<string, (...args: any[]) => any> {
+    let dmlHandler: DmlHandler | null = null;
     const result = tables.reduce((prev, tableName) => ({
       ...prev,
       [`insert_${tableName}`]: async (objects: any) => {
         await this.writeLog(`context.db.insert_${tableName}`, blockHeight, `Calling context.db.insert_${tableName}.`, `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
-        return await this.deps.dmlHandler.insert(account, schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
+        dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+        return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
       },
-      [`select_${tableName}`]: async (object: any, limit = 0) => {
-        await this.writeLog(`context.db.select_${tableName}`, blockHeight, `Calling context.db.select_${tableName}.`, `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === 0 ? 'no' : limit}`);
-        return await this.deps.dmlHandler.select(account, schemaName, tableName, object, limit);
+      [`select_${tableName}`]: async (object: any, limit = null) => {
+        await this.writeLog(`context.db.select_${tableName}`, blockHeight, `Calling context.db.select_${tableName}.`, `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === null ? 'no' : limit}`);
+        dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+        return await dmlHandler.select(schemaName, tableName, object, limit);
       },
     }), {});
     return result;

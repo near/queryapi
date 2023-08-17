@@ -244,4 +244,80 @@ describe('HasuraClient', () => {
 
     expect(mockFetch).toBeCalledTimes(1); // to fetch the foreign keys
   });
+
+  it('returns connection parameters for valid and invalid users', async () => {
+    const testUsers = {
+      testA_near: 'passA',
+      testB_near: 'passB',
+      testC_near: 'passC'
+    };
+    const TEST_METADATA = generateMetadata(testUsers);
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValue({
+        status: 200,
+        text: () => JSON.stringify({ metadata: TEST_METADATA })
+      });
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
+    const result = await client.getDbConnectionParameters('testB_near');
+    expect(result).toEqual(generateConnectionParameter('testB_near', 'passB'));
+    await expect(client.getDbConnectionParameters('fake_near')).rejects.toThrow('Could not find connection parameters for user fake_near on respective database.');
+  });
 });
+
+function generateMetadata (testUsers: any): any {
+  const sources = [];
+  // Insert default source which has different format than the rest
+  sources.push({
+    name: 'default',
+    kind: 'postgres',
+    tables: [],
+    configuration: {
+      connection_info: {
+        database_url: { from_env: 'HASURA_GRAPHQL_DATABASE_URL' },
+        isolation_level: 'read-committed',
+        pool_settings: {
+          connection_lifetime: 600,
+          idle_timeout: 180,
+          max_connections: 50,
+          retries: 1
+        },
+        use_prepared_statements: true
+      }
+    }
+  });
+
+  Object.keys(testUsers).forEach((user) => {
+    sources.push(generateSource(user, testUsers[user]));
+  });
+
+  return {
+    version: 3,
+    sources
+  };
+}
+
+function generateSource (user: string, password: string): any {
+  return {
+    name: user,
+    kind: 'postgres',
+    tables: [],
+    configuration: {
+      connection_info: {
+        database_url: { connection_parameters: generateConnectionParameter(user, password) },
+        isolation_level: 'read-committed',
+        use_prepared_statements: false
+      }
+    }
+  };
+}
+
+function generateConnectionParameter (user: string, password: string): any {
+  return {
+    database: user,
+    host: 'postgres',
+    password,
+    port: 5432,
+    username: user
+  };
+}

@@ -16,52 +16,53 @@ describe('Indexer unit tests', () => {
   const INDEXER_NAME = 'morgs.near/test_fn';
 
   const SIMPLE_SCHEMA = `CREATE TABLE
-  "posts" (
-    "id" SERIAL NOT NULL,
-    "account_id" VARCHAR NOT NULL,
-    "block_height" DECIMAL(58, 0) NOT NULL,
-    "receipt_id" VARCHAR NOT NULL,
-    "content" TEXT NOT NULL,
-    "block_timestamp" DECIMAL(20, 0) NOT NULL,
-    "accounts_liked" JSONB NOT NULL DEFAULT '[]',
-    "last_comment_timestamp" DECIMAL(20, 0),
-    CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
-  );`;
+    "posts" (
+      "id" SERIAL NOT NULL,
+      "account_id" VARCHAR NOT NULL,
+      "block_height" DECIMAL(58, 0) NOT NULL,
+      "receipt_id" VARCHAR NOT NULL,
+      "content" TEXT NOT NULL,
+      "block_timestamp" DECIMAL(20, 0) NOT NULL,
+      "accounts_liked" JSONB NOT NULL DEFAULT '[]',
+      "last_comment_timestamp" DECIMAL(20, 0),
+      CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
+    );`;
 
-  const SOCIAL_SCHEMA = `CREATE TABLE
-  "posts" (
-    "id" SERIAL NOT NULL,
-    "account_id" VARCHAR NOT NULL,
-    "block_height" DECIMAL(58, 0) NOT NULL,
-    "receipt_id" VARCHAR NOT NULL,
-    "content" TEXT NOT NULL,
-    "block_timestamp" DECIMAL(20, 0) NOT NULL,
-    "accounts_liked" JSONB NOT NULL DEFAULT '[]',
-    "last_comment_timestamp" DECIMAL(20, 0),
-    CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
-  );
+  const SOCIAL_SCHEMA = `
+    CREATE TABLE 
+      "posts" (
+        "id" SERIAL NOT NULL,
+        "account_id" VARCHAR NOT NULL,
+        "block_height" DECIMAL(58, 0) NOT NULL,
+        "receipt_id" VARCHAR NOT NULL,
+        "content" TEXT NOT NULL,
+        "block_timestamp" DECIMAL(20, 0) NOT NULL,
+        "accounts_liked" JSONB NOT NULL DEFAULT '[]',
+        "last_comment_timestamp" DECIMAL(20, 0),
+        CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
+      );
 
-CREATE TABLE
-  "comments" (
-    "id" SERIAL NOT NULL,
-    "post_id" SERIAL NOT NULL,
-    "account_id" VARCHAR NOT NULL,
-    "block_height" DECIMAL(58, 0) NOT NULL,
-    "content" TEXT NOT NULL,
-    "block_timestamp" DECIMAL(20, 0) NOT NULL,
-    "receipt_id" VARCHAR NOT NULL,
-    CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
-  );
+    CREATE TABLE
+      "comments" (
+        "id" SERIAL NOT NULL,
+        "post_id" SERIAL NOT NULL,
+        "account_id" VARCHAR NOT NULL,
+        "block_height" DECIMAL(58, 0) NOT NULL,
+        "content" TEXT NOT NULL,
+        "block_timestamp" DECIMAL(20, 0) NOT NULL,
+        "receipt_id" VARCHAR NOT NULL,
+        CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
+      );
 
-CREATE TABLE
-  "post_likes" (
-    "post_id" SERIAL NOT NULL,
-    "account_id" VARCHAR NOT NULL,
-    "block_height" DECIMAL(58, 0),
-    "block_timestamp" DECIMAL(20, 0) NOT NULL,
-    "receipt_id" VARCHAR NOT NULL,
-    CONSTRAINT "post_likes_pkey" PRIMARY KEY ("post_id", "account_id")
-  );'`;
+    CREATE TABLE
+      "post_likes" (
+        "post_id" SERIAL NOT NULL,
+        "account_id" VARCHAR NOT NULL,
+        "block_height" DECIMAL(58, 0),
+        "block_timestamp" DECIMAL(20, 0) NOT NULL,
+        "receipt_id" VARCHAR NOT NULL,
+        CONSTRAINT "post_likes_pkey" PRIMARY KEY ("post_id", "account_id")
+      );'`;
 
   beforeEach(() => {
     process.env = {
@@ -364,15 +365,11 @@ CREATE TABLE
   });
 
   test('indexer builds context and inserts an objects into existing table', async () => {
-    // Set HASURA_ENDPOINT and HASURA_ADMIN_SECRET values in process.env before running with actual mockDmlHandler
-    // process.env.HASURA_ENDPOINT = '';
-    // process.env.HASURA_ADMIN_SECRET = '';
+    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
+      return { insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
+    });
 
-    const mockDmlHandler: any = {
-      insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }])
-    };
-
-    const indexer = new Indexer('mainnet', { dmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToInsert = [{
@@ -397,19 +394,16 @@ CREATE TABLE
   });
 
   test('indexer builds context and selects objects from existing table', async () => {
-    // Set HASURA_ENDPOINT and HASURA_ADMIN_SECRET values in process.env before running with actual mockDmlHandler
-    // process.env.HASURA_ENDPOINT = '';
-    // process.env.HASURA_ADMIN_SECRET = '';
     const selectFn = jest.fn();
     selectFn.mockImplementation((...lim) => {
       // Expects limit to be last parameter
-      return lim[lim.length - 1] === 0 ? [{ colA: 'valA' }, { colA: 'valA' }] : [{ colA: 'valA' }];
+      return lim[lim.length - 1] === null ? [{ colA: 'valA' }, { colA: 'valA' }] : [{ colA: 'valA' }];
     });
-    const mockDmlHandler: any = {
-      select: selectFn
-    };
+    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
+      return { select: selectFn };
+    });
 
-    const indexer = new Indexer('mainnet', { dmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToSelect = {
@@ -423,29 +417,18 @@ CREATE TABLE
   });
 
   test('indexer builds context and verifies all methods generated', async () => {
-    const mockDmlHandler: any = {
-      insert: jest.fn().mockReturnValue(true),
-      select: jest.fn().mockReturnValue(true)
-    };
+    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
+      return {
+        insert: jest.fn().mockReturnValue(true),
+        select: jest.fn().mockReturnValue(true)
+      };
+    });
 
-    const indexer = new Indexer('mainnet', { dmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
-    const objToPassIn = {};
 
     // These calls would fail on a real database, but we are merely checking to ensure they exist
-    let result = await context.db.insert_posts([objToPassIn]);
-    expect(result).toEqual(true);
-    result = await context.db.insert_comments(objToPassIn); // Verifying both array and single object input is supported for insert
-    expect(result).toEqual(true);
-    result = await context.db.insert_post_likes([objToPassIn]);
-    expect(result).toEqual(true);
-
-    result = await context.db.select_posts(objToPassIn);
-    expect(result).toEqual(true);
-    result = await context.db.select_comments(objToPassIn);
-    expect(result).toEqual(true);
-    result = await context.db.select_post_likes(objToPassIn);
-    expect(result).toEqual(true);
+    expect(Object.keys(context.db)).toStrictEqual(['insert_posts', 'select_posts', 'insert_comments', 'select_comments', 'insert_post_likes', 'select_post_likes']);
   });
 
   test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {

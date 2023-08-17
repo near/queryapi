@@ -1,26 +1,35 @@
 import { wrapError } from '../utility';
-import PgClient from '../pg-client';
-
-const sharedPgClient = new PgClient({
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
-  database: process.env.PGDATABASE,
-  host: process.env.PGHOST,
-  port: Number(process.env.PGPORT),
-});
+import PgClientModule from '../pg-client';
+import HasuraClient from '../hasura-client/hasura-client';
 
 export default class DmlHandler {
+  private pgClient!: PgClientModule;
+  private readonly initialized: Promise<void>;
+
   constructor (
-    private readonly pgClient: PgClient = sharedPgClient,
+    private readonly account: string,
+    private readonly hasuraClient: HasuraClient = new HasuraClient(),
+    private readonly PgClient = PgClientModule,
   ) {
-    this.pgClient = pgClient;
+    this.initialized = this.initialize();
   }
 
-  async insert (account: string, schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
+  private async initialize (): Promise<void> {
+    const connectionParameters = await this.hasuraClient.getDbConnectionParameters(this.account);
+    this.pgClient = new this.PgClient({
+      user: connectionParameters.username,
+      password: connectionParameters.password,
+      host: process.env.PGHOST,
+      port: Number(connectionParameters.port),
+      database: connectionParameters.database,
+    });
+  }
+
+  async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
+    await this.initialized; // Ensure constructor completed before proceeding
     if (!objects?.length) {
       return [];
     }
-    await this.pgClient.setUser(account); // Set Postgres user to account's user
 
     const keys = Object.keys(objects[0]);
     // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
@@ -34,16 +43,15 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async select (account: string, schemaName: string, tableName: string, object: any, limit: number): Promise<any[]> {
-    await this.pgClient.setUser(account); // Set Postgres user to account's user
+  async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
+    await this.initialized; // Ensure constructor completed before proceeding
 
-    const roundedLimit = Math.round(limit);
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
     let query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${param}`;
-    if (roundedLimit > 0) {
-      query = query.concat(' LIMIT ', roundedLimit.toString());
+    if (limit !== null) {
+      query = query.concat(' LIMIT ', Math.round(limit).toString());
     }
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}.${tableName}.`);
