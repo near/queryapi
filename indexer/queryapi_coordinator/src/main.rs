@@ -12,7 +12,6 @@ use indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use opts::{Opts, Parser};
 use storage::{self, ConnectionManager};
 
-pub(crate) mod cache;
 mod historical_block_processing;
 mod indexer_reducer;
 mod indexer_registry;
@@ -130,9 +129,6 @@ async fn handle_streamer_message(
     context: QueryApiContext<'_>,
     indexer_registry: SharedIndexerRegistry,
 ) -> anyhow::Result<u64> {
-    // build context for enriching filter matches
-    cache::update_all(&context.streamer_message, context.redis_connection_manager).await?;
-
     let mut indexer_registry_locked = indexer_registry.lock().await;
     let indexer_functions =
         indexer_registry::registry_as_vec_of_indexer_functions(&indexer_registry_locked);
