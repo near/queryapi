@@ -15,22 +15,24 @@ const processStream = async (streamKey: string): Promise<void> => {
   console.log('Started processing stream: ', streamKey);
 
   let indexerName = '';
+  let startTime = 0;
+  let streamType = '';
 
   while (true) {
     try {
-      const startTime = performance.now();
+      startTime = performance.now();
+      streamType = redisClient.getStreamType(streamKey);
 
       const messages = await redisClient.getNextStreamMessage(streamKey);
+      const indexerConfig = await redisClient.getStreamStorage(streamKey);
+
+      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
 
       if (messages == null) {
         continue;
       }
 
       const [{ id, message }] = messages;
-
-      const indexerConfig = await redisClient.getStreamStorage(streamKey);
-
-      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
 
       const functions = {
         [indexerName]: {
@@ -47,18 +49,14 @@ const processStream = async (streamKey: string): Promise<void> => {
 
       await redisClient.deleteStreamMessage(streamKey, id);
 
-      const endTime = performance.now();
-
-      const streamType = redisClient.getStreamType(streamKey);
-
-      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(endTime - startTime);
-
       const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
       metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
       console.log(`Failed: ${indexerName}`, err);
+    } finally {
+      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - startTime);
     }
   }
 };
