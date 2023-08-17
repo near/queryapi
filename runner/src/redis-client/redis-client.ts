@@ -30,22 +30,6 @@ export default class RedisClient {
     return `${streamkey}:storage`;
   };
 
-  private generateStreamLastIdKey (streamkey: string): string {
-    return `${streamkey}:lastId`;
-  };
-
-  private incrementStreamId (id: string): string {
-    const [timestamp, sequenceNumber] = id.split('-');
-    const nextSequenceNumber = Number(sequenceNumber) + 1;
-    return `${timestamp}-${nextSequenceNumber}`;
-  };
-
-  private async getLastProcessedStreamId (
-    streamKey: string,
-  ): Promise<string | null> {
-    return await this.client.get(this.generateStreamLastIdKey(streamKey));
-  };
-
   async disconnect (): Promise<void> {
     await this.client.disconnect();
   }
@@ -53,30 +37,25 @@ export default class RedisClient {
   async getNextStreamMessage (
     streamKey: string,
   ): Promise<StreamMessage[] | null> {
-    const id = await this.getLastProcessedStreamId(streamKey) ?? this.SMALLEST_STREAM_ID;
-
     const results = await this.client.xRead(
-      { key: streamKey, id },
+      { key: streamKey, id: this.SMALLEST_STREAM_ID },
       { COUNT: 1 }
     );
 
     return results?.[0].messages as StreamMessage[];
   };
 
-  async acknowledgeStreamMessage (
+  async deleteStreamMessage (
     streamKey: string,
     id: string,
   ): Promise<void> {
-    await this.client.set(this.generateStreamLastIdKey(streamKey), id);
+    await this.client.xDel(streamKey, id);
   };
 
   async getUnprocessedStreamMessages (
     streamKey: string,
   ): Promise<StreamMessage[]> {
-    const lastProcessedId = await this.getLastProcessedStreamId(streamKey);
-    const nextId = lastProcessedId ? this.incrementStreamId(lastProcessedId) : this.SMALLEST_STREAM_ID;
-
-    const results = await this.client.xRange(streamKey, nextId, this.LARGEST_STREAM_ID);
+    const results = await this.client.xRange(streamKey, this.SMALLEST_STREAM_ID, this.LARGEST_STREAM_ID);
 
     return results as StreamMessage[];
   };

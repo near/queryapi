@@ -45,7 +45,7 @@ const processStream = async (streamKey: string): Promise<void> => {
         provision: true,
       });
 
-      await redisClient.acknowledgeStreamMessage(streamKey, id);
+      await redisClient.deleteStreamMessage(streamKey, id);
 
       const endTime = performance.now();
 
