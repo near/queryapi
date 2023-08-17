@@ -1,17 +1,13 @@
 import { createClient, type RedisClientType } from 'redis';
 
-interface StreamMessage<Message> {
+interface StreamMessage {
   id: string
-  message: Message
+  message: {
+    block_height: string
+  }
 }
 
-type StreamMessages<Message> = Array<StreamMessage<Message>>;
-
-type IndexerStreamMessage = {
-  block_height: string
-} & Record<string, string>;
-
-interface IndexerConfig {
+interface StreamStorage {
   account_id: string
   function_name: string
   code: string
@@ -55,7 +51,7 @@ export default class RedisClient {
 
   async getNextStreamMessage (
     streamKey: string,
-  ): Promise<StreamMessages<IndexerStreamMessage> | null> {
+  ): Promise<StreamMessage[] | null> {
     const id = await this.getLastProcessedStreamId(streamKey) ?? this.STREAM_SMALLEST_ID;
 
     const results = await this.client.xRead(
@@ -63,28 +59,28 @@ export default class RedisClient {
       { COUNT: 1 }
     );
 
-    return results?.[0].messages as StreamMessages<IndexerStreamMessage>;
+    return results?.[0].messages as StreamMessage[];
   };
 
   async acknowledgeStreamMessage (
     streamKey: string,
-    lastId: string,
+    id: string,
   ): Promise<void> {
-    await this.client.set(this.generateStreamLastIdKey(streamKey), lastId);
+    await this.client.set(this.generateStreamLastIdKey(streamKey), id);
   };
 
   async getUnprocessedStreamMessages (
     streamKey: string,
-  ): Promise<Array<StreamMessage<IndexerStreamMessage>>> {
+  ): Promise<StreamMessage[]> {
     const lastProcessedId = await this.getLastProcessedStreamId(streamKey);
     const nextId = lastProcessedId ? this.incrementStreamId(lastProcessedId) : this.STREAM_SMALLEST_ID;
 
     const results = await this.client.xRange(streamKey, nextId, '+');
 
-    return results as Array<StreamMessage<IndexerStreamMessage>>;
+    return results as StreamMessage[];
   };
 
-  async getStreamStorage (streamKey: string): Promise<IndexerConfig> {
+  async getStreamStorage (streamKey: string): Promise<StreamStorage> {
     const storageKey = this.generateStorageKey(streamKey);
     const results = await this.client.get(storageKey);
 
