@@ -49,10 +49,12 @@ const processStream = async (streamKey: string): Promise<void> => {
 
       const endTime = performance.now();
 
-      metrics.EXECUTION_DURATION.labels({ indexer: indexerName }).set(endTime - startTime);
+      const streamType = redisClient.getStreamType(streamKey);
+
+      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(endTime - startTime);
 
       const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
-      metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName }).set(unprocessedMessages?.length ?? 0);
+      metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {

@@ -14,6 +14,8 @@ interface StreamStorage {
   schema: string
 }
 
+type StreamType = 'historical' | 'real-time';
+
 export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
   LARGEST_STREAM_ID = '+';
@@ -29,6 +31,13 @@ export default class RedisClient {
   private generateStorageKey (streamkey: string): string {
     return `${streamkey}:storage`;
   };
+
+  getStreamType (streamKey: string): StreamType {
+    if (streamKey.endsWith(':historical:stream')) {
+      return 'historical';
+    }
+    return 'real-time';
+  }
 
   async disconnect (): Promise<void> {
     await this.client.disconnect();
