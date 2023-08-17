@@ -1,6 +1,9 @@
 import { Block } from "@near-lake/primitives";
 import { Buffer } from "buffer";
 import { fetchBlockDetails } from "./fetchBlock";
+// import { Parser } from 'sql-ddl-to-json-schema';
+import { compile } from 'json-schema-to-typescript';
+const { Parser } = require('node-sql-parser');
 
 global.Buffer = Buffer;
 export default class IndexerRunner {
@@ -19,7 +22,7 @@ export default class IndexerRunner {
       console.log("No Start Block Height Provided to Stream Blocks From")
       this.stop()
       console.groupEnd()
-      return
+      returnc
     }
     console.log(`Streaming Blocks Starting from ${option} Block #${this.currentHeight}`)
     while (!this.shouldStop) {
@@ -52,6 +55,25 @@ export default class IndexerRunner {
 
   async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    let tableNames = Array.from(schema.matchAll(/CREATE TABLE\s+"(\w+)"/g), match => match[1]); // Get first capturing group of each match
+    this.validateTableNames(tableNames);
+    const parser = new Parser();
+    const result = parser.astify(schema, {database: 'Postgresql'});
+    console.log(result);
+    // const parser = new Parser('mysql');
+    // const newSchema = schema.replaceAll("\"", "").replaceAll("SERIAL", "INT AUTO_INCREMENT").replaceAll("VARCHAR", "VARCHAR(20)").replaceAll("JSONB", "JSON");
+    // console.log(newSchema);
+    // const compactJsonTablesArray = parser.feed(newSchema).toCompactJson(parser.results);
+    // const jsonSchemaDocuments = parser.feed(newSchema).toJsonSchemaArray({useRef: false}, compactJsonTablesArray);
+    // console.log("compact schema parsed", compactJsonTablesArray);
+    // console.log("schema parsed", jsonSchemaDocuments);
+
+    // for (const tableSchema of jsonSchemaDocuments) {
+    //   console.log("current table schema", tableSchema);
+    //   await compile(tableSchema, tableSchema.id).then(ts => console.log("TS from table " + tableSchema.id, ts));
+    // }
+    // console.log(parse(schema));
+
 
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
