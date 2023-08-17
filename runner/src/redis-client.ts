@@ -20,7 +20,7 @@ interface IndexerConfig {
 
 export default class RedisClient {
   STREAM_SMALLEST_ID = '0';
-  INDEXER_SET_KEY = 'indexers';
+  STREAMS_SET_KEY = 'streams';
 
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })
@@ -29,16 +29,12 @@ export default class RedisClient {
     client.connect().catch(console.error);
   }
 
-  private generateStreamKey (name: string): string {
-    return `${name}:stream`;
-  };
-
   private generateStorageKey (name: string): string {
     return `${name}:storage`;
   };
 
   private generateStreamLastIdKey (name: string): string {
-    return `${name}:stream:lastId`;
+    return `${name}:lastId`;
   };
 
   private incrementStreamId (id: string): string {
@@ -48,9 +44,9 @@ export default class RedisClient {
   };
 
   private async getLastProcessedStreamId (
-    indexerName: string,
+    streamKey: string,
   ): Promise<string | null> {
-    return await this.client.get(this.generateStreamLastIdKey(indexerName));
+    return await this.client.get(this.generateStreamLastIdKey(streamKey));
   };
 
   async disconnect (): Promise<void> {
@@ -58,12 +54,12 @@ export default class RedisClient {
   }
 
   async getNextStreamMessage (
-    indexerName: string,
+    streamKey: string,
   ): Promise<StreamMessages<IndexerStreamMessage> | null> {
-    const id = await this.getLastProcessedStreamId(indexerName) ?? this.STREAM_SMALLEST_ID;
+    const id = await this.getLastProcessedStreamId(streamKey) ?? this.STREAM_SMALLEST_ID;
 
     const results = await this.client.xRead(
-      { key: this.generateStreamKey(indexerName), id },
+      { key: streamKey, id },
       { COUNT: 1 }
     );
 
@@ -71,34 +67,35 @@ export default class RedisClient {
   };
 
   async acknowledgeStreamMessage (
-    indexerName: string,
+    streamKey: string,
     lastId: string,
   ): Promise<void> {
-    await this.client.set(this.generateStreamLastIdKey(indexerName), lastId);
+    await this.client.set(this.generateStreamLastIdKey(streamKey), lastId);
   };
 
   async getUnprocessedStreamMessages (
-    indexerName: string,
+    streamKey: string,
   ): Promise<Array<StreamMessage<IndexerStreamMessage>>> {
-    const lastProcessedId = await this.getLastProcessedStreamId(indexerName);
+    const lastProcessedId = await this.getLastProcessedStreamId(streamKey);
     const nextId = lastProcessedId ? this.incrementStreamId(lastProcessedId) : this.STREAM_SMALLEST_ID;
 
-    const results = await this.client.xRange(this.generateStreamKey(indexerName), nextId, '+');
+    const results = await this.client.xRange(streamKey, nextId, '+');
 
     return results as Array<StreamMessage<IndexerStreamMessage>>;
   };
 
-  async getIndexerData (indexerName: string): Promise<IndexerConfig> {
-    const results = await this.client.get(this.generateStorageKey(indexerName));
+  async getStreamStorage (streamKey: string): Promise<IndexerConfig> {
+    const storageKey = this.generateStorageKey(streamKey);
+    const results = await this.client.get(storageKey);
 
     if (results === null) {
-      throw new Error(`${indexerName} does not have any data`);
+      throw new Error(`${storageKey} does not have any data`);
     }
 
     return JSON.parse(results);
   };
 
-  async getIndexers (): Promise<string[]> {
-    return await this.client.sMembers(this.INDEXER_SET_KEY);
+  async getStreams (): Promise<string[]> {
+    return await this.client.sMembers(this.STREAMS_SET_KEY);
   }
 }

@@ -11,33 +11,16 @@ metrics.startServer().catch((err) => {
 
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
-const runFunction = async (indexerName: string, blockHeight: string): Promise<void> => {
-  const { account_id: accountId, function_name: functionName, code, schema } = await redisClient.getIndexerData(
-    indexerName,
-  );
+const processStream = async (streamKey: string): Promise<void> => {
+  console.log('Started processing stream: ', streamKey);
 
-  const functions = {
-    [indexerName]: {
-      account_id: accountId,
-      function_name: functionName,
-      code,
-      schema,
-      provisioned: false,
-    },
-  };
+  let indexerName = '';
 
-  await indexer.runFunctions(Number(blockHeight), functions, false, {
-    provision: true,
-  });
-};
-
-const processStream = async (indexerName: string): Promise<void> => {
-  console.log('Started processing stream', indexerName);
   while (true) {
     try {
       const startTime = performance.now();
 
-      const messages = await redisClient.getNextStreamMessage(indexerName);
+      const messages = await redisClient.getNextStreamMessage(streamKey);
 
       if (messages == null) {
         continue;
@@ -45,9 +28,24 @@ const processStream = async (indexerName: string): Promise<void> => {
 
       const [{ id, message }] = messages;
 
-      await runFunction(indexerName, message.block_height);
+      const indexerConfig = await redisClient.getStreamStorage(streamKey);
 
-      await redisClient.acknowledgeStreamMessage(indexerName, id);
+      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
+
+      const functions = {
+        [indexerName]: {
+          account_id: indexerConfig.account_id,
+          function_name: indexerConfig.function_name,
+          code: indexerConfig.code,
+          schema: indexerConfig.schema,
+          provisioned: false,
+        },
+      };
+      await indexer.runFunctions(Number(message.block_height), functions, false, {
+        provision: true,
+      });
+
+      await redisClient.acknowledgeStreamMessage(streamKey, id);
 
       const endTime = performance.now();
 
@@ -70,15 +68,15 @@ void (async function main () {
     const streamHandlers: StreamHandlers = {};
 
     while (true) {
-      const indexers = await redisClient.getIndexers();
+      const streamKeys = await redisClient.getStreams();
 
-      indexers.forEach((indexerName) => {
-        if (streamHandlers[indexerName] !== undefined) {
+      streamKeys.forEach((streamKey) => {
+        if (streamHandlers[streamKey] !== undefined) {
           return;
         }
 
-        const handler = processStream(indexerName);
-        streamHandlers[indexerName] = handler;
+        const handler = processStream(streamKey);
+        streamHandlers[streamKey] = handler;
       });
 
       await new Promise((resolve) =>
