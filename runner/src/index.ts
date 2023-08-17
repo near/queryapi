@@ -1,141 +1,32 @@
-import { createClient } from 'redis';
-
 import Indexer from './indexer';
 import * as metrics from './metrics';
+import RedisClient from './redis-client';
 
-const client = createClient({ url: process.env.REDIS_CONNECTION_STRING });
 const indexer = new Indexer('mainnet');
+const redisClient = new RedisClient();
 
 metrics.startServer().catch((err) => {
   console.error('Failed to start metrics server', err);
 });
 
-// const BATCH_SIZE = 1;
-const STREAM_SMALLEST_ID = '0';
-// const STREAM_THROTTLE_MS = 250;
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
-const INDEXER_SET_KEY = 'indexers';
+const processStream = async (streamKey: string): Promise<void> => {
+  console.log('Started processing stream: ', streamKey);
 
-client.on('error', (err) => { console.log('Redis Client Error', err); });
+  let indexerName = '';
+  let startTime = 0;
+  let streamType = '';
 
-const generateStreamKey = (name: string): string => {
-  return `${name}:stream`;
-};
-
-const generateStorageKey = (name: string): string => {
-  return `${name}:storage`;
-};
-
-const generateStreamLastIdKey = (name: string): string => {
-  return `${name}:stream:lastId`;
-};
-
-const runFunction = async (indexerName: string, blockHeight: string): Promise<void> => {
-  const { account_id: accountId, function_name: functionName, code, schema } = await getIndexerData(
-    indexerName,
-  );
-
-  const functions = {
-    [indexerName]: {
-      account_id: accountId,
-      function_name: functionName,
-      code,
-      schema,
-      provisioned: false,
-    },
-  };
-
-  await indexer.runFunctions(Number(blockHeight), functions, false, {
-    provision: true,
-  });
-};
-
-interface StreamMessage<Message> {
-  id: string
-  message: Message
-}
-
-type StreamMessages<Message> = Array<StreamMessage<Message>>;
-
-const getMessagesFromStream = async <Message extends Record<string, string>>(
-  indexerName: string,
-  lastId: string | null,
-  count: number,
-): Promise<StreamMessages<Message> | null> => {
-  const id = lastId ?? STREAM_SMALLEST_ID;
-
-  const results = await client.xRead(
-    { key: generateStreamKey(indexerName), id },
-    // can't use blocking calls as running single threaded
-    { COUNT: count }
-  );
-
-  return results?.[0].messages as StreamMessages<Message>;
-};
-
-const incrementStreamId = (id: string): string => {
-  const [timestamp, sequenceNumber] = id.split('-');
-  const nextSequenceNumber = Number(sequenceNumber) + 1;
-  return `${timestamp}-${nextSequenceNumber}`;
-};
-
-const getUnprocessedMessages = async <Message extends Record<string, string>>(
-  indexerName: string,
-  startId: string | null
-): Promise<Array<StreamMessage<Message>>> => {
-  const nextId = startId ? incrementStreamId(startId) : STREAM_SMALLEST_ID;
-
-  const results = await client.xRange(generateStreamKey(indexerName), nextId, '+');
-
-  return results as Array<StreamMessage<Message>>;
-};
-
-const getLastProcessedId = async (
-  indexerName: string,
-): Promise<string | null> => {
-  return await client.get(generateStreamLastIdKey(indexerName));
-};
-
-const setLastProcessedId = async (
-  indexerName: string,
-  lastId: string,
-): Promise<void> => {
-  await client.set(generateStreamLastIdKey(indexerName), lastId);
-};
-
-interface IndexerConfig {
-  account_id: string
-  function_name: string
-  code: string
-  schema: string
-}
-
-const getIndexerData = async (indexerName: string): Promise<IndexerConfig> => {
-  const results = await client.get(generateStorageKey(indexerName));
-
-  if (results === null) {
-    throw new Error(`${indexerName} does not have any data`);
-  }
-
-  return JSON.parse(results);
-};
-
-type IndexerStreamMessage = {
-  block_height: string
-} & Record<string, string>;
-
-const processStream = async (indexerName: string): Promise<void> => {
   while (true) {
     try {
-      const startTime = performance.now();
+      startTime = performance.now();
+      streamType = redisClient.getStreamType(streamKey);
 
-      const lastProcessedId = await getLastProcessedId(indexerName);
-      const messages = await getMessagesFromStream<IndexerStreamMessage>(
-        indexerName,
-        lastProcessedId,
-        1,
-      );
+      const messages = await redisClient.getNextStreamMessage(streamKey);
+      const indexerConfig = await redisClient.getStreamStorage(streamKey);
+
+      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
 
       if (messages == null) {
         continue;
@@ -143,20 +34,29 @@ const processStream = async (indexerName: string): Promise<void> => {
 
       const [{ id, message }] = messages;
 
-      await runFunction(indexerName, message.block_height);
+      const functions = {
+        [indexerName]: {
+          account_id: indexerConfig.account_id,
+          function_name: indexerConfig.function_name,
+          code: indexerConfig.code,
+          schema: indexerConfig.schema,
+          provisioned: false,
+        },
+      };
+      await indexer.runFunctions(Number(message.block_height), functions, false, {
+        provision: true,
+      });
 
-      await setLastProcessedId(indexerName, id);
+      await redisClient.deleteStreamMessage(streamKey, id);
 
-      const endTime = performance.now();
-
-      metrics.EXECUTION_DURATION.labels({ indexer: indexerName }).set(endTime - startTime);
-
-      const unprocessedMessages = await getUnprocessedMessages<IndexerStreamMessage>(indexerName, lastProcessedId);
-      metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName }).set(unprocessedMessages?.length ?? 0);
+      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
+      metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
       console.log(`Failed: ${indexerName}`, err);
+    } finally {
+      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - startTime);
     }
   }
 };
@@ -165,20 +65,18 @@ type StreamHandlers = Record<string, Promise<void>>;
 
 void (async function main () {
   try {
-    await client.connect();
-
     const streamHandlers: StreamHandlers = {};
 
     while (true) {
-      const indexers = await client.sMembers(INDEXER_SET_KEY);
+      const streamKeys = await redisClient.getStreams();
 
-      indexers.forEach((indexerName) => {
-        if (streamHandlers[indexerName] !== undefined) {
+      streamKeys.forEach((streamKey) => {
+        if (streamHandlers[streamKey] !== undefined) {
           return;
         }
 
-        const handler = processStream(indexerName);
-        streamHandlers[indexerName] = handler;
+        const handler = processStream(streamKey);
+        streamHandlers[streamKey] = handler;
       });
 
       await new Promise((resolve) =>
@@ -186,6 +84,6 @@ void (async function main () {
       );
     }
   } finally {
-    await client.disconnect();
+    await redisClient.disconnect();
   }
 })();

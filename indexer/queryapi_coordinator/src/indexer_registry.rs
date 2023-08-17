@@ -172,6 +172,7 @@ fn index_and_process_register_calls(
                             crate::historical_block_processing::spawn_historical_message_thread(
                                 block_height,
                                 &mut new_indexer_function,
+                                context.redis_connection_manager,
                             )
                         {
                             spawned_start_from_block_threads.push(thread);

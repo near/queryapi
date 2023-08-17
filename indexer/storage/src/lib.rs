@@ -2,18 +2,26 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 const STORAGE: &str = "storage_alertexer";
 
-pub const INDEXER_SET_KEY: &str = "indexers";
+pub const STREAMS_SET_KEY: &str = "streams";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
 }
 
-pub fn generate_storage_key(name: &str) -> String {
-    format!("{}:storage", name)
+pub fn generate_real_time_stream_key(prefix: &str) -> String {
+    format!("{}:real_time:stream", prefix)
 }
 
-pub fn generate_stream_key(name: &str) -> String {
-    format!("{}:stream", name)
+pub fn generate_real_time_storage_key(prefix: &str) -> String {
+    format!("{}:real_time:stream:storage", prefix)
+}
+
+pub fn generate_historical_stream_key(prefix: &str) -> String {
+    format!("{}:historical:stream", prefix)
+}
+
+pub fn generate_historical_storage_key(prefix: &str) -> String {
+    format!("{}:historical:stream:storage", prefix)
 }
 
 pub async fn connect(redis_connection_str: &str) -> anyhow::Result<ConnectionManager> {
@@ -83,14 +91,6 @@ pub async fn xadd(
     fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
 ) -> anyhow::Result<()> {
     tracing::debug!(target: STORAGE, "XADD: {:?}, {:?}", stream_key, fields);
-
-    // TODO: Remove stream cap when we finally start processing it
-    redis::cmd("XTRIM")
-        .arg(&stream_key)
-        .arg("MAXLEN")
-        .arg(100)
-        .query_async(&mut redis_connection_manager.clone())
-        .await?;
 
     let mut cmd = redis::cmd("XADD");
     cmd.arg(stream_key).arg("*");
