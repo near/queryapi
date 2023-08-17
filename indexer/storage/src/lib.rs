@@ -92,14 +92,6 @@ pub async fn xadd(
 ) -> anyhow::Result<()> {
     tracing::debug!(target: STORAGE, "XADD: {:?}, {:?}", stream_key, fields);
 
-    // TODO: Remove stream cap when we finally start processing it
-    redis::cmd("XTRIM")
-        .arg(&stream_key)
-        .arg("MAXLEN")
-        .arg(100)
-        .query_async(&mut redis_connection_manager.clone())
-        .await?;
-
     let mut cmd = redis::cmd("XADD");
     cmd.arg(stream_key).arg("*");
 
