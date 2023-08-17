@@ -1,7 +1,7 @@
 import { providers } from "near-api-js";
 const REGISTRY_CONTRACT =
   process.env.NEXT_PUBLIC_REGISTRY_CONTRACT_ID ||
-  "queryapi.dataplatform.near";
+  "dev-queryapi.dataplatform.near";
 //network config (replace testnet with mainnet or betanet)
 const provider = new providers.JsonRpcProvider(
   "https://rpc.mainnet.near.org"
