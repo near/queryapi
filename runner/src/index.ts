@@ -51,7 +51,7 @@ const processStream = async (streamKey: string): Promise<void> => {
 
       metrics.EXECUTION_DURATION.labels({ indexer: indexerName }).set(endTime - startTime);
 
-      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(indexerName);
+      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
       metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName }).set(unprocessedMessages?.length ?? 0);
 
       console.log(`Success: ${indexerName}`);
