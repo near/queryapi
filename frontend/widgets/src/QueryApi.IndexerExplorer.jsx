@@ -1,10 +1,4 @@
 const limitPerPage = 5;
-const REGISTRY_CONTRACT_ID =
-  props.REGISTRY_CONTRACT_ID || "queryapi.dataplatform.near";
-let APP_OWNER = props.APP_OWNER || "dev-queryapi.dataplatform.near";
-const GRAPHQL_ENDPOINT =
-  props.GRAPHQL_ENDPOINT ||
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
 let totalIndexers = 0;
 const accountId = context.accountId;
 State.init({
@@ -21,7 +15,7 @@ if (props.tab && props.tab !== state.selectedTab) {
   });
 }
 
-Near.asyncView(REGISTRY_CONTRACT_ID, "list_indexer_functions").then((data) => {
+Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_indexer_functions").then((data) => {
   const indexers = [];
   const total_indexers = 0;
   Object.keys(data.All).forEach((accountId) => {
@@ -242,13 +236,10 @@ return (
           {state.all_indexers.map((indexer, i) => (
             <Item>
               <Widget
-                src="dev-queryapi.dataplatform.near/widget/QueryApi.IndexerCard"
+                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
                 props={{
                   accountId: indexer.accountId,
                   indexerName: indexer.indexerName,
-                  APP_OWNER: APP_OWNER,
-                  GRAPHQL_ENDPOINT,
-                  appPath: props.appPath,
                 }}
               />
             </Item>
@@ -275,13 +266,10 @@ return (
           {state.my_indexers.map((indexer, i) => (
             <Item>
               <Widget
-                src="dev-queryapi.dataplatform.near/widget/QueryApi.IndexerCard"
+                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
                 props={{
                   accountId: indexer.accountId,
                   indexerName: indexer.indexerName,
-                  APP_OWNER: APP_OWNER,
-                  GRAPHQL_ENDPOINT,
-                  appPath: props.appPath,
                 }}
               />
             </Item>

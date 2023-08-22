@@ -25,14 +25,20 @@ pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
     new_indexer_function: &IndexerFunction,
+    redis_connection_manager: &storage::ConnectionManager,
 ) -> Option<JoinHandle<i64>> {
+    let redis_connection_manager = redis_connection_manager.clone();
     new_indexer_function.start_block_height.map(|_| {
         let new_indexer_function_copy = new_indexer_function.clone();
-        tokio::spawn(process_historical_messages_or_handle_error(
-            block_height,
-            new_indexer_function_copy,
-            Opts::parse(),
-        ))
+        tokio::spawn(async move {
+            process_historical_messages_or_handle_error(
+                block_height,
+                new_indexer_function_copy,
+                Opts::parse(),
+                &redis_connection_manager,
+            )
+            .await
+        })
     })
 }
 
@@ -40,8 +46,16 @@ pub(crate) async fn process_historical_messages_or_handle_error(
     block_height: BlockHeight,
     indexer_function: IndexerFunction,
     opts: Opts,
+    redis_connection_manager: &storage::ConnectionManager,
 ) -> i64 {
-    match process_historical_messages(block_height, indexer_function, opts).await {
+    match process_historical_messages(
+        block_height,
+        indexer_function,
+        opts,
+        redis_connection_manager,
+    )
+    .await
+    {
         Ok(block_difference) => block_difference,
         Err(err) => {
             // todo: when Coordinator can send log messages to Runner, send this error to Runner
@@ -58,6 +72,7 @@ pub(crate) async fn process_historical_messages(
     block_height: BlockHeight,
     indexer_function: IndexerFunction,
     opts: Opts,
+    redis_connection_manager: &storage::ConnectionManager,
 ) -> anyhow::Result<i64> {
     let start_block = indexer_function.start_block_height.unwrap();
     let block_difference: i64 = (block_height - start_block) as i64;
@@ -124,7 +139,30 @@ pub(crate) async fn process_historical_messages(
             blocks_from_index.append(&mut blocks_between_indexed_and_current_block);
 
             let first_block_in_index = *blocks_from_index.first().unwrap_or(&start_block);
+
+            if !blocks_from_index.is_empty() {
+                storage::sadd(
+                    redis_connection_manager,
+                    storage::STREAMS_SET_KEY,
+                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                )
+                .await?;
+                storage::set(
+                    redis_connection_manager,
+                    storage::generate_historical_storage_key(&indexer_function.get_full_name()),
+                    serde_json::to_string(&indexer_function)?,
+                )
+                .await?;
+            }
+
             for current_block in blocks_from_index {
+                storage::xadd(
+                    redis_connection_manager,
+                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                    &[("block_height", current_block)],
+                )
+                .await?;
+
                 send_execution_message(
                     block_height,
                     first_block_in_index,

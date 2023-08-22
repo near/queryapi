@@ -6,26 +6,16 @@ const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
 const activeTab = props.view ?? "indexers";
 const limit = 7;
 let totalIndexers = 0;
-const REGISTRY_CONTRACT_ID =
-  props.REGISTRY_CONTRACT_ID || "queryapi.dataplatform.near";
-const APP_OWNER = props.APP_OWNER || "dataplatform.near";
-const GRAPHQL_ENDPOINT =
-  props.GRAPHQL_ENDPOINT ||
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app";
-const EXTERNAL_APP_URL =
-  props.EXTERNAL_APP_URL || "https://queryapi-frontend-24ktefolwq-ew.a.run.app";
-
-let appPath = props.isDev ? "dev-App" : "App";
 
 State.init({
-  activeTab: Storage.privateGet("queryapi:activeTab") || activeTab,
+  activeTab: activeTab,
   my_indexers: [],
   all_indexers: [],
   selected_indexer: undefined,
   selected_account: undefined,
 });
 
-Near.asyncView(REGISTRY_CONTRACT_ID, "list_indexer_functions").then((data) => {
+Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_indexer_functions").then((data) => {
   const indexers = [];
   const total_indexers = 0;
   Object.keys(data.All).forEach((accountId) => {
@@ -284,12 +274,13 @@ const ButtonLink = styled.a`
     }}
 `;
 
-const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
-if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
-  State.update({
-    activeTab: previousSelectedTab,
-  });
-}
+// TODO fix activeTab
+// const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
+// if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
+//   State.update({
+//     activeTab: previousSelectedTab,
+//   });
+// }
 
 const selectTab = (tabName) => {
   Storage.privateSet("queryapi:activeTab", tabName);
@@ -299,10 +290,9 @@ const selectTab = (tabName) => {
 };
 
 const indexerView = (accountId, indexerName) => {
-  const editUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
-  const statusUrl = `https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
-  // const playgroundLink = `https://near.org/#/${APP_OWNER}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window&tab=playground`;
-  const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
+  const editUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=editor-window`;
+  const statusUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer-status`;
+  const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
     ".",
     "_"
   )}`;
@@ -357,7 +347,7 @@ return (
       >
         Indexers
       </TabsButton>
-      {props.view === "create-new-indexer" && (
+      {state.activeTab == "create-new-indexer" && (
         <TabsButton
           type="button"
           onClick={() => selectTab("create-new-indexer")}
@@ -390,7 +380,7 @@ return (
     <Main>
       <Section active={state.activeTab === "indexers"}>
         <NavBarLogo
-          href={`https://near.org/#/${APP_OWNER}/widget/QueryApi.${appPath}`}
+          href={`https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App`}
           title="QueryApi"
           onClick={() => selectTab("indexers")}
         >
@@ -410,7 +400,7 @@ return (
 
         <div>
           <ButtonLink
-            href={`/#/${APP_OWNER}/widget/QueryApi.${appPath}/?view=create-new-indexer`}
+            href={`/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
             style={{ "margin-top": "10px" }}
             onClick={() => {
               State.update({
@@ -429,13 +419,7 @@ return (
             </H2>
           )}
           <Widget
-            src={`${APP_OWNER}/widget/QueryApi.IndexerExplorer`}
-            props={{
-              GRAPHQL_ENDPOINT,
-              REGISTRY_CONTRACT_ID,
-              APP_OWNER,
-              appPath,
-            }}
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`}
           />
         </div>
       </Section>
@@ -447,16 +431,12 @@ return (
         {state.activeTab === "create-new-indexer" && (
           <div>
             <Widget
-              src={`${APP_OWNER}/widget/QueryApi.Editor`}
+              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
               props={{
                 indexerName:
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "create-new-indexer",
-                EXTERNAL_APP_URL,
-                REGISTRY_CONTRACT_ID,
-                GRAPHQL_ENDPOINT,
-                APP_OWNER,
               }}
             />
           </div>
@@ -476,15 +456,11 @@ return (
               selected_indexerName ?? state.indexers[0].indexerName
             )}
             <Widget
-              src={`${APP_OWNER}/widget/QueryApi.IndexerStatus`}
+              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerStatus`}
               props={{
                 indexer_name:
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
-                EXTERNAL_APP_URL,
-                REGISTRY_CONTRACT_ID,
-                GRAPHQL_ENDPOINT,
-                APP_OWNER,
               }}
             />
           </div>
@@ -504,17 +480,13 @@ return (
                 <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
               ))}
             <Widget
-              src={`${APP_OWNER}/widget/QueryApi.Editor`}
+              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
               props={{
                 indexerName:
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "query-api-editor",
                 tab: props.tab,
-                EXTERNAL_APP_URL,
-                REGISTRY_CONTRACT_ID,
-                GRAPHQL_ENDPOINT,
-                APP_OWNER,
               }}
             />
           </div>
@@ -528,16 +500,12 @@ return (
                 <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
               ))}
             <Widget
-              src={`${APP_OWNER}/widget/QueryApi.Editor`}
+              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
               props={{
                 indexerName:
                   selected_indexerName ?? state.indexers[0].indexerName,
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "create-new-indexer",
-                EXTERNAL_APP_URL,
-                REGISTRY_CONTRACT_ID,
-                GRAPHQL_ENDPOINT,
-                APP_OWNER,
               }}
             />
           </div>
