@@ -10,7 +10,7 @@ export default class IndexerRunner {
     this.shouldStop = false;
   }
 
-  async start(startingHeight, indexingCode, option) {
+  async start(startingHeight, indexingCode, schema, schemaName, option) {
     this.currentHeight = startingHeight;
     this.shouldStop = false;
     console.clear()
@@ -32,7 +32,7 @@ export default class IndexerRunner {
         this.stop()
       }
       if (blockDetails) {
-        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode);
+        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode, schema, schemaName);
         this.currentHeight++;
         await this.delay(1000);
       }
@@ -50,8 +50,24 @@ export default class IndexerRunner {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async executeIndexerFunction(height, blockDetails, indexingCode) {
+  validateTableNames(tableNames) {
+    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
+      throw new Error("Schema does not have any tables. There should be at least one table.");
+    }
+    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+    tableNames.forEach(name => {
+      if (!correctTableNameFormat.test(name)) {
+        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
+      }
+    });
+  }
+
+  async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    let tableNames = Array.from(schema.matchAll(/CREATE TABLE\s+"(\w+)"/g), match => match[1]); // Get first capturing group of each match
+    this.validateTableNames(tableNames);
+
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
       block.actions()
@@ -59,11 +75,11 @@ export default class IndexerRunner {
       block.events()
 
       console.log(block)
-      await this.runFunction(blockDetails, height, innerCode);
+      await this.runFunction(blockDetails, height, innerCode, schemaName, tableNames);
     }
   }
 
-  async executeIndexerFunctionOnHeights(heights, indexingCode) {
+  async executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName) {
     console.clear()
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
     if (heights.length === 0) {
@@ -80,14 +96,14 @@ export default class IndexerRunner {
         console.log(error)
       }
       console.time('Indexing Execution Complete')
-      this.executeIndexerFunction(height, blockDetails, indexingCode)
+      this.executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName)
       console.timeEnd('Indexing Execution Complete')
       console.groupEnd()
     }
     console.groupEnd()
   }
 
-  async runFunction(streamerMessage, blockHeight, indexerCode) {
+  async runFunction(streamerMessage, blockHeight, indexerCode, schemaName, tableNames) {
     const innerCodeWithBlockHelper =
       `
       const block = Block.fromStreamerMessage(streamerMessage);
@@ -125,21 +141,20 @@ export default class IndexerRunner {
           "",
           () => {
             let operationType, operationName
-        const match = query.match(/(query|mutation)\s+(\w+)\s*(\(.*?\))?\s*\{([\s\S]*)\}/);
-        if (match) {
-          operationType = match[1];
-          operationName = match[2];
-        }
-
-        console.group(`Executing GraphQL ${operationType}: (${operationName})`);
-        if (operationType === 'mutation') console.log('%c Mutations in debug mode do not alter the database', 'color: black; background-color: yellow; padding: 5px;');
-        console.group(`Data passed to ${operationType}`);
-        console.dir(mutationData); 
-        console.groupEnd();
-        console.group(`Data returned by ${operationType}`);
-        console.log({})
-        console.groupEnd();
-        console.groupEnd();
+            const match = query.match(/(query|mutation)\s+(\w+)\s*(\(.*?\))?\s*\{([\s\S]*)\}/);
+            if (match) {
+              operationType = match[1];
+              operationName = match[2];
+            }
+            console.group(`Executing GraphQL ${operationType}: (${operationName})`);
+            if (operationType === 'mutation') console.log('%c Mutations in debug mode do not alter the database', 'color: black; background-color: yellow; padding: 5px;');
+            console.group(`Data passed to ${operationType}`);
+            console.dir(mutationData); 
+            console.groupEnd();
+            console.group(`Data returned by ${operationType}`);
+            console.log({})
+            console.groupEnd();
+            console.groupEnd();
           }
         );
         return {};
@@ -147,9 +162,54 @@ export default class IndexerRunner {
       log: async (message) => {
         this.handleLog(blockHeight, message);
       },
+      db: this.buildDatabaseContext(blockHeight, schemaName, tableNames)
     };
 
     wrappedFunction(Block, streamerMessage, context);
+  }
+
+  buildDatabaseContext (blockHeight, schemaName, tables) {
+    try {
+      const result = tables.reduce((prev, tableName) => ({
+        ...prev,
+        [`insert_${tableName}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
+        [`select_${tableName}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit),
+      }), {});
+      return result;
+    } catch (error) {
+      console.error('Caught error when generating DB methods. Falling back to generic methods.', error);
+      return {
+        insert: async (tableName, objects) => {
+          this.insert(blockHeight, schemaName, tableName, objects);
+        },
+        select: async (tableName, object, limit = 0) => {
+          this.select(blockHeight, schemaName, tableName, object, limit);
+        }
+      };
+    }
+  }
+
+  insert(blockHeight, schemaName, tableName, objects) {
+    this.handleLog(
+      blockHeight,
+      "",
+      () => {
+        console.log('Inserting object %s into table %s on schema %s', JSON.stringify(objects), tableName, schemaName);
+      }
+    );
+    return {};
+  }
+
+  select(blockHeight, schemaName, tableName, object, limit) {
+    this.handleLog(
+      blockHeight,
+      "",
+      () => {
+        const roundedLimit = Math.round(limit);
+        console.log('Selecting objects with values %s from table %s on schema %s with %s limit', JSON.stringify(object), tableName, schemaName, limit === 0 ? 'no' : roundedLimit.toString());
+      }
+    );
+    return {};
   }
 
   // deprecated

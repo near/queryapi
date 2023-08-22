@@ -99,6 +99,15 @@ export default class HasuraClient {
     return metadata;
   }
 
+  async getDbConnectionParameters (account: string): Promise<any> {
+    const metadata = await this.exportMetadata();
+    const source = metadata.sources.find((source: { name: any, configuration: any }) => source.name === account);
+    if (source === undefined) {
+      throw new Error(`Could not find connection parameters for user ${account} on respective database.`);
+    }
+    return source.configuration.connection_info.database_url.connection_parameters;
+  }
+
   async doesSourceExist (source: string): Promise<boolean> {
     const metadata = await this.exportMetadata();
     return metadata.sources.filter(({ name }: { name: string }) => name === source).length > 0;

@@ -13,6 +13,8 @@ when they match new blocks by placing messages on an SQS queue. Spawns historica
 indexer_rules_engine, storage.
 2. [Indexer Runner](.indexer-js-queue-handler)
    Retrieves messages from the SQS queue, fetches the matching block and executes the IndexerFunction.
+3. [Runner](.runner)
+   Retrieves messages from Redis Stream, fetching matching block and executes the IndexerFunction.
 3. [IndexerFunction Editor UI](./frontend)
    Serves the editor UI within the dashboard widget and mediates some communication with the GraphQL DB and block server.
 4. [Hasura Authentication Service](./hasura-authentication-service)

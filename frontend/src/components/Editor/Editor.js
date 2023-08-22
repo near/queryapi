@@ -261,10 +261,11 @@ const Editor = ({
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
     setIsExecutingIndexerFunction(() => true)
+    const schemaName = indexerDetails.accountId.concat("_", indexerDetails.indexerName).replace(/[^a-zA-Z0-9]/g, '_');
 
     switch (option) {
       case "debugList":
-        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
+        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName, option)
         break
       case "specific":
         if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
@@ -272,11 +273,11 @@ const Editor = ({
           break
         }
 
-        await indexerRunner.start(startingBlockHeight, indexingCode, option)
+        await indexerRunner.start(startingBlockHeight, indexingCode, schema, schemaName, option)
         break
       case "latest":
         const latestHeight = await requestLatestBlockHeight()
-        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, option)
+        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, schema, schemaName, option)
     }
     setIsExecutingIndexerFunction(() => false)
   }
