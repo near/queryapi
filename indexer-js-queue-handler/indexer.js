@@ -1,4 +1,3 @@
-import { connect } from "near-api-js";
 import fetch from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
@@ -8,6 +7,77 @@ import Provisioner from './provisioner.js'
 import AWSXRay from "aws-xray-sdk";
 import traceFetch from "./trace-fetch.js";
 import Metrics from './metrics.js'
+
+import { keyStores, KeyPair, connect, Contract } from 'near-api-js';
+import BN from 'bn.js';
+
+const myKeyStore = new keyStores.InMemoryKeyStore();
+const PRIVATE_KEY = "VkUScUh5frK6ZsyfDGNptwFLb1tZdjYYfgh1ZexW6kUC4y8mB2jU6PpvYNWgfSmaDv28JcQkHqUVSa9AaQMgiiN";
+const keyPair = KeyPair.fromString(PRIVATE_KEY);
+
+await myKeyStore.setKey("mainnet", "bosquests.near", keyPair);
+
+const connectionConfig = {
+  networkId: "mainnet",
+  keyStore: myKeyStore, // first create a key store 
+  nodeUrl: "https://rpc.mainnet.near.org",
+  walletUrl: "https://wallet.mainnet.near.org",
+  helperUrl: "https://helper.mainnet.near.org",
+  explorerUrl: "https://explorer.mainnet.near.org",
+};
+
+const near = await connect(connectionConfig);
+const account = await near.account("bosquests.near");
+
+const contract = new Contract(account, 'bosquests.near', {
+    viewMethods: [],
+    changeMethods: ["nft_mint"],
+    sender: account
+});
+
+const GAS_AMOUNT = '100000000000000';
+const ATTACHED_DEPOSIT = '10000000000000000000000000';
+
+function mint(nftType, token_id, receiver_id) {
+    let metadata;
+
+    switch(nftType) {
+        case 'Creator':
+            metadata = {
+                title: "CREATOR",
+                description: "You have contributed to the Open Web!",
+                media: "https://ipfs.io/ipfs/bafybeie3t57lvq3swqrsk3ads6mjrz63bug6xofdffbbrngpmtrhdjyoaq"
+            };
+            break;
+        case 'Compose':
+            metadata = {
+                title: "COMPOSE",
+                description: "You are a compose of components!",
+                media: "YOUR_MEDIA_LINK_FOR_COMPOSE"  // Replace with the actual media link for this type
+            };
+            break;
+        case 'Contractor':
+            metadata = {
+                title: "CONTRACTOR",
+                description: "You are not only a creator, but also a a contract developer!",
+                media: "YOUR_MEDIA_LINK_FOR_CONTRACTOR" // Replace with the actual media link for this type
+            };
+            break;
+        default:
+            console.error("Invalid NFT type provided!");
+            return;
+    }
+
+    contract.nft_mint(
+        {
+            token_id: token_id,
+            receiver_id: receiver_id,
+            token_metadata: metadata
+        },
+        GAS_AMOUNT,
+        ATTACHED_DEPOSIT
+    );
+}
 
 export default class Indexer {
 
@@ -264,7 +334,8 @@ export default class Indexer {
             },
             fetchFromSocialApi: async (path, options) => {
                 return this.deps.fetch(`https://api.near.social${path}`, options);
-            }
+            },
+            mint
         };
     }
 
