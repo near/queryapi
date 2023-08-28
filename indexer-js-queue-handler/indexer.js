@@ -46,21 +46,21 @@ function mint(nftType, token_id, receiver_id) {
             metadata = {
                 title: "CREATOR",
                 description: "You have contributed to the Open Web!",
-                media: "https://ipfs.io/ipfs/bafkreig4x4obuj5iqfsfmcexcz7mig43ri7ssvrrwig2fefebrnmdq7pqe"
+                media: "https://ipfs.io/ipfs/bafybeie3t57lvq3swqrsk3ads6mjrz63bug6xofdffbbrngpmtrhdjyoaq"
             };
             break;
         case 'Compose':
             metadata = {
                 title: "COMPOSE",
                 description: "You are a compose of components!",
-                media: "https://ipfs.io/ipfs/bafkreid7ai2uh6ayevyovzyiempd7mcaaam7lm5i53plqiwlkyfiqyncv4"
+                media: "YOUR_MEDIA_LINK_FOR_COMPOSE"  // Replace with the actual media link for this type
             };
             break;
         case 'Contractor':
             metadata = {
                 title: "CONTRACTOR",
                 description: "You are not only a creator, but also a a contract developer!",
-                media: "https://ipfs.io/ipfs/bafkreiaqie5rsjehu4aesempkjg6gmzmjdaczahk6k24or6cmneevq4t2m" // Replace with the actual media link for this type
+                media: "YOUR_MEDIA_LINK_FOR_CONTRACTOR" // Replace with the actual media link for this type
             };
             break;
         default:
