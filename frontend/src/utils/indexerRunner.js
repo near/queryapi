@@ -63,13 +63,12 @@ export default class IndexerRunner {
     });
   }
 
-  async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
-    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+  getTableNames (schema) {
     const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS)?\s+"?(.+?)"?\s*\(/g;
     const tableNames = Array.from(schema.matchAll(tableRegex), match => {
       let tableName;
-      if (match[1].includes(".")) { // If expression after create has schemaName.tableName, return only tableName
-        tableName = match[1].split(".")[1];
+      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
+        tableName = match[1].split('.')[1];
         tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
       } else {
         tableName = match[1];
@@ -77,6 +76,13 @@ export default class IndexerRunner {
       return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
     });
     this.validateTableNames(tableNames);
+    console.log('Retrieved the following table names from schema: ', tableNames);
+    return tableNames;
+  }
+
+  async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
+    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    const tableNames = this.getTableNames(schema);
 
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
