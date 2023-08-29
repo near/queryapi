@@ -200,16 +200,16 @@ export default class Indexer {
   }
 
   getTableNames (schema: string): string[] {
-    const tableRegex = /CREATE TABLE(?: IF NOT EXISTS)?\s+(.+?)\s*\(/g;
+    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS)?\s+"?(.+?)"?\s*\(/g;
     const tableNames = Array.from(schema.matchAll(tableRegex), match => {
+      let tableName;
       if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
-        return match[1].split('.')[1];
-      } else if (match[1].match(/^(?!["'])(.*\W.*)$/)) { // If table name IS NOT a single word and DOES NOT have quotes, add quotes
-        return `"${match[1]}"`;
-      } else if (match[1].match(/^["'](\w+)["']$/)) { // If table name IS a single word and HAS quotes, remove the quotes
-        return (match[1].match(/^["'](\w+)["']$/) ?? [''])[1];
+        tableName = match[1].split('.')[1];
+        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
+      } else {
+        tableName = match[1];
       }
-      return match[1];
+      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
     });
     this.validateTableNames(tableNames);
     console.log('Retrieved the following table names from schema: ', tableNames);
@@ -254,13 +254,17 @@ export default class Indexer {
     let dmlHandler: DmlHandler | null = null;
     const result = tables.reduce((prev, tableName) => ({
       ...prev,
-      [`insert_${tableName}`]: async (objects: any) => {
-        await this.writeLog(`context.db.insert_${tableName}`, blockHeight, `Calling context.db.insert_${tableName}.`, `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
+      [`insert_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`]: async (objects: any) => {
+        await this.writeLog(`context.db.insert_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`, blockHeight,
+          `Calling context.db.insert_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}.`,
+          `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
         dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
         return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
       },
-      [`select_${tableName}`]: async (object: any, limit = null) => {
-        await this.writeLog(`context.db.select_${tableName}`, blockHeight, `Calling context.db.select_${tableName}.`, `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === null ? 'no' : limit}`);
+      [`select_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`]: async (object: any, limit = null) => {
+        await this.writeLog(`context.db.select_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`, blockHeight,
+          `Calling context.db.select_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}.`,
+          `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === null ? 'no' : limit}`);
         dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
         return await dmlHandler.select(schemaName, tableName, object, limit);
       },

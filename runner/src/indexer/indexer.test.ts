@@ -65,7 +65,7 @@ describe('Indexer unit tests', () => {
       );`;
 
   const STRESS_TEST_SCHEMA = `
-  CREATE TABLE
+CREATE TABLE
   creator_quest (
     account_id VARCHAR PRIMARY KEY,
     num_components_created INTEGER NOT NULL DEFAULT 0,
@@ -80,7 +80,7 @@ CREATE TABLE
   );
 
 CREATE TABLE
-  contractor - quest (
+  "contractor - quest" (
     account_id VARCHAR PRIMARY KEY,
     num_contracts_deployed INTEGER NOT NULL DEFAULT 0,
     completed BOOLEAN NOT NULL DEFAULT FALSE
@@ -147,6 +147,10 @@ CREATE TABLE IF NOT EXISTS
 
 CREATE TABLE
   "Another-Table" (id serial PRIMARY KEY);
+
+CREATE TABLE
+IF NOT EXISTS
+  "Third-Table" (id serial PRIMARY KEY);
 
 CREATE TABLE
   yet_another_table (id serial PRIMARY KEY);
@@ -517,26 +521,26 @@ CREATE TABLE
 
     // These calls would fail on a real database, but we are merely checking to ensure they exist
     expect(Object.keys(context.db)).toStrictEqual(
-      [
-        'insert_creator_quest',
+      ['insert_creator_quest',
         'select_creator_quest',
         'insert_composer_quest',
         'select_composer_quest',
-        'insert_"contractor - quest"',
-        'select_"contractor - quest"',
+        'insert__contractor___quest_',
+        'select__contractor___quest_',
         'insert_posts',
         'select_posts',
         'insert_comments',
         'select_comments',
         'insert_post_likes',
         'select_post_likes',
-        'insert_"My Table1"',
-        'select_"My Table1"',
-        'insert_"Another-Table"',
-        'select_"Another-Table"',
+        'insert__My_Table1_',
+        'select__My_Table1_',
+        'insert__Another_Table_',
+        'select__Another_Table_',
+        'insert__Third_Table_',
+        'select__Third_Table_',
         'insert_yet_another_table',
-        'select_yet_another_table']
-    );
+        'select_yet_another_table']);
   });
 
   test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {

@@ -65,18 +65,17 @@ export default class IndexerRunner {
 
   async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    const tableRegex = /CREATE TABLE(?: IF NOT EXISTS)?\s+(.+?)\s*\(/g;
+    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS)?\s+"?(.+?)"?\s*\(/g;
     const tableNames = Array.from(schema.matchAll(tableRegex), match => {
+      let tableName;
       if (match[1].includes(".")) { // If expression after create has schemaName.tableName, return only tableName
-        return match[1].split(".")[1];
-      } else if (match[1].match(/^(?!["'])(.*\W.*)$/)) { // If table name IS NOT a single word and DOES NOT have quotes, add quotes
-        return `"${match[1]}"`;
-      } else if (match[1].match(/^["'](\w+)["']$/)) { // If table name IS a single word and HAS quotes, remove the quotes
-        return match[1].match(/^["'](\w+)["']$/)[1];
+        tableName = match[1].split(".")[1];
+        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
+      } else {
+        tableName = match[1];
       }
-      return match[1];
+      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
     });
-    console.log(tableNames);
     this.validateTableNames(tableNames);
 
     if (blockDetails) {
@@ -183,10 +182,9 @@ export default class IndexerRunner {
     try {
       const result = tables.reduce((prev, tableName) => ({
         ...prev,
-        [`insert_${tableName}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
-        [`select_${tableName}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit),
+        [`insert_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
+        [`select_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit),
       }), {});
-      console.log(result);
       return result;
     } catch (error) {
       console.error('Caught error when generating DB methods. Falling back to generic methods.', error);
