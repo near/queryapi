@@ -50,39 +50,8 @@ export default class IndexerRunner {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  validateTableNames(tableNames) {
-    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
-      throw new Error("Schema does not have any tables. There should be at least one table.");
-    }
-    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-    tableNames.forEach(name => {
-      if (!name.includes("\"") && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
-        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
-      }
-    });
-  }
-
-  getTableNames (schema) {
-    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS)?\s+"?(.+?)"?\s*\(/g;
-    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
-      let tableName;
-      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
-        tableName = match[1].split('.')[1];
-        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
-      } else {
-        tableName = match[1];
-      }
-      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
-    });
-    this.validateTableNames(tableNames);
-    console.log('Retrieved the following table names from schema: ', tableNames);
-    return tableNames;
-  }
-
   async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    const tableNames = this.getTableNames(schema);
 
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
@@ -91,7 +60,7 @@ export default class IndexerRunner {
       block.events()
 
       console.log(block)
-      await this.runFunction(blockDetails, height, innerCode, schemaName, tableNames);
+      await this.runFunction(blockDetails, height, innerCode, schemaName, schema);
     }
   }
 
@@ -119,7 +88,7 @@ export default class IndexerRunner {
     console.groupEnd()
   }
 
-  async runFunction(streamerMessage, blockHeight, indexerCode, schemaName, tableNames) {
+  async runFunction(streamerMessage, blockHeight, indexerCode, schemaName, schema) {
     const innerCodeWithBlockHelper =
       `
       const block = Block.fromStreamerMessage(streamerMessage);
@@ -178,30 +147,65 @@ export default class IndexerRunner {
       log: async (message) => {
         this.handleLog(blockHeight, message);
       },
-      db: this.buildDatabaseContext(blockHeight, schemaName, tableNames)
+      db: this.buildDatabaseContext(blockHeight, schemaName, schema)
     };
 
     wrappedFunction(Block, streamerMessage, context);
   }
 
-  buildDatabaseContext (blockHeight, schemaName, tables) {
+  validateTableNames(tableNames) {
+    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
+      throw new Error("Schema does not have any tables. There should be at least one table.");
+    }
+    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+    tableNames.forEach(name => {
+      if (!name.includes("\"") && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
+        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
+      }
+    });
+  }
+
+  getTableNames (schema) {
+    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"?(.+?)"?\s*\(/g;
+    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
+      let tableName;
+      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
+        tableName = match[1].split('.')[1];
+        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
+      } else {
+        tableName = match[1];
+      }
+      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
+    });
+    this.validateTableNames(tableNames);
+    console.log('Retrieved the following table names from schema: ', tableNames);
+    return tableNames;
+  }
+
+  sanitizeTableName (tableName) {
+    tableName = tableName.startsWith('"') && tableName.endsWith('"') ? tableName.substring(1, tableName.length - 1) : tableName;
+    return tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  buildDatabaseContext (blockHeight, schemaName, schema) {
     try {
-      const result = tables.reduce((prev, tableName) => ({
-        ...prev,
-        [`insert_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
-        [`select_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit),
-      }), {});
+      const tables = this.getTableNames(schema);
+      const result = tables.reduce((prev, tableName) => {
+        const sanitizedTableName = this.sanitizeTableName(tableName);
+        const funcForTable = {
+          [`insert_${sanitizedTableName}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
+          [`select_${sanitizedTableName}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit)
+        };
+
+        return {
+          ...prev,
+          ...funcForTable
+        };
+      }, {});
       return result;
     } catch (error) {
-      console.error('Caught error when generating DB methods. Falling back to generic methods.', error);
-      return {
-        insert: async (tableName, objects) => {
-          this.insert(blockHeight, schemaName, tableName, objects);
-        },
-        select: async (tableName, object, limit = 0) => {
-          this.select(blockHeight, schemaName, tableName, object, limit);
-        }
-      };
+      console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
     }
   }
 

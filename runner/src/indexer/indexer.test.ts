@@ -65,8 +65,7 @@ describe('Indexer unit tests', () => {
       );`;
 
   const STRESS_TEST_SCHEMA = `
-CREATE TABLE
-  creator_quest (
+CREATE TABLE creator_quest (
     account_id VARCHAR PRIMARY KEY,
     num_components_created INTEGER NOT NULL DEFAULT 0,
     completed BOOLEAN NOT NULL DEFAULT FALSE
@@ -519,28 +518,41 @@ CREATE TABLE
     const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
-    // These calls would fail on a real database, but we are merely checking to ensure they exist
     expect(Object.keys(context.db)).toStrictEqual(
       ['insert_creator_quest',
         'select_creator_quest',
         'insert_composer_quest',
         'select_composer_quest',
-        'insert__contractor___quest_',
-        'select__contractor___quest_',
+        'insert_contractor___quest',
+        'select_contractor___quest',
         'insert_posts',
         'select_posts',
         'insert_comments',
         'select_comments',
         'insert_post_likes',
         'select_post_likes',
-        'insert__My_Table1_',
-        'select__My_Table1_',
-        'insert__Another_Table_',
-        'select__Another_Table_',
-        'insert__Third_Table_',
-        'select__Third_Table_',
+        'insert_My_Table1',
+        'select_My_Table1',
+        'insert_Another_Table',
+        'select_Another_Table',
+        'insert_Third_Table',
+        'select_Third_Table',
         'insert_yet_another_table',
         'select_yet_another_table']);
+  });
+
+  test('indexer builds context and returns empty array if failed to generate db methods', async () => {
+    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
+      return {
+        insert: jest.fn().mockReturnValue(true),
+        select: jest.fn().mockReturnValue(true)
+      };
+    });
+
+    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres');
+
+    expect(Object.keys(context.db)).toStrictEqual([]);
   });
 
   test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {
