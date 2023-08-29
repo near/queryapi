@@ -187,21 +187,30 @@ export default class Indexer {
   }
 
   validateTableNames (tableNames: string[]): void {
-    if (!(tableNames.length > 0)) {
+    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
       throw new Error('Schema does not have any tables. There should be at least one table.');
     }
     const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-    tableNames.forEach((name: string) => {
-      if (!correctTableNameFormat.test(name)) {
+    tableNames.forEach(name => {
+      if (!name.includes('"') && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
         throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
       }
     });
   }
 
   getTableNames (schema: string): string[] {
-    const tableNameMatcher = /CREATE TABLE\s+"(\w+)"/g;
-    const tableNames = Array.from(schema.matchAll(tableNameMatcher), match => match[1]); // Get first capturing group of each match
+    const tableRegex = /CREATE TABLE(?: IF NOT EXISTS)?\s+(.+?)\s*\(/g;
+    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
+      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
+        return match[1].split('.')[1];
+      } else if (match[1].match(/^(?!["'])(.*\W.*)$/)) { // If table name IS NOT a single word and DOES NOT have quotes, add quotes
+        return `"${match[1]}"`;
+      } else if (match[1].match(/^["'](\w+)["']$/)) { // If table name IS a single word and HAS quotes, remove the quotes
+        return (match[1].match(/^["'](\w+)["']$/) ?? [''])[1];
+      }
+      return match[1];
+    });
     this.validateTableNames(tableNames);
     console.log('Retrieved the following table names from schema: ', tableNames);
     return tableNames;

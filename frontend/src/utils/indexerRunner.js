@@ -57,7 +57,7 @@ export default class IndexerRunner {
     const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
     tableNames.forEach(name => {
-      if (!correctTableNameFormat.test(name)) {
+      if (!name.includes("\"") && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
         throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
       }
     });
@@ -65,7 +65,18 @@ export default class IndexerRunner {
 
   async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-    let tableNames = Array.from(schema.matchAll(/CREATE TABLE\s+"(\w+)"/g), match => match[1]); // Get first capturing group of each match
+    const tableRegex = /CREATE TABLE(?: IF NOT EXISTS)?\s+(.+?)\s*\(/g;
+    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
+      if (match[1].includes(".")) { // If expression after create has schemaName.tableName, return only tableName
+        return match[1].split(".")[1];
+      } else if (match[1].match(/^(?!["'])(.*\W.*)$/)) { // If table name IS NOT a single word and DOES NOT have quotes, add quotes
+        return `"${match[1]}"`;
+      } else if (match[1].match(/^["'](\w+)["']$/)) { // If table name IS a single word and HAS quotes, remove the quotes
+        return match[1].match(/^["'](\w+)["']$/)[1];
+      }
+      return match[1];
+    });
+    console.log(tableNames);
     this.validateTableNames(tableNames);
 
     if (blockDetails) {
@@ -175,6 +186,7 @@ export default class IndexerRunner {
         [`insert_${tableName}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
         [`select_${tableName}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit),
       }), {});
+      console.log(result);
       return result;
     } catch (error) {
       console.error('Caught error when generating DB methods. Falling back to generic methods.', error);
