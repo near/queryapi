@@ -37,7 +37,12 @@ const Editor = ({
     setAccountId,
   } = useContext(IndexerDetailsContext);
 
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId
+    }#${indexerDetails.indexerName || "new"}`;
+  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
+  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
 
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
@@ -75,6 +80,19 @@ const Editor = ({
     setIndexingCode(formattedCode)
     setSchema(formattedSchema)
   }, [indexerDetails.code, indexerDetails.schema]);
+
+  useEffect(() => {
+    const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
+    const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
+
+    if (savedSchema) setSchema(savedSchema);
+    if (savedCode) setIndexingCode(savedCode);
+  }, [indexerDetails.accountId, indexerDetails.indexerName]);
+
+  useEffect(() => {
+    localStorage.setItem(SCHEMA_STORAGE_KEY, schema);
+    localStorage.setItem(CODE_STORAGE_KEY, indexingCode);
+  }, [schema, indexingCode]);
 
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
@@ -152,8 +170,8 @@ const Editor = ({
   const handleReload = async () => {
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
-      setIndexingCode((formatIndexingCode(indexerDetails.code)));
-      setSchema(formatSQL(indexerDetails.schema))
+      setIndexingCode(originalIndexingCode);
+      setSchema(originalSQLCode);
       return;
     }
 
