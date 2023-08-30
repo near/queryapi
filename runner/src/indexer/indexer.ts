@@ -271,9 +271,16 @@ export default class Indexer {
           [`select_${sanitizedTableName}`]: async (object: any, limit = null) => {
             await this.writeLog(`context.db.select_${sanitizedTableName}`, blockHeight,
               `Calling context.db.select_${sanitizedTableName}.`,
-              `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === null ? 'no' : limit}`);
+              `Selecting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
             dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
             return await dmlHandler.select(schemaName, tableName, object, limit);
+          },
+          [`update_${sanitizedTableName}`]: async (whereObj: any, updateObj: any) => {
+            await this.writeLog(`context.db.update_${sanitizedTableName}`, blockHeight,
+              `Calling context.db.update_${sanitizedTableName}.`,
+              `Updating object that matches ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
+            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            return await dmlHandler.update(schemaName, tableName, whereObj, updateObj);
           }
         };
 
