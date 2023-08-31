@@ -258,6 +258,7 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       let dmlHandler: DmlHandler | null = null;
+      // TODO: Refactor object to be context.db.[table_name].[insert, select, update, upsert, delete]
       const result = tables.reduce((prev, tableName) => {
         const sanitizedTableName = this.sanitizeTableName(tableName);
         const funcForTable = {
@@ -281,6 +282,20 @@ export default class Indexer {
               `Updating object that matches ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
             dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
             return await dmlHandler.update(schemaName, tableName, whereObj, updateObj);
+          },
+          [`upsert_${sanitizedTableName}`]: async (objects: any, conflictColumns: string[], updateColumns: string[]) => {
+            await this.writeLog(`context.db.upsert_${sanitizedTableName}`, blockHeight,
+              `Calling context.db.upsert_${sanitizedTableName}.`,
+              `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. On conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objects) ? objects : [objects], conflictColumns, updateColumns);
+          },
+          [`delete_${sanitizedTableName}`]: async (object: any) => {
+            await this.writeLog(`context.db.delete_${sanitizedTableName}`, blockHeight,
+              `Calling context.db.delete_${sanitizedTableName}.`,
+              `Deleting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName}`);
+            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            return await dmlHandler.delete(schemaName, tableName, object);
           }
         };
 
