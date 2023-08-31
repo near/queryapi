@@ -194,8 +194,16 @@ export default class IndexerRunner {
       const result = tables.reduce((prev, tableName) => {
         const sanitizedTableName = this.sanitizeTableName(tableName);
         const funcForTable = {
-          [`insert_${sanitizedTableName}`]: async (objects) => await this.insert(blockHeight, schemaName, tableName, objects),
-          [`select_${sanitizedTableName}`]: async (object, limit = 0) => await this.select(blockHeight, schemaName, tableName, object, limit)
+          [`insert_${sanitizedTableName}`]: async (objects) => await this.dbOperationLog(blockHeight, 
+            `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`),
+          [`select_${sanitizedTableName}`]: async (object, limit = 0) => await this.dbOperationLog(blockHeight,
+            `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with ${limit === 0 ? 'no' : roundedLimit.toString()} limit`),
+          [`update_${sanitizedTableName}`]: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
+            `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`),
+          [`upsert_${sanitizedTableName}`]: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
+            `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`),
+          [`delete_${sanitizedTableName}`]: async (object) => await this.dbOperationLog(blockHeight,
+            `Deleting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName}`)
         };
 
         return {
@@ -209,24 +217,12 @@ export default class IndexerRunner {
     }
   }
 
-  insert(blockHeight, schemaName, tableName, objects) {
+  dbOperationLog(blockHeight, logMessage) {
     this.handleLog(
       blockHeight,
       "",
       () => {
-        console.log('Inserting object %s into table %s on schema %s', JSON.stringify(objects), tableName, schemaName);
-      }
-    );
-    return {};
-  }
-
-  select(blockHeight, schemaName, tableName, object, limit) {
-    this.handleLog(
-      blockHeight,
-      "",
-      () => {
-        const roundedLimit = Math.round(limit);
-        console.log('Selecting objects with values %s from table %s on schema %s with %s limit', JSON.stringify(object), tableName, schemaName, limit === 0 ? 'no' : roundedLimit.toString());
+        console.log(logMessage);
       }
     );
     return {};

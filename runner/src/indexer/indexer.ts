@@ -279,14 +279,14 @@ export default class Indexer {
           [`update_${sanitizedTableName}`]: async (whereObj: any, updateObj: any) => {
             await this.writeLog(`context.db.update_${sanitizedTableName}`, blockHeight,
               `Calling context.db.update_${sanitizedTableName}.`,
-              `Updating object that matches ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
+              `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
             dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
             return await dmlHandler.update(schemaName, tableName, whereObj, updateObj);
           },
           [`upsert_${sanitizedTableName}`]: async (objects: any, conflictColumns: string[], updateColumns: string[]) => {
             await this.writeLog(`context.db.upsert_${sanitizedTableName}`, blockHeight,
               `Calling context.db.upsert_${sanitizedTableName}.`,
-              `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. On conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+              `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
             dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
             return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objects) ? objects : [objects], conflictColumns, updateColumns);
           },
