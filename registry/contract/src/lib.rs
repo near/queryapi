@@ -131,7 +131,7 @@ impl Default for Contract {
                     role: Role::Owner,
                 },
                 AccountRole {
-                    account_id: AccountId::new_unchecked("pavelnear.near".to_string()),
+                    account_id: AccountId::new_unchecked("nearpavel.near".to_string()),
                     role: Role::Owner,
                 },
                 AccountRole {
@@ -148,6 +148,10 @@ impl Default for Contract {
                 },
                 AccountRole {
                     account_id: AccountId::new_unchecked("khorolets.near".to_string()),
+                    role: Role::Owner,
+                },
+                AccountRole {
+                    account_id: AccountId::new_unchecked("darunrs.near".to_string()),
                     role: Role::Owner,
                 },
                 AccountRole {
