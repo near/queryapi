@@ -154,6 +154,13 @@ IF NOT EXISTS
 CREATE TABLE
   yet_another_table (id serial PRIMARY KEY);
 `;
+  const genericMockFetch = jest.fn()
+    .mockResolvedValue({
+      status: 200,
+      json: async () => ({
+        data: 'mock',
+      }),
+    });
 
   beforeEach(() => {
     process.env = {
@@ -456,11 +463,13 @@ CREATE TABLE
   });
 
   test('indexer builds context and inserts an objects into existing table', async () => {
-    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
-      return { insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
-    });
+    const mockDmlHandler: any = {
+      create: jest.fn().mockImplementation(() => {
+        return { insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
+      })
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToInsert = [{
@@ -490,11 +499,13 @@ CREATE TABLE
       // Expects limit to be last parameter
       return args[args.length - 1] === null ? [{ colA: 'valA' }, { colA: 'valA' }] : [{ colA: 'valA' }];
     });
-    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
-      return { select: selectFn };
-    });
+    const mockDmlHandler: any = {
+      create: jest.fn().mockImplementation(() => {
+        return { select: selectFn };
+      })
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToSelect = {
@@ -508,18 +519,20 @@ CREATE TABLE
   });
 
   test('indexer builds context and updates multiple objects from existing table', async () => {
-    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
-      return {
-        update: jest.fn().mockImplementation((_, __, whereObj, updateObj) => {
-          if (whereObj.account_id === 'morgs_near' && updateObj.content === 'test_content') {
-            return [{ colA: 'valA' }, { colA: 'valA' }];
-          }
-          return [{}];
-        })
-      };
-    });
+    const mockDmlHandler: any = {
+      create: jest.fn().mockImplementation(() => {
+        return {
+          update: jest.fn().mockImplementation((_, __, whereObj, updateObj) => {
+            if (whereObj.account_id === 'morgs_near' && updateObj.content === 'test_content') {
+              return [{ colA: 'valA' }, { colA: 'valA' }];
+            }
+            return [{}];
+          })
+        };
+      })
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const whereObj = {
@@ -535,20 +548,22 @@ CREATE TABLE
   });
 
   test('indexer builds context and upserts on existing table', async () => {
-    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
-      return {
-        upsert: jest.fn().mockImplementation((_, __, objects, conflict, update) => {
-          if (objects.length === 2 && conflict.includes('account_id') && update.includes('content')) {
-            return [{ colA: 'valA' }, { colA: 'valA' }];
-          } else if (objects.length === 1 && conflict.includes('account_id') && update.includes('content')) {
-            return [{ colA: 'valA' }];
-          }
-          return [{}];
-        })
-      };
-    });
+    const mockDmlHandler: any = {
+      create: jest.fn().mockImplementation(() => {
+        return {
+          upsert: jest.fn().mockImplementation((_, __, objects, conflict, update) => {
+            if (objects.length === 2 && conflict.includes('account_id') && update.includes('content')) {
+              return [{ colA: 'valA' }, { colA: 'valA' }];
+            } else if (objects.length === 1 && conflict.includes('account_id') && update.includes('content')) {
+              return [{ colA: 'valA' }];
+            }
+            return [{}];
+          })
+        };
+      })
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToInsert = [{
@@ -575,11 +590,13 @@ CREATE TABLE
   });
 
   test('indexer builds context and deletes objects from existing table', async () => {
-    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
-      return { delete: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
-    });
+    const mockDmlHandler: any = {
+      create: jest.fn().mockImplementation(() => {
+        return { delete: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
+      })
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const deleteFilter = {
@@ -591,9 +608,11 @@ CREATE TABLE
   });
 
   test('indexer builds context and verifies all methods generated', async () => {
-    const mockDmlHandler: any = jest.fn();
+    const mockDmlHandler: any = {
+      create: jest.fn()
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     expect(Object.keys(context.db)).toStrictEqual([
@@ -610,14 +629,11 @@ CREATE TABLE
   });
 
   test('indexer builds context and returns empty array if failed to generate db methods', async () => {
-    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
-      return {
-        insert: jest.fn().mockReturnValue(true),
-        select: jest.fn().mockReturnValue(true)
-      };
-    });
+    const mockDmlHandler: any = {
+      create: jest.fn()
+    };
 
-    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
     const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres');
 
     expect(Object.keys(context.db)).toStrictEqual([]);

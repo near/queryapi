@@ -3,30 +3,28 @@ import PgClientModule from '../pg-client';
 import HasuraClient from '../hasura-client/hasura-client';
 
 export default class DmlHandler {
-  private pgClient!: PgClientModule;
-  private readonly initialized: Promise<void>;
+  private constructor (
+    private readonly pgClient: PgClientModule,
+  ) {}
 
-  constructor (
-    private readonly account: string,
-    private readonly hasuraClient: HasuraClient = new HasuraClient(),
-    private readonly PgClient = PgClientModule,
-  ) {
-    this.initialized = this.initialize();
-  }
-
-  private async initialize (): Promise<void> {
-    const connectionParameters = await this.hasuraClient.getDbConnectionParameters(this.account);
-    this.pgClient = new this.PgClient({
+  static async create (
+    account: string,
+    hasuraClient: HasuraClient = new HasuraClient(),
+    PgClient = PgClientModule
+  ): Promise<DmlHandler> {
+    const connectionParameters = await hasuraClient.getDbConnectionParameters(account);
+    const pgClient = new PgClient({
       user: connectionParameters.username,
       password: connectionParameters.password,
       host: process.env.PGHOST,
       port: Number(connectionParameters.port),
       database: connectionParameters.database,
     });
+
+    return new DmlHandler(pgClient);
   }
 
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
-    await this.initialized; // Ensure constructor completed before proceeding
     if (!objects?.length) {
       return [];
     }
@@ -44,8 +42,6 @@ export default class DmlHandler {
   }
 
   async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
-    await this.initialized; // Ensure constructor completed before proceeding
-
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
@@ -62,8 +58,6 @@ export default class DmlHandler {
   }
 
   async update (schemaName: string, tableName: string, whereObject: any, updateObject: any): Promise<any[]> {
-    await this.initialized; // Ensure constructor completed before proceeding
-
     const updateKeys = Object.keys(updateObject);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
     const whereKeys = Object.keys(whereObject);
@@ -80,7 +74,6 @@ export default class DmlHandler {
   }
 
   async upsert (schemaName: string, tableName: string, objects: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
-    await this.initialized; // Ensure constructor completed before proceeding
     if (!objects?.length) {
       return [];
     }
@@ -99,8 +92,6 @@ export default class DmlHandler {
   }
 
   async delete (schemaName: string, tableName: string, object: any): Promise<any[]> {
-    await this.initialized; // Ensure constructor completed before proceeding
-
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');

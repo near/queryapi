@@ -257,7 +257,7 @@ export default class Indexer {
   buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, (...args: any[]) => any> {
     try {
       const tables = this.getTableNames(schema);
-      let dmlHandler: DmlHandler | null = null;
+      let dmlHandler: DmlHandler;
       // TODO: Refactor object to be context.db.[table_name].[insert, select, update, upsert, delete]
       const result = tables.reduce((prev, tableName) => {
         const sanitizedTableName = this.sanitizeTableName(tableName);
@@ -266,35 +266,35 @@ export default class Indexer {
             await this.writeLog(`context.db.insert_${sanitizedTableName}`, blockHeight,
               `Calling context.db.insert_${sanitizedTableName}.`,
               `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
-            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
             return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
           },
           [`select_${sanitizedTableName}`]: async (object: any, limit = null) => {
             await this.writeLog(`context.db.select_${sanitizedTableName}`, blockHeight,
               `Calling context.db.select_${sanitizedTableName}.`,
               `Selecting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
-            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
             return await dmlHandler.select(schemaName, tableName, object, limit);
           },
           [`update_${sanitizedTableName}`]: async (whereObj: any, updateObj: any) => {
             await this.writeLog(`context.db.update_${sanitizedTableName}`, blockHeight,
               `Calling context.db.update_${sanitizedTableName}.`,
               `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
-            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
             return await dmlHandler.update(schemaName, tableName, whereObj, updateObj);
           },
           [`upsert_${sanitizedTableName}`]: async (objects: any, conflictColumns: string[], updateColumns: string[]) => {
             await this.writeLog(`context.db.upsert_${sanitizedTableName}`, blockHeight,
               `Calling context.db.upsert_${sanitizedTableName}.`,
               `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
-            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
             return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objects) ? objects : [objects], conflictColumns, updateColumns);
           },
           [`delete_${sanitizedTableName}`]: async (object: any) => {
             await this.writeLog(`context.db.delete_${sanitizedTableName}`, blockHeight,
               `Calling context.db.delete_${sanitizedTableName}.`,
               `Deleting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName}`);
-            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
             return await dmlHandler.delete(schemaName, tableName, object);
           }
         };
