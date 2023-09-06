@@ -62,7 +62,98 @@ describe('Indexer unit tests', () => {
         "block_timestamp" DECIMAL(20, 0) NOT NULL,
         "receipt_id" VARCHAR NOT NULL,
         CONSTRAINT "post_likes_pkey" PRIMARY KEY ("post_id", "account_id")
-      );'`;
+      );`;
+
+  const STRESS_TEST_SCHEMA = `
+CREATE TABLE creator_quest (
+    account_id VARCHAR PRIMARY KEY,
+    num_components_created INTEGER NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT FALSE
+  );
+
+CREATE TABLE
+  composer_quest (
+    account_id VARCHAR PRIMARY KEY,
+    num_widgets_composed INTEGER NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT FALSE
+  );
+
+CREATE TABLE
+  "contractor - quest" (
+    account_id VARCHAR PRIMARY KEY,
+    num_contracts_deployed INTEGER NOT NULL DEFAULT 0,
+    completed BOOLEAN NOT NULL DEFAULT FALSE
+  );
+
+CREATE TABLE
+  "posts" (
+    "id" SERIAL NOT NULL,
+    "account_id" VARCHAR NOT NULL,
+    "block_height" DECIMAL(58, 0) NOT NULL,
+    "receipt_id" VARCHAR NOT NULL,
+    "content" TEXT NOT NULL,
+    "block_timestamp" DECIMAL(20, 0) NOT NULL,
+    "accounts_liked" JSONB NOT NULL DEFAULT '[]',
+    "last_comment_timestamp" DECIMAL(20, 0),
+    CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
+  );
+
+CREATE TABLE
+  "comments" (
+    "id" SERIAL NOT NULL,
+    "post_id" SERIAL NOT NULL,
+    "account_id" VARCHAR NOT NULL,
+    "block_height" DECIMAL(58, 0) NOT NULL,
+    "content" TEXT NOT NULL,
+    "block_timestamp" DECIMAL(20, 0) NOT NULL,
+    "receipt_id" VARCHAR NOT NULL,
+    CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
+  );
+
+CREATE TABLE
+  "post_likes" (
+    "post_id" SERIAL NOT NULL,
+    "account_id" VARCHAR NOT NULL,
+    "block_height" DECIMAL(58, 0),
+    "block_timestamp" DECIMAL(20, 0) NOT NULL,
+    "receipt_id" VARCHAR NOT NULL,
+    CONSTRAINT "post_likes_pkey" PRIMARY KEY ("post_id", "account_id")
+  );
+
+CREATE UNIQUE INDEX "posts_account_id_block_height_key" ON "posts" ("account_id" ASC, "block_height" ASC);
+
+CREATE UNIQUE INDEX "comments_post_id_account_id_block_height_key" ON "comments" (
+  "post_id" ASC,
+  "account_id" ASC,
+  "block_height" ASC
+);
+
+CREATE INDEX
+  "posts_last_comment_timestamp_idx" ON "posts" ("last_comment_timestamp" DESC);
+
+ALTER TABLE
+  "comments"
+ADD
+  CONSTRAINT "comments_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+ALTER TABLE
+  "post_likes"
+ADD
+  CONSTRAINT "post_likes_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+CREATE TABLE IF NOT EXISTS
+  "public"."My Table1" (id serial PRIMARY KEY);
+
+CREATE TABLE
+  "Another-Table" (id serial PRIMARY KEY);
+
+CREATE TABLE
+IF NOT EXISTS
+  "Third-Table" (id serial PRIMARY KEY);
+
+CREATE TABLE
+  yet_another_table (id serial PRIMARY KEY);
+`;
 
   beforeEach(() => {
     process.env = {
@@ -425,10 +516,43 @@ describe('Indexer unit tests', () => {
     });
 
     const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
-    // These calls would fail on a real database, but we are merely checking to ensure they exist
-    expect(Object.keys(context.db)).toStrictEqual(['insert_posts', 'select_posts', 'insert_comments', 'select_comments', 'insert_post_likes', 'select_post_likes']);
+    expect(Object.keys(context.db)).toStrictEqual(
+      ['insert_creator_quest',
+        'select_creator_quest',
+        'insert_composer_quest',
+        'select_composer_quest',
+        'insert_contractor___quest',
+        'select_contractor___quest',
+        'insert_posts',
+        'select_posts',
+        'insert_comments',
+        'select_comments',
+        'insert_post_likes',
+        'select_post_likes',
+        'insert_My_Table1',
+        'select_My_Table1',
+        'insert_Another_Table',
+        'select_Another_Table',
+        'insert_Third_Table',
+        'select_Third_Table',
+        'insert_yet_another_table',
+        'select_yet_another_table']);
+  });
+
+  test('indexer builds context and returns empty array if failed to generate db methods', async () => {
+    const mockDmlHandler: any = jest.fn().mockImplementation(() => {
+      return {
+        insert: jest.fn().mockReturnValue(true),
+        select: jest.fn().mockReturnValue(true)
+      };
+    });
+
+    const indexer = new Indexer('mainnet', { DmlHandler: mockDmlHandler });
+    const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres');
+
+    expect(Object.keys(context.db)).toStrictEqual([]);
   });
 
   test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {

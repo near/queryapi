@@ -186,29 +186,7 @@ export default class Indexer {
     ].reduce((acc, val) => val(acc), indexerFunction);
   }
 
-  validateTableNames (tableNames: string[]): void {
-    if (!(tableNames.length > 0)) {
-      throw new Error('Schema does not have any tables. There should be at least one table.');
-    }
-    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-    tableNames.forEach((name: string) => {
-      if (!correctTableNameFormat.test(name)) {
-        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
-      }
-    });
-  }
-
-  getTableNames (schema: string): string[] {
-    const tableNameMatcher = /CREATE TABLE\s+"(\w+)"/g;
-    const tableNames = Array.from(schema.matchAll(tableNameMatcher), match => match[1]); // Get first capturing group of each match
-    this.validateTableNames(tableNames);
-    console.log('Retrieved the following table names from schema: ', tableNames);
-    return tableNames;
-  }
-
   buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string): Context {
-    const tables = this.getTableNames(schema);
     const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
@@ -237,26 +215,79 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(account, schemaName, tables, blockHeight)
+      db: this.buildDatabaseContext(account, schemaName, schema, blockHeight)
     };
   }
 
-  buildDatabaseContext (account: string, schemaName: string, tables: string[], blockHeight: number): Record<string, (...args: any[]) => any> {
-    let dmlHandler: DmlHandler | null = null;
-    const result = tables.reduce((prev, tableName) => ({
-      ...prev,
-      [`insert_${tableName}`]: async (objects: any) => {
-        await this.writeLog(`context.db.insert_${tableName}`, blockHeight, `Calling context.db.insert_${tableName}.`, `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
-        dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
-        return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
-      },
-      [`select_${tableName}`]: async (object: any, limit = null) => {
-        await this.writeLog(`context.db.select_${tableName}`, blockHeight, `Calling context.db.select_${tableName}.`, `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === null ? 'no' : limit}`);
-        dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
-        return await dmlHandler.select(schemaName, tableName, object, limit);
-      },
-    }), {});
-    return result;
+  validateTableNames (tableNames: string[]): void {
+    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
+      throw new Error('Schema does not have any tables. There should be at least one table.');
+    }
+    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+    tableNames.forEach(name => {
+      if (!name.includes('"') && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
+        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
+      }
+    });
+  }
+
+  getTableNames (schema: string): string[] {
+    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"?(.+?)"?\s*\(/g;
+    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
+      let tableName;
+      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
+        tableName = match[1].split('.')[1];
+        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
+      } else {
+        tableName = match[1];
+      }
+      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
+    });
+    this.validateTableNames(tableNames);
+    console.log('Retrieved the following table names from schema: ', tableNames);
+    return tableNames;
+  }
+
+  sanitizeTableName (tableName: string): string {
+    tableName = tableName.startsWith('"') && tableName.endsWith('"') ? tableName.substring(1, tableName.length - 1) : tableName;
+    return tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+  }
+
+  buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, (...args: any[]) => any> {
+    try {
+      const tables = this.getTableNames(schema);
+      let dmlHandler: DmlHandler | null = null;
+      const result = tables.reduce((prev, tableName) => {
+        const sanitizedTableName = this.sanitizeTableName(tableName);
+        const funcForTable = {
+          [`insert_${sanitizedTableName}`]: async (objects: any) => {
+            await this.writeLog(`context.db.insert_${sanitizedTableName}`, blockHeight,
+              `Calling context.db.insert_${sanitizedTableName}.`,
+              `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
+            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
+          },
+          [`select_${sanitizedTableName}`]: async (object: any, limit = null) => {
+            await this.writeLog(`context.db.select_${sanitizedTableName}`, blockHeight,
+              `Calling context.db.select_${sanitizedTableName}.`,
+              `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with limit ${limit === null ? 'no' : limit}`);
+            dmlHandler = dmlHandler ?? new this.deps.DmlHandler(account);
+            return await dmlHandler.select(schemaName, tableName, object, limit);
+          }
+        };
+
+        return {
+          ...prev,
+          ...funcForTable
+        };
+      }, {});
+      return result;
+    } catch (error) {
+      console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
+    }
+
+    return {}; // Default to empty object if error
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
