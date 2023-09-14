@@ -2,7 +2,6 @@ import { parentPort } from 'worker_threads';
 
 import Indexer from './indexer';
 import RedisClient from './redis-client';
-import * as metrics from './metrics';
 
 const indexer = new Indexer('mainnet');
 const redisClient = new RedisClient();
@@ -46,8 +45,16 @@ parentPort?.on('message', async ({ streamKey }) => {
 
       const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
 
-      metrics.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
-      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - startTime);
+      parentPort?.postMessage({
+        type: 'UNPROCESSED_STREAM_MESSAGES',
+        labels: { indexer: indexerName, type: streamType },
+        value: unprocessedMessages?.length ?? 0,
+      });
+      parentPort?.postMessage({
+        type: 'EXECUTION_DURATION',
+        labels: { indexer: indexerName, type: streamType },
+        value: performance.now() - startTime,
+      });
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {

@@ -1,17 +1,22 @@
 import express from 'express';
 import promClient from 'prom-client';
 
-export const UNPROCESSED_STREAM_MESSAGES = new promClient.Gauge({
+const UNPROCESSED_STREAM_MESSAGES = new promClient.Gauge({
   name: 'queryapi_runner_unprocessed_stream_messages',
   help: 'Number of Redis Stream messages not yet processed',
   labelNames: ['indexer', 'type'],
 });
 
-export const EXECUTION_DURATION = new promClient.Gauge({
+const EXECUTION_DURATION = new promClient.Gauge({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
   labelNames: ['indexer', 'type'],
 });
+
+export const METRICS = {
+  EXECUTION_DURATION,
+  UNPROCESSED_STREAM_MESSAGES,
+};
 
 export const startServer = async (): Promise<void> => {
   const app = express();
