@@ -10,6 +10,7 @@ metrics.startServer().catch((err) => {
 });
 
 const STREAM_HANDLER_THROTTLE_MS = 500;
+const IGNORED_METRIC_DURATION = -1;
 
 const processStream = async (streamKey: string): Promise<void> => {
   console.log('Started processing stream: ', streamKey);
@@ -61,7 +62,7 @@ const processStream = async (streamKey: string): Promise<void> => {
     } catch (err) {
       console.log(`Failed: ${indexerName}`, err);
     } finally {
-      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(endTime ? endTime - startTime : -1);
+      metrics.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).set(endTime ? endTime - startTime : IGNORED_METRIC_DURATION);
     }
   }
 };
