@@ -2,6 +2,7 @@ import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives';
+import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
@@ -11,6 +12,7 @@ interface Dependencies {
   s3: AWS.S3
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
+  parser: Parser
 };
 
 interface Context {
@@ -18,7 +20,7 @@ interface Context {
   set: (key: string, value: any) => Promise<any>
   log: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
-  db: Record<string, (...args: any[]) => any>
+  db: Record<string, Record<string, (...args: any[]) => any>>
 }
 
 interface IndexerFunction {
@@ -45,6 +47,7 @@ export default class Indexer {
       s3: new AWS.S3(),
       provisioner: new Provisioner(),
       DmlHandler,
+      parser: new Parser(),
       ...deps,
     };
   }
@@ -219,83 +222,87 @@ export default class Indexer {
     };
   }
 
-  validateTableNames (tableNames: string[]): void {
-    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
+  getTableNames (schema: string): string[] {
+    const tableNames = this.deps.parser.tableList(schema, { database: 'Postgresql' })
+      .filter(table => table.startsWith('create::null::'))
+      .map(table => table.replace('create::null::', ''));
+    if (tableNames.length === 0) {
       throw new Error('Schema does not have any tables. There should be at least one table.');
     }
-    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-    tableNames.forEach(name => {
-      if (!name.includes('"') && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
-        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
-      }
-    });
-  }
-
-  getTableNames (schema: string): string[] {
-    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"?(.+?)"?\s*\(/g;
-    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
-      let tableName;
-      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
-        tableName = match[1].split('.')[1];
-        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
-      } else {
-        tableName = match[1];
-      }
-      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
-    });
-    this.validateTableNames(tableNames);
     console.log('Retrieved the following table names from schema: ', tableNames);
     return tableNames;
   }
 
-  sanitizeTableName (tableName: string): string {
-    tableName = tableName.startsWith('"') && tableName.endsWith('"') ? tableName.substring(1, tableName.length - 1) : tableName;
-    return tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+  sanitizeTableName (tableName: string, tableNameCount: Map<string, number>): string {
+    // Replace special characters with underscores
+    let sanitizedName: string = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
+    // Convert to CamelCase
+    sanitizedName = sanitizedName
+      .replace(/_([a-zA-Z0-9])/g, (match: string) => match.toUpperCase())
+      .replace(/_/g, '');
+    // If starting with number, include a starting underscore. Otherwise, capitalize first character.
+    if (/^[0-9]/.test(sanitizedName)) {
+      sanitizedName = '_' + sanitizedName;
+    } else {
+      sanitizedName = sanitizedName.charAt(0).toUpperCase() + sanitizedName.slice(1); // Convert to Pascal Case
+    }
+
+    // If table name already exists, append a number
+    const count = tableNameCount.get(sanitizedName) ?? 0;
+    if (count) {
+      console.warn(`Collision detected for table name ${tableName} while converting to Camel Case. Appending number.`);
+      sanitizedName += `_${count + 1}`;
+    }
+    tableNameCount.set(sanitizedName, count + 1);
+    // TODO: Handle reserved words
+
+    return sanitizedName;
   }
 
-  buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, (...args: any[]) => any> {
+  buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
     try {
       const tables = this.getTableNames(schema);
+      const tableNameCount = new Map<string, number>();
       let dmlHandler: DmlHandler;
-      // TODO: Refactor object to be context.db.[table_name].[insert, select, update, upsert, delete]
       const result = tables.reduce((prev, tableName) => {
-        const sanitizedTableName = this.sanitizeTableName(tableName);
+        const sanitizedTableName = this.sanitizeTableName(tableName, tableNameCount);
         const funcForTable = {
-          [`insert_${sanitizedTableName}`]: async (objects: any) => {
-            await this.writeLog(`context.db.insert_${sanitizedTableName}`, blockHeight,
-              `Calling context.db.insert_${sanitizedTableName}.`,
-              `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
-            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
-            return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
-          },
-          [`select_${sanitizedTableName}`]: async (object: any, limit = null) => {
-            await this.writeLog(`context.db.select_${sanitizedTableName}`, blockHeight,
-              `Calling context.db.select_${sanitizedTableName}.`,
-              `Selecting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
-            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
-            return await dmlHandler.select(schemaName, tableName, object, limit);
-          },
-          [`update_${sanitizedTableName}`]: async (whereObj: any, updateObj: any) => {
-            await this.writeLog(`context.db.update_${sanitizedTableName}`, blockHeight,
-              `Calling context.db.update_${sanitizedTableName}.`,
-              `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
-            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
-            return await dmlHandler.update(schemaName, tableName, whereObj, updateObj);
-          },
-          [`upsert_${sanitizedTableName}`]: async (objects: any, conflictColumns: string[], updateColumns: string[]) => {
-            await this.writeLog(`context.db.upsert_${sanitizedTableName}`, blockHeight,
-              `Calling context.db.upsert_${sanitizedTableName}.`,
-              `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
-            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
-            return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objects) ? objects : [objects], conflictColumns, updateColumns);
-          },
-          [`delete_${sanitizedTableName}`]: async (object: any) => {
-            await this.writeLog(`context.db.delete_${sanitizedTableName}`, blockHeight,
-              `Calling context.db.delete_${sanitizedTableName}.`,
-              `Deleting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName}`);
-            dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
-            return await dmlHandler.delete(schemaName, tableName, object);
+          [`${sanitizedTableName}`]: {
+            insert: async (objects: any) => {
+              await this.writeLog(`context.db.${sanitizedTableName}.insert`, blockHeight,
+                `Calling context.db.${sanitizedTableName}.insert.`,
+                `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`);
+              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              return await dmlHandler.insert(schemaName, tableName, Array.isArray(objects) ? objects : [objects]);
+            },
+            select: async (object: any, limit = null) => {
+              await this.writeLog(`context.db.${sanitizedTableName}.select`, blockHeight,
+                `Calling context.db.${sanitizedTableName}.select.`,
+                `Selecting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
+              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              return await dmlHandler.select(schemaName, tableName, object, limit);
+            },
+            update: async (whereObj: any, updateObj: any) => {
+              await this.writeLog(`context.db.${sanitizedTableName}.update`, blockHeight,
+                `Calling context.db.${sanitizedTableName}.update.`,
+                `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
+              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              return await dmlHandler.update(schemaName, tableName, whereObj, updateObj);
+            },
+            upsert: async (objects: any, conflictColumns: string[], updateColumns: string[]) => {
+              await this.writeLog(`context.db.${sanitizedTableName}.upsert`, blockHeight,
+                `Calling context.db.${sanitizedTableName}.upsert.`,
+                `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objects) ? objects : [objects], conflictColumns, updateColumns);
+            },
+            delete: async (object: any) => {
+              await this.writeLog(`context.db.${sanitizedTableName}.delete`, blockHeight,
+                `Calling context.db.${sanitizedTableName}.delete.`,
+                `Deleting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName}`);
+              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              return await dmlHandler.delete(schemaName, tableName, object);
+            }
           }
         };
 

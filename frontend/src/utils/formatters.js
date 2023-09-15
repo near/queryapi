@@ -54,3 +54,33 @@ export const defaultCode = formatIndexingCode(wrapCode(
 export const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `;
+
+export const defaultSchemaTypes = `declare interface IndexerStorageItem {
+  function_name?: string;
+  key_name?: string;
+  value?: string;
+}
+
+declare interface IndexerStorageInput {
+  function_name: string;
+  key_name: string;
+  value: string;
+}
+
+declare const context: {
+
+			graphql: (operation, variables) => Promise<any>,
+			set: (key, value) => Promise<any>,
+			log: (...log) => Promise<any>,
+			fetchFromSocialApi: (path, options) => Promise<Response>,
+			db: {
+			IndexerStorage: {
+				insert: (objects: IndexerStorageInput | IndexerStorageInput[]) => Promise<IndexerStorageItem[]>;
+				select: (object: IndexerStorageItem, limit = null) => Promise<IndexerStorageItem[]>;
+				update: (whereObj: IndexerStorageItem, updateObj: IndexerStorageItem) => Promise<IndexerStorageItem[]>;
+				upsert: (objects: IndexerStorageInput | IndexerStorageInput[], conflictColumns: IndexerStorageItem, updateColumns: IndexerStorageItem) => Promise<IndexerStorageItem[]>;
+				delete: (object: IndexerStorageInput) => Promise<IndexerStorageItem[]>;
+			},
+  }
+};
+`

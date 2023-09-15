@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo, useContext } from "react";
+import React, { useEffect, useState, useRef, useMemo, useContext } from "react";
 import {
   formatSQL,
   formatIndexingCode,
   wrapCode,
   defaultCode,
   defaultSchema,
+  defaultSchemaTypes,
 } from "../../utils/formatters";
 import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import { Alert } from "react-bootstrap";
@@ -20,6 +21,7 @@ import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -41,8 +43,13 @@ const Editor = ({
     }#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
     }`;
+  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
     }`;
+  
+  const pgSchemaTypeGen = useMemo(() => new PgSchemaTypeGen(), []);
+  const disposableRef = useRef(null);
 
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
@@ -53,6 +60,8 @@ const Editor = ({
   const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(defaultCode));
   const [indexingCode, setIndexingCode] = useState(originalIndexingCode);
   const [schema, setSchema] = useState(originalSQLCode);
+  const [schemaTypes, setSchemaTypes] = useState(defaultSchemaTypes);
+  const [monacoMount, setMonacoMount] = useState(false);
 
   const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
 
@@ -72,20 +81,33 @@ const Editor = ({
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
+
   useEffect(() => {
     if (!indexerDetails.code || !indexerDetails.schema) return
     const { formattedCode, formattedSchema } = reformatAll(indexerDetails.code, indexerDetails.schema)
     setOriginalSQLCode(formattedSchema)
     setOriginalIndexingCode(formattedCode)
     setIndexingCode(formattedCode)
+    console.log("Set original schema");
     setSchema(formattedSchema)
   }, [indexerDetails.code, indexerDetails.schema]);
 
   useEffect(() => {
+
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
     const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
 
-    if (savedSchema) setSchema(savedSchema);
+    console.log("Set cached schema", savedSchema);
+    if (savedSchema) {
+      setSchema(savedSchema);
+      try {
+        setSchemaTypes(pgSchemaTypeGen.generateTypes(savedSchema));
+        setError(() => undefined);
+      } catch (error) {
+        handleCodeGenError();
+      }
+      
+    } 
     if (savedCode) setIndexingCode(savedCode);
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
@@ -94,25 +116,54 @@ const Editor = ({
     localStorage.setItem(CODE_STORAGE_KEY, indexingCode);
   }, [schema, indexingCode]);
 
+  useEffect(() => {
+    console.log("updated: ", schemaTypes);
+    localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
+    attachTypesToMonaco();
+  }, [schemaTypes, monacoMount]);
+
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
     return blockHeight
   }
 
   useEffect(() => {
-    if (selectedTab === "playground") {
-      setFileName("GraphiQL");
+    if (fileName === "indexingLogic.js") {
+      console.log("file is indexingLogic.js");
+      try {
+        setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
+        setError(() => undefined);
+      } catch (error) {
+        handleCodeGenError();
+      }
     }
-  }, [selectedTab]);
+  }, [fileName]);
 
   useEffect(() => {
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
+  const attachTypesToMonaco = () => {
+    console.log("prev disposable: ", disposableRef.current);
+    // If types has been added already, dispose of them first
+    if (disposableRef.current) {
+      disposableRef.current.dispose();
+      disposableRef.current = null;
+    }
+
+    if (window.monaco) { // Check if monaco is loaded
+      // Add generated types to monaco and store disposable to clear them later
+      const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
+      disposableRef.current = newDisposable;
+      console.log(disposableRef.current);
+    }
+  }
+
   const checkSQLSchemaFormatting = () => {
     try {
       let formatted_sql = formatSQL(schema);
       let formatted_schema = formatted_sql;
+      pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
       return formatted_schema;
     } catch (error) {
       console.log("error", error);
@@ -171,14 +222,20 @@ const Editor = ({
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
       setIndexingCode(originalIndexingCode);
+      console.log("New indexer schema");
       setSchema(originalSQLCode);
+      console.log("new indexer load");
+      setSchemaTypes(defaultSchemaTypes);
       return;
     }
 
     const data = await queryIndexerFunctionDetails(indexerDetails.accountId, indexerDetails.indexerName);
     if (data == null) {
       setIndexingCode(defaultCode);
+      console.log("null data schema");
       setSchema(defaultSchema);
+      console.log("null data schema types");
+      setSchemaTypes(defaultSchemaTypes);
       setError(() => onLoadErrorText);
     } else {
       try {
@@ -190,6 +247,7 @@ const Editor = ({
         }
         if (unformatted_schema !== null) {
           setOriginalSQLCode(unformatted_schema);
+          console.log("Unformatted schema");
           setSchema(unformatted_schema);
         }
         // if (data.start_block_height) {
@@ -199,7 +257,7 @@ const Editor = ({
         // if (data.filter) {
         //   setContractFilter(data.filter.matching_rule.affected_account_id)
         // }
-        await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
+        await reformat(unformatted_wrapped_indexing_code, unformatted_schema) // Also sets schemaTypes
       } catch (error) {
         console.log(error);
       }
@@ -228,6 +286,7 @@ const Editor = ({
     setIndexingCode(formattedCode);
 
     const formattedSchema = formatSQL(schema);
+    console.log("Reformat all schema");
     setSchema(formattedSchema);
 
     return { formattedCode, formattedSchema }
@@ -242,6 +301,7 @@ const Editor = ({
           setIndexingCode(formattedCode);
         } else if (fileName === "schema.sql") {
           formattedCode = formatSQL(schema);
+          console.log("reformat schema");
           setSchema(formattedCode);
         }
         setError(() => undefined);
@@ -251,6 +311,21 @@ const Editor = ({
         reject(error);
       }
     });
+  };
+
+  function handleCodeGen() {
+    try {
+      setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
+      attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
+      setError(() => undefined);
+    } catch (error) {
+      handleCodeGenError();
+    }
+  }
+
+  const handleCodeGenError = () => {
+    const errorMessage = "Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL."
+    setError(() => errorMessage);
   };
 
   async function handleFormating() {
@@ -264,6 +339,7 @@ const Editor = ({
         setIndexingCode(modifiedEditor.getValue());
       }
       if (fileName == "schema.sql") {
+        console.log("editor mount schema");
         setSchema(modifiedEditor.getValue());
       }
     });
@@ -274,6 +350,8 @@ const Editor = ({
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
+    console.log("MOUNT");
+    setMonacoMount(true);
   }
 
 
@@ -311,6 +389,7 @@ const Editor = ({
     >
       <EditorButtons
         handleFormating={handleFormating}
+        handleCodeGen={handleCodeGen}
         executeIndexerFunction={executeIndexerFunction}
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
