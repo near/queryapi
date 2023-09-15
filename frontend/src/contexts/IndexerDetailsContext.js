@@ -51,6 +51,8 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [debugMode, setDebugMode] = useState(false);
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
+  const [didIndexerFunctionDetailsLoaded, setDidIndexerFunctionDetailsLoaded] =
+    useState(false);
 
   const requestIndexerDetails = async () => {
     const data = await queryIndexerFunctionDetails(accountId, indexerName);
@@ -95,6 +97,7 @@ export const IndexerDetailsProvider = ({ children }) => {
         config: indexer.config
       }
       setIndexerDetails(details);
+      setDidIndexerFunctionDetailsLoaded(true);
     })();
 
   }, [accountId, indexerName, isCreateNewIndexer]);
@@ -118,6 +121,7 @@ export const IndexerDetailsProvider = ({ children }) => {
         latestHeight,
         isCreateNewIndexer,
         setIsCreateNewIndexer
+        didIndexerFunctionDetailsLoaded,
       }}
     >
       {children}
