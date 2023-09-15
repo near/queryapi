@@ -1,5 +1,4 @@
 import { Parser } from "node-sql-parser";
-const fs = require("fs");
 
 export class PgSchemaTypeGen {
 	constructor() {
