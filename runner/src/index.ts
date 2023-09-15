@@ -1,7 +1,6 @@
-import { Worker } from 'worker_threads';
-
-import { METRICS, startServer as startMetricsServer } from './metrics';
+import { startServer as startMetricsServer } from './metrics';
 import RedisClient from './redis-client';
+import StreamHandler from './stream-handler';
 
 const redisClient = new RedisClient();
 
@@ -11,13 +10,7 @@ startMetricsServer().catch((err) => {
 
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
-type StreamHandlers = Record<string, Worker>;
-
-interface Metric {
-  type: keyof typeof METRICS
-  labels: Record<string, string>
-  value: number
-};
+type StreamHandlers = Record<string, StreamHandler>;
 
 void (async function main () {
   try {
@@ -31,15 +24,9 @@ void (async function main () {
           return;
         }
 
-        const worker = new Worker('./dist/worker.js', {
-          workerData: { streamKey },
-        });
+        const streamHandler = new StreamHandler(streamKey);
 
-        worker.on('message', (message: Metric) => {
-          METRICS[message.type].labels(message.labels).set(message.value);
-        });
-
-        streamHandlers[streamKey] = worker;
+        streamHandlers[streamKey] = streamHandler;
       });
 
       await new Promise((resolve) =>
