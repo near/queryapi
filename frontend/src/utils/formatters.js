@@ -10,13 +10,14 @@ let wrap_code = (code) => `import {Block} from "@near-lake/primitives"
 
 /**
  * getBlock(block, context) applies your custom logic to a Block on Near and commits the data to a database. 
+ * context is a global variable that contains helper methods. 
+ * context.db is a subfield which contains helper methods to interact with your database.
  * 
  * Learn more about indexers here:  https://docs.near.org/concepts/advanced/indexers
  * 
- * @param {block} Block - A Near Protocol Block 
- * @param {context} - A set of helper methods to retrieve and commit state
+ * @param {block} Block - A Near Protocol Block
  */
-async function getBlock(block: Block, context) {
+async function getBlock(block: Block) {
   ${code}
 }`;
 

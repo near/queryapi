@@ -47,9 +47,6 @@ const Editor = ({
     }`;
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
     }`;
-  
-  const pgSchemaTypeGen = useMemo(() => new PgSchemaTypeGen(), []);
-  const disposableRef = useRef(null);
 
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
@@ -81,6 +78,8 @@ const Editor = ({
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
+  const pgSchemaTypeGen = useMemo(() => new PgSchemaTypeGen(), []);
+  const disposableRef = useRef(null);
 
   useEffect(() => {
     if (!indexerDetails.code || !indexerDetails.schema) return
@@ -88,7 +87,6 @@ const Editor = ({
     setOriginalSQLCode(formattedSchema)
     setOriginalIndexingCode(formattedCode)
     setIndexingCode(formattedCode)
-    console.log("Set original schema");
     setSchema(formattedSchema)
   }, [indexerDetails.code, indexerDetails.schema]);
 
@@ -97,7 +95,6 @@ const Editor = ({
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
     const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
 
-    console.log("Set cached schema", savedSchema);
     if (savedSchema) {
       setSchema(savedSchema);
       try {
@@ -117,7 +114,6 @@ const Editor = ({
   }, [schema, indexingCode]);
 
   useEffect(() => {
-    console.log("updated: ", schemaTypes);
     localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
     attachTypesToMonaco();
   }, [schemaTypes, monacoMount]);
@@ -129,7 +125,6 @@ const Editor = ({
 
   useEffect(() => {
     if (fileName === "indexingLogic.js") {
-      console.log("file is indexingLogic.js");
       try {
         setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
         setError(() => undefined);
@@ -144,7 +139,6 @@ const Editor = ({
   }, [heights]);
 
   const attachTypesToMonaco = () => {
-    console.log("prev disposable: ", disposableRef.current);
     // If types has been added already, dispose of them first
     if (disposableRef.current) {
       disposableRef.current.dispose();
@@ -155,7 +149,6 @@ const Editor = ({
       // Add generated types to monaco and store disposable to clear them later
       const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
       disposableRef.current = newDisposable;
-      console.log(disposableRef.current);
     }
   }
 
@@ -222,9 +215,7 @@ const Editor = ({
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
       setIndexingCode(originalIndexingCode);
-      console.log("New indexer schema");
       setSchema(originalSQLCode);
-      console.log("new indexer load");
       setSchemaTypes(defaultSchemaTypes);
       return;
     }
@@ -232,9 +223,7 @@ const Editor = ({
     const data = await queryIndexerFunctionDetails(indexerDetails.accountId, indexerDetails.indexerName);
     if (data == null) {
       setIndexingCode(defaultCode);
-      console.log("null data schema");
       setSchema(defaultSchema);
-      console.log("null data schema types");
       setSchemaTypes(defaultSchemaTypes);
       setError(() => onLoadErrorText);
     } else {
@@ -247,7 +236,6 @@ const Editor = ({
         }
         if (unformatted_schema !== null) {
           setOriginalSQLCode(unformatted_schema);
-          console.log("Unformatted schema");
           setSchema(unformatted_schema);
         }
         // if (data.start_block_height) {
@@ -257,7 +245,7 @@ const Editor = ({
         // if (data.filter) {
         //   setContractFilter(data.filter.matching_rule.affected_account_id)
         // }
-        await reformat(unformatted_wrapped_indexing_code, unformatted_schema) // Also sets schemaTypes
+        await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
       } catch (error) {
         console.log(error);
       }
@@ -286,7 +274,6 @@ const Editor = ({
     setIndexingCode(formattedCode);
 
     const formattedSchema = formatSQL(schema);
-    console.log("Reformat all schema");
     setSchema(formattedSchema);
 
     return { formattedCode, formattedSchema }
@@ -301,7 +288,6 @@ const Editor = ({
           setIndexingCode(formattedCode);
         } else if (fileName === "schema.sql") {
           formattedCode = formatSQL(schema);
-          console.log("reformat schema");
           setSchema(formattedCode);
         }
         setError(() => undefined);
@@ -350,7 +336,6 @@ const Editor = ({
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
-    console.log("MOUNT");
     setMonacoMount(true);
   }
 

@@ -191,7 +191,6 @@ export default class IndexerRunner {
           ...funcForTable
         };
       }, {});
-      console.log(result);
       return result;
     } catch (error) {
       console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
