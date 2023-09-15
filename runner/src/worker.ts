@@ -1,4 +1,4 @@
-import { parentPort } from 'worker_threads';
+import { parentPort, workerData } from 'worker_threads';
 
 import Indexer from './indexer';
 import RedisClient from './redis-client';
@@ -6,12 +6,16 @@ import RedisClient from './redis-client';
 const indexer = new Indexer('mainnet');
 const redisClient = new RedisClient();
 
-// eslint-disable-next-line
-parentPort?.on('message', async ({ streamKey }) => {
+if (parentPort === null) {
+  throw new Error('No parentPort');
+}
+
+void (async function main () {
+  const { streamKey } = workerData;
+
   console.log('Started processing stream: ', streamKey);
 
   let indexerName = '';
-
   while (true) {
     try {
       const startTime = performance.now();
@@ -61,4 +65,4 @@ parentPort?.on('message', async ({ streamKey }) => {
       console.log(`Failed: ${indexerName}`, err);
     }
   }
-});
+})();

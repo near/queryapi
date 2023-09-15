@@ -31,8 +31,9 @@ void (async function main () {
           return;
         }
 
-        const worker = new Worker('./dist/worker.js');
-        worker.postMessage({ streamKey });
+        const worker = new Worker('./dist/worker.js', {
+          workerData: { streamKey },
+        });
 
         worker.on('message', (message: Metric) => {
           METRICS[message.type].labels(message.labels).set(message.value);
