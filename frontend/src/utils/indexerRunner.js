@@ -21,7 +21,7 @@ export default class IndexerRunner {
       console.log("No Start Block Height Provided to Stream Blocks From")
       this.stop()
       console.groupEnd()
-      returnc
+      return
     }
     console.log(`Streaming Blocks Starting from ${option} Block #${this.currentHeight}`)
     while (!this.shouldStop) {

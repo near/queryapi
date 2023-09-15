@@ -2,9 +2,6 @@
   "name": "query-api-react",
   "version": "0.1.0",
   "private": true,
-  "browser": {
-    "fs": false
-  },
   "scripts": {
     "dev": "next dev",
     "serve:widgets": "bos-loader dataplatform.near --path widgets/src -r replacement.mainnet.json",

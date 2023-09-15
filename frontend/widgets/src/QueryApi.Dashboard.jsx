@@ -395,7 +395,7 @@ return (
               alt: "the queryapi logo",
             }}
           />
-          QueryAPi
+          QueryApi
         </NavBarLogo>
 
         <div>

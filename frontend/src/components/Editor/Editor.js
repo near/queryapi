@@ -325,7 +325,6 @@ const Editor = ({
         setIndexingCode(modifiedEditor.getValue());
       }
       if (fileName == "schema.sql") {
-        console.log("editor mount schema");
         setSchema(modifiedEditor.getValue());
       }
     });
