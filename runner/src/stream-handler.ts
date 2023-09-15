@@ -35,6 +35,8 @@ export default class StreamHandler {
 }
 
 if (!isMainThread) {
+  const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
+
   void (async function main () {
     const indexer = new Indexer('mainnet');
     const redisClient = new RedisClient();
@@ -56,6 +58,7 @@ if (!isMainThread) {
         indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
 
         if (messages == null) {
+          await sleep(1000);
           continue;
         }
 
@@ -92,6 +95,7 @@ if (!isMainThread) {
 
         console.log(`Success: ${indexerName}`);
       } catch (err) {
+        await sleep(10000);
         console.log(`Failed: ${indexerName}`, err);
       }
     }
