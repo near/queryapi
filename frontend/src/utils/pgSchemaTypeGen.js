@@ -101,7 +101,7 @@ export class PgSchemaTypeGen {
 		const columnName = columnDef.column.column;
 		const columnType = this.getTypescriptType(columnDef.definition.dataType);
 		const nullable = this.getNullableStatus(columnDef);
-		const required = this.getRequiredStatus(columnDef);
+		const required = this.getRequiredStatus(columnDef, nullable);
 		if (columns.hasOwnProperty(columnName)) {
 			console.warn(`Column ${columnName} already exists in table. Skipping.`);
 			return;
@@ -123,13 +123,13 @@ export class PgSchemaTypeGen {
 		return isPrimaryKey || isNullable ? false : true;
 	}
 	
-	getRequiredStatus(columnDef) {
+	getRequiredStatus(columnDef, nullable) {
 		const hasDefaultValue =
 			columnDef.hasOwnProperty("default_val") && columnDef.default_val != null;
 		const isSerial = columnDef.definition.dataType
 			.toLowerCase()
 			.includes("serial");
-		return hasDefaultValue || isSerial ? false : true;
+		return hasDefaultValue || isSerial || nullable ? false : true;
 	}
 	
 	generateTypeScriptDefinitions(schema) {
@@ -169,7 +169,7 @@ export class PgSchemaTypeGen {
 			select: (object: ${sanitizedTableName}Item, limit = null) => Promise<${sanitizedTableName}Item[]>;
 			update: (whereObj: ${sanitizedTableName}Item, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
 			upsert: (objects: ${sanitizedTableName}Input | ${sanitizedTableName}Input[], conflictColumns: ${sanitizedTableName}Item, updateColumns: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
-			delete: (object: ${sanitizedTableName}Input) => Promise<${sanitizedTableName}Item[]>;
+			delete: (object: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
 		},`;
 		}
 	
