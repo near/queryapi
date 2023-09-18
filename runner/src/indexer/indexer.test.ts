@@ -1,6 +1,6 @@
 import { Block } from '@near-lake/primitives';
 import type fetch from 'node-fetch';
-import type AWS from 'aws-sdk';
+import type { S3 } from '@aws-sdk/client-s3';
 
 import Indexer from './indexer';
 import { VM } from 'vm2';
@@ -183,19 +183,17 @@ CREATE TABLE
     }));
     const blockHeight = 456;
     const mockS3 = {
-      getObject: jest.fn(() => ({
-        promise: async () => await Promise.resolve({
-          Body: {
-            toString: () => JSON.stringify({
-              chunks: [],
-              header: {
-                height: blockHeight
-              }
-            })
-          }
-        })
-      })),
-    } as unknown as AWS.S3;
+      getObject: jest.fn().mockResolvedValue({
+        Body: {
+          toString: () => JSON.stringify({
+            chunks: [],
+            header: {
+              height: blockHeight
+            }
+          })
+        }
+      }),
+    } as unknown as S3;
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
     const functions: Record<string, any> = {};
@@ -214,16 +212,14 @@ CREATE TABLE
   test('Indexer.fetchBlock() should fetch a block from the S3', async () => {
     const author = 'dokiacapital.poolv1.near';
     const mockS3 = {
-      getObject: jest.fn(() => ({
-        promise: async () => await Promise.resolve({
-          Body: {
-            toString: () => JSON.stringify({
-              author
-            })
-          }
-        })
-      })),
-    } as unknown as AWS.S3;
+      getObject: jest.fn().mockResolvedValue({
+        Body: {
+          toString: () => JSON.stringify({
+            author
+          })
+        }
+      }),
+    } as unknown as S3;
     const indexer = new Indexer('mainnet', { s3: mockS3 });
 
     const blockHeight = 84333960;
@@ -239,14 +235,12 @@ CREATE TABLE
 
   test('Indexer.fetchShard() should fetch the steamer message from S3', async () => {
     const mockS3 = {
-      getObject: jest.fn(() => ({
-        promise: async () => await Promise.resolve({
-          Body: {
-            toString: () => JSON.stringify({})
-          }
-        })
-      })),
-    } as unknown as AWS.S3;
+      getObject: jest.fn().mockResolvedValue({
+        Body: {
+          toString: () => JSON.stringify({})
+        }
+      }),
+    } as unknown as S3;
     const indexer = new Indexer('mainnet', { s3: mockS3 });
 
     const blockHeight = 82699904;
@@ -265,28 +259,24 @@ CREATE TABLE
     const blockHash = 'xyz';
     const getObject = jest.fn()
       .mockReturnValueOnce({ // block
-        promise: async () => await Promise.resolve({
-          Body: {
-            toString: () => JSON.stringify({
-              chunks: [0],
-              header: {
-                height: blockHeight,
-                hash: blockHash,
-              }
-            })
-          }
-        })
+        Body: {
+          toString: () => JSON.stringify({
+            chunks: [0],
+            header: {
+              height: blockHeight,
+              hash: blockHash,
+            }
+          })
+        }
       })
       .mockReturnValue({ // shard
-        promise: async () => await Promise.resolve({
-          Body: {
-            toString: () => JSON.stringify({})
-          }
-        })
+        Body: {
+          toString: () => JSON.stringify({})
+        }
       });
     const mockS3 = {
       getObject,
-    } as unknown as AWS.S3;
+    } as unknown as S3;
     const indexer = new Indexer('mainnet', { s3: mockS3 });
 
     const streamerMessage = await indexer.fetchStreamerMessage(blockHeight);
@@ -784,26 +774,22 @@ CREATE TABLE
 
     const mockS3 = {
       getObject: jest.fn()
-        .mockReturnValueOnce({ // block
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({
-                chunks: [0],
-                header: {
-                  height: blockHeight,
-                },
-              }),
-            },
-          }),
+        .mockResolvedValueOnce({ // block
+          Body: {
+            toString: () => JSON.stringify({
+              chunks: [0],
+              header: {
+                height: blockHeight,
+              },
+            }),
+          },
         })
-        .mockReturnValue({ // shard
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({})
-            },
-          }),
+        .mockResolvedValue({ // shard
+          Body: {
+            toString: () => JSON.stringify({})
+          },
         }),
-    } as unknown as AWS.S3;
+    } as unknown as S3;
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
     const functions: Record<string, any> = {};
@@ -875,19 +861,17 @@ CREATE TABLE
     }));
     const blockHeight = 456;
     const mockS3 = {
-      getObject: jest.fn(() => ({
-        promise: async () => await Promise.resolve({
-          Body: {
-            toString: () => JSON.stringify({
-              chunks: [],
-              header: {
-                height: blockHeight
-              }
-            })
-          }
-        })
-      })),
-    } as unknown as AWS.S3;
+      getObject: jest.fn().mockResolvedValue({
+        Body: {
+          toString: () => JSON.stringify({
+            chunks: [],
+            header: {
+              height: blockHeight
+            }
+          })
+        }
+      }),
+    } as unknown as S3;
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
 
     const functions: Record<string, any> = {};
@@ -913,26 +897,22 @@ CREATE TABLE
     const mockS3 = {
       getObject: jest
         .fn()
-        .mockReturnValueOnce({ // block
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({
-                chunks: [0],
-                header: {
-                  height: blockHeight,
-                },
-              }),
-            },
-          }),
+        .mockResolvedValueOnce({ // block
+          Body: {
+            toString: () => JSON.stringify({
+              chunks: [0],
+              header: {
+                height: blockHeight,
+              },
+            }),
+          },
         })
-        .mockReturnValue({ // shard
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({})
-            },
-          }),
+        .mockResolvedValue({ // shard
+          Body: {
+            toString: () => JSON.stringify({})
+          },
         }),
-    } as unknown as AWS.S3;
+    } as unknown as S3;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
@@ -969,26 +949,22 @@ CREATE TABLE
     const mockS3 = {
       getObject: jest
         .fn()
-        .mockReturnValueOnce({ // block
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({
-                chunks: [0],
-                header: {
-                  height: blockHeight,
-                },
-              }),
-            },
-          }),
+        .mockResolvedValueOnce({ // block
+          Body: {
+            toString: () => JSON.stringify({
+              chunks: [0],
+              header: {
+                height: blockHeight,
+              },
+            }),
+          },
         })
-        .mockReturnValue({ // shard
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({})
-            },
-          }),
+        .mockResolvedValue({ // shard
+          Body: {
+            toString: () => JSON.stringify({})
+          },
         }),
-    } as unknown as AWS.S3;
+    } as unknown as S3;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
@@ -1017,26 +993,22 @@ CREATE TABLE
     const mockS3 = {
       getObject: jest
         .fn()
-        .mockReturnValueOnce({ // block
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({
-                chunks: [0],
-                header: {
-                  height: blockHeight,
-                },
-              }),
-            },
-          }),
+        .mockResolvedValueOnce({ // block
+          Body: {
+            toString: () => JSON.stringify({
+              chunks: [0],
+              header: {
+                height: blockHeight,
+              },
+            }),
+          },
         })
-        .mockReturnValue({ // shard
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({})
-            },
-          }),
+        .mockResolvedValue({ // shard
+          Body: {
+            toString: () => JSON.stringify({})
+          },
         }),
-    } as unknown as AWS.S3;
+    } as unknown as S3;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
@@ -1068,26 +1040,22 @@ CREATE TABLE
     const mockS3 = {
       getObject: jest
         .fn()
-        .mockReturnValueOnce({ // block
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({
-                chunks: [0],
-                header: {
-                  height: blockHeight,
-                },
-              }),
-            },
-          }),
+        .mockResolvedValueOnce({ // block
+          Body: {
+            toString: () => JSON.stringify({
+              chunks: [0],
+              header: {
+                height: blockHeight,
+              },
+            }),
+          },
         })
-        .mockReturnValue({ // shard
-          promise: async () => await Promise.resolve({
-            Body: {
-              toString: () => JSON.stringify({})
-            },
-          }),
+        .mockResolvedValue({ // shard
+          Body: {
+            toString: () => JSON.stringify({})
+          },
         }),
-    } as unknown as AWS.S3;
+    } as unknown as S3;
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),

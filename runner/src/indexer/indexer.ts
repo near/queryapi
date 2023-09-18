@@ -1,6 +1,6 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import AWS from 'aws-sdk';
+import { S3 } from '@aws-sdk/client-s3';
 import { Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 
@@ -9,7 +9,7 @@ import DmlHandler from '../dml-handler/dml-handler';
 
 interface Dependencies {
   fetch: typeof fetch
-  s3: AWS.S3
+  s3: S3
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
@@ -44,7 +44,7 @@ export default class Indexer {
     this.network = network;
     this.deps = {
       fetch,
-      s3: new AWS.S3(),
+      s3: new S3(),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
@@ -156,9 +156,9 @@ export default class Indexer {
       Bucket: `near-lake-data-${this.network}`,
       Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
     };
-    return await this.deps.s3.getObject(params).promise().then((response) => {
-      return JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-    });
+    const response = await this.deps.s3.getObject(params);
+    console.log('RESP: ', response.Body?.toString());
+    return JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   async fetchBlockPromise (blockHeight: number): Promise<any> {
@@ -168,10 +168,8 @@ export default class Indexer {
       Bucket: 'near-lake-data-' + this.network,
       Key: `${folder}/${file}`,
     };
-    return await this.deps.s3.getObject(params).promise().then((response) => {
-      const block = JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-      return block;
-    });
+    const response = await this.deps.s3.getObject(params);
+    return JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   enableAwaitTransform (indexerFunction: string): string {

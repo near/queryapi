@@ -1,9 +1,9 @@
-import AWS from "aws-sdk";
+import { CloudWatch } from "aws-sdk";
 
 export default class Metrics {
     constructor(namespace, cloudwatch) {
         this.cloudwatch =
-            cloudwatch || new AWS.CloudWatch({ region: process.env.REGION });
+            cloudwatch || new CloudWatch({ region: process.env.REGION });
         this.namespace = namespace;
     }
 
