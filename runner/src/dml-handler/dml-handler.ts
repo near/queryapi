@@ -3,6 +3,8 @@ import PgClientModule from '../pg-client';
 import HasuraClient from '../hasura-client/hasura-client';
 
 export default class DmlHandler {
+  validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
   private constructor (
     private readonly pgClient: PgClientModule,
   ) {}
@@ -24,6 +26,10 @@ export default class DmlHandler {
     return new DmlHandler(pgClient);
   }
 
+  private quoteTableName (tableName: string): string {
+    return !this.validTableNameRegex.test(tableName) ? `"${tableName}"` : tableName;
+  }
+
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
     if (!objects?.length) {
       return [];
@@ -32,7 +38,7 @@ export default class DmlHandler {
     const keys = Object.keys(objects[0]);
     // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
     const values = objects.map(obj => keys.map(key => obj[key]));
-    const query = `INSERT INTO ${schemaName}.${tableName} (${keys.join(', ')}) VALUES %L RETURNING *`;
+    const query = `INSERT INTO ${schemaName}.${this.quoteTableName(tableName)} (${keys.join(', ')}) VALUES %L RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}.${tableName}.`);
     if (result.rows?.length === 0) {
@@ -45,7 +51,7 @@ export default class DmlHandler {
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
-    let query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${param}`;
+    let query = `SELECT * FROM ${schemaName}.${this.quoteTableName(tableName)} WHERE ${param}`;
     if (limit !== null) {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
     }
@@ -64,7 +70,7 @@ export default class DmlHandler {
     const whereParam = Array.from({ length: whereKeys.length }, (_, index) => `${whereKeys[index]}=$${index + 1 + updateKeys.length}`).join(' AND ');
 
     const queryValues = [...Object.values(updateObject), ...Object.values(whereObject)];
-    const query = `UPDATE ${schemaName}.${tableName} SET ${updateParam} WHERE ${whereParam} RETURNING *`;
+    const query = `UPDATE ${schemaName}.${this.quoteTableName(tableName)} SET ${updateParam} WHERE ${whereParam} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}.${tableName}.`);
     if (!(result.rows && result.rows.length > 0)) {
@@ -82,7 +88,7 @@ export default class DmlHandler {
     // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
     const values = objects.map(obj => keys.map(key => obj[key]));
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
-    const query = `INSERT INTO ${schemaName}.${tableName} (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
+    const query = `INSERT INTO ${schemaName}.${this.quoteTableName(tableName)} (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}.${tableName}.`);
     if (result.rows?.length === 0) {
@@ -95,7 +101,7 @@ export default class DmlHandler {
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
-    const query = `DELETE FROM ${schemaName}.${tableName} WHERE ${param} RETURNING *`;
+    const query = `DELETE FROM ${schemaName}.${this.quoteTableName(tableName)} WHERE ${param} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}.${tableName}.`);
     if (!(result.rows && result.rows.length > 0)) {
