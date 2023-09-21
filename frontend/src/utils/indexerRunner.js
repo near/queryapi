@@ -154,34 +154,33 @@ export default class IndexerRunner {
     wrappedFunction(Block, streamerMessage, context);
   }
 
-  getTableNames (schema) {
-    const tableNames = this.pgSchemaTypeGen.getTableNames(schema)
-      .filter(table => table.startsWith('create::null::'))
-      .map(table => table.replace('create::null::', ''));
-    if (tableNames.length === 0) {
-      throw new Error('Schema does not have any tables. There should be at least one table.');
-    }
-    console.log('Retrieved the following table names from schema: ', tableNames);
-    return tableNames;
-  }
-
   buildDatabaseContext (blockHeight, schemaName, schema) {
     try {
-      const tables = this.getTableNames(schema);
-      const tableNameCount = new Map();
+      const tables = this.pgSchemaTypeGen.getTableNames(schema);
+      const sanitizedTableNames = new Set();
+
+      // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
-        const sanitizedTableName = this.pgSchemaTypeGen.sanitizeTableName(tableName, tableNameCount);
+        // Generate sanitized table name and ensure no conflict
+        const sanitizedTableName = this.pgSchemaTypeGen.sanitizeTableName(tableName);
+        if (sanitizedTableNames.has(sanitizedTableName)) {
+          throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
+        } else {
+          sanitizedTableNames.add(sanitizedTableName);
+        }
+
+        // Generate context.db methods for table
         const funcForTable = {
           [`${sanitizedTableName}`]: {
-            [`insert`]: async (objects) => await this.dbOperationLog(blockHeight, 
+            insert: async (objects) => await this.dbOperationLog(blockHeight, 
               `Inserting object ${JSON.stringify(objects)} into table ${sanitizedTableName} on schema ${schemaName}`),
-            [`select`]: async (object, limit = null) => await this.dbOperationLog(blockHeight,
+            select: async (object, limit = null) => await this.dbOperationLog(blockHeight,
               `Selecting objects with values ${JSON.stringify(object)} from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : roundedLimit} limit`),
-            [`update`]: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
+            update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
               `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${sanitizedTableName} on schema ${schemaName}`),
-            [`upsert`]: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
+            upsert: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
               `Inserting objects with values ${JSON.stringify(objects)} in table ${sanitizedTableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`),
-            [`delete`]: async (object) => await this.dbOperationLog(blockHeight,
+            delete: async (object) => await this.dbOperationLog(blockHeight,
               `Deleting objects with values ${JSON.stringify(object)} in table ${sanitizedTableName} on schema ${schemaName}`)
           }
         };

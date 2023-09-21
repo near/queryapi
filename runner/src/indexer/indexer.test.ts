@@ -142,7 +142,7 @@ ADD
   CONSTRAINT "post_likes_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS
-  "public"."My Table1" (id serial PRIMARY KEY);
+  "My Table1" (id serial PRIMARY KEY);
 
 CREATE TABLE
   "Another-Table" (id serial PRIMARY KEY);
@@ -462,6 +462,77 @@ CREATE TABLE
     ]);
   });
 
+  test('GetTables works for a variety of input schemas', async () => {
+    const indexer = new Indexer('mainnet');
+
+    const simpleSchemaTables = indexer.getTableNames(SIMPLE_SCHEMA);
+    expect(simpleSchemaTables).toStrictEqual(['posts']);
+
+    const socialSchemaTables = indexer.getTableNames(SOCIAL_SCHEMA);
+    expect(socialSchemaTables).toStrictEqual(['posts', 'comments', 'post_likes']);
+
+    const stressTestSchemaTables = indexer.getTableNames(STRESS_TEST_SCHEMA);
+    expect(stressTestSchemaTables).toStrictEqual([
+      'creator_quest',
+      'composer_quest',
+      'contractor - quest',
+      'posts',
+      'comments',
+      'post_likes',
+      'My Table1',
+      'Another-Table',
+      'Third-Table',
+      'yet_another_table']);
+
+    // Test that duplicate table names throw an error
+    const duplicateTableSchema = `CREATE TABLE
+    "posts" (
+      "id" SERIAL NOT NULL
+    );
+    CREATE TABLE posts (
+      "id" SERIAL NOT NULL
+    );`;
+    expect(() => {
+      indexer.getTableNames(duplicateTableSchema);
+    }).toThrow('Table posts already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.');
+
+    // Test that schema with no tables throws an error
+    expect(() => {
+      indexer.getTableNames('');
+    }).toThrow('Schema does not have any tables. There should be at least one table.');
+  });
+
+  test('SanitizeTableName works properly on many test cases', async () => {
+    const indexer = new Indexer('mainnet');
+
+    expect(indexer.sanitizeTableName('table_name')).toStrictEqual('TableName');
+    expect(indexer.sanitizeTableName('tablename')).toStrictEqual('Tablename'); // name is not capitalized
+    expect(indexer.sanitizeTableName('table name')).toStrictEqual('TableName');
+    expect(indexer.sanitizeTableName('table!name!')).toStrictEqual('TableName');
+    expect(indexer.sanitizeTableName('123TABle')).toStrictEqual('_123TABle'); // underscore at beginning
+    expect(indexer.sanitizeTableName('123_tABLE')).toStrictEqual('_123TABLE'); // underscore at beginning, capitalization
+    expect(indexer.sanitizeTableName('some-table_name')).toStrictEqual('SomeTableName');
+    expect(indexer.sanitizeTableName('!@#$%^&*()table@)*&(%#')).toStrictEqual('Table'); // All special characters removed
+    expect(indexer.sanitizeTableName('T_name')).toStrictEqual('TName');
+    expect(indexer.sanitizeTableName('_table')).toStrictEqual('Table'); // Starting underscore was removed
+  });
+
+  test('indexer fails to build context.db due to collision on sanitized table names', async () => {
+    const indexer = new Indexer('mainnet');
+
+    const schemaWithDuplicateSanitizedTableNames = `CREATE TABLE
+    "test table" (
+      "id" SERIAL NOT NULL
+    );
+    CREATE TABLE "test!table" (
+      "id" SERIAL NOT NULL
+    );`;
+
+    // Does not outright throw an error but instead returns an empty object
+    expect(indexer.buildDatabaseContext('test_account', 'test_schema_name', schemaWithDuplicateSanitizedTableNames, 1))
+      .toStrictEqual({});
+  });
+
   test('indexer builds context and inserts an objects into existing table', async () => {
     const mockDmlHandler: any = {
       create: jest.fn().mockImplementation(() => {
@@ -622,10 +693,23 @@ CREATE TABLE
       'Posts',
       'Comments',
       'PostLikes',
+      'MyTable1',
       'AnotherTable',
       'ThirdTable',
       'YetAnotherTable']);
     expect(Object.keys(context.db.CreatorQuest)).toStrictEqual([
+      'insert',
+      'select',
+      'update',
+      'upsert',
+      'delete']);
+    expect(Object.keys(context.db.PostLikes)).toStrictEqual([
+      'insert',
+      'select',
+      'update',
+      'upsert',
+      'delete']);
+    expect(Object.keys(context.db.MyTable1)).toStrictEqual([
       'insert',
       'select',
       'update',

@@ -6,38 +6,52 @@ export class PgSchemaTypeGen {
 		this.tables = new Set();
 	}
 
-	sanitizeTableName(tableName, tableNameCount) {
-    // Replace special characters with underscores
-    let sanitizedName = tableName.replace(/[^a-zA-Z0-9_]/g, '_');
-    // Convert to CamelCase
-    sanitizedName = sanitizedName
-      .replace(/_([a-zA-Z0-9])/g, (match) => match.toUpperCase())
-      .replace(/_/g, '');
-    // If starting with number, include a starting underscore. Otherwise, capitalize first character.
-    if (/^[0-9]/.test(sanitizedName)) {
-      sanitizedName = '_' + sanitizedName;
-    } else {
-      sanitizedName = sanitizedName.charAt(0).toUpperCase() + sanitizedName.slice(1); // Convert to Pascal Case
-    }
-	
-    // If table name already exists, append a number
-    const count = tableNameCount.get(sanitizedName) || 0;
-		if (count) {
-			console.warn(`Collision detected for table name ${tableName} while converting to Camel Case. Appending number.`);
-			sanitizedName += `_${count + 1}`;
-		}
-		tableNameCount.set(sanitizedName, count + 1);
-    // TODO: Handle reserved words
-	
-    return sanitizedName;
-  }
-
-	getTableNames(sqlSchema) {
-		return this.parser.tableList(sqlSchema, { database: "Postgresql" });
+	sanitizeTableName(tableName) {
+		// Convert to PascalCase
+		let pascalCaseTableName = tableName
+			// Replace special characters with underscores
+			.replace(/[^a-zA-Z0-9_]/g, '_')
+			// Makes first letter and any letters following an underscore upper case
+			.replace(/^([a-zA-Z])|_([a-zA-Z])/g, (match) => match.toUpperCase())
+			// Removes all underscores
+			.replace(/_/g, '');
+  
+	  // Add underscore if first character is a number
+	  if (/^[0-9]/.test(pascalCaseTableName)) {
+		  pascalCaseTableName = '_' + pascalCaseTableName;
+	  }
+  
+	  return pascalCaseTableName;
 	}
 
+	getTableNames (schema) {
+		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
+		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
+		const tableNames = new Set();
+
+		// Collect all table names from schema AST, throw error if duplicate table names exist
+		for (const statement of schemaSyntaxTree) {
+      if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
+        const tableName = statement.table[0].table;
+
+        if (tableNames.has(tableName)) {
+          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
+        }
+
+        tableNames.add(tableName);
+      }
+    }
+
+    // Ensure schema is not empty
+    if (tableNames.size === 0) {
+      throw new Error('Schema does not have any tables. There should be at least one table.');
+    }
+
+    const tableNamesArray = Array.from(tableNames);
+    return Array.from(tableNamesArray);
+  }
+
 	generateTypes(sqlSchema) {
-		const start = Date.now();
 		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
 		const dbSchema = {};
 
@@ -47,8 +61,7 @@ export class PgSchemaTypeGen {
 				// Process CREATE TABLE statements
 				const tableName = statement.table[0].table;
 				if (dbSchema.hasOwnProperty(tableName)) {
-					console.warn(`Table ${tableName} already exists in schema. Skipping.`);
-					continue;
+					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
 				}
 
 				let columns = {};
@@ -93,8 +106,8 @@ export class PgSchemaTypeGen {
 		}
 
 		const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
-		console.log(`Finished in ${Date.now() - start}ms`);
-		return tsTypes
+    console.log(`Types successfully generated`);
+		return tsTypes;
 	}
 	
   addColumn(columnDef, columns) {
@@ -134,7 +147,6 @@ export class PgSchemaTypeGen {
 	
 	generateTypeScriptDefinitions(schema) {
 		const tableList = new Set();
-		const tableNameCount = new Map();
 		let tsDefinitions = "";
 		let contextObject = `declare const context: {
 	graphql: (operation, variables) => Promise<any>,
@@ -147,7 +159,10 @@ export class PgSchemaTypeGen {
 		for (const [tableName, columns] of Object.entries(schema)) {
 			let itemDefinition = "";
 			let inputDefinition = "";
-			const sanitizedTableName = this.sanitizeTableName(tableName, tableNameCount);
+			const sanitizedTableName = this.sanitizeTableName(tableName);
+      if (tableList.has(sanitizedTableName)) {
+        throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
+      }
 			tableList.add(sanitizedTableName);
 			// Create interfaces for strongly typed input and row item
 			itemDefinition += `declare interface ${sanitizedTableName}Item {\n`;
@@ -160,16 +175,21 @@ export class PgSchemaTypeGen {
 			}
 			itemDefinition += "}\n\n";
 			inputDefinition += "}\n\n";
-			tsDefinitions += itemDefinition + inputDefinition;
-	
+
+      // Create type containing column names to be used as a replacement for string[]. 
+      const columnNamesDef = `type ${sanitizedTableName}Columns = "${Object.keys(columns).join('" | "')}";\n\n`;
+
+      // Add generated types to definitions
+			tsDefinitions += itemDefinition + inputDefinition + columnNamesDef;
+
 			// Create context object with correctly formatted methods. Name, input, and output should match actual implementation
 			contextObject += `
 		${sanitizedTableName}: {
-			insert: (objects: ${sanitizedTableName}Input | ${sanitizedTableName}Input[]) => Promise<${sanitizedTableName}Item[]>;
-			select: (object: ${sanitizedTableName}Item, limit = null) => Promise<${sanitizedTableName}Item[]>;
-			update: (whereObj: ${sanitizedTableName}Item, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
-			upsert: (objects: ${sanitizedTableName}Input | ${sanitizedTableName}Input[], conflictColumns: ${sanitizedTableName}Item, updateColumns: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
-			delete: (object: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
+			insert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[]) => Promise<${sanitizedTableName}Item[]>;
+			select: (filterObj: ${sanitizedTableName}Item, limit = null) => Promise<${sanitizedTableName}Item[]>;
+			update: (filterObj: ${sanitizedTableName}Item, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
+			upsert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[], conflictColumns: ${sanitizedTableName}Columns[], updateColumns: ${sanitizedTableName}Columns[]) => Promise<${sanitizedTableName}Item[]>;
+			delete: (filterObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
 		},`;
 		}
 	

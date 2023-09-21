@@ -78,7 +78,7 @@ const Editor = ({
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
-  const pgSchemaTypeGen = useMemo(() => new PgSchemaTypeGen(), []);
+  const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef(null);
 
   useEffect(() => {
@@ -101,7 +101,7 @@ const Editor = ({
         setSchemaTypes(pgSchemaTypeGen.generateTypes(savedSchema));
         setError(() => undefined);
       } catch (error) {
-        handleCodeGenError();
+        handleCodeGenError(error);
       }
       
     } 
@@ -129,7 +129,7 @@ const Editor = ({
         setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
         setError(() => undefined);
       } catch (error) {
-        handleCodeGenError();
+        handleCodeGenError(error);
       }
     }
   }, [fileName]);
@@ -148,6 +148,9 @@ const Editor = ({
     if (window.monaco) { // Check if monaco is loaded
       // Add generated types to monaco and store disposable to clear them later
       const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
+      if (newDisposable != null) {
+        console.log("Types successfully imported to Editor");
+      }
       disposableRef.current = newDisposable;
     }
   }
@@ -156,7 +159,13 @@ const Editor = ({
     try {
       let formatted_sql = formatSQL(schema);
       let formatted_schema = formatted_sql;
-      pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
+      try {
+        pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
+      } catch (error) {
+        handleCodeGenError(error);
+        return undefined;
+      }
+      
       return formatted_schema;
     } catch (error) {
       console.log("error", error);
@@ -305,11 +314,12 @@ const Editor = ({
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
       setError(() => undefined);
     } catch (error) {
-      handleCodeGenError();
+      handleCodeGenError(error);
     }
   }
 
-  const handleCodeGenError = () => {
+  const handleCodeGenError = (error) => {
+    console.error("Error generating types for saved schema.\n", error);
     const errorMessage = "Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL."
     setError(() => errorMessage);
   };
