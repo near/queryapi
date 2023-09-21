@@ -17,23 +17,23 @@ mod tests {
             let lake_aws_access_key = env::var("LAKE_AWS_ACCESS_KEY").unwrap();
             let lake_aws_secret_access_key = env::var("LAKE_AWS_SECRET_ACCESS_KEY").unwrap();
             Opts {
-                redis_connection_string: "".to_string(),
+                redis_connection_string: env::var("REDIS_CONNECTION_STRING").unwrap(),
                 lake_aws_access_key,
                 lake_aws_secret_access_key,
                 queue_aws_access_key: "".to_string(),
                 queue_aws_secret_access_key: "".to_string(),
                 aws_queue_region: "".to_string(),
-                queue_url: "".to_string(),
+                queue_url: "MOCK".to_string(),
                 start_from_block_queue_url: "".to_string(),
-                registry_contract_id: "".to_string(),
+                registry_contract_id: "MOCK".to_string(),
                 port: 0,
                 chain_id: ChainId::Mainnet(StartOptions::FromLatest),
             }
         }
     }
 
-    /// Parses env vars from .env, Run with
-    /// cargo test historical_block_processing_integration_tests::test_indexing_metadata_file -- mainnet from-latest;
+    /// Parses some env vars from .env, Run with
+    /// cargo test historical_block_processing_integration_tests::test_indexing_metadata_file;
     #[tokio::test]
     async fn test_indexing_metadata_file() {
         let opts = Opts::test_opts_with_aws();
@@ -47,8 +47,8 @@ mod tests {
         assert!(a.contains(&last_indexed_block));
     }
 
-    /// Parses env vars from .env, Run with
-    /// cargo test historical_block_processing_integration_tests::test_process_historical_messages -- mainnet from-latest;
+    /// Parses some env vars from .env, Run with
+    /// cargo test historical_block_processing_integration_tests::test_process_historical_messages;
     #[tokio::test]
     async fn test_process_historical_messages() {
         opts::init_tracing();
@@ -93,8 +93,8 @@ mod tests {
         assert!(result.unwrap() > 0);
     }
 
-    /// Parses env vars from .env, Run with
-    /// cargo test historical_block_processing_integration_tests::test_filter_matching_wildcard_blocks_from_index_files -- mainnet from-latest;
+    /// Parses some env vars from .env, Run with
+    /// cargo test historical_block_processing_integration_tests::test_filter_matching_wildcard_blocks_from_index_files;
     #[tokio::test]
     async fn test_filter_matching_wildcard_blocks_from_index_files() {
         let contract = "*.keypom.near";
@@ -150,8 +150,8 @@ mod tests {
         }
     }
 
-    /// Parses env vars from .env, Run with
-    /// cargo test historical_block_processing_integration_tests::test_filter_matching_blocks_from_index_files -- mainnet from-latest;
+    /// Parses some env vars from .env, Run with
+    /// cargo test historical_block_processing_integration_tests::test_filter_matching_blocks_from_index_files;
     #[tokio::test]
     async fn test_filter_matching_blocks_from_index_files() {
         let contract = "*.agency.near";
