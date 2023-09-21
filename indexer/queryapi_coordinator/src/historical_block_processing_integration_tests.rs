@@ -24,8 +24,8 @@ mod tests {
                 queue_aws_secret_access_key: "".to_string(),
                 aws_queue_region: "".to_string(),
                 queue_url: "MOCK".to_string(),
-                start_from_block_queue_url: "".to_string(),
-                registry_contract_id: "MOCK".to_string(),
+                start_from_block_queue_url: "MOCK".to_string(),
+                registry_contract_id: "".to_string(),
                 port: 0,
                 chain_id: ChainId::Mainnet(StartOptions::FromLatest),
             }
