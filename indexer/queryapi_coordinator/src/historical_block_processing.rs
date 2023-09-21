@@ -330,7 +330,25 @@ async fn filter_matching_unindexed_blocks_from_lake(
     for current_block in (last_indexed_block + 1)..ending_block_height {
         // fetch block file from S3
         let key = format!("{}/block.json", normalize_block_height(current_block));
-        let block = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await?;
+        let s3_result = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await;
+
+        if s3_result.is_err() {
+            let error = s3_result.err().unwrap();
+            if let Some(_) = error.downcast_ref::<aws_sdk_s3::error::NoSuchKey>() {
+                tracing::info!(
+                    target: crate::INDEXER,
+                    "In manual filtering, skipping block number {} which was not found. For function {:?} {:?}",
+                    current_block,
+                    indexer_function.account_id,
+                    indexer_function.function_name,
+                );
+                continue;
+            } else {
+                bail!(error);
+            }
+        }
+
+        let block = s3_result.unwrap();
         let block_view = serde_json::from_slice::<
             near_lake_framework::near_indexer_primitives::views::BlockView,
         >(block.as_ref())
