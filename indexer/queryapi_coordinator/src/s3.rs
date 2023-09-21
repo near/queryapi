@@ -203,10 +203,12 @@ fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::historical_block_processing::{INDEXED_ACTIONS_FILES_FOLDER, LAKE_BUCKET_PREFIX};
     use crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET;
+    use crate::historical_block_processing::{INDEXED_ACTIONS_FILES_FOLDER, LAKE_BUCKET_PREFIX};
     use crate::opts::Opts;
-    use crate::s3::{fetch_text_file_from_s3, find_index_files_by_pattern, list_s3_bucket_by_prefix};
+    use crate::s3::{
+        fetch_text_file_from_s3, find_index_files_by_pattern, list_s3_bucket_by_prefix,
+    };
     use aws_sdk_s3::{Client as S3Client, Config};
 
     /// Parses env vars from .env, Run with
@@ -312,14 +314,17 @@ mod tests {
         let mut success = false;
 
         let opts = Opts::test_opts_with_aws();
-        let s3_config: Config = aws_sdk_s3::config::Builder::from(&opts.lake_aws_sdk_config()).build();
+        let s3_config: Config =
+            aws_sdk_s3::config::Builder::from(&opts.lake_aws_sdk_config()).build();
 
         let s3_client: S3Client = S3Client::from_conf(s3_config);
 
         let s3_result = fetch_text_file_from_s3(
             format!("{}{}", LAKE_BUCKET_PREFIX, "mainnet").as_str(),
             "does_not_exist/block.json".to_string(),
-            s3_client).await;
+            s3_client,
+        )
+        .await;
 
         if s3_result.is_err() {
             let wrapped_error = s3_result.err().unwrap();
