@@ -334,22 +334,15 @@ async fn filter_matching_unindexed_blocks_from_lake(
 
         if s3_result.is_err() {
             let error = s3_result.err().unwrap();
-            if let Some(s3_err) = error.downcast_ref::<aws_sdk_s3::error::GetObjectError>() {
-                match s3_err.kind {
-                    aws_sdk_s3::error::GetObjectErrorKind::NoSuchKey(_) => {
-                        tracing::info!(
-                            target: crate::INDEXER,
-                            "In manual filtering, skipping block number {} which was not found. For function {:?} {:?}",
-                            current_block,
-                            indexer_function.account_id,
-                            indexer_function.function_name,
-                        );
-                        continue;
-                    }
-                    _ => {
-                        bail!(error);
-                    }
-                }
+            if let Some(_) = error.downcast_ref::<aws_sdk_s3::error::NoSuchKey>() {
+                tracing::info!(
+                    target: crate::INDEXER,
+                    "In manual filtering, skipping block number {} which was not found. For function {:?} {:?}",
+                    current_block,
+                    indexer_function.account_id,
+                    indexer_function.function_name,
+                );
+                continue;
             } else {
                 bail!(error);
             }
