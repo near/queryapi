@@ -1,6 +1,7 @@
 import { Block } from '@near-lake/primitives';
 import type fetch from 'node-fetch';
-import type { S3 } from '@aws-sdk/client-s3';
+import { type S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import type RedisClient from '../redis-client';
 
 import Indexer from './indexer';
 import { VM } from 'vm2';
@@ -162,6 +163,13 @@ CREATE TABLE
       }),
     });
 
+  const transparentRedis = {
+    getStreamerBlockFromCache: jest.fn(),
+    addStreamerBlockToCache: jest.fn(),
+    getStreamerShardFromCache: jest.fn(),
+    addStreamerShardToCache: jest.fn()
+  } as unknown as RedisClient;
+
   beforeEach(() => {
     process.env = {
       ...oldEnv,
@@ -182,19 +190,20 @@ CREATE TABLE
       }),
     }));
     const blockHeight = 456;
-    const mockS3 = {
-      getObject: jest.fn().mockResolvedValue({
-        Body: {
-          toString: () => JSON.stringify({
-            chunks: [],
-            header: {
-              height: blockHeight
-            }
-          })
+    const mockData = jest.fn().mockResolvedValue(
+      JSON.stringify({
+        chunks: [],
+        header: {
+          height: blockHeight
         }
-      }),
-    } as unknown as S3;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
+      })
+    );
+    const mockRedis = {
+      getStreamerShardFromCache: mockData,
+      getStreamerBlockFromCache: mockData
+    } as unknown as RedisClient;
+
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: mockRedis });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -209,58 +218,206 @@ CREATE TABLE
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.fetchBlock() should fetch a block from the S3', async () => {
+  test('Indexer.fetchBlock() should fetch a block from cache', async () => {
     const author = 'dokiacapital.poolv1.near';
-    const mockS3 = {
-      getObject: jest.fn().mockResolvedValue({
-        Body: {
-          toString: () => JSON.stringify({
-            author
-          })
-        }
-      }),
-    } as unknown as S3;
-    const indexer = new Indexer('mainnet', { s3: mockS3 });
+    const mockData = jest.fn().mockResolvedValue(
+      JSON.stringify({
+        author
+      })
+    );
+    const mockRedis = {
+      getStreamerBlockFromCache: mockData
+    } as unknown as RedisClient;
+    const indexer = new Indexer('mainnet', { redisClient: mockRedis });
 
     const blockHeight = 84333960;
-    const block = await indexer.fetchBlockPromise(blockHeight);
+    const block = await indexer.fetchBlockPromise(blockHeight, false);
 
-    expect(mockS3.getObject).toHaveBeenCalledTimes(1);
-    expect(mockS3.getObject).toHaveBeenCalledWith({
-      Bucket: 'near-lake-data-mainnet',
-      Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
-    });
+    expect(mockRedis.getStreamerBlockFromCache).toHaveBeenCalledTimes(1);
+    expect(mockRedis.getStreamerBlockFromCache).toHaveBeenCalledWith(
+      'near-lake-data-mainnet',
+      `${blockHeight.toString().padStart(12, '0')}/block.json`
+    );
     expect(block.author).toEqual(author);
   });
 
-  test('Indexer.fetchShard() should fetch the steamer message from S3', async () => {
+  test('Indexer.fetchBlock() should fetch a block from the S3 after cache miss', async () => {
+    const author = 'dokiacapital.poolv1.near';
+    const mockData = JSON.stringify({
+      author
+    });
+    const mockSend = jest.fn().mockResolvedValue({
+      Body: {
+        transformToString: () => mockData
+      }
+    });
     const mockS3 = {
-      getObject: jest.fn().mockResolvedValue({
-        Body: {
-          toString: () => JSON.stringify({})
-        }
-      }),
-    } as unknown as S3;
-    const indexer = new Indexer('mainnet', { s3: mockS3 });
+      send: mockSend,
+    } as unknown as S3Client;
+
+    const indexer = new Indexer('mainnet', { s3: mockS3, redisClient: transparentRedis });
+
+    const blockHeight = 84333960;
+    const block = await indexer.fetchBlockPromise(blockHeight, false);
+    const params = {
+      Bucket: 'near-lake-data-mainnet',
+      Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
+    };
+
+    expect(mockS3.send).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockSend.mock.calls[0][0])).toMatch(JSON.stringify(new GetObjectCommand(params)));
+    expect(transparentRedis.getStreamerBlockFromCache).toHaveBeenCalledTimes(1);
+    expect(transparentRedis.addStreamerBlockToCache).toHaveBeenCalledWith(params.Bucket, params.Key, mockData);
+    expect(block.author).toEqual(author);
+  });
+
+  test('Indexer.fetchBlock() should fetch a block not from cache but from the S3 if historical', async () => {
+    const author = 'dokiacapital.poolv1.near';
+    const mockSend = jest.fn().mockResolvedValue({
+      Body: {
+        transformToString: () => JSON.stringify({
+          author
+        })
+      }
+    });
+    const mockS3 = {
+      send: mockSend,
+    } as unknown as S3Client;
+    const mockRedis = {
+      getStreamerBlockFromCache: jest.fn(),
+      addStreamerBlockToCache: jest.fn()
+    } as unknown as RedisClient;
+    const indexer = new Indexer('mainnet', { s3: mockS3, redisClient: mockRedis });
+
+    const blockHeight = 84333960;
+    const block = await indexer.fetchBlockPromise(blockHeight, true);
+
+    expect(mockS3.send).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockSend.mock.calls[0][0])).toMatch(JSON.stringify(new GetObjectCommand({
+      Bucket: 'near-lake-data-mainnet',
+      Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
+    })));
+    expect(mockRedis.getStreamerBlockFromCache).toHaveBeenCalledTimes(0);
+    expect(mockRedis.addStreamerBlockToCache).toHaveBeenCalledTimes(0);
+    expect(block.author).toEqual(author);
+  });
+
+  test('Indexer.fetchShard() should fetch the steamer message from cache', async () => {
+    const mockData = jest.fn().mockResolvedValue(JSON.stringify({}));
+    const mockRedis = {
+      getStreamerShardFromCache: mockData
+    } as unknown as RedisClient;
+    const indexer = new Indexer('mainnet', { redisClient: mockRedis });
 
     const blockHeight = 82699904;
     const shard = 0;
-    await indexer.fetchShardPromise(blockHeight, shard);
+    await indexer.fetchShardPromise(blockHeight, shard, false);
 
-    expect(mockS3.getObject).toHaveBeenCalledTimes(1);
-    expect(mockS3.getObject).toHaveBeenCalledWith({
-      Bucket: 'near-lake-data-mainnet',
-      Key: `${blockHeight.toString().padStart(12, '0')}/shard_${shard}.json`
-    });
+    expect(mockRedis.getStreamerShardFromCache).toHaveBeenCalledTimes(1);
+    expect(mockRedis.getStreamerShardFromCache).toHaveBeenCalledWith(
+      'near-lake-data-mainnet',
+      `${blockHeight.toString().padStart(12, '0')}/shard_${shard}.json`
+    );
   });
 
-  test('Indexer.fetchStreamerMessage() should fetch the block/shards and construct the streamer message', async () => {
+  test('Indexer.fetchShard() should fetch the steamer message from S3 after cache miss', async () => {
+    const mockData = JSON.stringify({});
+    const mockSend = jest.fn().mockResolvedValue({
+      Body: {
+        transformToString: () => mockData
+      }
+    });
+    const mockS3 = {
+      send: mockSend,
+    } as unknown as S3Client;
+    const mockRedis = {
+      getStreamerShardFromCache: jest.fn(),
+      addStreamerShardToCache: jest.fn()
+    } as unknown as RedisClient;
+    const indexer = new Indexer('mainnet', { s3: mockS3, redisClient: mockRedis });
+
+    const blockHeight = 82699904;
+    const shard = 0;
+    const params = {
+      Bucket: 'near-lake-data-mainnet',
+      Key: `${blockHeight.toString().padStart(12, '0')}/shard_${shard}.json`
+    };
+    await indexer.fetchShardPromise(blockHeight, shard, false);
+
+    expect(JSON.stringify(mockSend.mock.calls[0][0])).toMatch(JSON.stringify(new GetObjectCommand(params)));
+    expect(mockRedis.getStreamerShardFromCache).toHaveBeenCalledTimes(1);
+    expect(mockRedis.addStreamerShardToCache).toHaveBeenCalledWith(params.Bucket, params.Key, mockData);
+  });
+
+  test('Indexer.fetchShard() should fetch the steamer message not from cache but from S3 if historical', async () => {
+    const mockSend = jest.fn().mockResolvedValue({
+      Body: {
+        transformToString: () => JSON.stringify({})
+      }
+    });
+    const mockS3 = {
+      send: mockSend,
+    } as unknown as S3Client;
+    const mockRedis = {
+      getStreamerShardFromCache: jest.fn(),
+      addStreamerShardToCache: jest.fn()
+    } as unknown as RedisClient;
+    const indexer = new Indexer('mainnet', { s3: mockS3, redisClient: mockRedis });
+
+    const blockHeight = 82699904;
+    const shard = 0;
+    await indexer.fetchShardPromise(blockHeight, shard, true);
+
+    expect(mockS3.send).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(mockSend.mock.calls[0][0])).toMatch(JSON.stringify(new GetObjectCommand({
+      Bucket: 'near-lake-data-mainnet',
+      Key: `${blockHeight.toString().padStart(12, '0')}/shard_${shard}.json`
+    })));
+    expect(mockRedis.getStreamerShardFromCache).toHaveBeenCalledTimes(0);
+    expect(mockRedis.addStreamerShardToCache).toHaveBeenCalledTimes(0);
+  });
+
+  test('Indexer.fetchStreamerMessage() should fetch the block/shards from cache and construct the streamer message', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
-    const getObject = jest.fn()
+    const getBlockFromCache = jest.fn()
+      .mockReturnValueOnce(JSON.stringify({
+        chunks: [0],
+        header: {
+          height: blockHeight,
+          hash: blockHash,
+        }
+      }));
+    const getShardFromCache = jest.fn().mockReturnValue(JSON.stringify({}));
+    const mockRedis = {
+      getStreamerBlockFromCache: getBlockFromCache,
+      getStreamerShardFromCache: getShardFromCache
+    } as unknown as RedisClient;
+    const indexer = new Indexer('mainnet', { redisClient: mockRedis });
+
+    const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, false);
+
+    expect(getBlockFromCache).toHaveBeenCalledTimes(1);
+    expect(getShardFromCache).toHaveBeenCalledTimes(4);
+    expect(JSON.stringify(getBlockFromCache.mock.calls[0])).toEqual(
+      `["near-lake-data-mainnet","${blockHeight.toString().padStart(12, '0')}/block.json"]`
+    );
+    expect(JSON.stringify(getShardFromCache.mock.calls[1])).toEqual(
+      `["near-lake-data-mainnet","${blockHeight.toString().padStart(12, '0')}/shard_1.json"]`,
+    );
+    const block = Block.fromStreamerMessage(streamerMessage);
+
+    expect(block.blockHeight).toEqual(blockHeight);
+    expect(block.blockHash).toEqual(blockHash);
+  });
+
+  test('Indexer.fetchStreamerMessage() should fetch the block/shards from S3 and construct the streamer message', async () => {
+    const blockHeight = 85233529;
+    const blockHash = 'xyz';
+    const mockSend = jest.fn()
       .mockReturnValueOnce({ // block
         Body: {
-          toString: () => JSON.stringify({
+          transformToString: () => JSON.stringify({
             chunks: [0],
             header: {
               height: blockHeight,
@@ -271,25 +428,25 @@ CREATE TABLE
       })
       .mockReturnValue({ // shard
         Body: {
-          toString: () => JSON.stringify({})
+          transformToString: () => JSON.stringify({})
         }
       });
     const mockS3 = {
-      getObject,
-    } as unknown as S3;
-    const indexer = new Indexer('mainnet', { s3: mockS3 });
+      send: mockSend,
+    } as unknown as S3Client;
+    const indexer = new Indexer('mainnet', { s3: mockS3, redisClient: transparentRedis });
 
-    const streamerMessage = await indexer.fetchStreamerMessage(blockHeight);
+    const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, false);
 
-    expect(getObject).toHaveBeenCalledTimes(5);
-    expect(getObject.mock.calls[0][0]).toEqual({
+    expect(mockSend).toHaveBeenCalledTimes(5);
+    expect(JSON.stringify(mockSend.mock.calls[0][0])).toStrictEqual(JSON.stringify(new GetObjectCommand({
       Bucket: 'near-lake-data-mainnet',
       Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
-    });
-    expect(getObject.mock.calls[1][0]).toEqual({
+    })));
+    expect(JSON.stringify(mockSend.mock.calls[1][0])).toStrictEqual(JSON.stringify(new GetObjectCommand({
       Bucket: 'near-lake-data-mainnet',
       Key: `${blockHeight.toString().padStart(12, '0')}/shard_0.json`
-    });
+    })));
 
     const block = Block.fromStreamerMessage(streamerMessage);
 
@@ -298,7 +455,7 @@ CREATE TABLE
   });
 
   test('Indexer.transformIndexerFunction() applies the necessary transformations', () => {
-    const indexer = new Indexer('mainnet');
+    const indexer = new Indexer('mainnet', { redisClient: transparentRedis });
 
     const transformedFunction = indexer.transformIndexerFunction('console.log(\'hello\')');
 
@@ -330,7 +487,7 @@ CREATE TABLE
           }
         })
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: transparentRedis });
 
     const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
@@ -382,7 +539,7 @@ CREATE TABLE
 
   test('Indexer.buildContext() can fetch from the near social api', async () => {
     const mockFetch = jest.fn();
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: transparentRedis });
 
     const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
@@ -411,7 +568,7 @@ CREATE TABLE
           errors: ['boom']
         })
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: transparentRedis });
 
     const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, INVALID_HASURA_ROLE);
 
@@ -426,7 +583,7 @@ CREATE TABLE
           data: 'mock',
         }),
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: transparentRedis });
 
     const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
@@ -530,7 +687,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToInsert = [{
@@ -566,7 +727,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToSelect = {
@@ -593,7 +758,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const whereObj = {
@@ -624,7 +793,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const objToInsert = [{
@@ -657,7 +830,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     const deleteFilter = {
@@ -673,7 +850,11 @@ CREATE TABLE
       create: jest.fn()
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     expect(Object.keys(context.db)).toStrictEqual([
@@ -712,7 +893,11 @@ CREATE TABLE
       create: jest.fn()
     };
 
-    const indexer = new Indexer('mainnet', { fetch: genericMockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
+    const indexer = new Indexer('mainnet', {
+      fetch: genericMockFetch as unknown as typeof fetch,
+      redisClient: transparentRedis,
+      DmlHandler: mockDmlHandler
+    });
     const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres');
 
     expect(Object.keys(context.db)).toStrictEqual([]);
@@ -773,10 +958,10 @@ CREATE TABLE
       });
 
     const mockS3 = {
-      getObject: jest.fn()
+      send: jest.fn()
         .mockResolvedValueOnce({ // block
           Body: {
-            toString: () => JSON.stringify({
+            transformToString: () => JSON.stringify({
               chunks: [0],
               header: {
                 height: blockHeight,
@@ -786,11 +971,11 @@ CREATE TABLE
         })
         .mockResolvedValue({ // shard
           Body: {
-            toString: () => JSON.stringify({})
+            transformToString: () => JSON.stringify({})
           },
         }),
-    } as unknown as S3;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
+    } as unknown as S3Client;
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, redisClient: transparentRedis });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -861,9 +1046,9 @@ CREATE TABLE
     }));
     const blockHeight = 456;
     const mockS3 = {
-      getObject: jest.fn().mockResolvedValue({
+      send: jest.fn().mockResolvedValue({
         Body: {
-          toString: () => JSON.stringify({
+          transformToString: () => JSON.stringify({
             chunks: [],
             header: {
               height: blockHeight
@@ -871,8 +1056,8 @@ CREATE TABLE
           })
         }
       }),
-    } as unknown as S3;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3 });
+    } as unknown as S3Client;
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, redisClient: transparentRedis });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -895,11 +1080,11 @@ CREATE TABLE
       }),
     }));
     const mockS3 = {
-      getObject: jest
+      send: jest
         .fn()
         .mockResolvedValueOnce({ // block
           Body: {
-            toString: () => JSON.stringify({
+            transformToString: () => JSON.stringify({
               chunks: [0],
               header: {
                 height: blockHeight,
@@ -909,15 +1094,15 @@ CREATE TABLE
         })
         .mockResolvedValue({ // shard
           Body: {
-            toString: () => JSON.stringify({})
+            transformToString: () => JSON.stringify({})
           },
         }),
-    } as unknown as S3;
+    } as unknown as S3Client;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, redisClient: transparentRedis, provisioner });
 
     const functions = {
       'morgs.near/test': {
@@ -947,11 +1132,11 @@ CREATE TABLE
       }),
     }));
     const mockS3 = {
-      getObject: jest
+      send: jest
         .fn()
         .mockResolvedValueOnce({ // block
           Body: {
-            toString: () => JSON.stringify({
+            transformToString: () => JSON.stringify({
               chunks: [0],
               header: {
                 height: blockHeight,
@@ -961,15 +1146,15 @@ CREATE TABLE
         })
         .mockResolvedValue({ // shard
           Body: {
-            toString: () => JSON.stringify({})
+            transformToString: () => JSON.stringify({})
           },
         }),
-    } as unknown as S3;
+    } as unknown as S3Client;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, redisClient: transparentRedis, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {
@@ -991,11 +1176,11 @@ CREATE TABLE
       }),
     }));
     const mockS3 = {
-      getObject: jest
+      send: jest
         .fn()
         .mockResolvedValueOnce({ // block
           Body: {
-            toString: () => JSON.stringify({
+            transformToString: () => JSON.stringify({
               chunks: [0],
               header: {
                 height: blockHeight,
@@ -1005,15 +1190,15 @@ CREATE TABLE
         })
         .mockResolvedValue({ // shard
           Body: {
-            toString: () => JSON.stringify({})
+            transformToString: () => JSON.stringify({})
           },
         }),
-    } as unknown as S3;
+    } as unknown as S3Client;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, redisClient: transparentRedis, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {
@@ -1038,11 +1223,11 @@ CREATE TABLE
       }),
     }));
     const mockS3 = {
-      getObject: jest
+      send: jest
         .fn()
         .mockResolvedValueOnce({ // block
           Body: {
-            toString: () => JSON.stringify({
+            transformToString: () => JSON.stringify({
               chunks: [0],
               header: {
                 height: blockHeight,
@@ -1052,16 +1237,16 @@ CREATE TABLE
         })
         .mockResolvedValue({ // shard
           Body: {
-            toString: () => JSON.stringify({})
+            transformToString: () => JSON.stringify({})
           },
         }),
-    } as unknown as S3;
+    } as unknown as S3Client;
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn().mockRejectedValue(error),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3: mockS3, redisClient: transparentRedis, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {
@@ -1084,7 +1269,7 @@ CREATE TABLE
           data: {}
         })
       });
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: transparentRedis });
     // @ts-expect-error legacy test
     const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, null);
 
@@ -1120,7 +1305,7 @@ CREATE TABLE
         })
       });
     const role = 'morgs_near';
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: transparentRedis });
     const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
 
     const mutation = `

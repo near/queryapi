@@ -1,18 +1,20 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import { S3 } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import RedisClient from '../redis-client';
 
 interface Dependencies {
   fetch: typeof fetch
-  s3: S3
+  s3: S3Client
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
+  redisClient: RedisClient
 };
 
 interface Context {
@@ -44,10 +46,11 @@ export default class Indexer {
     this.network = network;
     this.deps = {
       fetch,
-      s3: new S3(),
+      s3: new S3Client(),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
+      redisClient: new RedisClient(),
       ...deps,
     };
   }
@@ -58,7 +61,7 @@ export default class Indexer {
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight));
+    const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight, isHistorical));
 
     const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
 
@@ -132,9 +135,9 @@ export default class Indexer {
     return blockHeight.toString().padStart(12, '0');
   }
 
-  async fetchStreamerMessage (blockHeight: number): Promise<{ block: any, shards: any[] }> {
-    const blockPromise = this.fetchBlockPromise(blockHeight);
-    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
+  async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
+    const blockPromise = this.fetchBlockPromise(blockHeight, isHistorical);
+    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4, isHistorical);
 
     const results = await Promise.all([blockPromise, ...shardsPromises]);
     const block = results.shift();
@@ -145,31 +148,60 @@ export default class Indexer {
     };
   }
 
-  async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
+  async fetchShardsPromises (blockHeight: number, numberOfShards: number, isHistorical: boolean): Promise<Array<Promise<any>>> {
     return ([...Array(numberOfShards).keys()].map(async (shardId) =>
-      await this.fetchShardPromise(blockHeight, shardId)
+      await this.fetchShardPromise(blockHeight, shardId, isHistorical)
     ));
   }
 
-  async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
+  async fetchShardPromise (blockHeight: number, shardId: number, isHistorical: boolean): Promise<any> {
+    const bucket = `near-lake-data-${this.network}`;
+    const shardKey = `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`;
     const params = {
-      Bucket: `near-lake-data-${this.network}`,
-      Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
+      Bucket: bucket,
+      Key: shardKey,
     };
-    const response = await this.deps.s3.getObject(params);
-    console.log('RESP: ', response.Body?.toString());
-    return JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+    let shardData;
+
+    if (!isHistorical) { // Do not attempt hitting cache if historical process
+      shardData = await this.deps.redisClient.getStreamerShardFromCache(bucket, shardKey);
+    }
+
+    if (!shardData) { // If cache miss or not historical, poll S3
+      const response = await this.deps.s3.send(new GetObjectCommand(params));
+      shardData = await response.Body?.transformToString() ?? '{}';
+
+      if (!isHistorical) {
+        await this.deps.redisClient.addStreamerShardToCache(bucket, shardKey, shardData);
+      }
+    }
+
+    return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
-  async fetchBlockPromise (blockHeight: number): Promise<any> {
-    const file = 'block.json';
-    const folder = this.normalizeBlockHeight(blockHeight);
+  async fetchBlockPromise (blockHeight: number, isHistorical: boolean): Promise<any> {
+    const bucket = `near-lake-data-${this.network}`;
+    const blockKey = `${this.normalizeBlockHeight(blockHeight)}/block.json`;
     const params = {
-      Bucket: 'near-lake-data-' + this.network,
-      Key: `${folder}/${file}`,
+      Bucket: bucket,
+      Key: blockKey,
     };
-    const response = await this.deps.s3.getObject(params);
-    return JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+    let blockData;
+
+    if (!isHistorical) { // Do not attempt hitting cache if historical process
+      blockData = await this.deps.redisClient.getStreamerBlockFromCache(bucket, blockKey);
+    }
+
+    if (!blockData) { // If cache miss or not historical, poll S3
+      const response = await this.deps.s3.send(new GetObjectCommand(params));
+      blockData = await response.Body?.transformToString() ?? '{}';
+
+      if (!isHistorical) {
+        await this.deps.redisClient.addStreamerBlockToCache(bucket, blockKey, blockData);
+      }
+    }
+
+    return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   enableAwaitTransform (indexerFunction: string): string {

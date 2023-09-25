@@ -1,7 +1,7 @@
 import { connect } from "near-api-js";
 import fetch from 'node-fetch';
 import { VM } from 'vm2';
-import { S3 } from 'aws-sdk';
+import AWS from 'aws-sdk';
 import { Block } from '@near-lake/primitives'
 
 import Provisioner from './provisioner.js'
@@ -22,7 +22,7 @@ export default class Indexer {
         this.aws_region = process.env.REGION;
         this.deps = {
             fetch: traceFetch(fetch),
-            s3: new S3({ region: process.env.REGION }),
+            s3: new AWS.S3({ region: process.env.REGION }),
             metrics: new Metrics('QueryAPI'),
             provisioner: new Provisioner(),
             awsXray: AWSXRay,
