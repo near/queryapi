@@ -1,6 +1,7 @@
 {
     "REPL_ACCOUNT_ID": "dataplatform.near",
     "REPL_GRAPHQL_ENDPOINT": "https://near-queryapi.api.pagoda.co",
+    "REPL_GRAPHQL_ENDPOINT_V2": "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app",
     "REPL_EXTERNAL_APP_URL": "http://localhost:3000",
     "REPL_REGISTRY_CONTRACT_ID": "queryapi.dataplatform.near"
 }
