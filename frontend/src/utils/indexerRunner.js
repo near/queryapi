@@ -173,15 +173,23 @@ export default class IndexerRunner {
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objects) => await this.dbOperationLog(blockHeight, 
-              `Inserting object ${JSON.stringify(objects)} into table ${sanitizedTableName} on schema ${schemaName}`),
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}`, 
+              objects),
+
             select: async (object, limit = null) => await this.dbOperationLog(blockHeight,
-              `Selecting objects with values ${JSON.stringify(object)} from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : roundedLimit} limit`),
+              `Selecting objects with the following values from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
+              object),
+              
             update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
-              `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${sanitizedTableName} on schema ${schemaName}`),
+              `Updating objects that match the specified fields with the following values in table ${sanitizedTableName} on schema ${schemaName}`, 
+              {matchingFields: whereObj, fieldsToUpdate: updateObj}),
+
             upsert: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
-              `Inserting objects with values ${JSON.stringify(objects)} in table ${sanitizedTableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`),
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
+              {insertObjects: objects, conflictColumns: conflictColumns.join(', '), updateColumns: updateColumns.join(', ')}),
+
             delete: async (object) => await this.dbOperationLog(blockHeight,
-              `Deleting objects with values ${JSON.stringify(object)} in table ${sanitizedTableName} on schema ${schemaName}`)
+              `Deleting objects which match the following object's values from table ${sanitizedTableName} on schema ${schemaName}`, object)
           }
         };
 
@@ -196,12 +204,15 @@ export default class IndexerRunner {
     }
   }
 
-  dbOperationLog(blockHeight, logMessage) {
+  dbOperationLog(blockHeight, logMessage, data) {
+    console.log(logMessage);
     this.handleLog(
       blockHeight,
       "",
       () => {
-        console.log(logMessage);
+        console.group(logMessage);
+        console.log(data);
+        console.groupEnd();
       }
     );
     return {};

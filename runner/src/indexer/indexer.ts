@@ -324,7 +324,7 @@ export default class Indexer {
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               // Write log before calling upsert
               await this.writeLog(`context.db.${sanitizedTableName}.upsert`, blockHeight, defaultLog + '.upsert',
-                `Inserting objects with values ${JSON.stringify(objectsToInsert)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+                `Inserting objects with values ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
               // Create DmlHandler if it doesn't exist
               dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
@@ -335,7 +335,7 @@ export default class Indexer {
             delete: async (filterObj: any) => {
               // Write log before calling delete
               await this.writeLog(`context.db.${sanitizedTableName}.delete`, blockHeight, defaultLog + '.delete',
-                `Deleting objects with values ${JSON.stringify(filterObj)} in table ${tableName} on schema ${schemaName}`);
+                `Deleting objects with values ${JSON.stringify(filterObj)} from table ${tableName} on schema ${schemaName}`);
 
               // Create DmlHandler if it doesn't exist
               dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
