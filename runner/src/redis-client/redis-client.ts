@@ -20,6 +20,7 @@ export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
   LARGEST_STREAM_ID = '+';
   STREAMS_SET_KEY = 'streams';
+  STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer:message:cache:';
   STREAMER_BLOCK_HASH_KEY_BASE = 'streamer:block:cache:';
   STREAMER_SHARD_HASH_KEY_BASE = 'streamer:shard:cache:';
 
@@ -86,19 +87,7 @@ export default class RedisClient {
     return await this.client.sMembers(this.STREAMS_SET_KEY);
   }
 
-  async addStreamerBlockToCache (hashKey: string, key: string, blockData: string): Promise<void> {
-    await this.client.setEx(`${this.STREAMER_BLOCK_HASH_KEY_BASE}${hashKey}:${key}`, 30, blockData);
-  }
-
-  async getStreamerBlockFromCache (hashKey: string, key: string): Promise<string | null> {
-    return await this.client.get(`${this.STREAMER_BLOCK_HASH_KEY_BASE}${hashKey}:${key}`);
-  }
-
-  async addStreamerShardToCache (hashKey: string, key: string, blockData: string): Promise<void> {
-    await this.client.setEx(`${this.STREAMER_BLOCK_HASH_KEY_BASE}${hashKey}:${key}`, 30, blockData);
-  }
-
-  async getStreamerShardFromCache (hashKey: string, key: string): Promise<string | null> {
-    return await this.client.get(`${this.STREAMER_BLOCK_HASH_KEY_BASE}${hashKey}:${key}`);
+  async getStreamerMessageFromCache (source: string, blockHeight: number): Promise<string | null> {
+    return await this.client.get(`${this.STREAMER_MESSAGE_HASH_KEY_BASE}${source}:${blockHeight}`);
   }
 }

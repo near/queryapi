@@ -2,7 +2,9 @@ pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 const STORAGE: &str = "storage_alertexer";
 
+pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 pub const STREAMS_SET_KEY: &str = "streams";
+pub const STREAMER_MESSAGE_HASH_KEY_BASE: &str = "streamer:message:cache:";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
@@ -54,6 +56,22 @@ pub async fn set(
         .query_async(&mut redis_connection_manager.clone())
         .await?;
     tracing::debug!(target: STORAGE, "SET: {:?}: {:?}", key, value,);
+    Ok(())
+}
+
+pub async fn setEx(
+    redis_connection_manager: &ConnectionManager,
+    key: impl ToRedisArgs + std::fmt::Debug,
+    expiration: usize,
+    value: impl ToRedisArgs + std::fmt::Debug,
+) -> anyhow::Result<()> {
+    redis::cmd("SETEX")
+        .arg(&key)
+        .arg(expiration)
+        .arg(&value)
+        .query_async(&mut redis_connection_manager.clone())
+        .await?;
+    tracing::debug!(target: STORAGE, "SETEX: {:?}: {:?} with expiration {:?}s", key, value, expiration);
     Ok(())
 }
 

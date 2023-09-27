@@ -1,3 +1,4 @@
+use actix_web::cookie::Expiration;
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
@@ -26,6 +27,7 @@ pub(crate) const INDEXER: &str = "queryapi_coordinator";
 pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
 pub(crate) const RETRY_COUNT: usize = 2;
+
 
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
 
@@ -145,6 +147,21 @@ async fn handle_streamer_message(
         .buffer_unordered(10usize);
 
     let block_height: BlockHeight = context.streamer_message.block.header.height;
+
+    // Cache streamer message block and shards for use in real time processing
+    storage::setEx(
+        context.redis_connection_manager,
+        format!(
+            "{}{}{}:{}",
+            storage::STREAMER_MESSAGE_HASH_KEY_BASE,
+            storage::LAKE_BUCKET_PREFIX,
+            context.chain_id,
+            block_height
+        ),
+        180,
+        serde_json::to_string(&context.streamer_message)?,
+    )
+    .await?;
 
     let spawned_indexers = indexer_registry::index_registry_changes(
         block_height,

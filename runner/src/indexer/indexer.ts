@@ -136,8 +136,15 @@ export default class Indexer {
   }
 
   async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
-    const blockPromise = this.fetchBlockPromise(blockHeight, isHistorical);
-    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4, isHistorical);
+    if (!isHistorical) {
+      const cachedMessage = await this.deps.redisClient.getStreamerMessageFromCache(`near-lake-data-${this.network}`, blockHeight);
+      if (cachedMessage) {
+        const parsedMessage = JSON.parse(cachedMessage, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+        return parsedMessage;
+      }
+    }
+    const blockPromise = this.fetchBlockPromise(blockHeight);
+    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
 
     const results = await Promise.all([blockPromise, ...shardsPromises]);
     const block = results.shift();
@@ -148,59 +155,31 @@ export default class Indexer {
     };
   }
 
-  async fetchShardsPromises (blockHeight: number, numberOfShards: number, isHistorical: boolean): Promise<Array<Promise<any>>> {
+  async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
     return ([...Array(numberOfShards).keys()].map(async (shardId) =>
-      await this.fetchShardPromise(blockHeight, shardId, isHistorical)
+      await this.fetchShardPromise(blockHeight, shardId)
     ));
   }
 
-  async fetchShardPromise (blockHeight: number, shardId: number, isHistorical: boolean): Promise<any> {
-    const bucket = `near-lake-data-${this.network}`;
-    const shardKey = `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`;
+  async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
     const params = {
-      Bucket: bucket,
-      Key: shardKey,
+      Bucket: `near-lake-data-${this.network}`,
+      Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
     };
-    let shardData;
-
-    if (!isHistorical) { // Do not attempt hitting cache if historical process
-      shardData = await this.deps.redisClient.getStreamerShardFromCache(bucket, shardKey);
-    }
-
-    if (!shardData) { // If cache miss or not historical, poll S3
-      const response = await this.deps.s3.send(new GetObjectCommand(params));
-      shardData = await response.Body?.transformToString() ?? '{}';
-
-      if (!isHistorical) {
-        await this.deps.redisClient.addStreamerShardToCache(bucket, shardKey, shardData);
-      }
-    }
-
+    const response = await this.deps.s3.send(new GetObjectCommand(params));
+    const shardData = await response.Body?.transformToString() ?? '{}';
     return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
-  async fetchBlockPromise (blockHeight: number, isHistorical: boolean): Promise<any> {
-    const bucket = `near-lake-data-${this.network}`;
-    const blockKey = `${this.normalizeBlockHeight(blockHeight)}/block.json`;
+  async fetchBlockPromise (blockHeight: number): Promise<any> {
+    const file = 'block.json';
+    const folder = this.normalizeBlockHeight(blockHeight);
     const params = {
-      Bucket: bucket,
-      Key: blockKey,
+      Bucket: 'near-lake-data-' + this.network,
+      Key: `${folder}/${file}`,
     };
-    let blockData;
-
-    if (!isHistorical) { // Do not attempt hitting cache if historical process
-      blockData = await this.deps.redisClient.getStreamerBlockFromCache(bucket, blockKey);
-    }
-
-    if (!blockData) { // If cache miss or not historical, poll S3
-      const response = await this.deps.s3.send(new GetObjectCommand(params));
-      blockData = await response.Body?.transformToString() ?? '{}';
-
-      if (!isHistorical) {
-        await this.deps.redisClient.addStreamerBlockToCache(bucket, blockKey, blockData);
-      }
-    }
-
+    const response = await this.deps.s3.send(new GetObjectCommand(params));
+    const blockData = await response.Body?.transformToString() ?? '{}';
     return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
