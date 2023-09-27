@@ -39,7 +39,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema.test_table (account_id, block_height, block_timestamp, content, receipt_id, accounts_liked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
+      ['INSERT INTO test_schema."test_table" (account_id, block_height, block_timestamp, content, receipt_id, accounts_liked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
     ]);
   });
 
@@ -59,7 +59,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema.test_table (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
+      ['INSERT INTO test_schema."test_table" (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
     ]);
   });
 
@@ -73,7 +73,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
+      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
     ]);
   });
 
@@ -87,7 +87,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2 LIMIT 1', Object.values(inputObj)]
+      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 LIMIT 1', Object.values(inputObj)]
     ]);
   });
 
@@ -106,7 +106,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
-      ['UPDATE test_schema.test_table SET content=$1, receipt_id=$2 WHERE account_id=$3 AND block_height=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
+      ['UPDATE test_schema."test_table" SET content=$1, receipt_id=$2 WHERE account_id=$3 AND block_height=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
     ]);
   });
 
@@ -129,7 +129,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema.test_table (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, block_height) DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
+      ['INSERT INTO test_schema."test_table" (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, block_height) DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
     ]);
   });
 
@@ -143,7 +143,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['DELETE FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2 RETURNING *', Object.values(inputObj)]
+      ['DELETE FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 RETURNING *', Object.values(inputObj)]
     ]);
   });
 });

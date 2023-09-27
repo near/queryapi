@@ -1,6 +1,7 @@
 import { Block } from "@near-lake/primitives";
 import { Buffer } from "buffer";
 import { fetchBlockDetails } from "./fetchBlock";
+import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
 
 global.Buffer = Buffer;
 export default class IndexerRunner {
@@ -8,6 +9,7 @@ export default class IndexerRunner {
     this.handleLog = handleLog;
     this.currentHeight = 0;
     this.shouldStop = false;
+    this.pgSchemaTypeGen = new PgSchemaTypeGen();
   }
 
   async start(startingHeight, indexingCode, schema, schemaName, option) {
@@ -52,7 +54,6 @@ export default class IndexerRunner {
 
   async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
-
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
       block.actions()
@@ -153,57 +154,43 @@ export default class IndexerRunner {
     wrappedFunction(Block, streamerMessage, context);
   }
 
-  validateTableNames(tableNames) {
-    if (!(Array.isArray(tableNames) && tableNames.length > 0)) {
-      throw new Error("Schema does not have any tables. There should be at least one table.");
-    }
-    const correctTableNameFormat = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-    tableNames.forEach(name => {
-      if (!name.includes("\"") && !correctTableNameFormat.test(name)) { // Only test if table name doesn't have quotes
-        throw new Error(`Table name ${name} is not formatted correctly. Table names must not start with a number and only contain alphanumerics or underscores.`);
-      }
-    });
-  }
-
-  getTableNames (schema) {
-    const tableRegex = /CREATE TABLE\s+(?:IF NOT EXISTS\s+)?"?(.+?)"?\s*\(/g;
-    const tableNames = Array.from(schema.matchAll(tableRegex), match => {
-      let tableName;
-      if (match[1].includes('.')) { // If expression after create has schemaName.tableName, return only tableName
-        tableName = match[1].split('.')[1];
-        tableName = tableName.startsWith('"') ? tableName.substring(1) : tableName;
-      } else {
-        tableName = match[1];
-      }
-      return /^\w+$/.test(tableName) ? tableName : `"${tableName}"`; // If table name has special characters, it must be inside double quotes
-    });
-    this.validateTableNames(tableNames);
-    console.log('Retrieved the following table names from schema: ', tableNames);
-    return tableNames;
-  }
-
-  sanitizeTableName (tableName) {
-    tableName = tableName.startsWith('"') && tableName.endsWith('"') ? tableName.substring(1, tableName.length - 1) : tableName;
-    return tableName.replace(/[^a-zA-Z0-9_]/g, '_');
-  }
-
   buildDatabaseContext (blockHeight, schemaName, schema) {
     try {
-      const tables = this.getTableNames(schema);
+      const tables = this.pgSchemaTypeGen.getTableNames(schema);
+      const sanitizedTableNames = new Set();
+
+      // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
-        const sanitizedTableName = this.sanitizeTableName(tableName);
+        // Generate sanitized table name and ensure no conflict
+        const sanitizedTableName = this.pgSchemaTypeGen.sanitizeTableName(tableName);
+        if (sanitizedTableNames.has(sanitizedTableName)) {
+          throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
+        } else {
+          sanitizedTableNames.add(sanitizedTableName);
+        }
+
+        // Generate context.db methods for table
         const funcForTable = {
-          [`insert_${sanitizedTableName}`]: async (objects) => await this.dbOperationLog(blockHeight, 
-            `Inserting object ${JSON.stringify(objects)} into table ${tableName} on schema ${schemaName}`),
-          [`select_${sanitizedTableName}`]: async (object, limit = 0) => await this.dbOperationLog(blockHeight,
-            `Selecting objects with values ${JSON.stringify(object)} from table ${tableName} on schema ${schemaName} with ${limit === 0 ? 'no' : roundedLimit.toString()} limit`),
-          [`update_${sanitizedTableName}`]: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
-            `Updating objects that match ${JSON.stringify(whereObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`),
-          [`upsert_${sanitizedTableName}`]: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
-            `Inserting objects with values ${JSON.stringify(objects)} in table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`),
-          [`delete_${sanitizedTableName}`]: async (object) => await this.dbOperationLog(blockHeight,
-            `Deleting objects with values ${JSON.stringify(object)} in table ${tableName} on schema ${schemaName}`)
+          [`${sanitizedTableName}`]: {
+            insert: async (objects) => await this.dbOperationLog(blockHeight, 
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}`, 
+              objects),
+
+            select: async (object, limit = null) => await this.dbOperationLog(blockHeight,
+              `Selecting objects with the following values from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
+              object),
+              
+            update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
+              `Updating objects that match the specified fields with the following values in table ${sanitizedTableName} on schema ${schemaName}`, 
+              {matchingFields: whereObj, fieldsToUpdate: updateObj}),
+
+            upsert: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
+              {insertObjects: objects, conflictColumns: conflictColumns.join(', '), updateColumns: updateColumns.join(', ')}),
+
+            delete: async (object) => await this.dbOperationLog(blockHeight,
+              `Deleting objects which match the following object's values from table ${sanitizedTableName} on schema ${schemaName}`, object)
+          }
         };
 
         return {
@@ -217,12 +204,14 @@ export default class IndexerRunner {
     }
   }
 
-  dbOperationLog(blockHeight, logMessage) {
+  dbOperationLog(blockHeight, logMessage, data) {
     this.handleLog(
       blockHeight,
       "",
       () => {
-        console.log(logMessage);
+        console.group(logMessage);
+        console.log(data);
+        console.groupEnd();
       }
     );
     return {};

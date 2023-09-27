@@ -10,13 +10,14 @@ let wrap_code = (code) => `import {Block} from "@near-lake/primitives"
 
 /**
  * getBlock(block, context) applies your custom logic to a Block on Near and commits the data to a database. 
+ * context is a global variable that contains helper methods. 
+ * context.db is a subfield which contains helper methods to interact with your database.
  * 
  * Learn more about indexers here:  https://docs.near.org/concepts/advanced/indexers
  * 
- * @param {block} Block - A Near Protocol Block 
- * @param {context} - A set of helper methods to retrieve and commit state
+ * @param {block} Block - A Near Protocol Block
  */
-async function getBlock(block: Block, context) {
+async function getBlock(block: Block) {
   ${code}
 }`;
 
@@ -54,3 +55,33 @@ export const defaultCode = formatIndexingCode(wrapCode(
 export const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))
 `;
+
+export const defaultSchemaTypes = `declare interface IndexerStorageItem {
+  function_name?: string;
+  key_name?: string;
+  value?: string;
+}
+
+declare interface IndexerStorageInput {
+  function_name: string;
+  key_name: string;
+  value: string;
+}
+
+declare const context: {
+
+			graphql: (operation, variables) => Promise<any>,
+			set: (key, value) => Promise<any>,
+			log: (...log) => Promise<any>,
+			fetchFromSocialApi: (path, options) => Promise<Response>,
+			db: {
+			IndexerStorage: {
+				insert: (objects: IndexerStorageInput | IndexerStorageInput[]) => Promise<IndexerStorageItem[]>;
+				select: (object: IndexerStorageItem, limit = null) => Promise<IndexerStorageItem[]>;
+				update: (whereObj: IndexerStorageItem, updateObj: IndexerStorageItem) => Promise<IndexerStorageItem[]>;
+				upsert: (objects: IndexerStorageInput | IndexerStorageInput[], conflictColumns: IndexerStorageItem, updateColumns: IndexerStorageItem) => Promise<IndexerStorageItem[]>;
+				delete: (object: IndexerStorageInput) => Promise<IndexerStorageItem[]>;
+			},
+  }
+};
+`

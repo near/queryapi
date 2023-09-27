@@ -142,7 +142,7 @@ ADD
   CONSTRAINT "post_likes_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 CREATE TABLE IF NOT EXISTS
-  "public"."My Table1" (id serial PRIMARY KEY);
+  "My Table1" (id serial PRIMARY KEY);
 
 CREATE TABLE
   "Another-Table" (id serial PRIMARY KEY);
@@ -462,6 +462,77 @@ CREATE TABLE
     ]);
   });
 
+  test('GetTables works for a variety of input schemas', async () => {
+    const indexer = new Indexer('mainnet');
+
+    const simpleSchemaTables = indexer.getTableNames(SIMPLE_SCHEMA);
+    expect(simpleSchemaTables).toStrictEqual(['posts']);
+
+    const socialSchemaTables = indexer.getTableNames(SOCIAL_SCHEMA);
+    expect(socialSchemaTables).toStrictEqual(['posts', 'comments', 'post_likes']);
+
+    const stressTestSchemaTables = indexer.getTableNames(STRESS_TEST_SCHEMA);
+    expect(stressTestSchemaTables).toStrictEqual([
+      'creator_quest',
+      'composer_quest',
+      'contractor - quest',
+      'posts',
+      'comments',
+      'post_likes',
+      'My Table1',
+      'Another-Table',
+      'Third-Table',
+      'yet_another_table']);
+
+    // Test that duplicate table names throw an error
+    const duplicateTableSchema = `CREATE TABLE
+    "posts" (
+      "id" SERIAL NOT NULL
+    );
+    CREATE TABLE posts (
+      "id" SERIAL NOT NULL
+    );`;
+    expect(() => {
+      indexer.getTableNames(duplicateTableSchema);
+    }).toThrow('Table posts already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.');
+
+    // Test that schema with no tables throws an error
+    expect(() => {
+      indexer.getTableNames('');
+    }).toThrow('Schema does not have any tables. There should be at least one table.');
+  });
+
+  test('SanitizeTableName works properly on many test cases', async () => {
+    const indexer = new Indexer('mainnet');
+
+    expect(indexer.sanitizeTableName('table_name')).toStrictEqual('TableName');
+    expect(indexer.sanitizeTableName('tablename')).toStrictEqual('Tablename'); // name is not capitalized
+    expect(indexer.sanitizeTableName('table name')).toStrictEqual('TableName');
+    expect(indexer.sanitizeTableName('table!name!')).toStrictEqual('TableName');
+    expect(indexer.sanitizeTableName('123TABle')).toStrictEqual('_123TABle'); // underscore at beginning
+    expect(indexer.sanitizeTableName('123_tABLE')).toStrictEqual('_123TABLE'); // underscore at beginning, capitalization
+    expect(indexer.sanitizeTableName('some-table_name')).toStrictEqual('SomeTableName');
+    expect(indexer.sanitizeTableName('!@#$%^&*()table@)*&(%#')).toStrictEqual('Table'); // All special characters removed
+    expect(indexer.sanitizeTableName('T_name')).toStrictEqual('TName');
+    expect(indexer.sanitizeTableName('_table')).toStrictEqual('Table'); // Starting underscore was removed
+  });
+
+  test('indexer fails to build context.db due to collision on sanitized table names', async () => {
+    const indexer = new Indexer('mainnet');
+
+    const schemaWithDuplicateSanitizedTableNames = `CREATE TABLE
+    "test table" (
+      "id" SERIAL NOT NULL
+    );
+    CREATE TABLE "test!table" (
+      "id" SERIAL NOT NULL
+    );`;
+
+    // Does not outright throw an error but instead returns an empty object
+    expect(indexer.buildDatabaseContext('test_account', 'test_schema_name', schemaWithDuplicateSanitizedTableNames, 1))
+      .toStrictEqual({});
+  });
+
   test('indexer builds context and inserts an objects into existing table', async () => {
     const mockDmlHandler: any = {
       create: jest.fn().mockImplementation(() => {
@@ -489,7 +560,7 @@ CREATE TABLE
       accounts_liked: JSON.stringify(['cwpuzzles.near'])
     }];
 
-    const result = await context.db.insert_posts(objToInsert);
+    const result = await context.db.Posts.insert(objToInsert);
     expect(result.length).toEqual(2);
   });
 
@@ -512,9 +583,9 @@ CREATE TABLE
       account_id: 'morgs_near',
       receipt_id: 'abc',
     };
-    const result = await context.db.select_posts(objToSelect);
+    const result = await context.db.Posts.select(objToSelect);
     expect(result.length).toEqual(2);
-    const resultLimit = await context.db.select_posts(objToSelect, 1);
+    const resultLimit = await context.db.Posts.select(objToSelect, 1);
     expect(resultLimit.length).toEqual(1);
   });
 
@@ -543,7 +614,7 @@ CREATE TABLE
       content: 'test_content',
       block_timestamp: 805,
     };
-    const result = await context.db.update_posts(whereObj, updateObj);
+    const result = await context.db.Posts.update(whereObj, updateObj);
     expect(result.length).toEqual(2);
   });
 
@@ -583,9 +654,9 @@ CREATE TABLE
       accounts_liked: JSON.stringify(['cwpuzzles.near'])
     }];
 
-    let result = await context.db.upsert_posts(objToInsert, ['account_id', 'block_height'], ['content', 'block_timestamp']);
+    let result = await context.db.Posts.upsert(objToInsert, ['account_id', 'block_height'], ['content', 'block_timestamp']);
     expect(result.length).toEqual(2);
-    result = await context.db.upsert_posts(objToInsert[0], ['account_id', 'block_height'], ['content', 'block_timestamp']);
+    result = await context.db.Posts.upsert(objToInsert[0], ['account_id', 'block_height'], ['content', 'block_timestamp']);
     expect(result.length).toEqual(1);
   });
 
@@ -603,7 +674,7 @@ CREATE TABLE
       account_id: 'morgs_near',
       receipt_id: 'abc',
     };
-    const result = await context.db.delete_posts(deleteFilter);
+    const result = await context.db.Posts.delete(deleteFilter);
     expect(result.length).toEqual(2);
   });
 
@@ -616,16 +687,34 @@ CREATE TABLE
     const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
 
     expect(Object.keys(context.db)).toStrictEqual([
-      'insert_creator_quest', 'select_creator_quest', 'update_creator_quest', 'upsert_creator_quest', 'delete_creator_quest',
-      'insert_composer_quest', 'select_composer_quest', 'update_composer_quest', 'upsert_composer_quest', 'delete_composer_quest',
-      'insert_contractor___quest', 'select_contractor___quest', 'update_contractor___quest', 'upsert_contractor___quest', 'delete_contractor___quest',
-      'insert_posts', 'select_posts', 'update_posts', 'upsert_posts', 'delete_posts',
-      'insert_comments', 'select_comments', 'update_comments', 'upsert_comments', 'delete_comments',
-      'insert_post_likes', 'select_post_likes', 'update_post_likes', 'upsert_post_likes', 'delete_post_likes',
-      'insert_My_Table1', 'select_My_Table1', 'update_My_Table1', 'upsert_My_Table1', 'delete_My_Table1',
-      'insert_Another_Table', 'select_Another_Table', 'update_Another_Table', 'upsert_Another_Table', 'delete_Another_Table',
-      'insert_Third_Table', 'select_Third_Table', 'update_Third_Table', 'upsert_Third_Table', 'delete_Third_Table',
-      'insert_yet_another_table', 'select_yet_another_table', 'update_yet_another_table', 'upsert_yet_another_table', 'delete_yet_another_table']);
+      'CreatorQuest',
+      'ComposerQuest',
+      'ContractorQuest',
+      'Posts',
+      'Comments',
+      'PostLikes',
+      'MyTable1',
+      'AnotherTable',
+      'ThirdTable',
+      'YetAnotherTable']);
+    expect(Object.keys(context.db.CreatorQuest)).toStrictEqual([
+      'insert',
+      'select',
+      'update',
+      'upsert',
+      'delete']);
+    expect(Object.keys(context.db.PostLikes)).toStrictEqual([
+      'insert',
+      'select',
+      'update',
+      'upsert',
+      'delete']);
+    expect(Object.keys(context.db.MyTable1)).toStrictEqual([
+      'insert',
+      'select',
+      'update',
+      'upsert',
+      'delete']);
   });
 
   test('indexer builds context and returns empty array if failed to generate db methods', async () => {
