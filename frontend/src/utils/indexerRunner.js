@@ -205,7 +205,6 @@ export default class IndexerRunner {
   }
 
   dbOperationLog(blockHeight, logMessage, data) {
-    console.log(logMessage);
     this.handleLog(
       blockHeight,
       "",
