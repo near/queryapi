@@ -1,0 +1,31 @@
+table:
+  name: indexer_state
+  schema: public
+insert_permissions:
+- permission:
+    check: {}
+    columns:
+    - function_name
+    - current_block_height
+    - current_historical_block_height
+    - status
+  role: append
+select_permissions:
+- permission:
+    columns:
+    - function_name
+    - current_block_height
+    - current_historical_block_height
+    - status
+    filter: {}
+  role: append
+update_permissions:
+- permission:
+    check: {}
+    columns:
+    - function_name
+    - current_block_height
+    - current_historical_block_height
+    - status
+    filter: {}
+  role: append

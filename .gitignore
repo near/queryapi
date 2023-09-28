@@ -3,3 +3,4 @@
 redis/
 *.log
 /indexer/blocks/
+node_modules/

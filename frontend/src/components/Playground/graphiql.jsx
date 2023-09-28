@@ -10,7 +10,7 @@ import '@graphiql/plugin-explorer/dist/style.css';
 
 const HASURA_ENDPOINT =
   process.env.NEXT_PUBLIC_HASURA_ENDPOINT ||
-  "https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql";
+  "https://near-queryapi.dev.api.pagoda.co/v1/graphql";
 
 const graphQLFetcher = async (graphQLParams, accountId) => {
   const response = await fetch(HASURA_ENDPOINT, {

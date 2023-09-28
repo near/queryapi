@@ -18,13 +18,15 @@ import {
   Justify,
   TrashFill,
   XCircle,
-  NodePlus
+  NodePlus,
+  Code
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 const EditorButtons = ({
   handleFormating,
+  handleCodeGen,
   executeIndexerFunction,
   currentUserAccountId,
   getActionButtonText,
@@ -167,6 +169,20 @@ const EditorButtons = ({
                     onClick={() => handleFormating()}
                   >
                     <Justify style={{ paddingRight: "2px" }} size={24} />
+                  </Button>
+                </OverlayTrigger>
+
+                <OverlayTrigger
+                  placement="bottom"
+                  overlay={<Tooltip>Generate Types</Tooltip>}
+                >
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="flex align-center"
+                    onClick={() => handleCodeGen()}
+                  >
+                    <Code style={{ paddingRight: "2px" }} size={24} />
                   </Button>
                 </OverlayTrigger>
                 {(!isUserIndexer && !isCreateNewIndexer) ? (

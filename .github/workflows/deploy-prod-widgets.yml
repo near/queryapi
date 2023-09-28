@@ -11,5 +11,6 @@ jobs:
       directory-paths: ${{vars.WIDGETS_DIRECTORY_PATHS}}
       deploy-account-address: ${{ vars.PROD_SIGNER_ACCOUNT_ID }}
       signer-public-key: ${{ vars.PROD_SIGNER_PUBLIC_KEY }}
+      environment: mainnet
     secrets:
       SIGNER_PRIVATE_KEY: ${{ secrets.PROD_SIGNER_PRIVATE_KEY }}

@@ -12,9 +12,11 @@ First, download the bos-loader cli by following this guide [here](https://docs.n
 From the root of QueryAPI Frontend repo, run the following command
 
 ```bash
-yarn serve:widgets
+yarn serve:widgets:local // for running local enviornment 
+yarn serve:widgets:dev // for running dev enviornment 
+yarn serve:widgets:prod // for running prod enviornment 
 ```
-> Near.org or any other BOS gateway queries the blockchain state to pull the latest widgets code and renders it. If we would like to test our BOS widgets, we need to override the path at which the gateway (near.org) queries for the widget code. We do this using the Bos-loader tool (the underlying CLI tool used in the `yarn serve:widgets` command) which allows us to serve out widgets locally (http://127.0.0.1:3030 by default). At this point, we have served our widgets locally but have not yet told the BOS gateway (near.org) where to load our local widgets from. 
+> Near.org or any other BOS gateway queries the blockchain state to pull the latest widgets code and renders it. If we would like to test our BOS widgets, we need to override the path at which the gateway (near.org) queries for the widget code. We do this using the Bos-loader tool (the underlying CLI tool used in the `yarn serve:widgets:dev` command) which allows us to serve out widgets locally (http://127.0.0.1:3030 by default). ** This command replaces all keys found in `replacement.dev.json` object with the their values in the widgets directory when serving the widgets **.  At this point, we have served our widgets locally but have not yet told the BOS gateway (near.org) where to load our local widgets from. 
 
 
 **Then, Head to `near.org/flags` and enter `http://127.0.0.1:3030`**
@@ -26,26 +28,7 @@ yarn serve:widgets
 yarn dev
 ```
 
-
 **Now, head to the path where the widgets are served on the BOS.**
 
-- Prod Environment: `https://near.org/dataplatform.near/widget/QueryApi.App`
-- Dev Environment: `https://near.org/dev-queryapi.dataplatform.near/widget/QueryApi.dev-App`
-
----
-### Notes
-> **Make sure to change your widgets code (while testing only) to point to where your local nextJS app is being served.**
-
-```QueryApi.App.jsx
----const EXTERNAL_APP_URL = "https://queryapi.io";
-+++const EXTERNAL_APP_URL = "http://localhost:3000";
-```
-
-
-> **You may need to change the accountId argument to the bos-loader CLI command in `package.json` to load from `dataplatform.near` or `dev-queryapi.dataplatform.near`. This depends on what environment you are testing for.**
-
-`bos-loader dev-queryapi.dataplatform.near --path widgets/src`
-`bos-loader dataplatform.near --path widgets/src`
-
-
+- Prod App: `https://near.org/dataplatform.near/widget/QueryApi.App`
 

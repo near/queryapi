@@ -1,6 +1,7 @@
 import { Block } from "@near-lake/primitives";
 import { Buffer } from "buffer";
 import { fetchBlockDetails } from "./fetchBlock";
+import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
 
 global.Buffer = Buffer;
 export default class IndexerRunner {
@@ -8,9 +9,10 @@ export default class IndexerRunner {
     this.handleLog = handleLog;
     this.currentHeight = 0;
     this.shouldStop = false;
+    this.pgSchemaTypeGen = new PgSchemaTypeGen();
   }
 
-  async start(startingHeight, indexingCode, option) {
+  async start(startingHeight, indexingCode, schema, schemaName, option) {
     this.currentHeight = startingHeight;
     this.shouldStop = false;
     console.clear()
@@ -32,7 +34,7 @@ export default class IndexerRunner {
         this.stop()
       }
       if (blockDetails) {
-        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode);
+        await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode, schema, schemaName);
         this.currentHeight++;
         await this.delay(1000);
       }
@@ -50,7 +52,7 @@ export default class IndexerRunner {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async executeIndexerFunction(height, blockDetails, indexingCode) {
+  async executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName) {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
@@ -59,11 +61,11 @@ export default class IndexerRunner {
       block.events()
 
       console.log(block)
-      await this.runFunction(blockDetails, height, innerCode);
+      await this.runFunction(blockDetails, height, innerCode, schemaName, schema);
     }
   }
 
-  async executeIndexerFunctionOnHeights(heights, indexingCode) {
+  async executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName) {
     console.clear()
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
     if (heights.length === 0) {
@@ -80,14 +82,14 @@ export default class IndexerRunner {
         console.log(error)
       }
       console.time('Indexing Execution Complete')
-      this.executeIndexerFunction(height, blockDetails, indexingCode)
+      this.executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName)
       console.timeEnd('Indexing Execution Complete')
       console.groupEnd()
     }
     console.groupEnd()
   }
 
-  async runFunction(streamerMessage, blockHeight, indexerCode) {
+  async runFunction(streamerMessage, blockHeight, indexerCode, schemaName, schema) {
     const innerCodeWithBlockHelper =
       `
       const block = Block.fromStreamerMessage(streamerMessage);
@@ -125,21 +127,20 @@ export default class IndexerRunner {
           "",
           () => {
             let operationType, operationName
-        const match = query.match(/(query|mutation)\s+(\w+)\s*(\(.*?\))?\s*\{([\s\S]*)\}/);
-        if (match) {
-          operationType = match[1];
-          operationName = match[2];
-        }
-
-        console.group(`Executing GraphQL ${operationType}: (${operationName})`);
-        if (operationType === 'mutation') console.log('%c Mutations in debug mode do not alter the database', 'color: black; background-color: yellow; padding: 5px;');
-        console.group(`Data passed to ${operationType}`);
-        console.dir(mutationData); 
-        console.groupEnd();
-        console.group(`Data returned by ${operationType}`);
-        console.log({})
-        console.groupEnd();
-        console.groupEnd();
+            const match = query.match(/(query|mutation)\s+(\w+)\s*(\(.*?\))?\s*\{([\s\S]*)\}/);
+            if (match) {
+              operationType = match[1];
+              operationName = match[2];
+            }
+            console.group(`Executing GraphQL ${operationType}: (${operationName})`);
+            if (operationType === 'mutation') console.log('%c Mutations in debug mode do not alter the database', 'color: black; background-color: yellow; padding: 5px;');
+            console.group(`Data passed to ${operationType}`);
+            console.dir(mutationData); 
+            console.groupEnd();
+            console.group(`Data returned by ${operationType}`);
+            console.log({})
+            console.groupEnd();
+            console.groupEnd();
           }
         );
         return {};
@@ -147,9 +148,73 @@ export default class IndexerRunner {
       log: async (message) => {
         this.handleLog(blockHeight, message);
       },
+      db: this.buildDatabaseContext(blockHeight, schemaName, schema)
     };
 
     wrappedFunction(Block, streamerMessage, context);
+  }
+
+  buildDatabaseContext (blockHeight, schemaName, schema) {
+    try {
+      const tables = this.pgSchemaTypeGen.getTableNames(schema);
+      const sanitizedTableNames = new Set();
+
+      // Generate and collect methods for each table name
+      const result = tables.reduce((prev, tableName) => {
+        // Generate sanitized table name and ensure no conflict
+        const sanitizedTableName = this.pgSchemaTypeGen.sanitizeTableName(tableName);
+        if (sanitizedTableNames.has(sanitizedTableName)) {
+          throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
+        } else {
+          sanitizedTableNames.add(sanitizedTableName);
+        }
+
+        // Generate context.db methods for table
+        const funcForTable = {
+          [`${sanitizedTableName}`]: {
+            insert: async (objects) => await this.dbOperationLog(blockHeight, 
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}`, 
+              objects),
+
+            select: async (object, limit = null) => await this.dbOperationLog(blockHeight,
+              `Selecting objects with the following values from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
+              object),
+              
+            update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
+              `Updating objects that match the specified fields with the following values in table ${sanitizedTableName} on schema ${schemaName}`, 
+              {matchingFields: whereObj, fieldsToUpdate: updateObj}),
+
+            upsert: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
+              {insertObjects: objects, conflictColumns: conflictColumns.join(', '), updateColumns: updateColumns.join(', ')}),
+
+            delete: async (object) => await this.dbOperationLog(blockHeight,
+              `Deleting objects which match the following object's values from table ${sanitizedTableName} on schema ${schemaName}`, object)
+          }
+        };
+
+        return {
+          ...prev,
+          ...funcForTable
+        };
+      }, {});
+      return result;
+    } catch (error) {
+      console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
+    }
+  }
+
+  dbOperationLog(blockHeight, logMessage, data) {
+    this.handleLog(
+      blockHeight,
+      "",
+      () => {
+        console.group(logMessage);
+        console.log(data);
+        console.groupEnd();
+      }
+    );
+    return {};
   }
 
   // deprecated

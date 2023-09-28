@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo, useContext } from "react";
+import React, { useEffect, useState, useRef, useMemo, useContext } from "react";
 import {
   formatSQL,
   formatIndexingCode,
   wrapCode,
   defaultCode,
   defaultSchema,
+  defaultSchemaTypes,
 } from "../../utils/formatters";
 import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import { Alert } from "react-bootstrap";
@@ -20,6 +21,7 @@ import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -37,7 +39,14 @@ const Editor = ({
     setAccountId,
   } = useContext(IndexerDetailsContext);
 
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName}`
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId
+    }#${indexerDetails.indexerName || "new"}`;
+  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
+  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
+  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
 
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
@@ -48,6 +57,8 @@ const Editor = ({
   const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(defaultCode));
   const [indexingCode, setIndexingCode] = useState(originalIndexingCode);
   const [schema, setSchema] = useState(originalSQLCode);
+  const [schemaTypes, setSchemaTypes] = useState(defaultSchemaTypes);
+  const [monacoMount, setMonacoMount] = useState(false);
 
   const [heights, setHeights] = useState(localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []);
 
@@ -67,6 +78,9 @@ const Editor = ({
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
+  const pgSchemaTypeGen = new PgSchemaTypeGen();
+  const disposableRef = useRef(null);
+
   useEffect(() => {
     if (!indexerDetails.code || !indexerDetails.schema) return
     const { formattedCode, formattedSchema } = reformatAll(indexerDetails.code, indexerDetails.schema)
@@ -76,25 +90,82 @@ const Editor = ({
     setSchema(formattedSchema)
   }, [indexerDetails.code, indexerDetails.schema]);
 
+  useEffect(() => {
+
+    const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
+    const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
+
+    if (savedSchema) {
+      setSchema(savedSchema);
+      try {
+        setSchemaTypes(pgSchemaTypeGen.generateTypes(savedSchema));
+        setError(() => undefined);
+      } catch (error) {
+        handleCodeGenError(error);
+      }
+      
+    } 
+    if (savedCode) setIndexingCode(savedCode);
+  }, [indexerDetails.accountId, indexerDetails.indexerName]);
+
+  useEffect(() => {
+    localStorage.setItem(SCHEMA_STORAGE_KEY, schema);
+    localStorage.setItem(CODE_STORAGE_KEY, indexingCode);
+  }, [schema, indexingCode]);
+
+  useEffect(() => {
+    localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
+    attachTypesToMonaco();
+  }, [schemaTypes, monacoMount]);
+
   const requestLatestBlockHeight = async () => {
     const blockHeight = getLatestBlockHeight()
     return blockHeight
   }
 
   useEffect(() => {
-    if (selectedTab === "playground") {
-      setFileName("GraphiQL");
+    if (fileName === "indexingLogic.js") {
+      try {
+        setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
+        setError(() => undefined);
+      } catch (error) {
+        handleCodeGenError(error);
+      }
     }
-  }, [selectedTab]);
+  }, [fileName]);
 
   useEffect(() => {
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
+  const attachTypesToMonaco = () => {
+    // If types has been added already, dispose of them first
+    if (disposableRef.current) {
+      disposableRef.current.dispose();
+      disposableRef.current = null;
+    }
+
+    if (window.monaco) { // Check if monaco is loaded
+      // Add generated types to monaco and store disposable to clear them later
+      const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
+      if (newDisposable != null) {
+        console.log("Types successfully imported to Editor");
+      }
+      disposableRef.current = newDisposable;
+    }
+  }
+
   const checkSQLSchemaFormatting = () => {
     try {
       let formatted_sql = formatSQL(schema);
       let formatted_schema = formatted_sql;
+      try {
+        pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
+      } catch (error) {
+        handleCodeGenError(error);
+        return undefined;
+      }
+      
       return formatted_schema;
     } catch (error) {
       console.log("error", error);
@@ -152,8 +223,9 @@ const Editor = ({
   const handleReload = async () => {
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
-      setIndexingCode((formatIndexingCode(indexerDetails.code)));
-      setSchema(formatSQL(indexerDetails.schema))
+      setIndexingCode(originalIndexingCode);
+      setSchema(originalSQLCode);
+      setSchemaTypes(defaultSchemaTypes);
       return;
     }
 
@@ -161,6 +233,7 @@ const Editor = ({
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
+      setSchemaTypes(defaultSchemaTypes);
       setError(() => onLoadErrorText);
     } else {
       try {
@@ -235,6 +308,22 @@ const Editor = ({
     });
   };
 
+  function handleCodeGen() {
+    try {
+      setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
+      attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
+      setError(() => undefined);
+    } catch (error) {
+      handleCodeGenError(error);
+    }
+  }
+
+  const handleCodeGenError = (error) => {
+    console.error("Error generating types for saved schema.\n", error);
+    const errorMessage = "Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL."
+    setError(() => errorMessage);
+  };
+
   async function handleFormating() {
     await reformat(indexingCode, schema);
   }
@@ -256,15 +345,17 @@ const Editor = ({
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
+    setMonacoMount(true);
   }
 
 
   async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
     setIsExecutingIndexerFunction(() => true)
+    const schemaName = indexerDetails.accountId.concat("_", indexerDetails.indexerName).replace(/[^a-zA-Z0-9]/g, '_');
 
     switch (option) {
       case "debugList":
-        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, option)
+        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName, option)
         break
       case "specific":
         if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
@@ -272,11 +363,11 @@ const Editor = ({
           break
         }
 
-        await indexerRunner.start(startingBlockHeight, indexingCode, option)
+        await indexerRunner.start(startingBlockHeight, indexingCode, schema, schemaName, option)
         break
       case "latest":
         const latestHeight = await requestLatestBlockHeight()
-        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, option)
+        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, schema, schemaName, option)
     }
     setIsExecutingIndexerFunction(() => false)
   }
@@ -292,6 +383,7 @@ const Editor = ({
     >
       <EditorButtons
         handleFormating={handleFormating}
+        handleCodeGen={handleCodeGen}
         executeIndexerFunction={executeIndexerFunction}
         currentUserAccountId={currentUserAccountId}
         getActionButtonText={getActionButtonText}
