@@ -3,6 +3,7 @@ import { VM } from 'vm2';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
+import { METRICS } from '../metrics';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
@@ -138,9 +139,12 @@ export default class Indexer {
   async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
     if (!isHistorical) {
       const cachedMessage = await this.deps.redisClient.getStreamerMessageFromCache(`near-lake-data-${this.network}`, blockHeight);
-      if (cachedMessage) {
+      if (cachedMessage) { // Cache hit on streamer message
+        METRICS.CACHE_HIT_STREAMER_MESSAGE.labels(isHistorical ? 'historical' : 'realtime').inc(); // increment the cache hit counter
         const parsedMessage = JSON.parse(cachedMessage, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
         return parsedMessage;
+      } else {
+        METRICS.CACHE_MISS_STREAMER_MESSAGE.labels(isHistorical ? 'historical' : 'realtime').inc(); // increment the cache miss counter
       }
     }
     const blockPromise = this.fetchBlockPromise(blockHeight);

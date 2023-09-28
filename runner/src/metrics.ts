@@ -13,9 +13,23 @@ const EXECUTION_DURATION = new promClient.Gauge({
   labelNames: ['indexer', 'type'],
 });
 
+const CACHE_HIT_STREAMER_MESSAGE = new promClient.Counter({
+  name: 'redis_cache_hit_for_streamer_message',
+  help: 'The number of times the streamer message cache was hit',
+  labelNames: ['type']
+});
+
+const CACHE_MISS_STREAMER_MESSAGE = new promClient.Counter({
+  name: 'redis_cache_miss_for_streamer_message',
+  help: 'The number of times the streamer message cache was missed',
+  labelNames: ['type']
+});
+
 export const METRICS = {
   EXECUTION_DURATION,
   UNPROCESSED_STREAM_MESSAGES,
+  CACHE_HIT_STREAMER_MESSAGE,
+  CACHE_MISS_STREAMER_MESSAGE
 };
 
 export const startServer = async (): Promise<void> => {

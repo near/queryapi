@@ -28,7 +28,6 @@ pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_milli
 pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
 pub(crate) const RETRY_COUNT: usize = 2;
 
-
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
 
 #[derive(Debug, Default, Clone, Copy)]
