@@ -21,8 +21,6 @@ export default class RedisClient {
   LARGEST_STREAM_ID = '+';
   STREAMS_SET_KEY = 'streams';
   STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer:message:cache:';
-  STREAMER_BLOCK_HASH_KEY_BASE = 'streamer:block:cache:';
-  STREAMER_SHARD_HASH_KEY_BASE = 'streamer:shard:cache:';
 
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })
