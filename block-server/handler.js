@@ -1,6 +1,6 @@
 'use strict';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-const S3Client = new S3Client();
+import { S3 } from '@aws-sdk/client-s3';
+const S3 = new S3();
 
 const NETWORK = process.env.NETWORK || 'mainnet';
 
@@ -58,10 +58,11 @@ const fetchShardPromise = function(block_height, shard_id, options) {
         Bucket: `near-lake-data-${NETWORK}`,
         Key: `${normalizeBlockHeight(block_height)}/shard_${shard_id}.json`,
     };
-    const response = S3Client.send(new GetObjectCommand(params)).Body.transformToString();
-    return JSON.parse(response, (key, value) => {
-        if(options.snake_case) return value
-        return renameUnderscoreFieldsToCamelCase(value)
+    return S3.getObject(params).promise().then((response) => {
+        return JSON.parse(response.Body.toString(), (key, value) => {
+            if(options.snake_case) return value
+            return renameUnderscoreFieldsToCamelCase(value)
+        });
     });
 }
 
@@ -72,10 +73,13 @@ const fetchBlockPromise = function(block_height, options) {
         Bucket: 'near-lake-data-' + NETWORK,
         Key: `${folder}/${file}`,
     };
-    const response = S3Client.send(new GetObjectCommand(params)).Body.transformToString();
-    return JSON.parse(response, (key, value) => {
-        if(options.snake_case) return value
-        return renameUnderscoreFieldsToCamelCase(value)
+    return S3.getObject(params).promise().then((response) => {
+        const block = JSON.parse(response.Body.toString(), (key, value) => {
+            if(options.snake_case) return value
+            return renameUnderscoreFieldsToCamelCase(value)
+        });
+
+        return block;
     });
 }
 const renameUnderscoreFieldsToCamelCase = function(value) {

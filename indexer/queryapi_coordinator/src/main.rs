@@ -1,4 +1,3 @@
-use actix_web::cookie::Expiration;
 use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
@@ -148,6 +147,7 @@ async fn handle_streamer_message(
     let block_height: BlockHeight = context.streamer_message.block.header.height;
 
     // Cache streamer message block and shards for use in real time processing
+    // TODO: Process streamer message before caching
     storage::setEx(
         context.redis_connection_manager,
         format!(
