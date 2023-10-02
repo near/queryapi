@@ -1,3 +1,5 @@
+use serde_json::Value;
+
 pub(crate) async fn stats(redis_connection_manager: storage::ConnectionManager) {
     let interval_secs = 10;
     let mut previous_processed_blocks: u64 =
@@ -47,5 +49,43 @@ pub(crate) async fn stats(redis_connection_manager: storage::ConnectionManager) 
         );
         previous_processed_blocks = processed_blocks;
         tokio::time::sleep(std::time::Duration::from_secs(interval_secs)).await;
+    }
+}
+
+pub(crate) fn process_streamer_message(streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage) -> Value {
+    // Serialize the Message object to a JSON string.
+    let json_str = serde_json::to_string(&streamer_message).unwrap();
+    
+    // Deserialize the JSON string to a Value.
+    let mut message_value: Value = serde_json::from_str(&json_str).unwrap();
+    
+    // Convert keys to camelCase.
+    to_camel_case_keys(&mut message_value);
+
+    return message_value;
+}
+
+fn to_camel_case_keys(message_value: &mut Value) {
+    match message_value {
+        Value::Object(map) => {
+            for key in map.keys().cloned().collect::<Vec<String>>() {
+                let new_key = 
+                key.split("_").enumerate().map(|(i, str)| {
+                    if i > 0 {
+                        return str[..1].to_uppercase() + &str[1..];
+                    }
+                    return str.to_owned();
+                }).collect::<Vec<String>>().join("");
+                let mut val = map.remove(&key).unwrap();
+                to_camel_case_keys(&mut val);
+                map.insert(new_key, val);
+            }
+        }
+        Value::Array(vec) => {
+            for val in vec {
+                to_camel_case_keys(val);
+            }
+        }
+        _ => {}
     }
 }

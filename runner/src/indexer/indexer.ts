@@ -141,7 +141,7 @@ export default class Indexer {
       const cachedMessage = await this.deps.redisClient.getStreamerMessageFromCache(`near-lake-data-${this.network}`, blockHeight);
       if (cachedMessage) { // Cache hit on streamer message
         METRICS.CACHE_HIT_STREAMER_MESSAGE.labels(isHistorical ? 'historical' : 'realtime').inc(); // increment the cache hit counter
-        const parsedMessage = JSON.parse(cachedMessage, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+        const parsedMessage = JSON.parse(cachedMessage);
         return parsedMessage;
       } else {
         METRICS.CACHE_MISS_STREAMER_MESSAGE.labels(isHistorical ? 'historical' : 'realtime').inc(); // increment the cache miss counter
@@ -492,7 +492,7 @@ export default class Indexer {
   }
 
   renameUnderscoreFieldsToCamelCase (value: Record<string, any>): Record<string, any> {
-    if (typeof value === 'object' && !Array.isArray(value)) {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // It's a non-null, non-array object, create a replacement with the keys initially-capped
       const newValue: any = {};
       for (const key in value) {

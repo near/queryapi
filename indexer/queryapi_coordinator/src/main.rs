@@ -6,6 +6,7 @@ use tokio::sync::{Mutex, MutexGuard};
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
+use utils::process_streamer_message;
 
 use crate::indexer_types::IndexerFunction;
 use indexer_types::{IndexerQueueMessage, IndexerRegistry};
@@ -147,7 +148,6 @@ async fn handle_streamer_message(
     let block_height: BlockHeight = context.streamer_message.block.header.height;
 
     // Cache streamer message block and shards for use in real time processing
-    // TODO: Process streamer message before caching
     storage::setEx(
         context.redis_connection_manager,
         format!(
@@ -158,7 +158,7 @@ async fn handle_streamer_message(
             block_height
         ),
         180,
-        serde_json::to_string(&context.streamer_message)?,
+        serde_json::to_string(&process_streamer_message(&context.streamer_message))?,
     )
     .await?;
 
