@@ -19,5 +19,6 @@ select_permissions:
     - message
     - timestamp
     - id
+    allow_aggregations: true
     filter: {}
   role: append
