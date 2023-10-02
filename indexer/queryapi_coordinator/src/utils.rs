@@ -52,30 +52,40 @@ pub(crate) async fn stats(redis_connection_manager: storage::ConnectionManager) 
     }
 }
 
-pub(crate) fn process_streamer_message(streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage) -> Value {
-    // Serialize the Message object to a JSON string.
+pub(crate) fn process_streamer_message(
+    streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
+) -> Value {
+    // Serialize the Message object to a JSON string
     let json_str = serde_json::to_string(&streamer_message).unwrap();
-    
-    // Deserialize the JSON string to a Value.
+
+    // Deserialize the JSON string to a Value Object
     let mut message_value: Value = serde_json::from_str(&json_str).unwrap();
-    
-    // Convert keys to camelCase.
+
+    // Convert keys to Camel Case
     to_camel_case_keys(&mut message_value);
 
     return message_value;
 }
 
 fn to_camel_case_keys(message_value: &mut Value) {
+    // Only process if subfield contains objects
     match message_value {
         Value::Object(map) => {
             for key in map.keys().cloned().collect::<Vec<String>>() {
-                let new_key = 
-                key.split("_").enumerate().map(|(i, str)| {
-                    if i > 0 {
-                        return str[..1].to_uppercase() + &str[1..];
-                    }
-                    return str.to_owned();
-                }).collect::<Vec<String>>().join("");
+                // Generate Camel Case Key
+                let new_key = key
+                    .split("_")
+                    .enumerate()
+                    .map(|(i, str)| {
+                        if i > 0 {
+                            return str[..1].to_uppercase() + &str[1..];
+                        }
+                        return str.to_owned();
+                    })
+                    .collect::<Vec<String>>()
+                    .join("");
+
+                // Recursively process inner fields and update map with new key
                 let mut val = map.remove(&key).unwrap();
                 to_camel_case_keys(&mut val);
                 map.insert(new_key, val);
