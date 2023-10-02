@@ -304,11 +304,11 @@ return (
               <Notice>V2 Testing Notice</Notice>
               <div style={{ display: "flex" }}>
                 <DisclaimerText>
-                  We are working on a v2 implementation for QueryAPI which
-                  solves a few issues like better performance for historical
-                  processing & and more control over your indexer. We are
-                  running v2 in parallel and you can see the logs from the new
-                  version by toggling this button. QueryAPI is still in beta.
+                  QueryAPI is still in beta. We are working on a OueryAPI V2
+                  with faster historical processing, easier access to DB and and
+                  more control over your indexer. V2 is running in parallel and
+                  you can see the logs from this new version by toggling this
+                  button.
                 </DisclaimerText>
                 <Widget
                   src={`${REPL_ACCOUNT_ID}/widget/components.toggle`}
