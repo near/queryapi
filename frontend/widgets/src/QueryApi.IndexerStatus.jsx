@@ -115,6 +115,9 @@ State.init({
 function fetchGraphQL(operationsDoc, operationName, variables) {
   return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
     method: "POST",
+    headers: {
+      "x-hasura-role": "append"
+    },
     body: JSON.stringify({
       query: operationsDoc,
       variables: variables,
@@ -156,11 +159,6 @@ const indexerStateDoc = `
       function_name
       current_block_height
       current_historical_block_height
-    }
-    indexer_state_aggregate(where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
-    aggregate {
-      count
-    }
     }
   }
 `;
