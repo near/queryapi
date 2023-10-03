@@ -350,7 +350,6 @@ if (!state.initialFetch) {
 }
 
 if (state.ws_status === undefined) {
-  // let ws = State.get().ws_logs;
   State.update({
     startWebSocketStatus: startWebSocketStatus,
   });
@@ -360,7 +359,6 @@ if (state.ws_status === undefined) {
 if (state.logsPage === 0) {
   // Start subscription for logs if on first page
   if (state.ws_logs === undefined && state.logsPage === 0) {
-    // let ws = State.get().ws_logs;
     State.update({
       startWebSocketLogs: startWebSocketLogs,
     });
