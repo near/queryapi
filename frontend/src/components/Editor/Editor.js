@@ -47,6 +47,7 @@ const Editor = ({
     }`;
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
     }`;
+  const V2_TOGGLE_KEY = `QueryAPI:V2_ENABLED`
 
   const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
@@ -67,6 +68,7 @@ const Editor = ({
   const [blockView, setBlockView] = useState(false);
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
+  const [v2Toggle, setV2Toggle] = useState(localStorage.getItem(V2_TOGGLE_KEY) || false);
 
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
 
@@ -154,6 +156,9 @@ const Editor = ({
       disposableRef.current = newDisposable;
     }
   }
+  useEffect(() => {
+    localStorage.setItem(V2_TOGGLE_KEY, v2Toggle);
+  }, [v2Toggle]);
 
   const checkSQLSchemaFormatting = () => {
     try {
@@ -438,6 +443,8 @@ const Editor = ({
           setFileName={setFileName}
           diffView={diffView}
           setDiffView={setDiffView}
+          v2Toggle={v2Toggle}
+          setV2Toggle={setV2Toggle}
         />
         <ResizableLayoutEditor
           fileName={fileName}

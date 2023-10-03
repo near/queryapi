@@ -8,6 +8,8 @@ export function FileSwitcher({
   setFileName,
   diffView,
   setDiffView,
+  v2Toggle,
+  setV2Toggle,
 }) {
   const { debugMode, setDebugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
   return (
@@ -70,6 +72,16 @@ export function FileSwitcher({
               checked={debugMode}
               onChange={(checked) => {
                 setDebugMode(checked);
+              }}
+            />
+          </InputGroup.Text>
+          <InputGroup.Text className="px-3">
+            Try V2
+            <Switch
+              className="px-1"
+              checked={v2Toggle}
+              onChange={(checked) => {
+                setV2Toggle(checked);
               }}
             />
           </InputGroup.Text>
