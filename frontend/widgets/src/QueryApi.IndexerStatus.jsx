@@ -170,6 +170,7 @@ function startWebSocketStatus(processStatus) {
           headers: {
             "Content-Type": "application/json",
             "Hasura-Client-Name": "hasura-console",
+            "x-hasura-role": "append"
           },
           lazy: true,
         },
@@ -219,6 +220,7 @@ function startWebSocketLogs(processLogs) {
           headers: {
             "Content-Type": "application/json",
             "Hasura-Client-Name": "hasura-console",
+            "x-hasura-role": "append"
           },
           lazy: true,
         },
