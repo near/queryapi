@@ -306,7 +306,7 @@ return (
               <div style={{ display: "flex" }}>
                 <DisclaimerText>
                   QueryAPI is still in beta. We are working on a OueryAPI V2
-                  with faster historical processing, easier access to DB and and
+                  with faster historical processing, easier access to DB and
                   more control over your indexer. V2 is running in parallel and
                   you can see the logs from this new version by toggling this
                   button.
