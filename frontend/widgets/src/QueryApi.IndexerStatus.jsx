@@ -177,7 +177,7 @@ function startWebSocketStatus(processStatus) {
       })
     );
 
-    setTimeout(() => ws.send(JSON.stringify(subscriptionStatus)), 50);
+    ws.send(JSON.stringify(subscriptionStatus))
   };
 
   ws.onclose = () => {
@@ -227,7 +227,7 @@ function startWebSocketLogs(processLogs) {
       })
     );
 
-    setTimeout(() => ws.send(JSON.stringify(subscriptionLogs)), 50);
+    ws.send(JSON.stringify(subscriptionLogs));
   };
 
   ws.onclose = () => {
