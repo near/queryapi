@@ -95,6 +95,9 @@ const TextLink = styled.a`
 
 if (!indexer_name) return "missing indexer_name";
 
+let v1_endpoint = `${REPL_GRAPHQL_ENDPOINT}`;
+let v2_endpoint = `${REPL_GRAPHQL_ENDPOINT_V2}`;
+
 State.init({
   logs: [],
   state: [],
@@ -105,11 +108,17 @@ State.init({
   indexer_resPage: 0,
   logsPage: 0,
   statePage: 0,
+  v2Toggle: Storage.privateGet("QueryApiV2Toggle") || false,
 });
 
+let graphQLEndpoint = state.v2Toggle ? v2_endpoint : v1_endpoint;
+
 function fetchGraphQL(operationsDoc, operationName, variables) {
-  return asyncFetch(`${REPL_GRAPHQL_ENDPOINT}/v1/graphql`, {
+  return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
     method: "POST",
+    headers: {
+      "x-hasura-role": "append"
+    },
     body: JSON.stringify({
       query: operationsDoc,
       variables: variables,
@@ -119,7 +128,7 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
 }
 
 const createGraphQLLink = () => {
-  const queryLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&query=query+IndexerQuery+%7B%0A++indexer_state%28where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%29+%7B%0A++++function_name%0A++++current_block_height%0A++%7D%0A++indexer_log_entries%28%0A++++where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%0A++++order_by%3A+%7B+timestamp%3A+desc%7D%0A++%29+%7B%0A++++function_name%0A++++id%0A++++message%0A++++timestamp%0A++%7D%0A%7D%0A`;
+  const queryLink = `https://cloud.hasura.io/public/graphiql?endpoint=${graphQLEndpoint}/v1/graphql&query=query+IndexerQuery+%7B%0A++indexer_state%28where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%29+%7B%0A++++function_name%0A++++current_block_height%0A++%7D%0A++indexer_log_entries%28%0A++++where%3A+%7Bfunction_name%3A+%7B_eq%3A+%22function_placeholder%22%7D%7D%0A++++order_by%3A+%7B+timestamp%3A+desc%7D%0A++%29+%7B%0A++++function_name%0A++++id%0A++++message%0A++++timestamp%0A++%7D%0A%7D%0A`;
   return queryLink.replaceAll(
     "function_placeholder",
     `${accountId}/${indexer_name}`
@@ -152,14 +161,15 @@ const indexerStateDoc = `
       current_block_height
       current_historical_block_height
     }
-    indexer_state_aggregate(where: {function_name: {_eq: "${accountId}/${indexer_name}"}}) {
-    aggregate {
-      count
-    }
-    }
   }
 `;
-if (!state.initialFetch) {
+
+const prevV2ToggleSelected = Storage.privateGet("QueryApiV2Toggle");
+if (
+  !state.initialFetch ||
+  (prevV2ToggleSelected !== state.v2Toggle)
+) {
+  Storage.privateSet("QueryApiV2Toggle", state.v2Toggle);
   fetchGraphQL(logsDoc, "QueryLogs", {
     offset: state.logsPage * LIMIT,
   }).then((result) => {
@@ -235,6 +245,44 @@ const onIndexerResPageChange = (page) => {
   State.update({ indexer_resPage: page, currentPage: page });
 };
 
+const DisclaimerContainer = styled.div`
+  padding: 10px;
+  margin: 0.5px;
+  text-color: black;
+  display: flex;
+  width: 50;
+  border: 2px solid rgb(240, 240, 240);
+  border-radius: 8px;
+  align-items: "center";
+  margin-bottom: 5px;
+`;
+
+const Notice = styled.div`
+  font-weight: 900;
+  font-size: 22px;
+  align-self: flex-start;
+  margin: 10px 0px 30px;
+  text-align: center;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgb(240, 240, 241);
+  color: rgb(36, 39, 42);
+`;
+
+const DisclaimerText = styled.p`
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: rgb(17, 24, 28);
+  word-break: break-word;
+  width: 700px;
+  text-align: start;
+  padding-left: 10px;
+
+  @media (max-width: 1024px) {
+    width: 80%;
+  }
+`;
+
 return (
   <>
     <Card>
@@ -244,6 +292,39 @@ return (
           GraphQL Playground
           <i className="bi bi-box-arrow-up-right"></i>
         </TextLink>
+        <div
+          style={{
+            marginTop: "5px",
+            display: "flex",
+            width: "100%",
+            justifyContent: "center",
+          }}
+        >
+          <DisclaimerContainer>
+            <div className="flex">
+              <Notice>V2 Testing Notice</Notice>
+              <div style={{ display: "flex" }}>
+                <DisclaimerText>
+                  QueryAPI is still in beta. We are working on a OueryAPI V2
+                  with faster historical processing, easier access to DB and
+                  more control over your indexer. V2 is running in parallel and
+                  you can see the logs from this new version by toggling this
+                  button.
+                </DisclaimerText>
+                <Widget
+                  src={`${REPL_ACCOUNT_ID}/widget/components.toggle`}
+                  props={{
+                    active: state.v2Toggle,
+                    label: "",
+                    onSwitch: () => {
+                      State.update({ v2Toggle: !state.v2Toggle });
+                    },
+                  }}
+                />
+              </div>
+            </div>
+          </DisclaimerContainer>
+        </div>
       </Title>
 
       <CardBody>
@@ -270,7 +351,9 @@ return (
                   <tr>
                     <TableElement>{x.function_name}</TableElement>
                     <TableElement>{x.current_block_height}</TableElement>
-                    <TableElement>{x.current_historical_block_height}</TableElement>
+                    <TableElement>
+                      {x.current_historical_block_height}
+                    </TableElement>
                     <TableElement>{x.status}</TableElement>
                   </tr>
                 ))}
