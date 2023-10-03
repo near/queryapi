@@ -138,13 +138,13 @@ export default class Indexer {
 
   async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
     if (!isHistorical) {
-      const cachedMessage = await this.deps.redisClient.getStreamerMessageFromCache(`near-lake-data-${this.network}`, blockHeight);
-      if (cachedMessage) { // Cache hit on streamer message
-        METRICS.CACHE_HIT_STREAMER_MESSAGE.labels(isHistorical ? 'historical' : 'realtime').inc(); // increment the cache hit counter
+      const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
+      if (cachedMessage) {
+        METRICS.CACHE_HIT.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
         const parsedMessage = JSON.parse(cachedMessage);
         return parsedMessage;
       } else {
-        METRICS.CACHE_MISS_STREAMER_MESSAGE.labels(isHistorical ? 'historical' : 'realtime').inc(); // increment the cache miss counter
+        METRICS.CACHE_MISS.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
       }
     }
     const blockPromise = this.fetchBlockPromise(blockHeight);

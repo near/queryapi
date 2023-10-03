@@ -164,7 +164,7 @@ CREATE TABLE
     });
 
   const transparentRedis = {
-    getStreamerMessageFromCache: jest.fn()
+    getStreamerMessage: jest.fn()
   } as unknown as RedisClient;
 
   beforeEach(() => {
@@ -201,7 +201,7 @@ CREATE TABLE
       )
     );
     const mockRedis = {
-      getStreamerMessageFromCache: mockData
+      getStreamerMessage: mockData
     } as unknown as RedisClient;
 
     const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, redisClient: mockRedis });
@@ -273,7 +273,7 @@ CREATE TABLE
   test('Indexer.fetchStreamerMessage() should fetch the message from cache and use it directly', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
-    const getMessageFromCache = jest.fn()
+    const getMessage = jest.fn()
       .mockReturnValueOnce(JSON.stringify(
         {
           block: {
@@ -287,15 +287,15 @@ CREATE TABLE
         }
       ));
     const mockRedis = {
-      getStreamerMessageFromCache: getMessageFromCache
+      getStreamerMessage: getMessage
     } as unknown as RedisClient;
     const indexer = new Indexer('mainnet', { redisClient: mockRedis });
 
     const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, false);
 
-    expect(getMessageFromCache).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(getMessageFromCache.mock.calls[0])).toEqual(
-      `["near-lake-data-mainnet",${blockHeight}]`
+    expect(getMessage).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(getMessage.mock.calls[0])).toEqual(
+      `[${blockHeight}]`
     );
     const block = Block.fromStreamerMessage(streamerMessage);
 
@@ -339,7 +339,7 @@ CREATE TABLE
       Bucket: 'near-lake-data-mainnet',
       Key: `${blockHeight.toString().padStart(12, '0')}/shard_0.json`
     })));
-    expect(transparentRedis.getStreamerMessageFromCache).toHaveBeenCalledTimes(1);
+    expect(transparentRedis.getStreamerMessage).toHaveBeenCalledTimes(1);
 
     const block = Block.fromStreamerMessage(streamerMessage);
 
@@ -371,7 +371,7 @@ CREATE TABLE
       send: mockSend,
     } as unknown as S3Client;
     const mockRedis = {
-      getStreamerMessageFromCache: jest.fn()
+      getStreamerMessage: jest.fn()
     } as unknown as RedisClient;
     const indexer = new Indexer('mainnet', { s3: mockS3, redisClient: mockRedis });
 
@@ -386,7 +386,7 @@ CREATE TABLE
       Bucket: 'near-lake-data-mainnet',
       Key: `${blockHeight.toString().padStart(12, '0')}/shard_0.json`
     })));
-    expect(mockRedis.getStreamerMessageFromCache).toHaveBeenCalledTimes(0);
+    expect(mockRedis.getStreamerMessage).toHaveBeenCalledTimes(0);
 
     const block = Block.fromStreamerMessage(streamerMessage);
 

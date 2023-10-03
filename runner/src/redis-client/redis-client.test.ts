@@ -90,8 +90,8 @@ describe('RedisClient', () => {
     } as any;
 
     const client = new RedisClient(mockClient);
-    await client.getStreamerMessageFromCache('near-lake-data-mainnet', 1000);
+    await client.getStreamerMessage(1000);
 
-    expect(mockClient.get).toHaveBeenCalledWith('streamer:message:cache:near-lake-data-mainnet:1000');
+    expect(mockClient.get).toHaveBeenCalledWith('streamer:message:1000');
   });
 });

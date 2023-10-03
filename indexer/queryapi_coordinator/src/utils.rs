@@ -52,19 +52,19 @@ pub(crate) async fn stats(redis_connection_manager: storage::ConnectionManager) 
     }
 }
 
-pub(crate) fn process_streamer_message(
+pub(crate) fn serialize_to_camel_case_json_string(
     streamer_message: &near_lake_framework::near_indexer_primitives::StreamerMessage,
-) -> Value {
+) -> anyhow::Result<String, serde_json::Error> {
     // Serialize the Message object to a JSON string
-    let json_str = serde_json::to_string(&streamer_message).unwrap();
+    let json_str = serde_json::to_string(&streamer_message)?;
 
     // Deserialize the JSON string to a Value Object
-    let mut message_value: Value = serde_json::from_str(&json_str).unwrap();
+    let mut message_value: Value = serde_json::from_str(&json_str)?;
 
     // Convert keys to Camel Case
     to_camel_case_keys(&mut message_value);
 
-    return message_value;
+    return serde_json::to_string(&message_value);
 }
 
 fn to_camel_case_keys(message_value: &mut Value) {
@@ -86,9 +86,10 @@ fn to_camel_case_keys(message_value: &mut Value) {
                     .join("");
 
                 // Recursively process inner fields and update map with new key
-                let mut val = map.remove(&key).unwrap();
-                to_camel_case_keys(&mut val);
-                map.insert(new_key, val);
+                if let Some(mut val) = map.remove(&key) {
+                    to_camel_case_keys(&mut val);
+                    map.insert(new_key, val);
+                }
             }
         }
         Value::Array(vec) => {

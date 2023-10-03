@@ -4,7 +4,7 @@ const STORAGE: &str = "storage_alertexer";
 
 pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 pub const STREAMS_SET_KEY: &str = "streams";
-pub const STREAMER_MESSAGE_HASH_KEY_BASE: &str = "streamer:message:cache:";
+pub const STREAMER_MESSAGE_HASH_KEY_BASE: &str = "streamer:message:";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
@@ -49,29 +49,23 @@ pub async fn set(
     redis_connection_manager: &ConnectionManager,
     key: impl ToRedisArgs + std::fmt::Debug,
     value: impl ToRedisArgs + std::fmt::Debug,
+    expiration: Option<usize>,
 ) -> anyhow::Result<()> {
-    redis::cmd("SET")
-        .arg(&key)
-        .arg(&value)
-        .query_async(&mut redis_connection_manager.clone())
-        .await?;
-    tracing::debug!(target: STORAGE, "SET: {:?}: {:?}", key, value,);
-    Ok(())
-}
+    let mut cmd = redis::cmd("SET");
+    cmd.arg(&key).arg(&value);
 
-pub async fn setEx(
-    redis_connection_manager: &ConnectionManager,
-    key: impl ToRedisArgs + std::fmt::Debug,
-    expiration: usize,
-    value: impl ToRedisArgs + std::fmt::Debug,
-) -> anyhow::Result<()> {
-    redis::cmd("SETEX")
-        .arg(&key)
-        .arg(expiration)
-        .arg(&value)
-        .query_async(&mut redis_connection_manager.clone())
+    // Add expiration arguments if present
+    let exp_to_print: String;
+    if let Some(expiration) = expiration {
+        cmd.arg("EX").arg(expiration);
+        exp_to_print = format!("EX {}", expiration);
+    } else {
+        exp_to_print = "".to_string();
+    }
+        
+    cmd.query_async(&mut redis_connection_manager.clone())
         .await?;
-    tracing::debug!(target: STORAGE, "SETEX: {:?}: {:?} with expiration {:?}s", key, value, expiration);
+    tracing::debug!(target: STORAGE, "SET: {:?}: {:?} {:?}", key, value, exp_to_print);
     Ok(())
 }
 
@@ -131,7 +125,7 @@ pub async fn push_receipt_to_watching_list(
     receipt_id: &str,
     cache_value: &[u8],
 ) -> anyhow::Result<()> {
-    set(redis_connection_manager, receipt_id, cache_value).await?;
+    set(redis_connection_manager, receipt_id, cache_value, None).await?;
     // redis::cmd("INCR")
     //     .arg(format!("receipts_{}", transaction_hash))
     //     .query_async(&mut redis_connection_manager.clone())
@@ -179,7 +173,13 @@ pub async fn update_last_indexed_block(
     redis_connection_manager: &ConnectionManager,
     block_height: u64,
 ) -> anyhow::Result<()> {
-    set(redis_connection_manager, "last_indexed_block", block_height).await?;
+    set(
+        redis_connection_manager, 
+        "last_indexed_block", 
+        block_height, 
+        None
+    )
+    .await?;
     redis::cmd("INCR")
         .arg("blocks_processed")
         .query_async(&mut redis_connection_manager.clone())
