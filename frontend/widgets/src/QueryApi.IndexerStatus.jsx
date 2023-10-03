@@ -97,7 +97,6 @@ if (!indexer_name) return "missing indexer_name";
 
 let v1_endpoint = `${REPL_GRAPHQL_ENDPOINT}`;
 let v2_endpoint = `${REPL_GRAPHQL_ENDPOINT_V2}`;
-let graphQLEndpoint = state.v2Toggle ? v2_endpoint : v1_endpoint;
 
 State.init({
   logs: [],
@@ -109,8 +108,10 @@ State.init({
   indexer_resPage: 0,
   logsPage: 0,
   statePage: 0,
-  v2Toggle: false,
+  v2Toggle: Storage.privateGet("QueryApiV2Toggle") || false,
 });
+
+let graphQLEndpoint = state.v2Toggle ? v2_endpoint : v1_endpoint;
 
 function fetchGraphQL(operationsDoc, operationName, variables) {
   return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
