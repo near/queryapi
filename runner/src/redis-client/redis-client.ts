@@ -46,10 +46,11 @@ export default class RedisClient {
 
   async getNextStreamMessage (
     streamKey: string,
-    count = 1
+    count = 1,
+    streamId = this.SMALLEST_STREAM_ID
   ): Promise<StreamMessage[] | null> {
     const results = await this.client.xRead(
-      { key: streamKey, id: this.SMALLEST_STREAM_ID },
+      { key: streamKey, id: streamId },
       { COUNT: count }
     );
 
@@ -65,8 +66,9 @@ export default class RedisClient {
 
   async getUnprocessedStreamMessages (
     streamKey: string,
+    startId = this.SMALLEST_STREAM_ID,
   ): Promise<StreamMessage[]> {
-    const results = await this.client.xRange(streamKey, this.SMALLEST_STREAM_ID, this.LARGEST_STREAM_ID);
+    const results = await this.client.xRange(streamKey, startId, this.LARGEST_STREAM_ID);
 
     return results as StreamMessage[];
   };
