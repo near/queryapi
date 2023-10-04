@@ -1,7 +1,7 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { Block } from '@near-lake/primitives';
+import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 import { METRICS } from '../metrics';
 
@@ -60,9 +60,10 @@ export default class Indexer {
     blockHeight: number,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
-    options: { provision?: boolean } = { provision: false }
+    options: { provision?: boolean } = { provision: false },
+    streamerMessage: StreamerMessage | null = null
   ): Promise<string[]> {
-    const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight, isHistorical));
+    const blockWithHelpers = Block.fromStreamerMessage(streamerMessage == null ? await this.fetchStreamerMessage(blockHeight, isHistorical) : streamerMessage);
 
     const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
 
@@ -137,6 +138,7 @@ export default class Indexer {
   }
 
   async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
+    console.error('SHOULD NOT BE CALLED');
     if (!isHistorical) {
       const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
       if (cachedMessage) {
