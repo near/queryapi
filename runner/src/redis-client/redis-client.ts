@@ -20,6 +20,7 @@ export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
   LARGEST_STREAM_ID = '+';
   STREAMS_SET_KEY = 'streams';
+  STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer:message:';
 
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })
@@ -82,5 +83,9 @@ export default class RedisClient {
 
   async getStreams (): Promise<string[]> {
     return await this.client.sMembers(this.STREAMS_SET_KEY);
+  }
+
+  async getStreamerMessage (blockHeight: number): Promise<string | null> {
+    return await this.client.get(`${this.STREAMER_MESSAGE_HASH_KEY_BASE}${blockHeight}`);
   }
 }

@@ -81,4 +81,17 @@ describe('RedisClient', () => {
     expect(mockClient.sMembers).toHaveBeenCalledWith('streams');
     expect(streams).toEqual(['streamKey1', 'streamKey2']);
   });
+
+  it('returns streamer message', async () => {
+    const mockClient = {
+      on: jest.fn(),
+      connect: jest.fn().mockResolvedValue(null),
+      get: jest.fn(),
+    } as any;
+
+    const client = new RedisClient(mockClient);
+    await client.getStreamerMessage(1000);
+
+    expect(mockClient.get).toHaveBeenCalledWith('streamer:message:1000');
+  });
 });

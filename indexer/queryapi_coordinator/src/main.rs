@@ -6,11 +6,12 @@ use tokio::sync::{Mutex, MutexGuard};
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
 use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
+use utils::serialize_to_camel_case_json_string;
 
 use crate::indexer_types::IndexerFunction;
 use indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use opts::{Opts, Parser};
-use storage::{self, ConnectionManager};
+use storage::{self, generate_real_time_streamer_message_key, ConnectionManager};
 
 mod historical_block_processing;
 mod indexer_reducer;
@@ -146,6 +147,15 @@ async fn handle_streamer_message(
 
     let block_height: BlockHeight = context.streamer_message.block.header.height;
 
+    // Cache streamer message block and shards for use in real time processing
+    storage::set(
+        context.redis_connection_manager,
+        generate_real_time_streamer_message_key(block_height),
+        &serialize_to_camel_case_json_string(&context.streamer_message)?,
+        Some(60),
+    )
+    .await?;
+
     let spawned_indexers = indexer_registry::index_registry_changes(
         block_height,
         &mut indexer_registry_locked,
@@ -206,6 +216,7 @@ async fn handle_streamer_message(
                     context.redis_connection_manager,
                     storage::generate_real_time_storage_key(&indexer_function.get_full_name()),
                     serde_json::to_string(indexer_function)?,
+                    None,
                 )
                 .await?;
                 storage::xadd(
