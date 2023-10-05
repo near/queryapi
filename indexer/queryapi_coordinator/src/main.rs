@@ -11,7 +11,7 @@ use utils::serialize_to_camel_case_json_string;
 use crate::indexer_types::IndexerFunction;
 use indexer_types::{IndexerQueueMessage, IndexerRegistry};
 use opts::{Opts, Parser};
-use storage::{self, ConnectionManager};
+use storage::{self, generate_real_time_streamer_message_key, ConnectionManager};
 
 mod historical_block_processing;
 mod indexer_reducer;
@@ -150,11 +150,7 @@ async fn handle_streamer_message(
     // Cache streamer message block and shards for use in real time processing
     storage::set(
         context.redis_connection_manager,
-        format!(
-            "{}{}",
-            storage::STREAMER_MESSAGE_HASH_KEY_BASE,
-            block_height
-        ),
+        generate_real_time_streamer_message_key(block_height),
         &serialize_to_camel_case_json_string(&context.streamer_message)?,
         Some(60),
     )

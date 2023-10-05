@@ -4,7 +4,6 @@ const STORAGE: &str = "storage_alertexer";
 
 pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 pub const STREAMS_SET_KEY: &str = "streams";
-pub const STREAMER_MESSAGE_HASH_KEY_BASE: &str = "streamer:message:";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
@@ -12,6 +11,10 @@ pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
 
 pub fn generate_real_time_stream_key(prefix: &str) -> String {
     format!("{}:real_time:stream", prefix)
+}
+
+pub fn generate_real_time_streamer_message_key(block_height: u64) -> String {
+    format!("streamer:message:{}", block_height)
 }
 
 pub fn generate_real_time_storage_key(prefix: &str) -> String {
@@ -49,23 +52,19 @@ pub async fn set(
     redis_connection_manager: &ConnectionManager,
     key: impl ToRedisArgs + std::fmt::Debug,
     value: impl ToRedisArgs + std::fmt::Debug,
-    expiration: Option<usize>,
+    expiration_seconds: Option<usize>,
 ) -> anyhow::Result<()> {
     let mut cmd = redis::cmd("SET");
     cmd.arg(&key).arg(&value);
 
     // Add expiration arguments if present
-    let exp_to_print: String;
-    if let Some(expiration) = expiration {
-        cmd.arg("EX").arg(expiration);
-        exp_to_print = format!("EX {}", expiration);
-    } else {
-        exp_to_print = "".to_string();
+    if let Some(expiration_seconds) = expiration_seconds {
+        cmd.arg("EX").arg(expiration_seconds);
     }
 
     cmd.query_async(&mut redis_connection_manager.clone())
         .await?;
-    tracing::debug!(target: STORAGE, "SET: {:?}: {:?} {:?}", key, value, exp_to_print);
+    tracing::debug!(target: STORAGE, "SET: {:?}: {:?} Ex: {:?}", key, value, expiration_seconds);
     Ok(())
 }
 
