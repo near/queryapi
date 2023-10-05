@@ -62,7 +62,7 @@ pub async fn set(
     } else {
         exp_to_print = "".to_string();
     }
-        
+
     cmd.query_async(&mut redis_connection_manager.clone())
         .await?;
     tracing::debug!(target: STORAGE, "SET: {:?}: {:?} {:?}", key, value, exp_to_print);
@@ -174,10 +174,10 @@ pub async fn update_last_indexed_block(
     block_height: u64,
 ) -> anyhow::Result<()> {
     set(
-        redis_connection_manager, 
-        "last_indexed_block", 
-        block_height, 
-        None
+        redis_connection_manager,
+        "last_indexed_block",
+        block_height,
+        None,
     )
     .await?;
     redis::cmd("INCR")

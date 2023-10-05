@@ -51,7 +51,7 @@ export default class Indexer {
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
-      redisClient: new RedisClient(),
+      redisClient: deps?.redisClient ?? new RedisClient(),
       ...deps,
     };
   }

@@ -550,7 +550,7 @@ CREATE TABLE
   });
 
   test('GetTables works for a variety of input schemas', async () => {
-    const indexer = new Indexer('mainnet');
+    const indexer = new Indexer('mainnet', { redisClient: transparentRedis });
 
     const simpleSchemaTables = indexer.getTableNames(SIMPLE_SCHEMA);
     expect(simpleSchemaTables).toStrictEqual(['posts']);
@@ -590,7 +590,7 @@ CREATE TABLE
   });
 
   test('SanitizeTableName works properly on many test cases', async () => {
-    const indexer = new Indexer('mainnet');
+    const indexer = new Indexer('mainnet', { redisClient: transparentRedis });
 
     expect(indexer.sanitizeTableName('table_name')).toStrictEqual('TableName');
     expect(indexer.sanitizeTableName('tablename')).toStrictEqual('Tablename'); // name is not capitalized
@@ -605,7 +605,7 @@ CREATE TABLE
   });
 
   test('indexer fails to build context.db due to collision on sanitized table names', async () => {
-    const indexer = new Indexer('mainnet');
+    const indexer = new Indexer('mainnet', { redisClient: transparentRedis });
 
     const schemaWithDuplicateSanitizedTableNames = `CREATE TABLE
     "test table" (
