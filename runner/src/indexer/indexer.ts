@@ -138,7 +138,6 @@ export default class Indexer {
   }
 
   async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
-    console.error('SHOULD NOT BE CALLED');
     if (!isHistorical) {
       const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
       if (cachedMessage) {
