@@ -13,6 +13,12 @@ const EXECUTION_DURATION = new Histogram({
   labelNames: ['indexer', 'type'],
 });
 
+const BLOCK_WAIT_DURATION = new Gauge({
+  name: 'queryapi_runner_block_wait_duration_milliseconds',
+  help: 'Time an indexer function waited for a block before processing',
+  labelNames: ['indexer', 'type'],
+});
+
 const CACHE_HIT = new Counter({
   name: 'queryapi_runner_cache_hit',
   help: 'The number of times cache was hit successfully',
@@ -27,7 +33,9 @@ const CACHE_MISS = new Counter({
 
 export const METRICS = {
   EXECUTION_DURATION,
+  BLOCK_WAIT_DURATION,
   UNPROCESSED_STREAM_MESSAGES,
+  BLOCKS,
   CACHE_HIT,
   CACHE_MISS
 };
