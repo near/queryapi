@@ -8,10 +8,11 @@ import { METRICS } from '../metrics';
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import RedisClient from '../redis-client';
+import S3StreamerMessageFetcher from '../streamer-message-fetcher/s3-streamer-fetcher';
 
 interface Dependencies {
   fetch: typeof fetch
-  s3: S3Client
+  s3StreamerMessageFetcher: S3StreamerMessageFetcher
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
@@ -47,7 +48,7 @@ export default class Indexer {
     this.network = network;
     this.deps = {
       fetch,
-      s3: new S3Client(),
+      s3StreamerMessageFetcher: deps?.s3StreamerMessageFetcher ?? new S3StreamerMessageFetcher(this.network),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
@@ -63,7 +64,7 @@ export default class Indexer {
     options: { provision?: boolean } = { provision: false },
     streamerMessage: StreamerMessage | null = null
   ): Promise<string[]> {
-    const blockWithHelpers = Block.fromStreamerMessage(streamerMessage == null ? await this.fetchStreamerMessage(blockHeight, isHistorical) : streamerMessage);
+    const blockWithHelpers = Block.fromStreamerMessage(streamerMessage !== null ? streamerMessage : await this.fetchStreamerMessage(blockHeight, isHistorical));
 
     const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
 
@@ -132,9 +133,13 @@ export default class Indexer {
     return allMutations;
   }
 
-  // pad with 0s to 12 digits
-  normalizeBlockHeight (blockHeight: number): string {
-    return blockHeight.toString().padStart(12, '0');
+  enableAwaitTransform (indexerFunction: string): string {
+    return `
+            async function f(){
+                ${indexerFunction}
+            };
+            f();
+    `;
   }
 
   async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
@@ -148,8 +153,8 @@ export default class Indexer {
         METRICS.CACHE_MISS.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
       }
     }
-    const blockPromise = this.fetchBlockPromise(blockHeight);
-    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
+    const blockPromise = this.deps.s3StreamerMessageFetcher.fetchBlockPromise(blockHeight);
+    const shardsPromises = await this.deps.s3StreamerMessageFetcher.fetchShardsPromises(blockHeight, 4);
 
     const results = await Promise.all([blockPromise, ...shardsPromises]);
     const block = results.shift();
@@ -158,43 +163,6 @@ export default class Indexer {
       block,
       shards,
     };
-  }
-
-  async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
-    return ([...Array(numberOfShards).keys()].map(async (shardId) =>
-      await this.fetchShardPromise(blockHeight, shardId)
-    ));
-  }
-
-  async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
-    const params = {
-      Bucket: `near-lake-data-${this.network}`,
-      Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
-    };
-    const response = await this.deps.s3.send(new GetObjectCommand(params));
-    const shardData = await response.Body?.transformToString() ?? '{}';
-    return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-  }
-
-  async fetchBlockPromise (blockHeight: number): Promise<any> {
-    const file = 'block.json';
-    const folder = this.normalizeBlockHeight(blockHeight);
-    const params = {
-      Bucket: 'near-lake-data-' + this.network,
-      Key: `${folder}/${file}`,
-    };
-    const response = await this.deps.s3.send(new GetObjectCommand(params));
-    const blockData = await response.Body?.transformToString() ?? '{}';
-    return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-  }
-
-  enableAwaitTransform (indexerFunction: string): string {
-    return `
-            async function f(){
-                ${indexerFunction}
-            };
-            f();
-    `;
   }
 
   transformIndexerFunction (indexerFunction: string): string {
@@ -490,26 +458,5 @@ export default class Indexer {
     }
 
     return data;
-  }
-
-  renameUnderscoreFieldsToCamelCase (value: Record<string, any>): Record<string, any> {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      // It's a non-null, non-array object, create a replacement with the keys initially-capped
-      const newValue: any = {};
-      for (const key in value) {
-        const newKey: string = key
-          .split('_')
-          .map((word, i) => {
-            if (i > 0) {
-              return word.charAt(0).toUpperCase() + word.slice(1);
-            }
-            return word;
-          })
-          .join('');
-        newValue[newKey] = value[key];
-      }
-      return newValue;
-    }
-    return value;
   }
 }
