@@ -1,6 +1,6 @@
 'use strict';
-const AWS = require('aws-sdk');
-const S3= new AWS.S3();
+import { S3 } from '@aws-sdk/client-s3';
+const S3 = new S3();
 
 const NETWORK = process.env.NETWORK || 'mainnet';
 

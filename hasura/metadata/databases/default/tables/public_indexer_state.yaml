@@ -17,6 +17,7 @@ select_permissions:
     - current_block_height
     - current_historical_block_height
     - status
+    allow_aggregations: true
     filter: {}
   role: append
 update_permissions:

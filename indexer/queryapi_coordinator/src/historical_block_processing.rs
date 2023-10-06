@@ -151,6 +151,7 @@ pub(crate) async fn process_historical_messages(
                     redis_connection_manager,
                     storage::generate_historical_storage_key(&indexer_function.get_full_name()),
                     serde_json::to_string(&indexer_function)?,
+                    None,
                 )
                 .await?;
             }

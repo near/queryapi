@@ -1,18 +1,21 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import AWS from 'aws-sdk';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
+import { METRICS } from '../metrics';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import RedisClient from '../redis-client';
 
 interface Dependencies {
   fetch: typeof fetch
-  s3: AWS.S3
+  s3: S3Client
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
+  redisClient: RedisClient
 };
 
 interface Context {
@@ -44,10 +47,11 @@ export default class Indexer {
     this.network = network;
     this.deps = {
       fetch,
-      s3: new AWS.S3(),
+      s3: new S3Client(),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
+      redisClient: deps?.redisClient ?? new RedisClient(),
       ...deps,
     };
   }
@@ -58,7 +62,7 @@ export default class Indexer {
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight));
+    const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight, isHistorical));
 
     const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
 
@@ -132,7 +136,17 @@ export default class Indexer {
     return blockHeight.toString().padStart(12, '0');
   }
 
-  async fetchStreamerMessage (blockHeight: number): Promise<{ block: any, shards: any[] }> {
+  async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
+    if (!isHistorical) {
+      const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
+      if (cachedMessage) {
+        METRICS.CACHE_HIT.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
+        const parsedMessage = JSON.parse(cachedMessage);
+        return parsedMessage;
+      } else {
+        METRICS.CACHE_MISS.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
+      }
+    }
     const blockPromise = this.fetchBlockPromise(blockHeight);
     const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
 
@@ -156,9 +170,9 @@ export default class Indexer {
       Bucket: `near-lake-data-${this.network}`,
       Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
     };
-    return await this.deps.s3.getObject(params).promise().then((response) => {
-      return JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-    });
+    const response = await this.deps.s3.send(new GetObjectCommand(params));
+    const shardData = await response.Body?.transformToString() ?? '{}';
+    return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   async fetchBlockPromise (blockHeight: number): Promise<any> {
@@ -168,10 +182,9 @@ export default class Indexer {
       Bucket: 'near-lake-data-' + this.network,
       Key: `${folder}/${file}`,
     };
-    return await this.deps.s3.getObject(params).promise().then((response) => {
-      const block = JSON.parse(response.Body?.toString() ?? '{}', (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
-      return block;
-    });
+    const response = await this.deps.s3.send(new GetObjectCommand(params));
+    const blockData = await response.Body?.transformToString() ?? '{}';
+    return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   enableAwaitTransform (indexerFunction: string): string {
@@ -479,7 +492,7 @@ export default class Indexer {
   }
 
   renameUnderscoreFieldsToCamelCase (value: Record<string, any>): Record<string, any> {
-    if (typeof value === 'object' && !Array.isArray(value)) {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // It's a non-null, non-array object, create a replacement with the keys initially-capped
       const newValue: any = {};
       for (const key in value) {

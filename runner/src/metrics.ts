@@ -13,9 +13,23 @@ const EXECUTION_DURATION = new promClient.Gauge({
   labelNames: ['indexer', 'type'],
 });
 
+const CACHE_HIT = new promClient.Counter({
+  name: 'queryapi_runner_cache_hit',
+  help: 'The number of times cache was hit successfully',
+  labelNames: ['type', 'key']
+});
+
+const CACHE_MISS = new promClient.Counter({
+  name: 'queryapi_runner_cache_miss',
+  help: 'The number of times cache was missed',
+  labelNames: ['type', 'key']
+});
+
 export const METRICS = {
   EXECUTION_DURATION,
   UNPROCESSED_STREAM_MESSAGES,
+  CACHE_HIT,
+  CACHE_MISS
 };
 
 export const startServer = async (): Promise<void> => {

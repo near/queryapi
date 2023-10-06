@@ -3,12 +3,13 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { type Message } from './types';
 import { METRICS } from '../metrics';
+import { Gauge } from 'prom-client';
 
 export default class StreamHandler {
   private readonly worker?: Worker;
 
   constructor (
-    streamKey: string
+    public readonly streamKey: string
   ) {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
@@ -18,12 +19,22 @@ export default class StreamHandler {
       });
 
       this.worker.on('message', this.handleMessage);
+      this.worker.on('error', this.handleError);
     } else {
       throw new Error('StreamHandler should not be instantiated in a worker thread');
     }
   }
 
+  private handleError (error: Error): void {
+    console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
+    this.worker?.terminate().catch(() => {
+      console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
+    });
+  }
+
   private handleMessage (message: Message): void {
-    METRICS[message.type].labels(message.labels).set(message.value);
+    if (METRICS[message.type] instanceof Gauge) {
+      (METRICS[message.type] as Gauge).labels(message.labels).set(message.value);
+    }
   }
 }
