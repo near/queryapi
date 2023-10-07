@@ -3,7 +3,7 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { type Message } from './types';
 import { METRICS } from '../metrics';
-import { Gauge } from 'prom-client';
+import { type Counter, Gauge } from 'prom-client';
 
 export default class StreamHandler {
   private readonly worker?: Worker;
@@ -35,6 +35,8 @@ export default class StreamHandler {
   private handleMessage (message: Message): void {
     if (METRICS[message.type] instanceof Gauge) {
       (METRICS[message.type] as Gauge).labels(message.labels).set(message.value);
+    } else {
+      (METRICS[message.type] as Counter).labels(message.labels).inc(message.value);
     }
   }
 }

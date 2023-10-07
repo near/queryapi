@@ -8,7 +8,7 @@ if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
 
-const indexer = new Indexer('mainnet');
+const indexer = new Indexer('mainnet', { parentPort });
 const redisClient = new RedisClient();
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
