@@ -32,3 +32,17 @@ yarn dev
 
 - Prod App: `https://near.org/dataplatform.near/widget/QueryApi.App`
 
+
+### ENV variables
+The React app does not use the replacement files. Instead, we need to provide an `.env` file to make sure we are accessing the right enviornment
+
+By default, the React app will use the `dev` enviornment vars
+```
+Prod:
+    NEXT_PUBLIC_HASURA_ENDPOINT=https://near-queryapi.api.pagoda.co
+    NEXT_PUBLIC_REGISTRY_CONTRACT_ID=queryapi.dataplatform.near
+```
+```
+Dev:
+    NEXT_PUBLIC_HASURA_ENDPOINT=https://near-queryapi.dev.api.pagoda.co
+    NEXT_PUBLIC_REGISTRY_CONTRACT_ID=dev-queryapi.dataplatform.near
