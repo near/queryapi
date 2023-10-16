@@ -23,6 +23,10 @@ export const consumer = async (event) => {
         const function_name = function_config.account_id + '/' + function_config.function_name;
         functions[function_name] = function_config;
 
-        const mutations = await indexer.runFunctions(block_height, functions, is_historical, {imperative: true, provision: true});
+        try {
+            const mutations = await indexer.runFunctions(block_height, functions, is_historical, {imperative: true, provision: true});
+        } catch(e) {
+            console.error(e);
+        }
     }
 };
