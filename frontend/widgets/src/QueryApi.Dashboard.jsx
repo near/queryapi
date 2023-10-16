@@ -60,7 +60,7 @@ const Wrapper = styled.div`
 const NavBarLogo = styled.a`
   padding-top: 0.3125rem;
   padding-bottom: 0.3125rem;
-  margin-right: 1rem;
+  margin-right: .01rem;
   font-size: 1.25rem;
   text-decoration: none;
   white-space: nowrap;
@@ -274,6 +274,27 @@ const ButtonLink = styled.a`
     }}
 `;
 
+const SignUpLink = styled.a`
+  --blue: RGBA(13, 110, 253, 1);
+  display: ${({ hidden }) => (hidden ? "none" : "inline-block")};
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--blue);
+  text-decoration: none;
+  margin-left: 0.1em;
+  padding: 0;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--blue);
+    text-decoration: none;
+  }
+
+  &:visited {
+    color: var(--blue);
+    text-decoration: none;
+  }
+`;
 // TODO fix activeTab
 // const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
 // if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
@@ -398,6 +419,9 @@ return (
           QueryApi
         </NavBarLogo>
 
+          <SignUpLink target="_blank" href={`http://bit.ly/near-queryapi-beta`}>
+            (Sign Up)
+          </SignUpLink>
         <div>
           <ButtonLink
             href={`/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
