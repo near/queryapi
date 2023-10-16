@@ -15,9 +15,18 @@ export const consumer = async (event) => {
         const functions = {};
 
         const function_config = jsonBody.indexer_function;
+        const code = function_config.code;
+        if (code.indexOf('context.db') >= 0) {
+          continue
+        }
+
         const function_name = function_config.account_id + '/' + function_config.function_name;
         functions[function_name] = function_config;
 
-        const mutations = await indexer.runFunctions(block_height, functions, is_historical, {imperative: true, provision: true});
+        try {
+            const mutations = await indexer.runFunctions(block_height, functions, is_historical, {imperative: true, provision: true});
+        } catch(e) {
+            console.error(e);
+        }
     }
 };
