@@ -170,6 +170,17 @@ if (
   (prevV2ToggleSelected !== state.v2Toggle)
 ) {
   Storage.privateSet("QueryApiV2Toggle", state.v2Toggle);
+  State.update({
+    logs: [],
+    state: [],
+    indexer_res: [],
+    indexer_resCount: 0,
+    logsCount: 0,
+    stateCount: 0,
+    indexer_resPage: 0,
+    logsPage: 0,
+    statePage: 0,
+  })
   fetchGraphQL(logsDoc, "QueryLogs", {
     offset: state.logsPage * LIMIT,
   }).then((result) => {
