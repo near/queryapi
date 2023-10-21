@@ -22,7 +22,7 @@
     "@types/react-dom": "18.0.10",
     "bootstrap": "^5.2.3",
     "buffer": "^6.0.3",
-    "eslint": "8.34.0",
+    "eslint": "8.50.0",
     "eslint-config-next": "13.1.6",
     "graphiql": "3.0.6",
     "graphql": "^16.6.0",
