@@ -23,7 +23,7 @@
     "bootstrap": "^5.2.3",
     "buffer": "^6.0.3",
     "eslint": "8.34.0",
-    "eslint-config-next": "13.1.6",
+    "eslint-config-next": "13.5.3",
     "graphiql": "3.0.6",
     "graphql": "^16.6.0",
     "near-api-js": "1.1.0",
