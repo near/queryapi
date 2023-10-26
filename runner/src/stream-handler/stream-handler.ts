@@ -3,7 +3,7 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { type Message } from './types';
 import { METRICS } from '../metrics';
-import { Gauge } from 'prom-client';
+import { Gauge, Histogram } from 'prom-client';
 
 export default class StreamHandler {
   private readonly worker?: Worker;
@@ -35,6 +35,10 @@ export default class StreamHandler {
   private handleMessage (message: Message): void {
     if (METRICS[message.type] instanceof Gauge) {
       (METRICS[message.type] as Gauge).labels(message.labels).set(message.value);
+    }
+
+    if (METRICS[message.type] instanceof Histogram) {
+      (METRICS[message.type] as Histogram).labels(message.labels).observe(message.value);
     }
   }
 }
