@@ -7,7 +7,7 @@ const UNPROCESSED_STREAM_MESSAGES = new promClient.Gauge({
   labelNames: ['indexer', 'type'],
 });
 
-const EXECUTION_DURATION = new promClient.Gauge({
+const EXECUTION_DURATION = new promClient.Histogram({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
   labelNames: ['indexer', 'type'],
