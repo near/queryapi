@@ -35,7 +35,7 @@ export const handler = async () => {
             },
         }),
         fetchJson(
-            `${process.env.HASURA_ENDPOINT}/v1/graphql`,
+            `${process.env.HASURA_ENDPOINT_V2}/v1/graphql`,
             {
                 query: `{
                     dataplatform_near_social_feed_posts(
