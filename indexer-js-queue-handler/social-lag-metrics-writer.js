@@ -54,8 +54,7 @@ export const handler = async () => {
 
     const nearSocialBlockHeight = nearSocialResponse[0].blockHeight;
     const feedIndexerBlockHeight =
-        feedIndexerResponse.data.dataplatform_near_social_feed_posts[0]
-            .block_height;
+        feedIndexerResponse.data.dataplatform_near_social_feed_posts[0].block_height;
 
     const lag = nearSocialBlockHeight - feedIndexerBlockHeight;
 
