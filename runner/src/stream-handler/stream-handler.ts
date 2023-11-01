@@ -1,9 +1,7 @@
 import path from 'path';
 import { Worker, isMainThread } from 'worker_threads';
 
-import { type Message } from './types';
-import { METRICS } from '../metrics';
-import { Gauge, Histogram } from 'prom-client';
+import { registerWorkerMetrics } from '../metrics';
 
 export default class StreamHandler {
   private readonly worker?: Worker;
@@ -32,13 +30,9 @@ export default class StreamHandler {
     });
   }
 
-  private handleMessage (message: Message): void {
-    if (METRICS[message.type] instanceof Gauge) {
-      (METRICS[message.type] as Gauge).labels(message.labels).set(message.value);
-    }
-
-    if (METRICS[message.type] instanceof Histogram) {
-      (METRICS[message.type] as Histogram).labels(message.labels).observe(message.value);
+  private handleMessage (message: string): void {
+    if (this.worker) {
+      registerWorkerMetrics(this.worker.threadId, message);
     }
   }
 }
