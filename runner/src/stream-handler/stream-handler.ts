@@ -1,12 +1,10 @@
 import path from 'path';
 import { Worker, isMainThread } from 'worker_threads';
 
-import { type Message } from './types';
-import { METRICS } from '../metrics';
-import { Gauge, Histogram } from 'prom-client';
+import { registerWorkerMetrics } from '../metrics';
 
 export default class StreamHandler {
-  private readonly worker?: Worker;
+  private readonly worker: Worker;
 
   constructor (
     public readonly streamKey: string
@@ -18,8 +16,8 @@ export default class StreamHandler {
         },
       });
 
-      this.worker.on('message', this.handleMessage);
-      this.worker.on('error', this.handleError);
+      this.worker.on('message', this.handleMessage.bind(this));
+      this.worker.on('error', this.handleError.bind(this));
     } else {
       throw new Error('StreamHandler should not be instantiated in a worker thread');
     }
@@ -27,18 +25,12 @@ export default class StreamHandler {
 
   private handleError (error: Error): void {
     console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
-    this.worker?.terminate().catch(() => {
+    this.worker.terminate().catch(() => {
       console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
     });
   }
 
-  private handleMessage (message: Message): void {
-    if (METRICS[message.type] instanceof Gauge) {
-      (METRICS[message.type] as Gauge).labels(message.labels).set(message.value);
-    }
-
-    if (METRICS[message.type] instanceof Histogram) {
-      (METRICS[message.type] as Histogram).labels(message.labels).observe(message.value);
-    }
+  private handleMessage (message: string): void {
+    registerWorkerMetrics(this.worker.threadId, message);
   }
 }
