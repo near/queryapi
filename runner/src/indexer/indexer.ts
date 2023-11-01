@@ -2,13 +2,12 @@ import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
-import { type MessagePort } from 'worker_threads';
-import { type Message } from '../stream-handler/types';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import RedisClient from '../redis-client';
 import LakeClient from '../lake-client/lake-client';
+import { METRICS } from '../metrics';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -17,7 +16,6 @@ interface Dependencies {
   DmlHandler: typeof DmlHandler
   parser: Parser
   redisClient: RedisClient
-  parentPort: MessagePort | null
 };
 
 interface Context {
@@ -54,7 +52,6 @@ export default class Indexer {
       DmlHandler,
       parser: new Parser(),
       redisClient: deps?.redisClient ?? new RedisClient(),
-      parentPort: deps?.parentPort ?? null,
       ...deps,
     };
   }
@@ -148,20 +145,12 @@ export default class Indexer {
     if (!isHistorical) {
       const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
       if (cachedMessage) {
-        this.deps.parentPort?.postMessage({
-          type: 'CACHE_HIT',
-          labels: { type: isHistorical ? 'historical' : 'real-time' },
-          value: 1,
-        } satisfies Message);
+        METRICS.CACHE_HIT.labels({ type: 'real-time' }).inc();
 
         const parsedMessage = JSON.parse(cachedMessage);
         return parsedMessage;
       } else {
-        this.deps.parentPort?.postMessage({
-          type: 'CACHE_MISS',
-          labels: { type: isHistorical ? 'historical' : 'real-time' },
-          value: 1,
-        } satisfies Message);
+        METRICS.CACHE_HIT.labels({ type: 'real-time' }).inc();
       }
     }
     return await this.deps.lakeClient.buildStreamerMessage(blockHeight);

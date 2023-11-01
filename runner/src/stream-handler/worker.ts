@@ -12,7 +12,7 @@ if (isMainThread) {
 }
 
 const HISTORICAL_BATCH_SIZE = 100;
-const indexer = new Indexer('mainnet', { parentPort });
+const indexer = new Indexer('mainnet');
 const redisClient = new RedisClient();
 const s3StreamerMessageFetcher = new S3StreamerMessageFetcher();
 
@@ -102,99 +102,6 @@ async function historicalStreamerMessageQueueProducer (queue: Array<Promise<Queu
       continue;
     }
     const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount, currentBlockHeight);
-    console.log('Messages fetched: ', messages?.length);
-
-    if (messages == null) {
-      await sleep(100);
-      continue;
-    }
-
-    for (const streamMessage of messages) {
-      const { id, message } = streamMessage;
-      fetchAndQueue(queue, Number(message.block_height), id);
-    }
-
-    currentBlockHeight = incrementId(messages[messages.length - 1].id);
-  }
-}
-
-async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
-  const streamType = redisClient.getStreamType(streamKey);
-  const indexerConfig = await redisClient.getStreamStorage(streamKey);
-  const indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-  const functions = {
-    [indexerName]: {
-      account_id: indexerConfig.account_id,
-      function_name: indexerConfig.function_name,
-      code: indexerConfig.code,
-      schema: indexerConfig.schema,
-      provisioned: false,
-    },
-  };
-
-  while (true) {
-    const startTime = performance.now();
-    const blockStartTime = startTime;
-    const queueMessage = await queue.shift();
-    if (queueMessage === undefined) {
-      await sleep(500);
-      continue;
-    }
-    const { streamerMessage, streamId } = queueMessage;
-
-    if (streamerMessage === undefined || streamerMessage?.block.header.height == null) {
-      console.error('Streamer message does not have block height', streamerMessage);
-      continue;
-    }
-    console.log('Block wait Duration: ', performance.now() - startTime);
-    parentPort?.postMessage({
-      type: 'BLOCK_WAIT_DURATION',
-      labels: { indexer: indexerName, type: streamType },
-      value: performance.now() - blockStartTime,
-    } satisfies Message);
-
-    const functionStartTime = performance.now();
-    await indexer.runFunctions(streamerMessage.block.header.height, functions, false, { provision: true }, streamerMessage);
-    console.log('Function Code Execution Duration: ', performance.now() - functionStartTime);
-    parentPort?.postMessage({
-      type: 'FUNCTION_OVERALL_EXECUTION_DURATION',
-      labels: { indexer: indexerName, type: streamType },
-      value: performance.now() - functionStartTime,
-    } satisfies Message);
-
-    // await redisClient.deleteStreamMessage(streamKey, streamId);
-    // Can just be streamId if above line is running
-    const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey, incrementId(streamId));
-
-      parentPort?.postMessage({
-        type: 'UNPROCESSED_STREAM_MESSAGES',
-        labels: { indexer: indexerName, type: streamType },
-        value: unprocessedMessages?.length ?? 0,
-      } satisfies Message);
-    }
-  }
-})();
-
-async function handleHistoricalStream (streamKey: string): Promise<void> {
-  void historicalStreamerMessageQueueProducer(queue, streamKey);
-  void historicalStreamerMessageQueueConsumer(queue, streamKey);
-}
-
-function incrementId (id: string): string {
-  const [main, sequence] = id.split('-');
-  return `${Number(main) + 1}-${sequence}`;
-}
-
-async function historicalStreamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
-  let currentBlockHeight: string = '0';
-
-  while (true) {
-    const preFetchCount = HISTORICAL_BATCH_SIZE - queue.length;
-    if (preFetchCount <= 0) {
-      await sleep(300);
-      continue;
-    }
-    const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount, currentBlockHeight);
     if (messages == null) {
       await sleep(100);
       continue;
@@ -238,11 +145,7 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
       console.error('Streamer message does not have block height', streamerMessage);
       continue;
     }
-    parentPort?.postMessage({
-      type: 'BLOCK_WAIT_DURATION',
-      labels: { indexer: indexerName, type: streamType },
-      value: performance.now() - blockStartTime,
-    } satisfies Message);
+    METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - blockStartTime);
 
     try {
       await indexer.runFunctions(streamerMessage.block.header.height, functions, false, { provision: true }, streamerMessage);
@@ -254,23 +157,13 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
     // Can just be streamId if above line is running
     const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey, incrementId(streamId));
 
-    parentPort?.postMessage({
-      type: 'UNPROCESSED_STREAM_MESSAGES',
-      labels: { indexer: indexerName, type: streamType },
-      value: unprocessedMessages?.length ?? 0,
-    } satisfies Message);
+    METRICS.LAST_PROCESSED_BLOCK.labels({ indexer: indexerName, type: streamType }).set(streamerMessage.block.header.height);
 
-    parentPort?.postMessage({
-      type: 'LAST_PROCESSED_BLOCK',
-      labels: { indexer: indexerName, type: streamType },
-      value: streamerMessage.block.header.height,
-    } satisfies Message);
+    METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
 
-    parentPort?.postMessage({
-      type: 'EXECUTION_DURATION',
-      labels: { indexer: indexerName, type: streamType },
-      value: performance.now() - startTime,
-    } satisfies Message);
+    METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
+
+    parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
   }
 }
 

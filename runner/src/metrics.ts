@@ -1,18 +1,6 @@
 import express from 'express';
 import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 
-const UNPROCESSED_STREAM_MESSAGES = new Gauge({
-  name: 'queryapi_runner_unprocessed_stream_messages',
-  help: 'Number of Redis Stream messages not yet processed',
-  labelNames: ['indexer', 'type'],
-});
-
-const EXECUTION_DURATION = new Histogram({
-  name: 'queryapi_runner_execution_duration_milliseconds',
-  help: 'Time taken to execute an indexer function',
-  labelNames: ['indexer', 'type'],
-});
-
 const BLOCK_WAIT_DURATION = new Gauge({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
@@ -31,19 +19,19 @@ const CACHE_MISS = new Counter({
   labelNames: ['type']
 });
 
-const UNPROCESSED_STREAM_MESSAGES = new promClient.Gauge({
+const UNPROCESSED_STREAM_MESSAGES = new Gauge({
   name: 'queryapi_runner_unprocessed_stream_messages',
   help: 'Number of Redis Stream messages not yet processed',
   labelNames: ['indexer', 'type'],
 });
 
-const LAST_PROCESSED_BLOCK = new promClient.Gauge({
+const LAST_PROCESSED_BLOCK = new Gauge({
   name: 'queryapi_runner_last_processed_block',
   help: 'The last block processed by an indexer function',
   labelNames: ['indexer', 'type'],
 });
 
-const EXECUTION_DURATION = new promClient.Histogram({
+const EXECUTION_DURATION = new Histogram({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
   labelNames: ['indexer', 'type'],
