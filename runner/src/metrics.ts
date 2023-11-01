@@ -22,13 +22,13 @@ const BLOCK_WAIT_DURATION = new Gauge({
 const CACHE_HIT = new Counter({
   name: 'queryapi_runner_cache_hit',
   help: 'The number of times cache was hit successfully',
-  labelNames: ['blockheight', 'type']
+  labelNames: ['type']
 });
 
 const CACHE_MISS = new Counter({
   name: 'queryapi_runner_cache_miss',
   help: 'The number of times cache was missed',
-  labelNames: ['blockheight', 'type']
+  labelNames: ['type']
 });
 
 const FUNCTION_STATE_LOGGING_LATENCY = new promClient.Gauge({
@@ -73,7 +73,7 @@ const LAST_PROCESSED_BLOCK = new promClient.Gauge({
   labelNames: ['indexer', 'type'],
 });
 
-const EXECUTION_DURATION = new promClient.Gauge({
+const EXECUTION_DURATION = new promClient.Histogram({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
   labelNames: ['indexer', 'type'],

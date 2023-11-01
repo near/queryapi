@@ -32,8 +32,9 @@ void (async function main () {
   let indexerName = '';
   const streamType = redisClient.getStreamType(streamKey);
   const isHistorical = streamType === 'historical';
-  if (streamType === 'real-time') {
+  if (!isHistorical) {
     await handleHistoricalStream(streamKey);
+    return;
   }
 
   while (true) {
@@ -194,12 +195,11 @@ async function historicalStreamerMessageQueueProducer (queue: Array<Promise<Queu
       continue;
     }
     const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount, currentBlockHeight);
-    console.log('Messages fetched: ', messages?.length);
-
     if (messages == null) {
       await sleep(100);
       continue;
     }
+    console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
 
     for (const streamMessage of messages) {
       const { id, message } = streamMessage;
@@ -246,7 +246,11 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
     } satisfies Message);
 
     const functionStartTime = performance.now();
-    await indexer.runFunctions(streamerMessage.block.header.height, functions, false, { provision: true }, streamerMessage);
+    try {
+      await indexer.runFunctions(streamerMessage.block.header.height, functions, false, { provision: true }, streamerMessage);
+    } catch (error) {
+      console.error('Error running function', error);
+    }
     console.log('Function Code Execution Duration: ', performance.now() - functionStartTime);
     parentPort?.postMessage({
       type: 'FUNCTION_OVERALL_EXECUTION_DURATION',

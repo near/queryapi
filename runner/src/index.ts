@@ -17,8 +17,7 @@ void (async function main () {
     const streamHandlers: StreamHandlers = {};
 
     while (true) {
-      // const streamKeys = await redisClient.getStreams();
-      const streamKeys = ['flatirons.near/sweat_blockheight:real_time:stream'];
+      const streamKeys = await redisClient.getStreams();
 
       streamKeys.forEach((streamKey) => {
         if (streamHandlers[streamKey] !== undefined) {
