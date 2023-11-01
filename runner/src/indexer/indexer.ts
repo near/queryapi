@@ -87,7 +87,6 @@ export default class Indexer {
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
 
         if (options.provision && !indexerFunction.provisioned) {
-          const provisionintLatency = performance.now();
           try {
             if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
               await this.setStatus(functionName, blockHeight, 'PROVISIONING');
@@ -102,11 +101,9 @@ export default class Indexer {
             simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
             throw error;
           }
-          console.log('Provisioning Latency: ', performance.now() - provisionintLatency);
         }
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
-        console.log('Function State Logging Latency: ', performance.now() - functionStateLoggingLatency);
         this.deps.parentPort?.postMessage({
           type: 'FUNCTION_STATE_LOGGING_LATENCY',
           labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
@@ -122,7 +119,6 @@ export default class Indexer {
         vm.freeze(context, 'console'); // provide console.log via context.log
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-        console.log('VM and Context Object Preparation Latency: ', performance.now() - vmAndContextBuildLatency);
         this.deps.parentPort?.postMessage({
           type: 'FUNCTION_VM_AND_CONTEXT_LATENCY',
           labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
@@ -140,7 +136,7 @@ export default class Indexer {
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
-        console.log('Function Execution Latency: ', performance.now() - functionCodeExecutionLatency);
+        console.log('Function Code Execution Latency: ', performance.now() - functionCodeExecutionLatency);
         this.deps.parentPort?.postMessage({
           type: 'FUNCTION_CODE_EXECUTION_LATENCY',
           labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
@@ -154,7 +150,6 @@ export default class Indexer {
         throw e;
       } finally {
         await Promise.all(simultaneousPromises);
-        console.log('Finish Promise Handling Latency: ', finishPromiseHandlingLatency !== undefined ? performance.now() - finishPromiseHandlingLatency : 'null');
         this.deps.parentPort?.postMessage({
           type: 'FUNCTION_VM_AND_CONTEXT_LATENCY',
           labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },

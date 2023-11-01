@@ -238,7 +238,6 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
       console.error('Streamer message does not have block height', streamerMessage);
       continue;
     }
-    console.log('Block wait Duration: ', performance.now() - startTime);
     parentPort?.postMessage({
       type: 'BLOCK_WAIT_DURATION',
       labels: { indexer: indexerName, type: streamType },
@@ -251,7 +250,6 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
     } catch (error) {
       console.error('Error running function', error);
     }
-    console.log('Function Code Execution Duration: ', performance.now() - functionStartTime);
     parentPort?.postMessage({
       type: 'FUNCTION_OVERALL_EXECUTION_DURATION',
       labels: { indexer: indexerName, type: streamType },
@@ -273,8 +271,6 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
       labels: { indexer: indexerName, type: streamType },
       value: streamerMessage.block.header.height,
     } satisfies Message);
-
-    console.log('Execution Duration: ', performance.now() - startTime);
 
     parentPort?.postMessage({
       type: 'EXECUTION_DURATION',
