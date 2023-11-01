@@ -20,6 +20,7 @@ void (async function main () {
 
   let indexerName = '';
   const streamType = redisClient.getStreamType(streamKey);
+  const isHistorical = streamType === 'historical';
 
   while (true) {
     try {
@@ -46,7 +47,7 @@ void (async function main () {
           provisioned: false,
         },
       };
-      await indexer.runFunctions(Number(message.block_height), functions, false, {
+      await indexer.runFunctions(Number(message.block_height), functions, isHistorical, {
         provision: true,
       });
 
