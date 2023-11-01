@@ -19,11 +19,11 @@ void (async function main () {
   console.log('Started processing stream: ', streamKey);
 
   let indexerName = '';
+  const streamType = redisClient.getStreamType(streamKey);
 
   while (true) {
     try {
       const startTime = performance.now();
-      const streamType = redisClient.getStreamType(streamKey);
 
       const messages = await redisClient.getNextStreamMessage(streamKey);
       const indexerConfig = await redisClient.getStreamStorage(streamKey);
@@ -52,14 +52,6 @@ void (async function main () {
 
       await redisClient.deleteStreamMessage(streamKey, id);
 
-      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
-
-      parentPort?.postMessage({
-        type: 'UNPROCESSED_STREAM_MESSAGES',
-        labels: { indexer: indexerName, type: streamType },
-        value: unprocessedMessages?.length ?? 0,
-      } satisfies Message);
-
       parentPort?.postMessage({
         type: 'EXECUTION_DURATION',
         labels: { indexer: indexerName, type: streamType },
@@ -70,6 +62,14 @@ void (async function main () {
     } catch (err) {
       await sleep(10000);
       console.log(`Failed: ${indexerName}`, err);
+    } finally {
+      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
+
+      parentPort?.postMessage({
+        type: 'UNPROCESSED_STREAM_MESSAGES',
+        labels: { indexer: indexerName, type: streamType },
+        value: unprocessedMessages?.length ?? 0,
+      } satisfies Message);
     }
   }
 })();
