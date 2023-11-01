@@ -4,7 +4,7 @@ import { Worker, isMainThread } from 'worker_threads';
 import { registerWorkerMetrics } from '../metrics';
 
 export default class StreamHandler {
-  private readonly worker?: Worker;
+  private readonly worker: Worker;
 
   constructor (
     public readonly streamKey: string
@@ -25,14 +25,12 @@ export default class StreamHandler {
 
   private handleError (error: Error): void {
     console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
-    this.worker?.terminate().catch(() => {
+    this.worker.terminate().catch(() => {
       console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
     });
   }
 
   private handleMessage (message: string): void {
-    if (this.worker) {
-      registerWorkerMetrics(this.worker.threadId, message);
-    }
+    registerWorkerMetrics(this.worker.threadId, message);
   }
 }
