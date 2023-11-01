@@ -194,7 +194,7 @@ export default class Indexer {
         } satisfies Message);
       }
     }
-    return await this.deps.s3StreamerMessageFetcher.fetchStreamerMessage(blockHeight);
+    return await this.deps.s3StreamerMessageFetcher.buildStreamerMessage(blockHeight);
   }
 
   transformIndexerFunction (indexerFunction: string): string {

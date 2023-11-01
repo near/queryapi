@@ -289,7 +289,7 @@ function fetchAndQueue (queue: Array<Promise<QueueMessage>>, blockHeight: number
 }
 
 async function transformStreamerMessageToQueueMessage (blockHeight: number, streamId: string): Promise<QueueMessage> {
-  const streamerMessage = await s3StreamerMessageFetcher.fetchStreamerMessage(blockHeight);
+  const streamerMessage = await s3StreamerMessageFetcher.buildStreamerMessage(blockHeight);
   return {
     streamerMessage,
     streamId

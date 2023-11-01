@@ -66,7 +66,7 @@ export default class S3StreamerMessageFetcher {
     return value;
   }
 
-  async fetchStreamerMessage (blockHeight: number): Promise<StreamerMessage> {
+  async buildStreamerMessage (blockHeight: number): Promise<StreamerMessage> {
     const blockPromise = this.fetchBlockPromise(blockHeight);
     const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
 
