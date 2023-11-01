@@ -1,7 +1,7 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { type StreamerMessage } from '@near-lake/primitives';
 
-export default class S3StreamerMessageFetcher {
+export default class LakeClient {
   private readonly s3Client: S3Client;
   network: string;
   constructor (

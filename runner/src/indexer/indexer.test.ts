@@ -4,7 +4,7 @@ import type RedisClient from '../redis-client';
 
 import Indexer from './indexer';
 import { VM } from 'vm2';
-import type S3StreamerMessageFetcher from '../streamer-message-fetcher/s3-streamer-fetcher';
+import type LakeClient from '../lake-client/lake-client';
 
 describe('Indexer unit tests', () => {
   const oldEnv = process.env;
@@ -255,7 +255,7 @@ CREATE TABLE
   test('Indexer.fetchStreamerMessage() should fetch the message from S3 upon cache miss', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -267,8 +267,8 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
-    const indexer = new Indexer('mainnet', { s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis });
+    } as unknown as LakeClient;
+    const indexer = new Indexer('mainnet', { lakeClient: mockLakeClient, redisClient: transparentRedis });
 
     const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, false);
     expect(transparentRedis.getStreamerMessage).toHaveBeenCalledTimes(1);
@@ -282,7 +282,7 @@ CREATE TABLE
   test('Indexer.fetchStreamerMessage() should fetch the message from S3 and not cache if historical', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -294,11 +294,11 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
+    } as unknown as LakeClient;
     const mockRedis = {
       getStreamerMessage: jest.fn()
     } as unknown as RedisClient;
-    const indexer = new Indexer('mainnet', { s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: mockRedis });
+    const indexer = new Indexer('mainnet', { lakeClient: mockLakeClient, redisClient: mockRedis });
 
     const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, true);
 
@@ -813,7 +813,7 @@ CREATE TABLE
         }),
       });
 
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -824,8 +824,8 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis });
+    } as unknown as LakeClient;
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, lakeClient: mockLakeClient, redisClient: transparentRedis });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -895,7 +895,7 @@ CREATE TABLE
       }),
     }));
     const blockHeight = 456;
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -906,8 +906,8 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis });
+    } as unknown as LakeClient;
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, lakeClient: mockLakeClient, redisClient: transparentRedis });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -929,7 +929,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -940,12 +940,12 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
+    } as unknown as LakeClient;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, lakeClient: mockLakeClient, redisClient: transparentRedis, provisioner });
 
     const functions = {
       'morgs.near/test': {
@@ -974,7 +974,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -985,12 +985,12 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
+    } as unknown as LakeClient;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, lakeClient: mockLakeClient, redisClient: transparentRedis, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {
@@ -1011,7 +1011,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -1022,12 +1022,12 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
+    } as unknown as LakeClient;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, lakeClient: mockLakeClient, redisClient: transparentRedis, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {
@@ -1051,7 +1051,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockS3StreamerMessageFetcher = {
+    const mockLakeClient = {
       buildStreamerMessage: jest.fn()
         .mockReturnValue({
           block: {
@@ -1062,13 +1062,13 @@ CREATE TABLE
           },
           shards: {}
         })
-    } as unknown as S3StreamerMessageFetcher;
+    } as unknown as LakeClient;
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn().mockRejectedValue(error),
     };
-    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, s3StreamerMessageFetcher: mockS3StreamerMessageFetcher, redisClient: transparentRedis, provisioner });
+    const indexer = new Indexer('mainnet', { fetch: mockFetch as unknown as typeof fetch, lakeClient: mockLakeClient, redisClient: transparentRedis, provisioner });
 
     const functions: Record<string, any> = {
       'morgs.near/test': {

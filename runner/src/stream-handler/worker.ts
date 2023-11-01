@@ -5,7 +5,7 @@ import Indexer from '../indexer';
 import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
 import type { StreamerMessage } from '@near-lake/primitives';
-import S3StreamerMessageFetcher from '../streamer-message-fetcher/s3-streamer-fetcher';
+import S3StreamerMessageFetcher from '../lake-client/lake-client';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -244,17 +244,11 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
       value: performance.now() - blockStartTime,
     } satisfies Message);
 
-    const functionStartTime = performance.now();
     try {
       await indexer.runFunctions(streamerMessage.block.header.height, functions, false, { provision: true }, streamerMessage);
     } catch (error) {
       console.error('Error running function', error);
     }
-    parentPort?.postMessage({
-      type: 'FUNCTION_OVERALL_EXECUTION_DURATION',
-      labels: { indexer: indexerName, type: streamType },
-      value: performance.now() - functionStartTime,
-    } satisfies Message);
 
     // await redisClient.deleteStreamMessage(streamKey, streamId);
     // Can just be streamId if above line is running

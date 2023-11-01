@@ -31,36 +31,6 @@ const CACHE_MISS = new Counter({
   labelNames: ['type']
 });
 
-const FUNCTION_STATE_LOGGING_LATENCY = new promClient.Gauge({
-  name: 'queryapi_runner_function_state_logging_milliseconds',
-  help: 'Time an indexer function spent on writing state and creating write log promises',
-  labelNames: ['indexer', 'type'],
-});
-
-const FUNCTION_VM_AND_CONTEXT_LATENCY = new promClient.Gauge({
-  name: 'queryapi_runner_function_vm_and_context_building_milliseconds',
-  help: 'Time an indexer function spent on preparing the vm and context object',
-  labelNames: ['indexer', 'type'],
-});
-
-const FUNCTION_CODE_EXECUTION_LATENCY = new promClient.Gauge({
-  name: 'queryapi_runner_function_code_execution_duration_milliseconds',
-  help: 'Time an indexer function spent executing user code',
-  labelNames: ['indexer', 'type'],
-});
-
-const FUNCTION_PROMISE_HANDLING_LATENCY = new promClient.Gauge({
-  name: 'queryapi_runner_function_promise_handling_milliseconds',
-  help: 'Time an indexer function waited for simultaneous promises to resolve',
-  labelNames: ['indexer', 'type'],
-});
-
-const FUNCTION_OVERALL_EXECUTION_DURATION = new promClient.Gauge({
-  name: 'queryapi_runner_function_overall_duration_milliseconds',
-  help: 'Time an indexer function waited for a block before processing',
-  labelNames: ['indexer', 'type'],
-});
-
 const UNPROCESSED_STREAM_MESSAGES = new promClient.Gauge({
   name: 'queryapi_runner_unprocessed_stream_messages',
   help: 'Number of Redis Stream messages not yet processed',
@@ -83,11 +53,6 @@ export const METRICS = {
   BLOCK_WAIT_DURATION,
   CACHE_HIT,
   CACHE_MISS,
-  FUNCTION_STATE_LOGGING_LATENCY,
-  FUNCTION_VM_AND_CONTEXT_LATENCY,
-  FUNCTION_CODE_EXECUTION_LATENCY,
-  FUNCTION_PROMISE_HANDLING_LATENCY,
-  FUNCTION_OVERALL_EXECUTION_DURATION,
   UNPROCESSED_STREAM_MESSAGES,
   LAST_PROCESSED_BLOCK,
   EXECUTION_DURATION,

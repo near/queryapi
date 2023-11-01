@@ -1,8 +1,8 @@
 import { Block } from '@near-lake/primitives';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
-import S3StreamerMessageFetcher from './s3-streamer-fetcher';
+import LakeClient from './lake-client';
 
-describe('S3StreamerMessageFetcher', () => {
+describe('LakeClient', () => {
   test('Indexer.fetchBlock() should fetch a block from S3', async () => {
     const author = 'dokiacapital.poolv1.near';
     const mockData = JSON.stringify({
@@ -17,7 +17,7 @@ describe('S3StreamerMessageFetcher', () => {
       send: mockSend,
     } as unknown as S3Client;
 
-    const fetcher = new S3StreamerMessageFetcher('mainnet', mockS3);
+    const fetcher = new LakeClient('mainnet', mockS3);
 
     const blockHeight = 84333960;
     const block = await fetcher.fetchBlockPromise(blockHeight);
@@ -41,7 +41,7 @@ describe('S3StreamerMessageFetcher', () => {
     const mockS3 = {
       send: mockSend,
     } as unknown as S3Client;
-    const fetcher = new S3StreamerMessageFetcher('mainnet', mockS3);
+    const fetcher = new LakeClient('mainnet', mockS3);
 
     const blockHeight = 82699904;
     const shard = 0;
@@ -77,7 +77,7 @@ describe('S3StreamerMessageFetcher', () => {
     const mockS3 = {
       send: mockSend,
     } as unknown as S3Client;
-    const fetcher = new S3StreamerMessageFetcher('mainnet', mockS3);
+    const fetcher = new LakeClient('mainnet', mockS3);
 
     const streamerMessage = await fetcher.buildStreamerMessage(blockHeight);
 

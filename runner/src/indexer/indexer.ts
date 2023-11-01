@@ -8,11 +8,11 @@ import { type Message } from '../stream-handler/types';
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import RedisClient from '../redis-client';
-import S3StreamerMessageFetcher from '../streamer-message-fetcher/s3-streamer-fetcher';
+import LakeClient from '../lake-client/lake-client';
 
 interface Dependencies {
   fetch: typeof fetch
-  s3StreamerMessageFetcher: S3StreamerMessageFetcher
+  lakeClient: LakeClient
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
@@ -49,7 +49,7 @@ export default class Indexer {
     this.network = network;
     this.deps = {
       fetch,
-      s3StreamerMessageFetcher: deps?.s3StreamerMessageFetcher ?? new S3StreamerMessageFetcher(this.network),
+      lakeClient: deps?.lakeClient ?? new LakeClient(this.network),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
@@ -74,9 +74,7 @@ export default class Indexer {
     const allMutations: string[] = [];
 
     for (const functionName in functions) {
-      let finishPromiseHandlingLatency;
       try {
-        const functionStateLoggingLatency = performance.now();
         const indexerFunction = functions[functionName];
 
         const runningMessage = `Running function ${functionName}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
@@ -104,13 +102,6 @@ export default class Indexer {
         }
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
-        this.deps.parentPort?.postMessage({
-          type: 'FUNCTION_STATE_LOGGING_LATENCY',
-          labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
-          value: performance.now() - functionStateLoggingLatency,
-        } satisfies Message);
-
-        const vmAndContextBuildLatency = performance.now();
         const vm = new VM({ timeout: 3000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
@@ -119,11 +110,6 @@ export default class Indexer {
         vm.freeze(context, 'console'); // provide console.log via context.log
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-        this.deps.parentPort?.postMessage({
-          type: 'FUNCTION_VM_AND_CONTEXT_LATENCY',
-          labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
-          value: performance.now() - vmAndContextBuildLatency,
-        } satisfies Message);
         const functionCodeExecutionLatency = performance.now();
         try {
           await vm.run(modifiedFunction);
@@ -137,12 +123,6 @@ export default class Indexer {
           throw e;
         }
         console.log('Function Code Execution Latency: ', performance.now() - functionCodeExecutionLatency);
-        this.deps.parentPort?.postMessage({
-          type: 'FUNCTION_CODE_EXECUTION_LATENCY',
-          labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
-          value: performance.now() - functionCodeExecutionLatency,
-        } satisfies Message);
-        finishPromiseHandlingLatency = performance.now();
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
@@ -150,11 +130,6 @@ export default class Indexer {
         throw e;
       } finally {
         await Promise.all(simultaneousPromises);
-        this.deps.parentPort?.postMessage({
-          type: 'FUNCTION_VM_AND_CONTEXT_LATENCY',
-          labels: { indexer: functionName, type: isHistorical ? 'historical' : 'real-time' },
-          value: finishPromiseHandlingLatency !== undefined ? performance.now() - finishPromiseHandlingLatency : 0,
-        } satisfies Message);
       }
     }
     return allMutations;
@@ -189,7 +164,7 @@ export default class Indexer {
         } satisfies Message);
       }
     }
-    return await this.deps.s3StreamerMessageFetcher.buildStreamerMessage(blockHeight);
+    return await this.deps.lakeClient.buildStreamerMessage(blockHeight);
   }
 
   transformIndexerFunction (indexerFunction: string): string {
