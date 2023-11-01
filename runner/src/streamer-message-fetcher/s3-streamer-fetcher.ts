@@ -1,4 +1,5 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { type StreamerMessage } from '@near-lake/primitives';
 
 export default class S3StreamerMessageFetcher {
   private readonly s3Client: S3Client;
@@ -63,5 +64,18 @@ export default class S3StreamerMessageFetcher {
       return newValue;
     }
     return value;
+  }
+
+  async fetchStreamerMessage (blockHeight: number): Promise<StreamerMessage> {
+    const blockPromise = this.fetchBlockPromise(blockHeight);
+    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
+
+    const results = await Promise.all([blockPromise, ...shardsPromises]);
+    const block = results.shift();
+    const shards = results;
+    return {
+      block,
+      shards,
+    };
   }
 }

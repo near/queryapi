@@ -289,22 +289,9 @@ function fetchAndQueue (queue: Array<Promise<QueueMessage>>, blockHeight: number
 }
 
 async function transformStreamerMessageToQueueMessage (blockHeight: number, streamId: string): Promise<QueueMessage> {
-  const streamerMessage = await fetchStreamerMessage(blockHeight);
+  const streamerMessage = await s3StreamerMessageFetcher.fetchStreamerMessage(blockHeight);
   return {
     streamerMessage,
     streamId
-  };
-}
-
-async function fetchStreamerMessage (blockHeight: number): Promise<StreamerMessage> {
-  const blockPromise = s3StreamerMessageFetcher.fetchBlockPromise(blockHeight);
-  const shardsPromises = await s3StreamerMessageFetcher.fetchShardsPromises(blockHeight, 4);
-
-  const results = await Promise.all([blockPromise, ...shardsPromises]);
-  const block = results.shift();
-  const shards = results;
-  return {
-    block,
-    shards,
   };
 }

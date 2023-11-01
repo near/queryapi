@@ -194,16 +194,7 @@ export default class Indexer {
         } satisfies Message);
       }
     }
-    const blockPromise = this.deps.s3StreamerMessageFetcher.fetchBlockPromise(blockHeight);
-    const shardsPromises = await this.deps.s3StreamerMessageFetcher.fetchShardsPromises(blockHeight, 4);
-
-    const results = await Promise.all([blockPromise, ...shardsPromises]);
-    const block = results.shift();
-    const shards = results;
-    return {
-      block,
-      shards,
-    };
+    return await this.deps.s3StreamerMessageFetcher.fetchStreamerMessage(blockHeight);
   }
 
   transformIndexerFunction (indexerFunction: string): string {
