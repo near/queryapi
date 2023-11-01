@@ -18,8 +18,8 @@ export default class StreamHandler {
         },
       });
 
-      this.worker.on('message', this.handleMessage);
-      this.worker.on('error', this.handleError);
+      this.worker.on('message', this.handleMessage.bind(this));
+      this.worker.on('error', this.handleError.bind(this));
     } else {
       throw new Error('StreamHandler should not be instantiated in a worker thread');
     }
