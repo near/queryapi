@@ -79,7 +79,7 @@ describe('LakeClient', () => {
     } as unknown as S3Client;
     const fetcher = new LakeClient('mainnet', mockS3);
 
-    const streamerMessage = await fetcher.buildStreamerMessage(blockHeight);
+    const streamerMessage = await fetcher.fetchStreamerMessage(blockHeight, true);
 
     expect(mockSend).toHaveBeenCalledTimes(5);
     expect(JSON.stringify(mockSend.mock.calls[0][0])).toStrictEqual(JSON.stringify(new GetObjectCommand({
@@ -96,4 +96,89 @@ describe('LakeClient', () => {
     expect(block.blockHeight).toEqual(blockHeight);
     expect(block.blockHash).toEqual(blockHash);
   });
+
+  // test('Indexer.fetchStreamerMessage() should fetch the message from cache and use it directly', async () => {
+  //   const blockHeight = 85233529;
+  //   const blockHash = 'xyz';
+  //   const mockStreamerMessage = {
+  //     block: {
+  //       chunks: [0],
+  //       header: {
+  //         height: blockHeight,
+  //         hash: blockHash,
+  //       }
+  //     },
+  //     shards: {}
+  //   } as unknown as StreamerMessage;
+  //   const indexer = new Indexer('mainnet');
+
+  //   const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, false);
+
+  //   expect(getMessage).toHaveBeenCalledTimes(1);
+  //   expect(JSON.stringify(getMessage.mock.calls[0])).toEqual(
+  //     `[${blockHeight}]`
+  //   );
+  //   const block = Block.fromStreamerMessage(streamerMessage);
+
+  //   expect(block.blockHeight).toEqual(blockHeight);
+  //   expect(block.blockHash).toEqual(blockHash);
+  // });
+
+  // test('Indexer.fetchStreamerMessage() should fetch the message from S3 upon cache miss', async () => {
+  //   const blockHeight = 85233529;
+  //   const blockHash = 'xyz';
+  //   const mockLakeClient = {
+  //     buildStreamerMessage: jest.fn()
+  //       .mockReturnValue({
+  //         block: {
+  //           chunks: [0],
+  //           header: {
+  //             height: blockHeight,
+  //             hash: blockHash,
+  //           }
+  //         },
+  //         shards: {}
+  //       })
+  //   } as unknown as LakeClient;
+  //   const indexer = new Indexer('mainnet', { lakeClient: mockLakeClient, redisClient: transparentRedis });
+
+  //   const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, false);
+  //   expect(transparentRedis.getStreamerMessage).toHaveBeenCalledTimes(1);
+
+  //   const block = Block.fromStreamerMessage(streamerMessage);
+
+  //   expect(block.blockHeight).toEqual(blockHeight);
+  //   expect(block.blockHash).toEqual(blockHash);
+  // });
+
+  // test('Indexer.fetchStreamerMessage() should fetch the message from S3 and not cache if historical', async () => {
+  //   const blockHeight = 85233529;
+  //   const blockHash = 'xyz';
+  //   const mockLakeClient = {
+  //     buildStreamerMessage: jest.fn()
+  //       .mockReturnValue({
+  //         block: {
+  //           chunks: [0],
+  //           header: {
+  //             height: blockHeight,
+  //             hash: blockHash,
+  //           }
+  //         },
+  //         shards: {}
+  //       })
+  //   } as unknown as LakeClient;
+  //   const mockRedis = {
+  //     getStreamerMessage: jest.fn()
+  //   } as unknown as RedisClient;
+  //   const indexer = new Indexer('mainnet', { lakeClient: mockLakeClient });
+
+  //   const streamerMessage = await indexer.fetchStreamerMessage(blockHeight, true);
+
+  //   expect(mockRedis.getStreamerMessage).toHaveBeenCalledTimes(0);
+
+  //   const block = Block.fromStreamerMessage(streamerMessage);
+
+  //   expect(block.blockHeight).toEqual(blockHeight);
+  //   expect(block.blockHash).toEqual(blockHash);
+  // });
 });

@@ -9,14 +9,12 @@ const BLOCK_WAIT_DURATION = new Gauge({
 
 const CACHE_HIT = new Counter({
   name: 'queryapi_runner_cache_hit',
-  help: 'The number of times cache was hit successfully',
-  labelNames: ['type']
+  help: 'The number of times cache was hit successfully'
 });
 
 const CACHE_MISS = new Counter({
   name: 'queryapi_runner_cache_miss',
-  help: 'The number of times cache was missed',
-  labelNames: ['type']
+  help: 'The number of times cache was missed'
 });
 
 const UNPROCESSED_STREAM_MESSAGES = new Gauge({

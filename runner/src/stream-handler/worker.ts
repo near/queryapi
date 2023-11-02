@@ -5,16 +5,17 @@ import Indexer from '../indexer';
 import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
 import type { StreamerMessage } from '@near-lake/primitives';
-import S3StreamerMessageFetcher from '../lake-client/lake-client';
+import LakeClient from '../lake-client/lake-client';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
 
 const HISTORICAL_BATCH_SIZE = 100;
-const indexer = new Indexer('mainnet');
+const indexer = new Indexer();
 const redisClient = new RedisClient();
-const s3StreamerMessageFetcher = new S3StreamerMessageFetcher();
+const lakeClient = new LakeClient();
+let isHistorical = false;
 
 interface QueueMessage {
   streamerMessage: StreamerMessage
@@ -29,62 +30,15 @@ void (async function main () {
 
   console.log('Started processing stream: ', streamKey);
 
-  let indexerName = '';
   const streamType = redisClient.getStreamType(streamKey);
-  const isHistorical = streamType === 'historical';
-  if (!isHistorical) {
-    await handleHistoricalStream(streamKey);
-    return;
-  }
+  isHistorical = (streamType === 'historical');
 
-  while (true) {
-    try {
-      const startTime = performance.now();
-
-      const messages = await redisClient.getNextStreamMessage(streamKey);
-      const indexerConfig = await redisClient.getStreamStorage(streamKey);
-
-      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-
-      if (messages == null) {
-        await sleep(1000);
-        continue;
-      }
-
-      const [{ id, message }] = messages;
-
-      const functions = {
-        [indexerName]: {
-          account_id: indexerConfig.account_id,
-          function_name: indexerConfig.function_name,
-          code: indexerConfig.code,
-          schema: indexerConfig.schema,
-          provisioned: false,
-        },
-      };
-      await indexer.runFunctions(Number(message.block_height), functions, isHistorical, {
-        provision: true,
-      });
-
-      await redisClient.deleteStreamMessage(streamKey, id);
-
-      METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
-
-      console.log(`Success: ${indexerName}`);
-    } catch (err) {
-      await sleep(10000);
-      console.log(`Failed: ${indexerName}`, err);
-    } finally {
-      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
-      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
-      parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
-    }
-  }
+  await handleStream(streamKey);
 })();
 
-async function handleHistoricalStream (streamKey: string): Promise<void> {
-  void historicalStreamerMessageQueueProducer(queue, streamKey);
-  void historicalStreamerMessageQueueConsumer(queue, streamKey);
+async function handleStream (streamKey: string): Promise<void> {
+  void streamerMessageQueueProducer(queue, streamKey);
+  void streamerMessageQueueConsumer(queue, streamKey);
 }
 
 function incrementId (id: string): string {
@@ -92,7 +46,7 @@ function incrementId (id: string): string {
   return `${Number(main) + 1}-${sequence}`;
 }
 
-async function historicalStreamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
+async function streamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
   let currentBlockHeight: string = '0';
 
   while (true) {
@@ -117,7 +71,7 @@ async function historicalStreamerMessageQueueProducer (queue: Array<Promise<Queu
   }
 }
 
-async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
+async function streamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
   const streamType = redisClient.getStreamType(streamKey);
   const indexerConfig = await redisClient.getStreamStorage(streamKey);
   const indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
@@ -148,22 +102,23 @@ async function historicalStreamerMessageQueueConsumer (queue: Array<Promise<Queu
     METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - blockStartTime);
 
     try {
-      await indexer.runFunctions(streamerMessage.block.header.height, functions, false, { provision: true }, streamerMessage);
-    } catch (error) {
-      console.error('Error running function', error);
+      await indexer.runFunctions(streamerMessage, functions, false, { provision: true });
+      METRICS.LAST_PROCESSED_BLOCK.labels({ indexer: indexerName, type: streamType }).set(streamerMessage.block.header.height);
+
+      await redisClient.deleteStreamMessage(streamKey, streamId);
+
+      METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
+
+      console.log(`Success: ${indexerName}`);
+    } catch (err) {
+      await sleep(10000);
+      console.log(`Failed: ${indexerName}`, err);
+    } finally {
+      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey, streamId);
+      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
+
+      parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
     }
-
-    // await redisClient.deleteStreamMessage(streamKey, streamId);
-    // Can just be streamId if above line is running
-    const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey, incrementId(streamId));
-
-    METRICS.LAST_PROCESSED_BLOCK.labels({ indexer: indexerName, type: streamType }).set(streamerMessage.block.header.height);
-
-    METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
-
-    METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
-
-    parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
   }
 }
 
@@ -172,7 +127,7 @@ function fetchAndQueue (queue: Array<Promise<QueueMessage>>, blockHeight: number
 }
 
 async function transformStreamerMessageToQueueMessage (blockHeight: number, streamId: string): Promise<QueueMessage> {
-  const streamerMessage = await s3StreamerMessageFetcher.buildStreamerMessage(blockHeight);
+  const streamerMessage = await lakeClient.fetchStreamerMessage(blockHeight, isHistorical);
   return {
     streamerMessage,
     streamId

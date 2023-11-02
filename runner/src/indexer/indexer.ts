@@ -5,17 +5,12 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import RedisClient from '../redis-client';
-import LakeClient from '../lake-client/lake-client';
-import { METRICS } from '../metrics';
 
 interface Dependencies {
   fetch: typeof fetch
-  lakeClient: LakeClient
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
-  redisClient: RedisClient
 };
 
 interface Context {
@@ -40,30 +35,26 @@ export default class Indexer {
   private readonly deps: Dependencies;
 
   constructor (
-    private readonly network: string,
     deps?: Partial<Dependencies>
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
-    this.network = network;
     this.deps = {
       fetch,
-      lakeClient: deps?.lakeClient ?? new LakeClient(this.network),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
-      redisClient: deps?.redisClient ?? new RedisClient(),
       ...deps,
     };
   }
 
   async runFunctions (
-    blockHeight: number,
+    streamerMessage: StreamerMessage,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
-    options: { provision?: boolean } = { provision: false },
-    streamerMessage: StreamerMessage | null = null
+    options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockWithHelpers = Block.fromStreamerMessage(streamerMessage !== null ? streamerMessage : await this.fetchStreamerMessage(blockHeight, isHistorical));
+    const blockHeight = Number(streamerMessage.block.header.height);
+    const blockWithHelpers = Block.fromStreamerMessage(streamerMessage);
 
     const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
 
@@ -139,21 +130,6 @@ export default class Indexer {
             };
             f();
     `;
-  }
-
-  async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
-    if (!isHistorical) {
-      const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
-      if (cachedMessage) {
-        METRICS.CACHE_HIT.labels({ type: 'real-time' }).inc();
-
-        const parsedMessage = JSON.parse(cachedMessage);
-        return parsedMessage;
-      } else {
-        METRICS.CACHE_HIT.labels({ type: 'real-time' }).inc();
-      }
-    }
-    return await this.deps.lakeClient.buildStreamerMessage(blockHeight);
   }
 
   transformIndexerFunction (indexerFunction: string): string {

@@ -1,15 +1,20 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { type StreamerMessage } from '@near-lake/primitives';
+import { METRICS } from '../metrics';
+import RedisClient from '../redis-client/redis-client';
 
 export default class LakeClient {
-  private readonly s3Client: S3Client;
   network: string;
+  private readonly s3Client: S3Client;
+  private readonly redisClient: RedisClient;
   constructor (
     network: string = 'mainnet',
-    s3Client: S3Client = new S3Client()
+    s3Client: S3Client = new S3Client(),
+    redisClient: RedisClient = new RedisClient()
   ) {
-    this.s3Client = s3Client;
     this.network = network;
+    this.s3Client = s3Client;
+    this.redisClient = redisClient;
   }
 
   // pad with 0s to 12 digits
@@ -66,7 +71,20 @@ export default class LakeClient {
     return value;
   }
 
-  async buildStreamerMessage (blockHeight: number): Promise<StreamerMessage> {
+  async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<StreamerMessage> {
+    if (!isHistorical) {
+      const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
+      if (cachedMessage) {
+        METRICS.CACHE_HIT.labels().inc();
+        console.log('hit: ', METRICS.CACHE_HIT.get());
+        const parsedMessage = JSON.parse(cachedMessage);
+        return parsedMessage;
+      } else {
+        METRICS.CACHE_MISS.labels().inc();
+        console.log('miss: ', METRICS.CACHE_MISS.get());
+      }
+    }
+
     const blockPromise = this.fetchBlockPromise(blockHeight);
     const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
 
