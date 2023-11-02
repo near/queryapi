@@ -41,21 +41,14 @@ async function handleStream (streamKey: string): Promise<void> {
   void streamerMessageQueueConsumer(queue, streamKey);
 }
 
-function incrementId (id: string): string {
-  const [main, sequence] = id.split('-');
-  return `${Number(main) + 1}-${sequence}`;
-}
-
 async function streamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
-  let currentBlockHeight: string = '0';
-
   while (true) {
     const preFetchCount = HISTORICAL_BATCH_SIZE - queue.length;
     if (preFetchCount <= 0) {
       await sleep(300);
       continue;
     }
-    const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount, currentBlockHeight);
+    const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount);
     if (messages == null) {
       await sleep(100);
       continue;
@@ -66,8 +59,6 @@ async function streamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>
       const { id, message } = streamMessage;
       fetchAndQueue(queue, Number(message.block_height), id);
     }
-
-    currentBlockHeight = incrementId(messages[messages.length - 1].id);
   }
 }
 

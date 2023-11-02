@@ -17,6 +17,12 @@ const CACHE_MISS = new Counter({
   help: 'The number of times cache was missed'
 });
 
+const USER_CODE_EXECUTION_DURATION = new Histogram({
+  name: 'queryapi_runner_code_execution_milliseconds',
+  help: 'Time spent running a user\'s code',
+  labelNames: ['indexer', 'type'],
+});
+
 const UNPROCESSED_STREAM_MESSAGES = new Gauge({
   name: 'queryapi_runner_unprocessed_stream_messages',
   help: 'Number of Redis Stream messages not yet processed',
@@ -39,6 +45,7 @@ export const METRICS = {
   BLOCK_WAIT_DURATION,
   CACHE_HIT,
   CACHE_MISS,
+  USER_CODE_EXECUTION_DURATION,
   UNPROCESSED_STREAM_MESSAGES,
   LAST_PROCESSED_BLOCK,
   EXECUTION_DURATION,

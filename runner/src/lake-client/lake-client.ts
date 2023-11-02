@@ -76,12 +76,10 @@ export default class LakeClient {
       const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
       if (cachedMessage) {
         METRICS.CACHE_HIT.labels().inc();
-        console.log('hit: ', METRICS.CACHE_HIT.get());
         const parsedMessage = JSON.parse(cachedMessage);
         return parsedMessage;
       } else {
         METRICS.CACHE_MISS.labels().inc();
-        console.log('miss: ', METRICS.CACHE_MISS.get());
       }
     }
 

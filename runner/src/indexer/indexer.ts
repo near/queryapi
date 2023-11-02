@@ -5,6 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import { METRICS } from '../metrics';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -110,7 +111,8 @@ export default class Indexer {
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
-        console.log('Function Code Execution Latency: ', performance.now() - functionCodeExecutionLatency);
+        METRICS.USER_CODE_EXECUTION_DURATION.labels({ indexer: functionName, type: isHistorical ? 'historical' : 'realtime' })
+          .observe(performance.now() - functionCodeExecutionLatency);
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
