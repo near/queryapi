@@ -45,12 +45,12 @@ async function streamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>
   while (true) {
     const preFetchCount = HISTORICAL_BATCH_SIZE - queue.length;
     if (preFetchCount <= 0) {
-      await sleep(300);
+      await sleep(300); // Wait for more messages in array to process
       continue;
     }
     const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount);
     if (messages == null) {
-      await sleep(100);
+      await sleep(1000); // Wait for new messages to appear in stream
       continue;
     }
     console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
@@ -81,7 +81,7 @@ async function streamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>
     const blockStartTime = startTime;
     const queueMessage = await queue.shift();
     if (queueMessage === undefined) {
-      await sleep(500);
+      await sleep(1000); // Wait for new message to process
       continue;
     }
     const { streamerMessage, streamId } = queueMessage;
