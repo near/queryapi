@@ -35,7 +35,7 @@ export const handler = async () => {
             },
         }),
         fetchJson(
-            `${process.env.HASURA_ENDPOINT}/v1/graphql`,
+            `${process.env.HASURA_ENDPOINT_V2}/v1/graphql`,
             {
                 query: `{
                     dataplatform_near_social_feed_posts(
@@ -54,8 +54,7 @@ export const handler = async () => {
 
     const nearSocialBlockHeight = nearSocialResponse[0].blockHeight;
     const feedIndexerBlockHeight =
-        feedIndexerResponse.data.dataplatform_near_social_feed_posts[0]
-            .block_height;
+        feedIndexerResponse.data.dataplatform_near_social_feed_posts[0].block_height;
 
     const lag = nearSocialBlockHeight - feedIndexerBlockHeight;
 

@@ -1,8 +1,9 @@
 import { isMainThread, parentPort, workerData } from 'worker_threads';
+import promClient from 'prom-client';
 
 import Indexer from '../indexer';
 import RedisClient from '../redis-client';
-import { type Message } from './types';
+import { METRICS } from '../metrics';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -19,11 +20,12 @@ void (async function main () {
   console.log('Started processing stream: ', streamKey);
 
   let indexerName = '';
+  const streamType = redisClient.getStreamType(streamKey);
+  const isHistorical = streamType === 'historical';
 
   while (true) {
     try {
       const startTime = performance.now();
-      const streamType = redisClient.getStreamType(streamKey);
 
       const messages = await redisClient.getNextStreamMessage(streamKey);
       const indexerConfig = await redisClient.getStreamStorage(streamKey);
@@ -46,30 +48,23 @@ void (async function main () {
           provisioned: false,
         },
       };
-      await indexer.runFunctions(Number(message.block_height), functions, false, {
+      await indexer.runFunctions(Number(message.block_height), functions, isHistorical, {
         provision: true,
       });
 
       await redisClient.deleteStreamMessage(streamKey, id);
 
-      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
-
-      parentPort?.postMessage({
-        type: 'UNPROCESSED_STREAM_MESSAGES',
-        labels: { indexer: indexerName, type: streamType },
-        value: unprocessedMessages?.length ?? 0,
-      } satisfies Message);
-
-      parentPort?.postMessage({
-        type: 'EXECUTION_DURATION',
-        labels: { indexer: indexerName, type: streamType },
-        value: performance.now() - startTime,
-      } satisfies Message);
+      METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
       await sleep(10000);
       console.log(`Failed: ${indexerName}`, err);
+    } finally {
+      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey);
+      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
+
+      parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
     }
   }
 })();
