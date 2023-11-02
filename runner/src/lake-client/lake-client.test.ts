@@ -4,6 +4,10 @@ import LakeClient from './lake-client';
 import type RedisClient from '../redis-client';
 
 describe('LakeClient', () => {
+  const transparentRedis = {
+    getStreamerMessage: jest.fn()
+  } as unknown as RedisClient;
+
   test('Indexer.fetchBlock() should fetch a block from S3', async () => {
     const author = 'dokiacapital.poolv1.near';
     const mockData = JSON.stringify({
@@ -18,7 +22,7 @@ describe('LakeClient', () => {
       send: mockSend,
     } as unknown as S3Client;
 
-    const client = new LakeClient('mainnet', mockS3);
+    const client = new LakeClient('mainnet', mockS3, transparentRedis);
 
     const blockHeight = 84333960;
     const block = await client.fetchBlockPromise(blockHeight);
@@ -42,7 +46,7 @@ describe('LakeClient', () => {
     const mockS3 = {
       send: mockSend,
     } as unknown as S3Client;
-    const client = new LakeClient('mainnet', mockS3);
+    const client = new LakeClient('mainnet', mockS3, transparentRedis);
 
     const blockHeight = 82699904;
     const shard = 0;
@@ -78,7 +82,7 @@ describe('LakeClient', () => {
     const mockS3 = {
       send: mockSend,
     } as unknown as S3Client;
-    const client = new LakeClient('mainnet', mockS3);
+    const client = new LakeClient('mainnet', mockS3, transparentRedis);
 
     const streamerMessage = await client.fetchStreamerMessage(blockHeight, true);
 
@@ -155,9 +159,6 @@ describe('LakeClient', () => {
     const mockS3 = {
       send: mockSend,
     } as unknown as S3Client;
-    const transparentRedis = {
-      getStreamerMessage: jest.fn()
-    } as unknown as RedisClient;
     const client = new LakeClient('mainnet', mockS3, transparentRedis);
 
     const streamerMessage = await client.fetchStreamerMessage(blockHeight, false);
