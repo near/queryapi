@@ -14,7 +14,7 @@ interface StreamStorage {
   schema: string
 }
 
-type StreamType = 'historical' | 'real-time';
+export type StreamType = 'historical' | 'real-time';
 
 export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
@@ -44,7 +44,7 @@ export default class RedisClient {
     await this.client.disconnect();
   }
 
-  async getStreamMessage (
+  async getStreamMessages (
     streamKey: string,
     count = 1,
     streamId = this.SMALLEST_STREAM_ID

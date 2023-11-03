@@ -10,7 +10,7 @@ describe('RedisClient', () => {
 
     const client = new RedisClient(mockClient);
 
-    const message = await client.getStreamMessage('streamKey');
+    const message = await client.getStreamMessages('streamKey');
 
     expect(mockClient.xRead).toHaveBeenCalledWith(
       { key: 'streamKey', id: '0' },

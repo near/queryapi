@@ -2,69 +2,86 @@ import { isMainThread, parentPort, workerData } from 'worker_threads';
 import promClient from 'prom-client';
 
 import Indexer from '../indexer';
-import RedisClient from '../redis-client';
+import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
-import LakeClient from '../lake-client/lake-client';
+import LakeClient from '../lake-client';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
-
-const HISTORICAL_BATCH_SIZE = 100;
-const indexer = new Indexer();
-const redisClient = new RedisClient();
-const lakeClient = new LakeClient();
-let isHistorical = false;
-
 interface QueueMessage {
   block: Block
-  streamId: string
+  streamMessageId: string
 }
-const queue: Array<Promise<QueueMessage>> = [];
+type PrefetchQueue = Array<Promise<QueueMessage>>;
+
+interface WorkerContext {
+  redisClient: RedisClient
+  lakeClient: LakeClient
+  queue: PrefetchQueue
+  streamKey: string
+  streamType: StreamType
+}
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 
 void (async function main () {
   const { streamKey } = workerData;
+  const redisClient = new RedisClient();
+  const workerContext: WorkerContext = {
+    redisClient,
+    lakeClient: new LakeClient(),
+    queue: [],
+    streamKey,
+    streamType: redisClient.getStreamType(streamKey),
+  };
 
   console.log('Started processing stream: ', streamKey);
 
-  const streamType = redisClient.getStreamType(streamKey);
-  isHistorical = (streamType === 'historical');
-
-  await handleStream(streamKey);
+  await handleStream(workerContext, streamKey);
 })();
 
-async function handleStream (streamKey: string): Promise<void> {
-  void blockQueueProducer(queue, streamKey);
-  void blockQueueConsumer(queue, streamKey);
+async function handleStream (workerContext: WorkerContext, streamKey: string): Promise<void> {
+  void blockQueueProducer(workerContext, streamKey);
+  void blockQueueConsumer(workerContext, streamKey);
 }
 
-async function blockQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
+function incrementId (id: string): string {
+  const [main, sequence] = id.split('-');
+  return `${Number(main) + 1}-${sequence}`;
+}
+
+async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
+  const HISTORICAL_BATCH_SIZE = 100;
+  let streamMessageStartId = '0';
+
   while (true) {
-    const preFetchCount = HISTORICAL_BATCH_SIZE - queue.length;
+    const preFetchCount = HISTORICAL_BATCH_SIZE - workerContext.queue.length;
     if (preFetchCount <= 0) {
-      await sleep(300); // Wait for more messages in array to process
+      await sleep(300);
       continue;
     }
-    const messages = await redisClient.getStreamMessage(streamKey, preFetchCount);
+    const messages = await workerContext.redisClient.getStreamMessages(streamKey, preFetchCount, streamMessageStartId);
     if (messages == null) {
-      await sleep(1000); // Wait for new messages to appear in stream
+      await sleep(1000);
       continue;
     }
     console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
 
     for (const streamMessage of messages) {
       const { id, message } = streamMessage;
-      fetchAndQueue(queue, Number(message.block_height), id);
+      workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
     }
+
+    streamMessageStartId = incrementId(messages[messages.length - 1].id);
   }
 }
 
-async function blockQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
-  const streamType = redisClient.getStreamType(streamKey);
-  const indexerConfig = await redisClient.getStreamStorage(streamKey);
+async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
+  const streamType = workerContext.redisClient.getStreamType(streamKey);
+  const indexer = new Indexer();
+  const indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
   const indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
   const functions = {
     [indexerName]: {
@@ -77,25 +94,27 @@ async function blockQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKe
   };
 
   while (true) {
-    const startTime = performance.now();
-    const blockStartTime = startTime;
-    const queueMessage = await queue.shift();
-    if (queueMessage === undefined) {
-      await sleep(1000); // Wait for new message to process
-      continue;
-    }
-    const { block, streamId } = queueMessage;
-
-    if (block === undefined || block.blockHeight == null) {
-      console.error('Block failed to process or does not have block height', block);
-      continue;
-    }
-    METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - blockStartTime);
-
+    let streamMessageId = '';
     try {
+      const startTime = performance.now();
+      const blockStartTime = startTime;
+      const queueMessage = await workerContext.queue.at(0);
+      if (queueMessage === undefined) {
+        await sleep(1000);
+        continue;
+      }
+      const block = queueMessage.block;
+      streamMessageId = queueMessage.streamMessageId;
+
+      if (block === undefined || block.blockHeight == null) {
+        console.error('Block failed to process or does not have block height', block);
+        continue;
+      }
+      METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - blockStartTime);
       await indexer.runFunctions(block, functions, false, { provision: true });
 
-      await redisClient.deleteStreamMessage(streamKey, streamId);
+      await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
+      await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
 
@@ -104,7 +123,7 @@ async function blockQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKe
       await sleep(10000);
       console.log(`Failed: ${indexerName}`, err);
     } finally {
-      const unprocessedMessages = await redisClient.getUnprocessedStreamMessages(streamKey, streamId);
+      const unprocessedMessages = await workerContext.redisClient.getUnprocessedStreamMessages(streamKey, streamMessageId);
       METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: streamType }).set(unprocessedMessages?.length ?? 0);
 
       parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
@@ -112,14 +131,10 @@ async function blockQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKe
   }
 }
 
-function fetchAndQueue (queue: Array<Promise<QueueMessage>>, blockHeight: number, id: string): void {
-  queue.push(transformBlockToQueueMessage(blockHeight, id));
-}
-
-async function transformBlockToQueueMessage (blockHeight: number, streamId: string): Promise<QueueMessage> {
-  const block = await lakeClient.fetchBlock(blockHeight, isHistorical);
+async function generateQueueMessage (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
+  const block = await workerContext.lakeClient.fetchBlock(blockHeight, workerContext.streamType === 'historical');
   return {
     block,
-    streamId
+    streamMessageId
   };
 }
