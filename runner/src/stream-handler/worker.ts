@@ -4,7 +4,7 @@ import promClient from 'prom-client';
 import Indexer from '../indexer';
 import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
-import type { StreamerMessage } from '@near-lake/primitives';
+import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client/lake-client';
 
 if (isMainThread) {
@@ -18,7 +18,7 @@ const lakeClient = new LakeClient();
 let isHistorical = false;
 
 interface QueueMessage {
-  streamerMessage: StreamerMessage
+  block: Block
   streamId: string
 }
 const queue: Array<Promise<QueueMessage>> = [];
@@ -37,18 +37,18 @@ void (async function main () {
 })();
 
 async function handleStream (streamKey: string): Promise<void> {
-  void streamerMessageQueueProducer(queue, streamKey);
-  void streamerMessageQueueConsumer(queue, streamKey);
+  void blockQueueProducer(queue, streamKey);
+  void blockQueueConsumer(queue, streamKey);
 }
 
-async function streamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
+async function blockQueueProducer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
   while (true) {
     const preFetchCount = HISTORICAL_BATCH_SIZE - queue.length;
     if (preFetchCount <= 0) {
       await sleep(300); // Wait for more messages in array to process
       continue;
     }
-    const messages = await redisClient.getNextStreamMessage(streamKey, preFetchCount);
+    const messages = await redisClient.getStreamMessage(streamKey, preFetchCount);
     if (messages == null) {
       await sleep(1000); // Wait for new messages to appear in stream
       continue;
@@ -62,7 +62,7 @@ async function streamerMessageQueueProducer (queue: Array<Promise<QueueMessage>>
   }
 }
 
-async function streamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
+async function blockQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKey: string): Promise<void> {
   const streamType = redisClient.getStreamType(streamKey);
   const indexerConfig = await redisClient.getStreamStorage(streamKey);
   const indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
@@ -84,17 +84,17 @@ async function streamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>
       await sleep(1000); // Wait for new message to process
       continue;
     }
-    const { streamerMessage, streamId } = queueMessage;
+    const { block, streamId } = queueMessage;
 
-    if (streamerMessage === undefined || streamerMessage?.block.header.height == null) {
-      console.error('Streamer message does not have block height', streamerMessage);
+    if (block === undefined || block.blockHeight == null) {
+      console.error('Block failed to process or does not have block height', block);
       continue;
     }
     METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: streamType }).set(performance.now() - blockStartTime);
 
     try {
-      await indexer.runFunctions(streamerMessage, functions, false, { provision: true });
-      METRICS.LAST_PROCESSED_BLOCK.labels({ indexer: indexerName, type: streamType }).set(streamerMessage.block.header.height);
+      await indexer.runFunctions(block, functions, false, { provision: true });
+      METRICS.LAST_PROCESSED_BLOCK.labels({ indexer: indexerName, type: streamType }).set(block.blockHeight);
 
       await redisClient.deleteStreamMessage(streamKey, streamId);
 
@@ -114,13 +114,13 @@ async function streamerMessageQueueConsumer (queue: Array<Promise<QueueMessage>>
 }
 
 function fetchAndQueue (queue: Array<Promise<QueueMessage>>, blockHeight: number, id: string): void {
-  queue.push(transformStreamerMessageToQueueMessage(blockHeight, id));
+  queue.push(transformBlockToQueueMessage(blockHeight, id));
 }
 
-async function transformStreamerMessageToQueueMessage (blockHeight: number, streamId: string): Promise<QueueMessage> {
-  const streamerMessage = await lakeClient.fetchStreamerMessage(blockHeight, isHistorical);
+async function transformBlockToQueueMessage (blockHeight: number, streamId: string): Promise<QueueMessage> {
+  const block = await lakeClient.fetchBlock(blockHeight, isHistorical);
   return {
-    streamerMessage,
+    block,
     streamId
   };
 }

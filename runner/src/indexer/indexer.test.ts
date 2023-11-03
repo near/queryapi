@@ -1,4 +1,4 @@
-import { type StreamerMessage } from '@near-lake/primitives';
+import { Block, type StreamerMessage } from '@near-lake/primitives';
 import type fetch from 'node-fetch';
 
 import Indexer from './indexer';
@@ -181,7 +181,7 @@ CREATE TABLE
       }),
     }));
     const blockHeight = 456;
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [],
         header: {
@@ -189,7 +189,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
 
     const indexer = new Indexer({ fetch: mockFetch as unknown as typeof fetch });
 
@@ -201,7 +201,7 @@ CREATE TABLE
         `,
       schema: SIMPLE_SCHEMA
     };
-    await indexer.runFunctions(mockStreamerMessage, functions, false);
+    await indexer.runFunctions(mockBlock, functions, false);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -702,7 +702,7 @@ CREATE TABLE
         }),
       });
 
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [0],
         header: {
@@ -710,7 +710,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
     const indexer = new Indexer({ fetch: mockFetch as unknown as typeof fetch });
 
     const functions: Record<string, any> = {};
@@ -747,7 +747,7 @@ CREATE TABLE
       schema: SIMPLE_SCHEMA
     };
 
-    await indexer.runFunctions(mockStreamerMessage, functions, false);
+    await indexer.runFunctions(mockBlock, functions, false);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -781,7 +781,7 @@ CREATE TABLE
       }),
     }));
     const blockHeight = 456;
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [0],
         header: {
@@ -789,7 +789,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
     const indexer = new Indexer({ fetch: mockFetch as unknown as typeof fetch });
 
     const functions: Record<string, any> = {};
@@ -800,7 +800,7 @@ CREATE TABLE
       schema: SIMPLE_SCHEMA
     };
 
-    await expect(indexer.runFunctions(mockStreamerMessage, functions, false)).rejects.toThrow(new Error('boom'));
+    await expect(indexer.runFunctions(mockBlock, functions, false)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
@@ -812,7 +812,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [0],
         header: {
@@ -820,7 +820,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
@@ -835,7 +835,7 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockStreamerMessage, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
 
     expect(provisioner.isUserApiProvisioned).toHaveBeenCalledWith('morgs.near', 'test');
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
@@ -854,7 +854,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [0],
         header: {
@@ -862,7 +862,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
@@ -875,7 +875,7 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockStreamerMessage, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
   });
@@ -888,7 +888,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [0],
         header: {
@@ -896,7 +896,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
@@ -911,7 +911,7 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockStreamerMessage, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
@@ -925,7 +925,7 @@ CREATE TABLE
         errors: null,
       }),
     }));
-    const mockStreamerMessage = {
+    const mockBlock = Block.fromStreamerMessage({
       block: {
         chunks: [0],
         header: {
@@ -933,7 +933,7 @@ CREATE TABLE
         }
       },
       shards: {}
-    } as unknown as StreamerMessage;
+    } as unknown as StreamerMessage) as unknown as Block;
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
       isUserApiProvisioned: jest.fn().mockReturnValue(false),
@@ -950,7 +950,7 @@ CREATE TABLE
       }
     };
 
-    await expect(indexer.runFunctions(mockStreamerMessage, functions, false, { provision: true })).rejects.toThrow(error);
+    await expect(indexer.runFunctions(mockBlock, functions, false, { provision: true })).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 

@@ -1,16 +1,13 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { type StreamerMessage } from '@near-lake/primitives';
+import { Block } from '@near-lake/primitives';
 import { METRICS } from '../metrics';
-import RedisClient from '../redis-client/redis-client';
+import RedisClient from '../redis-client';
 
 export default class LakeClient {
-  network: string;
-  private readonly s3Client: S3Client;
-  private readonly redisClient: RedisClient;
   constructor (
-    network: string = 'mainnet',
-    s3Client: S3Client = new S3Client(),
-    redisClient: RedisClient = new RedisClient()
+    private readonly network: string = 'mainnet',
+    private readonly s3Client: S3Client = new S3Client(),
+    private readonly redisClient: RedisClient = new RedisClient()
   ) {
     this.network = network;
     this.s3Client = s3Client;
@@ -18,17 +15,17 @@ export default class LakeClient {
   }
 
   // pad with 0s to 12 digits
-  normalizeBlockHeight (blockHeight: number): string {
+  private normalizeBlockHeight (blockHeight: number): string {
     return blockHeight.toString().padStart(12, '0');
   }
 
-  async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
+  private async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
     return ([...Array(numberOfShards).keys()].map(async (shardId) =>
       await this.fetchShardPromise(blockHeight, shardId)
     ));
   }
 
-  async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
+  private async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
     const params = {
       Bucket: `near-lake-data-${this.network}`,
       Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
@@ -38,7 +35,7 @@ export default class LakeClient {
     return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
-  async fetchBlockPromise (blockHeight: number): Promise<any> {
+  private async fetchBlockPromise (blockHeight: number): Promise<any> {
     const file = 'block.json';
     const folder = this.normalizeBlockHeight(blockHeight);
     const params = {
@@ -50,7 +47,7 @@ export default class LakeClient {
     return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
-  renameUnderscoreFieldsToCamelCase (value: Record<string, any>): Record<string, any> {
+  private renameUnderscoreFieldsToCamelCase (value: Record<string, any>): Record<string, any> {
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // It's a non-null, non-array object, create a replacement with the keys initially-capped
       const newValue: any = {};
@@ -71,13 +68,13 @@ export default class LakeClient {
     return value;
   }
 
-  async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<StreamerMessage> {
+  async fetchBlock (blockHeight: number, isHistorical: boolean): Promise<Block> {
     if (!isHistorical) {
       const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
       if (cachedMessage) {
         METRICS.CACHE_HIT.labels().inc();
         const parsedMessage = JSON.parse(cachedMessage);
-        return parsedMessage;
+        return Block.fromStreamerMessage(parsedMessage);
       } else {
         METRICS.CACHE_MISS.labels().inc();
       }
@@ -89,9 +86,9 @@ export default class LakeClient {
     const results = await Promise.all([blockPromise, ...shardsPromises]);
     const block = results.shift();
     const shards = results;
-    return {
+    return Block.fromStreamerMessage({
       block,
       shards,
-    };
+    });
   }
 }

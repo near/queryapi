@@ -1,6 +1,6 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import { Block, type StreamerMessage } from '@near-lake/primitives';
+import { type Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
@@ -49,15 +49,14 @@ export default class Indexer {
   }
 
   async runFunctions (
-    streamerMessage: StreamerMessage,
+    block: Block,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockHeight = Number(streamerMessage.block.header.height);
-    const blockWithHelpers = Block.fromStreamerMessage(streamerMessage);
+    const blockHeight = block.blockHeight;
 
-    const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
+    const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
 
     const simultaneousPromises: Array<Promise<any>> = [];
     const allMutations: string[] = [];
@@ -94,7 +93,7 @@ export default class Indexer {
         const vm = new VM({ timeout: 3000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
-        vm.freeze(blockWithHelpers, 'block');
+        vm.freeze(block, 'block');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
 

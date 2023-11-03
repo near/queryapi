@@ -44,7 +44,7 @@ export default class RedisClient {
     await this.client.disconnect();
   }
 
-  async getNextStreamMessage (
+  async getStreamMessage (
     streamKey: string,
     count = 1,
     streamId = this.SMALLEST_STREAM_ID

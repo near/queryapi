@@ -1,4 +1,3 @@
-import { Block } from '@near-lake/primitives';
 import { GetObjectCommand, type S3Client } from '@aws-sdk/client-s3';
 import LakeClient from './lake-client';
 import type RedisClient from '../redis-client';
@@ -8,58 +7,7 @@ describe('LakeClient', () => {
     getStreamerMessage: jest.fn()
   } as unknown as RedisClient;
 
-  test('Indexer.fetchBlock() should fetch a block from S3', async () => {
-    const author = 'dokiacapital.poolv1.near';
-    const mockData = JSON.stringify({
-      author
-    });
-    const mockSend = jest.fn().mockResolvedValue({
-      Body: {
-        transformToString: () => mockData
-      }
-    });
-    const mockS3 = {
-      send: mockSend,
-    } as unknown as S3Client;
-
-    const client = new LakeClient('mainnet', mockS3, transparentRedis);
-
-    const blockHeight = 84333960;
-    const block = await client.fetchBlockPromise(blockHeight);
-    const params = {
-      Bucket: 'near-lake-data-mainnet',
-      Key: `${blockHeight.toString().padStart(12, '0')}/block.json`
-    };
-
-    expect(mockS3.send).toHaveBeenCalledTimes(1);
-    expect(JSON.stringify(mockSend.mock.calls[0][0])).toMatch(JSON.stringify(new GetObjectCommand(params)));
-    expect(block.author).toEqual(author);
-  });
-
-  test('Indexer.fetchShard() should fetch a shard from S3', async () => {
-    const mockData = JSON.stringify({});
-    const mockSend = jest.fn().mockResolvedValue({
-      Body: {
-        transformToString: () => mockData
-      }
-    });
-    const mockS3 = {
-      send: mockSend,
-    } as unknown as S3Client;
-    const client = new LakeClient('mainnet', mockS3, transparentRedis);
-
-    const blockHeight = 82699904;
-    const shard = 0;
-    const params = {
-      Bucket: 'near-lake-data-mainnet',
-      Key: `${blockHeight.toString().padStart(12, '0')}/shard_${shard}.json`
-    };
-    await client.fetchShardPromise(blockHeight, shard);
-
-    expect(JSON.stringify(mockSend.mock.calls[0][0])).toMatch(JSON.stringify(new GetObjectCommand(params)));
-  });
-
-  test('Indexer.fetchStreamerMessage() should fetch the block and shards from S3 upon cache miss', async () => {
+  test('Indexer.fetchBlock() should fetch the block and shards from S3 upon cache miss', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
     const mockSend = jest.fn()
@@ -84,7 +32,7 @@ describe('LakeClient', () => {
     } as unknown as S3Client;
     const client = new LakeClient('mainnet', mockS3, transparentRedis);
 
-    const streamerMessage = await client.fetchStreamerMessage(blockHeight, true);
+    const block = await client.fetchBlock(blockHeight, true);
 
     expect(mockSend).toHaveBeenCalledTimes(5);
     expect(JSON.stringify(mockSend.mock.calls[0][0])).toStrictEqual(JSON.stringify(new GetObjectCommand({
@@ -96,13 +44,11 @@ describe('LakeClient', () => {
       Key: `${blockHeight.toString().padStart(12, '0')}/shard_0.json`
     })));
 
-    const block = Block.fromStreamerMessage(streamerMessage);
-
     expect(block.blockHeight).toEqual(blockHeight);
     expect(block.blockHash).toEqual(blockHash);
   });
 
-  test('fetchStreamerMessage should fetch the message from cache and return it', async () => {
+  test('fetchBlock should fetch the streamer message from cache, convert it to block, and return it', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
     const getMessage = jest.fn()
@@ -124,19 +70,18 @@ describe('LakeClient', () => {
     const mockS3 = {} as unknown as S3Client;
     const client = new LakeClient('mainnet', mockS3, mockRedis);
 
-    const streamerMessage = await client.fetchStreamerMessage(blockHeight, false);
+    const block = await client.fetchBlock(blockHeight, false);
 
     expect(getMessage).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(getMessage.mock.calls[0])).toEqual(
       `[${blockHeight}]`
     );
-    const block = Block.fromStreamerMessage(streamerMessage);
 
     expect(block.blockHeight).toEqual(blockHeight);
     expect(block.blockHash).toEqual(blockHash);
   });
 
-  test('fetchStreamerMessage should fetch the block and shards from S3 upon cache miss', async () => {
+  test('fetchBlock should fetch the block and shards from S3 upon cache miss', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
     const mockSend = jest.fn()
@@ -161,7 +106,7 @@ describe('LakeClient', () => {
     } as unknown as S3Client;
     const client = new LakeClient('mainnet', mockS3, transparentRedis);
 
-    const streamerMessage = await client.fetchStreamerMessage(blockHeight, false);
+    const block = await client.fetchBlock(blockHeight, false);
 
     expect(mockSend).toHaveBeenCalledTimes(5);
     expect(JSON.stringify(mockSend.mock.calls[0][0])).toStrictEqual(JSON.stringify(new GetObjectCommand({
@@ -174,13 +119,11 @@ describe('LakeClient', () => {
     })));
     expect(transparentRedis.getStreamerMessage).toHaveBeenCalledTimes(1);
 
-    const block = Block.fromStreamerMessage(streamerMessage);
-
     expect(block.blockHeight).toEqual(blockHeight);
     expect(block.blockHash).toEqual(blockHash);
   });
 
-  test('fetchStreamerMessage should fetch the block and shards from S3 and not cache if historical', async () => {
+  test('fetchBlock should not hit cache and instead fetch the block and shards from S3 if historical', async () => {
     const blockHeight = 85233529;
     const blockHash = 'xyz';
     const mockSend = jest.fn()
@@ -208,7 +151,7 @@ describe('LakeClient', () => {
     } as unknown as RedisClient;
     const client = new LakeClient('mainnet', mockS3, mockRedis);
 
-    const streamerMessage = await client.fetchStreamerMessage(blockHeight, true);
+    const block = await client.fetchBlock(blockHeight, true);
 
     expect(mockSend).toHaveBeenCalledTimes(5);
     expect(JSON.stringify(mockSend.mock.calls[0][0])).toStrictEqual(JSON.stringify(new GetObjectCommand({
@@ -220,8 +163,6 @@ describe('LakeClient', () => {
       Key: `${blockHeight.toString().padStart(12, '0')}/shard_0.json`
     })));
     expect(mockRedis.getStreamerMessage).toHaveBeenCalledTimes(0);
-
-    const block = Block.fromStreamerMessage(streamerMessage);
 
     expect(block.blockHeight).toEqual(blockHeight);
     expect(block.blockHash).toEqual(blockHash);
