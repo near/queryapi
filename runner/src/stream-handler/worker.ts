@@ -94,7 +94,6 @@ async function blockQueueConsumer (queue: Array<Promise<QueueMessage>>, streamKe
 
     try {
       await indexer.runFunctions(block, functions, false, { provision: true });
-      METRICS.LAST_PROCESSED_BLOCK.labels({ indexer: indexerName, type: streamType }).set(block.blockHeight);
 
       await redisClient.deleteStreamMessage(streamKey, streamId);
 
