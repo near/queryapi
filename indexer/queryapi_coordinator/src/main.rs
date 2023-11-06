@@ -42,6 +42,7 @@ pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
     pub chain_id: &'a ChainId,
     pub queue_client: &'a queue::QueueClient,
+    pub s3_client: &'a aws_sdk_s3::Client,
     pub queue_url: &'a str,
     pub registry_contract_id: &'a str,
     pub balance_cache: &'a BalanceCache,
@@ -61,6 +62,10 @@ async fn main() -> anyhow::Result<()> {
     let queue_client = queue::queue_client(aws_region, opts.queue_credentials());
     let queue_url = opts.queue_url.clone();
     let registry_contract_id = opts.registry_contract_id.clone();
+
+    let aws_config = &opts.lake_aws_sdk_config();
+    let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+    let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
     // We want to prevent unnecessary RPC queries to find previous balance
     let balances_cache: BalanceCache =
@@ -106,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
                 streamer_message,
                 chain_id,
                 queue_client: &queue_client,
+                s3_client: &s3_client,
             };
             handle_streamer_message(context, indexer_registry.clone())
         })

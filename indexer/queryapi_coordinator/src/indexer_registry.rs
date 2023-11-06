@@ -173,6 +173,8 @@ fn index_and_process_register_calls(
                                 block_height,
                                 &new_indexer_function,
                                 context.redis_connection_manager,
+                                context.s3_client,
+                                context.chain_id,
                             )
                         {
                             spawned_start_from_block_threads.push(thread);

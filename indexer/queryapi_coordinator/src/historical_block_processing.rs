@@ -3,8 +3,6 @@ use crate::opts::{Opts, Parser};
 use crate::s3;
 use anyhow::{bail, Context};
 use aws_sdk_s3::Client as S3Client;
-use aws_sdk_s3::Config;
-use aws_types::SdkConfig;
 use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use indexer_rule_type::indexer_rule::MatchingRule;
 use indexer_rules_engine::types::indexer_rule_match::ChainId;
@@ -24,8 +22,13 @@ pub fn spawn_historical_message_thread(
     block_height: BlockHeight,
     new_indexer_function: &IndexerFunction,
     redis_connection_manager: &storage::ConnectionManager,
+    s3_client: &S3Client,
+    chain_id: &ChainId,
 ) -> Option<JoinHandle<i64>> {
     let redis_connection_manager = redis_connection_manager.clone();
+    let s3_client = s3_client.clone();
+    let chain_id = chain_id.clone();
+
     new_indexer_function.start_block_height.map(|_| {
         let new_indexer_function_copy = new_indexer_function.clone();
         tokio::spawn(async move {
@@ -34,6 +37,8 @@ pub fn spawn_historical_message_thread(
                 new_indexer_function_copy,
                 Opts::parse(),
                 &redis_connection_manager,
+                &s3_client,
+                &chain_id,
             )
             .await
         })
@@ -45,12 +50,16 @@ pub(crate) async fn process_historical_messages_or_handle_error(
     indexer_function: IndexerFunction,
     opts: Opts,
     redis_connection_manager: &storage::ConnectionManager,
+    s3_client: &S3Client,
+    chain_id: &ChainId,
 ) -> i64 {
     match process_historical_messages(
         block_height,
         indexer_function,
         opts,
         redis_connection_manager,
+        s3_client,
+        chain_id,
     )
     .await
     {
@@ -71,6 +80,8 @@ pub(crate) async fn process_historical_messages(
     indexer_function: IndexerFunction,
     opts: Opts,
     redis_connection_manager: &storage::ConnectionManager,
+    s3_client: &S3Client,
+    chain_id: &ChainId,
 ) -> anyhow::Result<i64> {
     let start_block = indexer_function.start_block_height.unwrap();
     let block_difference: i64 = (block_height - start_block) as i64;
@@ -93,23 +104,17 @@ pub(crate) async fn process_historical_messages(
                 indexer_function.function_name
             );
 
-            let chain_id = opts.chain_id().clone();
-            let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
-
-            let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
-            let s3_client: S3Client = S3Client::from_conf(s3_config);
-
             let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
             let start_date =
                 lookup_block_date_or_next_block_date(start_block, &json_rpc_client).await?;
 
-            let last_indexed_block = last_indexed_block_from_metadata(&s3_client).await?;
+            let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
             let last_indexed_block = last_indexed_block;
 
             let mut blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
                 &indexer_function,
-                &s3_client,
+                s3_client,
                 start_date,
             )
             .await?;
@@ -127,8 +132,8 @@ pub(crate) async fn process_historical_messages(
                     last_indexed_block,
                     block_height,
                     &indexer_function,
-                    aws_config,
-                    chain_id.clone(),
+                    s3_client,
+                    chain_id,
                 )
                 .await?;
 
@@ -284,12 +289,10 @@ async fn filter_matching_unindexed_blocks_from_lake(
     last_indexed_block: BlockHeight,
     ending_block_height: BlockHeight,
     indexer_function: &IndexerFunction,
-    aws_config: &SdkConfig,
-    chain_id: ChainId,
+    s3_client: &S3Client,
+    chain_id: &ChainId,
 ) -> anyhow::Result<Vec<u64>> {
-    let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
-    let s3_client: S3Client = S3Client::from_conf(s3_config);
-    let lake_bucket = lake_bucket_for_chain(chain_id.clone());
+    let lake_bucket = lake_bucket_for_chain(chain_id);
 
     let indexer_rule = &indexer_function.indexer_rule;
     let count = ending_block_height - last_indexed_block;
@@ -311,7 +314,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
     for current_block in (last_indexed_block + 1)..ending_block_height {
         // fetch block file from S3
         let key = format!("{}/block.json", normalize_block_height(current_block));
-        let s3_result = s3::fetch_text_file_from_s3(&lake_bucket, key, &s3_client).await;
+        let s3_result = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client).await;
 
         if s3_result.is_err() {
             let error = s3_result.err().unwrap();
@@ -381,7 +384,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
     Ok(blocks_to_process)
 }
 
-fn lake_bucket_for_chain(chain_id: ChainId) -> String {
+fn lake_bucket_for_chain(chain_id: &ChainId) -> String {
     format!("{}{}", LAKE_BUCKET_PREFIX, chain_id)
 }
 
