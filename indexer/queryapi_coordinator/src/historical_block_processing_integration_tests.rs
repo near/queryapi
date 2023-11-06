@@ -95,9 +95,9 @@ mod tests {
         let result = historical_block_processing::process_historical_messages(
             fake_block_height + 1,
             indexer_function,
-            opts,
             &redis_connection_manager,
             &s3_client,
+            &opts.chain_id(),
             &json_rpc_client,
         )
         .await;

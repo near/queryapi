@@ -1,5 +1,4 @@
 use crate::indexer_types::IndexerFunction;
-use crate::opts::{Opts, Parser};
 use crate::s3;
 use anyhow::{bail, Context};
 use aws_sdk_s3::Client as S3Client;
@@ -37,7 +36,6 @@ pub fn spawn_historical_message_thread(
             process_historical_messages_or_handle_error(
                 block_height,
                 new_indexer_function_copy,
-                Opts::parse(),
                 &redis_connection_manager,
                 &s3_client,
                 &chain_id,
@@ -51,7 +49,6 @@ pub fn spawn_historical_message_thread(
 pub(crate) async fn process_historical_messages_or_handle_error(
     block_height: BlockHeight,
     indexer_function: IndexerFunction,
-    opts: Opts,
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
@@ -60,7 +57,6 @@ pub(crate) async fn process_historical_messages_or_handle_error(
     match process_historical_messages(
         block_height,
         indexer_function,
-        opts,
         redis_connection_manager,
         s3_client,
         chain_id,
@@ -83,7 +79,6 @@ pub(crate) async fn process_historical_messages_or_handle_error(
 pub(crate) async fn process_historical_messages(
     block_height: BlockHeight,
     indexer_function: IndexerFunction,
-    opts: Opts,
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
