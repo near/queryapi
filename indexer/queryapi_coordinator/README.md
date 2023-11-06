@@ -17,4 +17,3 @@ see terraform scripts https://github.com/near/near-ops/tree/master/provisioning/
 This app requires:
  * a connection to a database containing "alert" rules to match blocks against;
  * a redis server where identifiers of processed blocks are stored;
- * a SQS queue to write to.
