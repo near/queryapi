@@ -318,7 +318,10 @@ async fn filter_matching_unindexed_blocks_from_lake(
 
         if s3_result.is_err() {
             let error = s3_result.err().unwrap();
-            if error.downcast_ref::<aws_sdk_s3::error::NoSuchKey>().is_some() {
+            if error
+                .downcast_ref::<aws_sdk_s3::error::NoSuchKey>()
+                .is_some()
+            {
                 tracing::info!(
                     target: crate::INDEXER,
                     "In manual filtering, skipping block number {} which was not found. For function {:?} {:?}",
