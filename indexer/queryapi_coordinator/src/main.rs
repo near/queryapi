@@ -185,9 +185,7 @@ async fn handle_streamer_message(
             let indexer_function = indexer_function_with_matches.indexer_function;
             let indexer_rule_matches = indexer_function_with_matches.matches;
 
-            let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
-
-            for indexer_rule_match in indexer_rule_matches.iter() {
+            for _ in indexer_rule_matches.iter() {
                 tracing::debug!(
                     target: INDEXER,
                     "Matched filter {:?} for function {} {}",
@@ -195,20 +193,6 @@ async fn handle_streamer_message(
                     indexer_function.account_id,
                     indexer_function.function_name,
                 );
-
-                let msg = IndexerQueueMessage {
-                    chain_id: indexer_rule_match.chain_id.clone(),
-                    indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
-                    indexer_rule_name: indexer_rule_match
-                        .indexer_rule_name
-                        .clone()
-                        .unwrap_or("".to_string()),
-                    payload: Some(indexer_rule_match.payload.clone()),
-                    block_height,
-                    indexer_function: indexer_function.clone(),
-                    is_historical: false,
-                };
-                indexer_function_messages.push(msg);
 
                 if !indexer_function.provisioned {
                     set_provisioned_flag(&mut indexer_registry_locked, indexer_function);
@@ -234,27 +218,6 @@ async fn handle_streamer_message(
                 )
                 .await?;
             }
-
-            stream::iter(indexer_function_messages.into_iter())
-                .chunks(10)
-                .for_each(|indexer_queue_messages_batch| async {
-                    match queue::send_to_indexer_queue(
-                        context.queue_client,
-                        context.queue_url.to_string(),
-                        indexer_queue_messages_batch,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(err) => tracing::error!(
-                            target: INDEXER,
-                            "#{} an error occurred during sending messages to the queue\n{:#?}",
-                            context.streamer_message.block.header.height,
-                            err
-                        ),
-                    }
-                })
-                .await;
         }
     }
 
