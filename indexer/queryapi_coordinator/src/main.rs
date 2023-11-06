@@ -1,11 +1,10 @@
-use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::{Mutex, MutexGuard};
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
-use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
+use near_lake_framework::near_indexer_primitives::types::BlockHeight;
+use near_lake_framework::near_indexer_primitives::StreamerMessage;
 use utils::serialize_to_camel_case_json_string;
 
 use crate::indexer_types::IndexerFunction;
@@ -23,19 +22,8 @@ mod s3;
 mod utils;
 
 pub(crate) const INDEXER: &str = "queryapi_coordinator";
-pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
-pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
-pub(crate) const RETRY_COUNT: usize = 2;
 
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct BalanceDetails {
-    pub non_staked: types::Balance,
-    pub staked: types::Balance,
-}
-
-pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<AccountId, BalanceDetails>>>;
 
 pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
@@ -43,7 +31,6 @@ pub(crate) struct QueryApiContext<'a> {
     pub s3_client: &'a aws_sdk_s3::Client,
     pub json_rpc_client: &'a JsonRpcClient,
     pub registry_contract_id: &'a str,
-    pub balance_cache: &'a BalanceCache,
     pub redis_connection_manager: &'a ConnectionManager,
 }
 
@@ -61,10 +48,6 @@ async fn main() -> anyhow::Result<()> {
     let aws_config = &opts.lake_aws_sdk_config();
     let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
     let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
-
-    // We want to prevent unnecessary RPC queries to find previous balance
-    let balances_cache: BalanceCache =
-        std::sync::Arc::new(Mutex::new(SizedCache::with_size(100_000)));
 
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
@@ -100,7 +83,6 @@ async fn main() -> anyhow::Result<()> {
         .map(|streamer_message| {
             let context = QueryApiContext {
                 redis_connection_manager: &redis_connection_manager,
-                balance_cache: &balances_cache,
                 registry_contract_id: &registry_contract_id,
                 streamer_message,
                 chain_id,

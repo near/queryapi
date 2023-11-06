@@ -318,7 +318,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
 
         if s3_result.is_err() {
             let error = s3_result.err().unwrap();
-            if let Some(_) = error.downcast_ref::<aws_sdk_s3::error::NoSuchKey>() {
+            if error.downcast_ref::<aws_sdk_s3::error::NoSuchKey>().is_some() {
                 tracing::info!(
                     target: crate::INDEXER,
                     "In manual filtering, skipping block number {} which was not found. For function {:?} {:?}",
@@ -345,7 +345,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
                 normalize_block_height(current_block),
                 shard_id
             );
-            let shard = s3::fetch_text_file_from_s3(&lake_bucket, key, &s3_client).await?;
+            let shard = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client).await?;
             match serde_json::from_slice::<near_lake_framework::near_indexer_primitives::IndexerShard>(
                 shard.as_ref(),
             ) {

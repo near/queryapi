@@ -130,7 +130,7 @@ mod tests {
         let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let start_block_height = 77016214;
-        let naivedatetime_utc = NaiveDate::from_ymd_opt(2022, 10, 03)
+        let naivedatetime_utc = NaiveDate::from_ymd_opt(2022, 10, 3)
             .unwrap()
             .and_hms_opt(0, 0, 0)
             .unwrap();
@@ -153,7 +153,7 @@ mod tests {
             }
             Err(e) => {
                 println!("Error: {:?}", e);
-                assert!(false);
+                panic!();
             }
         }
     }
@@ -189,7 +189,7 @@ mod tests {
         let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let start_block_height = 45894620;
-        let naivedatetime_utc = NaiveDate::from_ymd_opt(2021, 08, 01)
+        let naivedatetime_utc = NaiveDate::from_ymd_opt(2021, 8, 1)
             .unwrap()
             .and_hms_opt(0, 0, 0)
             .unwrap();

@@ -214,7 +214,7 @@ mod tests {
         let list = list_s3_bucket_by_prefix(
             &s3_client,
             INDEXED_DATA_FILES_BUCKET,
-            &format!("{}/", INDEXED_ACTIONS_FILES_FOLDER.to_string()),
+            &format!("{}/", INDEXED_ACTIONS_FILES_FOLDER),
         )
         .await
         .unwrap();
@@ -335,7 +335,10 @@ mod tests {
         if s3_result.is_err() {
             let wrapped_error = s3_result.err().unwrap();
             let error = wrapped_error.root_cause();
-            if let Some(_) = error.downcast_ref::<aws_sdk_s3::error::NoSuchKey>() {
+            if error
+                .downcast_ref::<aws_sdk_s3::error::NoSuchKey>()
+                .is_some()
+            {
                 success = true;
             } else {
                 println!("Failed to downcast error: {:?}", error);

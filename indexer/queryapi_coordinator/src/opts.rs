@@ -46,6 +46,7 @@ pub enum ChainId {
 }
 
 #[derive(Subcommand, Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum StartOptions {
     FromBlock { height: u64 },
     FromInterruption,
