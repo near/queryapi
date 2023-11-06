@@ -77,12 +77,17 @@ mod tests {
         };
 
         let opts = Opts::test_opts_with_aws();
+
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
         let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
         let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+
         let redis_connection_manager = storage::connect(&opts.redis_connection_string)
             .await
             .unwrap();
+
+        let json_rpc_client = near_jsonrpc_client::JsonRpcClient::connect(opts.rpc_url());
+
         let fake_block_height =
             historical_block_processing::last_indexed_block_from_metadata(&s3_client)
                 .await
@@ -92,6 +97,8 @@ mod tests {
             indexer_function,
             opts,
             &redis_connection_manager,
+            &s3_client,
+            &json_rpc_client,
         )
         .await;
         assert!(result.unwrap() > 0);

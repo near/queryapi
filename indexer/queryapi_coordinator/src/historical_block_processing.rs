@@ -24,10 +24,12 @@ pub fn spawn_historical_message_thread(
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
+    json_rpc_client: &JsonRpcClient,
 ) -> Option<JoinHandle<i64>> {
     let redis_connection_manager = redis_connection_manager.clone();
     let s3_client = s3_client.clone();
     let chain_id = chain_id.clone();
+    let json_rpc_client = json_rpc_client.clone();
 
     new_indexer_function.start_block_height.map(|_| {
         let new_indexer_function_copy = new_indexer_function.clone();
@@ -39,6 +41,7 @@ pub fn spawn_historical_message_thread(
                 &redis_connection_manager,
                 &s3_client,
                 &chain_id,
+                &json_rpc_client,
             )
             .await
         })
@@ -52,6 +55,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
+    json_rpc_client: &JsonRpcClient,
 ) -> i64 {
     match process_historical_messages(
         block_height,
@@ -60,6 +64,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
         redis_connection_manager,
         s3_client,
         chain_id,
+        json_rpc_client,
     )
     .await
     {
@@ -82,6 +87,7 @@ pub(crate) async fn process_historical_messages(
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
+    json_rpc_client: &JsonRpcClient,
 ) -> anyhow::Result<i64> {
     let start_block = indexer_function.start_block_height.unwrap();
     let block_difference: i64 = (block_height - start_block) as i64;
@@ -104,9 +110,8 @@ pub(crate) async fn process_historical_messages(
                 indexer_function.function_name
             );
 
-            let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
             let start_date =
-                lookup_block_date_or_next_block_date(start_block, &json_rpc_client).await?;
+                lookup_block_date_or_next_block_date(start_block, json_rpc_client).await?;
 
             let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
             let last_indexed_block = last_indexed_block;

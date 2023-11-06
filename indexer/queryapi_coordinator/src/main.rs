@@ -43,6 +43,7 @@ pub(crate) struct QueryApiContext<'a> {
     pub chain_id: &'a ChainId,
     pub queue_client: &'a queue::QueueClient,
     pub s3_client: &'a aws_sdk_s3::Client,
+    pub json_rpc_client: &'a JsonRpcClient,
     pub queue_url: &'a str,
     pub registry_contract_id: &'a str,
     pub balance_cache: &'a BalanceCache,
@@ -111,6 +112,7 @@ async fn main() -> anyhow::Result<()> {
                 streamer_message,
                 chain_id,
                 queue_client: &queue_client,
+                json_rpc_client: &json_rpc_client,
                 s3_client: &s3_client,
             };
             handle_streamer_message(context, indexer_registry.clone())

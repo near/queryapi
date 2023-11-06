@@ -175,6 +175,7 @@ fn index_and_process_register_calls(
                                 context.redis_connection_manager,
                                 context.s3_client,
                                 context.chain_id,
+                                context.json_rpc_client,
                             )
                         {
                             spawned_start_from_block_threads.push(thread);
