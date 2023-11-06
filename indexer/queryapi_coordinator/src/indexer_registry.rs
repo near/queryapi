@@ -171,7 +171,7 @@ fn index_and_process_register_calls(
                         if let Some(thread) =
                             crate::historical_block_processing::spawn_historical_message_thread(
                                 block_height,
-                                &mut new_indexer_function,
+                                &new_indexer_function,
                                 context.redis_connection_manager,
                             )
                         {

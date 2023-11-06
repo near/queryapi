@@ -1,15 +1,13 @@
-use crate::indexer_types::{IndexerFunction, IndexerQueueMessage};
+use crate::indexer_types::IndexerFunction;
 use crate::opts::{Opts, Parser};
-use crate::queue;
 use crate::s3;
 use anyhow::{bail, Context};
 use aws_sdk_s3::Client as S3Client;
 use aws_sdk_s3::Config;
-use aws_sdk_sqs::Client;
 use aws_types::SdkConfig;
 use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use indexer_rule_type::indexer_rule::MatchingRule;
-use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatchPayload};
+use indexer_rules_engine::types::indexer_rule_match::ChainId;
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
 use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
@@ -96,16 +94,11 @@ pub(crate) async fn process_historical_messages(
             );
 
             let chain_id = opts.chain_id().clone();
-            let aws_region = opts.aws_queue_region.clone();
-            let queue_client = queue::queue_client(aws_region, opts.queue_credentials());
-            let queue_url = opts.start_from_block_queue_url.clone();
             let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
             let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
             let start_date =
                 lookup_block_date_or_next_block_date(start_block, &json_rpc_client).await?;
-
-            let mut indexer_function = indexer_function.clone();
 
             let last_indexed_block = last_indexed_block_from_metadata(aws_config).await?;
             let last_indexed_block = last_indexed_block;
@@ -138,8 +131,6 @@ pub(crate) async fn process_historical_messages(
 
             blocks_from_index.append(&mut blocks_between_indexed_and_current_block);
 
-            let first_block_in_index = *blocks_from_index.first().unwrap_or(&start_block);
-
             if !blocks_from_index.is_empty() {
                 storage::sadd(
                     redis_connection_manager,
@@ -163,18 +154,6 @@ pub(crate) async fn process_historical_messages(
                     &[("block_height", current_block)],
                 )
                 .await?;
-
-                send_execution_message(
-                    block_height,
-                    first_block_in_index,
-                    chain_id.clone(),
-                    &queue_client,
-                    queue_url.clone(),
-                    &mut indexer_function,
-                    current_block,
-                    None,
-                )
-                .await;
             }
         }
     }
@@ -407,42 +386,6 @@ fn lake_bucket_for_chain(chain_id: ChainId) -> String {
 
 fn normalize_block_height(block_height: BlockHeight) -> String {
     format!("{:0>12}", block_height)
-}
-
-async fn send_execution_message(
-    block_height: BlockHeight,
-    first_block: BlockHeight,
-    chain_id: ChainId,
-    queue_client: &Client,
-    queue_url: String,
-    indexer_function: &mut IndexerFunction,
-    current_block: u64,
-    payload: Option<IndexerRuleMatchPayload>,
-) {
-    // only request provisioning on the first block
-    if current_block != first_block {
-        indexer_function.provisioned = true;
-    }
-
-    let msg = IndexerQueueMessage {
-        chain_id,
-        indexer_rule_id: 0,
-        indexer_rule_name: indexer_function.function_name.clone(),
-        payload,
-        block_height: current_block,
-        indexer_function: indexer_function.clone(),
-        is_historical: true,
-    };
-
-    match queue::send_to_indexer_queue(queue_client, queue_url, vec![msg]).await {
-        Ok(_) => {}
-        Err(err) => tracing::error!(
-            target: crate::INDEXER,
-            "#{} an error occurred when sending messages to the queue\n{:#?}",
-            block_height,
-            err
-        ),
-    }
 }
 
 // if block does not exist, try next block, up to MAX_RPC_BLOCKS_TO_PROCESS (20) blocks
