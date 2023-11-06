@@ -96,17 +96,20 @@ pub(crate) async fn process_historical_messages(
             let chain_id = opts.chain_id().clone();
             let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
 
+            let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
+            let s3_client: S3Client = S3Client::from_conf(s3_config);
+
             let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
             let start_date =
                 lookup_block_date_or_next_block_date(start_block, &json_rpc_client).await?;
 
-            let last_indexed_block = last_indexed_block_from_metadata(aws_config).await?;
+            let last_indexed_block = last_indexed_block_from_metadata(&s3_client).await?;
             let last_indexed_block = last_indexed_block;
 
             let mut blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
                 &indexer_function,
-                aws_config,
+                &s3_client,
                 start_date,
             )
             .await?;
@@ -161,11 +164,9 @@ pub(crate) async fn process_historical_messages(
 }
 
 pub(crate) async fn last_indexed_block_from_metadata(
-    aws_config: &SdkConfig,
+    s3_client: &S3Client,
 ) -> anyhow::Result<BlockHeight> {
     let key = format!("{}/{}", INDEXED_ACTIONS_FILES_FOLDER, "latest_block.json");
-    let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
-    let s3_client: S3Client = S3Client::from_conf(s3_config);
     let metadata = s3::fetch_text_file_from_s3(INDEXED_DATA_FILES_BUCKET, key, s3_client).await?;
 
     let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
@@ -186,7 +187,7 @@ pub(crate) async fn last_indexed_block_from_metadata(
 pub(crate) async fn filter_matching_blocks_from_index_files(
     start_block_height: BlockHeight,
     indexer_function: &IndexerFunction,
-    aws_config: &SdkConfig,
+    s3_client: &S3Client,
     start_date: DateTime<Utc>,
 ) -> anyhow::Result<Vec<BlockHeight>> {
     let s3_bucket = INDEXED_DATA_FILES_BUCKET;
@@ -203,7 +204,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
                 needs_dedupe_and_sort = true;
             }
             s3::fetch_contract_index_files(
-                aws_config,
+                s3_client,
                 s3_bucket,
                 INDEXED_ACTIONS_FILES_FOLDER,
                 start_date,
@@ -310,7 +311,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
     for current_block in (last_indexed_block + 1)..ending_block_height {
         // fetch block file from S3
         let key = format!("{}/block.json", normalize_block_height(current_block));
-        let s3_result = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await;
+        let s3_result = s3::fetch_text_file_from_s3(&lake_bucket, key, &s3_client).await;
 
         if s3_result.is_err() {
             let error = s3_result.err().unwrap();
@@ -341,7 +342,7 @@ async fn filter_matching_unindexed_blocks_from_lake(
                 normalize_block_height(current_block),
                 shard_id
             );
-            let shard = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client.clone()).await?;
+            let shard = s3::fetch_text_file_from_s3(&lake_bucket, key, &s3_client).await?;
             match serde_json::from_slice::<near_lake_framework::near_indexer_primitives::IndexerShard>(
                 shard.as_ref(),
             ) {

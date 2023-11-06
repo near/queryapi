@@ -1,7 +1,5 @@
 use anyhow::{bail, Context, Result};
 use aws_sdk_s3::Client as S3Client;
-use aws_sdk_s3::Config;
-use aws_types::SdkConfig;
 use chrono::{DateTime, NaiveDate, Utc};
 use futures::future::try_join_all;
 
@@ -17,7 +15,7 @@ fn storage_path_for_account(account: &str) -> String {
 }
 
 pub async fn find_index_files_by_pattern(
-    aws_config: &SdkConfig,
+    s3_client: &S3Client,
     s3_bucket: &str,
     s3_folder: &str,
     pattern: &str,
@@ -29,10 +27,10 @@ pub async fn find_index_files_by_pattern(
             for account in account_array {
                 let account = account.trim();
                 let sub_results = if account.contains('*') {
-                    list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &account).await?
+                    list_index_files_by_wildcard(s3_client, s3_bucket, s3_folder, &account).await?
                 } else {
                     list_s3_bucket_by_prefix(
-                        aws_config,
+                        s3_client,
                         s3_bucket,
                         &format!("{}/{}/", s3_folder, storage_path_for_account(account)),
                     )
@@ -43,11 +41,11 @@ pub async fn find_index_files_by_pattern(
             results
         }
         x if x.contains('*') => {
-            list_index_files_by_wildcard(aws_config, s3_bucket, s3_folder, &x).await?
+            list_index_files_by_wildcard(s3_client, s3_bucket, s3_folder, &x).await?
         }
         _ => {
             list_s3_bucket_by_prefix(
-                aws_config,
+                s3_client,
                 s3_bucket,
                 &format!("{}/{}/", s3_folder, storage_path_for_account(pattern),),
             )
@@ -57,7 +55,7 @@ pub async fn find_index_files_by_pattern(
 }
 
 async fn list_index_files_by_wildcard(
-    aws_config: &SdkConfig,
+    s3_client: &S3Client,
     s3_bucket: &str,
     s3_folder: &str,
     pattern: &&str,
@@ -67,24 +65,20 @@ async fn list_index_files_by_wildcard(
     let path = storage_path_for_account(&pattern);
 
     let folders =
-        list_s3_bucket_by_prefix(aws_config, s3_bucket, &format!("{}/{}/", s3_folder, path))
-            .await?;
+        list_s3_bucket_by_prefix(s3_client, s3_bucket, &format!("{}/{}/", s3_folder, path)).await?;
     // for each matching folder list files
     let mut results = vec![];
     for folder in folders {
-        results.extend(list_s3_bucket_by_prefix(aws_config, s3_bucket, &folder).await?);
+        results.extend(list_s3_bucket_by_prefix(s3_client, s3_bucket, &folder).await?);
     }
     Ok(results)
 }
 
 async fn list_s3_bucket_by_prefix(
-    aws_config: &SdkConfig,
+    s3_client: &S3Client,
     s3_bucket: &str,
     s3_prefix: &str,
 ) -> Result<Vec<String>> {
-    let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
-    let s3_client: S3Client = S3Client::from_conf(s3_config);
-
     let mut results = vec![];
     let mut continuation_token: Option<String> = None;
 
@@ -126,18 +120,15 @@ async fn list_s3_bucket_by_prefix(
 }
 
 pub async fn fetch_contract_index_files(
-    aws_config: &SdkConfig,
+    s3_client: &S3Client,
     s3_bucket: &str,
     s3_folder: &str,
     start_date: DateTime<Utc>,
     contract_pattern: &str,
 ) -> Result<Vec<String>> {
-    let s3_config: Config = aws_sdk_s3::config::Builder::from(aws_config).build();
-    let s3_client: S3Client = S3Client::from_conf(s3_config);
-
     // list all index files
     let file_list =
-        find_index_files_by_pattern(aws_config, s3_bucket, s3_folder, contract_pattern).await?;
+        find_index_files_by_pattern(s3_client, s3_bucket, s3_folder, contract_pattern).await?;
 
     let fetch_and_parse_tasks = file_list
         .into_iter()
@@ -146,7 +137,7 @@ pub async fn fetch_contract_index_files(
             let s3_client = s3_client.clone();
             async move {
                 // Fetch the file
-                fetch_text_file_from_s3(s3_bucket, key, s3_client).await
+                fetch_text_file_from_s3(s3_bucket, key, &s3_client).await
             }
         })
         .collect::<Vec<_>>();
@@ -162,7 +153,7 @@ pub async fn fetch_contract_index_files(
 pub async fn fetch_text_file_from_s3(
     s3_bucket: &str,
     key: String,
-    s3_client: S3Client,
+    s3_client: &S3Client,
 ) -> Result<String> {
     // todo: can we retry if this fails like the lake s3_fetcher fn does?
     // If so, can we differentiate between a file not existing (block height does not exist) and a network error?
@@ -216,9 +207,12 @@ mod tests {
     #[tokio::test]
     async fn list_delta_bucket() {
         let opts = Opts::test_opts_with_aws();
+        let aws_config = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let list = list_s3_bucket_by_prefix(
-            &opts.lake_aws_sdk_config(),
+            &s3_client,
             INDEXED_DATA_FILES_BUCKET,
             &format!("{}/", INDEXED_ACTIONS_FILES_FOLDER.to_string()),
         )
@@ -231,9 +225,12 @@ mod tests {
     #[tokio::test]
     async fn list_with_single_contract() {
         let opts = Opts::test_opts_with_aws();
+        let aws_config = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let list = find_index_files_by_pattern(
-            &opts.lake_aws_sdk_config(),
+            &s3_client,
             INDEXED_DATA_FILES_BUCKET,
             INDEXED_ACTIONS_FILES_FOLDER,
             "hackathon.agency.near",
@@ -247,9 +244,12 @@ mod tests {
     #[tokio::test]
     async fn list_with_csv_contracts() {
         let opts = Opts::test_opts_with_aws();
+        let aws_config = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let list = find_index_files_by_pattern(
-            &opts.lake_aws_sdk_config(),
+            &s3_client,
             INDEXED_DATA_FILES_BUCKET,
             INDEXED_ACTIONS_FILES_FOLDER,
             "hackathon.agency.near, hackathon.aurora-silo-dev.near, hackathon.sputnik-dao.near",
@@ -263,9 +263,12 @@ mod tests {
     #[tokio::test]
     async fn list_with_wildcard_contracts() {
         let opts = Opts::test_opts_with_aws();
+        let aws_config = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let list = find_index_files_by_pattern(
-            &opts.lake_aws_sdk_config(),
+            &s3_client,
             INDEXED_DATA_FILES_BUCKET,
             INDEXED_ACTIONS_FILES_FOLDER,
             "*.keypom.near",
@@ -279,9 +282,12 @@ mod tests {
     #[tokio::test]
     async fn list_with_csv_and_wildcard_contracts() {
         let opts = Opts::test_opts_with_aws();
+        let aws_config = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let list = find_index_files_by_pattern(
-            &opts.lake_aws_sdk_config(),
+            &s3_client,
             INDEXED_DATA_FILES_BUCKET,
             INDEXED_ACTIONS_FILES_FOLDER,
             "*.keypom.near, hackathon.agency.near, *.nearcrowd.near",
@@ -322,7 +328,7 @@ mod tests {
         let s3_result = fetch_text_file_from_s3(
             format!("{}{}", LAKE_BUCKET_PREFIX, "mainnet").as_str(),
             "does_not_exist/block.json".to_string(),
-            s3_client,
+            &s3_client,
         )
         .await;
 
