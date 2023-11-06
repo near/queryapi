@@ -17,6 +17,13 @@ pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_a
 pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
+
+/// Represents the async task used to process and push historical messages
+pub struct Streamer {
+    handle: JoinHandle<i64>,
+    pub cancellation_token: tokio_util::sync::CancellationToken,
+}
+
 pub fn spawn_historical_message_thread(
     current_block_height: BlockHeight,
     new_indexer_function: &IndexerFunction,
@@ -24,25 +31,39 @@ pub fn spawn_historical_message_thread(
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
-) -> Option<JoinHandle<i64>> {
-    let redis_connection_manager = redis_connection_manager.clone();
-    let s3_client = s3_client.clone();
-    let chain_id = chain_id.clone();
-    let json_rpc_client = json_rpc_client.clone();
-
+) -> Option<Streamer> {
     new_indexer_function.start_block_height.map(|_| {
         let new_indexer_function_copy = new_indexer_function.clone();
-        tokio::spawn(async move {
-            process_historical_messages_or_handle_error(
-                current_block_height,
-                new_indexer_function_copy,
-                &redis_connection_manager,
-                &s3_client,
-                &chain_id,
-                &json_rpc_client,
-            )
-            .await
-        })
+        let redis_connection_manager = redis_connection_manager.clone();
+        let s3_client = s3_client.clone();
+        let chain_id = chain_id.clone();
+        let json_rpc_client = json_rpc_client.clone();
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let cancellation_token_clone = cancellation_token.clone();
+
+        let handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = cancellation_token_clone.cancelled() => {
+                    0
+                },
+                processed_block_count = process_historical_messages_or_handle_error(
+                    current_block_height,
+                    new_indexer_function_copy,
+                    &redis_connection_manager,
+                    &s3_client,
+                    &chain_id,
+                    &json_rpc_client,
+                ) => {
+                    processed_block_count
+                }
+            }
+        });
+
+        Streamer {
+            handle,
+            cancellation_token,
+        }
     })
 }
 

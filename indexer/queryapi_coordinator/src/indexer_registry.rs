@@ -12,6 +12,7 @@ use tokio::sync::MutexGuard;
 use tokio::task::JoinHandle;
 use unescape::unescape;
 
+use crate::historical_block_processing::Streamer;
 use crate::indexer_reducer;
 use crate::indexer_reducer::FunctionCallInfo;
 use crate::indexer_types::{IndexerFunction, IndexerRegistry};
@@ -102,7 +103,7 @@ pub(crate) async fn index_registry_changes(
     current_block_height: BlockHeight,
     registry: &mut MutexGuard<'_, IndexerRegistry>,
     context: &QueryApiContext<'_>,
-) -> Vec<JoinHandle<i64>> {
+) -> Vec<Streamer> {
     index_and_process_remove_calls(registry, context);
 
     index_and_process_register_calls(current_block_height, registry, context)
@@ -112,7 +113,7 @@ fn index_and_process_register_calls(
     current_block_height: BlockHeight,
     registry: &mut MutexGuard<IndexerRegistry>,
     context: &QueryApiContext,
-) -> Vec<JoinHandle<i64>> {
+) -> Vec<Streamer> {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
         build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
