@@ -115,8 +115,8 @@ fn match_account(
     outcome_with_receipt: &IndexerExecutionOutcomeWithReceipt,
 ) -> bool {
     match account_id {
-        x if x.contains(",") => x
-            .split(",")
+        x if x.contains(',') => x
+            .split(',')
             .any(|sub_account_id| match_account(sub_account_id.trim(), outcome_with_receipt)),
         _ => {
             wildmatch::WildMatch::new(account_id).matches(&outcome_with_receipt.receipt.receiver_id)

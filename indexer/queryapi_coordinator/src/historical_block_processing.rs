@@ -109,7 +109,6 @@ pub(crate) async fn process_historical_messages(
                 lookup_block_date_or_next_block_date(start_block, json_rpc_client).await?;
 
             let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
-            let last_indexed_block = last_indexed_block;
 
             let mut blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
