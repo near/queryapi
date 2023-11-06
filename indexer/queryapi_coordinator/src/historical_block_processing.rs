@@ -18,7 +18,7 @@ pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks ta
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
 pub fn spawn_historical_message_thread(
-    block_height: BlockHeight,
+    current_block_height: BlockHeight,
     new_indexer_function: &IndexerFunction,
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
@@ -34,7 +34,7 @@ pub fn spawn_historical_message_thread(
         let new_indexer_function_copy = new_indexer_function.clone();
         tokio::spawn(async move {
             process_historical_messages_or_handle_error(
-                block_height,
+                current_block_height,
                 new_indexer_function_copy,
                 &redis_connection_manager,
                 &s3_client,
@@ -47,7 +47,7 @@ pub fn spawn_historical_message_thread(
 }
 
 pub(crate) async fn process_historical_messages_or_handle_error(
-    block_height: BlockHeight,
+    current_block_height: BlockHeight,
     indexer_function: IndexerFunction,
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
@@ -55,7 +55,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
     json_rpc_client: &JsonRpcClient,
 ) -> i64 {
     match process_historical_messages(
-        block_height,
+        current_block_height,
         indexer_function,
         redis_connection_manager,
         s3_client,
@@ -77,7 +77,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
     }
 }
 pub(crate) async fn process_historical_messages(
-    block_height: BlockHeight,
+    current_block_height: BlockHeight,
     indexer_function: IndexerFunction,
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
@@ -85,7 +85,7 @@ pub(crate) async fn process_historical_messages(
     json_rpc_client: &JsonRpcClient,
 ) -> anyhow::Result<i64> {
     let start_block = indexer_function.start_block_height.unwrap();
-    let block_difference: i64 = (block_height - start_block) as i64;
+    let block_difference: i64 = (current_block_height - start_block) as i64;
     match block_difference {
         i64::MIN..=-1 => {
             bail!("Skipping back fill, start_block_height is greater than current block height: {:?} {:?}",
@@ -100,7 +100,7 @@ pub(crate) async fn process_historical_messages(
         1..=i64::MAX => {
             tracing::info!(
                 target: crate::INDEXER,
-                "Back filling {block_difference} blocks from {start_block} to current block height {block_height}: {:?} {:?}",
+                "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {:?} {:?}",
                 indexer_function.account_id,
                 indexer_function.function_name
             );
@@ -129,7 +129,7 @@ pub(crate) async fn process_historical_messages(
             let mut blocks_between_indexed_and_current_block: Vec<BlockHeight> =
                 filter_matching_unindexed_blocks_from_lake(
                     last_indexed_block,
-                    block_height,
+                    current_block_height,
                     &indexer_function,
                     s3_client,
                     chain_id,

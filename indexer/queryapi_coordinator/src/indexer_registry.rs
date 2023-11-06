@@ -99,17 +99,17 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 
 /// Returns spawned start_from_block threads
 pub(crate) async fn index_registry_changes(
-    block_height: BlockHeight,
+    current_block_height: BlockHeight,
     registry: &mut MutexGuard<'_, IndexerRegistry>,
     context: &QueryApiContext<'_>,
 ) -> Vec<JoinHandle<i64>> {
     index_and_process_remove_calls(registry, context);
 
-    index_and_process_register_calls(block_height, registry, context)
+    index_and_process_register_calls(current_block_height, registry, context)
 }
 
 fn index_and_process_register_calls(
-    block_height: BlockHeight,
+    current_block_height: BlockHeight,
     registry: &mut MutexGuard<IndexerRegistry>,
     context: &QueryApiContext,
 ) -> Vec<JoinHandle<i64>> {
@@ -145,7 +145,7 @@ fn index_and_process_register_calls(
                             tracing::info!(
                                 target: crate::INDEXER,
                                 "Block {}. Indexed creation call to {registry_method_name}: {:?} {:?}",
-                                block_height,
+                                current_block_height,
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone()
                             );
@@ -156,7 +156,7 @@ fn index_and_process_register_calls(
                             tracing::info!(
                                 target: crate::INDEXER,
                                 "Block {}. Indexed update call to {registry_method_name}: {:?} {:?}",
-                                block_height,
+                                current_block_height,
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone(),
                             );
@@ -170,7 +170,7 @@ fn index_and_process_register_calls(
                     if new_indexer_function.start_block_height.is_some() {
                         if let Some(thread) =
                             crate::historical_block_processing::spawn_historical_message_thread(
-                                block_height,
+                                current_block_height,
                                 &new_indexer_function,
                                 context.redis_connection_manager,
                                 context.s3_client,
