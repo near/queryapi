@@ -211,7 +211,7 @@ async fn handle_streamer_message(
                 indexer_function_messages.push(msg);
 
                 if !indexer_function.provisioned {
-                    set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
+                    set_provisioned_flag(&mut indexer_registry_locked, indexer_function);
                 }
 
                 storage::sadd(
