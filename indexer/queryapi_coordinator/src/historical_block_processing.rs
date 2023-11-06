@@ -26,45 +26,43 @@ pub struct Streamer {
 
 pub fn spawn_historical_message_thread(
     current_block_height: BlockHeight,
-    new_indexer_function: &IndexerFunction,
+    indexer_function: &IndexerFunction,
     redis_connection_manager: &storage::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
-) -> Option<Streamer> {
-    new_indexer_function.start_block_height.map(|_| {
-        let new_indexer_function_copy = new_indexer_function.clone();
-        let redis_connection_manager = redis_connection_manager.clone();
-        let s3_client = s3_client.clone();
-        let chain_id = chain_id.clone();
-        let json_rpc_client = json_rpc_client.clone();
+) -> Streamer {
+    let indexer = indexer_function.clone();
+    let redis_connection_manager = redis_connection_manager.clone();
+    let s3_client = s3_client.clone();
+    let chain_id = chain_id.clone();
+    let json_rpc_client = json_rpc_client.clone();
 
-        let cancellation_token = tokio_util::sync::CancellationToken::new();
-        let cancellation_token_clone = cancellation_token.clone();
+    let cancellation_token = tokio_util::sync::CancellationToken::new();
+    let cancellation_token_clone = cancellation_token.clone();
 
-        let handle = tokio::spawn(async move {
-            tokio::select! {
-                _ = cancellation_token_clone.cancelled() => {
-                    0
-                },
-                processed_block_count = process_historical_messages_or_handle_error(
-                    current_block_height,
-                    new_indexer_function_copy,
-                    &redis_connection_manager,
-                    &s3_client,
-                    &chain_id,
-                    &json_rpc_client,
-                ) => {
-                    processed_block_count
-                }
+    let handle = tokio::spawn(async move {
+        tokio::select! {
+            _ = cancellation_token_clone.cancelled() => {
+                0
+            },
+            processed_blocks_count = process_historical_messages_or_handle_error(
+                current_block_height,
+                indexer,
+                &redis_connection_manager,
+                &s3_client,
+                &chain_id,
+                &json_rpc_client,
+            ) => {
+                processed_blocks_count
             }
-        });
-
-        Streamer {
-            handle,
-            cancellation_token,
         }
-    })
+    });
+
+    Streamer {
+        handle,
+        cancellation_token,
+    }
 }
 
 pub(crate) async fn process_historical_messages_or_handle_error(
