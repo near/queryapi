@@ -52,19 +52,26 @@ function incrementId (id: string): string {
   return `${Number(main) + 1}-${sequence}`;
 }
 
-async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
+async function waitForQueueSpace (workerContext: WorkerContext): Promise<number> {
   const HISTORICAL_BATCH_SIZE = 100;
+  return await new Promise<number>((resolve) => {
+    const intervalId = setInterval(() => {
+      const preFetchCount = HISTORICAL_BATCH_SIZE - workerContext.queue.length;
+      if (preFetchCount > 0) {
+        clearInterval(intervalId);
+        resolve(preFetchCount);
+      }
+    }, 100);
+  });
+}
+
+async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   let streamMessageStartId = '0';
 
   while (true) {
-    const preFetchCount = HISTORICAL_BATCH_SIZE - workerContext.queue.length;
-    if (preFetchCount <= 0) {
-      await sleep(300);
-      continue;
-    }
-    const messages = await workerContext.redisClient.getStreamMessages(streamKey, preFetchCount, streamMessageStartId);
+    const preFetchCount = await waitForQueueSpace(workerContext);
+    const messages = await workerContext.redisClient.getStreamMessages(streamKey, preFetchCount, streamMessageStartId, 1000);
     if (messages == null) {
-      await sleep(1000);
       continue;
     }
     console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
@@ -96,13 +103,15 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   while (true) {
     let streamMessageId = '';
     try {
-      const startTime = performance.now();
-      const blockStartTime = startTime;
+      while (workerContext.queue.length === 0) {
+        await sleep(100);
+      }
       const queueMessage = await workerContext.queue.at(0);
       if (queueMessage === undefined) {
-        await sleep(1000);
         continue;
       }
+      const startTime = performance.now();
+      const blockStartTime = startTime;
       const block = queueMessage.block;
       streamMessageId = queueMessage.streamMessageId;
 
@@ -117,6 +126,10 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: streamType }).observe(performance.now() - startTime);
+
+      if (streamType === 'historical') {
+        METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: streamType }).set(block.blockHeight);
+      }
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {

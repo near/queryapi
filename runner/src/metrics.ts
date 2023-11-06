@@ -23,6 +23,12 @@ const UNPROCESSED_STREAM_MESSAGES = new Gauge({
   labelNames: ['indexer', 'type'],
 });
 
+const LAST_PROCESSED_BLOCK_HEIGHT = new Gauge({
+  name: 'queryapi_runner_last_processed_block_height',
+  help: 'Previous block height processed by an indexer',
+  labelNames: ['indexer', 'type'],
+});
+
 const EXECUTION_DURATION = new Histogram({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
@@ -34,6 +40,7 @@ export const METRICS = {
   CACHE_HIT,
   CACHE_MISS,
   UNPROCESSED_STREAM_MESSAGES,
+  LAST_PROCESSED_BLOCK_HEIGHT,
   EXECUTION_DURATION,
 };
 

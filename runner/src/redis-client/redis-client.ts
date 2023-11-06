@@ -47,11 +47,12 @@ export default class RedisClient {
   async getStreamMessages (
     streamKey: string,
     count = 1,
-    streamId = this.SMALLEST_STREAM_ID
+    streamId = this.SMALLEST_STREAM_ID,
+    block = 0
   ): Promise<StreamMessage[] | null> {
     const results = await this.client.xRead(
       { key: streamKey, id: streamId },
-      { COUNT: count }
+      { COUNT: count, BLOCK: block }
     );
 
     return results?.[0].messages as StreamMessage[];
