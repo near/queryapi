@@ -101,18 +101,17 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 /// Returns spawned start_from_block threads
 pub(crate) async fn index_registry_changes(
     current_block_height: BlockHeight,
-    registry: &mut MutexGuard<'_, IndexerRegistry>,
     context: &QueryApiContext<'_>,
 ) -> Vec<Streamer> {
-    index_and_process_remove_calls(registry, context);
+    index_and_process_remove_calls(context).await;
 
-    index_and_process_register_calls(current_block_height, registry, context)
+    index_and_process_register_calls(current_block_height, context).await
 }
 
-fn index_and_process_register_calls(
+// TODO: make async
+async fn index_and_process_register_calls(
     current_block_height: BlockHeight,
-    registry: &mut MutexGuard<IndexerRegistry>,
-    context: &QueryApiContext,
+    context: &QueryApiContext<'_>,
 ) -> Vec<Streamer> {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
@@ -135,7 +134,8 @@ fn index_and_process_register_calls(
             match new_indexer_function {
                 None => continue,
                 Some(mut new_indexer_function) => {
-                    let fns = registry
+                    let mut indexer_registry_lock = context.indexer_registry.lock().await;
+                    let fns = indexer_registry_lock
                         .entry(new_indexer_function.account_id.clone())
                         .or_default();
 
@@ -187,13 +187,11 @@ fn index_and_process_register_calls(
             };
         }
     }
+
     spawned_start_from_block_threads
 }
 
-fn index_and_process_remove_calls(
-    registry: &mut MutexGuard<IndexerRegistry>,
-    context: &QueryApiContext,
-) {
+async fn index_and_process_remove_calls(context: &QueryApiContext<'_>) {
     let registry_method_name = "remove_indexer_function";
     let registry_calls_rule =
         build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
@@ -220,7 +218,12 @@ fn index_and_process_remove_calls(
                         function_invocation.account_id.clone(),
                         function_invocation.function_name.clone(),
                     );
-                    match registry.entry(function_invocation.account_id.clone()) {
+                    match context
+                        .indexer_registry
+                        .lock()
+                        .await
+                        .entry(function_invocation.account_id.clone())
+                    {
                         Entry::Vacant(_) => {}
                         Entry::Occupied(mut fns) => {
                             fns.get_mut()
