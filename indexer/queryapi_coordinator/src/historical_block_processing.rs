@@ -17,67 +17,78 @@ pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_a
 pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
-/// Represents the async task used to process and push historical messages
-pub struct Streamer {
-    handle: Option<JoinHandle<i64>>,
+pub struct Task {
+    handle: JoinHandle<anyhow::Result<()>>,
     cancellation_token: tokio_util::sync::CancellationToken,
 }
 
-impl Streamer {
-    pub async fn cancel(&mut self) -> anyhow::Result<()> {
-        if let Some(handle) = self.handle.take() {
-            tracing::info!(target: crate::INDEXER, "Cancelling historical process");
+/// Represents the async task used to process and push historical messages
+pub struct Streamer {
+    task: Option<Task>,
+}
 
-            self.cancellation_token.cancel();
-            handle.await.map_err(anyhow::Error::from)?;
+impl Streamer {
+    pub fn new() -> Self {
+        Streamer { task: None }
+    }
+
+    pub fn start(
+        &mut self,
+        current_block_height: BlockHeight,
+        indexer: IndexerFunction,
+        redis_connection_manager: storage::ConnectionManager,
+        s3_client: S3Client,
+        chain_id: ChainId,
+        json_rpc_client: JsonRpcClient,
+    ) -> anyhow::Result<()> {
+        if self.task.is_some() {
+            return Err(anyhow::anyhow!("Streamer has already been started",));
+        }
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let cancellation_token_clone = cancellation_token.clone();
+
+        let handle = tokio::spawn(async move {
+            tokio::select! {
+                _ = cancellation_token_clone.cancelled() => {
+                    storage::del(
+                        &redis_connection_manager,
+                        storage::generate_historical_stream_key(&indexer.get_full_name()),
+                    )
+                    .await
+                },
+                _ = process_historical_messages_or_handle_error(
+                    current_block_height,
+                    indexer.clone(),
+                    &redis_connection_manager,
+                    &s3_client,
+                    &chain_id,
+                    &json_rpc_client,
+                ) => {
+                    Ok(())
+                }
+            }
+        });
+
+        self.task = Some(Task {
+            handle,
+            cancellation_token,
+        });
+
+        Ok(())
+    }
+
+    pub async fn cancel(&mut self) -> anyhow::Result<()> {
+        if let Some(task) = self.task.take() {
+            task.cancellation_token.cancel();
+            task.handle.await??;
 
             return Ok(());
         }
 
         Err(anyhow::anyhow!(
-            "Attempted to cancel already cancelled Streamer"
+            "Attempted to cancel already cancelled, or not started, Streamer"
         ))
-    }
-}
-
-pub fn spawn_historical_message_thread(
-    current_block_height: BlockHeight,
-    indexer_function: &IndexerFunction,
-    redis_connection_manager: &storage::ConnectionManager,
-    s3_client: &S3Client,
-    chain_id: &ChainId,
-    json_rpc_client: &JsonRpcClient,
-) -> Streamer {
-    let indexer = indexer_function.clone();
-    let redis_connection_manager = redis_connection_manager.clone();
-    let s3_client = s3_client.clone();
-    let chain_id = chain_id.clone();
-    let json_rpc_client = json_rpc_client.clone();
-
-    let cancellation_token = tokio_util::sync::CancellationToken::new();
-    let cancellation_token_clone = cancellation_token.clone();
-
-    let handle = tokio::spawn(async move {
-        tokio::select! {
-            _ = cancellation_token_clone.cancelled() => {
-                0
-            },
-            processed_blocks_count = process_historical_messages_or_handle_error(
-                current_block_height,
-                indexer,
-                &redis_connection_manager,
-                &s3_client,
-                &chain_id,
-                &json_rpc_client,
-            ) => {
-                processed_blocks_count
-            }
-        }
-    });
-
-    Streamer {
-        handle: Some(handle),
-        cancellation_token,
     }
 }
 

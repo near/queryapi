@@ -162,15 +162,16 @@ async fn index_and_process_register_calls(
                             existing_streamer.cancel().await?;
                         }
 
-                        let streamer =
-                            crate::historical_block_processing::spawn_historical_message_thread(
-                                current_block_height,
-                                &new_indexer_function,
-                                context.redis_connection_manager,
-                                context.s3_client,
-                                context.chain_id,
-                                context.json_rpc_client,
-                            );
+                        let mut streamer = crate::historical_block_processing::Streamer::new();
+
+                        streamer.start(
+                            current_block_height,
+                            new_indexer_function.clone(),
+                            context.redis_connection_manager.clone(),
+                            context.s3_client.clone(),
+                            context.chain_id.clone(),
+                            context.json_rpc_client.clone(),
+                        )?;
 
                         streamers_lock.insert(new_indexer_function.get_full_name(), streamer);
                     }
