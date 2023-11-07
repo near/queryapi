@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::Mutex;
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
 use near_lake_framework::near_indexer_primitives::types::BlockHeight;
@@ -25,6 +27,8 @@ pub(crate) const INDEXER: &str = "queryapi_coordinator";
 
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
 
+type Streamers = std::sync::Arc<Mutex<HashMap<String, historical_block_processing::Streamer>>>;
+
 pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
     pub chain_id: &'a ChainId,
@@ -32,6 +36,8 @@ pub(crate) struct QueryApiContext<'a> {
     pub json_rpc_client: &'a JsonRpcClient,
     pub registry_contract_id: &'a str,
     pub redis_connection_manager: &'a ConnectionManager,
+    pub indexer_registry: &'a SharedIndexerRegistry,
+    pub streamers: &'a Streamers,
 }
 
 #[tokio::main]
@@ -69,6 +75,8 @@ async fn main() -> anyhow::Result<()> {
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
 
+    let streamers = std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
     let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
 
@@ -88,8 +96,11 @@ async fn main() -> anyhow::Result<()> {
                 chain_id,
                 json_rpc_client: &json_rpc_client,
                 s3_client: &s3_client,
+                indexer_registry: &indexer_registry,
+                streamers: &streamers,
             };
-            handle_streamer_message(context, indexer_registry.clone())
+
+            handle_streamer_message(context)
         })
         .buffer_unordered(1usize);
 
@@ -108,13 +119,15 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn handle_streamer_message(
-    context: QueryApiContext<'_>,
-    indexer_registry: SharedIndexerRegistry,
-) -> anyhow::Result<u64> {
-    let mut indexer_registry_locked = indexer_registry.lock().await;
-    let indexer_functions =
-        indexer_registry::registry_as_vec_of_indexer_functions(&indexer_registry_locked);
+async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
+    let indexer_functions = {
+        let lock = context.indexer_registry.lock().await;
+
+        lock.values()
+            .flat_map(|fns| fns.values())
+            .cloned()
+            .collect::<Vec<_>>()
+    };
 
     let mut indexer_function_filter_matches_futures = stream::iter(indexer_functions.iter())
         .map(|indexer_function| {
@@ -138,19 +151,7 @@ async fn handle_streamer_message(
     )
     .await?;
 
-    let spawned_indexers = indexer_registry::index_registry_changes(
-        block_height,
-        &mut indexer_registry_locked,
-        &context,
-    )
-    .await;
-    if !spawned_indexers.is_empty() {
-        tracing::info!(
-            target: INDEXER,
-            "Spawned {} historical backfill indexers",
-            spawned_indexers.len()
-        );
-    }
+    indexer_registry::index_registry_changes(block_height, &context).await?;
 
     while let Some(indexer_function_with_matches) =
         indexer_function_filter_matches_futures.next().await
@@ -169,7 +170,7 @@ async fn handle_streamer_message(
                 );
 
                 if !indexer_function.provisioned {
-                    set_provisioned_flag(&mut indexer_registry_locked, indexer_function);
+                    set_provisioned_flag(context.indexer_registry, indexer_function).await;
                 }
 
                 storage::sadd(
@@ -216,11 +217,15 @@ async fn handle_streamer_message(
     Ok(context.streamer_message.block.header.height)
 }
 
-fn set_provisioned_flag(
-    indexer_registry_locked: &mut MutexGuard<IndexerRegistry>,
+async fn set_provisioned_flag(
+    indexer_registry: &SharedIndexerRegistry,
     indexer_function: &IndexerFunction,
 ) {
-    match indexer_registry_locked.get_mut(&indexer_function.account_id) {
+    match indexer_registry
+        .lock()
+        .await
+        .get_mut(&indexer_function.account_id)
+    {
         Some(account_functions) => {
             match account_functions.get_mut(&indexer_function.function_name) {
                 Some(indexer_function) => {
@@ -315,7 +320,7 @@ mod tests {
             std::sync::Arc::new(Mutex::new(indexer_registry));
         let mut indexer_registry_locked = indexer_registry.lock().await;
 
-        set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
+        set_provisioned_flag(&indexer_registry, &indexer_function);
 
         let account_functions = indexer_registry_locked
             .get(&indexer_function.account_id)
