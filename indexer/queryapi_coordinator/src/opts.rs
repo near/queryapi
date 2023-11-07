@@ -26,21 +26,6 @@ pub struct Opts {
     #[clap(long, env)]
     /// AWS Secret Access Key with the rights to read from AWS S3
     pub lake_aws_secret_access_key: String,
-    /// AWS Access Key with the rights to send messages to the `--queue-url`
-    #[clap(long, env)]
-    pub queue_aws_access_key: String,
-    /// AWS Secret Access Key with the rights to send messages to the `--queue-url`
-    #[clap(long, env)]
-    pub queue_aws_secret_access_key: String,
-    /// Which AWS region to use with the `--queue-url`
-    #[clap(long, env)]
-    pub aws_queue_region: String,
-    /// URL to the main AWS SQS queue backed by Queue Handler lambda
-    #[clap(long, env)]
-    pub queue_url: String,
-    /// URL to the AWS SQS queue for processing historical data
-    #[clap(long, env)]
-    pub start_from_block_queue_url: String,
     /// Registry contract to use
     #[clap(env)]
     pub registry_contract_id: String,
@@ -61,6 +46,7 @@ pub enum ChainId {
 }
 
 #[derive(Subcommand, Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum StartOptions {
     FromBlock { height: u64 },
     FromInterruption,
@@ -94,18 +80,6 @@ impl Opts {
             None,
             None,
             "queryapi_coordinator_lake",
-        );
-        aws_credential_types::provider::SharedCredentialsProvider::new(provider)
-    }
-
-    // Creates AWS Credentials for SQS Queue
-    pub fn queue_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
-        let provider = aws_credential_types::Credentials::new(
-            self.queue_aws_access_key.clone(),
-            self.queue_aws_secret_access_key.clone(),
-            None,
-            None,
-            "queryapi_coordinator_queue",
         );
         aws_credential_types::provider::SharedCredentialsProvider::new(provider)
     }

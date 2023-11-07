@@ -1,15 +1,14 @@
-use cached::SizedCache;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::{Mutex, MutexGuard};
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
-use near_lake_framework::near_indexer_primitives::{types, StreamerMessage};
+use near_lake_framework::near_indexer_primitives::types::BlockHeight;
+use near_lake_framework::near_indexer_primitives::StreamerMessage;
 use utils::serialize_to_camel_case_json_string;
 
 use crate::indexer_types::IndexerFunction;
-use indexer_types::{IndexerQueueMessage, IndexerRegistry};
+use indexer_types::IndexerRegistry;
 use opts::{Opts, Parser};
 use storage::{self, generate_real_time_streamer_message_key, ConnectionManager};
 
@@ -19,32 +18,19 @@ mod indexer_registry;
 mod indexer_types;
 mod metrics;
 mod opts;
-mod queue;
 mod s3;
 mod utils;
 
 pub(crate) const INDEXER: &str = "queryapi_coordinator";
-pub(crate) const INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
-pub(crate) const MAX_DELAY_TIME: std::time::Duration = std::time::Duration::from_millis(4000);
-pub(crate) const RETRY_COUNT: usize = 2;
 
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
-
-#[derive(Debug, Default, Clone, Copy)]
-pub struct BalanceDetails {
-    pub non_staked: types::Balance,
-    pub staked: types::Balance,
-}
-
-pub type BalanceCache = std::sync::Arc<Mutex<SizedCache<AccountId, BalanceDetails>>>;
 
 pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
     pub chain_id: &'a ChainId,
-    pub queue_client: &'a queue::QueueClient,
-    pub queue_url: &'a str,
+    pub s3_client: &'a aws_sdk_s3::Client,
+    pub json_rpc_client: &'a JsonRpcClient,
     pub registry_contract_id: &'a str,
-    pub balance_cache: &'a BalanceCache,
     pub redis_connection_manager: &'a ConnectionManager,
 }
 
@@ -57,14 +43,11 @@ async fn main() -> anyhow::Result<()> {
     let opts = Opts::parse();
 
     let chain_id = &opts.chain_id();
-    let aws_region = opts.aws_queue_region.clone();
-    let queue_client = queue::queue_client(aws_region, opts.queue_credentials());
-    let queue_url = opts.queue_url.clone();
     let registry_contract_id = opts.registry_contract_id.clone();
 
-    // We want to prevent unnecessary RPC queries to find previous balance
-    let balances_cache: BalanceCache =
-        std::sync::Arc::new(Mutex::new(SizedCache::with_size(100_000)));
+    let aws_config = &opts.lake_aws_sdk_config();
+    let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+    let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
@@ -100,12 +83,11 @@ async fn main() -> anyhow::Result<()> {
         .map(|streamer_message| {
             let context = QueryApiContext {
                 redis_connection_manager: &redis_connection_manager,
-                queue_url: &queue_url,
-                balance_cache: &balances_cache,
                 registry_contract_id: &registry_contract_id,
                 streamer_message,
                 chain_id,
-                queue_client: &queue_client,
+                json_rpc_client: &json_rpc_client,
+                s3_client: &s3_client,
             };
             handle_streamer_message(context, indexer_registry.clone())
         })
@@ -177,9 +159,7 @@ async fn handle_streamer_message(
             let indexer_function = indexer_function_with_matches.indexer_function;
             let indexer_rule_matches = indexer_function_with_matches.matches;
 
-            let mut indexer_function_messages: Vec<IndexerQueueMessage> = Vec::new();
-
-            for indexer_rule_match in indexer_rule_matches.iter() {
+            for _ in indexer_rule_matches.iter() {
                 tracing::debug!(
                     target: INDEXER,
                     "Matched filter {:?} for function {} {}",
@@ -188,22 +168,8 @@ async fn handle_streamer_message(
                     indexer_function.function_name,
                 );
 
-                let msg = IndexerQueueMessage {
-                    chain_id: indexer_rule_match.chain_id.clone(),
-                    indexer_rule_id: indexer_rule_match.indexer_rule_id.unwrap_or(0),
-                    indexer_rule_name: indexer_rule_match
-                        .indexer_rule_name
-                        .clone()
-                        .unwrap_or("".to_string()),
-                    payload: Some(indexer_rule_match.payload.clone()),
-                    block_height,
-                    indexer_function: indexer_function.clone(),
-                    is_historical: false,
-                };
-                indexer_function_messages.push(msg);
-
                 if !indexer_function.provisioned {
-                    set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
+                    set_provisioned_flag(&mut indexer_registry_locked, indexer_function);
                 }
 
                 storage::sadd(
@@ -226,27 +192,6 @@ async fn handle_streamer_message(
                 )
                 .await?;
             }
-
-            stream::iter(indexer_function_messages.into_iter())
-                .chunks(10)
-                .for_each(|indexer_queue_messages_batch| async {
-                    match queue::send_to_indexer_queue(
-                        context.queue_client,
-                        context.queue_url.to_string(),
-                        indexer_queue_messages_batch,
-                    )
-                    .await
-                    {
-                        Ok(_) => {}
-                        Err(err) => tracing::error!(
-                            target: INDEXER,
-                            "#{} an error occurred during sending messages to the queue\n{:#?}",
-                            context.streamer_message.block.header.height,
-                            err
-                        ),
-                    }
-                })
-                .await;
         }
     }
 
@@ -332,48 +277,53 @@ async fn reduce_rule_matches_for_indexer_function<'x>(
 #[cfg(test)]
 mod historical_block_processing_integration_tests;
 
-use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
-use std::collections::HashMap;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use std::collections::HashMap;
 
-#[tokio::test]
-async fn set_provisioning_finds_functions_in_registry() {
-    let mut indexer_registry = IndexerRegistry::new();
-    let indexer_function = IndexerFunction {
-        account_id: "test_near".to_string().parse().unwrap(),
-        function_name: "test_indexer".to_string(),
-        code: "".to_string(),
-        start_block_height: None,
-        schema: None,
-        provisioned: false,
-        indexer_rule: IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            id: None,
-            name: None,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "social.near".to_string(),
-                status: Status::Success,
+    #[tokio::test]
+    async fn set_provisioning_finds_functions_in_registry() {
+        let mut indexer_registry = IndexerRegistry::new();
+        let indexer_function = IndexerFunction {
+            account_id: "test_near".to_string().parse().unwrap(),
+            function_name: "test_indexer".to_string(),
+            code: "".to_string(),
+            start_block_height: None,
+            schema: None,
+            provisioned: false,
+            indexer_rule: IndexerRule {
+                indexer_rule_kind: IndexerRuleKind::Action,
+                id: None,
+                name: None,
+                matching_rule: MatchingRule::ActionAny {
+                    affected_account_id: "social.near".to_string(),
+                    status: Status::Success,
+                },
             },
-        },
-    };
+        };
 
-    let mut functions: HashMap<String, IndexerFunction> = HashMap::new();
-    functions.insert(
-        indexer_function.function_name.clone(),
-        indexer_function.clone(),
-    );
-    indexer_registry.insert(indexer_function.account_id.clone(), functions);
+        let mut functions: HashMap<String, IndexerFunction> = HashMap::new();
+        functions.insert(
+            indexer_function.function_name.clone(),
+            indexer_function.clone(),
+        );
+        indexer_registry.insert(indexer_function.account_id.clone(), functions);
 
-    let indexer_registry: SharedIndexerRegistry = std::sync::Arc::new(Mutex::new(indexer_registry));
-    let mut indexer_registry_locked = indexer_registry.lock().await;
+        let indexer_registry: SharedIndexerRegistry =
+            std::sync::Arc::new(Mutex::new(indexer_registry));
+        let mut indexer_registry_locked = indexer_registry.lock().await;
 
-    set_provisioned_flag(&mut indexer_registry_locked, &&indexer_function);
+        set_provisioned_flag(&mut indexer_registry_locked, &indexer_function);
 
-    let account_functions = indexer_registry_locked
-        .get(&indexer_function.account_id)
-        .unwrap();
-    let indexer_function = account_functions
-        .get(&indexer_function.function_name)
-        .unwrap();
+        let account_functions = indexer_registry_locked
+            .get(&indexer_function.account_id)
+            .unwrap();
+        let indexer_function = account_functions
+            .get(&indexer_function.function_name)
+            .unwrap();
 
-    assert!(indexer_function.provisioned);
+        assert!(indexer_function.provisioned);
+    }
 }

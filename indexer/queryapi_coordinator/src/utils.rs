@@ -64,7 +64,7 @@ pub(crate) fn serialize_to_camel_case_json_string(
     // Convert keys to Camel Case
     to_camel_case_keys(&mut message_value);
 
-    return serde_json::to_string(&message_value);
+    serde_json::to_string(&message_value)
 }
 
 fn to_camel_case_keys(message_value: &mut Value) {
@@ -74,13 +74,13 @@ fn to_camel_case_keys(message_value: &mut Value) {
             for key in map.keys().cloned().collect::<Vec<String>>() {
                 // Generate Camel Case Key
                 let new_key = key
-                    .split("_")
+                    .split('_')
                     .enumerate()
                     .map(|(i, str)| {
                         if i > 0 {
                             return str[..1].to_uppercase() + &str[1..];
                         }
-                        return str.to_owned();
+                        str.to_owned()
                     })
                     .collect::<Vec<String>>()
                     .join("");
