@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::Mutex;
@@ -25,6 +27,8 @@ pub(crate) const INDEXER: &str = "queryapi_coordinator";
 
 type SharedIndexerRegistry = std::sync::Arc<Mutex<IndexerRegistry>>;
 
+type Streamers = std::sync::Arc<Mutex<HashMap<String, historical_block_processing::Streamer>>>;
+
 pub(crate) struct QueryApiContext<'a> {
     pub streamer_message: near_lake_framework::near_indexer_primitives::StreamerMessage,
     pub chain_id: &'a ChainId,
@@ -33,6 +37,7 @@ pub(crate) struct QueryApiContext<'a> {
     pub registry_contract_id: &'a str,
     pub redis_connection_manager: &'a ConnectionManager,
     pub indexer_registry: &'a SharedIndexerRegistry,
+    pub streamers: &'a Streamers,
 }
 
 #[tokio::main]
@@ -70,6 +75,8 @@ async fn main() -> anyhow::Result<()> {
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
 
+    let streamers = std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+
     tracing::info!(target: INDEXER, "Generating LakeConfig...");
     let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
 
@@ -90,6 +97,7 @@ async fn main() -> anyhow::Result<()> {
                 json_rpc_client: &json_rpc_client,
                 s3_client: &s3_client,
                 indexer_registry: &indexer_registry,
+                streamers: &streamers,
             };
 
             handle_streamer_message(context)
@@ -143,15 +151,7 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
     )
     .await?;
 
-    let spawned_indexers = indexer_registry::index_registry_changes(block_height, &context).await;
-
-    if !spawned_indexers.is_empty() {
-        tracing::info!(
-            target: INDEXER,
-            "Spawned {} historical backfill indexers",
-            spawned_indexers.len()
-        );
-    }
+    indexer_registry::index_registry_changes(block_height, &context).await;
 
     while let Some(indexer_function_with_matches) =
         indexer_function_filter_matches_futures.next().await

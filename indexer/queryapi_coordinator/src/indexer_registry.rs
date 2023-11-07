@@ -8,25 +8,12 @@ use near_lake_framework::near_indexer_primitives::views::QueryRequest;
 use serde_json::{json, Value};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use tokio::sync::MutexGuard;
-use tokio::task::JoinHandle;
 use unescape::unescape;
 
-use crate::historical_block_processing::Streamer;
 use crate::indexer_reducer;
 use crate::indexer_reducer::FunctionCallInfo;
 use crate::indexer_types::{IndexerFunction, IndexerRegistry};
 use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
-
-pub(crate) fn registry_as_vec_of_indexer_functions(
-    registry: &IndexerRegistry,
-) -> Vec<IndexerFunction> {
-    registry
-        .values()
-        .flat_map(|fns| fns.values())
-        .cloned()
-        .collect()
-}
 
 struct RegistryFunctionInvocation {
     pub account_id: AccountId,
@@ -102,17 +89,16 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 pub(crate) async fn index_registry_changes(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
-) -> Vec<Streamer> {
+) {
     index_and_process_remove_calls(context).await;
 
-    index_and_process_register_calls(current_block_height, context).await
+    index_and_process_register_calls(current_block_height, context).await;
 }
 
-// TODO: make async
 async fn index_and_process_register_calls(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
-) -> Vec<Streamer> {
+) {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
         build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
@@ -122,7 +108,6 @@ async fn index_and_process_register_calls(
         context.chain_id,
         context.streamer_message.block.header.height,
     );
-    let mut spawned_start_from_block_threads = Vec::new();
 
     if !registry_updates.is_empty() {
         for update in registry_updates {
@@ -179,7 +164,8 @@ async fn index_and_process_register_calls(
                                 context.json_rpc_client,
                             );
 
-                        spawned_start_from_block_threads.push(streamer);
+                        let mut streamers_lock = context.streamers.lock().await;
+                        streamers_lock.insert(new_indexer_function.get_full_name(), streamer);
                     }
 
                     fns.insert(update.method_name.clone(), new_indexer_function);
@@ -187,8 +173,6 @@ async fn index_and_process_register_calls(
             };
         }
     }
-
-    spawned_start_from_block_threads
 }
 
 async fn index_and_process_remove_calls(context: &QueryApiContext<'_>) {
