@@ -17,11 +17,27 @@ pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_a
 pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
-
 /// Represents the async task used to process and push historical messages
 pub struct Streamer {
-    handle: JoinHandle<i64>,
-    pub cancellation_token: tokio_util::sync::CancellationToken,
+    handle: Option<JoinHandle<i64>>,
+    cancellation_token: tokio_util::sync::CancellationToken,
+}
+
+impl Streamer {
+    pub async fn cancel(&mut self) -> anyhow::Result<()> {
+        if let Some(handle) = self.handle.take() {
+            tracing::info!(target: crate::INDEXER, "Cancelling historical process");
+
+            self.cancellation_token.cancel();
+            handle.await.map_err(anyhow::Error::from)?;
+
+            return Ok(());
+        }
+
+        Err(anyhow::anyhow!(
+            "Attempted to cancel already cancelled Streamer"
+        ))
+    }
 }
 
 pub fn spawn_historical_message_thread(
@@ -60,7 +76,7 @@ pub fn spawn_historical_message_thread(
     });
 
     Streamer {
-        handle,
+        handle: Some(handle),
         cancellation_token,
     }
 }

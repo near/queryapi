@@ -151,7 +151,7 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
     )
     .await?;
 
-    indexer_registry::index_registry_changes(block_height, &context).await;
+    indexer_registry::index_registry_changes(block_height, &context).await?;
 
     while let Some(indexer_function_with_matches) =
         indexer_function_filter_matches_futures.next().await

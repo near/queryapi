@@ -89,16 +89,16 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 pub(crate) async fn index_registry_changes(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
-) {
+) -> anyhow::Result<()> {
     index_and_process_remove_calls(context).await;
 
-    index_and_process_register_calls(current_block_height, context).await;
+    index_and_process_register_calls(current_block_height, context).await
 }
 
 async fn index_and_process_register_calls(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
-) {
+) -> anyhow::Result<()> {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
         build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
@@ -154,6 +154,14 @@ async fn index_and_process_register_calls(
                     }
 
                     if new_indexer_function.start_block_height.is_some() {
+                        let mut streamers_lock = context.streamers.lock().await;
+
+                        if let Some(mut existing_streamer) =
+                            streamers_lock.remove(&new_indexer_function.get_full_name())
+                        {
+                            existing_streamer.cancel().await?;
+                        }
+
                         let streamer =
                             crate::historical_block_processing::spawn_historical_message_thread(
                                 current_block_height,
@@ -164,7 +172,6 @@ async fn index_and_process_register_calls(
                                 context.json_rpc_client,
                             );
 
-                        let mut streamers_lock = context.streamers.lock().await;
                         streamers_lock.insert(new_indexer_function.get_full_name(), streamer);
                     }
 
@@ -173,6 +180,8 @@ async fn index_and_process_register_calls(
             };
         }
     }
+
+    Ok(())
 }
 
 async fn index_and_process_remove_calls(context: &QueryApiContext<'_>) {
