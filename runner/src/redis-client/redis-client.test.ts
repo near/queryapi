@@ -14,7 +14,7 @@ describe('RedisClient', () => {
 
     expect(mockClient.xRead).toHaveBeenCalledWith(
       { key: 'streamKey', id: '0' },
-      { BLOCK: 0, COUNT: 1 }
+      { COUNT: 1 }
     );
     expect(message).toBeUndefined();
   });
@@ -32,7 +32,7 @@ describe('RedisClient', () => {
 
     expect(mockClient.xRead).toHaveBeenCalledWith(
       { key: 'streamKey', id: '123-0' },
-      { BLOCK: 1000, COUNT: 10 }
+      { COUNT: 10 }
     );
     expect(message).toBeUndefined();
   });
