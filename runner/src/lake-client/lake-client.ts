@@ -8,11 +8,7 @@ export default class LakeClient {
     private readonly network: string = 'mainnet',
     private readonly s3Client: S3Client = new S3Client(),
     private readonly redisClient: RedisClient = new RedisClient()
-  ) {
-    this.network = network;
-    this.s3Client = s3Client;
-    this.redisClient = redisClient;
-  }
+  ) {}
 
   // pad with 0s to 12 digits
   private normalizeBlockHeight (blockHeight: number): string {
@@ -72,11 +68,11 @@ export default class LakeClient {
     if (!isHistorical) {
       const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
       if (cachedMessage) {
-        METRICS.CACHE_HIT.labels().inc();
+        METRICS.CACHE_HIT.inc();
         const parsedMessage = JSON.parse(cachedMessage);
         return Block.fromStreamerMessage(parsedMessage);
       } else {
-        METRICS.CACHE_MISS.labels().inc();
+        METRICS.CACHE_MISS.inc();
       }
     }
 

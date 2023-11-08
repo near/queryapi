@@ -46,8 +46,8 @@ export default class RedisClient {
 
   async getStreamMessages (
     streamKey: string,
-    count = 1,
     streamId = this.SMALLEST_STREAM_ID,
+    count = 1,
     block = 0
   ): Promise<StreamMessage[] | null> {
     const results = await this.client.xRead(
