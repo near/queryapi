@@ -62,8 +62,9 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
       await sleep(100);
       continue;
     }
-    const messages = await workerContext.redisClient.getStreamMessages(streamKey, streamMessageStartId, preFetchCount, 1000);
+    const messages = await workerContext.redisClient.getStreamMessages(streamKey, streamMessageStartId, preFetchCount);
     if (messages == null) {
+      await sleep(100);
       continue;
     }
     console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
