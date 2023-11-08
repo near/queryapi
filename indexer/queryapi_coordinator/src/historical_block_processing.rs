@@ -51,6 +51,12 @@ impl Streamer {
         let handle = tokio::spawn(async move {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
+                    tracing::info!(
+                        target: crate::INDEXER,
+                        "Cancelling existing historical backfill for indexer: {:?}",
+                        indexer.get_full_name(),
+                    );
+
                     storage::del(
                         &redis_connection_manager,
                         storage::generate_historical_stream_key(&indexer.get_full_name()),
