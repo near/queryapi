@@ -19,7 +19,8 @@ import {
   TrashFill,
   XCircle,
   NodePlus,
-  Code
+  Code,
+  FileText,
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
@@ -49,7 +50,9 @@ const EditorButtons = ({
     debugMode,
     isCreateNewIndexer,
     indexerNameField,
-    setIndexerNameField
+    setIndexerNameField,
+    setShowLogsView,
+    showLogsView,
   } = useContext(IndexerDetailsContext);
 
   const removeHeight = (index) => {
@@ -185,6 +188,22 @@ const EditorButtons = ({
                     <Code style={{ paddingRight: "2px" }} size={24} />
                   </Button>
                 </OverlayTrigger>
+                {!isCreateNewIndexer && (
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Open Logs</Tooltip>}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => setShowLogsView(true)}
+                    >
+                      <FileText style={{ paddingRight: "2px" }} size={24} />
+                      Show Logs
+                    </Button>
+                  </OverlayTrigger>
+                )}
                 {(!isUserIndexer && !isCreateNewIndexer) ? (
                   <OverlayTrigger
                     placement="bottom"

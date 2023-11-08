@@ -39,6 +39,8 @@ export const IndexerDetailsContext = React.createContext({
   indexerName: undefined,
   setIndexerName: () => { },
   setIndexerDetails: () => { },
+  showLogsView: false,
+  setShowLogsView: () => { },
 });
 
 export const IndexerDetailsProvider = ({ children }) => {
@@ -49,6 +51,7 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showForkIndexerModal, setShowForkIndexerModal] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  const [showLogsView, setShowLogsView] = useState(false);
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
@@ -117,7 +120,9 @@ export const IndexerDetailsProvider = ({ children }) => {
         setDebugMode,
         latestHeight,
         isCreateNewIndexer,
-        setIsCreateNewIndexer
+        setIsCreateNewIndexer,
+        showLogsView,
+        setShowLogsView,
       }}
     >
       {children}
