@@ -1,5 +1,6 @@
 const path = props.path || "query-api-editor";
 const tab = props.tab || "";
+const activeView = props.activeView || "editor";
 let accountId = props.accountId || context.accountId;
 let externalAppUrl = `${REPL_EXTERNAL_APP_URL}/${path}?accountId=${accountId}`;
 
@@ -14,6 +15,7 @@ if (!context.accountId) {
 const initialPayload = {
   height: Near.block("optimistic").header.height,
   selectedTab: tab,
+  activeView: activeView,
   currentUserAccountId: context.accountId,
 };
 

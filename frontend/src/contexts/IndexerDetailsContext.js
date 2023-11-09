@@ -6,6 +6,7 @@ import {
   wrapCode,
 } from "../utils/formatters";
 
+import { useInitialPayload } from "near-social-bridge";
 import { getLatestBlockHeight } from "../utils/getLatestBlockHeight";
 // interface IndexerDetails {
 //   accountId: String,
@@ -54,6 +55,12 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [showLogsView, setShowLogsView] = useState(false);
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
+
+  const { activeView } = useInitialPayload();
+
+  useEffect(() => {
+    if (activeView == 'status') setShowLogsView(true)
+  }, [])
 
   const requestIndexerDetails = async () => {
     const data = await queryIndexerFunctionDetails(accountId, indexerName);
