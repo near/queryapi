@@ -53,7 +53,7 @@ impl Streamer {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
                         target: crate::INDEXER,
-                        "Cancelling existing historical backfill for indexer: {:?}",
+                        "Cancelling existing historical backfill for indexer: {}",
                         indexer.get_full_name(),
                     );
                 },
@@ -67,7 +67,7 @@ impl Streamer {
                 ) => {
                     tracing::info!(
                         target: crate::INDEXER,
-                        "Finished historical backfill for indexer: {:?}",
+                        "Finished historical backfill for indexer: {}",
                         indexer.get_full_name(),
                     );
                 }
@@ -138,21 +138,22 @@ pub(crate) async fn process_historical_messages(
     let block_difference: i64 = (current_block_height - start_block) as i64;
     match block_difference {
         i64::MIN..=-1 => {
-            bail!("Skipping back fill, start_block_height is greater than current block height: {:?} {:?}",
-                                     indexer_function.account_id,
-                                     indexer_function.function_name);
+            bail!(
+                "Skipping back fill, start_block_height is greater than current block height: {}",
+                indexer_function.get_full_name(),
+            );
         }
         0 => {
-            bail!("Skipping back fill, start_block_height is equal to current block height: {:?} {:?}",
-                                     indexer_function.account_id,
-                                     indexer_function.function_name);
+            bail!(
+                "Skipping back fill, start_block_height is equal to current block height: {}",
+                indexer_function.get_full_name(),
+            );
         }
         1..=i64::MAX => {
             tracing::info!(
                 target: crate::INDEXER,
-                "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {:?} {:?}",
-                indexer_function.account_id,
-                indexer_function.function_name
+                "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {}",
+                indexer_function.get_full_name(),
             );
 
             storage::del(
@@ -189,7 +190,7 @@ pub(crate) async fn process_historical_messages(
 
             tracing::info!(
                 target: crate::INDEXER,
-                "Flushing {} blocks to historical Stream for indexer: {}",
+                "Flushing {} blocks from index files to historical Stream for indexer: {}",
                 blocks_from_index.len(),
                 indexer_function.get_full_name(),
             );
