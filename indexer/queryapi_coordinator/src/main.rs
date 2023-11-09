@@ -51,9 +51,8 @@ async fn main() -> anyhow::Result<()> {
     let chain_id = &opts.chain_id();
     let registry_contract_id = opts.registry_contract_id.clone();
 
-    let aws_config = &opts.lake_aws_sdk_config();
-    let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-    let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+    let aws_config = aws_config::from_env().load().await;
+    let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;

@@ -22,10 +22,13 @@ pub struct Opts {
     pub redis_connection_string: String,
     /// AWS Access Key with the rights to read from AWS S3
     #[clap(long, env)]
-    pub lake_aws_access_key: String,
-    #[clap(long, env)]
+    pub aws_access_key_id: String,
     /// AWS Secret Access Key with the rights to read from AWS S3
-    pub lake_aws_secret_access_key: String,
+    #[clap(long, env)]
+    pub aws_secret_access_key: String,
+    /// AWS Region to use for S3
+    #[clap(long, env, default_value = "eu-central-1")]
+    pub aws_region: String,
     /// Registry contract to use
     #[clap(env)]
     pub registry_contract_id: String,
@@ -72,26 +75,6 @@ impl Opts {
         }
     }
 
-    // Creates AWS Credentials for NEAR Lake
-    pub fn lake_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
-        let provider = aws_credential_types::Credentials::new(
-            self.lake_aws_access_key.clone(),
-            self.lake_aws_secret_access_key.clone(),
-            None,
-            None,
-            "queryapi_coordinator_lake",
-        );
-        aws_credential_types::provider::SharedCredentialsProvider::new(provider)
-    }
-
-    /// Creates AWS Shared Config for NEAR Lake
-    pub fn lake_aws_sdk_config(&self) -> aws_types::sdk_config::SdkConfig {
-        aws_types::sdk_config::SdkConfig::builder()
-            .credentials_provider(self.lake_credentials())
-            .region(aws_types::region::Region::new("eu-central-1"))
-            .build()
-    }
-
     pub fn rpc_url(&self) -> &str {
         // To query metadata (timestamp) about blocks more than 5 epochs old we need an archival node
         match self.chain_id {
@@ -103,9 +86,7 @@ impl Opts {
 
 impl Opts {
     pub async fn to_lake_config(&self) -> near_lake_framework::LakeConfig {
-        let s3_config = aws_sdk_s3::config::Builder::from(&self.lake_aws_sdk_config()).build();
-
-        let config_builder = near_lake_framework::LakeConfigBuilder::default().s3_config(s3_config);
+        let config_builder = near_lake_framework::LakeConfigBuilder::default();
 
         match &self.chain_id {
             ChainId::Mainnet(_) => config_builder

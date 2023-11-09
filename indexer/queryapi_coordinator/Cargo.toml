@@ -7,6 +7,7 @@ authors = ["Near Inc <hello@nearprotocol.com>"]
 [dependencies]
 anyhow = "1.0.57"
 actix-web = "=4.0.1"
+aws-config = "0.53.0"
 borsh = "0.10.2"
 cached = "0.23.0"
 chrono = "0.4.25"
