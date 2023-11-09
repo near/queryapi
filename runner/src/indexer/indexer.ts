@@ -1,16 +1,21 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import { type Block } from '@near-lake/primitives';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
+import { METRICS } from '../metrics';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import RedisClient from '../redis-client';
 
 interface Dependencies {
   fetch: typeof fetch
+  s3: S3Client
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
   parser: Parser
+  redisClient: RedisClient
 };
 
 interface Context {
@@ -35,27 +40,31 @@ export default class Indexer {
   private readonly deps: Dependencies;
 
   constructor (
+    private readonly network: string,
     deps?: Partial<Dependencies>
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
+    this.network = network;
     this.deps = {
       fetch,
+      s3: new S3Client(),
       provisioner: new Provisioner(),
       DmlHandler,
       parser: new Parser(),
+      redisClient: deps?.redisClient ?? new RedisClient(),
       ...deps,
     };
   }
 
   async runFunctions (
-    block: Block,
+    blockHeight: number,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockHeight = block.blockHeight;
+    const blockWithHelpers = Block.fromStreamerMessage(await this.fetchStreamerMessage(blockHeight, isHistorical));
 
-    const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
+    const lag = Date.now() - Math.floor(Number(blockWithHelpers.header().timestampNanosec) / 1000000);
 
     const simultaneousPromises: Array<Promise<any>> = [];
     const allMutations: string[] = [];
@@ -89,10 +98,11 @@ export default class Indexer {
         }
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
+
         const vm = new VM({ timeout: 3000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
-        vm.freeze(block, 'block');
+        vm.freeze(blockWithHelpers, 'block');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
 
@@ -108,6 +118,7 @@ export default class Indexer {
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
+
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
@@ -118,6 +129,62 @@ export default class Indexer {
       }
     }
     return allMutations;
+  }
+
+  // pad with 0s to 12 digits
+  normalizeBlockHeight (blockHeight: number): string {
+    return blockHeight.toString().padStart(12, '0');
+  }
+
+  async fetchStreamerMessage (blockHeight: number, isHistorical: boolean): Promise<{ block: any, shards: any[] }> {
+    if (!isHistorical) {
+      const cachedMessage = await this.deps.redisClient.getStreamerMessage(blockHeight);
+      if (cachedMessage) {
+        METRICS.CACHE_HIT.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
+        const parsedMessage = JSON.parse(cachedMessage);
+        return parsedMessage;
+      } else {
+        METRICS.CACHE_MISS.labels(isHistorical ? 'historical' : 'real-time', 'streamer_message').inc();
+      }
+    }
+    const blockPromise = this.fetchBlockPromise(blockHeight);
+    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
+
+    const results = await Promise.all([blockPromise, ...shardsPromises]);
+    const block = results.shift();
+    const shards = results;
+    return {
+      block,
+      shards,
+    };
+  }
+
+  async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
+    return ([...Array(numberOfShards).keys()].map(async (shardId) =>
+      await this.fetchShardPromise(blockHeight, shardId)
+    ));
+  }
+
+  async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
+    const params = {
+      Bucket: `near-lake-data-${this.network}`,
+      Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
+    };
+    const response = await this.deps.s3.send(new GetObjectCommand(params));
+    const shardData = await response.Body?.transformToString() ?? '{}';
+    return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
+  }
+
+  async fetchBlockPromise (blockHeight: number): Promise<any> {
+    const file = 'block.json';
+    const folder = this.normalizeBlockHeight(blockHeight);
+    const params = {
+      Bucket: 'near-lake-data-' + this.network,
+      Key: `${folder}/${file}`,
+    };
+    const response = await this.deps.s3.send(new GetObjectCommand(params));
+    const blockData = await response.Body?.transformToString() ?? '{}';
+    return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   enableAwaitTransform (indexerFunction: string): string {
@@ -422,5 +489,26 @@ export default class Indexer {
     }
 
     return data;
+  }
+
+  renameUnderscoreFieldsToCamelCase (value: Record<string, any>): Record<string, any> {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      // It's a non-null, non-array object, create a replacement with the keys initially-capped
+      const newValue: any = {};
+      for (const key in value) {
+        const newKey: string = key
+          .split('_')
+          .map((word, i) => {
+            if (i > 0) {
+              return word.charAt(0).toUpperCase() + word.slice(1);
+            }
+            return word;
+          })
+          .join('');
+        newValue[newKey] = value[key];
+      }
+      return newValue;
+    }
+    return value;
   }
 }
