@@ -155,6 +155,25 @@ pub(crate) async fn process_historical_messages(
                 indexer_function.function_name
             );
 
+            storage::del(
+                redis_connection_manager,
+                storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+            )
+            .await?;
+            storage::sadd(
+                redis_connection_manager,
+                storage::STREAMS_SET_KEY,
+                storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+            )
+            .await?;
+            storage::set(
+                redis_connection_manager,
+                storage::generate_historical_storage_key(&indexer_function.get_full_name()),
+                serde_json::to_string(&indexer_function)?,
+                None,
+            )
+            .await?;
+
             let start_date =
                 lookup_block_date_or_next_block_date(start_block, json_rpc_client).await?;
 
@@ -187,27 +206,6 @@ pub(crate) async fn process_historical_messages(
                 .await?;
 
             blocks_from_index.append(&mut blocks_between_indexed_and_current_block);
-
-            if !blocks_from_index.is_empty() {
-                storage::del(
-                    redis_connection_manager,
-                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
-                )
-                .await?;
-                storage::sadd(
-                    redis_connection_manager,
-                    storage::STREAMS_SET_KEY,
-                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
-                )
-                .await?;
-                storage::set(
-                    redis_connection_manager,
-                    storage::generate_historical_storage_key(&indexer_function.get_full_name()),
-                    serde_json::to_string(&indexer_function)?,
-                    None,
-                )
-                .await?;
-            }
 
             for current_block in blocks_from_index {
                 storage::xadd(
