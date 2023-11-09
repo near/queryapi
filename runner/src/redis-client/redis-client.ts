@@ -14,7 +14,7 @@ interface StreamStorage {
   schema: string
 }
 
-export type StreamType = 'historical' | 'real-time';
+type StreamType = 'historical' | 'real-time';
 
 export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
@@ -44,14 +44,12 @@ export default class RedisClient {
     await this.client.disconnect();
   }
 
-  async getStreamMessages (
+  async getNextStreamMessage (
     streamKey: string,
-    streamId = this.SMALLEST_STREAM_ID,
-    count = 1
   ): Promise<StreamMessage[] | null> {
     const results = await this.client.xRead(
-      { key: streamKey, id: streamId },
-      { COUNT: count }
+      { key: streamKey, id: this.SMALLEST_STREAM_ID },
+      { COUNT: 1 }
     );
 
     return results?.[0].messages as StreamMessage[];
@@ -66,9 +64,8 @@ export default class RedisClient {
 
   async getUnprocessedStreamMessages (
     streamKey: string,
-    startId = this.SMALLEST_STREAM_ID,
   ): Promise<StreamMessage[]> {
-    const results = await this.client.xRange(streamKey, startId, this.LARGEST_STREAM_ID);
+    const results = await this.client.xRange(streamKey, this.SMALLEST_STREAM_ID, this.LARGEST_STREAM_ID);
 
     return results as StreamMessage[];
   };
