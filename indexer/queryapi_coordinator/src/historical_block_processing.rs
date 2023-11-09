@@ -12,9 +12,7 @@ use serde_json::from_str;
 use tokio::task::JoinHandle;
 
 pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
-pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions/metadata";
-pub const MAX_UNINDEXED_BLOCKS_TO_PROCESS: u64 = 7200; // two hours of blocks takes ~14 minutes.
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
 pub struct Task {
@@ -212,24 +210,55 @@ pub(crate) async fn process_historical_messages(
                 last_indexed_block
             };
 
-            let blocks_between_indexed_and_current_block: Vec<BlockHeight> =
-                filter_matching_unindexed_blocks_from_lake(
-                    last_indexed_block,
-                    current_block_height,
-                    &indexer_function,
-                    s3_client,
-                    chain_id,
-                )
-                .await?;
+            tracing::info!(
+                target: crate::INDEXER,
+                "Filtering {} unindexed blocks from lake: from block {last_indexed_block} to {current_block_height} for indexer: {}",
+                current_block_height - last_indexed_block,
+                indexer_function.get_full_name(),
+            );
 
-            for block in blocks_between_indexed_and_current_block {
-                storage::xadd(
-                    redis_connection_manager,
-                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
-                    &[("block_height", block)],
-                )
-                .await?;
+            let lake_config = match &chain_id {
+                ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
+                ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
             }
+            .start_block_height(last_indexed_block + 1)
+            .build()
+            .context("Failed to build lake config")?;
+
+            let (sender, mut stream) = near_lake_framework::streamer(lake_config);
+
+            let mut filtered_block_count = 0;
+            while let Some(streamer_message) = stream.recv().await {
+                let block_height = streamer_message.block.header.height;
+                if block_height == current_block_height {
+                    break;
+                }
+
+                let matches = indexer_rules_engine::reduce_indexer_rule_matches_sync(
+                    &indexer_function.indexer_rule,
+                    &streamer_message,
+                    chain_id.clone(),
+                );
+
+                if !matches.is_empty() {
+                    filtered_block_count += 1;
+
+                    storage::xadd(
+                        redis_connection_manager,
+                        storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                        &[("block_height", block_height)],
+                    )
+                    .await?;
+                }
+            }
+            drop(sender);
+
+            tracing::info!(
+                target: crate::INDEXER,
+                "Flushed {} unindexed blocks to historical Stream for indexer: {}",
+                filtered_block_count,
+                indexer_function.get_full_name(),
+            );
         }
     }
     Ok(block_difference)
@@ -350,117 +379,6 @@ fn parse_blocks_from_index_files(
             }
         })
         .collect::<Vec<u64>>()
-}
-
-async fn filter_matching_unindexed_blocks_from_lake(
-    last_indexed_block: BlockHeight,
-    ending_block_height: BlockHeight,
-    indexer_function: &IndexerFunction,
-    s3_client: &S3Client,
-    chain_id: &ChainId,
-) -> anyhow::Result<Vec<u64>> {
-    let lake_bucket = lake_bucket_for_chain(chain_id);
-
-    let indexer_rule = &indexer_function.indexer_rule;
-    let count = ending_block_height - last_indexed_block;
-    if count > MAX_UNINDEXED_BLOCKS_TO_PROCESS {
-        bail!(
-            "Too many unindexed blocks to filter: {count}. Last indexed block is {last_indexed_block} for function {:?} {:?}",
-            indexer_function.account_id,
-            indexer_function.function_name,
-        );
-    }
-    tracing::info!(
-        target: crate::INDEXER,
-        "Filtering {count} unindexed blocks from lake: from block {last_indexed_block} to {ending_block_height} for function {:?} {:?}",
-        indexer_function.account_id,
-        indexer_function.function_name,
-    );
-
-    let mut blocks_to_process: Vec<u64> = vec![];
-    for current_block in (last_indexed_block + 1)..ending_block_height {
-        // fetch block file from S3
-        let key = format!("{}/block.json", normalize_block_height(current_block));
-        let s3_result = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client).await;
-
-        if s3_result.is_err() {
-            let error = s3_result.err().unwrap();
-            if error
-                .root_cause()
-                .downcast_ref::<aws_sdk_s3::error::NoSuchKey>()
-                .is_some()
-            {
-                tracing::info!(
-                    target: crate::INDEXER,
-                    "In manual filtering, skipping block number {} which was not found. For function {:?} {:?}",
-                    current_block,
-                    indexer_function.account_id,
-                    indexer_function.function_name,
-                );
-                continue;
-            } else {
-                bail!(error);
-            }
-        }
-
-        let block = s3_result.unwrap();
-        let block_view = serde_json::from_slice::<
-            near_lake_framework::near_indexer_primitives::views::BlockView,
-        >(block.as_ref())
-        .with_context(|| format!("Error parsing block {} from S3", current_block))?;
-
-        let mut shards = vec![];
-        for shard_id in 0..block_view.chunks.len() as u64 {
-            let key = format!(
-                "{}/shard_{}.json",
-                normalize_block_height(current_block),
-                shard_id
-            );
-            let shard = s3::fetch_text_file_from_s3(&lake_bucket, key, s3_client).await?;
-            match serde_json::from_slice::<near_lake_framework::near_indexer_primitives::IndexerShard>(
-                shard.as_ref(),
-            ) {
-                Ok(parsed_shard) => {
-                    shards.push(parsed_shard);
-                }
-                Err(e) => {
-                    bail!("Error parsing shard: {}", e.to_string());
-                }
-            }
-        }
-
-        let streamer_message = near_lake_framework::near_indexer_primitives::StreamerMessage {
-            block: block_view,
-            shards,
-        };
-
-        // filter block
-        let matches = indexer_rules_engine::reduce_indexer_rule_matches_sync(
-            indexer_rule,
-            &streamer_message,
-            chain_id.clone(),
-        );
-        if !matches.is_empty() {
-            blocks_to_process.push(current_block);
-        }
-    }
-
-    tracing::info!(
-        target: crate::INDEXER,
-        "Found {block_count} unindexed blocks to process for function {:?} {:?}",
-        indexer_function.account_id,
-        indexer_function.function_name,
-        block_count = blocks_to_process.len()
-    );
-    Ok(blocks_to_process)
-}
-
-fn lake_bucket_for_chain(chain_id: &ChainId) -> String {
-    format!("{}{}", LAKE_BUCKET_PREFIX, chain_id)
-}
-
-fn normalize_block_height(block_height: BlockHeight) -> String {
-    format!("{:0>12}", block_height)
 }
 
 // if block does not exist, try next block, up to MAX_RPC_BLOCKS_TO_PROCESS (20) blocks
