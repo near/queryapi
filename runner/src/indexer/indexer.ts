@@ -19,6 +19,13 @@ interface Context {
   log: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
   db: Record<string, Record<string, (...args: any[]) => any>>
+  base64Decode: (base64EncodedString: string) => string
+  getFunctionCalls: (
+    block: Block,
+    contract: string,
+    method: string,
+  ) => Array<{ Operation, args: string }>
+  getSocialOperations: (block: Block, operation: string) => Array<Record<string, unknown>>
 }
 
 interface IndexerFunction {
@@ -140,6 +147,25 @@ export default class Indexer {
     const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
 
+    const base64DecodeFunction = (base64EncodedString: string): string => {
+      const buff = Buffer.from(base64EncodedString, 'base64');
+      return JSON.parse(buff.toString('utf-8'));
+    };
+    const getFunctionCallsFunction = (block: Block, contract: string, method: string): any[] => {
+      return block
+        .actions()
+        .filter((action) => action.receiverId === contract)
+        .flatMap((action) =>
+          action.operations
+            .map(({ FunctionCall }) => FunctionCall)
+            .filter((operation) => operation?.methodName === method)
+            .map((functionCallOperation) => ({
+              ...functionCallOperation,
+              args: base64DecodeFunction(functionCallOperation.args),
+            })),
+        );
+    };
+
     return {
       graphql: async (operation, variables) => {
         console.log(`${functionName}: Running context graphql`, operation);
@@ -164,7 +190,25 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(account, schemaName, schema, blockHeight)
+      db: this.buildDatabaseContext(account, schemaName, schema, blockHeight),
+      base64Decode: base64DecodeFunction,
+      getFunctionCalls: getFunctionCallsFunction,
+      getSocialOperations: (block, operation) => {
+        const contract = 'social.near';
+        const method = 'set';
+        return getFunctionCallsFunction(block, contract, method)
+          .filter((functionCall) => {
+            const accountId = Object.keys(functionCall.args.data)[0];
+            return functionCall.args.data[accountId][operation];
+          })
+          .map((functionCall) => {
+            const accountId = Object.keys(functionCall.args.data)[0];
+            return {
+              accountId,
+              data: functionCall.args.data[accountId][operation],
+            };
+          });
+      },
     };
   }
 
