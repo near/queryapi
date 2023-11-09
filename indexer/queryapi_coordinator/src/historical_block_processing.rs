@@ -64,7 +64,13 @@ impl Streamer {
                     &s3_client,
                     &chain_id,
                     &json_rpc_client,
-                ) => { }
+                ) => {
+                    tracing::info!(
+                        target: crate::INDEXER,
+                        "Finished historical backfill for indexer: {:?}",
+                        indexer.get_full_name(),
+                    );
+                }
             }
         });
 
