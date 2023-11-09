@@ -179,13 +179,29 @@ pub(crate) async fn process_historical_messages(
 
             let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
 
-            let mut blocks_from_index = filter_matching_blocks_from_index_files(
+            let blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
                 &indexer_function,
                 s3_client,
                 start_date,
             )
             .await?;
+
+            tracing::info!(
+                target: crate::INDEXER,
+                "Flushing {} blocks to historical Stream for indexer: {}",
+                blocks_from_index.len(),
+                indexer_function.get_full_name(),
+            );
+
+            for block in &blocks_from_index {
+                storage::xadd(
+                    redis_connection_manager,
+                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                    &[("block_height", block)],
+                )
+                .await?;
+            }
 
             // Check for the case where an index file is written right after we get the last_indexed_block metadata
             let last_block_in_data = blocks_from_index.last().unwrap_or(&start_block);
@@ -195,7 +211,7 @@ pub(crate) async fn process_historical_messages(
                 last_indexed_block
             };
 
-            let mut blocks_between_indexed_and_current_block: Vec<BlockHeight> =
+            let blocks_between_indexed_and_current_block: Vec<BlockHeight> =
                 filter_matching_unindexed_blocks_from_lake(
                     last_indexed_block,
                     current_block_height,
@@ -205,13 +221,11 @@ pub(crate) async fn process_historical_messages(
                 )
                 .await?;
 
-            blocks_from_index.append(&mut blocks_between_indexed_and_current_block);
-
-            for current_block in blocks_from_index {
+            for block in blocks_between_indexed_and_current_block {
                 storage::xadd(
                     redis_connection_manager,
                     storage::generate_historical_stream_key(&indexer_function.get_full_name()),
-                    &[("block_height", current_block)],
+                    &[("block_height", block)],
                 )
                 .await?;
             }
