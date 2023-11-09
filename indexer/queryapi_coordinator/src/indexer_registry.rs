@@ -8,24 +8,12 @@ use near_lake_framework::near_indexer_primitives::views::QueryRequest;
 use serde_json::{json, Value};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use tokio::sync::MutexGuard;
-use tokio::task::JoinHandle;
 use unescape::unescape;
 
 use crate::indexer_reducer;
 use crate::indexer_reducer::FunctionCallInfo;
 use crate::indexer_types::{IndexerFunction, IndexerRegistry};
 use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
-
-pub(crate) fn registry_as_vec_of_indexer_functions(
-    registry: &IndexerRegistry,
-) -> Vec<IndexerFunction> {
-    registry
-        .values()
-        .flat_map(|fns| fns.values())
-        .cloned()
-        .collect()
-}
 
 struct RegistryFunctionInvocation {
     pub account_id: AccountId,
@@ -99,20 +87,18 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 
 /// Returns spawned start_from_block threads
 pub(crate) async fn index_registry_changes(
-    block_height: BlockHeight,
-    registry: &mut MutexGuard<'_, IndexerRegistry>,
+    current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
-) -> Vec<JoinHandle<i64>> {
-    index_and_process_remove_calls(registry, context);
+) -> anyhow::Result<()> {
+    index_and_process_remove_calls(context).await;
 
-    index_and_process_register_calls(block_height, registry, context)
+    index_and_process_register_calls(current_block_height, context).await
 }
 
-fn index_and_process_register_calls(
-    block_height: BlockHeight,
-    registry: &mut MutexGuard<IndexerRegistry>,
-    context: &QueryApiContext,
-) -> Vec<JoinHandle<i64>> {
+async fn index_and_process_register_calls(
+    current_block_height: BlockHeight,
+    context: &QueryApiContext<'_>,
+) -> anyhow::Result<()> {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
         build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
@@ -122,7 +108,6 @@ fn index_and_process_register_calls(
         context.chain_id,
         context.streamer_message.block.header.height,
     );
-    let mut spawned_start_from_block_threads = Vec::new();
 
     if !registry_updates.is_empty() {
         for update in registry_updates {
@@ -134,7 +119,8 @@ fn index_and_process_register_calls(
             match new_indexer_function {
                 None => continue,
                 Some(mut new_indexer_function) => {
-                    let fns = registry
+                    let mut indexer_registry_lock = context.indexer_registry.lock().await;
+                    let fns = indexer_registry_lock
                         .entry(new_indexer_function.account_id.clone())
                         .or_default();
 
@@ -145,7 +131,7 @@ fn index_and_process_register_calls(
                             tracing::info!(
                                 target: crate::INDEXER,
                                 "Block {}. Indexed creation call to {registry_method_name}: {:?} {:?}",
-                                block_height,
+                                current_block_height,
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone()
                             );
@@ -156,7 +142,7 @@ fn index_and_process_register_calls(
                             tracing::info!(
                                 target: crate::INDEXER,
                                 "Block {}. Indexed update call to {registry_method_name}: {:?} {:?}",
-                                block_height,
+                                current_block_height,
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone(),
                             );
@@ -168,15 +154,26 @@ fn index_and_process_register_calls(
                     }
 
                     if new_indexer_function.start_block_height.is_some() {
-                        if let Some(thread) =
-                            crate::historical_block_processing::spawn_historical_message_thread(
-                                block_height,
-                                &mut new_indexer_function,
-                                context.redis_connection_manager,
-                            )
+                        let mut streamers_lock = context.streamers.lock().await;
+
+                        if let Some(mut existing_streamer) =
+                            streamers_lock.remove(&new_indexer_function.get_full_name())
                         {
-                            spawned_start_from_block_threads.push(thread);
+                            existing_streamer.cancel().await?;
                         }
+
+                        let mut streamer = crate::historical_block_processing::Streamer::new();
+
+                        streamer.start(
+                            current_block_height,
+                            new_indexer_function.clone(),
+                            context.redis_connection_manager.clone(),
+                            context.s3_client.clone(),
+                            context.chain_id.clone(),
+                            context.json_rpc_client.clone(),
+                        )?;
+
+                        streamers_lock.insert(new_indexer_function.get_full_name(), streamer);
                     }
 
                     fns.insert(update.method_name.clone(), new_indexer_function);
@@ -184,13 +181,11 @@ fn index_and_process_register_calls(
             };
         }
     }
-    spawned_start_from_block_threads
+
+    Ok(())
 }
 
-fn index_and_process_remove_calls(
-    registry: &mut MutexGuard<IndexerRegistry>,
-    context: &QueryApiContext,
-) {
+async fn index_and_process_remove_calls(context: &QueryApiContext<'_>) {
     let registry_method_name = "remove_indexer_function";
     let registry_calls_rule =
         build_registry_indexer_rule(registry_method_name, context.registry_contract_id);
@@ -217,7 +212,12 @@ fn index_and_process_remove_calls(
                         function_invocation.account_id.clone(),
                         function_invocation.function_name.clone(),
                     );
-                    match registry.entry(function_invocation.account_id.clone()) {
+                    match context
+                        .indexer_registry
+                        .lock()
+                        .await
+                        .entry(function_invocation.account_id.clone())
+                    {
                         Entry::Vacant(_) => {}
                         Entry::Occupied(mut fns) => {
                             fns.get_mut()

@@ -30,8 +30,6 @@ This project is using `workspace` feature of Cargo.
 Some tests require blocks with matching data. To download the test block, run 
 `./download_test_blocks.sh 93085141`. Some other useful blocks are 80854399 92476362 93085141 93659695.
 
-To log a message instead of sending SQS messages set your `QUEUE_URL` to `MOCK` in your `.env` file.
-
 ## Design concept
 
 Identified major types of the events on the network:
@@ -46,9 +44,6 @@ Identified major types of the events on the network:
 DATABASE_URL=postgres://user:pass@host/database
 LAKE_AWS_ACCESS_KEY=AKI_LAKE_ACCESS...
 LAKE_AWS_SECRET_ACCESS_KEY=LAKE_SECRET...
-QUEUE_AWS_ACCESS_KEY=AKI_SQS_ACCESS...
-QUEUE_AWS_SECRET_ACCESS_KEY=SQS_ACCESS_SECRET
-QUEUE_URL=https://sqs.eu-central-1.amazonaws.com/754641474505/alertexer-queue
 
 ```
 ## Running locally

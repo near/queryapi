@@ -20,11 +20,6 @@ mod tests {
                 redis_connection_string: env::var("REDIS_CONNECTION_STRING").unwrap(),
                 lake_aws_access_key,
                 lake_aws_secret_access_key,
-                queue_aws_access_key: "".to_string(),
-                queue_aws_secret_access_key: "".to_string(),
-                aws_queue_region: "".to_string(),
-                queue_url: "MOCK".to_string(),
-                start_from_block_queue_url: "MOCK".to_string(),
                 registry_contract_id: "".to_string(),
                 port: 0,
                 chain_id: ChainId::Mainnet(StartOptions::FromLatest),
@@ -38,9 +33,11 @@ mod tests {
     async fn test_indexing_metadata_file() {
         let opts = Opts::test_opts_with_aws();
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let last_indexed_block =
-            historical_block_processing::last_indexed_block_from_metadata(aws_config)
+            historical_block_processing::last_indexed_block_from_metadata(&s3_client)
                 .await
                 .unwrap();
         let a: Range<u64> = 90000000..9000000000; // valid for the next 300 years
@@ -75,19 +72,28 @@ mod tests {
         };
 
         let opts = Opts::test_opts_with_aws();
+
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+
         let redis_connection_manager = storage::connect(&opts.redis_connection_string)
             .await
             .unwrap();
+
+        let json_rpc_client = near_jsonrpc_client::JsonRpcClient::connect(opts.rpc_url());
+
         let fake_block_height =
-            historical_block_processing::last_indexed_block_from_metadata(aws_config)
+            historical_block_processing::last_indexed_block_from_metadata(&s3_client)
                 .await
                 .unwrap();
         let result = historical_block_processing::process_historical_messages(
             fake_block_height + 1,
             indexer_function,
-            opts,
             &redis_connection_manager,
+            &s3_client,
+            &opts.chain_id(),
+            &json_rpc_client,
         )
         .await;
         assert!(result.unwrap() > 0);
@@ -120,9 +126,11 @@ mod tests {
 
         let opts = Opts::test_opts_with_aws();
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let start_block_height = 77016214;
-        let naivedatetime_utc = NaiveDate::from_ymd_opt(2022, 10, 03)
+        let naivedatetime_utc = NaiveDate::from_ymd_opt(2022, 10, 3)
             .unwrap()
             .and_hms_opt(0, 0, 0)
             .unwrap();
@@ -130,7 +138,7 @@ mod tests {
         let blocks = filter_matching_blocks_from_index_files(
             start_block_height,
             &indexer_function,
-            aws_config,
+            &s3_client,
             datetime_utc,
         )
         .await;
@@ -145,7 +153,7 @@ mod tests {
             }
             Err(e) => {
                 println!("Error: {:?}", e);
-                assert!(false);
+                panic!();
             }
         }
     }
@@ -177,9 +185,11 @@ mod tests {
 
         let opts = Opts::test_opts_with_aws();
         let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
+        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
+        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
 
         let start_block_height = 45894620;
-        let naivedatetime_utc = NaiveDate::from_ymd_opt(2021, 08, 01)
+        let naivedatetime_utc = NaiveDate::from_ymd_opt(2021, 8, 1)
             .unwrap()
             .and_hms_opt(0, 0, 0)
             .unwrap();
@@ -187,7 +197,7 @@ mod tests {
         let blocks = filter_matching_blocks_from_index_files(
             start_block_height,
             &indexer_function,
-            aws_config,
+            &s3_client,
             datetime_utc,
         )
         .await;
