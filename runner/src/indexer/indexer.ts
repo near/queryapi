@@ -13,6 +13,15 @@ interface Dependencies {
   parser: Parser
 };
 
+// '@near-lake/primitives/receipt' FunctionCall but with base64 decoded args
+declare class DecodedFunctionCall {
+  readonly methodName: string;
+  readonly args: string;
+  readonly gas: number;
+  readonly deposit: string;
+  constructor (methodName: string, args: string, gas: number, deposit: string);
+}
+
 interface Context {
   graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
@@ -24,7 +33,7 @@ interface Context {
     block: Block,
     contract: string,
     method: string,
-  ) => Array<{ Operation, args: string }>
+  ) => DecodedFunctionCall[]
   getSocialOperations: (block: Block, operation: string) => Array<Record<string, unknown>>
 }
 
@@ -157,6 +166,7 @@ export default class Indexer {
         .filter((action) => action.receiverId === contract)
         .flatMap((action) =>
           action.operations
+          // @ts-expect-error block data is an object keyed by type
             .map(({ FunctionCall }) => FunctionCall)
             .filter((operation) => operation?.methodName === method)
             .map((functionCallOperation) => ({
