@@ -8,14 +8,11 @@ if (props.indexerName) {
   externalAppUrl += `&indexerName=${props.indexerName}`;
 }
 const initialViewHeight = 1000;
-if (!context.accountId) {
-  return "Please sign in to use this widget.";
-}
 
 const initialPayload = {
   height: Near.block("optimistic").header.height,
   selectedTab: tab,
-  activeView: activeView,
+  activeView,
   currentUserAccountId: context.accountId,
 };
 

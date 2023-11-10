@@ -3,7 +3,7 @@ const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
   ? props.selectedIndexerPath.split("/")
   : [undefined, undefined];
 
-const activeTab = props.view ?? "indexers";
+const activeTab = props.view ? props.view : (props.selectedIndexerPath ? "indexer" : "explore")
 const activeIndexerView = props.activeIndexerView ?? "editor";
 const limit = 7;
 let totalIndexers = 0;
@@ -56,12 +56,8 @@ const Subheading = styled.h2`
 `;
 
 const Editor = styled.div`
-  // visibility: ${state.activeIndexerView === "status" ? "hidden" : "visible"};
-  // order: ${state.activeIndexerView === "status" ? 2 : 1};
 `;
 const Status = styled.div`
-  // visibility: ${state.activeIndexerView === "editor" ? "hidden" : "visible"};
-  // order: ${state.activeIndexerView === "editor" ? 1 : 2};
 `;
 
 const Wrapper = styled.div`
@@ -376,12 +372,12 @@ const indexerView = (accountId, indexerName) => {
 };
 
 return (
-  <Wrapper negativeMargin={state.activeTab === "indexers"}>
+  <Wrapper negativeMargin={state.activeTab === "explore"}>
     <Tabs>
       <TabsButton
         type="button"
-        onClick={() => selectTab("indexers")}
-        selected={state.activeTab === "indexers"}
+        onClick={() => selectTab("explore")}
+        selected={state.activeTab === "explore"}
       >
         Explore Indexers
       </TabsButton>
@@ -408,11 +404,11 @@ return (
       )}
     </Tabs>
     <Main>
-      <Section active={state.activeTab === "indexers"}>
+      <Section active={state.activeTab === "explore"}>
         <NavBarLogo
           href={`https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App`}
           title="QueryApi"
-          onClick={() => selectTab("indexers")}
+          onClick={() => selectTab("explore")}
         >
           <Widget
             src="mob.near/widget/Image"
@@ -476,7 +472,6 @@ return (
         )}
       </Section>
       <Section negativeMargin primary active={state.activeTab === "indexer"}>
-        {state.activeIndexerView === "editor" && (
           <Editor>
             {state.indexers.length > 0 &&
               (state.selected_indexer != undefined ? (
@@ -492,12 +487,11 @@ return (
                 accountId: selected_accountId ?? state.indexers[0].accountId,
                 path: "query-api-editor",
                 tab: props.tab,
-                activeIndexerView: state.activeIndexerView
+                activeView: state.activeIndexerView
               }}
             />
           </Editor>
-        )}
-        {state.activeIndexerView === "create-new-indexer" && (
+        {state.activeTab === "create-new-indexer" && (
           <div>
             {state.indexers.length > 0 &&
               (state.selected_indexer != undefined ? (
