@@ -12,6 +12,7 @@ use serde_json::from_str;
 use tokio::task::JoinHandle;
 
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
+pub const UNINDEXED_BLOCKS_SOFT_LIMIT: u64 = 7200;
 
 pub struct Task {
     handle: JoinHandle<()>,
@@ -208,12 +209,22 @@ pub(crate) async fn process_historical_messages(
                 last_indexed_block
             };
 
+            let unindexed_block_difference = current_block_height - last_indexed_block;
+
             tracing::info!(
                 target: crate::INDEXER,
                 "Filtering {} unindexed blocks from lake: from block {last_indexed_block} to {current_block_height} for indexer: {}",
-                current_block_height - last_indexed_block,
+                unindexed_block_difference,
                 indexer_function.get_full_name(),
             );
+
+            if unindexed_block_difference > UNINDEXED_BLOCKS_SOFT_LIMIT {
+                tracing::warn!(
+                    target: crate::INDEXER,
+                    "Unindexed block difference exceeds soft limit of: {UNINDEXED_BLOCKS_SOFT_LIMIT} for indexer: {}",
+                    indexer_function.get_full_name(),
+                );
+            }
 
             let lake_config = match &chain_id {
                 ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
