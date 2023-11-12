@@ -188,7 +188,7 @@ pub(crate) async fn process_historical_messages(
 
             tracing::info!(
                 target: crate::INDEXER,
-                "Flushing {} blocks from index files to historical Stream for indexer: {}",
+                "Flushing {} block heights from index files to historical Stream for indexer: {}",
                 blocks_from_index.len(),
                 indexer_function.get_full_name(),
             );
@@ -255,7 +255,7 @@ pub(crate) async fn process_historical_messages(
 
             tracing::info!(
                 target: crate::INDEXER,
-                "Flushed {} unindexed blocks to historical Stream for indexer: {}",
+                "Flushed {} unindexed block heights to historical Stream for indexer: {}",
                 filtered_block_count,
                 indexer_function.get_full_name(),
             );
