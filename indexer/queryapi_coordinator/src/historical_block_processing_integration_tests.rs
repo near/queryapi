@@ -4,7 +4,6 @@ mod tests {
     use crate::indexer_types::IndexerFunction;
     use crate::opts::{ChainId, Opts, StartOptions};
     use crate::{historical_block_processing, opts};
-    use aws_types::SdkConfig;
     use chrono::{DateTime, NaiveDate, Utc};
     use indexer_rule_type::indexer_rule::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
     use near_lake_framework::near_indexer_primitives::types::BlockHeight;
@@ -14,12 +13,11 @@ mod tests {
     impl Opts {
         pub fn test_opts_with_aws() -> Self {
             dotenv::dotenv().ok();
-            let lake_aws_access_key = env::var("LAKE_AWS_ACCESS_KEY").unwrap();
-            let lake_aws_secret_access_key = env::var("LAKE_AWS_SECRET_ACCESS_KEY").unwrap();
             Opts {
+                aws_access_key_id: env::var("AWS_ACCESS_KEY_ID").unwrap(),
+                aws_secret_access_key: env::var("AWS_SECRET_ACCESS_KEY").unwrap(),
+                aws_region: "eu-central-1".to_string(),
                 redis_connection_string: env::var("REDIS_CONNECTION_STRING").unwrap(),
-                lake_aws_access_key,
-                lake_aws_secret_access_key,
                 registry_contract_id: "".to_string(),
                 port: 0,
                 chain_id: ChainId::Mainnet(StartOptions::FromLatest),
@@ -31,10 +29,8 @@ mod tests {
     /// cargo test historical_block_processing_integration_tests::test_indexing_metadata_file;
     #[tokio::test]
     async fn test_indexing_metadata_file() {
-        let opts = Opts::test_opts_with_aws();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let last_indexed_block =
             historical_block_processing::last_indexed_block_from_metadata(&s3_client)
@@ -73,9 +69,8 @@ mod tests {
 
         let opts = Opts::test_opts_with_aws();
 
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let redis_connection_manager = storage::connect(&opts.redis_connection_string)
             .await
@@ -124,10 +119,8 @@ mod tests {
             indexer_rule: filter_rule,
         };
 
-        let opts = Opts::test_opts_with_aws();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let start_block_height = 77016214;
         let naivedatetime_utc = NaiveDate::from_ymd_opt(2022, 10, 3)
@@ -183,10 +176,8 @@ mod tests {
             indexer_rule: filter_rule,
         };
 
-        let opts = Opts::test_opts_with_aws();
-        let aws_config: &SdkConfig = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let start_block_height = 45894620;
         let naivedatetime_utc = NaiveDate::from_ymd_opt(2021, 8, 1)
