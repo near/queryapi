@@ -33,6 +33,10 @@ export default class RedisClient {
     return `${streamkey}:storage`;
   };
 
+  private generateUpdateKey (streamkey: string): string {
+    return `${streamkey}:update`;
+  };
+
   getStreamType (streamKey: string): StreamType {
     if (streamKey.endsWith(':historical:stream')) {
       return 'historical';
@@ -83,6 +87,22 @@ export default class RedisClient {
 
     return JSON.parse(results);
   };
+
+  async getStreamUpdate (streamKey: string): Promise<string> {
+    const updateKey = this.generateUpdateKey(streamKey);
+    const result = await this.client.get(updateKey);
+
+    if (result === null || result === 'false') {
+      return 'false';
+    }
+
+    return result;
+  };
+
+  async clearStreamUpdate (streamKey: string): Promise<void> {
+    const updateKey = this.generateUpdateKey(streamKey);
+    await this.client.set(updateKey, 'false');
+  }
 
   async getStreams (): Promise<string[]> {
     return await this.client.sMembers(this.STREAMS_SET_KEY);

@@ -146,7 +146,27 @@ async fn index_and_process_register_calls(
                                 new_indexer_function.account_id.clone(),
                                 new_indexer_function.function_name.clone(),
                             );
-
+                            storage::set(
+                                context.redis_connection_manager,
+                                storage::generate_real_time_storage_key(&new_indexer_function.get_full_name()),
+                                serde_json::to_string(&new_indexer_function)?,
+                                None,
+                            )
+                            .await?;
+                            storage::set(
+                                context.redis_connection_manager,
+                                storage::generate_real_time_update_key(&new_indexer_function.get_full_name()),
+                                "true",
+                                None,
+                            )
+                            .await?;
+                            storage::set(
+                                context.redis_connection_manager,
+                                storage::generate_historical_update_key(&new_indexer_function.get_full_name()),
+                                "true",
+                                None,
+                            )
+                            .await?;
                             if old_indexer_function.schema == new_indexer_function.schema {
                                 new_indexer_function.provisioned = true;
                             }
