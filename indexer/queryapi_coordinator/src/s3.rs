@@ -7,6 +7,8 @@ use futures::future::try_join_all;
 // Currently that would be either 2,700 years of FunctionCall data or 1M contract folders.
 // If we hit 1M contracts we should build an index to support efficient wildcard contract matching.
 const MAX_S3_LIST_REQUESTS: usize = 1000;
+pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
+pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions/metadata";
 
 fn storage_path_for_account(account: &str) -> String {
     let mut folders = account.split('.').collect::<Vec<&str>>();

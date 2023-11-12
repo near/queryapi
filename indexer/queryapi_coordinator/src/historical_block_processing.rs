@@ -11,8 +11,6 @@ use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, 
 use serde_json::from_str;
 use tokio::task::JoinHandle;
 
-pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
-pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions/metadata";
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
 pub struct Task {
@@ -267,8 +265,13 @@ pub(crate) async fn process_historical_messages(
 pub(crate) async fn last_indexed_block_from_metadata(
     s3_client: &S3Client,
 ) -> anyhow::Result<BlockHeight> {
-    let key = format!("{}/{}", INDEXED_ACTIONS_FILES_FOLDER, "latest_block.json");
-    let metadata = s3::fetch_text_file_from_s3(INDEXED_DATA_FILES_BUCKET, key, s3_client).await?;
+    let key = format!(
+        "{}/{}",
+        s3::INDEXED_ACTIONS_FILES_FOLDER,
+        "latest_block.json"
+    );
+    let metadata =
+        s3::fetch_text_file_from_s3(s3::INDEXED_DATA_FILES_BUCKET, key, s3_client).await?;
 
     let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
     let last_indexed_block = metadata["last_indexed_block"].clone();
@@ -291,7 +294,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     s3_client: &S3Client,
     start_date: DateTime<Utc>,
 ) -> anyhow::Result<Vec<BlockHeight>> {
-    let s3_bucket = INDEXED_DATA_FILES_BUCKET;
+    let s3_bucket = s3::INDEXED_DATA_FILES_BUCKET;
 
     let mut needs_dedupe_and_sort = false;
     let indexer_rule = &indexer_function.indexer_rule;
@@ -307,7 +310,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
             s3::fetch_contract_index_files(
                 s3_client,
                 s3_bucket,
-                INDEXED_ACTIONS_FILES_FOLDER,
+                s3::INDEXED_ACTIONS_FILES_FOLDER,
                 start_date,
                 affected_account_id,
             )
