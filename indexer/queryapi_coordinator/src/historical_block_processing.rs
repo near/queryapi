@@ -219,7 +219,7 @@ pub(crate) async fn process_historical_messages(
                 ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
                 ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
             }
-            .start_block_height(last_indexed_block + 1)
+            .start_block_height(last_indexed_block)
             .build()
             .context("Failed to build lake config")?;
 
