@@ -91,35 +91,26 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       provisioned: false,
     },
   };
+
   while (true) {
-    if (await workerContext.redisClient.getStreamUpdate(streamKey) === 'true') {
-      try {
-        console.log('Indexer update detected. Updating indexer config.');
-        indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
-        indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-        functions = {
-          [indexerName]: {
-            account_id: indexerConfig.account_id,
-            function_name: indexerConfig.function_name,
-            code: indexerConfig.code,
-            schema: indexerConfig.schema,
-            provisioned: false,
-          },
-        };
-        await workerContext.redisClient.clearStreamUpdate(streamKey);
-      } catch (error) {
-        console.error('Failed to update indexer config: ', error);
-        await sleep(1000);
-        continue;
-      }
-    }
     let streamMessageId = '';
     try {
       while (workerContext.queue.length === 0) {
         await sleep(100);
       }
       const startTime = performance.now();
-      const blockStartTime = startTime;
+      indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
+      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
+      functions = {
+        [indexerName]: {
+          account_id: indexerConfig.account_id,
+          function_name: indexerConfig.function_name,
+          code: indexerConfig.code,
+          schema: indexerConfig.schema,
+          provisioned: false,
+        },
+      };
+      const blockStartTime = performance.now();
       const queueMessage = await workerContext.queue.at(0);
       if (queueMessage === undefined) {
         continue;

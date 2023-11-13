@@ -21,20 +21,12 @@ pub fn generate_real_time_storage_key(prefix: &str) -> String {
     format!("{}:real_time:stream:storage", prefix)
 }
 
-pub fn generate_real_time_update_key(prefix: &str) -> String {
-    format!("{}:real_time:stream:update", prefix)
-}
-
 pub fn generate_historical_stream_key(prefix: &str) -> String {
     format!("{}:historical:stream", prefix)
 }
 
 pub fn generate_historical_storage_key(prefix: &str) -> String {
     format!("{}:historical:stream:storage", prefix)
-}
-
-pub fn generate_historical_update_key(prefix: &str) -> String {
-    format!("{}:historical:stream:update", prefix)
 }
 
 pub async fn connect(redis_connection_str: &str) -> anyhow::Result<ConnectionManager> {
