@@ -204,6 +204,7 @@ mod tests {
     /// Parses env vars from .env, Run with
     /// cargo test s3::tests::list_delta_bucket -- mainnet from-latest;
     #[tokio::test]
+    #[ignore]
     async fn list_delta_bucket() {
         let aws_config = aws_config::from_env().load().await;
         let s3_client = aws_sdk_s3::Client::new(&aws_config);
@@ -220,6 +221,7 @@ mod tests {
 
     /// cargo test s3::tests::list_with_single_contract -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_single_contract() {
         let aws_config = aws_config::from_env().load().await;
         let s3_client = aws_sdk_s3::Client::new(&aws_config);
@@ -237,6 +239,7 @@ mod tests {
 
     /// cargo test s3::tests::list_with_csv_contracts -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_csv_contracts() {
         let aws_config = aws_config::from_env().load().await;
         let s3_client = aws_sdk_s3::Client::new(&aws_config);
@@ -254,6 +257,7 @@ mod tests {
 
     /// cargo test s3::tests::list_with_wildcard_contracts -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_wildcard_contracts() {
         let aws_config = aws_config::from_env().load().await;
         let s3_client = aws_sdk_s3::Client::new(&aws_config);
@@ -271,6 +275,7 @@ mod tests {
 
     /// cargo test s3::tests::list_with_csv_and_wildcard_contracts -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_csv_and_wildcard_contracts() {
         let aws_config = aws_config::from_env().load().await;
         let s3_client = aws_sdk_s3::Client::new(&aws_config);
@@ -305,6 +310,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn handle_key_404() {
         let mut success = false;
 

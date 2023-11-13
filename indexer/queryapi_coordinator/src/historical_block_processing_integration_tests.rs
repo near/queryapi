@@ -28,6 +28,7 @@ mod tests {
     /// Parses some env vars from .env, Run with
     /// cargo test historical_block_processing_integration_tests::test_indexing_metadata_file;
     #[tokio::test]
+    #[ignore]
     async fn test_indexing_metadata_file() {
         let aws_config = aws_config::from_env().load().await;
         let s3_client = aws_sdk_s3::Client::new(&aws_config);
@@ -43,6 +44,7 @@ mod tests {
     /// Parses some env vars from .env, Run with
     /// cargo test historical_block_processing_integration_tests::test_process_historical_messages;
     #[tokio::test]
+    #[ignore]
     async fn test_process_historical_messages() {
         opts::init_tracing();
 
@@ -97,6 +99,7 @@ mod tests {
     /// Parses some env vars from .env, Run with
     /// cargo test historical_block_processing_integration_tests::test_filter_matching_wildcard_blocks_from_index_files;
     #[tokio::test]
+    #[ignore]
     async fn test_filter_matching_wildcard_blocks_from_index_files() {
         let contract = "*.keypom.near";
         let matching_rule = MatchingRule::ActionAny {
@@ -154,6 +157,7 @@ mod tests {
     /// Parses some env vars from .env, Run with
     /// cargo test historical_block_processing_integration_tests::test_filter_matching_blocks_from_index_files;
     #[tokio::test]
+    #[ignore]
     async fn test_filter_matching_blocks_from_index_files() {
         let contract = "*.agency.near";
         let matching_rule = MatchingRule::ActionAny {
