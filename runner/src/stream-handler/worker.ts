@@ -94,6 +94,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
 
   while (true) {
     let streamMessageId = '';
+    const isHistorical = workerContext.streamType === 'historical';
     try {
       while (workerContext.queue.length === 0) {
         await sleep(100);
@@ -116,7 +117,6 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const block = queueMessage.block;
-      const isHistorical = workerContext.streamType === 'historical';
       streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
@@ -131,9 +131,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 
-      if (isHistorical) {
-        METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(block.blockHeight);
-      }
+      METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(block.blockHeight);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
