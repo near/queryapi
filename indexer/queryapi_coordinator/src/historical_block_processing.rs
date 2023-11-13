@@ -243,7 +243,7 @@ pub(crate) async fn process_historical_messages(
                     break;
                 }
 
-                let matches = indexer_rules_engine::reduce_indexer_rule_matches_sync(
+                let matches = indexer_rules_engine::reduce_indexer_rule_matches(
                     &indexer_function.indexer_rule,
                     &streamer_message,
                     chain_id.clone(),

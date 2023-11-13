@@ -270,8 +270,7 @@ async fn reduce_rule_matches_for_indexer_function<'x>(
         &indexer_function.indexer_rule,
         streamer_message,
         chain_id.clone(),
-    )
-    .await?;
+    );
     Ok(IndexerFunctionWithMatches {
         indexer_function,
         matches,
