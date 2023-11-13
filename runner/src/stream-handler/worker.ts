@@ -105,6 +105,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       const startTime = performance.now();
       const blockStartTime = startTime;
       const block = queueMessage.block;
+      const isHistorical = workerContext.streamType === 'historical';
       streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
@@ -112,14 +113,14 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).set(performance.now() - blockStartTime);
-      await indexer.runFunctions(block, functions, false, { provision: true });
+      await indexer.runFunctions(block, functions, isHistorical, { provision: true });
 
       await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 
-      if (workerContext.streamType === 'historical') {
+      if (isHistorical) {
         METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(block.blockHeight);
       }
 
