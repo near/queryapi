@@ -196,10 +196,9 @@ fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::historical_block_processing::INDEXED_ACTIONS_FILES_FOLDER;
-    use crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET;
     use crate::s3::{
         fetch_text_file_from_s3, find_index_files_by_pattern, list_s3_bucket_by_prefix,
+        INDEXED_ACTIONS_FILES_FOLDER, INDEXED_DATA_FILES_BUCKET,
     };
 
     /// Parses env vars from .env, Run with
