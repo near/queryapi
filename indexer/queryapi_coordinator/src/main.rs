@@ -270,8 +270,7 @@ async fn reduce_rule_matches_for_indexer_function<'x>(
         &indexer_function.indexer_rule,
         streamer_message,
         chain_id.clone(),
-    )
-    .await?;
+    );
     Ok(IndexerFunctionWithMatches {
         indexer_function,
         matches,
@@ -317,13 +316,11 @@ mod tests {
 
         let indexer_registry: SharedIndexerRegistry =
             std::sync::Arc::new(Mutex::new(indexer_registry));
-        let mut indexer_registry_locked = indexer_registry.lock().await;
 
-        set_provisioned_flag(&indexer_registry, &indexer_function);
+        set_provisioned_flag(&indexer_registry, &indexer_function).await;
 
-        let account_functions = indexer_registry_locked
-            .get(&indexer_function.account_id)
-            .unwrap();
+        let lock = indexer_registry.lock().await;
+        let account_functions = lock.get(&indexer_function.account_id).unwrap();
         let indexer_function = account_functions
             .get(&indexer_function.function_name)
             .unwrap();
