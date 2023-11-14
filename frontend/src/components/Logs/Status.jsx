@@ -3,7 +3,6 @@ import {
   Card,
   Badge,
   ListGroup,
-  ProgressBar,
   OverlayTrigger,
   Tooltip,
 } from "react-bootstrap";
@@ -25,9 +24,6 @@ const Status = ({ functionName, latestHeight }) => {
       _functionName: functionName,
     },
   });
-
-  // const statusVariant = status === "running" ? "success" : "danger";
-  // const progressPercentage = (currentBlockHeight / latestHeight) * 100;
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error : {error.message}</p>;
@@ -55,24 +51,13 @@ const Status = ({ functionName, latestHeight }) => {
             >
               <OverlayTrigger
                 placement="bottom"
-                overlay={<Tooltip>The Current Block Height is {latestHeight}. Your indexer has a gap of {latestHeight - item.current_block_height} Blocks</Tooltip>}
+                overlay={<Tooltip>Near's Current Block Height is {latestHeight}. Your indexer has a gap of {latestHeight - item.current_block_height} Blocks</Tooltip>}
               >
-                <ProgressBar
-                  variant={item.status === "RUNNING" ? "success" : "danger"}
-                  animated={item.status === "RUNNING"}
-                  striped={true}
-                  label={`${(
-                    (item.current_block_height / latestHeight) *
-                    100
-                  ).toFixed(0)}%`}
-                  now={(item.current_block_height / latestHeight) * 100}
-                  style={{ marginTop: "10px", height: "18px" }}
-                />
-              </OverlayTrigger>
               <ListGroup.Item>
                 Current Block Height:{" "}
                 <strong>{item.current_block_height}</strong>
               </ListGroup.Item>
+              </OverlayTrigger>
               <ListGroup.Item>
                 Historical Block Height:{" "}
                 <strong>{item.current_historical_block_height}</strong>
