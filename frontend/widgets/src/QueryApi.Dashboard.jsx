@@ -3,7 +3,7 @@ const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
   ? props.selectedIndexerPath.split("/")
   : [undefined, undefined];
 
-const activeTab = props.view ? props.view : (props.selectedIndexerPath ? "indexer" : "explore")
+const activeTab = props.view == "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore"
 const activeIndexerView = props.activeIndexerView ?? "editor";
 const limit = 7;
 let totalIndexers = 0;
