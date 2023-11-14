@@ -53,7 +53,7 @@ function incrementId (id: string): string {
 }
 
 async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
-  const HISTORICAL_BATCH_SIZE = 300;
+  const HISTORICAL_BATCH_SIZE = 100;
   let streamMessageStartId = '0';
 
   while (true) {
@@ -80,29 +80,19 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   const indexer = new Indexer();
-  let indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
-  let indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-  let functions = {
-    [indexerName]: {
-      account_id: indexerConfig.account_id,
-      function_name: indexerConfig.function_name,
-      code: indexerConfig.code,
-      schema: indexerConfig.schema,
-      provisioned: false,
-    },
-  };
+  const isHistorical = workerContext.streamType === 'historical';
+  let streamMessageId = '';
+  let indexerName = '';
 
   while (true) {
-    let streamMessageId = '';
-    const isHistorical = workerContext.streamType === 'historical';
     try {
       while (workerContext.queue.length === 0) {
         await sleep(100);
       }
       const startTime = performance.now();
-      indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
+      const indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
       indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-      functions = {
+      const functions = {
         [indexerName]: {
           account_id: indexerConfig.account_id,
           function_name: indexerConfig.function_name,
