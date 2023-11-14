@@ -80,32 +80,33 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   const indexer = new Indexer();
-  const indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
-  const indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-  const functions = {
-    [indexerName]: {
-      account_id: indexerConfig.account_id,
-      function_name: indexerConfig.function_name,
-      code: indexerConfig.code,
-      schema: indexerConfig.schema,
-      provisioned: false,
-    },
-  };
+  const isHistorical = workerContext.streamType === 'historical';
+  let streamMessageId = '';
+  let indexerName = '';
 
   while (true) {
-    let streamMessageId = '';
     try {
       while (workerContext.queue.length === 0) {
         await sleep(100);
       }
+      const startTime = performance.now();
+      const indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
+      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
+      const functions = {
+        [indexerName]: {
+          account_id: indexerConfig.account_id,
+          function_name: indexerConfig.function_name,
+          code: indexerConfig.code,
+          schema: indexerConfig.schema,
+          provisioned: false,
+        },
+      };
+      const blockStartTime = performance.now();
       const queueMessage = await workerContext.queue.at(0);
       if (queueMessage === undefined) {
         continue;
       }
-      const startTime = performance.now();
-      const blockStartTime = startTime;
       const block = queueMessage.block;
-      const isHistorical = workerContext.streamType === 'historical';
       streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
@@ -120,9 +121,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 
-      if (isHistorical) {
-        METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(block.blockHeight);
-      }
+      METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(block.blockHeight);
 
       console.log(`Success: ${indexerName}`);
     } catch (err) {
