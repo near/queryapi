@@ -4,11 +4,12 @@ import "gridjs/dist/theme/mermaid.css";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
+import Status from "./Status";
 
 const LIMIT = 100;
 
 const IndexerLogsComponent = () => {
-  const { indexerDetails, debugMode, setLogsView } = useContext(
+  const { indexerDetails, debugMode, setLogsView, latestHeight } = useContext(
     IndexerDetailsContext
   );
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
@@ -119,66 +120,11 @@ const IndexerLogsComponent = () => {
     const grid = new Grid({
       columns: [
         {
-          name: "Current Block Height",
-          formatter: (cell) => html(`<div style="text-align: right"> ${cell}</div>`)
-        },
-        {
-          name: "Current Historical Block Height",
-          formatter: (cell) => html(`<div style="text-align: right"> ${cell}</div>`)
-        },
-        {
-          name: "Status",
-          formatter: (cell) => html(`<div style="text-align: right"> ${cell}</div>`)
-        },
-      ],
-      search: false,
-      sort: false,
-      resizable: true,
-      fixedHeader: true,
-      server: {
-        url: `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/api/rest/queryapi/logs/?_functionName=${functionName}`,
-        headers: {
-          "x-hasura-role": "append",
-        },
-        then: (data) => {
-          return data.indexer_state.map((state) => [
-            state.current_block_height,
-            state.current_historical_block_height,
-            state.status,
-          ]);
-        },
-      },
-      style: {
-        container: {
-          "font-family": '"Roboto Mono", monospace',
-        },
-        table: {},
-        th: {
-          "text-align": "center",
-          "max-width": "950px",
-          width: "800px",
-        },
-        td: {
-          "text-align": "center",
-          "font-size": "11px",
-          "background-color": "rgb(255, 255, 255)",
-          "max-height": "400px",
-          padding: "5px",
-        },
-      },
-    });
-
-    grid.render(indexerStateRef.current);
-    // };
-    // fetchData();
-  }, []);
-
-  useEffect(() => {
-    const grid = new Grid({
-      columns: [
-        {
           name: "Block Height",
-          formatter: (cell) => html(`<div style="text-align: center;"><a target='_blank' href='https://legacy.explorer.near.org/?query=${cell}'>${cell}</a></div>`)
+          formatter: (cell) =>
+            html(
+              `<div style="text-align: center;"><a target='_blank' href='https://legacy.explorer.near.org/?query=${cell}'>${cell}</a></div>`
+            ),
         },
         "Timestamp",
         {
@@ -189,17 +135,18 @@ const IndexerLogsComponent = () => {
       ],
       search: {
         server: {
-          url: (prev, keyword) => `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/api/rest/queryapi/logsByBlock/?_functionName=${functionName}&_blockHeight=${keyword}`,
+          url: (prev, keyword) =>
+            `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/api/rest/queryapi/logsByBlock/?_functionName=${functionName}&_blockHeight=${keyword}`,
           then: (data) => {
-          const logs = processLogs(data).map((log) => [
-            log.block_height,
-            log.timestamp.formattedMinTimstamp,
-            log.messages,
-          ]);
-          return logs;
-        },
+            const logs = processLogs(data).map((log) => [
+              log.block_height,
+              log.timestamp.formattedMinTimstamp,
+              log.messages,
+            ]);
+            return logs;
+          },
           debounceTimeout: 2000,
-        }
+        },
       },
       sort: true,
       resizable: true,
@@ -240,6 +187,7 @@ const IndexerLogsComponent = () => {
         td: {
           "text-align": "left",
           "font-size": "11px",
+          "vertical-align": "text-top",
           "background-color": "rgb(255, 255, 255)",
           "max-height": "400px",
           padding: "5px",
@@ -275,7 +223,10 @@ const IndexerLogsComponent = () => {
           latestHeight={height}
           isUserIndexer={indexerDetails.accountId === currentUserAccountId}
         />
-        <div ref={indexerStateRef} />
+        <Status
+          functionName={functionName}
+          latestHeight={latestHeight}
+        />
         <div ref={indexerLogsRef} />
       </div>
     </>

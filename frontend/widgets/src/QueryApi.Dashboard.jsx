@@ -114,7 +114,7 @@ const Title = styled.h1`
 
 const TabsButton = styled.button`
   font-weight: 600;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 16px;
   padding: 0 12px;
   position: relative;
@@ -324,7 +324,7 @@ const selectIndexerPage = (viewName) => {
   });
 };
 const indexerView = (accountId, indexerName) => {
-  const editUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=editor`;
+  const editUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
   const statusUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
   const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
     ".",
