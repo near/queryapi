@@ -176,7 +176,15 @@ async fn index_and_process_register_calls(
                         streamers_lock.insert(new_indexer_function.get_full_name(), streamer);
                     }
 
-                    fns.insert(update.method_name.clone(), new_indexer_function);
+                    storage::set(
+                        context.redis_connection_manager,
+                        storage::generate_real_time_storage_key(&new_indexer_function.get_full_name()),
+                        serde_json::to_string(&new_indexer_function.clone())?,
+                        None,
+                    )
+                    .await?;
+                    
+                    fns.insert(new_indexer_function.function_name.clone(), new_indexer_function);
                 }
             };
         }
