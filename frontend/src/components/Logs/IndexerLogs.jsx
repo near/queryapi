@@ -214,7 +214,7 @@ const IndexerLogsComponent = () => {
           display: "flex",
           flexDirection: "column",
           width: "100%",
-          height: "85vh",
+          height: "100%"
         }}
       >
         <LogButtons

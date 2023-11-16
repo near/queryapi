@@ -51,7 +51,7 @@ const Status = ({ functionName, latestHeight }) => {
             >
               <OverlayTrigger
                 placement="bottom"
-                overlay={<Tooltip>Near's Current Block Height is {latestHeight}. Your indexer has a gap of {latestHeight - item.current_block_height} Blocks</Tooltip>}
+                overlay={<Tooltip> Current Block Height of Near is {latestHeight}. Your indexer has a gap of {latestHeight - item.current_block_height} Blocks</Tooltip>}
               >
               <ListGroup.Item>
                 Current Block Height:{" "}
