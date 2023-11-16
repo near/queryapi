@@ -14,12 +14,7 @@ overrideLocalStorage();
 export default function App({ Component, pageProps }: AppProps) {
   const client = new ApolloClient({
     uri: `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql`,
-    cache: new InMemoryCache(),
-    options: {
-      headers: {
-        "x-hasura-role": "append"
-      }
-    }
+    cache: new InMemoryCache()
   });
   return (
     <NearSocialBridgeProvider waitForStorage fallback={<Spinner />}>
