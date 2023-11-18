@@ -14,6 +14,7 @@ export default class DmlHandler {
     hasuraClient: HasuraClient = new HasuraClient(),
     PgClient = PgClientModule
   ): Promise<DmlHandler> {
+    console.log('CALL MADE');
     const connectionParameters = await hasuraClient.getDbConnectionParameters(account);
     const pgClient = new PgClient({
       user: connectionParameters.username,
