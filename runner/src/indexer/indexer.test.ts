@@ -470,7 +470,7 @@ CREATE TABLE
     expect(result.length).toEqual(2);
   });
 
-  test('indexer builds context and does simultaneous inserts', async () => {
+  test('indexer builds context and does simultaneous upserts', async () => {
     const mockDmlHandler: any = {
       create: jest.fn().mockImplementation(() => {
         return { upsert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
@@ -500,7 +500,7 @@ CREATE TABLE
     }
     await Promise.all(promises);
     expect(mockDmlHandler.create).toHaveBeenCalledTimes(1);
-  }, 100000);
+  });
 
   test('indexer builds context and selects objects from existing table', async () => {
     const selectFn = jest.fn();

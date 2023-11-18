@@ -294,7 +294,7 @@ export default class Indexer {
 
         return {
           ...prev,
-          ...funcForTable,
+          ...funcForTable
         };
       }, {});
       return result;

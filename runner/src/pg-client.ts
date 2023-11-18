@@ -12,11 +12,10 @@ interface ConnectionParams {
 export default class PgClient {
   private readonly pgPool: Pool;
   public format: typeof pgFormatModule;
-  sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 
   constructor (
     connectionParams: ConnectionParams,
-    poolConfig: PoolConfig = { max: 2, idleTimeoutMillis: 30000 },
+    poolConfig: PoolConfig = { max: 10, idleTimeoutMillis: 30000 },
     PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule
   ) {
@@ -32,6 +31,7 @@ export default class PgClient {
   }
 
   async query<R extends QueryResultRow = any>(query: string, params: any[] = []): Promise<QueryResult<R>> {
+    // Automatically manages client connections to pool
     return await this.pgPool.query<R>(query, params);
   }
 }
