@@ -149,25 +149,6 @@ pub(crate) async fn process_historical_messages(
                 indexer.get_full_name(),
             );
 
-            crate::redis::del(
-                redis_connection_manager,
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-            )
-            .await?;
-            crate::redis::sadd(
-                redis_connection_manager,
-                crate::redis::STREAMS_SET_KEY,
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-            )
-            .await?;
-            crate::redis::set(
-                redis_connection_manager,
-                crate::redis::generate_historical_storage_key(&indexer.get_full_name()),
-                serde_json::to_string(&indexer)?,
-                None,
-            )
-            .await?;
-
             let start_date =
                 lookup_block_date_or_next_block_date(start_block, json_rpc_client).await?;
 
