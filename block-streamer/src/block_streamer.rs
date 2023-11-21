@@ -158,7 +158,7 @@ pub(crate) async fn process_historical_messages(
             .await?;
             crate::redis::set(
                 redis_connection_manager,
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                crate::redis::generate_historical_storage_key(&indexer.get_full_name()),
                 serde_json::to_string(&indexer)?,
                 None,
             )
@@ -189,7 +189,8 @@ pub(crate) async fn process_historical_messages(
                     crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
                     &[("block_height", block)],
                 )
-                .await?;
+                .await
+                .context("Failed to add block to Redis Stream")?;
             }
 
             // Check for the case where an index file is written right after we get the last_indexed_block metadata
