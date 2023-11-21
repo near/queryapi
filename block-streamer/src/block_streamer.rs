@@ -89,8 +89,8 @@ impl BlockStreamer {
         ))
     }
 
-    pub async fn wait(&mut self) {
-        let _ = self.task.take().unwrap().handle.await;
+    pub fn take_handle(&mut self) -> Option<JoinHandle<()>> {
+        self.task.take().map(|task| task.handle)
     }
 }
 
