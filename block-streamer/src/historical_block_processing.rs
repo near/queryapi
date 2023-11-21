@@ -1,10 +1,10 @@
 use crate::indexer_types::IndexerFunction;
+use crate::rules::types::indexer_rule_match::ChainId;
+use crate::rules::MatchingRule;
 use crate::s3;
 use anyhow::{bail, Context};
 use aws_sdk_s3::Client as S3Client;
 use chrono::{DateTime, LocalResult, TimeZone, Utc};
-use indexer_rule_type::indexer_rule::MatchingRule;
-use indexer_rules_engine::types::indexer_rule_match::ChainId;
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
 use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
@@ -19,27 +19,26 @@ pub struct Task {
     cancellation_token: tokio_util::sync::CancellationToken,
 }
 
-/// Represents the async task used to process and push historical messages
-pub struct Streamer {
+pub struct BlockStreamer {
     task: Option<Task>,
 }
 
-impl Streamer {
+impl BlockStreamer {
     pub fn new() -> Self {
-        Streamer { task: None }
+        Self { task: None }
     }
 
     pub fn start(
         &mut self,
         current_block_height: BlockHeight,
         indexer: IndexerFunction,
-        redis_connection_manager: storage::ConnectionManager,
+        redis_connection_manager: crate::redis::ConnectionManager,
         s3_client: S3Client,
         chain_id: ChainId,
         json_rpc_client: JsonRpcClient,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
-            return Err(anyhow::anyhow!("Streamer has already been started",));
+            return Err(anyhow::anyhow!("BlockStreamer has already been started",));
         }
 
         let cancellation_token = tokio_util::sync::CancellationToken::new();
@@ -49,7 +48,7 @@ impl Streamer {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        target: crate::INDEXER,
+                        target: crate::LOG_TARGET,
                         "Cancelling existing historical backfill for indexer: {}",
                         indexer.get_full_name(),
                     );
@@ -63,7 +62,7 @@ impl Streamer {
                     &json_rpc_client,
                 ) => {
                     tracing::info!(
-                        target: crate::INDEXER,
+                        target: crate::LOG_TARGET,
                         "Finished historical backfill for indexer: {}",
                         indexer.get_full_name(),
                     );
@@ -88,7 +87,7 @@ impl Streamer {
         }
 
         Err(anyhow::anyhow!(
-            "Attempted to cancel already cancelled, or not started, Streamer"
+            "Attempted to cancel already cancelled, or not started, BlockStreamer"
         ))
     }
 }
@@ -96,7 +95,7 @@ impl Streamer {
 pub(crate) async fn process_historical_messages_or_handle_error(
     current_block_height: BlockHeight,
     indexer_function: IndexerFunction,
-    redis_connection_manager: &storage::ConnectionManager,
+    redis_connection_manager: &crate::redis::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
@@ -115,7 +114,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
         Err(err) => {
             // todo: when Coordinator can send log messages to Runner, send this error to Runner
             tracing::error!(
-                target: crate::INDEXER,
+                target: crate::LOG_TARGET,
                 "Error processing historical messages: {:?}",
                 err
             );
@@ -126,7 +125,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
 pub(crate) async fn process_historical_messages(
     current_block_height: BlockHeight,
     indexer_function: IndexerFunction,
-    redis_connection_manager: &storage::ConnectionManager,
+    redis_connection_manager: &crate::redis::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
@@ -148,25 +147,25 @@ pub(crate) async fn process_historical_messages(
         }
         1..=i64::MAX => {
             tracing::info!(
-                target: crate::INDEXER,
+                target: crate::LOG_TARGET,
                 "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {}",
                 indexer_function.get_full_name(),
             );
 
-            storage::del(
+            crate::redis::del(
                 redis_connection_manager,
-                storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
             )
             .await?;
-            storage::sadd(
+            crate::redis::sadd(
                 redis_connection_manager,
-                storage::STREAMS_SET_KEY,
-                storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                crate::redis::STREAMS_SET_KEY,
+                crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
             )
             .await?;
-            storage::set(
+            crate::redis::set(
                 redis_connection_manager,
-                storage::generate_historical_storage_key(&indexer_function.get_full_name()),
+                crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
                 serde_json::to_string(&indexer_function)?,
                 None,
             )
@@ -186,16 +185,16 @@ pub(crate) async fn process_historical_messages(
             .await?;
 
             tracing::info!(
-                target: crate::INDEXER,
+                target: crate::LOG_TARGET,
                 "Flushing {} block heights from index files to historical Stream for indexer: {}",
                 blocks_from_index.len(),
                 indexer_function.get_full_name(),
             );
 
             for block in &blocks_from_index {
-                storage::xadd(
+                crate::redis::xadd(
                     redis_connection_manager,
-                    storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                    crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
                     &[("block_height", block)],
                 )
                 .await?;
@@ -212,7 +211,7 @@ pub(crate) async fn process_historical_messages(
             let unindexed_block_difference = current_block_height - last_indexed_block;
 
             tracing::info!(
-                target: crate::INDEXER,
+                target: crate::LOG_TARGET,
                 "Filtering {} unindexed blocks from lake: from block {last_indexed_block} to {current_block_height} for indexer: {}",
                 unindexed_block_difference,
                 indexer_function.get_full_name(),
@@ -220,7 +219,7 @@ pub(crate) async fn process_historical_messages(
 
             if unindexed_block_difference > UNINDEXED_BLOCKS_SOFT_LIMIT {
                 tracing::warn!(
-                    target: crate::INDEXER,
+                    target: crate::LOG_TARGET,
                     "Unindexed block difference exceeds soft limit of: {UNINDEXED_BLOCKS_SOFT_LIMIT} for indexer: {}",
                     indexer_function.get_full_name(),
                 );
@@ -243,7 +242,7 @@ pub(crate) async fn process_historical_messages(
                     break;
                 }
 
-                let matches = indexer_rules_engine::reduce_indexer_rule_matches(
+                let matches = crate::rules::reduce_indexer_rule_matches(
                     &indexer_function.indexer_rule,
                     &streamer_message,
                     chain_id.clone(),
@@ -252,9 +251,11 @@ pub(crate) async fn process_historical_messages(
                 if !matches.is_empty() {
                     filtered_block_count += 1;
 
-                    storage::xadd(
+                    crate::redis::xadd(
                         redis_connection_manager,
-                        storage::generate_historical_stream_key(&indexer_function.get_full_name()),
+                        crate::redis::generate_historical_stream_key(
+                            &indexer_function.get_full_name(),
+                        ),
                         &[("block_height", block_height)],
                     )
                     .await?;
@@ -263,7 +264,7 @@ pub(crate) async fn process_historical_messages(
             drop(sender);
 
             tracing::info!(
-                target: crate::INDEXER,
+                target: crate::LOG_TARGET,
                 "Flushed {} unindexed block heights to historical Stream for indexer: {}",
                 filtered_block_count,
                 indexer_function.get_full_name(),
@@ -292,7 +293,7 @@ pub(crate) async fn last_indexed_block_from_metadata(
     let last_indexed_block =
         from_str(last_indexed_block).context("last_indexed_block couldn't be converted to u64")?;
     tracing::info!(
-        target: crate::INDEXER,
+        target: crate::LOG_TARGET,
         "Last indexed block from latest_block.json: {:?}",
         last_indexed_block
     );
@@ -336,7 +337,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     }?;
 
     tracing::info!(
-        target: crate::INDEXER,
+        target: crate::LOG_TARGET,
         "Found {file_count} index files for function {:?} {:?} with matching rule {indexer_rule:?}",
         indexer_function.account_id,
         indexer_function.function_name,
@@ -349,7 +350,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
         blocks_to_process.dedup();
     }
     tracing::info!(
-        target: crate::INDEXER,
+        target: crate::LOG_TARGET,
         "Found {block_count} indexed blocks to process for function {:?} {:?}",
         indexer_function.account_id,
         indexer_function.function_name,
@@ -377,7 +378,7 @@ fn parse_blocks_from_index_files(
                         .collect()
                 } else {
                     tracing::error!(
-                        target: crate::INDEXER,
+                        target: crate::LOG_TARGET,
                         "Unable to parse index file, no heights found: {:?}",
                         file_content
                     );
@@ -385,7 +386,7 @@ fn parse_blocks_from_index_files(
                 }
             } else {
                 tracing::error!(
-                    target: crate::INDEXER,
+                    target: crate::LOG_TARGET,
                     "Unable to parse index file: {:?}",
                     file_content
                 );
