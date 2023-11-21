@@ -105,4 +105,16 @@ export default class DmlHandler {
     }
     return result.rows;
   }
+
+  async startTransaction (): Promise<void> {
+    await this.pgClient.transactionStart();
+  }
+
+  async commitTransaction (): Promise<void> {
+    await this.pgClient.transactionCommit();
+  }
+
+  async rollbackTransaction (): Promise<void> {
+    await this.pgClient.transactionRollback();
+  }
 }

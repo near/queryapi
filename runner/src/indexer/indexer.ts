@@ -90,7 +90,9 @@ export default class Indexer {
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
         const vm = new VM({ timeout: 3000, allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
+        const account = functionName.split('/')[0].replace(/[.-]/g, '_');
+        const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account);
+        const context = this.buildContext(dmlHandlerLazyLoader, indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
         vm.freeze(context, 'context');
@@ -98,7 +100,9 @@ export default class Indexer {
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
         try {
+          await (await dmlHandlerLazyLoader).startTransaction();
           await vm.run(modifiedFunction);
+          await (await dmlHandlerLazyLoader).commitTransaction();
         } catch (e) {
           const error = e as Error;
           // NOTE: logging the exception would likely leak some information about the index runner.
@@ -106,6 +110,7 @@ export default class Indexer {
           // and give the correct line number offsets within the indexer function
           console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
+          await (await dmlHandlerLazyLoader).rollbackTransaction();
           throw e;
         }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
@@ -135,8 +140,7 @@ export default class Indexer {
     ].reduce((acc, val) => val(acc), indexerFunction);
   }
 
-  buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string): Context {
-    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
+  buildContext (dmlHandlerLazyLoader: Promise<DmlHandler>, schema: string, functionName: string, blockHeight: number, hasuraRoleName: string): Context {
     const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
 
@@ -164,7 +168,7 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(account, schemaName, schema, blockHeight)
+      db: this.buildDatabaseContext(dmlHandlerLazyLoader, schemaName, schema, blockHeight)
     };
   }
 
@@ -214,11 +218,10 @@ export default class Indexer {
     return pascalCaseTableName;
   }
 
-  buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
+  buildDatabaseContext (dmlHandlerLazyLoader: Promise<DmlHandler>, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
