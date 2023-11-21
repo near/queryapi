@@ -1,7 +1,5 @@
 pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
-const STORAGE: &str = "storage_alertexer";
-
 pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 pub const STREAMS_SET_KEY: &str = "streams";
 
@@ -44,7 +42,7 @@ pub async fn del(
         .arg(&key)
         .query_async(&mut redis_connection_manager.clone())
         .await?;
-    tracing::debug!(target: STORAGE, "DEL: {:?}", key);
+    tracing::debug!("DEL: {:?}", key);
     Ok(())
 }
 
@@ -64,13 +62,7 @@ pub async fn set(
 
     cmd.query_async(&mut redis_connection_manager.clone())
         .await?;
-    tracing::debug!(
-        target: STORAGE,
-        "SET: {:?}: {:?} Ex: {:?}",
-        key,
-        value,
-        expiration_seconds
-    );
+    tracing::debug!("SET: {:?}: {:?} Ex: {:?}", key, value, expiration_seconds);
     Ok(())
 }
 
@@ -82,7 +74,7 @@ pub async fn get<V: FromRedisValue + std::fmt::Debug>(
         .arg(&key)
         .query_async(&mut redis_connection_manager.clone())
         .await?;
-    tracing::debug!(target: STORAGE, "GET: {:?}: {:?}", &key, &value,);
+    tracing::debug!("GET: {:?}: {:?}", &key, &value,);
     Ok(value)
 }
 
@@ -91,7 +83,7 @@ pub async fn sadd(
     key: impl ToRedisArgs + std::fmt::Debug,
     value: impl ToRedisArgs + std::fmt::Debug,
 ) -> anyhow::Result<()> {
-    tracing::debug!(target: STORAGE, "SADD: {:?}: {:?}", key, value);
+    tracing::debug!("SADD: {:?}: {:?}", key, value);
 
     redis::cmd("SADD")
         .arg(key)
@@ -107,7 +99,7 @@ pub async fn xadd(
     stream_key: impl ToRedisArgs + std::fmt::Debug,
     fields: &[(&str, impl ToRedisArgs + std::fmt::Debug)],
 ) -> anyhow::Result<()> {
-    tracing::debug!(target: STORAGE, "XADD: {:?}, {:?}", stream_key, fields);
+    tracing::debug!("XADD: {:?}, {:?}", stream_key, fields);
 
     let mut cmd = redis::cmd("XADD");
     cmd.arg(stream_key).arg("*");
