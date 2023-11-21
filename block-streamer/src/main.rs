@@ -1,5 +1,5 @@
 mod block_streamer;
-mod indexer_types;
+mod indexer_config;
 mod redis;
 mod rules;
 mod s3;

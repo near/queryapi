@@ -1,4 +1,4 @@
-use crate::indexer_types::IndexerFunction;
+use crate::indexer_config::IndexerConfig;
 use crate::rules::types::indexer_rule_match::ChainId;
 use crate::rules::MatchingRule;
 use crate::s3;
@@ -31,7 +31,7 @@ impl BlockStreamer {
     pub fn start(
         &mut self,
         current_block_height: BlockHeight,
-        indexer: IndexerFunction,
+        indexer: IndexerConfig,
         redis_connection_manager: crate::redis::ConnectionManager,
         s3_client: S3Client,
         chain_id: ChainId,
@@ -94,7 +94,7 @@ impl BlockStreamer {
 
 pub(crate) async fn process_historical_messages_or_handle_error(
     current_block_height: BlockHeight,
-    indexer_function: IndexerFunction,
+    indexer: IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
@@ -102,7 +102,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
 ) -> i64 {
     match process_historical_messages(
         current_block_height,
-        indexer_function,
+        indexer,
         redis_connection_manager,
         s3_client,
         chain_id,
@@ -124,49 +124,49 @@ pub(crate) async fn process_historical_messages_or_handle_error(
 }
 pub(crate) async fn process_historical_messages(
     current_block_height: BlockHeight,
-    indexer_function: IndexerFunction,
+    indexer: IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
 ) -> anyhow::Result<i64> {
-    let start_block = indexer_function.start_block_height.unwrap();
+    let start_block = indexer.start_block_height.unwrap();
     let block_difference: i64 = (current_block_height - start_block) as i64;
     match block_difference {
         i64::MIN..=-1 => {
             bail!(
                 "Skipping back fill, start_block_height is greater than current block height: {}",
-                indexer_function.get_full_name(),
+                indexer.get_full_name(),
             );
         }
         0 => {
             bail!(
                 "Skipping back fill, start_block_height is equal to current block height: {}",
-                indexer_function.get_full_name(),
+                indexer.get_full_name(),
             );
         }
         1..=i64::MAX => {
             tracing::info!(
                 target: crate::LOG_TARGET,
                 "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {}",
-                indexer_function.get_full_name(),
+                indexer.get_full_name(),
             );
 
             crate::redis::del(
                 redis_connection_manager,
-                crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
+                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
             )
             .await?;
             crate::redis::sadd(
                 redis_connection_manager,
                 crate::redis::STREAMS_SET_KEY,
-                crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
+                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
             )
             .await?;
             crate::redis::set(
                 redis_connection_manager,
-                crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
-                serde_json::to_string(&indexer_function)?,
+                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                serde_json::to_string(&indexer)?,
                 None,
             )
             .await?;
@@ -178,7 +178,7 @@ pub(crate) async fn process_historical_messages(
 
             let blocks_from_index = filter_matching_blocks_from_index_files(
                 start_block,
-                &indexer_function,
+                &indexer,
                 s3_client,
                 start_date,
             )
@@ -188,13 +188,13 @@ pub(crate) async fn process_historical_messages(
                 target: crate::LOG_TARGET,
                 "Flushing {} block heights from index files to historical Stream for indexer: {}",
                 blocks_from_index.len(),
-                indexer_function.get_full_name(),
+                indexer.get_full_name(),
             );
 
             for block in &blocks_from_index {
                 crate::redis::xadd(
                     redis_connection_manager,
-                    crate::redis::generate_historical_stream_key(&indexer_function.get_full_name()),
+                    crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
                     &[("block_height", block)],
                 )
                 .await?;
@@ -214,14 +214,14 @@ pub(crate) async fn process_historical_messages(
                 target: crate::LOG_TARGET,
                 "Filtering {} unindexed blocks from lake: from block {last_indexed_block} to {current_block_height} for indexer: {}",
                 unindexed_block_difference,
-                indexer_function.get_full_name(),
+                indexer.get_full_name(),
             );
 
             if unindexed_block_difference > UNINDEXED_BLOCKS_SOFT_LIMIT {
                 tracing::warn!(
                     target: crate::LOG_TARGET,
                     "Unindexed block difference exceeds soft limit of: {UNINDEXED_BLOCKS_SOFT_LIMIT} for indexer: {}",
-                    indexer_function.get_full_name(),
+                    indexer.get_full_name(),
                 );
             }
 
@@ -243,7 +243,7 @@ pub(crate) async fn process_historical_messages(
                 }
 
                 let matches = crate::rules::reduce_indexer_rule_matches(
-                    &indexer_function.indexer_rule,
+                    &indexer.indexer_rule,
                     &streamer_message,
                     chain_id.clone(),
                 );
@@ -253,9 +253,7 @@ pub(crate) async fn process_historical_messages(
 
                     crate::redis::xadd(
                         redis_connection_manager,
-                        crate::redis::generate_historical_stream_key(
-                            &indexer_function.get_full_name(),
-                        ),
+                        crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
                         &[("block_height", block_height)],
                     )
                     .await?;
@@ -267,7 +265,7 @@ pub(crate) async fn process_historical_messages(
                 target: crate::LOG_TARGET,
                 "Flushed {} unindexed block heights to historical Stream for indexer: {}",
                 filtered_block_count,
-                indexer_function.get_full_name(),
+                indexer.get_full_name(),
             );
         }
     }
@@ -302,14 +300,14 @@ pub(crate) async fn last_indexed_block_from_metadata(
 
 pub(crate) async fn filter_matching_blocks_from_index_files(
     start_block_height: BlockHeight,
-    indexer_function: &IndexerFunction,
+    indexer: &IndexerConfig,
     s3_client: &S3Client,
     start_date: DateTime<Utc>,
 ) -> anyhow::Result<Vec<BlockHeight>> {
     let s3_bucket = s3::INDEXED_DATA_FILES_BUCKET;
 
     let mut needs_dedupe_and_sort = false;
-    let indexer_rule = &indexer_function.indexer_rule;
+    let indexer_rule = &indexer.indexer_rule;
 
     let index_files_content = match &indexer_rule.matching_rule {
         MatchingRule::ActionAny {
@@ -329,18 +327,18 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
             .await
         }
         MatchingRule::ActionFunctionCall { .. } => {
-            bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer_function.account_id, indexer_function.function_name);
+            bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
         }
         MatchingRule::Event { .. } => {
-            bail!("Event matching rule not yet supported for historical processing, function {:?} {:?}", indexer_function.account_id, indexer_function.function_name);
+            bail!("Event matching rule not yet supported for historical processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
         }
     }?;
 
     tracing::info!(
         target: crate::LOG_TARGET,
         "Found {file_count} index files for function {:?} {:?} with matching rule {indexer_rule:?}",
-        indexer_function.account_id,
-        indexer_function.function_name,
+        indexer.account_id,
+        indexer.function_name,
         file_count = index_files_content.len()
     );
     let mut blocks_to_process: Vec<BlockHeight> =
@@ -352,8 +350,8 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     tracing::info!(
         target: crate::LOG_TARGET,
         "Found {block_count} indexed blocks to process for function {:?} {:?}",
-        indexer_function.account_id,
-        indexer_function.function_name,
+        indexer.account_id,
+        indexer.function_name,
         block_count = blocks_to_process.len()
     );
 
