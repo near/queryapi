@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     let mut streamer = block_streamer::BlockStreamer::new();
 
     streamer.start(
-        106230334 + 1000,
+        106000000,
         indexer,
         redis_connection_manager,
         s3_client,

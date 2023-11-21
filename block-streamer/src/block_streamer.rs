@@ -30,7 +30,7 @@ impl BlockStreamer {
 
     pub fn start(
         &mut self,
-        current_block_height: BlockHeight,
+        start_block_height: BlockHeight,
         indexer: IndexerConfig,
         redis_connection_manager: crate::redis::ConnectionManager,
         s3_client: S3Client,
@@ -52,8 +52,8 @@ impl BlockStreamer {
                         indexer.get_full_name(),
                     );
                 },
-                _ = process_historical_messages_or_handle_error(
-                    current_block_height,
+                _ = process_historical_messages(
+                    start_block_height,
                     indexer.clone(),
                     &redis_connection_manager,
                     &s3_client,
@@ -94,157 +94,103 @@ impl BlockStreamer {
     }
 }
 
-pub(crate) async fn process_historical_messages_or_handle_error(
-    current_block_height: BlockHeight,
-    indexer: IndexerConfig,
-    redis_connection_manager: &crate::redis::ConnectionManager,
-    s3_client: &S3Client,
-    chain_id: &ChainId,
-    json_rpc_client: &JsonRpcClient,
-) -> i64 {
-    match process_historical_messages(
-        current_block_height,
-        indexer,
-        redis_connection_manager,
-        s3_client,
-        chain_id,
-        json_rpc_client,
-    )
-    .await
-    {
-        Ok(block_difference) => block_difference,
-        Err(err) => {
-            // todo: when Coordinator can send log messages to Runner, send this error to Runner
-            tracing::error!("Error processing historical messages: {:?}", err);
-            0
-        }
-    }
-}
 pub(crate) async fn process_historical_messages(
-    current_block_height: BlockHeight,
+    start_block_height: BlockHeight,
     indexer: IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
-) -> anyhow::Result<i64> {
-    let start_block = indexer.start_block_height.unwrap();
-    let block_difference: i64 = (current_block_height - start_block) as i64;
-    match block_difference {
-        i64::MIN..=-1 => {
-            bail!(
-                "Skipping back fill, start_block_height is greater than current block height: {}",
-                indexer.get_full_name(),
-            );
-        }
-        0 => {
-            bail!(
-                "Skipping back fill, start_block_height is equal to current block height: {}",
-                indexer.get_full_name(),
-            );
-        }
-        1..=i64::MAX => {
-            tracing::info!(
-                "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {}",
-                indexer.get_full_name(),
-            );
+) -> anyhow::Result<()> {
+    tracing::info!(
+        "Starting block stream from {start_block_height} for indexer: {}",
+        indexer.get_full_name(),
+    );
 
-            let start_date =
-                lookup_block_date_or_next_block_date(start_block, json_rpc_client).await?;
+    let start_date =
+        lookup_block_date_or_next_block_date(start_block_height, json_rpc_client).await?;
 
-            let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
+    let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
 
-            let blocks_from_index = filter_matching_blocks_from_index_files(
-                start_block,
-                &indexer,
-                s3_client,
-                start_date,
+    let blocks_from_index = filter_matching_blocks_from_index_files(
+        start_block_height,
+        &indexer,
+        s3_client,
+        start_date,
+    )
+    .await?;
+
+    tracing::info!(
+        "Flushing {} block heights from index files to historical Stream for indexer: {}",
+        blocks_from_index.len(),
+        indexer.get_full_name(),
+    );
+
+    for block in &blocks_from_index {
+        crate::redis::xadd(
+            redis_connection_manager,
+            crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+            &[("block_height", block)],
+        )
+        .await
+        .context("Failed to add block to Redis Stream")?;
+    }
+
+    // Check for the case where an index file is written right after we get the last_indexed_block metadata
+    let last_block_in_data = blocks_from_index.last().unwrap_or(&start_block_height);
+    let last_indexed_block = if last_block_in_data > &last_indexed_block {
+        *last_block_in_data
+    } else {
+        last_indexed_block
+    };
+
+    tracing::info!(
+        "Starting near-lake-framework from {last_indexed_block} for indexer: {}",
+        indexer.get_full_name(),
+    );
+
+    let lake_config = match &chain_id {
+        ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
+        ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
+    }
+    .start_block_height(last_indexed_block)
+    .build()
+    .context("Failed to build lake config")?;
+
+    let (sender, mut stream) = near_lake_framework::streamer(lake_config);
+
+    let mut filtered_block_count = 0;
+    while let Some(streamer_message) = stream.recv().await {
+        let block_height = streamer_message.block.header.height;
+        eprintln!("block_height = {:?}", block_height);
+
+        let matches = crate::rules::reduce_indexer_rule_matches(
+            &indexer.indexer_rule,
+            &streamer_message,
+            chain_id.clone(),
+        );
+
+        if !matches.is_empty() {
+            filtered_block_count += 1;
+
+            crate::redis::xadd(
+                redis_connection_manager,
+                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                &[("block_height", block_height)],
             )
             .await?;
-
-            tracing::info!(
-                "Flushing {} block heights from index files to historical Stream for indexer: {}",
-                blocks_from_index.len(),
-                indexer.get_full_name(),
-            );
-
-            for block in &blocks_from_index {
-                crate::redis::xadd(
-                    redis_connection_manager,
-                    crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                    &[("block_height", block)],
-                )
-                .await
-                .context("Failed to add block to Redis Stream")?;
-            }
-
-            // Check for the case where an index file is written right after we get the last_indexed_block metadata
-            let last_block_in_data = blocks_from_index.last().unwrap_or(&start_block);
-            let last_indexed_block = if last_block_in_data > &last_indexed_block {
-                *last_block_in_data
-            } else {
-                last_indexed_block
-            };
-
-            let unindexed_block_difference = current_block_height - last_indexed_block;
-
-            tracing::info!(
-                "Filtering {} unindexed blocks from lake: from block {last_indexed_block} to {current_block_height} for indexer: {}",
-                unindexed_block_difference,
-                indexer.get_full_name(),
-            );
-
-            if unindexed_block_difference > UNINDEXED_BLOCKS_SOFT_LIMIT {
-                tracing::warn!(
-                    "Unindexed block difference exceeds soft limit of: {UNINDEXED_BLOCKS_SOFT_LIMIT} for indexer: {}",
-                    indexer.get_full_name(),
-                );
-            }
-
-            let lake_config = match &chain_id {
-                ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
-                ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
-            }
-            .start_block_height(last_indexed_block)
-            .build()
-            .context("Failed to build lake config")?;
-
-            let (sender, mut stream) = near_lake_framework::streamer(lake_config);
-
-            let mut filtered_block_count = 0;
-            while let Some(streamer_message) = stream.recv().await {
-                let block_height = streamer_message.block.header.height;
-                if block_height == current_block_height {
-                    break;
-                }
-
-                let matches = crate::rules::reduce_indexer_rule_matches(
-                    &indexer.indexer_rule,
-                    &streamer_message,
-                    chain_id.clone(),
-                );
-
-                if !matches.is_empty() {
-                    filtered_block_count += 1;
-
-                    crate::redis::xadd(
-                        redis_connection_manager,
-                        crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                        &[("block_height", block_height)],
-                    )
-                    .await?;
-                }
-            }
-            drop(sender);
-
-            tracing::info!(
-                "Flushed {} unindexed block heights to historical Stream for indexer: {}",
-                filtered_block_count,
-                indexer.get_full_name(),
-            );
         }
     }
-    Ok(block_difference)
+
+    drop(sender);
+
+    tracing::info!(
+        "Flushed {} unindexed block heights to historical Stream for indexer: {}",
+        filtered_block_count,
+        indexer.get_full_name(),
+    );
+
+    Ok(())
 }
 
 pub(crate) async fn last_indexed_block_from_metadata(
