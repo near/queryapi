@@ -88,6 +88,10 @@ impl BlockStreamer {
             "Attempted to cancel already cancelled, or not started, BlockStreamer"
         ))
     }
+
+    pub async fn wait(&mut self) {
+        let _ = self.task.take().unwrap().handle.await;
+    }
 }
 
 pub(crate) async fn process_historical_messages_or_handle_error(
