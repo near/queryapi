@@ -1,10 +1,11 @@
 import express from 'express';
 import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 
-const BLOCK_WAIT_DURATION = new Gauge({
+const BLOCK_WAIT_DURATION = new Histogram({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
   labelNames: ['indexer', 'type'],
+  buckets: [1, 10, 100, 300, 500, 1000, 3000, 5000, 10000, 30000],
 });
 
 const CACHE_HIT = new Counter({
