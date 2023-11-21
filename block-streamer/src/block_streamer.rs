@@ -48,7 +48,6 @@ impl BlockStreamer {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        target: crate::LOG_TARGET,
                         "Cancelling existing historical backfill for indexer: {}",
                         indexer.get_full_name(),
                     );
@@ -62,7 +61,6 @@ impl BlockStreamer {
                     &json_rpc_client,
                 ) => {
                     tracing::info!(
-                        target: crate::LOG_TARGET,
                         "Finished historical backfill for indexer: {}",
                         indexer.get_full_name(),
                     );
@@ -113,11 +111,7 @@ pub(crate) async fn process_historical_messages_or_handle_error(
         Ok(block_difference) => block_difference,
         Err(err) => {
             // todo: when Coordinator can send log messages to Runner, send this error to Runner
-            tracing::error!(
-                target: crate::LOG_TARGET,
-                "Error processing historical messages: {:?}",
-                err
-            );
+            tracing::error!("Error processing historical messages: {:?}", err);
             0
         }
     }
@@ -147,7 +141,6 @@ pub(crate) async fn process_historical_messages(
         }
         1..=i64::MAX => {
             tracing::info!(
-                target: crate::LOG_TARGET,
                 "Back filling {block_difference} blocks from {start_block} to current block height {current_block_height}: {}",
                 indexer.get_full_name(),
             );
@@ -185,7 +178,6 @@ pub(crate) async fn process_historical_messages(
             .await?;
 
             tracing::info!(
-                target: crate::LOG_TARGET,
                 "Flushing {} block heights from index files to historical Stream for indexer: {}",
                 blocks_from_index.len(),
                 indexer.get_full_name(),
@@ -211,7 +203,6 @@ pub(crate) async fn process_historical_messages(
             let unindexed_block_difference = current_block_height - last_indexed_block;
 
             tracing::info!(
-                target: crate::LOG_TARGET,
                 "Filtering {} unindexed blocks from lake: from block {last_indexed_block} to {current_block_height} for indexer: {}",
                 unindexed_block_difference,
                 indexer.get_full_name(),
@@ -219,7 +210,6 @@ pub(crate) async fn process_historical_messages(
 
             if unindexed_block_difference > UNINDEXED_BLOCKS_SOFT_LIMIT {
                 tracing::warn!(
-                    target: crate::LOG_TARGET,
                     "Unindexed block difference exceeds soft limit of: {UNINDEXED_BLOCKS_SOFT_LIMIT} for indexer: {}",
                     indexer.get_full_name(),
                 );
@@ -262,7 +252,6 @@ pub(crate) async fn process_historical_messages(
             drop(sender);
 
             tracing::info!(
-                target: crate::LOG_TARGET,
                 "Flushed {} unindexed block heights to historical Stream for indexer: {}",
                 filtered_block_count,
                 indexer.get_full_name(),
@@ -291,7 +280,6 @@ pub(crate) async fn last_indexed_block_from_metadata(
     let last_indexed_block =
         from_str(last_indexed_block).context("last_indexed_block couldn't be converted to u64")?;
     tracing::info!(
-        target: crate::LOG_TARGET,
         "Last indexed block from latest_block.json: {:?}",
         last_indexed_block
     );
@@ -335,7 +323,6 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     }?;
 
     tracing::info!(
-        target: crate::LOG_TARGET,
         "Found {file_count} index files for function {:?} {:?} with matching rule {indexer_rule:?}",
         indexer.account_id,
         indexer.function_name,
@@ -348,7 +335,6 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
         blocks_to_process.dedup();
     }
     tracing::info!(
-        target: crate::LOG_TARGET,
         "Found {block_count} indexed blocks to process for function {:?} {:?}",
         indexer.account_id,
         indexer.function_name,
@@ -376,18 +362,13 @@ fn parse_blocks_from_index_files(
                         .collect()
                 } else {
                     tracing::error!(
-                        target: crate::LOG_TARGET,
                         "Unable to parse index file, no heights found: {:?}",
                         file_content
                     );
                     vec![]
                 }
             } else {
-                tracing::error!(
-                    target: crate::LOG_TARGET,
-                    "Unable to parse index file: {:?}",
-                    file_content
-                );
+                tracing::error!("Unable to parse index file: {:?}", file_content);
                 vec![]
             }
         })

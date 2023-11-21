@@ -607,6 +607,7 @@ dependencies = [
  "tokio",
  "tokio-util 0.6.10",
  "tracing",
+ "tracing-subscriber",
  "wildmatch",
 ]
 
