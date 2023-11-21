@@ -218,7 +218,7 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      let dmlHandler: DmlHandler;
+      const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
@@ -239,8 +239,8 @@ export default class Indexer {
               await this.writeLog(`context.db.${sanitizedTableName}.insert`, blockHeight, defaultLog + '.insert',
                 `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}`);
 
-              // Create DmlHandler if it doesn't exist
-              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              // Wait for initialiiation of DmlHandler
+              const dmlHandler = await dmlHandlerLazyLoader;
 
               // Call insert with parameters
               return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
@@ -250,8 +250,8 @@ export default class Indexer {
               await this.writeLog(`context.db.${sanitizedTableName}.select`, blockHeight, defaultLog + '.select',
                 `Selecting objects with values ${JSON.stringify(filterObj)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
 
-              // Create DmlHandler if it doesn't exist
-              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              // Wait for initialiiation of DmlHandler
+              const dmlHandler = await dmlHandlerLazyLoader;
 
               // Call select with parameters
               return await dmlHandler.select(schemaName, tableName, filterObj, limit);
@@ -261,8 +261,8 @@ export default class Indexer {
               await this.writeLog(`context.db.${sanitizedTableName}.update`, blockHeight, defaultLog + '.update',
                 `Updating objects that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
 
-              // Create DmlHandler if it doesn't exist
-              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              // Wait for initialiiation of DmlHandler
+              const dmlHandler = await dmlHandlerLazyLoader;
 
               // Call update with parameters
               return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
@@ -272,8 +272,8 @@ export default class Indexer {
               await this.writeLog(`context.db.${sanitizedTableName}.upsert`, blockHeight, defaultLog + '.upsert',
                 `Inserting objects with values ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
-              // Create DmlHandler if it doesn't exist
-              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              // Wait for initialiiation of DmlHandler
+              const dmlHandler = await dmlHandlerLazyLoader;
 
               // Call upsert with parameters
               return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
@@ -283,8 +283,8 @@ export default class Indexer {
               await this.writeLog(`context.db.${sanitizedTableName}.delete`, blockHeight, defaultLog + '.delete',
                 `Deleting objects with values ${JSON.stringify(filterObj)} from table ${tableName} on schema ${schemaName}`);
 
-              // Create DmlHandler if it doesn't exist
-              dmlHandler = dmlHandler ?? await this.deps.DmlHandler.create(account);
+              // Wait for initialiiation of DmlHandler
+              const dmlHandler = await dmlHandlerLazyLoader;
 
               // Call delete with parameters
               return await dmlHandler.delete(schemaName, tableName, filterObj);
