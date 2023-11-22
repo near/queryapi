@@ -84,7 +84,7 @@ impl BlockStreamer {
     pub async fn cancel(&mut self) -> anyhow::Result<()> {
         if let Some(task) = self.task.take() {
             task.cancellation_token.cancel();
-            task.handle.await??;
+            let _ = task.handle.await?;
 
             return Ok(());
         }
