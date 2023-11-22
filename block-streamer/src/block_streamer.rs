@@ -12,7 +12,6 @@ use serde_json::from_str;
 use tokio::task::JoinHandle;
 
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
-pub const UNINDEXED_BLOCKS_SOFT_LIMIT: u64 = 7200;
 
 pub struct Task {
     handle: JoinHandle<()>,
@@ -48,11 +47,11 @@ impl BlockStreamer {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        "Cancelling existing historical backfill for indexer: {}",
+                        "Cancelling existing block stream task for indexer: {}",
                         indexer.get_full_name(),
                     );
                 },
-                _ = process_historical_messages(
+                _ = start_block_stream(
                     start_block_height,
                     indexer.clone(),
                     &redis_connection_manager,
@@ -61,7 +60,7 @@ impl BlockStreamer {
                     &json_rpc_client,
                 ) => {
                     tracing::info!(
-                        "Finished historical backfill for indexer: {}",
+                        "Finished streaming blocks for indexer: {}",
                         indexer.get_full_name(),
                     );
                 }
@@ -94,7 +93,7 @@ impl BlockStreamer {
     }
 }
 
-pub(crate) async fn process_historical_messages(
+pub(crate) async fn start_block_stream(
     start_block_height: BlockHeight,
     indexer: IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
@@ -162,7 +161,6 @@ pub(crate) async fn process_historical_messages(
     let mut filtered_block_count = 0;
     while let Some(streamer_message) = stream.recv().await {
         let block_height = streamer_message.block.header.height;
-        eprintln!("block_height = {:?}", block_height);
 
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.indexer_rule,
