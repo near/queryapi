@@ -141,13 +141,13 @@ pub(crate) async fn start_block_stream(
         .context("Failed to add block to Redis Stream")?;
     }
 
-    // Check for the case where an index file is written right after we get the last_indexed_block metadata
-    let last_block_in_data = blocks_from_index.last().unwrap_or(&start_block_height);
-    let last_indexed_block = if last_block_in_data > &last_indexed_block {
-        *last_block_in_data
-    } else {
-        last_indexed_block
-    };
+    let last_indexed_block =
+        blocks_from_index
+            .last()
+            .map_or(last_indexed_block, |&last_block_in_index| {
+                // Check for the case where index files are written right after we fetch the last_indexed_block metadata
+                std::cmp::max(last_block_in_index, last_indexed_block)
+            });
 
     tracing::info!(
         "Starting near-lake-framework from {last_indexed_block} for indexer: {}",
