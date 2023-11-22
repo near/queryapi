@@ -14,7 +14,7 @@ use tokio::task::JoinHandle;
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
 
 pub struct Task {
-    handle: JoinHandle<()>,
+    handle: JoinHandle<anyhow::Result<()>>,
     cancellation_token: tokio_util::sync::CancellationToken,
 }
 
@@ -50,8 +50,10 @@ impl BlockStreamer {
                         "Cancelling existing block stream task for indexer: {}",
                         indexer.get_full_name(),
                     );
+
+                    Ok(())
                 },
-                _ = start_block_stream(
+                result = start_block_stream(
                     start_block_height,
                     indexer.clone(),
                     &redis_connection_manager,
@@ -59,10 +61,14 @@ impl BlockStreamer {
                     &chain_id,
                     &json_rpc_client,
                 ) => {
-                    tracing::info!(
-                        "Finished streaming blocks for indexer: {}",
-                        indexer.get_full_name(),
-                    );
+                    result.map_err(|err| {
+                        tracing::error!(
+                            "Block stream task for indexer: {} stopped due to error: {:?}",
+                            indexer.get_full_name(),
+                            err,
+                        );
+                        err
+                    })
                 }
             }
         });
@@ -78,7 +84,7 @@ impl BlockStreamer {
     pub async fn cancel(&mut self) -> anyhow::Result<()> {
         if let Some(task) = self.task.take() {
             task.cancellation_token.cancel();
-            task.handle.await?;
+            task.handle.await??;
 
             return Ok(());
         }
@@ -88,7 +94,7 @@ impl BlockStreamer {
         ))
     }
 
-    pub fn take_handle(&mut self) -> Option<JoinHandle<()>> {
+    pub fn take_handle(&mut self) -> Option<JoinHandle<anyhow::Result<()>>> {
         self.task.take().map(|task| task.handle)
     }
 }

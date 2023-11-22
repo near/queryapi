@@ -60,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
         json_rpc_client,
     )?;
 
-    streamer.take_handle().unwrap().await?;
+    streamer.take_handle().unwrap().await??;
 
     println!("done");
 
