@@ -328,7 +328,7 @@ mod tests {
             let wrapped_error = s3_result.err().unwrap();
             let error = wrapped_error.root_cause();
             if error
-                .downcast_ref::<aws_sdk_s3::error::NoSuchKey>()
+                .downcast_ref::<aws_sdk_s3::types::error::NoSuchKey>()
                 .is_some()
             {
                 success = true;
