@@ -42,44 +42,6 @@ where
             .context("Unable to parse Metadata")
     }
 
-    async fn list_s3_bucket_by_prefix(&self, s3_prefix: &str) -> anyhow::Result<Vec<String>> {
-        let mut results = vec![];
-        let mut continuation_token: Option<String> = None;
-
-        let mut counter = 0;
-        loop {
-            let file_list = self
-                .s3_client
-                .list_objects(DELTA_LAKE_BUCKET, s3_prefix, continuation_token)
-                .await?;
-
-            if let Some(common_prefixes) = file_list.common_prefixes {
-                let keys: Vec<String> = common_prefixes
-                    .into_iter()
-                    .map(|o| o.prefix.unwrap())
-                    .collect();
-                results.extend(keys);
-            }
-
-            if let Some(objects) = file_list.contents {
-                let keys: Vec<String> = objects.into_iter().map(|o| o.key.unwrap()).collect();
-                results.extend(keys);
-            }
-
-            if file_list.next_continuation_token.is_some() {
-                continuation_token = file_list.next_continuation_token;
-                counter += 1;
-                if counter > MAX_S3_LIST_REQUESTS {
-                    anyhow::bail!("Exceeded internal limit of {MAX_S3_LIST_REQUESTS}")
-                }
-            } else {
-                break;
-            }
-        }
-
-        Ok(results)
-    }
-
     fn storage_path_for_account(&self, account: &str) -> String {
         let mut folders = account.split('.').collect::<Vec<&str>>();
         folders.reverse();
@@ -92,12 +54,20 @@ where
         let path = self.storage_path_for_account(&pattern);
 
         let folders = self
-            .list_s3_bucket_by_prefix(&format!("{}/{}/", INDEXED_ACTIONS_PREFIX, path))
+            .s3_client
+            .list_all_objects(
+                DELTA_LAKE_BUCKET,
+                &format!("{}/{}/", INDEXED_ACTIONS_PREFIX, path),
+            )
             .await?;
         // for each matching folder list files
         let mut results = vec![];
         for folder in folders {
-            results.extend(self.list_s3_bucket_by_prefix(&folder).await?);
+            results.extend(
+                self.s3_client
+                    .list_all_objects(DELTA_LAKE_BUCKET, &folder)
+                    .await?,
+            );
         }
         Ok(results)
     }
@@ -119,12 +89,16 @@ where
                         results.extend(self.list_index_files_by_wildcard(&account).await?);
                     } else {
                         results.extend(
-                            self.list_s3_bucket_by_prefix(&format!(
-                                "{}/{}/",
-                                INDEXED_ACTIONS_PREFIX,
-                                self.storage_path_for_account(account)
-                            ))
-                            .await?,
+                            self.s3_client
+                                .list_all_objects(
+                                    DELTA_LAKE_BUCKET,
+                                    &format!(
+                                        "{}/{}/",
+                                        INDEXED_ACTIONS_PREFIX,
+                                        self.storage_path_for_account(account)
+                                    ),
+                                )
+                                .await?,
                         );
                     };
                 }
@@ -133,12 +107,16 @@ where
             }
             pattern if pattern.contains('*') => self.list_index_files_by_wildcard(&pattern).await,
             pattern => {
-                self.list_s3_bucket_by_prefix(&format!(
-                    "{}/{}/",
-                    INDEXED_ACTIONS_PREFIX,
-                    self.storage_path_for_account(pattern),
-                ))
-                .await
+                self.s3_client
+                    .list_all_objects(
+                        DELTA_LAKE_BUCKET,
+                        &format!(
+                            "{}/{}/",
+                            INDEXED_ACTIONS_PREFIX,
+                            self.storage_path_for_account(pattern),
+                        ),
+                    )
+                    .await
             }
         }
     }
@@ -194,7 +172,7 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use mockall::predicate::*;
 
@@ -204,7 +182,7 @@ mod test {
 
         mock_s3_client
             .expect_get_text_file()
-            .with(eq(DELTA_LAKE_BUCKET.to_string()), eq(LATEST_BLOCK_METADATA_KEY.to_string()))
+            .with(eq(DELTA_LAKE_BUCKET), eq(LATEST_BLOCK_METADATA_KEY))
             .returning(|_bucket, _prefix| Box::pin(async move { Ok("{ \"last_indexed_block\": \"106309326\", \"first_indexed_block\": \"106164983\", \"last_indexed_block_date\": \"2023-11-22\", \"first_indexed_block_date\": \"2023-11-21\", \"processed_at_utc\": \"2023-11-22 23:06:24.358000\" }".to_string()) }));
 
         let delta_lake_client = DeltaLakeClient::new(mock_s3_client);

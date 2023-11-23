@@ -1,3 +1,5 @@
+const MAX_S3_LIST_REQUESTS: usize = 1000;
+
 #[async_trait::async_trait]
 #[mockall::automock]
 pub trait S3ClientTrait {
@@ -21,6 +23,8 @@ pub trait S3ClientTrait {
     >;
 
     async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String>;
+
+    async fn list_all_objects(&self, bucket: &str, prefix: &str) -> anyhow::Result<Vec<String>>;
 }
 
 #[derive(Clone, Debug)]
@@ -83,5 +87,48 @@ impl S3ClientTrait for S3Client {
         let bytes = object.body.collect().await?;
 
         Ok(String::from_utf8(bytes.to_vec())?)
+    }
+
+    async fn list_all_objects(&self, bucket: &str, prefix: &str) -> anyhow::Result<Vec<String>> {
+        let mut results = vec![];
+        let mut continuation_token: Option<String> = None;
+
+        let mut counter = 0;
+        loop {
+            if counter > MAX_S3_LIST_REQUESTS {
+                anyhow::bail!("Exceeded internal limit of {MAX_S3_LIST_REQUESTS}")
+            }
+
+            let list = self
+                .list_objects(bucket, prefix, continuation_token)
+                .await?;
+
+            if let Some(common_prefixes) = list.common_prefixes {
+                let keys: Vec<String> = common_prefixes
+                    .into_iter()
+                    .filter_map(|common_prefix| common_prefix.prefix)
+                    .collect();
+
+                results.extend(keys);
+            }
+
+            if let Some(objects) = list.contents {
+                let keys: Vec<String> = objects
+                    .into_iter()
+                    .filter_map(|object| object.key)
+                    .collect();
+
+                results.extend(keys);
+            }
+
+            if list.next_continuation_token.is_some() {
+                continuation_token = list.next_continuation_token;
+                counter += 1;
+            } else {
+                break;
+            }
+        }
+
+        Ok(results)
     }
 }
