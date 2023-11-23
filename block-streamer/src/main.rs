@@ -30,6 +30,10 @@ async fn main() -> anyhow::Result<()> {
     let aws_config = aws_config::from_env().load().await;
     let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
+    let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(
+        crate::s3_client::S3Client::new(&aws_config),
+    );
+
     let contract = "queryapi.dataplatform.near";
     let matching_rule = MatchingRule::ActionAny {
         affected_account_id: contract.to_string(),
@@ -60,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
         s3_client,
         ChainId::Mainnet,
         json_rpc_client,
+        delta_lake_client,
     )?;
 
     streamer.take_handle().unwrap().await??;

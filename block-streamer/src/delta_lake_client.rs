@@ -6,11 +6,11 @@ pub const LATEST_BLOCK_METADATA_KEY: &str =
 
 #[derive(serde::Deserialize, Debug, Eq, PartialEq)]
 pub struct LatestBlockMetadata {
-    last_indexed_block: String,
-    first_indexed_block: String,
-    last_indexed_block_date: String,
-    first_indexed_block_date: String,
-    processed_at_utc: String,
+    pub last_indexed_block: String,
+    pub first_indexed_block: String,
+    pub last_indexed_block_date: String,
+    pub first_indexed_block_date: String,
+    pub processed_at_utc: String,
 }
 
 pub struct DeltaLakeClient<T>

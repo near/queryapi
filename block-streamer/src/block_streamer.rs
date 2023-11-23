@@ -8,7 +8,6 @@ use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
 use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
-use serde_json::from_str;
 use tokio::task::JoinHandle;
 
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
@@ -35,6 +34,7 @@ impl BlockStreamer {
         s3_client: S3Client,
         chain_id: ChainId,
         json_rpc_client: JsonRpcClient,
+        delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -60,6 +60,7 @@ impl BlockStreamer {
                     &s3_client,
                     &chain_id,
                     &json_rpc_client,
+                    &delta_lake_client,
                 ) => {
                     result.map_err(|err| {
                         tracing::error!(
@@ -106,6 +107,7 @@ pub(crate) async fn start_block_stream(
     s3_client: &S3Client,
     chain_id: &ChainId,
     json_rpc_client: &JsonRpcClient,
+    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
 ) -> anyhow::Result<()> {
     tracing::info!(
         "Starting block stream from {start_block_height} for indexer: {}",
@@ -115,7 +117,8 @@ pub(crate) async fn start_block_stream(
     let start_date =
         lookup_block_date_or_next_block_date(start_block_height, json_rpc_client).await?;
 
-    let last_indexed_block = last_indexed_block_from_metadata(s3_client).await?;
+    let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
+    let last_indexed_block = latest_block_metadata.last_indexed_block.parse::<u64>()?;
 
     let blocks_from_index = filter_matching_blocks_from_index_files(
         start_block_height,
@@ -195,31 +198,6 @@ pub(crate) async fn start_block_stream(
     );
 
     Ok(())
-}
-
-pub(crate) async fn last_indexed_block_from_metadata(
-    s3_client: &S3Client,
-) -> anyhow::Result<BlockHeight> {
-    let key = format!(
-        "{}/{}",
-        s3::INDEXED_ACTIONS_FILES_FOLDER,
-        "latest_block.json"
-    );
-    let metadata =
-        s3::fetch_text_file_from_s3(s3::INDEXED_DATA_FILES_BUCKET, key, s3_client).await?;
-
-    let metadata: serde_json::Value = serde_json::from_str(&metadata).unwrap();
-    let last_indexed_block = metadata["last_indexed_block"].clone();
-    let last_indexed_block = last_indexed_block
-        .as_str()
-        .context("No last_indexed_block found in latest_block.json")?;
-    let last_indexed_block =
-        from_str(last_indexed_block).context("last_indexed_block couldn't be converted to u64")?;
-    tracing::info!(
-        "Last indexed block from latest_block.json: {:?}",
-        last_indexed_block
-    );
-    Ok(last_indexed_block)
 }
 
 pub(crate) async fn filter_matching_blocks_from_index_files(
