@@ -6,6 +6,7 @@ use crate::rules::types::indexer_rule_match::ChainId;
 use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
 mod block_streamer;
+mod delta_lake_client;
 mod indexer_config;
 mod redis;
 mod rules;
