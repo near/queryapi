@@ -123,7 +123,7 @@ pub(crate) async fn start_block_stream(
     let blocks_from_index = filter_matching_blocks_from_index_files(
         start_block_height,
         &indexer,
-        s3_client,
+        delta_lake_client,
         start_date,
     )
     .await?;
@@ -203,7 +203,7 @@ pub(crate) async fn start_block_stream(
 pub(crate) async fn filter_matching_blocks_from_index_files(
     start_block_height: BlockHeight,
     indexer: &IndexerConfig,
-    s3_client: &S3Client,
+    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     start_date: DateTime<Utc>,
 ) -> anyhow::Result<Vec<BlockHeight>> {
     let s3_bucket = s3::INDEXED_DATA_FILES_BUCKET;
@@ -219,14 +219,14 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
             if affected_account_id.contains('*') || affected_account_id.contains(',') {
                 needs_dedupe_and_sort = true;
             }
-            s3::fetch_contract_index_files(
-                s3_client,
-                s3_bucket,
-                s3::INDEXED_ACTIONS_FILES_FOLDER,
-                start_date,
-                affected_account_id,
-            )
-            .await
+            delta_lake_client
+                .fetch_contract_index_files(
+                    s3_bucket,
+                    s3::INDEXED_ACTIONS_FILES_FOLDER,
+                    start_date,
+                    affected_account_id,
+                )
+                .await
         }
         MatchingRule::ActionFunctionCall { .. } => {
             bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
