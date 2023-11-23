@@ -2,7 +2,6 @@ use anyhow::Context;
 use chrono::{DateTime, NaiveDate, Utc};
 use futures::future::try_join_all;
 
-const MAX_S3_LIST_REQUESTS: usize = 1000;
 const DELTA_LAKE_BUCKET: &str = "near-delta-lake";
 const INDEXED_ACTIONS_PREFIX: &str = "silver/accounts/action_receipt_actions/metadata";
 const LATEST_BLOCK_METADATA_KEY: &str =
@@ -42,33 +41,36 @@ where
             .context("Unable to parse Metadata")
     }
 
-    fn storage_path_for_account(&self, account: &str) -> String {
-        let mut folders = account.split('.').collect::<Vec<&str>>();
+    fn account_id_to_s3_prefix(&self, account: &str) -> String {
+        let mut folders = account.split('.').collect::<Vec<_>>();
         folders.reverse();
-        folders.join("/")
+
+        format!("{}/{}/", INDEXED_ACTIONS_PREFIX, folders.join("/"))
     }
 
-    async fn list_index_files_by_wildcard(&self, pattern: &&str) -> anyhow::Result<Vec<String>> {
-        // remove sub-account wildcard from pattern
-        let pattern = pattern.replace("*.", "");
-        let path = self.storage_path_for_account(&pattern);
+    async fn list_objects_recursive(
+        &self,
+        prefix: &str,
+        depth: u32,
+    ) -> anyhow::Result<Vec<String>> {
+        if depth > 1 {
+            unimplemented!("Recursive list with depth > 1 not supported")
+        }
 
-        let folders = self
+        let objects = self
             .s3_client
-            .list_all_objects(
-                DELTA_LAKE_BUCKET,
-                &format!("{}/{}/", INDEXED_ACTIONS_PREFIX, path),
-            )
+            .list_all_objects(DELTA_LAKE_BUCKET, prefix)
             .await?;
-        // for each matching folder list files
+
         let mut results = vec![];
-        for folder in folders {
+        for object in objects {
             results.extend(
                 self.s3_client
-                    .list_all_objects(DELTA_LAKE_BUCKET, &folder)
+                    .list_all_objects(DELTA_LAKE_BUCKET, &object)
                     .await?,
             );
         }
+
         Ok(results)
     }
 
@@ -86,17 +88,17 @@ where
                     let account = account.trim();
 
                     if account.contains('*') {
-                        results.extend(self.list_index_files_by_wildcard(&account).await?);
+                        let pattern = account.replace("*.", "");
+                        results.extend(
+                            self.list_objects_recursive(&self.account_id_to_s3_prefix(&pattern), 1)
+                                .await?,
+                        );
                     } else {
                         results.extend(
                             self.s3_client
                                 .list_all_objects(
                                     DELTA_LAKE_BUCKET,
-                                    &format!(
-                                        "{}/{}/",
-                                        INDEXED_ACTIONS_PREFIX,
-                                        self.storage_path_for_account(account)
-                                    ),
+                                    &self.account_id_to_s3_prefix(account),
                                 )
                                 .await?,
                         );
@@ -105,37 +107,23 @@ where
 
                 Ok(results)
             }
-            pattern if pattern.contains('*') => self.list_index_files_by_wildcard(&pattern).await,
+            pattern if pattern.contains('*') => {
+                let pattern = pattern.replace("*.", "");
+                self.list_objects_recursive(&self.account_id_to_s3_prefix(&pattern), 1)
+                    .await
+            }
             pattern => {
                 self.s3_client
-                    .list_all_objects(
-                        DELTA_LAKE_BUCKET,
-                        &format!(
-                            "{}/{}/",
-                            INDEXED_ACTIONS_PREFIX,
-                            self.storage_path_for_account(pattern),
-                        ),
-                    )
+                    .list_all_objects(DELTA_LAKE_BUCKET, &self.account_id_to_s3_prefix(pattern))
                     .await
             }
         }
     }
 
-    fn file_name_date_after(&self, start_date: DateTime<Utc>, file_name: &str) -> bool {
-        let file_name_date = file_name.split('/').last().unwrap().replace(".json", "");
-        let file_name_date = NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d");
-        match file_name_date {
-            Ok(file_name_date) => file_name_date >= start_date.date_naive(),
-            Err(e) => {
-                // if we can't parse the date assume a file this code is not meant to handle
-                tracing::debug!(
-                    target: crate::LOG_TARGET,
-                    "Error parsing file name date: {:?}",
-                    e
-                );
-                false
-            }
-        }
+    fn date_from_s3_path(&self, path: &str) -> Option<NaiveDate> {
+        let file_name_date = path.split('/').last()?.replace(".json", "");
+
+        NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d").ok()
     }
 
     pub async fn list_matching_block_heights(
@@ -150,24 +138,22 @@ where
             contract_pattern,
         );
 
-        let fetch_and_parse_tasks = file_list
+        let futures = file_list
             .into_iter()
-            .filter(|index_file_listing| self.file_name_date_after(start_date, index_file_listing))
-            .map(|key| {
-                async move {
-                    // Fetch the file
-                    self.s3_client.get_text_file(DELTA_LAKE_BUCKET, &key).await
-                }
+            // TODO use `start_after` in the request to S3 to avoid this filter
+            .filter(|file_path| {
+                self.date_from_s3_path(file_path)
+                    .map_or(false, |file_date| file_date >= start_date.date_naive())
             })
+            .map(|key| async move { self.s3_client.get_text_file(DELTA_LAKE_BUCKET, &key).await })
             .collect::<Vec<_>>();
 
-        // Execute all tasks in parallel and wait for completion
-        let file_content_list = try_join_all(fetch_and_parse_tasks).await?;
+        let file_content_list = try_join_all(futures).await?;
 
         Ok(file_content_list
             .into_iter()
-            .filter(|file_contents| !file_contents.is_empty())
-            .collect::<Vec<String>>())
+            .filter(|content| !content.is_empty())
+            .collect())
     }
 }
 
