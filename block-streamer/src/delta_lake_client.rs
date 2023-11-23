@@ -48,16 +48,10 @@ where
 
         let mut counter = 0;
         loop {
-            let file_list = match continuation_token {
-                Some(token) => {
-                    self.s3_client
-                        .list_objects(DELTA_LAKE_BUCKET, s3_prefix, Some(token))
-                }
-                None => self
-                    .s3_client
-                    .list_objects(DELTA_LAKE_BUCKET, s3_prefix, None),
-            }
-            .await?;
+            let file_list = self
+                .s3_client
+                .list_objects(DELTA_LAKE_BUCKET, s3_prefix, continuation_token)
+                .await?;
 
             if let Some(common_prefixes) = file_list.common_prefixes {
                 let keys: Vec<String> = common_prefixes
@@ -82,6 +76,7 @@ where
                 break;
             }
         }
+
         Ok(results)
     }
 
@@ -189,8 +184,9 @@ where
             .collect::<Vec<_>>();
 
         // Execute all tasks in parallel and wait for completion
-        let file_contents: Vec<String> = try_join_all(fetch_and_parse_tasks).await?;
-        Ok(file_contents
+        let file_content_list = try_join_all(fetch_and_parse_tasks).await?;
+
+        Ok(file_content_list
             .into_iter()
             .filter(|file_contents| !file_contents.is_empty())
             .collect::<Vec<String>>())
