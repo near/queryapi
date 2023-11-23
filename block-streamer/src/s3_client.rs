@@ -10,6 +10,16 @@ pub trait S3ClientTrait {
         aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::get_object::GetObjectError>,
     >;
 
+    async fn list_objects(
+        &self,
+        bucket: &str,
+        prefix: &str,
+        continuation_token: Option<String>,
+    ) -> Result<
+        aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+        aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+    >;
+
     async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String>;
 }
 
@@ -40,9 +50,31 @@ impl S3ClientTrait for S3Client {
             .get_object()
             .bucket(bucket)
             .key(prefix)
-            .request_payer(aws_sdk_s3::types::RequestPayer::Requester)
             .send()
             .await
+    }
+
+    async fn list_objects(
+        &self,
+        bucket: &str,
+        prefix: &str,
+        continuation_token: Option<String>,
+    ) -> Result<
+        aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+        aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+    > {
+        let mut builder = self
+            .client
+            .list_objects_v2()
+            .delimiter("/")
+            .bucket(bucket)
+            .prefix(prefix);
+
+        if let Some(token) = continuation_token {
+            builder = builder.continuation_token(token);
+        }
+
+        builder.send().await
     }
 
     async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String> {
