@@ -1,7 +1,7 @@
 const MAX_S3_LIST_REQUESTS: usize = 1000;
 
-#[async_trait::async_trait]
 #[mockall::automock]
+#[async_trait::async_trait]
 pub trait S3ClientTrait {
     async fn get_object(
         &self,
