@@ -3,8 +3,9 @@ use chrono::{DateTime, NaiveDate, Utc};
 use futures::future::try_join_all;
 
 const MAX_S3_LIST_REQUESTS: usize = 1000;
-pub const DELTA_LAKE_BUCKET: &str = "near-delta-lake";
-pub const LATEST_BLOCK_METADATA_KEY: &str =
+const DELTA_LAKE_BUCKET: &str = "near-delta-lake";
+const INDEXED_ACTIONS_PREFIX: &str = "silver/accounts/action_receipt_actions/metadata";
+const LATEST_BLOCK_METADATA_KEY: &str =
     "silver/accounts/action_receipt_actions/metadata/latest_block.json";
 
 #[derive(serde::Deserialize, Debug, Eq, PartialEq)]
@@ -41,21 +42,20 @@ where
             .context("Unable to parse Metadata")
     }
 
-    async fn list_s3_bucket_by_prefix(
-        &self,
-        s3_bucket: &str,
-        s3_prefix: &str,
-    ) -> anyhow::Result<Vec<String>> {
+    async fn list_s3_bucket_by_prefix(&self, s3_prefix: &str) -> anyhow::Result<Vec<String>> {
         let mut results = vec![];
         let mut continuation_token: Option<String> = None;
 
         let mut counter = 0;
         loop {
             let file_list = match continuation_token {
-                Some(token) => self
+                Some(token) => {
+                    self.s3_client
+                        .list_objects(DELTA_LAKE_BUCKET, s3_prefix, Some(token))
+                }
+                None => self
                     .s3_client
-                    .list_objects(s3_bucket, s3_prefix, Some(token)),
-                None => self.s3_client.list_objects(s3_bucket, s3_prefix, None),
+                    .list_objects(DELTA_LAKE_BUCKET, s3_prefix, None),
             }
             .await?;
 
@@ -66,10 +66,12 @@ where
                     .collect();
                 results.extend(keys);
             }
+
             if let Some(objects) = file_list.contents {
                 let keys: Vec<String> = objects.into_iter().map(|o| o.key.unwrap()).collect();
                 results.extend(keys);
             }
+
             if file_list.next_continuation_token.is_some() {
                 continuation_token = file_list.next_continuation_token;
                 counter += 1;
@@ -89,65 +91,61 @@ where
         folders.join("/")
     }
 
-    async fn list_index_files_by_wildcard(
-        &self,
-        s3_bucket: &str,
-        s3_folder: &str,
-        pattern: &&str,
-    ) -> anyhow::Result<Vec<String>> {
+    async fn list_index_files_by_wildcard(&self, pattern: &&str) -> anyhow::Result<Vec<String>> {
         // remove sub-account wildcard from pattern
         let pattern = pattern.replace("*.", "");
         let path = self.storage_path_for_account(&pattern);
 
         let folders = self
-            .list_s3_bucket_by_prefix(s3_bucket, &format!("{}/{}/", s3_folder, path))
+            .list_s3_bucket_by_prefix(&format!("{}/{}/", INDEXED_ACTIONS_PREFIX, path))
             .await?;
         // for each matching folder list files
         let mut results = vec![];
         for folder in folders {
-            results.extend(self.list_s3_bucket_by_prefix(s3_bucket, &folder).await?);
+            results.extend(self.list_s3_bucket_by_prefix(&folder).await?);
         }
         Ok(results)
     }
 
-    pub async fn find_index_files_by_pattern(
+    pub async fn list_matching_index_files(
         &self,
-        s3_bucket: &str,
-        s3_folder: &str,
-        pattern: &str,
+        contract_pattern: &str,
     ) -> anyhow::Result<Vec<String>> {
-        Ok(match pattern {
-            x if x.contains(',') => {
-                let account_array = x.split(',');
+        match contract_pattern {
+            pattern if pattern.contains(',') => {
+                let accounts = pattern.split(',');
+
                 let mut results = vec![];
-                for account in account_array {
+
+                for account in accounts {
                     let account = account.trim();
-                    let sub_results = if account.contains('*') {
-                        self.list_index_files_by_wildcard(s3_bucket, s3_folder, &account)
-                            .await?
+
+                    if account.contains('*') {
+                        results.extend(self.list_index_files_by_wildcard(&account).await?);
                     } else {
-                        self.list_s3_bucket_by_prefix(
-                            s3_bucket,
-                            &format!("{}/{}/", s3_folder, self.storage_path_for_account(account)),
-                        )
-                        .await?
+                        results.extend(
+                            self.list_s3_bucket_by_prefix(&format!(
+                                "{}/{}/",
+                                INDEXED_ACTIONS_PREFIX,
+                                self.storage_path_for_account(account)
+                            ))
+                            .await?,
+                        );
                     };
-                    results.extend(sub_results);
                 }
-                results
+
+                Ok(results)
             }
-            x if x.contains('*') => {
-                self.list_index_files_by_wildcard(s3_bucket, s3_folder, &x)
-                    .await?
+            pattern if pattern.contains('*') => self.list_index_files_by_wildcard(&pattern).await,
+            pattern => {
+                self.list_s3_bucket_by_prefix(&format!(
+                    "{}/{}/",
+                    INDEXED_ACTIONS_PREFIX,
+                    self.storage_path_for_account(pattern),
+                ))
+                .await
             }
-            _ => {
-                self.list_s3_bucket_by_prefix(
-                    s3_bucket,
-                    &format!("{}/{}/", s3_folder, self.storage_path_for_account(pattern),),
-                )
-                .await?
-            }
-        })
+        }
     }
 
     fn file_name_date_after(&self, start_date: DateTime<Utc>, file_name: &str) -> bool {
@@ -167,17 +165,17 @@ where
         }
     }
 
-    pub async fn fetch_contract_index_files(
+    pub async fn list_matching_block_heights(
         &self,
-        s3_bucket: &str,
-        s3_folder: &str,
         start_date: DateTime<Utc>,
         contract_pattern: &str,
     ) -> anyhow::Result<Vec<String>> {
-        // list all index files
-        let file_list = self
-            .find_index_files_by_pattern(s3_bucket, s3_folder, contract_pattern)
-            .await?;
+        let file_list = self.list_matching_index_files(contract_pattern).await?;
+        tracing::debug!(
+            "Found {} index files matching {}",
+            file_list.len(),
+            contract_pattern,
+        );
 
         let fetch_and_parse_tasks = file_list
             .into_iter()
@@ -185,7 +183,7 @@ where
             .map(|key| {
                 async move {
                     // Fetch the file
-                    self.s3_client.get_text_file(s3_bucket, &key).await
+                    self.s3_client.get_text_file(DELTA_LAKE_BUCKET, &key).await
                 }
             })
             .collect::<Vec<_>>();

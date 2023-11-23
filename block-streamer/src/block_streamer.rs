@@ -206,8 +206,6 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
     delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     start_date: DateTime<Utc>,
 ) -> anyhow::Result<Vec<BlockHeight>> {
-    let s3_bucket = s3::INDEXED_DATA_FILES_BUCKET;
-
     let mut needs_dedupe_and_sort = false;
     let indexer_rule = &indexer.indexer_rule;
 
@@ -220,12 +218,7 @@ pub(crate) async fn filter_matching_blocks_from_index_files(
                 needs_dedupe_and_sort = true;
             }
             delta_lake_client
-                .fetch_contract_index_files(
-                    s3_bucket,
-                    s3::INDEXED_ACTIONS_FILES_FOLDER,
-                    start_date,
-                    affected_account_id,
-                )
+                .list_matching_block_heights(start_date, affected_account_id)
                 .await
         }
         MatchingRule::ActionFunctionCall { .. } => {
