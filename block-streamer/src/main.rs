@@ -10,6 +10,7 @@ mod indexer_config;
 mod redis;
 mod rules;
 mod s3;
+mod s3_client;
 
 pub(crate) const LOG_TARGET: &str = "block_streamer";
 
