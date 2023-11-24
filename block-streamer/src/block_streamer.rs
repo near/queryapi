@@ -100,12 +100,13 @@ pub(crate) async fn start_block_stream(
     chain_id: &ChainId,
 ) -> anyhow::Result<()> {
     tracing::info!(
-        "Starting block stream from {start_block_height} for indexer: {}",
+        "Starting block stream at {start_block_height} for indexer: {}",
         indexer.get_full_name(),
     );
 
     let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(s3_client.clone());
 
+    // TODO move to DeltaLakeClient
     let start_date = get_nearest_block_date(&s3_client, start_block_height, chain_id).await?;
 
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
@@ -116,6 +117,12 @@ pub(crate) async fn start_block_stream(
             affected_account_id,
             ..
         } => {
+            tracing::debug!(
+                "Fetching block heights starting from {} from delta lake for indexer: {}",
+                start_date.date_naive(),
+                indexer.get_full_name()
+            );
+            // TODO Remove all block heights after start_block_height
             delta_lake_client
                 .list_matching_block_heights(start_date, affected_account_id)
                 .await
@@ -128,7 +135,7 @@ pub(crate) async fn start_block_stream(
         }
     }?;
 
-    tracing::info!(
+    tracing::debug!(
         "Flushing {} block heights from index files to historical Stream for indexer: {}",
         blocks_from_index.len(),
         indexer.get_full_name(),
@@ -137,6 +144,7 @@ pub(crate) async fn start_block_stream(
     for block in &blocks_from_index {
         crate::redis::xadd(
             redis_connection_manager,
+            // TODO make configurable
             crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
             &[("block_height", block)],
         )
@@ -144,7 +152,7 @@ pub(crate) async fn start_block_stream(
         .context("Failed to add block to Redis Stream")?;
     }
 
-    let last_indexed_block =
+    let mut last_indexed_block =
         blocks_from_index
             .last()
             .map_or(last_indexed_block, |&last_block_in_index| {
@@ -152,7 +160,7 @@ pub(crate) async fn start_block_stream(
                 std::cmp::max(last_block_in_index, last_indexed_block)
             });
 
-    tracing::info!(
+    tracing::debug!(
         "Starting near-lake-framework from {last_indexed_block} for indexer: {}",
         indexer.get_full_name(),
     );
@@ -167,9 +175,9 @@ pub(crate) async fn start_block_stream(
 
     let (sender, mut stream) = near_lake_framework::streamer(lake_config);
 
-    let mut filtered_block_count = 0;
     while let Some(streamer_message) = stream.recv().await {
         let block_height = streamer_message.block.header.height;
+        last_indexed_block = block_height;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.indexer_rule,
@@ -178,8 +186,6 @@ pub(crate) async fn start_block_stream(
         );
 
         if !matches.is_empty() {
-            filtered_block_count += 1;
-
             crate::redis::xadd(
                 redis_connection_manager,
                 crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
@@ -191,9 +197,9 @@ pub(crate) async fn start_block_stream(
 
     drop(sender);
 
-    tracing::info!(
-        "Flushed {} unindexed block heights to historical Stream for indexer: {}",
-        filtered_block_count,
+    tracing::debug!(
+        "Stopped block stream at {} for indexer: {}",
+        last_indexed_block,
         indexer.get_full_name(),
     );
 
@@ -311,7 +317,7 @@ mod tests {
 
             assert_eq!(
                 block_date,
-                chrono::Utc.timestamp_nanos(1695921400989555820 as i64)
+                chrono::Utc.timestamp_nanos(1695921400989555820_i64)
             );
         }
 
@@ -386,7 +392,7 @@ mod tests {
 
             assert_eq!(
                 block_date,
-                chrono::Utc.timestamp_nanos(1695921400989555820 as i64)
+                chrono::Utc.timestamp_nanos(1695921400989555820_i64)
             );
         }
 

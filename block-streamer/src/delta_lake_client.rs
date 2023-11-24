@@ -167,6 +167,13 @@ where
             .map(|key| async move { self.s3_client.get_text_file(DELTA_LAKE_BUCKET, &key).await })
             .collect::<Vec<_>>();
 
+        tracing::debug!(
+            "Found {} index files matching {} after date {}",
+            futures.len(),
+            contract_pattern,
+            start_date
+        );
+
         let file_content_list = try_join_all(futures).await?;
 
         let mut block_heights: Vec<_> = file_content_list
@@ -186,6 +193,12 @@ where
             block_heights.sort();
             block_heights.dedup();
         }
+
+        tracing::debug!(
+            "Found {} matching block heights matching {}",
+            block_heights.len(),
+            contract_pattern,
+        );
 
         Ok(block_heights)
     }

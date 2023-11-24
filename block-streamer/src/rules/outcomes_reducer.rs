@@ -43,7 +43,7 @@ fn build_indexer_rule_match(
     chain_id: ChainId,
 ) -> IndexerRuleMatch {
     IndexerRuleMatch {
-        chain_id: chain_id.clone(),
+        chain_id,
         indexer_rule_id: indexer_rule.id,
         indexer_rule_name: indexer_rule.name.clone(),
         payload: build_indexer_rule_match_payload(
@@ -67,7 +67,7 @@ fn build_indexer_rule_match_payload(
     match &indexer_rule.matching_rule {
         MatchingRule::ActionAny { .. } | MatchingRule::ActionFunctionCall { .. } => {
             IndexerRuleMatchPayload::Actions {
-                block_hash: block_header_hash.to_string(),
+                block_hash: block_header_hash,
                 receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
                 transaction_hash,
             }
@@ -101,7 +101,7 @@ fn build_indexer_rule_match_payload(
                 .clone();
 
             IndexerRuleMatchPayload::Events {
-                block_hash: block_header_hash.to_string(),
+                block_hash: block_header_hash,
                 receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
                 transaction_hash,
                 event: event.event.clone(),
