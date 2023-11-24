@@ -1,9 +1,11 @@
+use crate::rules::types::indexer_rule_match::ChainId;
 use anyhow::Context;
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::TimeZone;
 use futures::future::try_join_all;
 use near_lake_framework::near_indexer_primitives;
 
 const DELTA_LAKE_BUCKET: &str = "near-delta-lake";
+const MAX_S3_RETRY_COUNT: u8 = 20;
 const INDEXED_ACTIONS_PREFIX: &str = "silver/accounts/action_receipt_actions/metadata";
 const LATEST_BLOCK_METADATA_KEY: &str =
     "silver/accounts/action_receipt_actions/metadata/latest_block.json";
@@ -34,6 +36,7 @@ where
     T: crate::s3_client::S3ClientTrait,
 {
     s3_client: T,
+    chain_id: ChainId,
 }
 
 impl<T> DeltaLakeClient<T>
@@ -41,7 +44,11 @@ where
     T: crate::s3_client::S3ClientTrait,
 {
     pub fn new(s3_client: T) -> Self {
-        DeltaLakeClient { s3_client }
+        DeltaLakeClient {
+            s3_client,
+            // hardcode to mainnet for
+            chain_id: ChainId::Mainnet,
+        }
     }
 
     pub async fn get_latest_block_metadata(&self) -> anyhow::Result<LatestBlockMetadata> {
@@ -52,6 +59,56 @@ where
 
         serde_json::from_str::<LatestBlockMetadata>(&metadata_file_content)
             .context("Unable to parse Metadata")
+    }
+
+    fn get_lake_bucket(&self) -> String {
+        match self.chain_id {
+            ChainId::Mainnet => "near-lake-data-mainnet".to_string(),
+            ChainId::Testnet => "near-lake-data-testnet".to_string(),
+        }
+    }
+
+    pub async fn get_nearest_block_date(
+        &self,
+        block_height: u64,
+    ) -> anyhow::Result<chrono::DateTime<chrono::Utc>> {
+        let mut current_block_height = block_height;
+        let mut retry_count = 1;
+        loop {
+            let block_key = format!("{:0>12}/block.json", current_block_height);
+            match self
+                .s3_client
+                .get_text_file(&self.get_lake_bucket(), &block_key)
+                .await
+            {
+                Ok(text) => {
+                    let block: near_indexer_primitives::views::BlockView =
+                        serde_json::from_str(&text)?;
+                    return Ok(chrono::Utc.timestamp_nanos(block.header.timestamp_nanosec as i64));
+                }
+
+                Err(e) => {
+                    if e.root_cause()
+                        .downcast_ref::<aws_sdk_s3::types::error::NoSuchKey>()
+                        .is_some()
+                    {
+                        retry_count += 1;
+                        if retry_count > MAX_S3_RETRY_COUNT {
+                            anyhow::bail!("Exceeded maximum retries to fetch block from S3");
+                        }
+
+                        tracing::debug!(
+                            "Block {} not found on S3, attempting to fetch next block",
+                            current_block_height
+                        );
+                        current_block_height += 1;
+                        continue;
+                    }
+
+                    return Err(e).context("Failed to fetch block from S3");
+                }
+            }
+        }
     }
 
     fn s3_prefix_from_contract_id(&self, contract_id: &str) -> String {
@@ -138,17 +195,19 @@ where
         }
     }
 
-    fn date_from_s3_path(&self, path: &str) -> Option<NaiveDate> {
+    fn date_from_s3_path(&self, path: &str) -> Option<chrono::NaiveDate> {
         let file_name_date = path.split('/').last()?.replace(".json", "");
 
-        NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d").ok()
+        chrono::NaiveDate::parse_from_str(&file_name_date, "%Y-%m-%d").ok()
     }
 
     pub async fn list_matching_block_heights(
         &self,
-        start_date: DateTime<Utc>,
+        start_block_height: near_indexer_primitives::types::BlockHeight,
         contract_pattern: &str,
     ) -> anyhow::Result<Vec<near_indexer_primitives::types::BlockHeight>> {
+        let start_date = self.get_nearest_block_date(start_block_height).await?;
+
         let file_list = self.list_matching_index_files(contract_pattern).await?;
         tracing::debug!(
             "Found {} index files matching {}",
@@ -200,6 +259,7 @@ where
             contract_pattern,
         );
 
+        // TODO Remove all block heights after start_block_height
         Ok(block_heights)
     }
 }
@@ -208,6 +268,57 @@ where
 mod tests {
     use super::*;
     use mockall::predicate;
+
+    fn generate_block_with_timestamp(date: &str) -> String {
+        let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap();
+
+        let date_time_utc = chrono::Utc.from_utc_datetime(&naive_date).timestamp() * 1_000_000_000;
+
+        format!(
+            r#"{{
+                "author": "someone",
+                "header": {{
+                  "approvals": [],
+                  "block_merkle_root": "ERiC7AJ2zbVz1HJHThR5NWDDN9vByhwdjcVfivmpY5B",
+                  "block_ordinal": 92102682,
+                  "challenges_result": [],
+                  "challenges_root": "11111111111111111111111111111111",
+                  "chunk_headers_root": "MDiJxDyvUQaZRKmUwa5jgQuV6XjwVvnm4tDrajCxwvz",
+                  "chunk_mask": [],
+                  "chunk_receipts_root": "n84wEo7kTKTCJsyqBZ2jndhjrAMeJAXMwKvnJR7vCuy",
+                  "chunk_tx_root": "D8j64GMKBMvUfvnuHtWUyDtMHM5mJ2pA4G5VmYYJvo5G",
+                  "chunks_included": 4,
+                  "epoch_id": "2RMQiomr6CSSwUWpmB62YohxHbfadrHfcsaa3FVb4J9x",
+                  "epoch_sync_data_hash": null,
+                  "gas_price": "100000000",
+                  "hash": "FA1z9RVm9fX3g3mgP3NToZGwWeeXYn8bvZs4nwwTgCpD",
+                  "height": 102162333,
+                  "last_ds_final_block": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
+                  "last_final_block": "8xkwjn6Lb6UhMBhxcbVQBf3318GafkdaXoHA8Jako1nn",
+                  "latest_protocol_version": 62,
+                  "next_bp_hash": "dmW84aEj2iVJMLwJodJwTfAyeA1LJaHEthvnoAsvTPt",
+                  "next_epoch_id": "C9TDDYthANoduoTBZS7WYDsBSe9XCm4M2F9hRoVXVXWY",
+                  "outcome_root": "6WxzWLVp4b4bFbxHzu18apVfXLvHGKY7CHoqD2Eq3TFJ",
+                  "prev_hash": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
+                  "prev_height": 102162332,
+                  "prev_state_root": "Aq2ndkyDiwroUWN69Ema9hHtnr6dPHoEBRNyfmd8v4gB",
+                  "random_value": "7ruuMyDhGtTkYaCGYMy7PirPiM79DXa8GhVzQW1pHRoz",
+                  "rent_paid": "0",
+                  "signature": "ed25519:5gYYaWHkAEK5etB8tDpw7fmehkoYSprUxKPygaNqmhVDFCMkA1n379AtL1BBkQswLAPxWs1BZvypFnnLvBtHRknm",
+                  "timestamp": 1695921400989555700,
+                  "timestamp_nanosec": "{}",
+                  "total_supply": "1155783047679681223245725102954966",
+                  "validator_proposals": [],
+                  "validator_reward": "0"
+                }},
+                "chunks": []
+            }}"#,
+            date_time_utc
+        )
+    }
 
     #[tokio::test]
     async fn fetches_metadata_from_s3() {
@@ -239,6 +350,13 @@ mod tests {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
         mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000091940840/block.json"),
+            )
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2023-05-16")));
+        mock_s3_client
             .expect_list_all_objects()
             .returning(|_bucket, _prefix| {
                 Ok(vec![
@@ -258,14 +376,7 @@ mod tests {
         let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
 
         let block_heights = delta_lake_client
-            .list_matching_block_heights(
-                NaiveDate::from_ymd_opt(2023, 5, 16)
-                    .unwrap()
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap()
-                    .and_utc(),
-                "queryapi.dataplatform.near",
-            )
+            .list_matching_block_heights(91940840, "queryapi.dataplatform.near")
             .await
             .unwrap();
 
@@ -276,6 +387,13 @@ mod tests {
     async fn lists_block_heights_for_multiple_contracts() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000045894617/block.json"),
+            )
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2022-05-26")));
         mock_s3_client
             .expect_list_all_objects()
             .returning(|_bucket, prefix| {
@@ -316,11 +434,7 @@ mod tests {
 
         let block_heights = delta_lake_client
             .list_matching_block_heights(
-                NaiveDate::from_ymd_opt(2022, 5, 26)
-                    .unwrap()
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap()
-                    .and_utc(),
+                45894617,
                 "hackathon.agency.near, hackathon.aurora-silo-dev.near, hackathon.sputnik-dao.near",
             )
             .await
@@ -341,6 +455,13 @@ mod tests {
     async fn lists_block_heights_for_wildcard() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000078516467/block.json"),
+            )
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2023-05-26")));
         mock_s3_client
             .expect_list_all_objects()
             .returning(|_bucket, prefix| {
@@ -395,14 +516,7 @@ mod tests {
         let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
 
         let block_heights = delta_lake_client
-            .list_matching_block_heights(
-                NaiveDate::from_ymd_opt(2023, 5, 26)
-                    .unwrap()
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap()
-                    .and_utc(),
-                "*.keypom.near",
-            )
+            .list_matching_block_heights(78516467, "*.keypom.near")
             .await
             .unwrap();
 
@@ -416,6 +530,13 @@ mod tests {
     async fn lists_block_heights_for_multiple_contracts_and_wildcard() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000045894617/block.json"),
+            )
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
         mock_s3_client
             .expect_list_all_objects()
             .returning(|_bucket, prefix| {
@@ -457,14 +578,7 @@ mod tests {
         let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
 
         let block_heights = delta_lake_client
-            .list_matching_block_heights(
-                NaiveDate::from_ymd_opt(2021, 5, 26)
-                    .unwrap()
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap()
-                    .and_utc(),
-                "*.keypom.near, hackathon.agency.near",
-            )
+            .list_matching_block_heights(45894617, "*.keypom.near, hackathon.agency.near")
             .await
             .unwrap();
 
@@ -481,6 +595,13 @@ mod tests {
     async fn sorts_and_removes_duplicates_for_multiple_contracts() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000045894628/block.json"),
+            )
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
         mock_s3_client
             .expect_list_all_objects()
             .returning(|_bucket, prefix| {
@@ -509,14 +630,7 @@ mod tests {
         let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
 
         let block_heights = delta_lake_client
-            .list_matching_block_heights(
-                NaiveDate::from_ymd_opt(2021, 5, 26)
-                    .unwrap()
-                    .and_hms_opt(0, 0, 0)
-                    .unwrap()
-                    .and_utc(),
-                "keypom.near, hackathon.agency.near",
-            )
+            .list_matching_block_heights(45894628, "keypom.near, hackathon.agency.near")
             .await
             .unwrap();
 
@@ -524,5 +638,83 @@ mod tests {
             block_heights,
             vec![45894617, 45894627, 45894628, 45894712, 45898413, 45898423, 45898424]
         )
+    }
+
+    #[tokio::test]
+    async fn gets_the_date_of_the_closest_block() {
+        let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000106397175/block.json"),
+            )
+            .times(1)
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
+
+        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+
+        let block_date = delta_lake_client
+            .get_nearest_block_date(106397175)
+            .await
+            .unwrap();
+
+        assert_eq!(block_date, chrono::Utc.timestamp_nanos(1621987200000000000));
+    }
+
+    #[tokio::test]
+    async fn retires_if_a_block_doesnt_exist() {
+        let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000106397175/block.json"),
+            )
+            .times(1)
+            .returning(|_, _| {
+                Err(anyhow::anyhow!(
+                    aws_sdk_s3::types::error::NoSuchKey::builder().build()
+                ))
+            });
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000106397176/block.json"),
+            )
+            .times(1)
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
+
+        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+
+        let block_date = delta_lake_client
+            .get_nearest_block_date(106397175)
+            .await
+            .unwrap();
+
+        assert_eq!(block_date, chrono::Utc.timestamp_nanos(1621987200000000000));
+    }
+
+    #[tokio::test]
+    async fn exits_if_maximum_retries_exceeded() {
+        let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .times(MAX_S3_RETRY_COUNT as usize)
+            .returning(|_, _| {
+                Err(anyhow::anyhow!(
+                    aws_sdk_s3::types::error::NoSuchKey::builder().build()
+                ))
+            });
+
+        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+
+        let result = delta_lake_client.get_nearest_block_date(106397175).await;
+
+        assert!(result.is_err());
     }
 }

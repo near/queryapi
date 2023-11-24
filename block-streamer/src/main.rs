@@ -27,6 +27,8 @@ async fn main() -> anyhow::Result<()> {
     let aws_config = aws_config::from_env().load().await;
     let s3_client = crate::s3_client::S3Client::new(&aws_config);
 
+    let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(s3_client);
+
     let contract = "queryapi.dataplatform.near";
     let matching_rule = MatchingRule::ActionAny {
         affected_account_id: contract.to_string(),
@@ -54,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         106000000,
         indexer,
         redis_connection_manager,
-        s3_client,
+        delta_lake_client,
         ChainId::Mainnet,
     )?;
 
