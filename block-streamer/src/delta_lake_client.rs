@@ -89,7 +89,7 @@ where
         Ok(results)
     }
 
-    pub async fn list_matching_index_files(
+    async fn list_matching_index_files(
         &self,
         contract_pattern: &str,
     ) -> anyhow::Result<Vec<String>> {
