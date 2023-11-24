@@ -41,8 +41,8 @@ where
             .context("Unable to parse Metadata")
     }
 
-    fn account_id_to_s3_prefix(&self, account: &str) -> String {
-        let mut folders = account.split('.').collect::<Vec<_>>();
+    fn s3_prefix_from_contract_id(&self, contract_id: &str) -> String {
+        let mut folders = contract_id.split('.').collect::<Vec<_>>();
         folders.reverse();
 
         format!("{}/{}/", INDEXED_ACTIONS_PREFIX, folders.join("/"))
@@ -80,25 +80,28 @@ where
     ) -> anyhow::Result<Vec<String>> {
         match contract_pattern {
             pattern if pattern.contains(',') => {
-                let accounts = pattern.split(',');
+                let contract_ids = pattern.split(',');
 
                 let mut results = vec![];
 
-                for account in accounts {
-                    let account = account.trim();
+                for contract_id in contract_ids {
+                    let contract_id = contract_id.trim();
 
-                    if account.contains('*') {
-                        let pattern = account.replace("*.", "");
+                    if contract_id.contains('*') {
+                        let pattern = contract_id.replace("*.", "");
                         results.extend(
-                            self.list_objects_recursive(&self.account_id_to_s3_prefix(&pattern), 1)
-                                .await?,
+                            self.list_objects_recursive(
+                                &self.s3_prefix_from_contract_id(&pattern),
+                                1,
+                            )
+                            .await?,
                         );
                     } else {
                         results.extend(
                             self.s3_client
                                 .list_all_objects(
                                     DELTA_LAKE_BUCKET,
-                                    &self.account_id_to_s3_prefix(account),
+                                    &self.s3_prefix_from_contract_id(contract_id),
                                 )
                                 .await?,
                         );
@@ -108,13 +111,13 @@ where
                 Ok(results)
             }
             pattern if pattern.contains('*') => {
-                let pattern = pattern.replace("*.", "");
-                self.list_objects_recursive(&self.account_id_to_s3_prefix(&pattern), 1)
+                let contract_id = pattern.replace("*.", "");
+                self.list_objects_recursive(&self.s3_prefix_from_contract_id(&contract_id), 1)
                     .await
             }
             pattern => {
                 self.s3_client
-                    .list_all_objects(DELTA_LAKE_BUCKET, &self.account_id_to_s3_prefix(pattern))
+                    .list_all_objects(DELTA_LAKE_BUCKET, &self.s3_prefix_from_contract_id(pattern))
                     .await
             }
         }
@@ -189,7 +192,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lists_block_heights_for_single_account() {
+    async fn lists_block_heights_for_single_contract() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
         mock_s3_client
@@ -232,7 +235,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lists_block_heights_for_multiple_accounts() {
+    async fn lists_block_heights_for_multiple_contracts() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
         mock_s3_client
@@ -379,7 +382,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn lists_block_heights_for_multiple_accounts_and_wildcard() {
+    async fn lists_block_heights_for_multiple_contracts_and_wildcard() {
         let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
 
         mock_s3_client
