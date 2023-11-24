@@ -2,15 +2,11 @@ use crate::indexer_config::IndexerConfig;
 use crate::rules::types::indexer_rule_match::ChainId;
 use crate::rules::MatchingRule;
 use anyhow::{bail, Context};
-use aws_sdk_s3::Client as S3Client;
-use chrono::{DateTime, LocalResult, TimeZone, Utc};
-use near_jsonrpc_client::JsonRpcClient;
-use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
-use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
-use near_lake_framework::near_indexer_primitives::views::BlockView;
+use chrono::TimeZone;
+use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
-pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
+pub const MAX_S3_RETRY_COUNT: u8 = 20;
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
@@ -28,13 +24,11 @@ impl BlockStreamer {
 
     pub fn start(
         &mut self,
-        start_block_height: BlockHeight,
+        start_block_height: near_indexer_primitives::types::BlockHeight,
         indexer: IndexerConfig,
         redis_connection_manager: crate::redis::ConnectionManager,
-        s3_client: S3Client,
+        s3_client: crate::s3_client::S3Client,
         chain_id: ChainId,
-        json_rpc_client: JsonRpcClient,
-        delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -57,10 +51,8 @@ impl BlockStreamer {
                     start_block_height,
                     indexer.clone(),
                     &redis_connection_manager,
-                    &s3_client,
+                    s3_client,
                     &chain_id,
-                    &json_rpc_client,
-                    &delta_lake_client,
                 ) => {
                     result.map_err(|err| {
                         tracing::error!(
@@ -101,21 +93,20 @@ impl BlockStreamer {
 }
 
 pub(crate) async fn start_block_stream(
-    start_block_height: BlockHeight,
+    start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
-    s3_client: &S3Client,
+    s3_client: crate::s3_client::S3Client,
     chain_id: &ChainId,
-    json_rpc_client: &JsonRpcClient,
-    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
 ) -> anyhow::Result<()> {
     tracing::info!(
         "Starting block stream from {start_block_height} for indexer: {}",
         indexer.get_full_name(),
     );
 
-    let start_date =
-        lookup_block_date_or_next_block_date(start_block_height, json_rpc_client).await?;
+    let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(s3_client.clone());
+
+    let start_date = get_nearest_block_date(&s3_client, start_block_height, chain_id).await?;
 
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
     let last_indexed_block = latest_block_metadata.last_indexed_block.parse::<u64>()?;
@@ -209,36 +200,213 @@ pub(crate) async fn start_block_stream(
     Ok(())
 }
 
-// if block does not exist, try next block, up to MAX_RPC_BLOCKS_TO_PROCESS (20) blocks
-pub async fn lookup_block_date_or_next_block_date(
+pub async fn get_nearest_block_date(
+    s3_client: &impl crate::s3_client::S3ClientTrait,
     block_height: u64,
-    client: &JsonRpcClient,
-) -> anyhow::Result<DateTime<Utc>> {
-    let mut current_block_height = block_height;
-    let mut retry_count = 0;
-    loop {
-        let request = RpcBlockRequest {
-            block_reference: BlockReference::BlockId(BlockId::Height(current_block_height)),
-        };
+    chain_id: &ChainId,
+) -> anyhow::Result<chrono::DateTime<chrono::Utc>> {
+    let bucket = match chain_id {
+        ChainId::Mainnet => "near-lake-data-mainnet",
+        ChainId::Testnet => "near-lake-data-testnet",
+    };
 
-        match client.call(request).await {
-            Ok(response) => {
-                let header = response.header;
-                let timestamp_nanosec = header.timestamp_nanosec;
-                return match Utc.timestamp_opt((timestamp_nanosec / 1000000000) as i64, 0) {
-                    LocalResult::Single(date) => Ok(date),
-                    LocalResult::Ambiguous(date, _) => Ok(date),
-                    LocalResult::None => Err(anyhow::anyhow!("Unable to get block timestamp")),
-                };
+    let mut current_block_height = block_height;
+    let mut retry_count = 1;
+    loop {
+        let block_key = format!("{:0>12}/block.json", current_block_height);
+        match s3_client.get_text_file(bucket, &block_key).await {
+            Ok(text) => {
+                let block: near_indexer_primitives::views::BlockView = serde_json::from_str(&text)?;
+                return Ok(chrono::Utc.timestamp_nanos(block.header.timestamp_nanosec as i64));
             }
-            Err(_) => {
-                tracing::debug!("RPC failed to get block: {:?}", current_block_height);
-                retry_count += 1;
-                if retry_count > MAX_RPC_BLOCKS_TO_PROCESS {
-                    return Err(anyhow::anyhow!("Unable to get block"));
+
+            Err(e) => {
+                if e.root_cause()
+                    .downcast_ref::<aws_sdk_s3::types::error::NoSuchKey>()
+                    .is_some()
+                {
+                    retry_count += 1;
+                    if retry_count > MAX_S3_RETRY_COUNT {
+                        anyhow::bail!("Exceeded maximum retries to fetch block from S3");
+                    }
+
+                    tracing::debug!(
+                        "Block {} not found on S3, attempting to fetch next block",
+                        current_block_height
+                    );
+                    current_block_height += 1;
+                    continue;
                 }
-                current_block_height += 1;
+
+                return Err(e).context("Failed to fetch block from S3");
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::predicate;
+
+    mod get_near_block_date {
+        use super::*;
+
+        #[tokio::test]
+        async fn gets_the_date_of_the_closest_block() {
+            let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+            mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000106397175/block.json"),
+            )
+            .times(1)
+            .returning(|_, _| {
+                Ok(r#"{
+                    "author": "someone",
+                    "header": {
+                      "approvals": [],
+                      "block_merkle_root": "ERiC7AJ2zbVz1HJHThR5NWDDN9vByhwdjcVfivmpY5B",
+                      "block_ordinal": 92102682,
+                      "challenges_result": [],
+                      "challenges_root": "11111111111111111111111111111111",
+                      "chunk_headers_root": "MDiJxDyvUQaZRKmUwa5jgQuV6XjwVvnm4tDrajCxwvz",
+                      "chunk_mask": [],
+                      "chunk_receipts_root": "n84wEo7kTKTCJsyqBZ2jndhjrAMeJAXMwKvnJR7vCuy",
+                      "chunk_tx_root": "D8j64GMKBMvUfvnuHtWUyDtMHM5mJ2pA4G5VmYYJvo5G",
+                      "chunks_included": 4,
+                      "epoch_id": "2RMQiomr6CSSwUWpmB62YohxHbfadrHfcsaa3FVb4J9x",
+                      "epoch_sync_data_hash": null,
+                      "gas_price": "100000000",
+                      "hash": "FA1z9RVm9fX3g3mgP3NToZGwWeeXYn8bvZs4nwwTgCpD",
+                      "height": 102162333,
+                      "last_ds_final_block": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
+                      "last_final_block": "8xkwjn6Lb6UhMBhxcbVQBf3318GafkdaXoHA8Jako1nn",
+                      "latest_protocol_version": 62,
+                      "next_bp_hash": "dmW84aEj2iVJMLwJodJwTfAyeA1LJaHEthvnoAsvTPt",
+                      "next_epoch_id": "C9TDDYthANoduoTBZS7WYDsBSe9XCm4M2F9hRoVXVXWY",
+                      "outcome_root": "6WxzWLVp4b4bFbxHzu18apVfXLvHGKY7CHoqD2Eq3TFJ",
+                      "prev_hash": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
+                      "prev_height": 102162332,
+                      "prev_state_root": "Aq2ndkyDiwroUWN69Ema9hHtnr6dPHoEBRNyfmd8v4gB",
+                      "random_value": "7ruuMyDhGtTkYaCGYMy7PirPiM79DXa8GhVzQW1pHRoz",
+                      "rent_paid": "0",
+                      "signature": "ed25519:5gYYaWHkAEK5etB8tDpw7fmehkoYSprUxKPygaNqmhVDFCMkA1n379AtL1BBkQswLAPxWs1BZvypFnnLvBtHRknm",
+                      "timestamp": 1695921400989555700,
+                      "timestamp_nanosec": "1695921400989555820",
+                      "total_supply": "1155783047679681223245725102954966",
+                      "validator_proposals": [],
+                      "validator_reward": "0"
+                    },
+                    "chunks": []
+                }"#
+                .to_string())
+            });
+
+            let block_date = get_nearest_block_date(&mock_s3_client, 106397175, &ChainId::Mainnet)
+                .await
+                .unwrap();
+
+            assert_eq!(
+                block_date,
+                chrono::Utc.timestamp_nanos(1695921400989555820 as i64)
+            );
+        }
+
+        #[tokio::test]
+        async fn retires_if_a_block_doesnt_exist() {
+            let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+            mock_s3_client
+                .expect_get_text_file()
+                .with(
+                    predicate::eq("near-lake-data-mainnet"),
+                    predicate::eq("000106397175/block.json"),
+                )
+                .times(1)
+                .returning(|_, _| {
+                    Err(anyhow::anyhow!(
+                        aws_sdk_s3::types::error::NoSuchKey::builder().build()
+                    ))
+                });
+            mock_s3_client
+                .expect_get_text_file()
+                .with(
+                    predicate::eq("near-lake-data-mainnet"),
+                    predicate::eq("000106397176/block.json"),
+                )
+                .times(1)
+                .returning(|_, _| {
+                    Ok(r#"{
+                        "author": "someone",
+                        "header": {
+                          "approvals": [],
+                          "block_merkle_root": "ERiC7AJ2zbVz1HJHThR5NWDDN9vByhwdjcVfivmpY5B",
+                          "block_ordinal": 92102682,
+                          "challenges_result": [],
+                          "challenges_root": "11111111111111111111111111111111",
+                          "chunk_headers_root": "MDiJxDyvUQaZRKmUwa5jgQuV6XjwVvnm4tDrajCxwvz",
+                          "chunk_mask": [],
+                          "chunk_receipts_root": "n84wEo7kTKTCJsyqBZ2jndhjrAMeJAXMwKvnJR7vCuy",
+                          "chunk_tx_root": "D8j64GMKBMvUfvnuHtWUyDtMHM5mJ2pA4G5VmYYJvo5G",
+                          "chunks_included": 4,
+                          "epoch_id": "2RMQiomr6CSSwUWpmB62YohxHbfadrHfcsaa3FVb4J9x",
+                          "epoch_sync_data_hash": null,
+                          "gas_price": "100000000",
+                          "hash": "FA1z9RVm9fX3g3mgP3NToZGwWeeXYn8bvZs4nwwTgCpD",
+                          "height": 102162333,
+                          "last_ds_final_block": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
+                          "last_final_block": "8xkwjn6Lb6UhMBhxcbVQBf3318GafkdaXoHA8Jako1nn",
+                          "latest_protocol_version": 62,
+                          "next_bp_hash": "dmW84aEj2iVJMLwJodJwTfAyeA1LJaHEthvnoAsvTPt",
+                          "next_epoch_id": "C9TDDYthANoduoTBZS7WYDsBSe9XCm4M2F9hRoVXVXWY",
+                          "outcome_root": "6WxzWLVp4b4bFbxHzu18apVfXLvHGKY7CHoqD2Eq3TFJ",
+                          "prev_hash": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
+                          "prev_height": 102162332,
+                          "prev_state_root": "Aq2ndkyDiwroUWN69Ema9hHtnr6dPHoEBRNyfmd8v4gB",
+                          "random_value": "7ruuMyDhGtTkYaCGYMy7PirPiM79DXa8GhVzQW1pHRoz",
+                          "rent_paid": "0",
+                          "signature": "ed25519:5gYYaWHkAEK5etB8tDpw7fmehkoYSprUxKPygaNqmhVDFCMkA1n379AtL1BBkQswLAPxWs1BZvypFnnLvBtHRknm",
+                          "timestamp": 1695921400989555700,
+                          "timestamp_nanosec": "1695921400989555820",
+                          "total_supply": "1155783047679681223245725102954966",
+                          "validator_proposals": [],
+                          "validator_reward": "0"
+                        },
+                        "chunks": []
+                    }"#
+                    .to_string())
+                });
+
+            let block_date = get_nearest_block_date(&mock_s3_client, 106397175, &ChainId::Mainnet)
+                .await
+                .unwrap();
+
+            assert_eq!(
+                block_date,
+                chrono::Utc.timestamp_nanos(1695921400989555820 as i64)
+            );
+        }
+
+        #[tokio::test]
+        async fn exits_if_maximum_retries_exceeded() {
+            let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+            mock_s3_client
+                .expect_get_text_file()
+                .times(MAX_S3_RETRY_COUNT as usize)
+                .returning(|_, _| {
+                    Err(anyhow::anyhow!(
+                        aws_sdk_s3::types::error::NoSuchKey::builder().build()
+                    ))
+                });
+
+            let result =
+                get_nearest_block_date(&mock_s3_client, 106397175, &ChainId::Mainnet).await;
+
+            assert!(result.is_err());
         }
     }
 }

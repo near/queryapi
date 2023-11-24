@@ -1,4 +1,3 @@
-use near_jsonrpc_client::JsonRpcClient;
 use tracing_subscriber::prelude::*;
 
 use crate::indexer_config::IndexerConfig;
@@ -24,15 +23,10 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting {}", crate::LOG_TARGET);
 
-    let json_rpc_client = JsonRpcClient::connect("https://archival-rpc.mainnet.near.org");
     let redis_connection_manager = redis::connect("redis://127.0.0.1").await?;
 
     let aws_config = aws_config::from_env().load().await;
-    let s3_client = aws_sdk_s3::Client::new(&aws_config);
-
-    let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(
-        crate::s3_client::S3Client::new(&aws_config),
-    );
+    let s3_client = crate::s3_client::S3Client::new(&aws_config);
 
     let contract = "queryapi.dataplatform.near";
     let matching_rule = MatchingRule::ActionAny {
@@ -63,8 +57,6 @@ async fn main() -> anyhow::Result<()> {
         redis_connection_manager,
         s3_client,
         ChainId::Mainnet,
-        json_rpc_client,
-        delta_lake_client,
     )?;
 
     streamer.take_handle().unwrap().await??;
