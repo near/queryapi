@@ -1,6 +1,7 @@
 use anyhow::Context;
 use chrono::{DateTime, NaiveDate, Utc};
 use futures::future::try_join_all;
+use near_lake_framework::near_indexer_primitives;
 
 const DELTA_LAKE_BUCKET: &str = "near-delta-lake";
 const INDEXED_ACTIONS_PREFIX: &str = "silver/accounts/action_receipt_actions/metadata";
@@ -14,6 +15,18 @@ pub struct LatestBlockMetadata {
     pub last_indexed_block_date: String,
     pub first_indexed_block_date: String,
     pub processed_at_utc: String,
+}
+
+#[derive(serde::Deserialize, Debug, Eq, PartialEq)]
+pub struct IndexFileAction {
+    pub action_kind: String,
+    pub block_heights: Vec<near_indexer_primitives::types::BlockHeight>,
+}
+
+#[derive(serde::Deserialize, Debug, Eq, PartialEq)]
+pub struct IndexFile {
+    pub heights: Vec<near_indexer_primitives::types::BlockHeight>,
+    pub actions: Vec<IndexFileAction>,
 }
 
 pub struct DeltaLakeClient<T>
@@ -63,6 +76,8 @@ where
             .await?;
 
         let mut results = vec![];
+        // TODO do in parallel?
+        // TODO only list objects without .json extension
         for object in objects {
             results.extend(
                 self.s3_client
@@ -133,7 +148,7 @@ where
         &self,
         start_date: DateTime<Utc>,
         contract_pattern: &str,
-    ) -> anyhow::Result<Vec<String>> {
+    ) -> anyhow::Result<Vec<near_indexer_primitives::types::BlockHeight>> {
         let file_list = self.list_matching_index_files(contract_pattern).await?;
         tracing::debug!(
             "Found {} index files matching {}",
@@ -154,10 +169,25 @@ where
 
         let file_content_list = try_join_all(futures).await?;
 
-        Ok(file_content_list
+        let mut block_heights: Vec<_> = file_content_list
             .into_iter()
-            .filter(|content| !content.is_empty())
-            .collect())
+            .filter_map(|content| {
+                if content.is_empty() {
+                    None
+                } else {
+                    serde_json::from_str::<IndexFile>(&content).ok()
+                }
+            })
+            .flat_map(|index_file| index_file.heights)
+            .collect();
+
+        let pattern_has_multiple_contracts = contract_pattern.chars().any(|c| c == ',' || c == '*');
+        if pattern_has_multiple_contracts {
+            block_heights.sort();
+            block_heights.dedup();
+        }
+
+        Ok(block_heights)
     }
 }
 
@@ -226,12 +256,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
-            block_heights,
-            vec![
-                "{\"heights\":[92080299,92080344],\"actions\":[{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[92080344,92080299]}]}"
-            ]
-        )
+        assert_eq!(block_heights, vec![92080299, 92080344])
     }
 
     #[tokio::test]
@@ -240,8 +265,6 @@ mod tests {
 
         mock_s3_client
             .expect_list_all_objects()
-            // FIX: This syntax is preferable as it will assert the use of the arguments - but it causes a compiler error in this specific case
-            // .with(predicate::eq(DELTA_LAKE_BUCKET), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/".to_string()))
             .returning(|_bucket, prefix| {
                 let objects = match prefix {
                     "silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/" => vec![
@@ -270,7 +293,7 @@ mod tests {
         mock_s3_client
             .expect_get_text_file()
             .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/aurora-silo-dev/hackathon/2023-05-30.json".to_string()))
-            .returning(|_bucket, _prefix| Ok("{\"heights\":[93065811,93067570,93067619,93067631,93067726,93067737,93067770,93067889,93067920,93067926,93067936,93073935,93073944,93073954],\"actions\":[{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[93073954,93067770,93067726,93065811,93067619,93073935,93067889,93067737,93067570,93067926,93073944,93067920,93067631,93067936]}]}".to_string()));
+            .returning(|_bucket, _prefix| Ok("{\"heights\":[92167977,93067570,93067619,93067631,93067726,93067737,93067770,93067889,93067920,93067926,93067936,93073935,93073944,93073954],\"actions\":[{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[93073954,93067770,93067726,93065811,93067619,93073935,93067889,93067737,93067570,93067926,93073944,93067920,93067631,93067936]}]}".to_string()));
         mock_s3_client
             .expect_get_text_file()
             .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/sputnik-dao/hackathon/2022-05-27.json".to_string()))
@@ -293,9 +316,10 @@ mod tests {
         assert_eq!(
             block_heights,
             vec![
-                "{\"heights\":[92167977,92168200,92168293,92168338,92168535,92168870,92168871,92168922,92168923,92168939,92168971,92169330],\"actions\":[{\"action_kind\":\"DEPLOY_CONTRACT\",\"block_heights\":[92168200,92168338]},{\"action_kind\":\"ADD_KEY\",\"block_heights\":[92168535,92167977]},{\"action_kind\":\"CREATE_ACCOUNT\",\"block_heights\":[92167977]},{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[92168922,92168971,92168870]},{\"action_kind\":\"TRANSFER\",\"block_heights\":[92168871,92168923,92169330,92168293,92168939,92167977]}]}",
-                "{\"heights\":[93065811,93067570,93067619,93067631,93067726,93067737,93067770,93067889,93067920,93067926,93067936,93073935,93073944,93073954],\"actions\":[{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[93073954,93067770,93067726,93065811,93067619,93073935,93067889,93067737,93067570,93067926,93073944,93067920,93067631,93067936]}]}",
-                "{\"heights\":[66494954],\"actions\":[{\"action_kind\":\"CREATE_ACCOUNT\",\"block_heights\":[66494954]},{\"action_kind\":\"DEPLOY_CONTRACT\",\"block_heights\":[66494954]},{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[66494954]},{\"action_kind\":\"TRANSFER\",\"block_heights\":[66494954]}]}"
+                66494954, 92167977, 92168200, 92168293, 92168338, 92168535, 92168870, 92168871,
+                92168922, 92168923, 92168939, 92168971, 92169330, 93067570, 93067619, 93067631,
+                93067726, 93067737, 93067770, 93067889, 93067920, 93067926, 93067936, 93073935,
+                93073944, 93073954
             ]
         )
     }
@@ -306,8 +330,6 @@ mod tests {
 
         mock_s3_client
             .expect_list_all_objects()
-            // FIX: This syntax is preferable as it will assert the use of the arguments - but it causes a compiler error in this specific case
-            // .with(predicate::eq(DELTA_LAKE_BUCKET), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/".to_string()))
             .returning(|_bucket, prefix| {
                 let objects = match prefix {
                     "silver/accounts/action_receipt_actions/metadata/near/keypom/" => vec![
@@ -373,11 +395,7 @@ mod tests {
 
         assert_eq!(
             block_heights,
-            vec![
-                "{\"heights\":[102025554],\"actions\":[{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[102025554]}]}",
-                "{\"heights\":[104045849,104047967,104047968],\"actions\":[{\"action_kind\":\"TRANSFER\",\"block_heights\":[104047968,104045849,104047967]}]}",
-                "{\"heights\":[104616819],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}"
-            ]
+            vec![102025554, 104045849, 104047967, 104047968, 104616819]
         )
     }
 
@@ -387,8 +405,6 @@ mod tests {
 
         mock_s3_client
             .expect_list_all_objects()
-            // FIX: This syntax is preferable as it will assert the use of the arguments - but it causes a compiler error in this specific case
-            // .with(predicate::eq(DELTA_LAKE_BUCKET), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/".to_string()))
             .returning(|_bucket, prefix| {
                 let objects = match prefix {
                     "silver/accounts/action_receipt_actions/metadata/near/keypom/" => vec![
@@ -401,7 +417,6 @@ mod tests {
                     "silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/" => vec![
                         "silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/2021-08-22.json".to_string()
                     ],
-
                     "silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json" => vec![
                         "silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string()
                     ],
@@ -443,10 +458,58 @@ mod tests {
         assert_eq!(
             block_heights,
             vec![
-                "{\"heights\":[78516467,78516476,78516489,78516511,78516512],\"actions\":[{\"action_kind\":\"DELETE_ACCOUNT\",\"block_heights\":[78516467]},{\"action_kind\":\"CREATE_ACCOUNT\",\"block_heights\":[78516476]},{\"action_kind\":\"TRANSFER\",\"block_heights\":[78516476,78516512]},{\"action_kind\":\"ADD_KEY\",\"block_heights\":[78516476]},{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[78516511]},{\"action_kind\":\"DEPLOY_CONTRACT\",\"block_heights\":[78516489]}]}",
-                "{\"heights\":[104616819],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}",
-                "{\"heights\":[45894617,45894627,45894628,45894712,45898413,45898423,45898424],\"actions\":[{\"action_kind\":\"CREATE_ACCOUNT\",\"block_heights\":[45894617,45898413]},{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[45898423,45894627]},{\"action_kind\":\"DELETE_ACCOUNT\",\"block_heights\":[45894712]},{\"action_kind\":\"ADD_KEY\",\"block_heights\":[45894617,45898413]},{\"action_kind\":\"TRANSFER\",\"block_heights\":[45894628,45894617,45898424,45898413]},{\"action_kind\":\"DEPLOY_CONTRACT\",\"block_heights\":[45898423,45894627]}]}",
+                45894617, 45894627, 45894628, 45894712, 45898413, 45898423, 45898424, 78516467,
+                78516476, 78516489, 78516511, 78516512, 104616819
             ]
+        )
+    }
+
+    #[tokio::test]
+    async fn sorts_and_removes_duplicates_for_multiple_contracts() {
+        let mut mock_s3_client = crate::s3_client::MockS3ClientTrait::new();
+
+        mock_s3_client
+            .expect_list_all_objects()
+            .returning(|_bucket, prefix| {
+                let objects = match prefix {
+                    "silver/accounts/action_receipt_actions/metadata/near/keypom/" => vec![
+                        "silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string(),
+                    ],
+                    "silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/" => vec![
+                        "silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/2021-08-22.json".to_string()
+                    ],
+
+                    _ => panic!("Unexpected prefix: {}", prefix)
+                };
+
+                Ok(objects)
+            });
+        mock_s3_client
+            .expect_get_text_file()
+            .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/agency/hackathon/2021-08-22.json".to_string()))
+            .returning(|_bucket, _prefix| Ok("{\"heights\":[45894628,45894617,45898413,45894627,45894712,45898423,45898424],\"actions\":[{\"action_kind\":\"CREATE_ACCOUNT\",\"block_heights\":[45894617,45898413]},{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[45898423,45894627]},{\"action_kind\":\"DELETE_ACCOUNT\",\"block_heights\":[45894712]},{\"action_kind\":\"ADD_KEY\",\"block_heights\":[45894617,45898413]},{\"action_kind\":\"TRANSFER\",\"block_heights\":[45894628,45894617,45898424,45898413]},{\"action_kind\":\"DEPLOY_CONTRACT\",\"block_heights\":[45898423,45894627]}]}".to_string()));
+        mock_s3_client
+            .expect_get_text_file()
+            .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string()))
+            .returning(|_bucket, _prefix| Ok("{\"heights\":[45898424,45898423,45898413,45894712],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}".to_string()));
+
+        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+
+        let block_heights = delta_lake_client
+            .list_matching_block_heights(
+                NaiveDate::from_ymd_opt(2021, 5, 26)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_utc(),
+                "keypom.near, hackathon.agency.near",
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            block_heights,
+            vec![45894617, 45894627, 45894628, 45894712, 45898413, 45898423, 45898424]
         )
     }
 }

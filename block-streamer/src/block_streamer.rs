@@ -1,13 +1,13 @@
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::indexer_rule_match::ChainId;
 use crate::rules::MatchingRule;
-use crate::s3;
 use anyhow::{bail, Context};
 use aws_sdk_s3::Client as S3Client;
 use chrono::{DateTime, LocalResult, TimeZone, Utc};
 use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::blocks::RpcBlockRequest;
 use near_lake_framework::near_indexer_primitives::types::{BlockHeight, BlockId, BlockReference};
+use near_lake_framework::near_indexer_primitives::views::BlockView;
 use tokio::task::JoinHandle;
 
 pub const MAX_RPC_BLOCKS_TO_PROCESS: u8 = 20;
@@ -120,13 +120,22 @@ pub(crate) async fn start_block_stream(
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
     let last_indexed_block = latest_block_metadata.last_indexed_block.parse::<u64>()?;
 
-    let blocks_from_index = filter_matching_blocks_from_index_files(
-        start_block_height,
-        &indexer,
-        delta_lake_client,
-        start_date,
-    )
-    .await?;
+    let blocks_from_index = match &indexer.indexer_rule.matching_rule {
+        MatchingRule::ActionAny {
+            affected_account_id,
+            ..
+        } => {
+            delta_lake_client
+                .list_matching_block_heights(start_date, affected_account_id)
+                .await
+        }
+        MatchingRule::ActionFunctionCall { .. } => {
+            bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+        }
+        MatchingRule::Event { .. } => {
+            bail!("Event matching rule not yet supported for historical processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+        }
+    }?;
 
     tracing::info!(
         "Flushing {} block heights from index files to historical Stream for indexer: {}",
@@ -198,88 +207,6 @@ pub(crate) async fn start_block_stream(
     );
 
     Ok(())
-}
-
-pub(crate) async fn filter_matching_blocks_from_index_files(
-    start_block_height: BlockHeight,
-    indexer: &IndexerConfig,
-    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
-    start_date: DateTime<Utc>,
-) -> anyhow::Result<Vec<BlockHeight>> {
-    let mut needs_dedupe_and_sort = false;
-    let indexer_rule = &indexer.indexer_rule;
-
-    let index_files_content = match &indexer_rule.matching_rule {
-        MatchingRule::ActionAny {
-            affected_account_id,
-            ..
-        } => {
-            if affected_account_id.contains('*') || affected_account_id.contains(',') {
-                needs_dedupe_and_sort = true;
-            }
-            delta_lake_client
-                .list_matching_block_heights(start_date, affected_account_id)
-                .await
-        }
-        MatchingRule::ActionFunctionCall { .. } => {
-            bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
-        }
-        MatchingRule::Event { .. } => {
-            bail!("Event matching rule not yet supported for historical processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
-        }
-    }?;
-
-    tracing::info!(
-        "Found {file_count} index files for function {:?} {:?} with matching rule {indexer_rule:?}",
-        indexer.account_id,
-        indexer.function_name,
-        file_count = index_files_content.len()
-    );
-    let mut blocks_to_process: Vec<BlockHeight> =
-        parse_blocks_from_index_files(index_files_content, start_block_height);
-    if needs_dedupe_and_sort {
-        blocks_to_process.sort();
-        blocks_to_process.dedup();
-    }
-    tracing::info!(
-        "Found {block_count} indexed blocks to process for function {:?} {:?}",
-        indexer.account_id,
-        indexer.function_name,
-        block_count = blocks_to_process.len()
-    );
-
-    Ok(blocks_to_process)
-}
-
-fn parse_blocks_from_index_files(
-    index_files_content: Vec<String>,
-    start_block_height: u64,
-) -> Vec<BlockHeight> {
-    index_files_content
-        .into_iter()
-        .flat_map(|file_content| {
-            if let Ok(file_json) = serde_json::from_str::<serde_json::Value>(&file_content) {
-                if let Some(block_heights) = file_json["heights"].as_array() {
-                    block_heights
-                        .iter()
-                        .map(|block_height| block_height.as_u64().unwrap())
-                        .collect::<Vec<u64>>()
-                        .into_iter()
-                        .filter(|block_height| block_height >= &start_block_height)
-                        .collect()
-                } else {
-                    tracing::error!(
-                        "Unable to parse index file, no heights found: {:?}",
-                        file_content
-                    );
-                    vec![]
-                }
-            } else {
-                tracing::error!("Unable to parse index file: {:?}", file_content);
-                vec![]
-            }
-        })
-        .collect::<Vec<u64>>()
 }
 
 // if block does not exist, try next block, up to MAX_RPC_BLOCKS_TO_PROCESS (20) blocks
