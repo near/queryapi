@@ -13,11 +13,11 @@ pub struct Task {
     cancellation_token: tokio_util::sync::CancellationToken,
 }
 
-pub struct BlockStreamer {
+pub struct BlockStream {
     task: Option<Task>,
 }
 
-impl BlockStreamer {
+impl BlockStream {
     pub fn new() -> Self {
         Self { task: None }
     }

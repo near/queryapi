@@ -4,7 +4,7 @@ use crate::indexer_config::IndexerConfig;
 use crate::rules::types::indexer_rule_match::ChainId;
 use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
-mod block_streamer;
+mod block_stream;
 mod delta_lake_client;
 mod indexer_config;
 mod redis;
@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
         indexer_rule: filter_rule,
     };
 
-    let mut streamer = block_streamer::BlockStreamer::new();
+    let mut streamer = block_stream::BlockStream::new();
 
     streamer.start(
         106000000,
