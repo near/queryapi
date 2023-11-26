@@ -2,11 +2,8 @@ use crate::indexer_config::IndexerConfig;
 use crate::rules::types::indexer_rule_match::ChainId;
 use crate::rules::MatchingRule;
 use anyhow::{bail, Context};
-use chrono::TimeZone;
 use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
-
-pub const MAX_S3_RETRY_COUNT: u8 = 20;
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
