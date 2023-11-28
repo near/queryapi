@@ -472,6 +472,101 @@ CREATE TABLE
     expect(result.length).toEqual(2);
   });
 
+  test('indexer skips connections to db when no context.db methods invoked', async () => {
+    const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
+      startConnection: jest.fn(),
+      endConnection: jest.fn(),
+    } as unknown as DmlHandler);
+    const mockDmlHandler: any = {
+      create: jest.fn().mockReturnValue(mockDmlHandlerPromise),
+    } as unknown as DmlHandler;
+
+    const functions: Record<string, any> = {};
+    functions['morgs.near/social_feed1'] = {
+      code: `
+            const postData = {
+              account_id: 'morgs_near',
+              block_height: 1,
+              receipt_id: 'abc',
+              content: 'test',
+              block_timestamp: 800,
+              accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
+            };
+        `,
+      schema: SIMPLE_SCHEMA
+    };
+    const mockBlock = Block.fromStreamerMessage({
+      block: {
+        chunks: [],
+        header: {
+          height: 123
+        }
+      },
+      shards: {}
+    } as unknown as StreamerMessage) as unknown as Block;
+
+    const indexer = new Indexer({
+      fetch: genericMockFetch as unknown as typeof fetch,
+      DmlHandler: mockDmlHandler
+    });
+    await indexer.runFunctions(mockBlock, functions, false);
+
+    expect((await mockDmlHandlerPromise).startConnection).toBeCalledTimes(0);
+    expect((await mockDmlHandlerPromise).endConnection).toBeCalledTimes(1);
+  });
+
+  test('indexer code catches failed query error, not triggering rollback', async () => {
+    const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
+      startConnection: jest.fn(),
+      setTransactionFailed: jest.fn(),
+      endConnection: jest.fn(),
+      insert: jest.fn().mockImplementation(() => { throw new Error('query fail'); }),
+    } as unknown as DmlHandler);
+    const mockDmlHandler: any = {
+      create: jest.fn().mockReturnValue(mockDmlHandlerPromise),
+    } as unknown as DmlHandler;
+
+    const functions: Record<string, any> = {};
+    functions['morgs.near/social_feed1'] = {
+      code: `
+            const postData = {
+              account_id: 'morgs_near',
+              block_height: 1,
+              receipt_id: 'abc',
+              content: 'test',
+              block_timestamp: 800,
+              accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
+            };
+            try {
+              await context.db.Posts.insert(postData);
+            } catch (error) {
+              console.log('Error caught during insert');
+            }
+        `,
+      schema: SIMPLE_SCHEMA
+    };
+    const mockBlock = Block.fromStreamerMessage({
+      block: {
+        chunks: [],
+        header: {
+          height: 123
+        }
+      },
+      shards: {}
+    } as unknown as StreamerMessage) as unknown as Block;
+
+    const indexer = new Indexer({
+      fetch: genericMockFetch as unknown as typeof fetch,
+      DmlHandler: mockDmlHandler
+    });
+    await indexer.runFunctions(mockBlock, functions, false);
+
+    expect((await mockDmlHandlerPromise).startConnection).toBeCalledTimes(1);
+    expect((await mockDmlHandlerPromise).setTransactionFailed).toBeCalledTimes(0);
+    expect((await mockDmlHandlerPromise).endConnection).toBeCalledTimes(1);
+    expect((await mockDmlHandlerPromise).insert).toBeCalledTimes(1);
+  });
+
   test('indexer succeeds all queries, triggering commit', async () => {
     const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
       startConnection: jest.fn(),
@@ -525,6 +620,7 @@ CREATE TABLE
   test('indexer fails one query, triggering rollback of all other queries', async () => {
     const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
       startConnection: jest.fn(),
+      setTransactionFailed: jest.fn(),
       endConnection: jest.fn(),
       insert: jest.fn().mockImplementation(() => { throw new Error('query fail'); }),
       upsert: jest.fn()
@@ -593,10 +689,11 @@ CREATE TABLE
     }).rejects.toThrow('query fail');
 
     expect((await mockDmlHandlerPromise).startConnection).toBeCalledTimes(1);
+    expect((await mockDmlHandlerPromise).setTransactionFailed).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).endConnection).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).insert).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).upsert).toHaveBeenCalled();
-  }, 100000);
+  });
 
   test('indexer builds context and does simultaneous upserts', async () => {
     const mockDmlHandler: Promise<DmlHandler> = Promise.resolve({
@@ -917,6 +1014,17 @@ CREATE TABLE
         errors: null,
       }),
     }));
+    const startConnection = jest.fn();
+    const setTransactionFailed = jest.fn();
+    const endConnection = jest.fn();
+    const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
+      startConnection,
+      setTransactionFailed,
+      endConnection,
+    } as unknown as DmlHandler);
+    const mockDmlHandler: any = {
+      create: jest.fn().mockReturnValue(mockDmlHandlerPromise),
+    } as unknown as DmlHandler;
     const blockHeight = 456;
     const mockBlock = Block.fromStreamerMessage({
       block: {
@@ -927,7 +1035,7 @@ CREATE TABLE
       },
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
-    const indexer = new Indexer({ fetch: mockFetch as unknown as typeof fetch, DmlHandler: genericMockDmlHandler });
+    const indexer = new Indexer({ fetch: mockFetch as unknown as typeof fetch, DmlHandler: mockDmlHandler });
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -939,6 +1047,9 @@ CREATE TABLE
 
     await expect(indexer.runFunctions(mockBlock, functions, false)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
+    expect(startConnection).toBeCalledTimes(0);
+    expect(setTransactionFailed).toBeCalledTimes(1);
+    expect(endConnection).toBeCalledTimes(1);
   });
 
   test('Indexer.runFunctions() provisions a GraphQL endpoint with the specified schema', async () => {
