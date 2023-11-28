@@ -4,21 +4,54 @@ package blockstreamer;
 
 // The BlockStreamer service provides RPCs to manage BlockStream instances.
 service BlockStreamer {
-    // Starts a new BlockStream instance.
+    // Starts a new BlockStream process.
     rpc StartStream (StartStreamRequest) returns (StartStreamResponse);
 
-    // Stops an existing BlockStream instance.
+    // Stops an existing BlockStream process.
     rpc StopStream (StopStreamRequest) returns (StopStreamResponse);
 
-    // Lists all current BlockStream instances.
+    // Lists all current BlockStream processes.
     rpc ListStreams (ListStreamsRequest) returns (ListStreamsResponse);
 }
 
 // Request message for starting a BlockStream.
 message StartStreamRequest {
-    // Parameters required to start a BlockStream.
-    int64 start_block_height = 1;
-    string indexer_config = 2;
+    // Which block height to start from.
+    uint64 start_block_height = 1;
+    // The account ID which the indexer is defined under
+    string account_id = 2;
+    // The name of the indexer
+    string function_name = 3;
+    // The filter rule to apply to incoming blocks
+    oneof rule {
+        ActionAnyRule action_any_rule = 4;
+        ActionFunctionCallRule action_function_call_rule = 5;
+    }
+}
+
+// Match any action against the specified account
+message ActionAnyRule {
+    // The account ID pattern to match against
+    string affected_account_id = 1;
+    // The status of the action to match against
+    Status status = 2;
+}
+
+// Match a specific function call against the specified account
+message ActionFunctionCallRule {
+    // The account ID pattern to match against
+    string affected_account_id = 1;
+    // The function name to match against
+    string function_name = 2;
+    // The status of the action to match against
+    Status status = 3;
+}
+
+enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_SUCCESS = 1;
+    STATUS_FAILURE = 2;
+    STATUS_ANY = 3;
 }
 
 // Response message for starting a BlockStream.

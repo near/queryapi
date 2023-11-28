@@ -10,8 +10,16 @@ use tonic::Request;
 use routeguide::route_guide_client::RouteGuideClient;
 use routeguide::{Point, Rectangle, RouteNote};
 
+use blockstreamer::block_streamer_client::BlockStreamerClient;
+// use blockstreamer::{IndexerRule, MatchingRule, StartStreamRequest};
+use blockstreamer::*;
+
 pub mod routeguide {
     tonic::include_proto!("routeguide");
+}
+
+pub mod blockstreamer {
+    tonic::include_proto!("blockstreamer");
 }
 
 async fn print_features(client: &mut RouteGuideClient<Channel>) -> Result<(), Box<dyn Error>> {
@@ -91,25 +99,31 @@ async fn run_route_chat(client: &mut RouteGuideClient<Channel>) -> Result<(), Bo
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = RouteGuideClient::connect("http://[::1]:10000").await?;
+    // let mut client = RouteGuideClient::connect("http://[::1]:10000").await?;
+    let mut client = BlockStreamerClient::connect("http://[::1]:10000").await?;
 
     println!("*** SIMPLE RPC ***");
     let response = client
-        .get_feature(Request::new(Point {
-            latitude: 409_146_138,
-            longitude: -746_188_906,
+        .start_stream(Request::new(StartStreamRequest {
+            start_block_height: 10101010,
+            account_id: "morgs.near".to_string(),
+            function_name: "test".to_string(),
+            rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
+                affected_account_id: "token.sweat".to_string(),
+                status: Status::Success.into(),
+            })),
         }))
         .await?;
     println!("RESPONSE = {:?}", response);
 
-    println!("\n*** SERVER STREAMING ***");
-    print_features(&mut client).await?;
-
-    println!("\n*** CLIENT STREAMING ***");
-    run_record_route(&mut client).await?;
-
-    println!("\n*** BIDIRECTIONAL STREAMING ***");
-    run_route_chat(&mut client).await?;
+    // println!("\n*** SERVER STREAMING ***");
+    // print_features(&mut client).await?;
+    //
+    // println!("\n*** CLIENT STREAMING ***");
+    // run_record_route(&mut client).await?;
+    //
+    // println!("\n*** BIDIRECTIONAL STREAMING ***");
+    // run_route_chat(&mut client).await?;
 
     Ok(())
 }
