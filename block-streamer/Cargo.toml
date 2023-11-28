@@ -3,10 +3,6 @@ name = "block-streamer"
 version = "0.1.0"
 edition = "2021"
 
-[[bin]]
-name = "routeguide-client"
-path = "src/client.rs"
-
 [dependencies]
 anyhow = "1.0.57"
 async-trait = "0.1.74"
