@@ -110,6 +110,7 @@ export default class DmlHandler {
 
   private async makeQuery (schemaName: string, tableName: string, query: string, values: unknown[], formatValues: boolean): Promise<any[]> {
     try {
+      await this.startConnection();
       const formattedQuery = formatValues ? this.pgClient.format(query, values) : this.pgClient.format(query);
       const queryValues = formatValues ? [] : values;
       const result = await wrapError(async () => await this.pgClient.query(formattedQuery, queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);

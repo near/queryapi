@@ -100,7 +100,9 @@ export default class Indexer {
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
         try {
-          await (await dmlHandlerLazyLoader).startConnection();
+          if (modifiedFunction.includes('context.db')) {
+            await (await dmlHandlerLazyLoader).startConnection();
+          }
           await vm.run(modifiedFunction);
         } catch (e) {
           const error = e as Error;
