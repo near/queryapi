@@ -7,8 +7,24 @@ use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule};
 use crate::block_stream;
 use crate::server::blockstreamer;
 
-#[derive(Debug)]
-pub struct BlockStreamerService {}
+use blockstreamer::*;
+
+pub struct BlockStreamerService {
+    redis_connection_manager: crate::redis::ConnectionManager,
+    delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+}
+
+impl BlockStreamerService {
+    pub fn new(
+        redis_connection_manager: crate::redis::ConnectionManager,
+        delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+    ) -> Self {
+        Self {
+            redis_connection_manager,
+            delta_lake_client,
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService {

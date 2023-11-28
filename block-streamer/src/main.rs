@@ -24,11 +24,17 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting Block Streamer Service...");
 
-    server::init().await?;
+    let redis_connection_manager = redis::connect("redis://127.0.0.1").await?;
+
+    let aws_config = aws_config::from_env().load().await;
+    let s3_client = crate::s3_client::S3Client::new(&aws_config);
+
+    let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(s3_client);
+
+    server::init(redis_connection_manager, delta_lake_client).await?;
 
     Ok(())
 
-    // let redis_connection_manager = redis::connect("redis://127.0.0.1").await?;
     //
     // let aws_config = aws_config::from_env().load().await;
     // let s3_client = crate::s3_client::S3Client::new(&aws_config);
