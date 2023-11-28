@@ -110,6 +110,7 @@ export default class Indexer {
           // For now, we just log the message. In the future we could sanitize the stack trace
           // and give the correct line number offsets within the indexer function
           console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
+          (await dmlHandlerLazyLoader).setTransactionFailed();
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         } finally {
