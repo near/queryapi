@@ -9,7 +9,7 @@ export default class DmlHandler {
   private constructor (
     private readonly pgClient: PgClientModule,
     private connected: boolean = false,
-    private failedTransaction: boolean = false,
+    private failedQuery: boolean = false,
   ) {}
 
   static async create (
@@ -110,14 +110,16 @@ export default class DmlHandler {
   }
 
   private async makeQuery (schemaName: string, tableName: string, query: string, values: unknown[], formatValues: boolean): Promise<any[]> {
-    const formattedQuery = formatValues ? this.pgClient.format(query, values) : this.pgClient.format(query);
-    const queryValues = formatValues ? [] : values;
-    const result = await wrapError(async () => await this.pgClient.query(formattedQuery, queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    return result.rows;
-  }
-
-  setTransactionFailed (): void {
-    this.failedTransaction = true;
+    try {
+      await this.startConnection();
+      const formattedQuery = formatValues ? this.pgClient.format(query, values) : this.pgClient.format(query);
+      const queryValues = formatValues ? [] : values;
+      const result = await wrapError(async () => await this.pgClient.query(formattedQuery, queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+      return result.rows;
+    } catch (error) {
+      this.failedQuery = true;
+      throw error;
+    }
   }
 
   async startConnection (): Promise<void> {
@@ -129,10 +131,10 @@ export default class DmlHandler {
 
   async endConnection (): Promise<void> {
     if (this.connected) {
-      await this.pgClient.endConnection(this.failedTransaction);
+      await this.pgClient.endConnection(this.failedQuery);
     }
     this.connected = false;
-    this.failedTransaction = false;
+    this.failedQuery = false;
   }
 
   async connUsingPool (): Promise<PoolClient> {

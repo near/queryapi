@@ -40,20 +40,15 @@ export default class PgClient {
   }
 
   async startConnection (): Promise<void> {
-    try {
-      await this.client.connect();
-    } catch (error) {
-      console.error('Failed to connect to client');
-      throw error;
-    }
+    await this.client.connect();
     await this.client.query('BEGIN');
-    console.log('Postgres client connected. Transaction started successfully.');
+    console.log('Transaction started successfully. Postgres client connected.');
   }
 
   async endConnection (failedQuery: boolean): Promise<void> {
     await this.client.query(failedQuery ? 'ROLLBACK' : 'COMMIT');
     await this.client.end();
-    console.log(`Transaction ${failedQuery ? 'rolled back' : 'comitted'} successfully. Postgres client disconnected.`);
+    console.log('Transaction committed successfully. Postgres client disconnected.');
   }
 
   async query<R extends QueryResultRow = any>(query: string, params: any[] = []): Promise<QueryResult<R>> {
