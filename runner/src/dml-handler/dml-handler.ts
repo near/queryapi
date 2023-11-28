@@ -119,16 +119,16 @@ export default class DmlHandler {
     this.failedTransaction = true;
   }
 
-  async startConnection (): Promise<void> {
+  async startConnection (functionName: string): Promise<void> {
     if (!this.connected) {
-      await this.pgClient.startConnection();
+      await this.pgClient.startConnection(functionName);
       this.connected = true;
     }
   }
 
-  async endConnection (): Promise<void> {
+  async endConnection (functionName: string): Promise<void> {
     if (this.connected) {
-      await this.pgClient.endConnection(this.failedTransaction);
+      await this.pgClient.endConnection(this.failedTransaction, functionName);
     }
     this.connected = false;
     this.failedTransaction = false;

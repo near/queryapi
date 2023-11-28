@@ -28,7 +28,7 @@ export default class PgClient {
     this.format = pgFormat;
   }
 
-  async startConnection (): Promise<void> {
+  async startConnection (functionName: string): Promise<void> {
     try {
       await this.client.connect();
     } catch (error) {
@@ -36,13 +36,13 @@ export default class PgClient {
       throw error;
     }
     await this.client.query('BEGIN');
-    console.log('Postgres client connected. Transaction started successfully.');
+    console.log(`Postgres client connected. Transaction for indexer ${functionName} started successfully.`);
   }
 
-  async endConnection (failedQuery: boolean): Promise<void> {
+  async endConnection (failedQuery: boolean, functionName: string): Promise<void> {
     await this.client.query(failedQuery ? 'ROLLBACK' : 'COMMIT');
     await this.client.end();
-    console.log(`Transaction ${failedQuery ? 'rolled back' : 'comitted'} successfully. Postgres client disconnected.`);
+    console.log(`Transaction for indexer ${functionName} ${failedQuery ? 'rolled back' : 'comitted'} successfully. Postgres client disconnected.`);
   }
 
   async query<R extends QueryResultRow = any>(query: string, params: any[] = []): Promise<QueryResult<R>> {

@@ -37,9 +37,9 @@ describe('DML Handler tests', () => {
     });
 
     const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, mockPgClient);
-    await dmlHandler.startConnection();
-    await dmlHandler.startConnection();
-    await dmlHandler.startConnection();
+    await dmlHandler.startConnection('test_indexer');
+    await dmlHandler.startConnection('test_indexer');
+    await dmlHandler.startConnection('test_indexer');
 
     expect(startConnection).toHaveBeenCalledTimes(1);
   });
@@ -57,13 +57,13 @@ describe('DML Handler tests', () => {
     });
 
     const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, mockPgClient);
-    await dmlHandler.startConnection();
-    await dmlHandler.endConnection();
-    await dmlHandler.endConnection();
+    await dmlHandler.startConnection('test_indexer');
+    await dmlHandler.endConnection('test_indexer');
+    await dmlHandler.endConnection('test_indexer');
 
     expect(startConnection).toHaveBeenCalledTimes(1);
     expect(endConnection).toHaveBeenCalledTimes(1);
-    expect(endConnection).toHaveBeenCalledWith(false);
+    expect(endConnection).toHaveBeenCalledWith(false, 'test_indexer');
   });
 
   test('Test close connection with failed queries to database', async () => {
@@ -80,15 +80,15 @@ describe('DML Handler tests', () => {
     });
 
     const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, mockPgClient);
-    await dmlHandler.startConnection();
-    await dmlHandler.startConnection();
+    await dmlHandler.startConnection('test_indexer');
+    await dmlHandler.startConnection('test_indexer');
     dmlHandler.setTransactionFailed();
-    await dmlHandler.endConnection();
-    await dmlHandler.endConnection();
+    await dmlHandler.endConnection('test_indexer');
+    await dmlHandler.endConnection('test_indexer');
 
     expect(startConnection).toHaveBeenCalledTimes(1);
     expect(endConnection).toHaveBeenCalledTimes(1);
-    expect(endConnection).toHaveBeenCalledWith(true);
+    expect(endConnection).toHaveBeenCalledWith(true, 'test_indexer');
   });
 
   test('Test valid insert one with array', async () => {

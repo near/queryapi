@@ -101,7 +101,7 @@ export default class Indexer {
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
         try {
           if (modifiedFunction.includes('context.db')) {
-            await (await dmlHandlerLazyLoader).startConnection();
+            await (await dmlHandlerLazyLoader).startConnection(functionName);
           }
           await vm.run(modifiedFunction);
         } catch (e) {
@@ -114,7 +114,7 @@ export default class Indexer {
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         } finally {
-          await (await dmlHandlerLazyLoader).endConnection();
+          await (await dmlHandlerLazyLoader).endConnection(functionName);
         }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
