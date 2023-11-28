@@ -15,14 +15,21 @@ env:
 
 jobs:
   check:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v2
     - name: Run check
       working-directory: ./indexer
       run: cargo check
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run check
+      working-directory: ./indexer
+      run: cargo test
+
 
   rustfmt:
     name: rustfmt

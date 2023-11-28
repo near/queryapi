@@ -10,11 +10,29 @@ describe('RedisClient', () => {
 
     const client = new RedisClient(mockClient);
 
-    const message = await client.getNextStreamMessage('streamKey');
+    const message = await client.getStreamMessages('streamKey');
 
     expect(mockClient.xRead).toHaveBeenCalledWith(
       { key: 'streamKey', id: '0' },
       { COUNT: 1 }
+    );
+    expect(message).toBeUndefined();
+  });
+
+  it('returns count of messages after id with block', async () => {
+    const mockClient = {
+      on: jest.fn(),
+      connect: jest.fn().mockResolvedValue(null),
+      xRead: jest.fn().mockResolvedValue(null),
+    } as any;
+
+    const client = new RedisClient(mockClient);
+
+    const message = await client.getStreamMessages('streamKey', '123-0', 10);
+
+    expect(mockClient.xRead).toHaveBeenCalledWith(
+      { key: 'streamKey', id: '123-0' },
+      { COUNT: 10 }
     );
     expect(message).toBeUndefined();
   });

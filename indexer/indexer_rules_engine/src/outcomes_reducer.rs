@@ -1,5 +1,3 @@
-use futures::future::try_join_all;
-
 use crate::matcher;
 use crate::types::events::Event;
 use crate::types::indexer_rule_match::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
@@ -8,12 +6,12 @@ use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt, StreamerMessage,
 };
 
-pub async fn reduce_indexer_rule_matches_from_outcomes(
+pub fn reduce_indexer_rule_matches_from_outcomes(
     indexer_rule: &IndexerRule,
     streamer_message: &StreamerMessage,
     chain_id: ChainId,
-) -> anyhow::Result<Vec<IndexerRuleMatch>> {
-    let build_indexer_rule_match_futures = streamer_message
+) -> Vec<IndexerRuleMatch> {
+    streamer_message
         .shards
         .iter()
         .flat_map(|shard| {
@@ -33,19 +31,18 @@ pub async fn reduce_indexer_rule_matches_from_outcomes(
                 streamer_message.block.header.height,
                 chain_id.clone(),
             )
-        });
-
-    try_join_all(build_indexer_rule_match_futures).await
+        })
+        .collect()
 }
 
-async fn build_indexer_rule_match(
+fn build_indexer_rule_match(
     indexer_rule: &IndexerRule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     block_header_hash: String,
     block_height: u64,
     chain_id: ChainId,
-) -> anyhow::Result<IndexerRuleMatch> {
-    Ok(IndexerRuleMatch {
+) -> IndexerRuleMatch {
+    IndexerRuleMatch {
         chain_id: chain_id.clone(),
         indexer_rule_id: indexer_rule.id,
         indexer_rule_name: indexer_rule.name.clone(),
@@ -55,7 +52,7 @@ async fn build_indexer_rule_match(
             block_header_hash,
         ),
         block_height,
-    })
+    }
 }
 
 fn build_indexer_rule_match_payload(
@@ -127,9 +124,12 @@ mod tests {
         std::fs::read_to_string(path).unwrap()
     }
     fn read_local_streamer_message(block_height: u64) -> StreamerMessage {
-        let path = format!("../blocks/{}.json", block_height);
-        let json = serde_json::from_str(&read_local_file(&path)).unwrap();
-        serde_json::from_value(json).unwrap()
+        let path = format!(
+            "{}/blocks/{}.json",
+            env!("CARGO_MANIFEST_DIR"),
+            block_height
+        );
+        serde_json::from_str(&read_local_file(&path)).unwrap()
     }
 
     #[tokio::test]
@@ -149,9 +149,7 @@ mod tests {
             &wildcard_rule,
             &streamer_message,
             ChainId::Testnet,
-        )
-        .await
-        .unwrap();
+        );
 
         assert_eq!(result.len(), 0);
     }
@@ -173,9 +171,7 @@ mod tests {
             &wildcard_rule,
             &streamer_message,
             ChainId::Testnet,
-        )
-        .await
-        .unwrap();
+        );
 
         assert_eq!(result.len(), 1); // There are two matches, until we add Extraction we are just matching the first one (block matching)
     }
@@ -197,9 +193,7 @@ mod tests {
             &wildcard_rule,
             &streamer_message,
             ChainId::Testnet,
-        )
-        .await
-        .unwrap();
+        );
 
         assert_eq!(result.len(), 1); // see Extraction note in previous test
 
@@ -217,9 +211,7 @@ mod tests {
             &wildcard_rule,
             &streamer_message,
             ChainId::Testnet,
-        )
-        .await
-        .unwrap();
+        );
 
         assert_eq!(result.len(), 1); // see Extraction note in previous test
     }
@@ -241,9 +233,7 @@ mod tests {
             &wildcard_rule,
             &streamer_message,
             ChainId::Testnet,
-        )
-        .await
-        .unwrap();
+        );
 
         assert_eq!(result.len(), 1); // There are two matches, until we add Extraction we are just matching the first one (block matching)
     }
@@ -265,9 +255,7 @@ mod tests {
             &wildcard_rule,
             &streamer_message,
             ChainId::Testnet,
-        )
-        .await
-        .unwrap();
+        );
 
         assert_eq!(result.len(), 1); // There are two matches, until we add Extraction we are just matching the first one (block matching)
     }

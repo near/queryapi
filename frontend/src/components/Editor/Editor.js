@@ -381,6 +381,12 @@ const Editor = ({
         height: "85vh",
       }}
     >
+      {!indexerDetails.code && !isCreateNewIndexer && (
+        <Alert className="px-3 pt-3" variant="danger">
+          Indexer Function could not be found. Are you sure this indexer exists?
+        </Alert>
+      )}
+    {(indexerDetails.code || isCreateNewIndexer) && <>
       <EditorButtons
         handleFormating={handleFormating}
         handleCodeGen={handleCodeGen}
@@ -455,6 +461,7 @@ const Editor = ({
           handleEditorMount={handleEditorMount}
         />
       </div>
+      </>}
     </div>
   );
 };

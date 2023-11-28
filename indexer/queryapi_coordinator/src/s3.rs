@@ -7,6 +7,8 @@ use futures::future::try_join_all;
 // Currently that would be either 2,700 years of FunctionCall data or 1M contract folders.
 // If we hit 1M contracts we should build an index to support efficient wildcard contract matching.
 const MAX_S3_LIST_REQUESTS: usize = 1000;
+pub const INDEXED_DATA_FILES_BUCKET: &str = "near-delta-lake";
+pub const INDEXED_ACTIONS_FILES_FOLDER: &str = "silver/accounts/action_receipt_actions/metadata";
 
 fn storage_path_for_account(account: &str) -> String {
     let mut folders = account.split('.').collect::<Vec<&str>>();
@@ -194,22 +196,18 @@ fn file_name_date_after(start_date: DateTime<Utc>, file_name: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use crate::historical_block_processing::INDEXED_DATA_FILES_BUCKET;
-    use crate::historical_block_processing::{INDEXED_ACTIONS_FILES_FOLDER, LAKE_BUCKET_PREFIX};
-    use crate::opts::Opts;
     use crate::s3::{
         fetch_text_file_from_s3, find_index_files_by_pattern, list_s3_bucket_by_prefix,
+        INDEXED_ACTIONS_FILES_FOLDER, INDEXED_DATA_FILES_BUCKET,
     };
-    use aws_sdk_s3::{Client as S3Client, Config};
 
     /// Parses env vars from .env, Run with
     /// cargo test s3::tests::list_delta_bucket -- mainnet from-latest;
     #[tokio::test]
+    #[ignore]
     async fn list_delta_bucket() {
-        let opts = Opts::test_opts_with_aws();
-        let aws_config = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let list = list_s3_bucket_by_prefix(
             &s3_client,
@@ -223,11 +221,10 @@ mod tests {
 
     /// cargo test s3::tests::list_with_single_contract -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_single_contract() {
-        let opts = Opts::test_opts_with_aws();
-        let aws_config = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let list = find_index_files_by_pattern(
             &s3_client,
@@ -242,11 +239,10 @@ mod tests {
 
     /// cargo test s3::tests::list_with_csv_contracts -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_csv_contracts() {
-        let opts = Opts::test_opts_with_aws();
-        let aws_config = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let list = find_index_files_by_pattern(
             &s3_client,
@@ -261,11 +257,10 @@ mod tests {
 
     /// cargo test s3::tests::list_with_wildcard_contracts -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_wildcard_contracts() {
-        let opts = Opts::test_opts_with_aws();
-        let aws_config = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let list = find_index_files_by_pattern(
             &s3_client,
@@ -280,11 +275,10 @@ mod tests {
 
     /// cargo test s3::tests::list_with_csv_and_wildcard_contracts -- mainnet from-latest
     #[tokio::test]
+    #[ignore]
     async fn list_with_csv_and_wildcard_contracts() {
-        let opts = Opts::test_opts_with_aws();
-        let aws_config = &opts.lake_aws_sdk_config();
-        let s3_config = aws_sdk_s3::config::Builder::from(aws_config).build();
-        let s3_client = aws_sdk_s3::Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let list = find_index_files_by_pattern(
             &s3_client,
@@ -316,17 +310,15 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn handle_key_404() {
         let mut success = false;
 
-        let opts = Opts::test_opts_with_aws();
-        let s3_config: Config =
-            aws_sdk_s3::config::Builder::from(&opts.lake_aws_sdk_config()).build();
-
-        let s3_client: S3Client = S3Client::from_conf(s3_config);
+        let aws_config = aws_config::from_env().load().await;
+        let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
         let s3_result = fetch_text_file_from_s3(
-            format!("{}{}", LAKE_BUCKET_PREFIX, "mainnet").as_str(),
+            "near-lake-data-mainnet",
             "does_not_exist/block.json".to_string(),
             &s3_client,
         )
