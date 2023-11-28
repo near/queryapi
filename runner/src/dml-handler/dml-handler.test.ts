@@ -25,6 +25,14 @@ describe('DML Handler tests', () => {
     });
   });
 
+  test('TEST FOR OVERLOADING DATABASE WITH ONE POOL', async () => {
+    for (let i = 0; i < 100; i++) {
+      const dmlHandler = await DmlHandler.create('morgs_near');
+      const client = await dmlHandler.connUsingPool();
+      client.release();
+    }
+  });
+
   test('Test open connection to database', async () => {
     const startConnection = jest.fn();
     const query = jest.fn();

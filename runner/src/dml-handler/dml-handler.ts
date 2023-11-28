@@ -1,6 +1,7 @@
 import { wrapError } from '../utility';
 import PgClientModule from '../pg-client';
 import HasuraClient from '../hasura-client/hasura-client';
+import { type PoolClient } from 'pg';
 
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -132,5 +133,9 @@ export default class DmlHandler {
     }
     this.connected = false;
     this.failedTransaction = false;
+  }
+
+  async connUsingPool (): Promise<PoolClient> {
+    return await this.pgClient.conn();
   }
 }
