@@ -1,4 +1,4 @@
-import { Client, Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
+import { Client, type QueryResult, type QueryResultRow } from 'pg';
 import pgFormatModule from 'pg-format';
 
 interface ConnectionParams {
@@ -11,23 +11,12 @@ interface ConnectionParams {
 
 export default class PgClient {
   private readonly client: Client;
-  private readonly pgPool: Pool;
   public format: typeof pgFormatModule;
 
   constructor (
     connectionParams: ConnectionParams,
-    PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule,
   ) {
-    this.pgPool = new PgPool({
-      user: connectionParams.user,
-      password: connectionParams.password,
-      host: connectionParams.host,
-      port: Number(connectionParams.port),
-      database: connectionParams.database,
-      max: 10,
-      idleTimeoutMillis: 30000
-    });
     this.client = new Client({
       user: connectionParams.user,
       password: connectionParams.password,
@@ -58,9 +47,5 @@ export default class PgClient {
 
   async query<R extends QueryResultRow = any>(query: string, params: any[] = []): Promise<QueryResult<R>> {
     return await this.client.query<R>(query, params);
-  }
-
-  async conn (): Promise<PoolClient> {
-    return await this.pgPool.connect();
   }
 }
