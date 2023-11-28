@@ -100,9 +100,8 @@ export default class Indexer {
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
         try {
-          await (await dmlHandlerLazyLoader).startTransaction();
+          await (await dmlHandlerLazyLoader).startConnection();
           await vm.run(modifiedFunction);
-          await (await dmlHandlerLazyLoader).commitTransaction();
         } catch (e) {
           const error = e as Error;
           // NOTE: logging the exception would likely leak some information about the index runner.
@@ -110,8 +109,9 @@ export default class Indexer {
           // and give the correct line number offsets within the indexer function
           console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
-          await (await dmlHandlerLazyLoader).rollbackTransaction();
           throw e;
+        } finally {
+          await (await dmlHandlerLazyLoader).endConnection();
         }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {

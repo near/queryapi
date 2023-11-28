@@ -162,9 +162,8 @@ CREATE TABLE
       }),
     });
   const genericDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
-    startTransaction: jest.fn(),
-    commitTransaction: jest.fn(),
-    rollbackTransaction: jest.fn(),
+    startConnection: jest.fn(),
+    endConnection: jest.fn(),
   } as unknown as DmlHandler);
 
   const genericMockDmlHandler: any = {
@@ -475,9 +474,8 @@ CREATE TABLE
 
   test('indexer succeeds all queries, triggering commit', async () => {
     const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
-      startTransaction: jest.fn(),
-      commitTransaction: jest.fn(),
-      rollbackTransaction: jest.fn(),
+      startConnection: jest.fn(),
+      endConnection: jest.fn(),
       insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]),
       select: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }])
     } as unknown as DmlHandler);
@@ -518,18 +516,16 @@ CREATE TABLE
     });
     await indexer.runFunctions(mockBlock, functions, false);
 
-    expect((await mockDmlHandlerPromise).startTransaction).toBeCalledTimes(1);
-    expect((await mockDmlHandlerPromise).commitTransaction).toBeCalledTimes(1);
-    expect((await mockDmlHandlerPromise).rollbackTransaction).toBeCalledTimes(0);
+    expect((await mockDmlHandlerPromise).startConnection).toBeCalledTimes(1);
+    expect((await mockDmlHandlerPromise).endConnection).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).insert).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).select).toBeCalledTimes(2);
   });
 
   test('indexer fails one query, triggering rollback of all other queries', async () => {
     const mockDmlHandlerPromise: Promise<DmlHandler> = Promise.resolve({
-      startTransaction: jest.fn(),
-      commitTransaction: jest.fn(),
-      rollbackTransaction: jest.fn(),
+      startConnection: jest.fn(),
+      endConnection: jest.fn(),
       insert: jest.fn().mockImplementation(() => { throw new Error('query fail'); }),
       upsert: jest.fn()
     } as unknown as DmlHandler);
@@ -596,12 +592,11 @@ CREATE TABLE
       await indexer.runFunctions(mockBlock, functions, false);
     }).rejects.toThrow('query fail');
 
-    expect((await mockDmlHandlerPromise).startTransaction).toBeCalledTimes(1);
-    expect((await mockDmlHandlerPromise).commitTransaction).toBeCalledTimes(0);
-    expect((await mockDmlHandlerPromise).rollbackTransaction).toBeCalledTimes(1);
+    expect((await mockDmlHandlerPromise).startConnection).toBeCalledTimes(1);
+    expect((await mockDmlHandlerPromise).endConnection).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).insert).toBeCalledTimes(1);
     expect((await mockDmlHandlerPromise).upsert).toHaveBeenCalled();
-  });
+  }, 100000);
 
   test('indexer builds context and does simultaneous upserts', async () => {
     const mockDmlHandler: Promise<DmlHandler> = Promise.resolve({

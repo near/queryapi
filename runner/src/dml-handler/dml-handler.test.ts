@@ -25,6 +25,76 @@ describe('DML Handler tests', () => {
     });
   });
 
+  test('Test open connection to database', async () => {
+    const startConnection = jest.fn();
+    const mockPgClient: any = jest.fn().mockImplementation(() => {
+      return {
+        startConnection,
+        endConnection: jest.fn(),
+        query: jest.fn(),
+      };
+    });
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, mockPgClient);
+    await dmlHandler.startConnection();
+    await dmlHandler.startConnection();
+    await dmlHandler.startConnection();
+    expect(startConnection).toHaveBeenCalledTimes(1);
+  });
+
+  test('Test close connection with successful queries to database', async () => {
+    const startConnection = jest.fn();
+    const endConnection = jest.fn();
+    const mockPgClient: any = jest.fn().mockImplementation(() => {
+      return {
+        startConnection,
+        endConnection,
+        query: jest.fn(),
+      };
+    });
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, mockPgClient);
+    await dmlHandler.startConnection();
+    await dmlHandler.endConnection();
+    await dmlHandler.endConnection();
+    expect(startConnection).toHaveBeenCalledTimes(1);
+    expect(endConnection).toHaveBeenCalledTimes(1);
+    expect(endConnection).toHaveBeenCalledWith(false);
+  });
+
+  test('Test close connection with failed queries to database', async () => {
+    const startConnection = jest.fn();
+    const endConnection = jest.fn();
+    const query = jest.fn().mockImplementation(() => { throw new Error('query fail'); });
+    const mockPgClient: any = jest.fn().mockImplementation(() => {
+      return {
+        startConnection,
+        endConnection,
+        query,
+        format: jest.fn(),
+      };
+    });
+
+    const inputObj = {
+      account_id: 'test_acc_near',
+      block_height: 999,
+      block_timestamp: 'UTC',
+      content: 'test_content',
+      receipt_id: 111,
+      accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
+    };
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, mockPgClient);
+    await dmlHandler.startConnection();
+    await dmlHandler.startConnection();
+    await expect(async () => {
+      await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
+    }).rejects.toThrow('query fail');
+    await dmlHandler.endConnection();
+    await dmlHandler.endConnection();
+    expect(startConnection).toHaveBeenCalledTimes(1);
+    expect(endConnection).toHaveBeenCalledTimes(1);
+    expect(endConnection).toHaveBeenCalledWith(true);
+  });
+
   test('Test valid insert one with array', async () => {
     const inputObj = {
       account_id: 'test_acc_near',

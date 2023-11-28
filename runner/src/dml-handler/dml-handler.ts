@@ -7,12 +7,14 @@ export default class DmlHandler {
 
   private constructor (
     private readonly pgClient: PgClientModule,
+    private connected: boolean = false,
+    private failedQuery: boolean = false,
   ) {}
 
   static async create (
     account: string,
     hasuraClient: HasuraClient = new HasuraClient(),
-    PgClient = PgClientModule
+    PgClient = PgClientModule,
   ): Promise<DmlHandler> {
     const connectionParameters = await hasuraClient.getDbConnectionParameters(account);
     const pgClient = new PgClient({
@@ -36,11 +38,11 @@ export default class DmlHandler {
     const values = objects.map(obj => keys.map(key => obj[key]));
     const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (result.rows?.length === 0) {
+    const result = await this.makeQuery(schemaName, tableName, query, values, true);
+    if (result.length === 0) {
       console.log('No rows were inserted.');
     }
-    return result.rows;
+    return result;
   }
 
   async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
@@ -52,11 +54,11 @@ export default class DmlHandler {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
     }
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (!(result.rows && result.rows.length > 0)) {
+    const result = await this.makeQuery(schemaName, tableName, query, values, false);
+    if (result.length === 0) {
       console.log('No rows were selected.');
     }
-    return result.rows;
+    return result;
   }
 
   async update (schemaName: string, tableName: string, whereObject: any, updateObject: any): Promise<any[]> {
@@ -68,11 +70,11 @@ export default class DmlHandler {
     const queryValues = [...Object.values(updateObject), ...Object.values(whereObject)];
     const query = `UPDATE ${schemaName}."${tableName}" SET ${updateParam} WHERE ${whereParam} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (!(result.rows && result.rows.length > 0)) {
-      console.log('No rows were selected.');
+    const result = await this.makeQuery(schemaName, tableName, query, queryValues, false);
+    if (result.length === 0) {
+      console.log('No rows were updated.');
     }
-    return result.rows;
+    return result;
   }
 
   async upsert (schemaName: string, tableName: string, objects: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
@@ -86,11 +88,11 @@ export default class DmlHandler {
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
     const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (result.rows?.length === 0) {
+    const result = await this.makeQuery(schemaName, tableName, query, values, true);
+    if (result.length === 0) {
       console.log('No rows were inserted or updated.');
     }
-    return result.rows;
+    return result;
   }
 
   async delete (schemaName: string, tableName: string, object: any): Promise<any[]> {
@@ -99,22 +101,37 @@ export default class DmlHandler {
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
     const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${param} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (!(result.rows && result.rows.length > 0)) {
+    const result = await this.makeQuery(schemaName, tableName, query, values, false);
+    if (result.length === 0) {
       console.log('No rows were deleted.');
     }
-    return result.rows;
+    return result;
   }
 
-  async startTransaction (): Promise<void> {
-    await this.pgClient.transactionStart();
+  private async makeQuery (schemaName: string, tableName: string, query: string, values: unknown[], formatValues: boolean): Promise<any[]> {
+    try {
+      const formattedQuery = formatValues ? this.pgClient.format(query, values) : this.pgClient.format(query);
+      const queryValues = formatValues ? [] : values;
+      const result = await wrapError(async () => await this.pgClient.query(formattedQuery, queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+      return result.rows;
+    } catch (error) {
+      this.failedQuery = true;
+      throw error;
+    }
   }
 
-  async commitTransaction (): Promise<void> {
-    await this.pgClient.transactionCommit();
+  async startConnection (): Promise<void> {
+    if (!this.connected) {
+      await this.pgClient.startConnection();
+      this.connected = true;
+    }
   }
 
-  async rollbackTransaction (): Promise<void> {
-    await this.pgClient.transactionRollback();
+  async endConnection (): Promise<void> {
+    if (this.connected) {
+      await this.pgClient.endConnection(this.failedQuery);
+    }
+    this.connected = false;
+    this.failedQuery = false;
   }
 }
