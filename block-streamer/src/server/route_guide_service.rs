@@ -8,8 +8,8 @@ use tokio::sync::mpsc;
 use tokio_stream::{wrappers::ReceiverStream, Stream, StreamExt};
 use tonic::{Request, Response, Status};
 
-use crate::routeguide::route_guide_server::RouteGuide;
-use crate::routeguide::{Feature, Point, Rectangle, RouteNote, RouteSummary};
+use crate::server::routeguide::route_guide_server::RouteGuide;
+use crate::server::routeguide::{Feature, Point, Rectangle, RouteNote, RouteSummary};
 
 #[derive(Debug)]
 pub struct RouteGuideService {

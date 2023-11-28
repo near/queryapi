@@ -4,11 +4,6 @@ use tracing_subscriber::prelude::*;
 // use crate::rules::types::indexer_rule_match::ChainId;
 // use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
-use std::sync::Arc;
-
-use routeguide::route_guide_server::RouteGuideServer;
-use tonic::transport::Server;
-
 mod block_stream;
 mod data;
 mod delta_lake_client;
@@ -18,12 +13,6 @@ mod rules;
 mod s3_client;
 mod server;
 
-pub mod routeguide {
-    tonic::include_proto!("routeguide");
-}
-
-pub(crate) const LOG_TARGET: &str = "block_streamer";
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -31,19 +20,11 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    tracing::info!("Starting {}", crate::LOG_TARGET);
+    std::env::var("CHAIN_ID").expect("expected`CHAIN_ID` to be set in the environment");
 
-    let addr = "[::1]:10000".parse().unwrap();
+    tracing::info!("Starting Block Streamer Service...");
 
-    println!("RouteGuideServer listening on: {}", addr);
-
-    let route_guide = crate::server::RouteGuideService {
-        features: Arc::new(data::load()),
-    };
-
-    let svc = RouteGuideServer::new(route_guide);
-
-    Server::builder().add_service(svc).serve(addr).await?;
+    server::init().await?;
 
     Ok(())
 
