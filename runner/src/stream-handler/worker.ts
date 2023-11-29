@@ -53,7 +53,7 @@ function incrementId (id: string): string {
 }
 
 async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
-  const HISTORICAL_BATCH_SIZE = 100;
+  const HISTORICAL_BATCH_SIZE = 10;
   let streamMessageStartId = '0';
 
   while (true) {
