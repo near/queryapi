@@ -49,7 +49,7 @@ async function handleStream (workerContext: WorkerContext, streamKey: string): P
 
 function incrementId (id: string): string {
   const [main, sequence] = id.split('-');
-  return `${Number(main) + 1}-${sequence}`;
+  return `${main}-${Number(sequence) + 1}`;
 }
 
 async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
@@ -65,6 +65,7 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
     const messages = await workerContext.redisClient.getStreamMessages(streamKey, streamMessageStartId, preFetchCount);
     if (messages == null) {
       await sleep(100);
+      streamMessageStartId = '0';
       continue;
     }
     console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
@@ -83,11 +84,13 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   const isHistorical = workerContext.streamType === 'historical';
   let streamMessageId = '';
   let indexerName = '';
+  let currBlockHeight = 0;
 
   while (true) {
     try {
-      while (workerContext.queue.length === 0) {
-        await sleep(100);
+      if (workerContext.queue.length === 0) {
+        await sleep(500);
+        continue;
       }
       const startTime = performance.now();
       const indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
@@ -107,6 +110,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const block = queueMessage.block;
+      currBlockHeight = block.blockHeight;
       streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
@@ -121,15 +125,15 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 
-      METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(block.blockHeight);
+      METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
 
-      console.log(`Success: ${indexerName}`);
+      console.log(`Success: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}}`);
     } catch (err) {
       await sleep(10000);
-      console.log(`Failed: ${indexerName}`, err);
+      console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);
     } finally {
-      const unprocessedMessages = await workerContext.redisClient.getUnprocessedStreamMessages(streamKey, streamMessageId);
-      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessages?.length ?? 0);
+      const unprocessedMessages = await workerContext.redisClient.getUnprocessedStreamMessages(streamKey);
+      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessages);
 
       parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
     }
