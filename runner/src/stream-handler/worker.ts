@@ -132,8 +132,8 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       await sleep(10000);
       console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);
     } finally {
-      const unprocessedMessages = await workerContext.redisClient.getUnprocessedStreamMessages(streamKey);
-      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessages);
+      const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
+      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
 
       parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
     }

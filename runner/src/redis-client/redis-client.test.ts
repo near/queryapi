@@ -60,10 +60,10 @@ describe('RedisClient', () => {
 
     const client = new RedisClient(mockClient);
 
-    const unprocessedMessages = await client.getUnprocessedStreamMessages('streamKey');
+    const unprocessedMessageCount = await client.getUnprocessedStreamMessageCount('streamKey');
 
     expect(mockClient.xLen).toHaveBeenCalledWith('streamKey');
-    expect(unprocessedMessages).toEqual(2);
+    expect(unprocessedMessageCount).toEqual(2);
   });
 
   it('returns stream storage data', async () => {

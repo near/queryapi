@@ -64,7 +64,7 @@ export default class RedisClient {
     await this.client.xDel(streamKey, id);
   };
 
-  async getUnprocessedStreamMessages (
+  async getUnprocessedStreamMessageCount (
     streamKey: string,
   ): Promise<number> {
     const results = await this.client.xLen(streamKey);
