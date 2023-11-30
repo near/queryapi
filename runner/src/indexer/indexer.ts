@@ -64,7 +64,7 @@ export default class Indexer {
       try {
         const indexerFunction = functions[functionName];
 
-        const runningMessage = `Running function ${functionName}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
+        const runningMessage = `Running function ${functionName} on block ${blockHeight}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
         console.log(runningMessage); // Print the running message to the console (Lambda logs)
 
         simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));

@@ -51,23 +51,19 @@ describe('RedisClient', () => {
     expect(mockClient.xDel).toHaveBeenCalledWith('streamKey', '1-1');
   });
 
-  it('returns the range of messages after the passed id', async () => {
+  it('returns the number of messages in stream', async () => {
     const mockClient = {
       on: jest.fn(),
       connect: jest.fn().mockResolvedValue(null),
-      xRange: jest.fn().mockResolvedValue([
-        'data'
-      ]),
+      xLen: jest.fn().mockResolvedValue(2),
     } as any;
 
     const client = new RedisClient(mockClient);
 
-    const unprocessedMessages = await client.getUnprocessedStreamMessages('streamKey');
+    const unprocessedMessageCount = await client.getUnprocessedStreamMessageCount('streamKey');
 
-    expect(mockClient.xRange).toHaveBeenCalledWith('streamKey', '0', '+');
-    expect(unprocessedMessages).toEqual([
-      'data'
-    ]);
+    expect(mockClient.xLen).toHaveBeenCalledWith('streamKey');
+    expect(unprocessedMessageCount).toEqual(2);
   });
 
   it('returns stream storage data', async () => {
