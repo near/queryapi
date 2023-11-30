@@ -89,7 +89,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   while (true) {
     try {
       if (workerContext.queue.length === 0) {
-        await sleep(500);
+        await sleep(100);
         continue;
       }
       const startTime = performance.now();
