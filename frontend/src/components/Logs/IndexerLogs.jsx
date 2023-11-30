@@ -116,7 +116,7 @@ const IndexerLogsComponent = () => {
     return mergedEntries;
   };
 
-  useEffect(() => {
+  const initializeTable = () => {
     const grid = new Grid({
       columns: [
         {
@@ -204,7 +204,18 @@ const IndexerLogsComponent = () => {
     });
 
     grid.render(indexerLogsRef.current);
+  };
+
+  useEffect(() => {
+    initializeTable();
   }, []);
+
+  const reloadData = () => {
+    indexerLogsRef.current.innerHTML = "";
+    setTimeout(() => {
+      initializeTable();
+    }, 500);
+  };
 
   return (
     <>
@@ -222,6 +233,7 @@ const IndexerLogsComponent = () => {
           setHeights={setHeights}
           latestHeight={height}
           isUserIndexer={indexerDetails.accountId === currentUserAccountId}
+          reloadData={reloadData}
         />
         <Status
           functionName={functionName}
