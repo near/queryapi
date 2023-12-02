@@ -1,6 +1,11 @@
 import express from 'express';
 import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 
+const WORKER_THREAD_COUNT = new Gauge({
+  name: 'queryapi_runner_worker_thread_count',
+  help: 'Number of worker threads',
+});
+
 const BLOCK_WAIT_DURATION = new Histogram({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
@@ -37,6 +42,7 @@ const EXECUTION_DURATION = new Histogram({
 });
 
 export const METRICS = {
+  WORKER_THREAD_COUNT,
   BLOCK_WAIT_DURATION,
   CACHE_HIT,
   CACHE_MISS,

@@ -1,6 +1,7 @@
-import { startServer as startMetricsServer } from './metrics';
+import { METRICS, registerWorkerMetrics, startServer as startMetricsServer } from './metrics';
 import RedisClient from './redis-client';
 import StreamHandler from './stream-handler';
+import promClient from 'prom-client';
 
 const redisClient = new RedisClient();
 
@@ -18,6 +19,9 @@ void (async function main () {
 
     while (true) {
       const streamKeys = await redisClient.getStreams();
+      METRICS.WORKER_THREAD_COUNT.set(streamKeys.length);
+      const metrics = await promClient.register.getMetricsAsJSON();
+      registerWorkerMetrics(0, metrics as any);
 
       streamKeys.forEach((streamKey) => {
         if (streamHandlers[streamKey] !== undefined) {
