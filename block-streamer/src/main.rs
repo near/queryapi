@@ -5,7 +5,6 @@ use tracing_subscriber::prelude::*;
 // use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
 mod block_stream;
-mod data;
 mod delta_lake_client;
 mod indexer_config;
 mod redis;
