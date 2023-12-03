@@ -28,8 +28,6 @@ tonic = "0.10.2"
 wildmatch = "2.1.1"
 
 near-lake-framework = "0.7.1"
-async-stream = "0.3.5"
-rand = "0.8.5"
 
 [build-dependencies]
 tonic-build = "0.10"

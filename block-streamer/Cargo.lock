@@ -964,7 +964,6 @@ name = "block-streamer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-stream",
  "async-trait",
  "aws-config 1.0.0",
  "aws-sdk-s3 0.39.1",
@@ -977,7 +976,6 @@ dependencies = [
  "mockall",
  "near-lake-framework",
  "prost",
- "rand 0.8.5",
  "redis",
  "serde",
  "serde_json",
