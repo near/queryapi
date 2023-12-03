@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
+use near_lake_framework::near_indexer_primitives;
 use tonic::{Request, Response, Status};
 
 use crate::indexer_config::IndexerConfig;
@@ -11,6 +12,19 @@ use crate::block_stream;
 use crate::server::blockstreamer;
 
 use blockstreamer::*;
+
+impl TryFrom<i32> for crate::rules::Status {
+    type Error = ();
+
+    fn try_from(status: i32) -> Result<crate::rules::Status, ()> {
+        match status {
+            0 => Ok(crate::rules::Status::Success),
+            1 => Ok(crate::rules::Status::Fail),
+            2 => Ok(crate::rules::Status::Any),
+            _ => Err(()),
+        }
+    }
+}
 
 pub struct BlockStreamerService {
     redis_connection_manager: crate::redis::ConnectionManager,
@@ -41,22 +55,27 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
     ) -> Result<Response<blockstreamer::StartStreamResponse>, Status> {
         let request = request.into_inner();
 
-        let matching_rule = match request.rule.unwrap() {
+        let rule = request
+            .rule
+            .ok_or(Status::invalid_argument("Rule must be provided"))?;
+
+        let matching_rule = match rule {
             start_stream_request::Rule::ActionAnyRule(action_any_rule) => {
                 let affected_account_id = action_any_rule.affected_account_id;
-                let status = match action_any_rule.status {
-                    1 => crate::rules::Status::Success,
-                    2 => crate::rules::Status::Fail,
-                    3 => crate::rules::Status::Any,
-                    _ => return Err(Status::invalid_argument("Invalid status")),
-                };
+                let status = action_any_rule.status.try_into().map_err(|_| {
+                    Status::invalid_argument("Invalid status value for ActionAnyRule")
+                })?;
 
                 MatchingRule::ActionAny {
                     affected_account_id,
                     status,
                 }
             }
-            _ => unimplemented!("Rules other than ActionAny are not supported yet"),
+            _ => {
+                return Err(Status::unimplemented(
+                    "Rules other than ActionAny are not supported yet",
+                ))
+            }
         };
         let filter_rule = IndexerRule {
             // TODO: Remove kind as it is unused
@@ -65,8 +84,16 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             id: None,
             name: None,
         };
+
+        let account_id = near_indexer_primitives::types::AccountId::try_from(request.account_id)
+            .map_err(|err| {
+                Status::invalid_argument(format!(
+                    "Invalid account_id value for StartStreamRequest: {}",
+                    err
+                ))
+            })?;
         let indexer_config = IndexerConfig {
-            account_id: request.account_id.parse().unwrap(),
+            account_id,
             function_name: request.function_name,
             indexer_rule: filter_rule,
         };
@@ -74,21 +101,18 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         let mut block_stream =
             block_stream::BlockStream::new(indexer_config.clone(), self.chain_id.clone());
 
-        match block_stream.start(
-            request.start_block_height,
-            self.redis_connection_manager.clone(),
-            self.delta_lake_client.clone(),
-        ) {
-            Ok(_) => {}
-            Err(_) => {
-                return Err(Status::already_exists(format!(
-                    "Block stream for {} already exists",
-                    indexer_config.get_full_name()
-                )))
-            }
-        }
+        block_stream
+            .start(
+                request.start_block_height,
+                self.redis_connection_manager.clone(),
+                self.delta_lake_client.clone(),
+            )
+            .map_err(|_| Status::already_exists("Block stream already exists"))?;
 
-        let mut lock = self.block_streams.lock().unwrap();
+        let mut lock = self
+            .block_streams
+            .lock()
+            .map_err(|err| Status::internal(format!("Failed to lock block_streams: {}", err)))?;
         lock.insert(indexer_config.get_hash_id(), block_stream);
 
         Ok(Response::new(blockstreamer::StartStreamResponse {
@@ -126,6 +150,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 indexer_name: block_stream.indexer_config.get_full_name(),
                 start_block_height: 0,
                 status: "OK".to_string(),
+                // last_indexed_block
             })
             .collect();
 
