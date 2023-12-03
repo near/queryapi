@@ -91,7 +91,9 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         let mut lock = self.block_streams.lock().unwrap();
         lock.insert(indexer_config.get_full_name(), block_stream);
 
-        Ok(Response::new(blockstreamer::StartStreamResponse::default()))
+        Ok(Response::new(blockstreamer::StartStreamResponse {
+            stream_id: indexer_config.get_hash_id(),
+        }))
     }
 
     async fn stop_stream(
@@ -110,7 +112,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         let block_streams: Vec<StreamInfo> = lock
             .values()
             .map(|block_stream| StreamInfo {
-                stream_id: "id".to_string(),
+                stream_id: block_stream.indexer_config.get_hash_id(),
                 chain_id: self.chain_id.to_string(),
                 indexer_name: block_stream.indexer_config.get_full_name(),
                 start_block_height: 0,
