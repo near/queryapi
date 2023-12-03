@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
+
 use tonic::{Request, Response, Status};
 
 use crate::indexer_config::IndexerConfig;
@@ -13,6 +16,7 @@ pub struct BlockStreamerService {
     redis_connection_manager: crate::redis::ConnectionManager,
     delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     chain_id: ChainId,
+    block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
 
 impl BlockStreamerService {
@@ -24,6 +28,7 @@ impl BlockStreamerService {
             redis_connection_manager,
             delta_lake_client,
             chain_id: ChainId::Mainnet,
+            block_streams: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -83,6 +88,9 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             }
         }
 
+        let mut lock = self.block_streams.lock().unwrap();
+        lock.insert(indexer_config.get_full_name(), block_stream);
+
         Ok(Response::new(blockstreamer::StartStreamResponse::default()))
     }
 
@@ -96,9 +104,24 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
 
     async fn list_streams(
         &self,
-        request: Request<blockstreamer::ListStreamsRequest>,
+        _request: Request<blockstreamer::ListStreamsRequest>,
     ) -> Result<Response<blockstreamer::ListStreamsResponse>, Status> {
-        println!("ListStreams = {:?}", request);
-        Ok(Response::new(blockstreamer::ListStreamsResponse::default()))
+        let lock = self.block_streams.lock().unwrap();
+        let block_streams: Vec<StreamInfo> = lock
+            .values()
+            .map(|block_stream| StreamInfo {
+                stream_id: "id".to_string(),
+                chain_id: self.chain_id.to_string(),
+                indexer_name: block_stream.indexer_config.get_full_name(),
+                start_block_height: 0,
+                status: "OK".to_string(),
+            })
+            .collect();
+
+        let response = blockstreamer::ListStreamsResponse {
+            streams: block_streams,
+        };
+
+        Ok(Response::new(response))
     }
 }

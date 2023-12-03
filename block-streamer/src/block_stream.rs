@@ -12,8 +12,8 @@ pub struct Task {
 
 pub struct BlockStream {
     task: Option<Task>,
-    indexer_config: IndexerConfig,
-    chain_id: ChainId,
+    pub indexer_config: IndexerConfig,
+    pub chain_id: ChainId,
 }
 
 impl BlockStream {
