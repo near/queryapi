@@ -112,7 +112,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         let mut lock = self
             .block_streams
             .lock()
-            .map_err(|err| Status::internal(format!("Failed to lock block_streams: {}", err)))?;
+            .map_err(|err| Status::internal(format!("Failed to acquire lock: {}", err)))?;
         lock.insert(indexer_config.get_hash_id(), block_stream);
 
         Ok(Response::new(blockstreamer::StartStreamResponse {
@@ -128,13 +128,32 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
 
         let stream_id = request.stream_id;
 
-        let mut block_stream = {
-            let mut lock = self.block_streams.lock().unwrap();
-            lock.remove(&stream_id).unwrap()
+        let exising_block_stream = {
+            let mut lock = self
+                .block_streams
+                .lock()
+                .map_err(|err| Status::internal(format!("Failed to acquire lock: {}", err)))?;
+            lock.remove(&stream_id)
         };
-        block_stream.cancel().await.unwrap();
 
-        Ok(Response::new(blockstreamer::StopStreamResponse::default()))
+        match exising_block_stream {
+            None => {
+                return Err(Status::not_found(format!(
+                    "Block stream with id {} not found",
+                    stream_id
+                )))
+            }
+            Some(mut block_stream) => {
+                block_stream
+                    .cancel()
+                    .await
+                    .map_err(|_| Status::internal("Failed to cancel block stream"))?;
+            }
+        }
+
+        Ok(Response::new(blockstreamer::StopStreamResponse {
+            status: "ok".to_string(),
+        }))
     }
 
     async fn list_streams(
