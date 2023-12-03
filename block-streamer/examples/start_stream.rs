@@ -9,11 +9,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let response = client
         .start_stream(Request::new(StartStreamRequest {
-            start_block_height: 10101010,
+            start_block_height: 106700000,
             account_id: "morgs.near".to_string(),
             function_name: "test".to_string(),
             rule: Some(Rule::ActionAnyRule(ActionAnyRule {
-                affected_account_id: "token.sweat".to_string(),
+                affected_account_id: "social.near".to_string(),
                 status: Status::Success.into(),
             })),
         }))

@@ -31,6 +31,7 @@ pub struct IndexFile {
     pub actions: Vec<IndexFileAction>,
 }
 
+#[derive(Clone)]
 pub struct DeltaLakeClient<T>
 where
     T: crate::s3_client::S3ClientTrait,
@@ -46,7 +47,7 @@ where
     pub fn new(s3_client: T) -> Self {
         DeltaLakeClient {
             s3_client,
-            // hardcode to mainnet for
+            // hardcode to mainnet for now
             chain_id: ChainId::Mainnet,
         }
     }
