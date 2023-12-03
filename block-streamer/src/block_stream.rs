@@ -45,7 +45,7 @@ impl BlockStream {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        "Cancelling existing block stream task for indexer: {}",
+                        "Cancelling block stream task for indexer: {}",
                         indexer_config.get_full_name(),
                     );
 

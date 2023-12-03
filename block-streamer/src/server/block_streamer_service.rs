@@ -89,7 +89,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         }
 
         let mut lock = self.block_streams.lock().unwrap();
-        lock.insert(indexer_config.get_full_name(), block_stream);
+        lock.insert(indexer_config.get_hash_id(), block_stream);
 
         Ok(Response::new(blockstreamer::StartStreamResponse {
             stream_id: indexer_config.get_hash_id(),
@@ -100,7 +100,16 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         &self,
         request: Request<blockstreamer::StopStreamRequest>,
     ) -> Result<Response<blockstreamer::StopStreamResponse>, Status> {
-        println!("StopStream = {:?}", request);
+        let request = request.into_inner();
+
+        let stream_id = request.stream_id;
+
+        let mut block_stream = {
+            let mut lock = self.block_streams.lock().unwrap();
+            lock.remove(&stream_id).unwrap()
+        };
+        block_stream.cancel().await.unwrap();
+
         Ok(Response::new(blockstreamer::StopStreamResponse::default()))
     }
 
