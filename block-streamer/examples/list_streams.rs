@@ -1,7 +1,7 @@
 use tonic::Request;
 
 use block_streamer::block_streamer_client::BlockStreamerClient;
-use block_streamer::{start_stream_request::Rule, ActionAnyRule, ListStreamsRequest, Status};
+use block_streamer::ListStreamsRequest;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .list_streams(Request::new(ListStreamsRequest {}))
         .await?;
 
-    println!("RESPONSE = {:#?}", response);
+    println!("{:#?}", response.into_inner());
 
     Ok(())
 }
