@@ -25,14 +25,15 @@ impl BlockStream {
         }
     }
 
-    pub fn start<T>(
+    pub fn start<T, U>(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis_connection_manager: crate::redis::ConnectionManager,
+        redis_client: U,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
     ) -> anyhow::Result<()>
     where
         T: crate::s3_client::S3ClientTrait,
+        U: crate::redis::RedisClientTrait,
     {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -57,7 +58,7 @@ impl BlockStream {
                 result = start_block_stream(
                     start_block_height,
                     &indexer_config,
-                    &redis_connection_manager,
+                    &redis_client,
                     &delta_lake_client,
                     &chain_id,
                 ) => {
@@ -93,16 +94,12 @@ impl BlockStream {
             "Attempted to cancel already cancelled, or not started, BlockStreamer"
         ))
     }
-
-    pub fn take_handle(&mut self) -> Option<JoinHandle<anyhow::Result<()>>> {
-        self.task.take().map(|task| task.handle)
-    }
 }
 
 pub(crate) async fn start_block_stream<T>(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_connection_manager: &crate::redis::ConnectionManager,
+    redis_client: &impl crate::redis::RedisClientTrait,
     delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<T>,
     chain_id: &ChainId,
 ) -> anyhow::Result<()>
@@ -149,14 +146,13 @@ where
     );
 
     for block in &blocks_from_index {
-        crate::redis::xadd(
-            redis_connection_manager,
-            // TODO make configurable
-            crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-            &[("block_height", block)],
-        )
-        .await
-        .context("Failed to add block to Redis Stream")?;
+        redis_client
+            .xadd(
+                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                &[("block_height".to_string(), block.to_owned())],
+            )
+            .await
+            .context("Failed to add block to Redis Stream")?;
     }
 
     let mut last_indexed_block =
@@ -193,12 +189,13 @@ where
         );
 
         if !matches.is_empty() {
-            crate::redis::xadd(
-                redis_connection_manager,
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                &[("block_height", block_height)],
-            )
-            .await?;
+            redis_client
+                .xadd(
+                    crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                    &[("block_height".to_string(), block_height.to_owned())],
+                )
+                .await
+                .context("Failed to add block to Redis Stream")?;
         }
     }
 
