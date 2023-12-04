@@ -25,12 +25,15 @@ impl BlockStream {
         }
     }
 
-    pub fn start(
+    pub fn start<T>(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
         redis_connection_manager: crate::redis::ConnectionManager,
-        delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
-    ) -> anyhow::Result<()> {
+        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
+    ) -> anyhow::Result<()>
+    where
+        T: crate::s3_client::S3ClientTrait,
+    {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
         }
@@ -96,13 +99,16 @@ impl BlockStream {
     }
 }
 
-pub(crate) async fn start_block_stream(
+pub(crate) async fn start_block_stream<T>(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
-    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<T>,
     chain_id: &ChainId,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<()>
+where
+    T: crate::s3_client::S3ClientTrait,
+{
     tracing::info!(
         "Starting block stream at {start_block_height} for indexer: {}",
         indexer.get_full_name(),
