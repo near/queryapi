@@ -12,13 +12,8 @@ services:
       REDIS_CONNECTION_STRING: redis://redis
       LAKE_AWS_ACCESS_KEY:
       LAKE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_AWS_ACCESS_KEY:
-      QUEUE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_URL: MOCK
-      START_FROM_BLOCK_QUEUE_URL: MOCK
       PORT: 9180
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
-      AWS_QUEUE_REGION: eu-central-1
     command:
       - mainnet
       - from-interruption
@@ -28,6 +23,7 @@ services:
       context: ./runner
     depends_on:
     - "hasura-graphql"
+    - "postgres"
     - "redis"
     environment:
       REGION: eu-central-1
@@ -65,12 +61,13 @@ services:
       - "5432:5432"
 
   hasura-auth:
+    image: hasura/auth
     build:
       context: ./hasura-authentication-service
     ports:
     - "4000:4000"
     environment:
-      PORT: 4000
+      PORT: "4000"
       DEFAULT_HASURA_ROLE: append
 
   hasura-graphql:
@@ -88,6 +85,7 @@ services:
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
       HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
       HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:4000/auth
+
   grafana:
     image: grafana/grafana
     volumes:

@@ -229,6 +229,17 @@ pub(crate) async fn process_historical_messages(
             let lake_config = match &chain_id {
                 ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
                 ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
+                ChainId::Localnet => {
+                    let config_builder = near_lake_framework::LakeConfigBuilder::default();
+                    let aws_config = aws_config::from_env().load().await;
+                    let mut s3_conf = aws_sdk_s3::config::Builder::from(&aws_config);
+                    s3_conf = s3_conf.endpoint_url(std::env::var("S3_URL").unwrap());
+                    
+                    config_builder
+                        .s3_config(s3_conf.build())
+                        .s3_region_name(std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string()))
+                        .s3_bucket_name(std::env::var("S3_BUCKET_NAME").unwrap_or("near-lake-custom".to_string()))
+                }
             }
             .start_block_height(last_indexed_block)
             .build()

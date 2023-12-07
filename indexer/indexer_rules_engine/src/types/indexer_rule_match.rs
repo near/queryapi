@@ -57,6 +57,23 @@ impl IndexerRuleMatch {
                     )
                 }
             }
+            ChainId::Localnet => {
+                if let Some(tx_hash) = self.payload.transaction_hash() {
+                    if let Some(receipt_id) = self.payload.receipt_id() {
+                        format!(
+                            "https://explorer.near.org/transactions/{}#{}",
+                            tx_hash, receipt_id,
+                        )
+                    } else {
+                        format!("https://explorer.near.org/transactions/{}", tx_hash)
+                    }
+                } else {
+                    format!(
+                        "https://explorer.near.org/block/{}",
+                        self.payload.block_hash()
+                    )
+                }
+            }
         }
     }
 }
@@ -135,12 +152,14 @@ impl IndexerRuleMatchPayload {
 pub enum ChainId {
     Mainnet,
     Testnet,
+    Localnet
 }
 impl fmt::Display for ChainId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ChainId::Mainnet => write!(f, "mainnet"),
             ChainId::Testnet => write!(f, "testnet"),
+            ChainId::Localnet => write!(f, "localnet"),
         }
     }
 }

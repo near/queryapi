@@ -18,7 +18,7 @@ use near_lake_framework::near_indexer_primitives::types::{BlockReference, Finali
 )]
 pub struct Opts {
     /// Connection string to connect to the Redis instance for cache. Default: "redis://127.0.0.1"
-    #[clap(long, default_value = "redis://127.0.0.1", env)]
+    #[clap(long, env)]
     pub redis_connection_string: String,
     /// AWS Access Key with the rights to read from AWS S3
     #[clap(long, env)]
@@ -46,6 +46,8 @@ pub enum ChainId {
     Mainnet(StartOptions),
     #[clap(subcommand)]
     Testnet(StartOptions),
+    #[clap(subcommand)]
+    Localnet(StartOptions),
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -65,21 +67,25 @@ impl Opts {
             ChainId::Testnet(_) => {
                 indexer_rules_engine::types::indexer_rule_match::ChainId::Testnet
             }
+            ChainId::Localnet(_) => {
+                indexer_rules_engine::types::indexer_rule_match::ChainId::Localnet
+            }
         }
     }
 
     /// Returns [StartOptions] for current [Opts]
     pub fn start_options(&self) -> &StartOptions {
         match &self.chain_id {
-            ChainId::Mainnet(start_options) | ChainId::Testnet(start_options) => start_options,
+            ChainId::Mainnet(start_options) | ChainId::Testnet(start_options) | ChainId::Localnet(start_options) => start_options,
         }
     }
 
-    pub fn rpc_url(&self) -> &str {
+    pub fn rpc_url(&self) -> String {
         // To query metadata (timestamp) about blocks more than 5 epochs old we need an archival node
         match self.chain_id {
-            ChainId::Mainnet(_) => "https://archival-rpc.mainnet.near.org", //https://rpc.mainnet.near.org",
-            ChainId::Testnet(_) => "https://archival-rpc.testnet.near.org",
+            ChainId::Mainnet(_) => "https://archival-rpc.mainnet.near.org".to_owned(), //https://rpc.mainnet.near.org",
+            ChainId::Testnet(_) => "https://archival-rpc.testnet.near.org".to_owned(),
+            ChainId::Localnet(_) => std::env::var("RPC_ADDRESS").unwrap()
         }
     }
 }
@@ -95,6 +101,20 @@ impl Opts {
             ChainId::Testnet(_) => config_builder
                 .testnet()
                 .start_block_height(get_start_block_height(self).await),
+            ChainId::Localnet(_) => {
+                let aws_config = aws_config::from_env().load().await;
+                let mut s3_conf = aws_sdk_s3::config::Builder::from(&aws_config);
+                s3_conf = s3_conf.endpoint_url(std::env::var("S3_URL").unwrap());
+                
+                config_builder
+                    .s3_config(s3_conf.build())
+                    .s3_region_name(std::env::var("AWS_REGION").unwrap_or("us-east-1".to_string()))
+                    .s3_bucket_name(std::env::var("S3_BUCKET_NAME").unwrap_or("near-lake-custom".to_string()))
+                    .start_block_height(get_start_block_height(self).await)
+                // config_builder
+                //     .mainnet()
+                //     .start_block_height(get_start_block_height(self).await)
+            }
         }
         .build()
         .expect("Failed to build LakeConfig")

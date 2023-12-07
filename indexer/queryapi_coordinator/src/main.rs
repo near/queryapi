@@ -83,7 +83,7 @@ async fn main() -> anyhow::Result<()> {
     let (sender, stream) = near_lake_framework::streamer(config);
 
     tokio::spawn(utils::stats(redis_connection_manager.clone()));
-    tokio::spawn(metrics::init_server(opts.port).expect("Failed to start metrics server"));
+    tokio::spawn(metrics::init_server(opts.port + 1).expect("Failed to start metrics server"));
 
     tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
     let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
