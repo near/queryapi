@@ -8,7 +8,7 @@ pub fn generate_historical_stream_key(prefix: &str) -> String {
 
 #[mockall::automock]
 #[async_trait::async_trait]
-pub trait RedisClientTrait: Send + Sync + 'static {
+pub trait RedisOperations: Send + Sync + 'static {
     async fn xadd<T, U>(&self, stream_key: T, fields: &[(String, U)]) -> Result<(), RedisError>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,
@@ -31,7 +31,7 @@ impl RedisClient {
 }
 
 #[async_trait::async_trait]
-impl RedisClientTrait for RedisClient {
+impl RedisOperations for RedisClient {
     async fn xadd<T, U>(&self, stream_key: T, fields: &[(String, U)]) -> Result<(), RedisError>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,

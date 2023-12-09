@@ -29,7 +29,7 @@ impl BlockStream {
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis_client: std::sync::Arc<impl crate::redis::RedisClientTrait>,
+        redis_client: std::sync::Arc<impl crate::redis::RedisOperations>,
         delta_lake_client: std::sync::Arc<
             crate::delta_lake_client::DeltaLakeClient<impl crate::s3_client::S3ClientTrait>,
         >,
@@ -98,7 +98,7 @@ impl BlockStream {
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_client: &std::sync::Arc<impl crate::redis::RedisClientTrait>,
+    redis_client: &std::sync::Arc<impl crate::redis::RedisOperations>,
     delta_lake_client: &std::sync::Arc<
         crate::delta_lake_client::DeltaLakeClient<impl crate::s3_client::S3ClientTrait>,
     >,

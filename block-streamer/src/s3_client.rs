@@ -2,7 +2,7 @@ const MAX_S3_LIST_REQUESTS: usize = 1000;
 
 #[mockall::automock]
 #[async_trait::async_trait]
-pub trait S3ClientTrait: Send + Sync + 'static {
+pub trait S3Operations: Send + Sync + 'static {
     async fn get_object(
         &self,
         bucket: &str,
@@ -41,7 +41,7 @@ impl S3Client {
 }
 
 #[async_trait::async_trait]
-impl S3ClientTrait for S3Client {
+impl S3Operations for S3Client {
     async fn get_object(
         &self,
         bucket: &str,
