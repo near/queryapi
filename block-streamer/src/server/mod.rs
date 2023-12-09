@@ -5,7 +5,7 @@ pub mod blockstreamer {
 }
 
 pub async fn init(
-    redis_client: crate::redis::RedisClient,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<
         crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     >,

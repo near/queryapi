@@ -31,7 +31,7 @@ where
     T: crate::s3_client::S3ClientTrait,
     U: crate::redis::RedisClientTrait,
 {
-    redis_client: U,
+    redis_client: std::sync::Arc<U>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
@@ -43,7 +43,7 @@ where
     U: crate::redis::RedisClientTrait,
 {
     pub fn new(
-        redis_client: U,
+        redis_client: std::sync::Arc<U>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
     ) -> Self {
         Self {
@@ -67,7 +67,7 @@ where
 impl<T, U> blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService<T, U>
 where
     T: crate::s3_client::S3ClientTrait,
-    U: crate::redis::RedisClientTrait + Clone,
+    U: crate::redis::RedisClientTrait,
 {
     async fn start_stream(
         &self,

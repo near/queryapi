@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting Block Streamer Service...");
 
-    let redis_client = redis::RedisClient::connect("redis://127.0.0.1").await?;
+    let redis_client = std::sync::Arc::new(redis::RedisClient::connect("redis://127.0.0.1").await?);
 
     let aws_config = aws_config::from_env().load().await;
     let s3_client = crate::s3_client::S3Client::new(&aws_config);

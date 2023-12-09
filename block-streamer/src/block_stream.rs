@@ -1,9 +1,10 @@
-use crate::indexer_config::IndexerConfig;
-use crate::rules::types::indexer_rule_match::ChainId;
-use crate::rules::MatchingRule;
 use anyhow::{bail, Context};
 use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
+
+use crate::indexer_config::IndexerConfig;
+use crate::rules::types::indexer_rule_match::ChainId;
+use crate::rules::MatchingRule;
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
@@ -25,16 +26,14 @@ impl BlockStream {
         }
     }
 
-    pub fn start<T, U>(
+    pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis_client: U,
-        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
-    ) -> anyhow::Result<()>
-    where
-        T: crate::s3_client::S3ClientTrait,
-        U: crate::redis::RedisClientTrait,
-    {
+        redis_client: std::sync::Arc<impl crate::redis::RedisClientTrait>,
+        delta_lake_client: std::sync::Arc<
+            crate::delta_lake_client::DeltaLakeClient<impl crate::s3_client::S3ClientTrait>,
+        >,
+    ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
         }
@@ -96,16 +95,15 @@ impl BlockStream {
     }
 }
 
-pub(crate) async fn start_block_stream<T>(
+pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_client: &impl crate::redis::RedisClientTrait,
-    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<T>,
+    redis_client: &std::sync::Arc<impl crate::redis::RedisClientTrait>,
+    delta_lake_client: &std::sync::Arc<
+        crate::delta_lake_client::DeltaLakeClient<impl crate::s3_client::S3ClientTrait>,
+    >,
     chain_id: &ChainId,
-) -> anyhow::Result<()>
-where
-    T: crate::s3_client::S3ClientTrait,
-{
+) -> anyhow::Result<()> {
     tracing::info!(
         "Starting block stream at {start_block_height} for indexer: {}",
         indexer.get_full_name(),
