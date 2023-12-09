@@ -26,24 +26,22 @@ impl TryFrom<i32> for crate::rules::Status {
     }
 }
 
-pub struct BlockStreamerService<T, U>
+pub struct BlockStreamerService<T>
 where
     T: crate::s3_client::S3Operations,
-    U: crate::redis::RedisOperations,
 {
-    redis_client: std::sync::Arc<U>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
 
-impl<T, U> BlockStreamerService<T, U>
+impl<T> BlockStreamerService<T>
 where
     T: crate::s3_client::S3Operations,
-    U: crate::redis::RedisOperations,
 {
     pub fn new(
-        redis_client: std::sync::Arc<U>,
+        redis_client: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient<T>>,
     ) -> Self {
         Self {
@@ -64,10 +62,9 @@ where
 }
 
 #[tonic::async_trait]
-impl<T, U> blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService<T, U>
+impl<T> blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService<T>
 where
     T: crate::s3_client::S3Operations,
-    U: crate::redis::RedisOperations,
 {
     async fn start_stream(
         &self,
