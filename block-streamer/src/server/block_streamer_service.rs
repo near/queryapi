@@ -28,7 +28,7 @@ impl TryFrom<i32> for crate::rules::Status {
 
 pub struct BlockStreamerService<T, U>
 where
-    T: crate::s3_client::S3ClientTrait,
+    T: crate::s3_client::S3Operations,
     U: crate::redis::RedisOperations,
 {
     redis_client: std::sync::Arc<U>,
@@ -39,7 +39,7 @@ where
 
 impl<T, U> BlockStreamerService<T, U>
 where
-    T: crate::s3_client::S3ClientTrait,
+    T: crate::s3_client::S3Operations,
     U: crate::redis::RedisOperations,
 {
     pub fn new(
@@ -66,7 +66,7 @@ where
 #[tonic::async_trait]
 impl<T, U> blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService<T, U>
 where
-    T: crate::s3_client::S3ClientTrait,
+    T: crate::s3_client::S3Operations,
     U: crate::redis::RedisOperations,
 {
     async fn start_stream(
