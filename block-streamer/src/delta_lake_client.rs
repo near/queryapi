@@ -31,20 +31,13 @@ pub struct IndexFile {
     pub actions: Vec<IndexFileAction>,
 }
 
-#[derive(Clone)]
-pub struct DeltaLakeClient<T>
-where
-    T: crate::s3_client::S3Operations,
-{
-    s3_client: T,
+pub struct DeltaLakeClient {
+    s3_client: crate::s3_client::S3Client,
     chain_id: ChainId,
 }
 
-impl<T> DeltaLakeClient<T>
-where
-    T: crate::s3_client::S3Operations,
-{
-    pub fn new(s3_client: T) -> Self {
+impl DeltaLakeClient {
+    pub fn new(s3_client: crate::s3_client::S3Client) -> Self {
         DeltaLakeClient {
             s3_client,
             // hardcode to mainnet for now
@@ -323,7 +316,7 @@ mod tests {
 
     #[tokio::test]
     async fn fetches_metadata_from_s3() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -348,7 +341,7 @@ mod tests {
 
     #[tokio::test]
     async fn lists_block_heights_for_single_contract() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -386,7 +379,7 @@ mod tests {
 
     #[tokio::test]
     async fn lists_block_heights_for_multiple_contracts() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -454,7 +447,7 @@ mod tests {
 
     #[tokio::test]
     async fn lists_block_heights_for_wildcard() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -529,7 +522,7 @@ mod tests {
 
     #[tokio::test]
     async fn lists_block_heights_for_multiple_contracts_and_wildcard() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -594,7 +587,7 @@ mod tests {
 
     #[tokio::test]
     async fn sorts_and_removes_duplicates_for_multiple_contracts() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -643,7 +636,7 @@ mod tests {
 
     #[tokio::test]
     async fn gets_the_date_of_the_closest_block() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -666,7 +659,7 @@ mod tests {
 
     #[tokio::test]
     async fn retires_if_a_block_doesnt_exist() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()
@@ -701,7 +694,7 @@ mod tests {
 
     #[tokio::test]
     async fn exits_if_maximum_retries_exceeded() {
-        let mut mock_s3_client = crate::s3_client::MockS3Operations::new();
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
 
         mock_s3_client
             .expect_get_text_file()

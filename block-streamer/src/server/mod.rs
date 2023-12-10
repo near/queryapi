@@ -6,9 +6,7 @@ pub mod blockstreamer {
 
 pub async fn init(
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
-    delta_lake_client: std::sync::Arc<
-        crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
-    >,
+    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
 ) -> anyhow::Result<()> {
     let addr = "[::1]:10000"
         .parse()

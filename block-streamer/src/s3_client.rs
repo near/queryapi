@@ -1,48 +1,24 @@
 const MAX_S3_LIST_REQUESTS: usize = 1000;
 
-#[mockall::automock]
-#[async_trait::async_trait]
-pub trait S3Operations: Send + Sync + 'static {
-    async fn get_object(
-        &self,
-        bucket: &str,
-        prefix: &str,
-    ) -> Result<
-        aws_sdk_s3::operation::get_object::GetObjectOutput,
-        aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::get_object::GetObjectError>,
-    >;
-
-    async fn list_objects(
-        &self,
-        bucket: &str,
-        prefix: &str,
-        continuation_token: Option<String>,
-    ) -> Result<
-        aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
-        aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
-    >;
-
-    async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String>;
-
-    async fn list_all_objects(&self, bucket: &str, prefix: &str) -> anyhow::Result<Vec<String>>;
-}
+#[cfg(test)]
+pub use MockS3ClientImpl as S3Client;
+#[cfg(not(test))]
+pub use S3ClientImpl as S3Client;
 
 #[derive(Clone, Debug)]
-pub struct S3Client {
+pub struct S3ClientImpl {
     client: aws_sdk_s3::Client,
 }
 
-impl S3Client {
+#[cfg_attr(test, mockall::automock)]
+impl S3ClientImpl {
     pub fn new(aws_config: &aws_types::sdk_config::SdkConfig) -> Self {
         Self {
             client: aws_sdk_s3::Client::new(aws_config),
         }
     }
-}
 
-#[async_trait::async_trait]
-impl S3Operations for S3Client {
-    async fn get_object(
+    pub async fn get_object(
         &self,
         bucket: &str,
         prefix: &str,
@@ -58,7 +34,7 @@ impl S3Operations for S3Client {
             .await
     }
 
-    async fn list_objects(
+    pub async fn list_objects(
         &self,
         bucket: &str,
         prefix: &str,
@@ -81,7 +57,7 @@ impl S3Operations for S3Client {
         builder.send().await
     }
 
-    async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String> {
+    pub async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String> {
         let object = self.get_object(bucket, prefix).await?;
 
         let bytes = object.body.collect().await?;
@@ -89,7 +65,11 @@ impl S3Operations for S3Client {
         Ok(String::from_utf8(bytes.to_vec())?)
     }
 
-    async fn list_all_objects(&self, bucket: &str, prefix: &str) -> anyhow::Result<Vec<String>> {
+    pub async fn list_all_objects(
+        &self,
+        bucket: &str,
+        prefix: &str,
+    ) -> anyhow::Result<Vec<String>> {
         let mut results = vec![];
         let mut continuation_token: Option<String> = None;
 
