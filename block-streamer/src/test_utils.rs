@@ -1,6 +1,5 @@
 use aws_smithy_runtime::client::http::test_util::{ReplayEvent, StaticReplayClient};
 use aws_smithy_types::body::SdkBody;
-use chrono::TimeZone;
 
 fn generate_replay_events_for_block(block_height: u32) -> Vec<ReplayEvent> {
     vec![
@@ -73,31 +72,32 @@ fn generate_replay_events_for_block(block_height: u32) -> Vec<ReplayEvent> {
     ]
 }
 
+/// Responds with an invalid block - forcing `near_lake_framework` to exit
 fn generate_stop_replay_event_for_block(block_height: u32) -> Vec<ReplayEvent> {
     vec![
         ReplayEvent::new(
             http::Request::builder()
-            .method("GET")
-            .uri(format!("https://near-lake-data-mainnet.s3.eu-central-1.amazonaws.com/?list-type=2&prefix={block_height:0>12}"))
-            .body(SdkBody::empty())
-            .unwrap(),
+                .method("GET")
+                .uri(format!("https://near-lake-data-mainnet.s3.eu-central-1.amazonaws.com/?list-type=2&prefix={block_height:0>12}"))
+                .body(SdkBody::empty())
+                .unwrap(),
             http::Response::builder()
-            .status(200)
-            .body(SdkBody::from(std::fs::read_to_string(format!("{}/data/invalid/list_objects.xml", env!("CARGO_MANIFEST_DIR"))).unwrap()))
-            .unwrap()
+                .status(200)
+                .body(SdkBody::from(std::fs::read_to_string(format!("{}/data/invalid/list_objects.xml", env!("CARGO_MANIFEST_DIR"))).unwrap()))
+                .unwrap()
         ),
         ReplayEvent::new(
             http::Request::builder()
-            .method("GET")
-            .uri("https://near-lake-data-mainnet.s3.eu-central-1.amazonaws.com/invalid/block.json")
-            .body(SdkBody::empty())
-            .unwrap(),
+                .method("GET")
+                .uri("https://near-lake-data-mainnet.s3.eu-central-1.amazonaws.com/invalid/block.json")
+                .body(SdkBody::empty())
+                .unwrap(),
             http::Response::builder()
-            .status(200)
-            .body(SdkBody::empty())
-            .unwrap(),
+                .status(200)
+                .body(SdkBody::empty())
+                .unwrap(),
         ),
-        ]
+    ]
 }
 
 fn generate_replay_events_for_blocks(block_heights: &[u32]) -> Vec<ReplayEvent> {
