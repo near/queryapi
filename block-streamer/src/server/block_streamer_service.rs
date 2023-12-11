@@ -29,6 +29,7 @@ impl TryFrom<i32> for crate::rules::Status {
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    lake_s3_config: aws_sdk_s3::Config,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
@@ -37,10 +38,12 @@ impl BlockStreamerService {
     pub fn new(
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+        lake_s3_config: aws_sdk_s3::Config,
     ) -> Self {
         Self {
             redis_client,
             delta_lake_client,
+            lake_s3_config,
             chain_id: ChainId::Mainnet,
             block_streams: Mutex::new(HashMap::new()),
         }
@@ -120,6 +123,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 request.start_block_height,
                 self.redis_client.clone(),
                 self.delta_lake_client.clone(),
+                self.lake_s3_config.clone(),
             )
             .map_err(|_| Status::internal("Failed to start block stream"))?;
 

@@ -31,6 +31,7 @@ impl BlockStream {
         start_block_height: near_indexer_primitives::types::BlockHeight,
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+        lake_s3_config: aws_sdk_s3::Config,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -57,6 +58,7 @@ impl BlockStream {
                     &indexer_config,
                     redis_client,
                     delta_lake_client,
+                    lake_s3_config,
                     &chain_id,
                 ) => {
                     result.map_err(|err| {
@@ -98,6 +100,7 @@ pub(crate) async fn start_block_stream(
     indexer: &IndexerConfig,
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    lake_s3_config: aws_sdk_s3::Config,
     chain_id: &ChainId,
 ) -> anyhow::Result<()> {
     tracing::info!(
@@ -166,6 +169,7 @@ pub(crate) async fn start_block_stream(
         ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
         ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
     }
+    .s3_config(lake_s3_config)
     .start_block_height(last_indexed_block)
     .build()
     .context("Failed to build lake config")?;

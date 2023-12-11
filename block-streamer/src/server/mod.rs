@@ -7,6 +7,7 @@ pub mod blockstreamer {
 pub async fn init(
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    lake_s3_config: aws_sdk_s3::Config,
 ) -> anyhow::Result<()> {
     let addr = "[::1]:10000"
         .parse()
@@ -14,8 +15,11 @@ pub async fn init(
 
     tracing::info!("Starting RPC server at {}", addr);
 
-    let block_streamer_service =
-        block_streamer_service::BlockStreamerService::new(redis_client, delta_lake_client);
+    let block_streamer_service = block_streamer_service::BlockStreamerService::new(
+        redis_client,
+        delta_lake_client,
+        lake_s3_config,
+    );
 
     let block_streamer_server =
         blockstreamer::block_streamer_server::BlockStreamerServer::new(block_streamer_service);

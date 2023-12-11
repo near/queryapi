@@ -21,12 +21,13 @@ async fn main() -> anyhow::Result<()> {
 
     let aws_config = aws_config::from_env().load().await;
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
-    let s3_client = crate::s3_client::S3Client::new(s3_config);
+    let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
-    server::init(redis_client, delta_lake_client).await?;
+    server::init(redis_client, delta_lake_client, s3_config).await?;
+
 
     Ok(())
 }
