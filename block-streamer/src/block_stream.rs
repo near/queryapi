@@ -55,8 +55,8 @@ impl BlockStream {
                 result = start_block_stream(
                     start_block_height,
                     &indexer_config,
-                    &redis_client,
-                    &delta_lake_client,
+                    redis_client,
+                    delta_lake_client,
                     &chain_id,
                 ) => {
                     result.map_err(|err| {
@@ -96,8 +96,8 @@ impl BlockStream {
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_client: &std::sync::Arc<crate::redis::RedisClient>,
-    delta_lake_client: &std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     chain_id: &ChainId,
 ) -> anyhow::Result<()> {
     tracing::info!(
