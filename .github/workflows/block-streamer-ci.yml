@@ -16,7 +16,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Check
       working-directory: ./block-streamer
       run: cargo check
@@ -24,7 +26,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Test
       working-directory: ./block-streamer
       run: cargo test
@@ -34,7 +38,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -51,7 +57,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
