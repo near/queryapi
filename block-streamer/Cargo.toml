@@ -28,3 +28,8 @@ near-lake-framework = { git = "https://github.com/near/near-lake-framework-rs", 
 
 [build-dependencies]
 tonic-build = "0.10"
+
+[dev-dependencies]
+aws-smithy-runtime = { version = "1.0.0", features = ["test-util"] }
+aws-smithy-types = "1.0.1"
+http = "0.2.9"

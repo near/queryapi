@@ -8,6 +8,9 @@ mod rules;
 mod s3_client;
 mod server;
 
+#[cfg(test)]
+mod test_utils;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
