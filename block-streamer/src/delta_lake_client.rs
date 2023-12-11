@@ -10,6 +10,11 @@ const INDEXED_ACTIONS_PREFIX: &str = "silver/accounts/action_receipt_actions/met
 const LATEST_BLOCK_METADATA_KEY: &str =
     "silver/accounts/action_receipt_actions/metadata/latest_block.json";
 
+#[cfg(not(test))]
+pub use DeltaLakeClientImpl as DeltaLakeClient;
+#[cfg(test)]
+pub use MockDeltaLakeClientImpl as DeltaLakeClient;
+
 #[derive(serde::Deserialize, Debug, Eq, PartialEq)]
 pub struct LatestBlockMetadata {
     pub last_indexed_block: String,
@@ -31,14 +36,15 @@ pub struct IndexFile {
     pub actions: Vec<IndexFileAction>,
 }
 
-pub struct DeltaLakeClient {
+pub struct DeltaLakeClientImpl {
     s3_client: crate::s3_client::S3Client,
     chain_id: ChainId,
 }
 
-impl DeltaLakeClient {
+#[cfg_attr(test, mockall::automock)]
+impl DeltaLakeClientImpl {
     pub fn new(s3_client: crate::s3_client::S3Client) -> Self {
-        DeltaLakeClient {
+        Self {
             s3_client,
             // hardcode to mainnet for now
             chain_id: ChainId::Mainnet,
@@ -323,7 +329,7 @@ mod tests {
             .with(predicate::eq(DELTA_LAKE_BUCKET), predicate::eq(LATEST_BLOCK_METADATA_KEY))
             .returning(|_bucket, _prefix| Ok("{ \"last_indexed_block\": \"106309326\", \"first_indexed_block\": \"106164983\", \"last_indexed_block_date\": \"2023-11-22\", \"first_indexed_block_date\": \"2023-11-21\", \"processed_at_utc\": \"2023-11-22 23:06:24.358000\" }".to_string()));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await.unwrap();
 
@@ -367,7 +373,7 @@ mod tests {
             .with(predicate::eq(DELTA_LAKE_BUCKET), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/dataplatform/queryapi/2023-05-17.json".to_string()))
             .returning(|_bucket, _prefix| Ok("{\"heights\":[92080299,92080344],\"actions\":[{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[92080344,92080299]}]}".to_string()));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_heights = delta_lake_client
             .list_matching_block_heights(91940840, "queryapi.dataplatform.near")
@@ -424,7 +430,7 @@ mod tests {
             .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/sputnik-dao/hackathon/2022-05-27.json".to_string()))
             .returning(|_bucket, _prefix| Ok("{\"heights\":[66494954],\"actions\":[{\"action_kind\":\"CREATE_ACCOUNT\",\"block_heights\":[66494954]},{\"action_kind\":\"DEPLOY_CONTRACT\",\"block_heights\":[66494954]},{\"action_kind\":\"FUNCTION_CALL\",\"block_heights\":[66494954]},{\"action_kind\":\"TRANSFER\",\"block_heights\":[66494954]}]}".to_string()));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_heights = delta_lake_client
             .list_matching_block_heights(
@@ -507,7 +513,7 @@ mod tests {
             .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string()))
             .returning(|_bucket, _prefix| Ok("{\"heights\":[104616819],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}".to_string()));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_heights = delta_lake_client
             .list_matching_block_heights(78516467, "*.keypom.near")
@@ -569,7 +575,7 @@ mod tests {
             .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string()))
             .returning(|_bucket, _prefix| Ok("{\"heights\":[104616819],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}".to_string()));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_heights = delta_lake_client
             .list_matching_block_heights(45894617, "*.keypom.near, hackathon.agency.near")
@@ -621,7 +627,7 @@ mod tests {
             .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string()))
             .returning(|_bucket, _prefix| Ok("{\"heights\":[45898424,45898423,45898413,45894712],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}".to_string()));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_heights = delta_lake_client
             .list_matching_block_heights(45894628, "keypom.near, hackathon.agency.near")
@@ -647,7 +653,7 @@ mod tests {
             .times(1)
             .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_date = delta_lake_client
             .get_nearest_block_date(106397175)
@@ -682,7 +688,7 @@ mod tests {
             .times(1)
             .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let block_date = delta_lake_client
             .get_nearest_block_date(106397175)
@@ -705,7 +711,7 @@ mod tests {
                 ))
             });
 
-        let delta_lake_client = DeltaLakeClient::new(mock_s3_client);
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
 
         let result = delta_lake_client.get_nearest_block_date(106397175).await;
 
