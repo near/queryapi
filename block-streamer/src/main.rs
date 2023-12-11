@@ -31,6 +31,5 @@ async fn main() -> anyhow::Result<()> {
 
     server::init(redis_client, delta_lake_client, s3_config).await?;
 
-
     Ok(())
 }
