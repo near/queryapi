@@ -1882,7 +1882,7 @@ dependencies = [
 [[package]]
 name = "near-lake-framework"
 version = "0.0.0"
-source = "git+https://github.com/near/near-lake-framework-rs?branch=upgrade-s3-sdk-0.7.1#09b90ca572942019ba0cdd72c6f57e863d450152"
+source = "git+https://github.com/near/near-lake-framework-rs?branch=chore/upgrade-aws-0.7.x#af285aa8b6ff7678d8e69032dbe570009bbedde2"
 dependencies = [
  "anyhow",
  "async-stream",

@@ -24,7 +24,7 @@ tokio-stream = "0.1.14"
 tonic = "0.10.2"
 wildmatch = "2.1.1"
 
-near-lake-framework = "0.7.1"
+near-lake-framework = { git = "https://github.com/near/near-lake-framework-rs", branch="chore/upgrade-aws-0.7.x"}
 
 [build-dependencies]
 tonic-build = "0.10"
