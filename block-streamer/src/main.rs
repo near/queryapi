@@ -20,7 +20,8 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = std::sync::Arc::new(redis::RedisClient::connect("redis://127.0.0.1").await?);
 
     let aws_config = aws_config::from_env().load().await;
-    let s3_client = crate::s3_client::S3Client::new(&aws_config);
+    let s3_config = aws_sdk_s3::Config::from(&aws_config);
+    let s3_client = crate::s3_client::S3Client::new(s3_config);
 
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));

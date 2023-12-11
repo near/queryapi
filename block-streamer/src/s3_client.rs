@@ -12,9 +12,9 @@ pub struct S3ClientImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl S3ClientImpl {
-    pub fn new(aws_config: &aws_types::sdk_config::SdkConfig) -> Self {
+    pub fn new(s3_config: aws_sdk_s3::Config) -> Self {
         Self {
-            client: aws_sdk_s3::Client::new(aws_config),
+            client: aws_sdk_s3::Client::from_conf(s3_config),
         }
     }
 
