@@ -48,8 +48,9 @@ const Editor = ({
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
     }`;
 
-  const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
+  const [formattingError, setFormattingError] = useState(undefined);
+  const [typesGenerationError, setTypesGenerationError] = useState(undefined);
 
   const [fileName, setFileName] = useState("indexingLogic.js");
 
@@ -99,12 +100,12 @@ const Editor = ({
       setSchema(savedSchema);
       try {
         setSchemaTypes(pgSchemaTypeGen.generateTypes(savedSchema));
-        setError(() => undefined);
+        setTypesGenerationError(() => undefined);
       } catch (error) {
-        handleCodeGenError(error);
+        handleCodeGenformattingError(error);
       }
-      
-    } 
+
+    }
     if (savedCode) setIndexingCode(savedCode);
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
@@ -127,9 +128,9 @@ const Editor = ({
     if (fileName === "indexingLogic.js") {
       try {
         setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
-        setError(() => undefined);
-      } catch (error) {
-        handleCodeGenError(error);
+        setTypesGenerationError(() => undefined);
+      } catch (formattingError) {
+        handleCodeGenformattingError(formattingError);
       }
     }
   }, [fileName]);
@@ -161,15 +162,15 @@ const Editor = ({
       let formatted_schema = formatted_sql;
       try {
         pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
-      } catch (error) {
-        handleCodeGenError(error);
+      } catch (formattingError) {
+        handleCodeGenformattingError(formattingError);
         return undefined;
       }
-      
+
       return formatted_schema;
-    } catch (error) {
-      console.log("error", error);
-      setError(
+    } catch (formattingError) {
+      console.log("formattingError", formattingError);
+      setFormattingError(
         () =>
           "Please check your SQL schema formatting and specify an Indexer Name"
       );
@@ -195,13 +196,13 @@ const Editor = ({
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerName = indexerName.replaceAll(" ", "_");
     if (formatted_schema == undefined) {
-      setError(
+      setFormattingError(
         () =>
           "Please check your SQL schema formatting"
       );
       return;
     }
-    setError(() => undefined);
+    setFormattingError(() => undefined);
 
     request("register-function", {
       indexerName: indexerName,
@@ -234,7 +235,7 @@ const Editor = ({
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
       setSchemaTypes(defaultSchemaTypes);
-      setError(() => onLoadErrorText);
+      setFormattingError(() => onLoadformattingErrorText);
     } else {
       try {
         let unformatted_wrapped_indexing_code = wrapCode(data.code)
@@ -255,8 +256,8 @@ const Editor = ({
         //   setContractFilter(data.filter.matching_rule.affected_account_id)
         // }
         await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
-      } catch (error) {
-        console.log(error);
+      } catch (formattingError) {
+        console.log(formattingError);
       }
     }
     setShowResetCodeModel(false);
@@ -270,12 +271,12 @@ const Editor = ({
 
 
   const handleFormattingError = (fileName) => {
-    const errorMessage =
+    const formattingErrorMessage =
       fileName === "indexingLogic.js"
         ? "Oh snap! We could not format your code. Make sure it is proper Javascript code."
         : "Oh snap! We could not format your SQL schema. Make sure it is proper SQL DDL";
 
-    setError(() => errorMessage);
+    setFormattingError(() => formattingErrorMessage);
   };
 
   const reformatAll = (indexingCode, schema) => {
@@ -299,11 +300,11 @@ const Editor = ({
           formattedCode = formatSQL(schema);
           setSchema(formattedCode);
         }
-        setError(() => undefined);
+        setFormattingError(() => undefined);
         resolve(formattedCode);
-      } catch (error) {
+      } catch (formattingError) {
         handleFormattingError(fileName);
-        reject(error);
+        reject(formattingError);
       }
     });
   };
@@ -312,16 +313,16 @@ const Editor = ({
     try {
       setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
-      setError(() => undefined);
-    } catch (error) {
-      handleCodeGenError(error);
+      setFormattingError(() => undefined);
+    } catch (formattingError) {
+      handleCodeGenformattingError(formattingError);
     }
   }
 
-  const handleCodeGenError = (error) => {
-    console.error("Error generating types for saved schema.\n", error);
-    const errorMessage = "Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL."
-    setError(() => errorMessage);
+  const handleCodeGenformattingError = (typesError) => {
+    console.log("typesGenerationError generating types for saved schema.\n", typesError);
+    const formattingTypesError = "Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL."
+    setTypesGenerationError(() => formattingTypesError);
   };
 
   async function handleFormating() {
@@ -423,9 +424,14 @@ const Editor = ({
           height: "100%",
         }}
       >
-        {error && (
+        {formattingError && (
           <Alert className="px-3 pt-3" variant="danger">
-            {error}
+            {formattingError}
+          </Alert>
+        )}
+        {typesGenerationError &&  (
+          <Alert className="px-3 pt-3" variant="danger">
+            {typesGenerationError}
           </Alert>
         )}
         {debugMode && !debugModeInfoDisabled && (
