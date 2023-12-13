@@ -1,11 +1,7 @@
 syntax = "proto3";
 package spec;
 
-import "protobuf-ts.proto";
-
 service Runner {
-    option (ts.server) = GRPC1_SERVER;
-    option (ts.client) = GRPC1_CLIENT;
     // Starts a new Runner stream worker
     rpc StartStream (StartStreamRequest) returns (StartStreamResponse);
 
@@ -41,7 +37,6 @@ message StopStreamResponse {
 
 // List Stream Request
 message ListStreamsRequest {
-    string placeholder = 1;
 }
 
 // List Stream Response
