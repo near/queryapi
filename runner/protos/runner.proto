@@ -1,0 +1,60 @@
+syntax = "proto3";
+package spec;
+
+import "protobuf-ts.proto";
+
+service Runner {
+    option (ts.server) = GRPC1_SERVER;
+    option (ts.client) = GRPC1_CLIENT;
+    // Starts a new Runner stream worker
+    rpc StartStream (StartStreamRequest) returns (StartStreamResponse);
+
+    // Stops an existing Runner stream worker
+    rpc StopStream (StopStreamRequest) returns (StopStreamResponse);
+
+    // Lists all Runner stream workers
+    rpc ListStreams (ListStreamsRequest) returns (ListStreamsResponse);
+}
+
+// Start Stream Request 
+message StartStreamRequest {
+    int64 start_block_height = 1;
+    string indexer_config = 2; // JSON containing code, schema, etc.
+    string stream_id = 3;
+}
+
+// Start Stream Response 
+message StartStreamResponse {
+    string stream_id = 1;
+}
+
+// Stop Stream Request
+message StopStreamRequest {
+    string stream_id = 1;
+}
+
+// Stop Stream Response
+message StopStreamResponse {
+    string stream_id = 1;
+    string status = 2;
+}
+
+// List Stream Request
+message ListStreamsRequest {
+    string placeholder = 1;
+}
+
+// List Stream Response
+message ListStreamsResponse {
+    // List of all streams, including stopped or crashed ones
+    repeated StreamInfo streams = 1;
+}
+
+// Information about a single BlockStream instance.
+message StreamInfo {
+    string stream_id = 1;
+    int64 start_block_height = 2;
+    string indexer_name = 3;
+    string chain_id = 4;
+    string status = 5;
+}
