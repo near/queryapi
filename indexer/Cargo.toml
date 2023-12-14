@@ -3,6 +3,5 @@
 members = [
     "queryapi_coordinator",
     "storage",
-    "indexer_rules_engine",
-    "indexer_rule_type"
+    "indexer_rules_engine"
 ]

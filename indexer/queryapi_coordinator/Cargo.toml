@@ -23,7 +23,7 @@ tokio-stream = { version = "0.1" }
 tracing = "0.1.34"
 
 storage = { path = '../storage' }
-indexer_rule_type = { path = '../indexer_rule_type' }
+indexer_rule_type = { path = '../../indexer_rule_type' }
 indexer_rules_engine = { path = '../indexer_rules_engine' }
 
 near-jsonrpc-client = "0.5.1"
