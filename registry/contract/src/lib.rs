@@ -528,7 +528,7 @@ mod tests {
         );
 
         eprintln!("contract.account_roles = {:#?}", contract.account_roles);
-        assert_eq!(contract.account_roles.len(), 7);
+        assert_eq!(contract.account_roles.len(), 8);
     }
 
     #[test]
