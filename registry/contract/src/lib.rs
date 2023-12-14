@@ -165,49 +165,6 @@ impl Default for Contract {
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
-    #[private]
-    #[init(ignore_state)]
-    pub fn migrate() -> Self {
-        log!("Pre-migration storage size {:?}", env::storage_usage());
-
-        let mut state: OldState = env::state_read().unwrap_or_else(|| {
-            env::panic_str("Failed to deserialize contract state");
-        });
-
-        let mut registry = IndexersByAccount::new(StorageKeys::RegistryV1);
-
-        state
-            .registry
-            .iter_mut()
-            .for_each(|(account_id, functions)| {
-                let mut new_functions: IndexerConfigByFunctionName =
-                    IndexerConfigByFunctionName::new(StorageKeys::AccountV1(env::sha256_array(
-                        account_id.as_bytes(),
-                    )));
-                functions
-                    .iter()
-                    .for_each(|(function_name, old_indexer_config)| {
-                        let new_indexer_config = IndexerConfig {
-                            code: old_indexer_config.code.clone(),
-                            start_block_height: old_indexer_config.start_block_height,
-                            schema: old_indexer_config.schema.clone(),
-                            filter: indexer_rule_type::near_social_indexer_rule(),
-                        };
-                        new_functions.insert(function_name.clone(), new_indexer_config);
-                    });
-                registry.insert(account_id.clone(), new_functions);
-                functions.clear();
-            });
-        state.registry.clear();
-
-        log!("Post-migration storage size {:?}", env::storage_usage());
-
-        Self {
-            registry,
-            account_roles: Self::default().account_roles,
-        }
-    }
-
     // Public method - returns a function previously registered under this name or empty string
     pub fn read_indexer_function(
         &self,
@@ -440,96 +397,7 @@ mod tests {
     use super::*;
     use indexer_rule_type::indexer_rule::{IndexerRuleKind, MatchingRule, Status};
 
-    #[test]
-    fn migrate() {
-        let mut registry = OldIndexersByAccount::new(StorageKeys::Registry);
-        let account_id: AccountId = "morgs.near".parse().unwrap();
-        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(
-            StorageKeys::Account(env::sha256_array(account_id.as_bytes())),
-        );
 
-        funcs.insert(
-            "test".to_string(),
-            OldIndexerConfig {
-                code: "return block;".to_string(),
-                start_block_height: None,
-                schema: None,
-            },
-        );
-        funcs.insert(
-            "test2".to_string(),
-            OldIndexerConfig {
-                code: "return block2;".to_string(),
-                start_block_height: None,
-                schema: None,
-            },
-        );
-        registry.insert("morgs.near".parse().unwrap(), funcs);
-
-        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(
-            StorageKeys::Account(env::sha256_array("root.near".as_bytes())),
-        );
-        funcs.insert(
-            "my_function".to_string(),
-            OldIndexerConfig {
-                code: "var x = 1;".to_string(),
-                start_block_height: Some(1),
-                schema: None,
-            },
-        );
-        registry.insert("root.near".parse().unwrap(), funcs);
-
-        let mut funcs: OldIndexerConfigByFunctionName = OldIndexerConfigByFunctionName::new(
-            StorageKeys::Account(env::sha256_array("roshaan.near".as_bytes())),
-        );
-        funcs.insert(
-            "another/function".to_string(),
-            OldIndexerConfig {
-                code: "console.log('hello');".to_string(),
-                start_block_height: Some(1),
-                schema: None,
-            },
-        );
-        registry.insert("roshaan.near".parse().unwrap(), funcs);
-
-        env::state_write(&OldState {
-            registry,
-            account_roles: vec![],
-        });
-
-        let contract = Contract::migrate();
-
-        assert_eq!(contract.registry.len(), 3);
-        assert_eq!(
-            contract
-                .registry
-                .get(&"morgs.near".parse::<AccountId>().unwrap())
-                .unwrap()
-                .len(),
-            2
-        );
-        assert_eq!(
-            contract
-                .registry
-                .get(&"root.near".parse::<AccountId>().unwrap())
-                .unwrap()
-                .get("my_function")
-                .unwrap()
-                .filter,
-            indexer_rule_type::near_social_indexer_rule()
-        );
-        assert_eq!(
-            contract
-                .registry
-                .get(&"roshaan.near".parse::<AccountId>().unwrap())
-                .unwrap()
-                .len(),
-            1
-        );
-
-        eprintln!("contract.account_roles = {:#?}", contract.account_roles);
-        assert_eq!(contract.account_roles.len(), 8);
-    }
 
     #[test]
     fn list_account_roles() {
