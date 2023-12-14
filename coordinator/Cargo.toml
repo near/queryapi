@@ -8,6 +8,8 @@ anyhow = "1.0.75"
 tokio = "1.28"
 serde_json = "1.0.108"
 
+registry-types = { path = "../registry/types" }
+
 near-jsonrpc-client = "0.6.0"
 near-primitives = "0.17.0"
 near-jsonrpc-primitives = "0.17.0"

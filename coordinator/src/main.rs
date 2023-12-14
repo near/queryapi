@@ -3,6 +3,7 @@ use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::{BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
+use registry_types::AccountOrAllIndexers;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,7 +21,7 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     if let QueryResponseKind::CallResult(call_result) = response.kind {
-        let registry: serde_json::Value = serde_json::from_slice(&call_result.result)?;
+        let registry: AccountOrAllIndexers = serde_json::from_slice(&call_result.result)?;
         eprintln!("registry = {:#?}", registry);
     }
 
