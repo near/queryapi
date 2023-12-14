@@ -1,3 +1,4 @@
+/* eslint-disable quote-props */
 import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
 
@@ -39,7 +40,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, block_height, block_timestamp, content, receipt_id, accounts_liked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
+      ['INSERT INTO test_schema."test_table" ("account_id", "block_height", "block_timestamp", "content", "receipt_id", "accounts_liked") VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
     ]);
   });
 
@@ -59,7 +60,27 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
+      ['INSERT INTO test_schema."test_table" ("account_id", "block_height", "receipt_id") VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
+    ]);
+  });
+
+  test('Test valid insert with mix of quoted columns', async () => {
+    const inputObj = [{
+      'account_id': 'morgs_near',
+      block_height: 1,
+      'receipt_id': 'abc',
+    },
+    {
+      account_id: 'morgs_near',
+      'block_height': 2,
+      receipt_id: 'abc',
+    }];
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+
+    await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
+    expect(query.mock.calls).toEqual([
+      ['INSERT INTO test_schema."test_table" ("account_id", "block_height", "receipt_id") VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
     ]);
   });
 
@@ -73,7 +94,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
+      ['SELECT * FROM test_schema."test_table" WHERE "account_id"=$1 AND "block_height"=$2', Object.values(inputObj)]
     ]);
   });
 
@@ -87,7 +108,21 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 LIMIT 1', Object.values(inputObj)]
+      ['SELECT * FROM test_schema."test_table" WHERE "account_id"=$1 AND "block_height"=$2 LIMIT 1', Object.values(inputObj)]
+    ]);
+  });
+
+  test('Test valid select on two fields with limit and quoted column', async () => {
+    const inputObj = {
+      account_id: 'test_acc_near',
+      'block_height': 999,
+    };
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+
+    await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
+    expect(query.mock.calls).toEqual([
+      ['SELECT * FROM test_schema."test_table" WHERE "account_id"=$1 AND "block_height"=$2 LIMIT 1', Object.values(inputObj)]
     ]);
   });
 
@@ -106,7 +141,26 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
-      ['UPDATE test_schema."test_table" SET content=$1, receipt_id=$2 WHERE account_id=$3 AND block_height=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
+      ['UPDATE test_schema."test_table" SET "content"=$1, "receipt_id"=$2 WHERE "account_id"=$3 AND "block_height"=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
+    ]);
+  });
+
+  test('Test valid update on two fields with mixed quotes', async () => {
+    const whereObj = {
+      'account_id': 'test_acc_near',
+      block_height: 999,
+    };
+
+    const updateObj = {
+      content: 'test_content',
+      'receipt_id': 111,
+    };
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+
+    await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
+    expect(query.mock.calls).toEqual([
+      ['UPDATE test_schema."test_table" SET "content"=$1, "receipt_id"=$2 WHERE "account_id"=$3 AND "block_height"=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
     ]);
   });
 
@@ -129,7 +183,30 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, block_height) DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
+      ['INSERT INTO test_schema."test_table" ("account_id", "block_height", "receipt_id") VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT ("account_id", "block_height") DO UPDATE SET "receipt_id" = excluded."receipt_id" RETURNING *', []]
+    ]);
+  });
+
+  test('Test valid upsert on two fields with mixed quotes', async () => {
+    const inputObj = [{
+      account_id: 'morgs_near',
+      'block_height': 1,
+      receipt_id: 'abc'
+    },
+    {
+      'account_id': 'morgs_near',
+      block_height: 2,
+      receipt_id: 'abc'
+    }];
+
+    const conflictCol = ['account_id', 'block_height'];
+    const updateCol = ['receipt_id'];
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+
+    await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
+    expect(query.mock.calls).toEqual([
+      ['INSERT INTO test_schema."test_table" ("account_id", "block_height", "receipt_id") VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT ("account_id", "block_height") DO UPDATE SET "receipt_id" = excluded."receipt_id" RETURNING *', []]
     ]);
   });
 
@@ -143,7 +220,21 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['DELETE FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 RETURNING *', Object.values(inputObj)]
+      ['DELETE FROM test_schema."test_table" WHERE "account_id"=$1 AND "block_height"=$2 RETURNING *', Object.values(inputObj)]
+    ]);
+  });
+
+  test('Test valid delete on two fields with quoted column', async () => {
+    const inputObj = {
+      account_id: 'test_acc_near',
+      'block_height': 999,
+    };
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+
+    await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
+    expect(query.mock.calls).toEqual([
+      ['DELETE FROM test_schema."test_table" WHERE "account_id"=$1 AND "block_height"=$2 RETURNING *', Object.values(inputObj)]
     ]);
   });
 });

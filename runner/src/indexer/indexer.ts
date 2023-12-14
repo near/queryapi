@@ -213,7 +213,8 @@ export default class Indexer {
     return pascalCaseTableName;
   }
 
-  buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
+  buildDatabaseContext (functionName: string, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
+    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
@@ -235,7 +236,7 @@ export default class Indexer {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
               // Write log before calling insert
-              await this.writeLog(`context.db.${sanitizedTableName}.insert`, blockHeight, defaultLog + '.insert',
+              await this.writeLog(functionName, blockHeight, defaultLog + '.insert',
                 `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}`);
 
               // Wait for initialiiation of DmlHandler
@@ -246,7 +247,7 @@ export default class Indexer {
             },
             select: async (filterObj: any, limit = null) => {
               // Write log before calling select
-              await this.writeLog(`context.db.${sanitizedTableName}.select`, blockHeight, defaultLog + '.select',
+              await this.writeLog(functionName, blockHeight, defaultLog + '.select',
                 `Selecting objects with values ${JSON.stringify(filterObj)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
 
               // Wait for initialiiation of DmlHandler
@@ -257,7 +258,7 @@ export default class Indexer {
             },
             update: async (filterObj: any, updateObj: any) => {
               // Write log before calling update
-              await this.writeLog(`context.db.${sanitizedTableName}.update`, blockHeight, defaultLog + '.update',
+              await this.writeLog(functionName, blockHeight, defaultLog + '.update',
                 `Updating objects that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
 
               // Wait for initialiiation of DmlHandler
@@ -268,7 +269,7 @@ export default class Indexer {
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               // Write log before calling upsert
-              await this.writeLog(`context.db.${sanitizedTableName}.upsert`, blockHeight, defaultLog + '.upsert',
+              await this.writeLog(functionName, blockHeight, defaultLog + '.upsert',
                 `Inserting objects with values ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
               // Wait for initialiiation of DmlHandler
@@ -279,7 +280,7 @@ export default class Indexer {
             },
             delete: async (filterObj: any) => {
               // Write log before calling delete
-              await this.writeLog(`context.db.${sanitizedTableName}.delete`, blockHeight, defaultLog + '.delete',
+              await this.writeLog(functionName, blockHeight, defaultLog + '.delete',
                 `Deleting objects with values ${JSON.stringify(filterObj)} from table ${tableName} on schema ${schemaName}`);
 
               // Wait for initialiiation of DmlHandler
