@@ -12,20 +12,24 @@ pub struct Task {
 
 pub struct BlockStream {
     task: Option<Task>,
+    pub indexer_config: IndexerConfig,
+    pub chain_id: ChainId,
 }
 
 impl BlockStream {
-    pub fn new() -> Self {
-        Self { task: None }
+    pub fn new(indexer_config: IndexerConfig, chain_id: ChainId) -> Self {
+        Self {
+            task: None,
+            indexer_config,
+            chain_id,
+        }
     }
 
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        indexer: IndexerConfig,
         redis_connection_manager: crate::redis::ConnectionManager,
         delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
-        chain_id: ChainId,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -34,19 +38,22 @@ impl BlockStream {
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let cancellation_token_clone = cancellation_token.clone();
 
+        let indexer_config = self.indexer_config.clone();
+        let chain_id = self.chain_id.clone();
+
         let handle = tokio::spawn(async move {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        "Cancelling existing block stream task for indexer: {}",
-                        indexer.get_full_name(),
+                        "Cancelling block stream task for indexer: {}",
+                        indexer_config.get_full_name(),
                     );
 
                     Ok(())
                 },
                 result = start_block_stream(
                     start_block_height,
-                    indexer.clone(),
+                    &indexer_config,
                     &redis_connection_manager,
                     &delta_lake_client,
                     &chain_id,
@@ -54,7 +61,7 @@ impl BlockStream {
                     result.map_err(|err| {
                         tracing::error!(
                             "Block stream task for indexer: {} stopped due to error: {:?}",
-                            indexer.get_full_name(),
+                            indexer_config.get_full_name(),
                             err,
                         );
                         err
@@ -91,7 +98,7 @@ impl BlockStream {
 
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
-    indexer: IndexerConfig,
+    indexer: &IndexerConfig,
     redis_connection_manager: &crate::redis::ConnectionManager,
     delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
     chain_id: &ChainId,

@@ -1,17 +1,12 @@
 use tracing_subscriber::prelude::*;
 
-use crate::indexer_config::IndexerConfig;
-use crate::rules::types::indexer_rule_match::ChainId;
-use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
-
 mod block_stream;
 mod delta_lake_client;
 mod indexer_config;
 mod redis;
 mod rules;
 mod s3_client;
-
-pub(crate) const LOG_TARGET: &str = "block_streamer";
+mod server;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,7 +15,7 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    tracing::info!("Starting {}", crate::LOG_TARGET);
+    tracing::info!("Starting Block Streamer Service...");
 
     let redis_connection_manager = redis::connect("redis://127.0.0.1").await?;
 
@@ -29,40 +24,7 @@ async fn main() -> anyhow::Result<()> {
 
     let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(s3_client);
 
-    let contract = "queryapi.dataplatform.near";
-    let matching_rule = MatchingRule::ActionAny {
-        affected_account_id: contract.to_string(),
-        status: Status::Any,
-    };
-    let filter_rule = IndexerRule {
-        indexer_rule_kind: IndexerRuleKind::Action,
-        matching_rule,
-        id: None,
-        name: None,
-    };
-    let indexer = IndexerConfig {
-        account_id: "buildnear.testnet".to_string().parse().unwrap(),
-        function_name: "index_stuff".to_string(),
-        code: "".to_string(),
-        start_block_height: Some(85376002),
-        schema: None,
-        provisioned: false,
-        indexer_rule: filter_rule,
-    };
-
-    let mut streamer = block_stream::BlockStream::new();
-
-    streamer.start(
-        106000000,
-        indexer,
-        redis_connection_manager,
-        delta_lake_client,
-        ChainId::Mainnet,
-    )?;
-
-    streamer.take_handle().unwrap().await??;
-
-    println!("done");
+    server::init(redis_connection_manager, delta_lake_client).await?;
 
     Ok(())
 }
