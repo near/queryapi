@@ -1,9 +1,14 @@
-use crate::indexer_config::IndexerConfig;
-use crate::rules::types::indexer_rule_match::ChainId;
-use crate::rules::MatchingRule;
 use anyhow::{bail, Context};
 use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
+
+use crate::indexer_config::IndexerConfig;
+use crate::rules::types::indexer_rule_match::ChainId;
+use crate::rules::MatchingRule;
+
+/// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
+/// we need this configurable for testing purposes.
+const LAKE_PREFETCH_SIZE: usize = 100;
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
@@ -28,8 +33,9 @@ impl BlockStream {
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis_connection_manager: crate::redis::ConnectionManager,
-        delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+        redis_client: std::sync::Arc<crate::redis::RedisClient>,
+        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+        lake_s3_config: aws_sdk_s3::Config,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -54,9 +60,11 @@ impl BlockStream {
                 result = start_block_stream(
                     start_block_height,
                     &indexer_config,
-                    &redis_connection_manager,
-                    &delta_lake_client,
+                    redis_client,
+                    delta_lake_client,
+                    lake_s3_config,
                     &chain_id,
+                    LAKE_PREFETCH_SIZE
                 ) => {
                     result.map_err(|err| {
                         tracing::error!(
@@ -90,18 +98,16 @@ impl BlockStream {
             "Attempted to cancel already cancelled, or not started, BlockStreamer"
         ))
     }
-
-    pub fn take_handle(&mut self) -> Option<JoinHandle<anyhow::Result<()>>> {
-        self.task.take().map(|task| task.handle)
-    }
 }
 
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_connection_manager: &crate::redis::ConnectionManager,
-    delta_lake_client: &crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    lake_s3_config: aws_sdk_s3::Config,
     chain_id: &ChainId,
+    lake_prefetch_size: usize,
 ) -> anyhow::Result<()> {
     tracing::info!(
         "Starting block stream at {start_block_height} for indexer: {}",
@@ -143,14 +149,13 @@ pub(crate) async fn start_block_stream(
     );
 
     for block in &blocks_from_index {
-        crate::redis::xadd(
-            redis_connection_manager,
-            // TODO make configurable
-            crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-            &[("block_height", block)],
-        )
-        .await
-        .context("Failed to add block to Redis Stream")?;
+        redis_client
+            .xadd(
+                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                &[("block_height".to_string(), block.to_owned())],
+            )
+            .await
+            .context("Failed to add block to Redis Stream")?;
     }
 
     let mut last_indexed_block =
@@ -170,7 +175,9 @@ pub(crate) async fn start_block_stream(
         ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
         ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
     }
+    .s3_config(lake_s3_config)
     .start_block_height(last_indexed_block)
+    .blocks_preload_pool_size(lake_prefetch_size)
     .build()
     .context("Failed to build lake config")?;
 
@@ -187,12 +194,13 @@ pub(crate) async fn start_block_stream(
         );
 
         if !matches.is_empty() {
-            crate::redis::xadd(
-                redis_connection_manager,
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                &[("block_height", block_height)],
-            )
-            .await?;
+            redis_client
+                .xadd(
+                    crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                    &[("block_height".to_string(), block_height.to_owned())],
+                )
+                .await
+                .context("Failed to add block to Redis Stream")?;
         }
     }
 
@@ -205,4 +213,67 @@ pub(crate) async fn start_block_stream(
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn adds_matching_blocks_from_index_and_lake() {
+        let expected_matching_block_height_count = 3;
+
+        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
+        mock_delta_lake_client
+            .expect_get_latest_block_metadata()
+            .returning(|| {
+                Ok(crate::delta_lake_client::LatestBlockMetadata {
+                    last_indexed_block: "107503703".to_string(),
+                    processed_at_utc: "".to_string(),
+                    first_indexed_block: "".to_string(),
+                    last_indexed_block_date: "".to_string(),
+                    first_indexed_block_date: "".to_string(),
+                })
+            });
+        mock_delta_lake_client
+            .expect_list_matching_block_heights()
+            .returning(|_, _| Ok(vec![107503702, 107503703]));
+
+        let mut mock_redis_client = crate::redis::RedisClient::default();
+        mock_redis_client
+            .expect_xadd::<String, u64>()
+            .returning(|_, _| Ok(()))
+            .times(expected_matching_block_height_count);
+
+        let indexer_config = crate::indexer_config::IndexerConfig {
+            account_id: near_indexer_primitives::types::AccountId::try_from(
+                "morgs.near".to_string(),
+            )
+            .unwrap(),
+            function_name: "test".to_string(),
+            indexer_rule: crate::rules::IndexerRule {
+                indexer_rule_kind: crate::rules::IndexerRuleKind::Action,
+                matching_rule: crate::rules::MatchingRule::ActionAny {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: crate::rules::Status::Success,
+                },
+                name: None,
+                id: None,
+            },
+        };
+
+        let lake_s3_config = crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
+
+        start_block_stream(
+            91940840,
+            &indexer_config,
+            std::sync::Arc::new(mock_redis_client),
+            std::sync::Arc::new(mock_delta_lake_client),
+            lake_s3_config,
+            &ChainId::Mainnet,
+            1,
+        )
+        .await
+        .unwrap();
+    }
 }

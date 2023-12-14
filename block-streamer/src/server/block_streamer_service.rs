@@ -27,20 +27,23 @@ impl TryFrom<i32> for crate::rules::Status {
 }
 
 pub struct BlockStreamerService {
-    redis_connection_manager: crate::redis::ConnectionManager,
-    delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    lake_s3_config: aws_sdk_s3::Config,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
 
 impl BlockStreamerService {
     pub fn new(
-        redis_connection_manager: crate::redis::ConnectionManager,
-        delta_lake_client: crate::delta_lake_client::DeltaLakeClient<crate::s3_client::S3Client>,
+        redis_client: std::sync::Arc<crate::redis::RedisClient>,
+        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+        lake_s3_config: aws_sdk_s3::Config,
     ) -> Self {
         Self {
-            redis_connection_manager,
+            redis_client,
             delta_lake_client,
+            lake_s3_config,
             chain_id: ChainId::Mainnet,
             block_streams: Mutex::new(HashMap::new()),
         }
@@ -118,8 +121,9 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         block_stream
             .start(
                 request.start_block_height,
-                self.redis_connection_manager.clone(),
+                self.redis_client.clone(),
                 self.delta_lake_client.clone(),
+                self.lake_s3_config.clone(),
             )
             .map_err(|_| Status::internal("Failed to start block stream"))?;
 
@@ -186,5 +190,128 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         };
 
         Ok(Response::new(response))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use blockstreamer::block_streamer_server::BlockStreamer;
+
+    fn create_block_streamer_service() -> BlockStreamerService {
+        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
+        mock_delta_lake_client
+            .expect_get_latest_block_metadata()
+            .returning(|| {
+                Ok(crate::delta_lake_client::LatestBlockMetadata {
+                    last_indexed_block: "107503703".to_string(),
+                    processed_at_utc: "".to_string(),
+                    first_indexed_block: "".to_string(),
+                    last_indexed_block_date: "".to_string(),
+                    first_indexed_block_date: "".to_string(),
+                })
+            });
+        mock_delta_lake_client
+            .expect_list_matching_block_heights()
+            .returning(|_, _| Ok(vec![]));
+
+        let mut mock_redis_client = crate::redis::RedisClient::default();
+        mock_redis_client
+            .expect_xadd::<String, u64>()
+            .returning(|_, _| Ok(()));
+
+        let lake_s3_config = crate::test_utils::create_mock_lake_s3_config(&[107503704]);
+
+        BlockStreamerService::new(
+            std::sync::Arc::new(mock_redis_client),
+            std::sync::Arc::new(mock_delta_lake_client),
+            lake_s3_config,
+        )
+    }
+
+    #[tokio::test]
+    async fn starts_a_block_stream() {
+        let block_streamer_service = create_block_streamer_service();
+
+        {
+            let lock = block_streamer_service.get_block_streams_lock().unwrap();
+            assert_eq!(lock.len(), 0);
+        }
+
+        block_streamer_service
+            .start_stream(Request::new(StartStreamRequest {
+                start_block_height: 0,
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+                rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: 0,
+                })),
+            }))
+            .await
+            .unwrap();
+
+        let lock = block_streamer_service.get_block_streams_lock().unwrap();
+        assert_eq!(lock.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn stops_a_block_stream() {
+        let block_streamer_service = create_block_streamer_service();
+
+        assert_eq!(
+            block_streamer_service
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .unwrap()
+                .into_inner()
+                .streams
+                .len(),
+            0
+        );
+
+        block_streamer_service
+            .start_stream(Request::new(StartStreamRequest {
+                start_block_height: 0,
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+                rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: 0,
+                })),
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            block_streamer_service
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .unwrap()
+                .into_inner()
+                .streams
+                .len(),
+            1
+        );
+
+        block_streamer_service
+            .stop_stream(Request::new(StopStreamRequest {
+                // ID for indexer morgs.near/test
+                stream_id: "16210176318434468568".to_string(),
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            block_streamer_service
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .unwrap()
+                .into_inner()
+                .streams
+                .len(),
+            0
+        );
     }
 }

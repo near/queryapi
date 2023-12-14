@@ -118,19 +118,6 @@ mod tests {
     use crate::rules::outcomes_reducer::reduce_indexer_rule_matches_from_outcomes;
     use crate::rules::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
     use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
-    use near_lake_framework::near_indexer_primitives::StreamerMessage;
-
-    fn read_local_file(path: &str) -> String {
-        std::fs::read_to_string(path).unwrap()
-    }
-    fn read_local_streamer_message(block_height: u64) -> StreamerMessage {
-        let path = format!(
-            "{}/blocks/{}.json",
-            env!("CARGO_MANIFEST_DIR"),
-            block_height
-        );
-        serde_json::from_str(&read_local_file(&path)).unwrap()
-    }
 
     #[tokio::test]
     async fn match_wildcard_no_match() {
@@ -144,7 +131,7 @@ mod tests {
             name: None,
         };
 
-        let streamer_message = read_local_streamer_message(93085141);
+        let streamer_message = crate::test_utils::get_streamer_message(93085141);
         let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
             &wildcard_rule,
             &streamer_message,
@@ -166,7 +153,7 @@ mod tests {
             name: None,
         };
 
-        let streamer_message = read_local_streamer_message(93085141);
+        let streamer_message = crate::test_utils::get_streamer_message(93085141);
         let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
             &wildcard_rule,
             &streamer_message,
@@ -188,7 +175,7 @@ mod tests {
             name: None,
         };
 
-        let streamer_message = read_local_streamer_message(93085141);
+        let streamer_message = crate::test_utils::get_streamer_message(93085141);
         let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
             &wildcard_rule,
             &streamer_message,
@@ -228,7 +215,7 @@ mod tests {
             name: None,
         };
 
-        let streamer_message = read_local_streamer_message(93085141);
+        let streamer_message = crate::test_utils::get_streamer_message(93085141);
         let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
             &wildcard_rule,
             &streamer_message,
@@ -250,7 +237,7 @@ mod tests {
             name: None,
         };
 
-        let streamer_message = read_local_streamer_message(93085141);
+        let streamer_message = crate::test_utils::get_streamer_message(93085141);
         let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
             &wildcard_rule,
             &streamer_message,

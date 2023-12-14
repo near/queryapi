@@ -8,6 +8,9 @@ mod rules;
 mod s3_client;
 mod server;
 
+#[cfg(test)]
+mod test_utils;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
@@ -17,14 +20,16 @@ async fn main() -> anyhow::Result<()> {
 
     tracing::info!("Starting Block Streamer Service...");
 
-    let redis_connection_manager = redis::connect("redis://127.0.0.1").await?;
+    let redis_client = std::sync::Arc::new(redis::RedisClient::connect("redis://127.0.0.1").await?);
 
     let aws_config = aws_config::from_env().load().await;
-    let s3_client = crate::s3_client::S3Client::new(&aws_config);
+    let s3_config = aws_sdk_s3::Config::from(&aws_config);
+    let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
-    let delta_lake_client = crate::delta_lake_client::DeltaLakeClient::new(s3_client);
+    let delta_lake_client =
+        std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
-    server::init(redis_connection_manager, delta_lake_client).await?;
+    server::init(redis_client, delta_lake_client, s3_config).await?;
 
     Ok(())
 }
