@@ -3,7 +3,7 @@ pub mod outcomes_reducer;
 pub mod types;
 
 use near_lake_framework::near_indexer_primitives::StreamerMessage;
-use types::indexer_rule_match::{ChainId, IndexerRuleMatch};
+use types::{ChainId, IndexerRuleMatch};
 
 #[cfg(not(feature = "near-sdk"))]
 use borsh::{self, BorshDeserialize, BorshSerialize};

@@ -1,6 +1,6 @@
 use crate::rules::matcher;
-use crate::rules::types::events::Event;
-use crate::rules::types::indexer_rule_match::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
+use crate::rules::types::Event;
+use crate::rules::types::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
 use crate::rules::{IndexerRule, MatchingRule};
 use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt, StreamerMessage,
@@ -116,7 +116,7 @@ fn build_indexer_rule_match_payload(
 #[cfg(test)]
 mod tests {
     use crate::rules::outcomes_reducer::reduce_indexer_rule_matches_from_outcomes;
-    use crate::rules::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
+    use crate::rules::types::{ChainId, IndexerRuleMatch};
     use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
     #[tokio::test]

@@ -3,7 +3,7 @@ use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt,
 };
 
-use crate::rules::types::events::Event;
+use crate::rules::types::Event;
 use crate::rules::{MatchingRule, Status};
 
 pub fn matches(
