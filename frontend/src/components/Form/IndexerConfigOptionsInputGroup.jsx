@@ -2,7 +2,7 @@ import React, { useContext, useState, useEffect } from "react";
 import { InputGroup, Alert } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import { validateContractId } from "../../utils/validators";
+import { validateContractIds } from "../../utils/validators";
 const  GENESIS_BLOCK_HEIGHT = 9820210;
 const IndexerConfigOptions = ({ updateConfig }) => {
   const { indexerDetails, showPublishModal, isCreateNewIndexer, latestHeight } = useContext(IndexerDetailsContext); 
@@ -31,7 +31,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   function handleSetContractFilter(e) {
     const contractFilter = e.target.value;
     setContractFilter(contractFilter);
-    const isContractFilterValid = validateContractId(contractFilter);
+    const isContractFilterValid = validateContractIds(contractFilter);
     setIsContractFilterValid(isContractFilterValid);
   }
 
