@@ -2,9 +2,9 @@ use near_lake_framework::near_indexer_primitives::{
     views::{ActionView, ExecutionStatusView, ReceiptEnumView},
     IndexerExecutionOutcomeWithReceipt,
 };
+use registry_types::{MatchingRule, Status};
 
 use crate::rules::types::Event;
-use crate::rules::{MatchingRule, Status};
 
 pub fn matches(
     matching_rule: &MatchingRule,

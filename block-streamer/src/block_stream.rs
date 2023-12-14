@@ -3,8 +3,8 @@ use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
-use crate::rules::types::indexer_rule_match::ChainId;
-use crate::rules::MatchingRule;
+use crate::rules::types::ChainId;
+use registry_types::MatchingRule;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
 /// we need this configurable for testing purposes.
@@ -251,11 +251,11 @@ mod tests {
             )
             .unwrap(),
             function_name: "test".to_string(),
-            indexer_rule: crate::rules::IndexerRule {
-                indexer_rule_kind: crate::rules::IndexerRuleKind::Action,
-                matching_rule: crate::rules::MatchingRule::ActionAny {
+            indexer_rule: registry_types::IndexerRule {
+                indexer_rule_kind: registry_types::IndexerRuleKind::Action,
+                matching_rule: registry_types::MatchingRule::ActionAny {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: crate::rules::Status::Success,
+                    status: registry_types::Status::Success,
                 },
                 name: None,
                 id: None,

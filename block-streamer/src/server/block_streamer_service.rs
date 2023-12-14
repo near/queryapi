@@ -5,26 +5,13 @@ use near_lake_framework::near_indexer_primitives;
 use tonic::{Request, Response, Status};
 
 use crate::indexer_config::IndexerConfig;
-use crate::rules::types::indexer_rule_match::ChainId;
-use crate::rules::{IndexerRule, IndexerRuleKind, MatchingRule};
+use crate::rules::types::ChainId;
+use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule};
 
 use crate::block_stream;
 use crate::server::blockstreamer;
 
 use blockstreamer::*;
-
-impl TryFrom<i32> for crate::rules::Status {
-    type Error = ();
-
-    fn try_from(status: i32) -> Result<crate::rules::Status, ()> {
-        match status {
-            0 => Ok(crate::rules::Status::Success),
-            1 => Ok(crate::rules::Status::Fail),
-            2 => Ok(crate::rules::Status::Any),
-            _ => Err(()),
-        }
-    }
-}
 
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
@@ -73,9 +60,14 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         let matching_rule = match rule {
             start_stream_request::Rule::ActionAnyRule(action_any_rule) => {
                 let affected_account_id = action_any_rule.affected_account_id;
-                let status = action_any_rule.status.try_into().map_err(|_| {
-                    Status::invalid_argument("Invalid status value for ActionAnyRule")
-                })?;
+                let status = match action_any_rule.status {
+                    0 => Ok(registry_types::Status::Success),
+                    1 => Ok(registry_types::Status::Fail),
+                    2 => Ok(registry_types::Status::Any),
+                    _ => Err(Status::invalid_argument(
+                        "Invalid status value for ActionAnyRule",
+                    )),
+                }?;
 
                 MatchingRule::ActionAny {
                     affected_account_id,
