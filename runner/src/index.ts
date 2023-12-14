@@ -2,8 +2,6 @@ import { startServer as startMetricsServer } from './metrics';
 import RedisClient from './redis-client';
 import StreamHandler from './stream-handler';
 import startServer from './service/runner-server';
-import RunnerClient from './service/runner-client';
-
 
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
@@ -22,21 +20,8 @@ void (async function main () {
     const streamHandlers: StreamHandlers = {};
 
     while (true) {
-      RunnerClient.startStream({ streamId: 'test' }, (err, res) => {
-        if (err) {
-          console.error(`Error: ${err.message}`);
-        } else {
-          console.log('Response:', res);
-        }
-      });
-      RunnerClient.listStreams({}, (err, res) => {
-        if (err) {
-          console.error(`Error: ${err.message}`);
-        } else {
-          console.log('Response:', res);
-        }
-      });
-      const streamKeys = await redisClient.getStreams();
+      // const streamKeys = await redisClient.getStreams();
+      const streamKeys = ['darunrs.near/test_social_feed:real_time:stream'];
 
       streamKeys.forEach((streamKey) => {
         if (streamHandlers[streamKey] !== undefined) {

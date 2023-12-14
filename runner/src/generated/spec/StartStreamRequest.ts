@@ -1,15 +1,14 @@
 // Original file: protos/runner.proto
 
-import type { Long } from '@grpc/proto-loader';
 
 export interface StartStreamRequest {
-  'startBlockHeight'?: (number | string | Long);
-  'indexerConfig'?: (string);
   'streamId'?: (string);
+  'redisStream'?: (string);
+  'indexerConfig'?: (string);
 }
 
 export interface StartStreamRequest__Output {
-  'startBlockHeight': (string);
-  'indexerConfig': (string);
   'streamId': (string);
+  'redisStream': (string);
+  'indexerConfig': (string);
 }

@@ -23,6 +23,10 @@ export default class StreamHandler {
     }
   }
 
+  async stop (): Promise<void> {
+    await this.worker.terminate();
+  }
+
   private handleError (error: Error): void {
     console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
     this.worker.terminate().catch(() => {

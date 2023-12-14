@@ -14,9 +14,9 @@ service Runner {
 
 // Start Stream Request 
 message StartStreamRequest {
-    int64 start_block_height = 1;
-    string indexer_config = 2; // JSON containing code, schema, etc.
-    string stream_id = 3;
+    string stream_id = 1;
+    string redis_stream = 2;
+    string indexer_config = 3; // JSON containing code, schema, etc.
 }
 
 // Start Stream Response 
