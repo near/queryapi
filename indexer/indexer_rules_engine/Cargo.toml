@@ -14,7 +14,7 @@ serde_json = "1.0.55"
 wildmatch = "2.1.1"
 
 near-lake-framework = "0.7.1"
-indexer_rule_type = { path = "../../indexer_rule_type" }
+indexer_rule_type = { path = "../indexer_rule_type" }
 
 [dev-dependencies]
 tokio = { version = "1.0.1", features = ["full"] }
