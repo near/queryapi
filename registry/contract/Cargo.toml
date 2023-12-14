@@ -8,7 +8,8 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-near-sdk = "4.1.1"
+borsh = "1.0.0"
+near-sdk = "5.0.0-alpha.1"
 uint = { version = "0.9.3", default-features = false }
 indexer_rule_type = { features = ["nearsdk"], path = "../../indexer/indexer_rule_type" }
 
