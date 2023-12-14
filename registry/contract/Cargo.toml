@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 borsh = "1.0.0"
 near-sdk = "5.0.0-alpha.1"
 uint = { version = "0.9.3", default-features = false }
-indexer_rule_type = { features = ["nearsdk"], path = "../../indexer_rule_type" }
+registry-types = { path = "../types", features = ["nearsdk"] }
 
 [profile.release]
 codegen-units = 1

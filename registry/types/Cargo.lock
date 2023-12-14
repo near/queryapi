@@ -2045,16 +2045,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
-name = "registry"
-version = "1.0.0"
-dependencies = [
- "borsh 1.2.1",
- "near-sdk",
- "registry-types",
- "uint",
-]
-
-[[package]]
 name = "registry-types"
 version = "0.1.0"
 dependencies = [
