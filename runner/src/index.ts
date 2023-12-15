@@ -21,7 +21,7 @@ void (async function main () {
 
     while (true) {
       // const streamKeys = await redisClient.getStreams();
-      const streamKeys = ['darunrs.near/test_social_feed:real_time:stream'];
+      const streamKeys: string[] = [];
 
       streamKeys.forEach((streamKey) => {
         if (streamHandlers[streamKey] !== undefined) {
