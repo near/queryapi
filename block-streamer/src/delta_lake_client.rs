@@ -1,8 +1,9 @@
-use crate::rules::types::indexer_rule_match::ChainId;
 use anyhow::Context;
 use chrono::TimeZone;
 use futures::future::try_join_all;
 use near_lake_framework::near_indexer_primitives;
+
+use crate::rules::types::ChainId;
 
 const DELTA_LAKE_BUCKET: &str = "near-delta-lake";
 const MAX_S3_RETRY_COUNT: u8 = 20;
