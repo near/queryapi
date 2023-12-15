@@ -17,6 +17,8 @@ export interface ProtoGrpcType {
     StopStreamRequest: MessageTypeDefinition
     StopStreamResponse: MessageTypeDefinition
     StreamInfo: MessageTypeDefinition
+    UpdateStreamRequest: MessageTypeDefinition
+    UpdateStreamResponse: MessageTypeDefinition
   }
 }
 

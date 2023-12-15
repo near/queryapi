@@ -1,10 +1,10 @@
 // Original file: protos/runner.proto
 
 
-export interface StopStreamResponse {
+export interface UpdateStreamResponse {
   'streamId'?: (string);
 }
 
-export interface StopStreamResponse__Output {
+export interface UpdateStreamResponse__Output {
   'streamId': (string);
 }

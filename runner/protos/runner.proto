@@ -5,6 +5,9 @@ service Runner {
     // Starts a new Runner stream worker
     rpc StartStream (StartStreamRequest) returns (StartStreamResponse);
 
+    // Updates an existing Runner stream worker
+    rpc UpdateStream (UpdateStreamRequest) returns (UpdateStreamResponse);
+
     // Stops an existing Runner stream worker
     rpc StopStream (StopStreamRequest) returns (StopStreamResponse);
 
@@ -24,6 +27,17 @@ message StartStreamResponse {
     string stream_id = 1;
 }
 
+// Update Stream Request 
+message UpdateStreamRequest {
+    string stream_id = 1;
+    string indexer_config = 2; // JSON containing code, schema, etc.
+}
+
+// Update Stream Response 
+message UpdateStreamResponse {
+    string stream_id = 1;
+}
+
 // Stop Stream Request
 message StopStreamRequest {
     string stream_id = 1;
@@ -32,7 +46,6 @@ message StopStreamRequest {
 // Stop Stream Response
 message StopStreamResponse {
     string stream_id = 1;
-    string status = 2;
 }
 
 // List Stream Request

@@ -3,16 +3,25 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics } from '../metrics';
 
+export interface IndexerConfig {
+  account_id: string
+  function_name: string
+  code: string
+  schema: string
+}
+
 export default class StreamHandler {
   private readonly worker: Worker;
 
   constructor (
-    public readonly streamKey: string
+    public readonly streamKey: string,
+    public readonly indexerConfig: IndexerConfig | undefined = undefined
   ) {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
           streamKey,
+          indexerConfig,
         },
       });
 
@@ -25,6 +34,12 @@ export default class StreamHandler {
 
   async stop (): Promise<void> {
     await this.worker.terminate();
+  }
+
+  updateIndexerConfig (indexerConfig: IndexerConfig): void {
+    this.worker.postMessage({
+      indexerConfig,
+    });
   }
 
   private handleError (error: Error): void {
