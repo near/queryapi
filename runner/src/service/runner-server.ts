@@ -1,7 +1,8 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
-import RunnerService from './runner-service';
+import getRunnerService from './runner-service';
 import { type ProtoGrpcType } from '../generated/runner';
+import StreamHandler from '../stream-handler/stream-handler';
 
 const PROTO_PATH = 'protos/runner.proto';
 
@@ -12,7 +13,7 @@ export default function startServer (): grpc.Server {
   ) as unknown) as ProtoGrpcType;
 
   const server = new grpc.Server();
-  server.addService(runnerProto.spec.Runner.service, RunnerService);
+  server.addService(runnerProto.spec.Runner.service, getRunnerService(StreamHandler));
   const credentials = grpc.ServerCredentials;
 
   server.bindAsync(
