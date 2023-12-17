@@ -51,8 +51,9 @@ impl BlockStream {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        "Cancelling block stream task for indexer: {}",
-                        indexer_config.get_full_name(),
+                        account_id = indexer_config.account_id.as_str(),
+                        function_name = indexer_config.function_name,
+                        "Cancelling block stream task",
                     );
 
                     Ok(())
@@ -68,8 +69,9 @@ impl BlockStream {
                 ) => {
                     result.map_err(|err| {
                         tracing::error!(
-                            "Block stream task for indexer: {} stopped due to error: {:?}",
-                            indexer_config.get_full_name(),
+                            account_id = indexer_config.account_id.as_str(),
+                            function_name = indexer_config.function_name,
+                            "Block stream task stopped due to error: {:?}",
                             err,
                         );
                         err
@@ -110,8 +112,10 @@ pub(crate) async fn start_block_stream(
     lake_prefetch_size: usize,
 ) -> anyhow::Result<()> {
     tracing::info!(
-        "Starting block stream at {start_block_height} for indexer: {}",
-        indexer.get_full_name(),
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        start_block_height,
+        "Starting block stream",
     );
 
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
@@ -125,9 +129,10 @@ pub(crate) async fn start_block_stream(
             ..
         } => {
             tracing::debug!(
-                "Fetching block heights starting from {} from delta lake for indexer: {}",
+                account_id = indexer.account_id.as_str(),
+                function_name = indexer.function_name,
+                "Fetching block heights starting from {} from delta lake",
                 start_block_height,
-                indexer.get_full_name()
             );
 
             delta_lake_client
@@ -143,9 +148,10 @@ pub(crate) async fn start_block_stream(
     }?;
 
     tracing::debug!(
-        "Flushing {} block heights from index files to historical Stream for indexer: {}",
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        "Flushing {} block heights from index files to historical Stream",
         blocks_from_index.len(),
-        indexer.get_full_name(),
     );
 
     for block in &blocks_from_index {
@@ -167,8 +173,9 @@ pub(crate) async fn start_block_stream(
             });
 
     tracing::debug!(
-        "Starting near-lake-framework from {last_indexed_block} for indexer: {}",
-        indexer.get_full_name(),
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        "Starting near-lake-framework from {last_indexed_block} for indexer",
     );
 
     let lake_config = match &chain_id {
@@ -207,9 +214,10 @@ pub(crate) async fn start_block_stream(
     drop(sender);
 
     tracing::debug!(
-        "Stopped block stream at {} for indexer: {}",
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        "Stopped block stream at {}",
         last_indexed_block,
-        indexer.get_full_name(),
     );
 
     Ok(())
