@@ -9,16 +9,25 @@ describe('Runner gRPC Service', () => {
     });
   });
 
-  it('starts a stream', () => {
+  it('starts a stream with correct settings', () => {
     const service = getRunnerService(genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
+    const redisStream = 'test-redis-stream';
+    const indexerConfig = {
+      account_id: 'test-account-id',
+      function_name: 'test-function-name',
+      code: 'test-code',
+      schema: 'test-schema',
+    };
     const request = {
       request: {
         streamId: 'test-stream-id',
+        redisStream,
+        indexerConfig: JSON.stringify(indexerConfig),
       }
     } as unknown as any;
     service.StartStream(request, mockCallback);
-    // expect(genericStreamHandlerType).toHaveBeenCalledWith(undefined, undefined);
-    expect(mockCallback).toHaveBeenCalledWith({}, { streamId: 'test-stream-id' });
+    expect(genericStreamHandlerType).toHaveBeenCalledWith(redisStream, indexerConfig);
+    expect(mockCallback).toHaveBeenCalledWith(null, { streamId: 'test-stream-id' });
   });
 });
