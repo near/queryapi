@@ -155,13 +155,21 @@ pub(crate) async fn start_block_stream(
     );
 
     for block in &blocks_from_index {
+        let block = block.to_owned();
         redis_client
             .xadd(
                 crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                &[("block_height".to_string(), block.to_owned())],
+                &[("block_height".to_string(), block)],
             )
             .await
             .context("Failed to add block to Redis Stream")?;
+        redis_client
+            .set(
+                format!("{}:last_indexed_block", indexer.get_full_name()),
+                block,
+            )
+            .await
+            .context("Failed to set last_indexed_block")?;
     }
 
     let mut last_indexed_block =
@@ -193,6 +201,14 @@ pub(crate) async fn start_block_stream(
     while let Some(streamer_message) = stream.recv().await {
         let block_height = streamer_message.block.header.height;
         last_indexed_block = block_height;
+
+        redis_client
+            .set(
+                format!("{}:last_indexed_block", indexer.get_full_name()),
+                last_indexed_block,
+            )
+            .await
+            .context("Failed to set last_indexed_block")?;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.indexer_rule,
@@ -252,6 +268,10 @@ mod tests {
             .expect_xadd::<String, u64>()
             .returning(|_, _| Ok(()))
             .times(expected_matching_block_height_count);
+        mock_redis_client
+            .expect_set::<String, u64>()
+            .returning(|_, _| Ok(()))
+            .times(4);
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(

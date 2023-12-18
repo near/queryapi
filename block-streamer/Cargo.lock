@@ -1912,9 +1912,8 @@ dependencies = [
 
 [[package]]
 name = "near-lake-framework"
-version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a4259d516729a7d938e3024064fe53c005673169383daa1db5ea360e0950c9d"
+version = "0.0.0"
+source = "git+https://github.com/near/near-lake-framework-rs?branch=aws-logging#96f2d949c5cbdabce9b848c1ec93895369106355"
 dependencies = [
  "anyhow",
  "async-stream",
