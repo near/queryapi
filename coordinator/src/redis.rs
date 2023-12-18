@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 
-use redis::{aio::ConnectionManager, FromRedisValue, RedisError, ToRedisArgs};
+pub use redis::RedisError;
+use redis::{aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
@@ -21,7 +22,7 @@ impl RedisClientImpl {
         Ok(Self { connection })
     }
 
-    pub async fn get<T, U>(&self, key: T) -> Result<U, RedisError>
+    pub async fn get<T, U>(&self, key: T) -> anyhow::Result<U>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,
         U: FromRedisValue + Send + Sync + 'static,
@@ -32,5 +33,6 @@ impl RedisClientImpl {
             .arg(key)
             .query_async(&mut self.connection.clone())
             .await
+            .map_err(|e| e.into())
     }
 }
