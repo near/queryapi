@@ -12,6 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             start_block_height: 106700000,
             account_id: "morgs.near".to_string(),
             function_name: "test".to_string(),
+            version: 0,
             rule: Some(Rule::ActionAnyRule(ActionAnyRule {
                 affected_account_id: "social.near".to_string(),
                 status: Status::Success.into(),

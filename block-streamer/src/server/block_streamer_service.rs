@@ -107,8 +107,11 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             None => drop(lock),
         }
 
-        let mut block_stream =
-            block_stream::BlockStream::new(indexer_config.clone(), self.chain_id.clone());
+        let mut block_stream = block_stream::BlockStream::new(
+            indexer_config.clone(),
+            self.chain_id.clone(),
+            request.version,
+        );
 
         block_stream
             .start(
@@ -169,11 +172,9 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .values()
             .map(|block_stream| StreamInfo {
                 stream_id: block_stream.indexer_config.get_hash_id(),
-                chain_id: self.chain_id.to_string(),
-                indexer_name: block_stream.indexer_config.get_full_name(),
-                start_block_height: 0,
-                status: "OK".to_string(),
-                // last_indexed_block
+                account_id: block_stream.indexer_config.account_id.to_string(),
+                function_name: block_stream.indexer_config.function_name.clone(),
+                version: block_stream.version,
             })
             .collect();
 
@@ -236,6 +237,7 @@ mod tests {
                 start_block_height: 0,
                 account_id: "morgs.near".to_string(),
                 function_name: "test".to_string(),
+                version: 0,
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
                     status: 0,
@@ -268,6 +270,7 @@ mod tests {
                 start_block_height: 0,
                 account_id: "morgs.near".to_string(),
                 function_name: "test".to_string(),
+                version: 0,
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
                     status: 0,

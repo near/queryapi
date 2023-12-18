@@ -19,14 +19,16 @@ pub struct BlockStream {
     task: Option<Task>,
     pub indexer_config: IndexerConfig,
     pub chain_id: ChainId,
+    pub version: u64,
 }
 
 impl BlockStream {
-    pub fn new(indexer_config: IndexerConfig, chain_id: ChainId) -> Self {
+    pub fn new(indexer_config: IndexerConfig, chain_id: ChainId, version: u64) -> Self {
         Self {
             task: None,
             indexer_config,
             chain_id,
+            version,
         }
     }
 
