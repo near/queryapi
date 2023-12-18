@@ -1,8 +1,8 @@
-use crate::block_stream_handler::BlockStreamHandler;
+use crate::block_streams_handler::BlockStreamsHandler;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
 
-mod block_stream_handler;
+mod block_streams_handler;
 mod redis;
 mod registry;
 
@@ -10,21 +10,21 @@ mod registry;
 async fn main() -> anyhow::Result<()> {
     let registry = Registry::connect("https://rpc.mainnet.near.org");
     let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
-    let mut block_stream_handler = BlockStreamHandler::connect().await?;
+    let mut block_stream_handler = BlockStreamsHandler::connect().await?;
 
-    map_registry_to_system(&registry, &redis_client, &mut block_stream_handler).await?;
+    synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler).await?;
 
     Ok(())
 }
 
-async fn map_registry_to_system(
+async fn synchronise_registry_config(
     registry: &Registry,
     redis_client: &RedisClient,
-    block_stream_handler: &mut BlockStreamHandler,
+    block_streams_handler: &mut BlockStreamsHandler,
 ) -> anyhow::Result<()> {
-    let registry = registry.fetch().await?;
+    let indexer_registry = registry.fetch().await?;
 
-    for indexers in registry.values() {
+    for indexers in indexer_registry.values() {
         for indexer_config in indexers.values() {
             let start_block_height = if let Some(start_block_height) =
                 indexer_config.start_block_height
@@ -44,7 +44,7 @@ async fn map_registry_to_system(
                 indexer_config.created_at_block_height
             };
 
-            block_stream_handler
+            block_streams_handler
                 .start(
                     start_block_height,
                     indexer_config.account_id.to_string(),
@@ -108,6 +108,7 @@ mod tests {
             .expect_start()
             .returning(|_, _, _, _| Ok(()));
 
-        let _ = map_registry_to_system(&registry, &redis_client, &mut block_stream_handler).await;
+        let _ =
+            synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler).await;
     }
 }

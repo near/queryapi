@@ -5,22 +5,20 @@ use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{start_stream_request::Rule, ActionAnyRule, StartStreamRequest, Status};
 
 #[cfg(not(test))]
-pub use BlockStreamHandlerImpl as BlockStreamHandler;
+pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
 #[cfg(test)]
-pub use MockBlockStreamHandlerImpl as BlockStreamHandler;
+pub use MockBlockStreamsHandlerImpl as BlockStreamsHandler;
 
-pub struct BlockStreamHandlerImpl {
-    block_streamer_client: BlockStreamerClient<Channel>,
+pub struct BlockStreamsHandlerImpl {
+    client: BlockStreamerClient<Channel>,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl BlockStreamHandlerImpl {
+impl BlockStreamsHandlerImpl {
     pub async fn connect() -> anyhow::Result<Self> {
-        let block_streamer_client = BlockStreamerClient::connect("http://[::1]:10000").await?;
+        let client = BlockStreamerClient::connect("http://[::1]:10000").await?;
 
-        Ok(Self {
-            block_streamer_client,
-        })
+        Ok(Self { client })
     }
 
     pub async fn start(
@@ -46,7 +44,7 @@ impl BlockStreamHandlerImpl {
         };
 
         let _ = self
-            .block_streamer_client
+            .client
             .start_stream(Request::new(StartStreamRequest {
                 start_block_height,
                 account_id,
