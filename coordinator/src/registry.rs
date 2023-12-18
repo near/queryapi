@@ -48,7 +48,7 @@ fn enrich_registry(
         .collect::<HashMap<_, _>>()
 }
 
-pub async fn fetch_registry(json_rpc_client: JsonRpcClient) -> anyhow::Result<Registry> {
+pub async fn fetch_registry(json_rpc_client: &JsonRpcClient) -> anyhow::Result<Registry> {
     let response = json_rpc_client
         .call(RpcQueryRequest {
             block_reference: BlockReference::Finality(Finality::Final),

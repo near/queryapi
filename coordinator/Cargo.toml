@@ -6,9 +6,11 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 tokio = "1.28"
+tonic = "0.10.2"
 serde_json = "1.0.108"
 
 registry-types = { path = "../registry/types" }
+block-streamer = { path = "../block-streamer" }
 
 near-jsonrpc-client = "0.6.0"
 near-primitives = "0.17.0"
