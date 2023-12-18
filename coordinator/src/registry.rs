@@ -17,6 +17,14 @@ pub struct IndexerConfig {
     pub start_block_height: Option<u64>,
     pub schema: Option<String>,
     pub filter: IndexerRule,
+    pub updated_at_block_height: Option<u64>,
+    pub created_at_block_height: u64,
+}
+
+impl IndexerConfig {
+    pub fn get_full_name(&self) -> String {
+        format!("{}/{}", self.account_id, self.function_name)
+    }
 }
 
 fn enrich_registry(
@@ -38,6 +46,8 @@ fn enrich_registry(
                             start_block_height: indexer.start_block_height,
                             schema: indexer.schema,
                             filter: indexer.filter,
+                            updated_at_block_height: indexer.updated_at_block_height,
+                            created_at_block_height: indexer.created_at_block_height,
                         },
                     )
                 })
