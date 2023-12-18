@@ -727,7 +727,7 @@ dependencies = [
  "mockall",
  "near-lake-framework",
  "prost 0.12.3",
- "redis",
+ "redis 0.21.7",
  "registry-types",
  "serde",
  "serde_json",
@@ -986,13 +986,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "block-streamer",
+ "mockall",
  "near-jsonrpc-client",
  "near-jsonrpc-primitives",
  "near-primitives",
+ "redis 0.24.0",
  "registry-types",
  "serde_json",
  "tokio",
  "tonic 0.10.2",
+ "tracing",
 ]
 
 [[package]]
@@ -2955,6 +2958,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "redis"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c580d9cbbe1d1b479e8d67cf9daf6a62c957e6846048408b80b43ac3f6af84cd"
+dependencies = [
+ "arc-swap",
+ "async-trait",
+ "bytes",
+ "combine",
+ "futures",
+ "futures-util",
+ "itoa",
+ "percent-encoding",
+ "pin-project-lite",
+ "ryu",
+ "sha1_smol",
+ "socket2",
+ "tokio",
+ "tokio-retry",
+ "tokio-util 0.7.10",
+ "url",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3725,6 +3752,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-retry"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f57eb36ecbe0fc510036adff84824dd3c24bb781e21bfa67b69d556aa85214f"
+dependencies = [
+ "pin-project",
+ "rand 0.8.5",
  "tokio",
 ]
 
