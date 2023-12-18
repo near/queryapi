@@ -1,4 +1,6 @@
-use near_jsonrpc_client::JsonRpcClient;
+use crate::block_stream_handler::BlockStreamHandler;
+use crate::redis::RedisClient;
+use crate::registry::Registry;
 
 mod block_stream_handler;
 mod redis;
@@ -6,11 +8,21 @@ mod registry;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let json_rpc_client = JsonRpcClient::connect("https://rpc.mainnet.near.org");
-    let redis_client = redis::RedisClient::connect("redis://127.0.0.1").await?;
-    let mut block_stream_handler = block_stream_handler::BlockStreamHandler::connect().await?;
+    let registry = Registry::connect("https://rpc.mainnet.near.org");
+    let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
+    let mut block_stream_handler = BlockStreamHandler::connect().await?;
 
-    let registry = registry::fetch_registry(&json_rpc_client).await?;
+    map_registry_to_system(&registry, &redis_client, &mut block_stream_handler).await?;
+
+    Ok(())
+}
+
+async fn map_registry_to_system(
+    registry: &Registry,
+    redis_client: &RedisClient,
+    block_stream_handler: &mut BlockStreamHandler,
+) -> anyhow::Result<()> {
+    let registry = registry.fetch().await?;
 
     for indexers in registry.values() {
         for indexer_config in indexers.values() {

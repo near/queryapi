@@ -7,7 +7,7 @@ use near_primitives::types::{AccountId, BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
 use registry_types::{AccountOrAllIndexers, IndexerRule};
 
-pub type Registry = HashMap<AccountId, HashMap<String, IndexerConfig>>;
+pub type IndexerRegistry = HashMap<AccountId, HashMap<String, IndexerConfig>>;
 
 #[derive(Debug, Clone)]
 pub struct IndexerConfig {
@@ -27,57 +27,77 @@ impl IndexerConfig {
     }
 }
 
-fn enrich_registry(
-    registry: HashMap<AccountId, HashMap<String, registry_types::IndexerConfig>>,
-) -> Registry {
-    registry
-        .iter()
-        .map(|(account_id, indexers)| {
-            let indexers = indexers
-                .iter()
-                .map(|(function_name, indexer)| {
-                    let indexer = indexer.clone();
-                    (
-                        function_name.clone(),
-                        IndexerConfig {
-                            account_id: account_id.clone(),
-                            function_name: function_name.clone(),
-                            code: indexer.code,
-                            start_block_height: indexer.start_block_height,
-                            schema: indexer.schema,
-                            filter: indexer.filter,
-                            updated_at_block_height: indexer.updated_at_block_height,
-                            created_at_block_height: indexer.created_at_block_height,
-                        },
-                    )
-                })
-                .collect::<HashMap<_, _>>();
+#[cfg(test)]
+pub use MockRegistryImpl as Registry;
+#[cfg(not(test))]
+pub use RegistryImpl as Registry;
 
-            (account_id.clone(), indexers)
-        })
-        .collect::<HashMap<_, _>>()
+pub struct RegistryImpl {
+    json_rpc_client: JsonRpcClient,
 }
 
-pub async fn fetch_registry(json_rpc_client: &JsonRpcClient) -> anyhow::Result<Registry> {
-    let response = json_rpc_client
-        .call(RpcQueryRequest {
-            block_reference: BlockReference::Finality(Finality::Final),
-            request: QueryRequest::CallFunction {
-                method_name: "list_indexer_functions".to_string(),
-                account_id: "queryapi.dataplatform.near".to_string().try_into().unwrap(),
-                args: FunctionArgs::from("{}".as_bytes().to_vec()),
-            },
-        })
-        .await?;
+#[cfg_attr(test, mockall::automock)]
+impl RegistryImpl {
+    pub fn connect(rpc_url: &str) -> Self {
+        let json_rpc_client = JsonRpcClient::connect(rpc_url);
 
-    if let QueryResponseKind::CallResult(call_result) = response.kind {
-        let list_registry_response: AccountOrAllIndexers =
-            serde_json::from_str(include_str!("./registry.json"))?;
-
-        if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
-            return Ok(enrich_registry(all_indexers));
-        }
+        Self { json_rpc_client }
     }
 
-    anyhow::bail!("Invalid registry response")
+    fn enrich_indexer_registry(
+        &self,
+        registry: HashMap<AccountId, HashMap<String, registry_types::IndexerConfig>>,
+    ) -> IndexerRegistry {
+        registry
+            .iter()
+            .map(|(account_id, indexers)| {
+                let indexers = indexers
+                    .iter()
+                    .map(|(function_name, indexer)| {
+                        let indexer = indexer.clone();
+                        (
+                            function_name.clone(),
+                            IndexerConfig {
+                                account_id: account_id.clone(),
+                                function_name: function_name.clone(),
+                                code: indexer.code,
+                                start_block_height: indexer.start_block_height,
+                                schema: indexer.schema,
+                                filter: indexer.filter,
+                                updated_at_block_height: indexer.updated_at_block_height,
+                                created_at_block_height: indexer.created_at_block_height,
+                            },
+                        )
+                    })
+                    .collect::<HashMap<_, _>>();
+
+                (account_id.clone(), indexers)
+            })
+            .collect::<HashMap<_, _>>()
+    }
+
+    pub async fn fetch(&self) -> anyhow::Result<IndexerRegistry> {
+        let response = self
+            .json_rpc_client
+            .call(RpcQueryRequest {
+                block_reference: BlockReference::Finality(Finality::Final),
+                request: QueryRequest::CallFunction {
+                    method_name: "list_indexer_functions".to_string(),
+                    account_id: "queryapi.dataplatform.near".to_string().try_into().unwrap(),
+                    args: FunctionArgs::from("{}".as_bytes().to_vec()),
+                },
+            })
+            .await?;
+
+        if let QueryResponseKind::CallResult(call_result) = response.kind {
+            let list_registry_response: AccountOrAllIndexers =
+                serde_json::from_slice(&call_result.result)?;
+
+            if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
+                return Ok(self.enrich_indexer_registry(all_indexers));
+            }
+        }
+
+        anyhow::bail!("Invalid registry response")
+    }
 }
