@@ -26,6 +26,7 @@ impl BlockStreamsHandlerImpl {
         start_block_height: u64,
         account_id: String,
         function_name: String,
+        version: u64,
         rule: registry_types::MatchingRule,
     ) -> anyhow::Result<()> {
         let rule = match &rule {
@@ -49,6 +50,7 @@ impl BlockStreamsHandlerImpl {
                 start_block_height,
                 account_id,
                 function_name,
+                version,
                 rule: Some(rule),
             }))
             .await?;

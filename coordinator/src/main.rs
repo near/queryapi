@@ -49,6 +49,9 @@ async fn synchronise_registry_config(
                     start_block_height,
                     indexer_config.account_id.to_string(),
                     indexer_config.function_name.clone(),
+                    indexer_config
+                        .updated_at_block_height
+                        .unwrap_or(indexer_config.created_at_block_height),
                     indexer_config.filter.matching_rule.clone(),
                 )
                 .await?;
@@ -114,12 +117,13 @@ mod tests {
                     predicate::eq(100),
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
+                    predicate::eq(1),
                     predicate::eq(MatchingRule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _| Ok(()));
 
             synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
                 .await
@@ -168,12 +172,13 @@ mod tests {
                     predicate::eq(200),
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
+                    predicate::eq(200),
                     predicate::eq(MatchingRule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _| Ok(()));
 
             synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
                 .await
@@ -222,12 +227,43 @@ mod tests {
                     predicate::eq(101),
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
+                    predicate::eq(101),
                     predicate::eq(MatchingRule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _| Ok(()));
+
+            synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn stops_streams_which_arent_in_registry() {
+            let mut registry = Registry::default();
+            registry.expect_fetch().returning(|| Ok(HashMap::from([])));
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_get::<String, u64>()
+                .returning(|_| anyhow::bail!("none"));
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler
+                .expect_start()
+                .with(
+                    predicate::eq(101),
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq(101),
+                    predicate::eq(MatchingRule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
+                    }),
+                )
+                .returning(|_, _, _, _, _| Ok(()));
 
             synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
                 .await
