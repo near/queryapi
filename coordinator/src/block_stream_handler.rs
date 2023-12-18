@@ -4,13 +4,17 @@ use tonic::Request;
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{start_stream_request::Rule, ActionAnyRule, StartStreamRequest, Status};
 
-// This will be good for abstracting away the 'transport' layer, but also provide a struct which
-// can be mocked, making for easy testing
-pub struct BlockStreamHandler {
+#[cfg(not(test))]
+pub use BlockStreamHandlerImpl as BlockStreamHandler;
+#[cfg(test)]
+pub use MockBlockStreamHandlerImpl as BlockStreamHandler;
+
+pub struct BlockStreamHandlerImpl {
     block_streamer_client: BlockStreamerClient<Channel>,
 }
 
-impl BlockStreamHandler {
+#[cfg_attr(test, mockall::automock)]
+impl BlockStreamHandlerImpl {
     pub async fn connect() -> anyhow::Result<Self> {
         let block_streamer_client = BlockStreamerClient::connect("http://[::1]:10000").await?;
 
