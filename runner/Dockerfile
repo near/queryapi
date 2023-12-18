@@ -2,6 +2,7 @@ FROM node:18.18.2 AS builder
 WORKDIR /usr/src/app
 COPY . .
 RUN npm install
+RUN npm run codegen
 RUN npm run build
 
 FROM node:18.18.2

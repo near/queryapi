@@ -61,8 +61,6 @@ message ListStreamsResponse {
 // Information about a single BlockStream instance.
 message StreamInfo {
     string stream_id = 1;
-    int64 start_block_height = 2;
-    string indexer_name = 3;
-    string chain_id = 4;
-    string status = 5;
+    string indexer_name = 2;
+    string status = 3;
 }

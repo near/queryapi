@@ -1,26 +1,27 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import { type RunnerHandlers } from '../generated/spec/Runner';
-import { type StartStreamResponse } from '../generated/spec/StartStreamResponse';
-import { type StartStreamRequest } from '../generated/spec/StartStreamRequest';
-import { type UpdateStreamRequest } from '../generated/spec/UpdateStreamRequest';
-import { type UpdateStreamResponse } from '../generated/spec/UpdateStreamResponse';
-import { type StopStreamRequest } from '../generated/spec/StopStreamRequest';
-import { type StopStreamResponse } from '../generated/spec/StopStreamResponse';
-import { type ListStreamsRequest } from '../generated/spec/ListStreamsRequest';
-import { type ListStreamsResponse } from '../generated/spec/ListStreamsResponse';
+import { type StartStreamResponse__Output, type StartStreamResponse } from '../generated/spec/StartStreamResponse';
+import { type StartStreamRequest__Output } from '../generated/spec/StartStreamRequest';
+import { type UpdateStreamRequest__Output } from '../generated/spec/UpdateStreamRequest';
+import { type UpdateStreamResponse__Output, type UpdateStreamResponse } from '../generated/spec/UpdateStreamResponse';
+import { type StopStreamRequest__Output } from '../generated/spec/StopStreamRequest';
+import { type StopStreamResponse__Output, type StopStreamResponse } from '../generated/spec/StopStreamResponse';
+import { type ListStreamsRequest__Output } from '../generated/spec/ListStreamsRequest';
+import { type ListStreamsResponse__Output, type ListStreamsResponse } from '../generated/spec/ListStreamsResponse';
 import type StreamHandler from '../stream-handler';
 import * as grpc from '@grpc/grpc-js';
 import assert from 'assert';
 
 type StreamHandlers = Map<string, StreamHandler>;
-const streamHandlers: StreamHandlers = new Map();
 
 function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandlers {
+  const streamHandlers: StreamHandlers = new Map();
+
   const RunnerService: RunnerHandlers = {
-    StartStream (call: ServerUnaryCall<StartStreamRequest, StartStreamResponse>, callback: sendUnaryData<StartStreamResponse>): void {
+    StartStream (call: ServerUnaryCall<StartStreamRequest__Output, StartStreamResponse>, callback: sendUnaryData<StartStreamResponse__Output>): void {
       console.log('StartStream called', call.request);
       // Validate request
-      const validationResult = validateStartStreamRequest(call.request);
+      const validationResult = validateStartStreamRequest(call.request, streamHandlers);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
@@ -28,8 +29,6 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
 
       // Handle request
       try {
-        assert(call.request.streamId !== undefined && call.request.redisStream !== undefined && call.request.indexerConfig !== undefined,
-          'Validation failed to catch invalid start request');
         const config = JSON.parse(call.request.indexerConfig);
         const streamHandler = new StreamHandlerType(call.request.redisStream, {
           account_id: config.account_id,
@@ -44,10 +43,10 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       }
     },
 
-    UpdateStream (call: ServerUnaryCall<UpdateStreamRequest, UpdateStreamResponse>, callback: sendUnaryData<UpdateStreamResponse>): void {
+    UpdateStream (call: ServerUnaryCall<UpdateStreamRequest__Output, UpdateStreamResponse>, callback: sendUnaryData<UpdateStreamResponse__Output>): void {
       console.log('UpdateStream called', call.request);
       // Validate request
-      const validationResult = validateUpdateStreamRequest(call.request);
+      const validationResult = validateUpdateStreamRequest(call.request, streamHandlers);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
@@ -55,7 +54,6 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
 
       // Handle request
       try {
-        assert(call.request.streamId !== undefined && call.request.indexerConfig !== undefined, 'Validation failed to catch invalid update request');
         const config = JSON.parse(call.request.indexerConfig);
         streamHandlers.get(call.request.streamId)?.updateIndexerConfig({
           account_id: config.account_id,
@@ -69,17 +67,16 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       }
     },
 
-    StopStream (call: ServerUnaryCall<StopStreamRequest, StopStreamResponse>, callback: sendUnaryData<StopStreamResponse>): void {
+    StopStream (call: ServerUnaryCall<StopStreamRequest__Output, StopStreamResponse>, callback: sendUnaryData<StopStreamResponse__Output>): void {
       console.log('StopStream called', call.request);
       // Validate request
-      const validationResult = validateStopStreamRequest(call.request);
+      const validationResult = validateStopStreamRequest(call.request, streamHandlers);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
       }
 
       // Handle request
-      assert(call.request.streamId !== undefined, 'Validation failed to catch invalid stop request');
       const streamId: string = call.request.streamId;
       streamHandlers.get(streamId)?.stop()
         .then(() => {
@@ -91,12 +88,16 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
         });
     },
 
-    ListStreams (call: ServerUnaryCall<ListStreamsRequest, ListStreamsResponse>, callback: sendUnaryData<ListStreamsResponse>): void {
+    ListStreams (call: ServerUnaryCall<ListStreamsRequest__Output, ListStreamsResponse>, callback: sendUnaryData<ListStreamsResponse__Output>): void {
       console.log('ListStreams called', call.request);
       // TODO: Return more information than just streamId
       callback(null, {
         streams: Object.keys(streamHandlers).map(stream => {
-          return { streamId: stream };
+          return {
+            streamId: stream,
+            indexerName: streamHandlers.get(stream)?.indexerName ?? 'undefined_indexer_name',
+            status: 'RUNNING' // TODO: Keep updated status in stream handler
+          };
         })
       });
     }
@@ -117,7 +118,7 @@ function handleInternalError (error: unknown): any {
   };
 }
 
-function validateStringParameter (parameter: string | undefined, parameterName: string): any | null {
+function validateStringParameter (parameter: string, parameterName: string): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -129,7 +130,7 @@ function validateStringParameter (parameter: string | undefined, parameterName: 
   return null;
 }
 
-function validateIndexerConfig (indexerConfig: string | undefined): any | null {
+function validateIndexerConfig (indexerConfig: string): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -152,7 +153,7 @@ function validateIndexerConfig (indexerConfig: string | undefined): any | null {
   return null;
 }
 
-function validateStartStreamRequest (request: StartStreamRequest): any | null {
+function validateStartStreamRequest (request: StartStreamRequest__Output, streamHandlers: StreamHandlers): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -166,6 +167,7 @@ function validateStartStreamRequest (request: StartStreamRequest): any | null {
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) !== undefined) {
     grpcError.message = `Stream ${request.streamId} can't be started as it already exists`;
+    grpcError.code = grpc.status.ALREADY_EXISTS;
     return grpcError;
   }
 
@@ -183,7 +185,7 @@ function validateStartStreamRequest (request: StartStreamRequest): any | null {
   return null;
 }
 
-function validateUpdateStreamRequest (request: StartStreamRequest): any | null {
+function validateUpdateStreamRequest (request: UpdateStreamRequest__Output, streamHandlers: StreamHandlers): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -208,7 +210,7 @@ function validateUpdateStreamRequest (request: StartStreamRequest): any | null {
   return null;
 }
 
-function validateStopStreamRequest (request: StartStreamRequest): any | null {
+function validateStopStreamRequest (request: StopStreamRequest__Output, streamHandlers: StreamHandlers): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''

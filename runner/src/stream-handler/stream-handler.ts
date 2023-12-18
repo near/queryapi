@@ -12,11 +12,13 @@ export interface IndexerConfig {
 
 export default class StreamHandler {
   private readonly worker: Worker;
+  readonly indexerName: string;
 
   constructor (
     public readonly streamKey: string,
     public readonly indexerConfig: IndexerConfig | undefined = undefined
   ) {
+    this.indexerName = (indexerConfig?.account_id ?? 'undefined_account') + '/' + (indexerConfig?.function_name ?? 'undefined_function');
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
