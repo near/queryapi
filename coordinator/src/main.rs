@@ -12,15 +12,27 @@ async fn start_stream(
     block_streamer_client: &mut BlockStreamerClient<Channel>,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
+    let rule = match &indexer_config.filter.matching_rule {
+        registry_types::MatchingRule::ActionAny {
+            affected_account_id,
+            status,
+        } => Rule::ActionAnyRule(ActionAnyRule {
+            affected_account_id: affected_account_id.to_owned(),
+            status: match status {
+                registry_types::Status::Success => Status::Success.into(),
+                registry_types::Status::Fail => Status::Failure.into(),
+                registry_types::Status::Any => Status::Any.into(),
+            },
+        }),
+        _ => anyhow::bail!("Encountered unsupported indexer rule"),
+    };
+
     let _ = block_streamer_client
         .start_stream(Request::new(StartStreamRequest {
             start_block_height: 106700000,
             account_id: indexer_config.account_id.to_string(),
             function_name: indexer_config.function_name.to_string(),
-            rule: Some(Rule::ActionAnyRule(ActionAnyRule {
-                affected_account_id: "social.near".to_string(),
-                status: Status::Success.into(),
-            })),
+            rule: Some(rule),
         }))
         .await?;
 
