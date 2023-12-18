@@ -72,7 +72,7 @@ pub async fn fetch_registry(json_rpc_client: &JsonRpcClient) -> anyhow::Result<R
 
     if let QueryResponseKind::CallResult(call_result) = response.kind {
         let list_registry_response: AccountOrAllIndexers =
-            serde_json::from_slice(&call_result.result)?;
+            serde_json::from_str(include_str!("./registry.json"))?;
 
         if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
             return Ok(enrich_registry(all_indexers));

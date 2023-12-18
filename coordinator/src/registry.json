@@ -1,0 +1,76 @@
+{
+  "All": {
+    "thb0301.near": {
+      "ref_finance_liquidity": {
+        "code": "",
+        "filter": {
+          "id": null,
+          "indexer_rule_kind": "Action",
+          "matching_rule": {
+            "affected_account_id": "v2.ref-finance.near",
+            "rule": "ACTION_ANY",
+            "status": "SUCCESS"
+          },
+          "name": null
+        },
+        "schema": "",
+        "start_block_height": null,
+        "updated_at_block_height": null,
+        "created_at_block_height": 99994180
+      },
+      "ref_finance_swap_txs": {
+        "code": "",
+        "filter": {
+          "id": null,
+          "indexer_rule_kind": "Action",
+          "matching_rule": {
+            "affected_account_id": "v2.ref-finance.near",
+            "rule": "ACTION_ANY",
+            "status": "SUCCESS"
+          },
+          "name": null
+        },
+        "schema": "",
+        "start_block_height": 99904145,
+        "updated_at_block_height": 100130060,
+        "created_at_block_height": 100006218
+      }
+    },
+    "morgs.near": {
+      "devgovgigs_teest": {
+        "code": "",
+        "filter": {
+          "id": null,
+          "indexer_rule_kind": "Action",
+          "matching_rule": {
+            "affected_account_id": "devgovgigs.near",
+            "rule": "ACTION_ANY",
+            "status": "SUCCESS"
+          },
+          "name": null
+        },
+        "schema": "",
+        "start_block_height": 102162330,
+        "updated_at_block_height": null,
+        "created_at_block_height": 108202921
+      },
+      "v2_test": {
+        "code": "",
+        "filter": {
+          "id": null,
+          "indexer_rule_kind": "Action",
+          "matching_rule": {
+            "affected_account_id": "social.near",
+            "rule": "ACTION_ANY",
+            "status": "SUCCESS"
+          },
+          "name": null
+        },
+        "schema": "",
+        "start_block_height": null,
+        "updated_at_block_height": 108243082,
+        "created_at_block_height": 108212819
+      }
+    }
+  }
+}
