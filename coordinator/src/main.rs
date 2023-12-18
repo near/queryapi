@@ -57,3 +57,57 @@ async fn map_registry_to_system(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::collections::HashMap;
+
+    use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+
+    use crate::registry::IndexerConfig;
+
+    #[tokio::test]
+    async fn something() {
+        let mut registry = Registry::default();
+        registry.expect_fetch().returning(|| {
+            Ok(HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: String::new(),
+                        schema: Some(String::new()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: None,
+                        start_block_height: None,
+                    },
+                )]),
+            )]))
+        });
+
+        let mut redis_client = RedisClient::default();
+        redis_client
+            .expect_get::<String, u64>()
+            .returning(|_| Ok(1));
+
+        let mut block_stream_handler = BlockStreamHandler::default();
+        block_stream_handler
+            .expect_start()
+            .returning(|_, _, _, _| Ok(()));
+
+        let _ = map_registry_to_system(&registry, &redis_client, &mut block_stream_handler).await;
+    }
+}
