@@ -27,13 +27,23 @@ async fn synchronise_registry_config(
 
     for (account_id, indexers) in indexer_registry.iter() {
         for (function_name, indexer_config) in indexers.iter() {
-            let _active_block_stream = active_block_streams
+            let active_block_stream = active_block_streams
                 .iter()
                 .position(|stream| {
                     stream.account_id == account_id.to_string()
                         && &stream.function_name == function_name
                 })
                 .map(|index| active_block_streams.swap_remove(index));
+
+            let registry_version = indexer_config
+                .updated_at_block_height
+                .unwrap_or(indexer_config.created_at_block_height);
+
+            if let Some(active_block_stream) = active_block_stream {
+                if active_block_stream.version == registry_version {
+                    continue;
+                }
+            }
 
             let start_block_height = if let Some(start_block_height) =
                 indexer_config.start_block_height
@@ -58,9 +68,7 @@ async fn synchronise_registry_config(
                     start_block_height,
                     indexer_config.account_id.to_string(),
                     indexer_config.function_name.clone(),
-                    indexer_config
-                        .updated_at_block_height
-                        .unwrap_or(indexer_config.created_at_block_height),
+                    registry_version,
                     indexer_config.filter.matching_rule.clone(),
                 )
                 .await?;
@@ -272,7 +280,7 @@ mod tests {
             block_stream_handler.expect_list().returning(|| {
                 Ok(vec![block_streamer::StreamInfo {
                     stream_id: "stream_id".to_string(),
-                    account_id: "morgs_near".to_string(),
+                    account_id: "morgs.near".to_string(),
                     function_name: "test".to_string(),
                     version: 1,
                 }])
@@ -282,6 +290,58 @@ mod tests {
                 .with(predicate::eq("stream_id".to_string()))
                 .returning(|_| Ok(()))
                 .once();
+
+            synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn ignores_streams_with_matching_versions() {
+            let mut registry = Registry::default();
+            registry.expect_fetch().returning(|| {
+                Ok(HashMap::from([(
+                    "morgs.near".parse().unwrap(),
+                    HashMap::from([(
+                        "test".to_string(),
+                        IndexerConfig {
+                            account_id: "morgs.near".parse().unwrap(),
+                            function_name: "test".to_string(),
+                            code: String::new(),
+                            schema: Some(String::new()),
+                            filter: IndexerRule {
+                                id: None,
+                                name: None,
+                                indexer_rule_kind: IndexerRuleKind::Action,
+                                matching_rule: MatchingRule::ActionAny {
+                                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                    status: Status::Any,
+                                },
+                            },
+                            created_at_block_height: 101,
+                            updated_at_block_height: None,
+                            start_block_height: None,
+                        },
+                    )]),
+                )]))
+            });
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_get::<String, u64>()
+                .returning(|_| anyhow::bail!("none"));
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| {
+                Ok(vec![block_streamer::StreamInfo {
+                    stream_id: "stream_id".to_string(),
+                    account_id: "morgs.near".to_string(),
+                    function_name: "test".to_string(),
+                    version: 101,
+                }])
+            });
+            block_stream_handler.expect_stop().never();
+            block_stream_handler.expect_start().never();
 
             synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
                 .await
