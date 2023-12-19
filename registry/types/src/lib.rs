@@ -66,6 +66,8 @@ pub struct IndexerConfig {
     pub start_block_height: Option<u64>,
     pub schema: Option<String>,
     pub filter: IndexerRule,
+    pub updated_at_block_height: Option<u64>,
+    pub created_at_block_height: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
