@@ -1,7 +1,6 @@
 import { startServer as startMetricsServer } from './metrics';
 import RedisClient from './redis-client';
 import StreamHandler from './stream-handler';
-import startServer from './service/runner-server';
 
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
@@ -14,14 +13,11 @@ startMetricsServer().catch((err) => {
 type StreamHandlers = Record<string, StreamHandler>;
 
 void (async function main () {
-  startServer();
-
   try {
     const streamHandlers: StreamHandlers = {};
 
     while (true) {
-      // const streamKeys = await redisClient.getStreams();
-      const streamKeys: string[] = [];
+      const streamKeys = await redisClient.getStreams();
 
       streamKeys.forEach((streamKey) => {
         if (streamHandlers[streamKey] !== undefined) {
