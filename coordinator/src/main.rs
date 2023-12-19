@@ -23,9 +23,18 @@ async fn synchronise_registry_config(
     block_streams_handler: &mut BlockStreamsHandler,
 ) -> anyhow::Result<()> {
     let indexer_registry = registry.fetch().await?;
+    let mut active_block_streams = block_streams_handler.list().await?;
 
-    for indexers in indexer_registry.values() {
-        for indexer_config in indexers.values() {
+    for (account_id, indexers) in indexer_registry.iter() {
+        for (function_name, indexer_config) in indexers.iter() {
+            let _active_block_stream = active_block_streams
+                .iter()
+                .position(|stream| {
+                    stream.account_id == account_id.to_string()
+                        && &stream.function_name == function_name
+                })
+                .map(|index| active_block_streams.swap_remove(index));
+
             let start_block_height = if let Some(start_block_height) =
                 indexer_config.start_block_height
             {
@@ -56,6 +65,12 @@ async fn synchronise_registry_config(
                 )
                 .await?;
         }
+    }
+
+    for active_block_stream in active_block_streams {
+        block_streams_handler
+            .stop(active_block_stream.stream_id)
+            .await?;
     }
 
     Ok(())
@@ -111,6 +126,7 @@ mod tests {
                 .returning(|_| anyhow::bail!("none"));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| Ok(vec![]));
             block_stream_handler
                 .expect_start()
                 .with(
@@ -166,6 +182,7 @@ mod tests {
                 .returning(|_| anyhow::bail!("none"));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| Ok(vec![]));
             block_stream_handler
                 .expect_start()
                 .with(
@@ -221,6 +238,7 @@ mod tests {
                 .returning(|_| anyhow::bail!("none"));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| Ok(vec![]));
             block_stream_handler
                 .expect_start()
                 .with(
@@ -241,7 +259,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn stops_streams_which_arent_in_registry() {
+        async fn stops_streams_not_in_registry() {
             let mut registry = Registry::default();
             registry.expect_fetch().returning(|| Ok(HashMap::from([])));
 
@@ -251,19 +269,19 @@ mod tests {
                 .returning(|_| anyhow::bail!("none"));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| {
+                Ok(vec![block_streamer::StreamInfo {
+                    stream_id: "stream_id".to_string(),
+                    account_id: "morgs_near".to_string(),
+                    function_name: "test".to_string(),
+                    version: 1,
+                }])
+            });
             block_stream_handler
-                .expect_start()
-                .with(
-                    predicate::eq(101),
-                    predicate::eq("morgs.near".to_string()),
-                    predicate::eq("test".to_string()),
-                    predicate::eq(101),
-                    predicate::eq(MatchingRule::ActionAny {
-                        affected_account_id: "queryapi.dataplatform.near".to_string(),
-                        status: Status::Any,
-                    }),
-                )
-                .returning(|_, _, _, _, _| Ok(()));
+                .expect_stop()
+                .with(predicate::eq("stream_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
 
             synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler)
                 .await

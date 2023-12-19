@@ -1,8 +1,12 @@
+use block_streamer::StreamInfo;
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
 use block_streamer::block_streamer_client::BlockStreamerClient;
-use block_streamer::{start_stream_request::Rule, ActionAnyRule, StartStreamRequest, Status};
+use block_streamer::{
+    start_stream_request::Rule, ActionAnyRule, ListStreamsRequest, ListStreamsResponse,
+    StartStreamRequest, Status, StopStreamRequest,
+};
 
 #[cfg(not(test))]
 pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
@@ -19,6 +23,24 @@ impl BlockStreamsHandlerImpl {
         let client = BlockStreamerClient::connect("http://[::1]:10000").await?;
 
         Ok(Self { client })
+    }
+
+    pub async fn list(&mut self) -> anyhow::Result<Vec<StreamInfo>> {
+        let response = self
+            .client
+            .list_streams(Request::new(ListStreamsRequest {}))
+            .await?;
+
+        Ok(response.into_inner().streams)
+    }
+
+    pub async fn stop(&mut self, stream_id: String) -> anyhow::Result<()> {
+        let _ = self
+            .client
+            .stop_stream(Request::new(StopStreamRequest { stream_id }))
+            .await?;
+
+        Ok(())
     }
 
     pub async fn start(
