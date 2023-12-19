@@ -8,6 +8,7 @@ import { type StopStreamRequest__Output } from '../generated/spec/StopStreamRequ
 import { type StopStreamResponse__Output, type StopStreamResponse } from '../generated/spec/StopStreamResponse';
 import { type ListStreamsRequest__Output } from '../generated/spec/ListStreamsRequest';
 import { type ListStreamsResponse__Output, type ListStreamsResponse } from '../generated/spec/ListStreamsResponse';
+import { type StreamInfo__Output } from '../generated/spec/StreamInfo';
 import type StreamHandler from '../stream-handler';
 import * as grpc from '@grpc/grpc-js';
 import assert from 'assert';
@@ -80,8 +81,8 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       const streamId: string = call.request.streamId;
       streamHandlers.get(streamId)?.stop()
         .then(() => {
-          callback(null, { streamId });
           streamHandlers.delete(streamId);
+          callback(null, { streamId });
         }).catch(error => {
           const grpcError = handleInternalError(error);
           callback(grpcError, null);
@@ -89,17 +90,24 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
     },
 
     ListStreams (call: ServerUnaryCall<ListStreamsRequest__Output, ListStreamsResponse>, callback: sendUnaryData<ListStreamsResponse__Output>): void {
+      // TODO: Refactor to make use of repeated field
       console.log('ListStreams called', call.request);
       // TODO: Return more information than just streamId
-      callback(null, {
-        streams: Object.keys(streamHandlers).map(stream => {
-          return {
+      const response: StreamInfo__Output[] = [];
+      try {
+        streamHandlers.forEach((handler, stream) => {
+          response.push({
             streamId: stream,
-            indexerName: streamHandlers.get(stream)?.indexerName ?? 'undefined_indexer_name',
+            indexerName: handler.indexerName,
             status: 'RUNNING' // TODO: Keep updated status in stream handler
-          };
-        })
-      });
+          });
+        });
+        callback(null, {
+          streams: response
+        });
+      } catch (error) {
+        callback(handleInternalError(error), null);
+      }
     }
   };
   return RunnerService;
@@ -166,7 +174,7 @@ function validateStartStreamRequest (request: StartStreamRequest__Output, stream
   }
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) !== undefined) {
-    grpcError.message = `Stream ${request.streamId} can't be started as it already exists`;
+    grpcError.message = `Stream ${request.streamId} can't be started as it already exists.`;
     grpcError.code = grpc.status.ALREADY_EXISTS;
     return grpcError;
   }
@@ -198,7 +206,7 @@ function validateUpdateStreamRequest (request: UpdateStreamRequest__Output, stre
   }
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) === undefined) {
-    grpcError.message = `Stream ${request.streamId} cannot be updated as it does not exist`;
+    grpcError.message = `Stream ${request.streamId} cannot be updated as it does not exist.`;
     return grpcError;
   }
 
@@ -223,7 +231,7 @@ function validateStopStreamRequest (request: StopStreamRequest__Output, streamHa
   }
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) === undefined) {
-    grpcError.message = `Stream ${request.streamId} cannot be stopped as it does not exist`;
+    grpcError.message = `Stream ${request.streamId} cannot be stopped as it does not exist.`;
     return grpcError;
   }
 
