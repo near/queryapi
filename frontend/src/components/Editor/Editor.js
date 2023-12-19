@@ -48,8 +48,10 @@ const Editor = ({
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
     }`;
 
-  const [error, setError] = useState(undefined);
   const [blockHeightError, setBlockHeightError] = useState(undefined);
+  const [codeFormattingError, setCodeFormattingError] = useState(undefined);
+  const [schemaFormattingError, setSchemaFormattingError] = useState(undefined);
+  const [typesGenerationError, setTypesGenerationError] = useState(undefined);
 
   const [fileName, setFileName] = useState("indexingLogic.js");
 
@@ -91,20 +93,12 @@ const Editor = ({
   }, [indexerDetails.code, indexerDetails.schema]);
 
   useEffect(() => {
-
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
     const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
 
     if (savedSchema) {
       setSchema(savedSchema);
-      try {
-        setSchemaTypes(pgSchemaTypeGen.generateTypes(savedSchema));
-        setError(() => undefined);
-      } catch (error) {
-        handleCodeGenError(error);
-      }
-      
-    } 
+    }
     if (savedCode) setIndexingCode(savedCode);
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
@@ -127,9 +121,10 @@ const Editor = ({
     if (fileName === "indexingLogic.js") {
       try {
         setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
-        setError(() => undefined);
-      } catch (error) {
-        handleCodeGenError(error);
+        setTypesGenerationError(undefined);
+      } catch (typesError) {
+        console.log("typesGenerationError generating types for saved schema.\n", typesError);
+        setTypesGenerationError("There was an error generating types from your schema. Please fix your schema or file a support ticket.");
       }
     }
   }, [fileName]);
@@ -161,18 +156,15 @@ const Editor = ({
       let formatted_schema = formatted_sql;
       try {
         pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
-      } catch (error) {
-        handleCodeGenError(error);
-        return undefined;
+      } catch (typesError) {
+        console.log("Error generating types from schema", typesError);
+        setTypesGenerationError("There was an error generating types from your schema. Please fix your schema or file a support ticket." );
       }
-      
+      setSchemaFormattingError(undefined);
       return formatted_schema;
-    } catch (error) {
-      console.log("error", error);
-      setError(
-        () =>
-          "Please check your SQL schema formatting and specify an Indexer Name"
-      );
+    } catch (formattingError) {
+      console.log("formattingError", formattingError);
+      setSchemaFormattingError("Please check your SQL schema formatting and specify an Indexer Name");
       return undefined;
     }
   };
@@ -194,14 +186,6 @@ const Editor = ({
     let formatted_schema = checkSQLSchemaFormatting();
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerName = indexerName.replaceAll(" ", "_");
-    if (formatted_schema == undefined) {
-      setError(
-        () =>
-          "Please check your SQL schema formatting"
-      );
-      return;
-    }
-    setError(() => undefined);
 
     request("register-function", {
       indexerName: indexerName,
@@ -234,7 +218,6 @@ const Editor = ({
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
       setSchemaTypes(defaultSchemaTypes);
-      setError(() => onLoadErrorText);
     } else {
       try {
         let unformatted_wrapped_indexing_code = wrapCode(data.code)
@@ -247,16 +230,10 @@ const Editor = ({
           setOriginalSQLCode(unformatted_schema);
           setSchema(unformatted_schema);
         }
-        // if (data.start_block_height) {
-        //   setSelectedOption("specificBlockHeight");
-        //   setBlockHeight(data.start_block_height);
-        // }
-        // if (data.filter) {
-        //   setContractFilter(data.filter.matching_rule.affected_account_id)
-        // }
-        await reformat(unformatted_wrapped_indexing_code, unformatted_schema)
-      } catch (error) {
-        console.log(error);
+
+        reformatAll(unformatted_wrapped_indexing_code, unformatted_schema);
+      } catch (formattingError) {
+        console.log(formattingError);
       }
     }
     setShowResetCodeModel(false);
@@ -268,64 +245,40 @@ const Editor = ({
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
-
-  const handleFormattingError = (fileName) => {
-    const errorMessage =
-      fileName === "indexingLogic.js"
-        ? "Oh snap! We could not format your code. Make sure it is proper Javascript code."
-        : "Oh snap! We could not format your SQL schema. Make sure it is proper SQL DDL";
-
-    setError(() => errorMessage);
-  };
-
   const reformatAll = (indexingCode, schema) => {
-    const formattedCode = formatIndexingCode(indexingCode);
+    let formattedCode = indexingCode
+    let formattedSql = schema;
+    try {
+      formattedCode = formatIndexingCode(indexingCode);
+      setCodeFormattingError(undefined);
+    } catch (error) {
+      console.log("error", error)
+      setCodeFormattingError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
+    }
+    try {
+      formattedSql = formatSQL(schema);
+      setSchemaFormattingError(undefined);
+    } catch (error) {
+      setSchemaFormattingError("Could not format your SQL schema. Make sure it is proper SQL DDL");
+    }
     setIndexingCode(formattedCode);
-
-    const formattedSchema = formatSQL(schema);
-    setSchema(formattedSchema);
-
-    return { formattedCode, formattedSchema }
-  }
-
-  const reformat = (indexingCode, schema) => {
-    return new Promise((resolve, reject) => {
-      try {
-        let formattedCode;
-        if (fileName === "indexingLogic.js") {
-          formattedCode = formatIndexingCode(indexingCode);
-          setIndexingCode(formattedCode);
-        } else if (fileName === "schema.sql") {
-          formattedCode = formatSQL(schema);
-          setSchema(formattedCode);
-        }
-        setError(() => undefined);
-        resolve(formattedCode);
-      } catch (error) {
-        handleFormattingError(fileName);
-        reject(error);
-      }
-    });
+    setSchema(formattedSql);
+    return { formattedCode, formattedSql }
   };
 
   function handleCodeGen() {
     try {
       setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
-      setError(() => undefined);
-    } catch (error) {
-      handleCodeGenError(error);
+      setTypesGenerationError(undefined);
+    } catch (typesError) {
+      console.log("typesGenerationError generating types for saved schema.\n", typesError);
+      setTypesGenerationError("Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL.");
     }
   }
 
-  const handleCodeGenError = (error) => {
-    console.error("Error generating types for saved schema.\n", error);
-    const errorMessage = "Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL."
-    setError(() => errorMessage);
-  };
-
   async function handleFormating() {
-    await reformat(indexingCode, schema);
+    await reformatAll(indexingCode, schema);
   }
 
   function handleEditorMount(editor) {
@@ -423,9 +376,19 @@ const Editor = ({
           height: "100%",
         }}
       >
-        {error && (
+          {codeFormattingError && (
           <Alert className="px-3 pt-3" variant="danger">
-            {error}
+              {codeFormattingError}
+            </Alert>
+          )}
+          {schemaFormattingError && (
+            <Alert className="px-3 pt-3" variant="danger">
+              {schemaFormattingError}
+          </Alert>
+        )}
+        {typesGenerationError &&  (
+          <Alert className="px-3 pt-3" variant="danger">
+            {typesGenerationError}
           </Alert>
         )}
         {debugMode && !debugModeInfoDisabled && (
