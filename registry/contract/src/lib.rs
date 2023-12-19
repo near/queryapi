@@ -21,6 +21,25 @@ pub type IndexersByAccount = UnorderedMap<AccountId, IndexerConfigByFunctionName
 
 pub type IndexerConfigByFunctionName = UnorderedMap<FunctionName, IndexerConfig>;
 
+#[derive(BorshDeserialize, BorshSerialize, Debug)]
+pub struct OldState {
+    registry: OldIndexersByAccount,
+    account_roles: Vec<AccountRole>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OldIndexerConfig {
+    pub code: String,
+    pub start_block_height: Option<u64>,
+    pub schema: Option<String>,
+    pub filter: IndexerRule,
+}
+
+pub type OldIndexersByAccount = UnorderedMap<AccountId, OldIndexerConfigByFunctionName>;
+
+pub type OldIndexerConfigByFunctionName = UnorderedMap<FunctionName, OldIndexerConfig>;
+
 // Migration types
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
@@ -28,6 +47,8 @@ pub enum StorageKeys {
     Account(CryptoHash), // can be removed after migration
     RegistryV1,
     AccountV1(CryptoHash),
+    RegistryV2,
+    AccountV2(CryptoHash),
 }
 
 /// These roles are used to control access across the various contract methods.
@@ -99,6 +120,41 @@ impl Default for Contract {
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let state: OldState = env::state_read().expect("failed to parse existing state");
+
+        let mut registry = IndexersByAccount::new(StorageKeys::RegistryV2);
+
+        for (account_id, indexers) in state.registry.iter() {
+            let mut new_indexers: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(
+                StorageKeys::AccountV2(env::sha256_array(account_id.as_bytes())),
+            );
+
+            for (function_name, indexer_config) in indexers.iter() {
+                new_indexers.insert(
+                    function_name.to_string(),
+                    IndexerConfig {
+                        updated_at_block_height: None,
+                        created_at_block_height: 0,
+                        schema: indexer_config.schema.clone(),
+                        code: indexer_config.code.clone(),
+                        start_block_height: indexer_config.start_block_height,
+                        filter: indexer_config.filter.clone(),
+                    },
+                );
+            }
+
+            registry.insert(account_id.clone(), new_indexers);
+        }
+
+        Self {
+            registry,
+            account_roles: state.account_roles,
+        }
+    }
+
     pub fn near_social_indexer_rule() -> IndexerRule {
         let contract = "social.near";
         let method = "set";
@@ -383,6 +439,85 @@ mod tests {
     use super::*;
 
     use std::collections::HashMap;
+
+    #[test]
+    fn migrate() {
+        let mut registry = OldIndexersByAccount::new(StorageKeys::RegistryV1);
+        let account_id = "morgs.near".parse::<AccountId>().unwrap();
+        let mut functions = OldIndexerConfigByFunctionName::new(StorageKeys::AccountV1(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+
+        functions.insert(
+            "test".to_string(),
+            OldIndexerConfig {
+                code: "return block;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+            },
+        );
+        functions.insert(
+            "test2".to_string(),
+            OldIndexerConfig {
+                code: "return block2;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+            },
+        );
+        registry.insert(account_id.clone(), functions);
+
+        env::state_write(&OldState {
+            registry,
+            account_roles: vec![AccountRole {
+                account_id: account_id.clone(),
+                role: Role::Owner,
+            }],
+        });
+
+        let contract = Contract::migrate();
+
+        assert_eq!(
+            contract
+                .registry
+                .get(&account_id)
+                .unwrap()
+                .get("test")
+                .unwrap(),
+            &IndexerConfig {
+                code: "return block;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
+            }
+        );
+        assert_eq!(
+            contract
+                .registry
+                .get(&account_id)
+                .unwrap()
+                .get("test2")
+                .unwrap(),
+            &IndexerConfig {
+                code: "return block2;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
+            }
+        );
+        assert_eq!(
+            contract.account_roles,
+            vec![AccountRole {
+                account_id,
+                role: Role::Owner,
+            }]
+        );
+    }
 
     #[test]
     fn list_account_roles() {
