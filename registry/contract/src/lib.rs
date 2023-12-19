@@ -137,7 +137,7 @@ impl Contract {
                     function_name.to_string(),
                     IndexerConfig {
                         updated_at_block_height: None,
-                        created_at_block_height: 0,
+                        created_at_block_height: env::block_height(),
                         schema: indexer_config.schema.clone(),
                         code: indexer_config.code.clone(),
                         start_block_height: indexer_config.start_block_height,
@@ -491,7 +491,7 @@ mod tests {
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
-                created_at_block_height: 0,
+                created_at_block_height: env::block_height(),
             }
         );
         assert_eq!(
@@ -507,7 +507,7 @@ mod tests {
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
-                created_at_block_height: 0,
+                created_at_block_height: env::block_height(),
             }
         );
         assert_eq!(
