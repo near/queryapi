@@ -14,6 +14,7 @@ const initialPayload = {
   selectedTab: tab,
   activeView,
   currentUserAccountId: context.accountId,
+  path: path
 };
 
 const registerFunctionHandler = (request, response) => {

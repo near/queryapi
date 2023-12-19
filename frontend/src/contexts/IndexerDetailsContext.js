@@ -56,10 +56,11 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
-  const { activeView } = useInitialPayload();
+  const { activeView, path } = useInitialPayload();
 
   useEffect(() => {
     if (activeView == 'status') setShowLogsView(true)
+    if (path == 'create-new-indexer') setIsCreateNewIndexer(true)
   }, [])
 
   const requestIndexerDetails = async () => {

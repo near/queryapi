@@ -97,7 +97,7 @@ const ResizableEditor = ({
           value={schema}
           defaultValue={defaultSchema}
           defaultLanguage="sql"
-          readOnly={isCreateNewIndexer === true ? false : false}
+          readOnly={isCreateNewIndexer === true ? false : true}
           onChange={(text) => setSchema(text)}
           handleEditorWillMount={undefined}
         />
@@ -166,6 +166,7 @@ export default function ResizableLayoutEditor({
           schema={schema}
           handleEditorWillMount={handleEditorWillMount}
           handleEditorMount={handleEditorMount}
+          isCreateNewIndexer={isCreateNewIndexer}
         />
       </div>
 
