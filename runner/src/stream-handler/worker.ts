@@ -92,7 +92,7 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   const indexer = new Indexer();
   const isHistorical = workerContext.streamType === 'historical';
-  // let streamMessageId = '';
+  let streamMessageId = '';
   let indexerName = '';
   let currBlockHeight = 0;
 
@@ -103,7 +103,6 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const startTime = performance.now();
-      // TODO: Verify no case where stream storage is more up to date than config variable
       const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
       indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
       const functions = {
@@ -122,7 +121,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       const block = queueMessage.block;
       currBlockHeight = block.blockHeight;
-      // streamMessageId = queueMessage.streamMessageId;
+      streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
         console.error('Block failed to process or does not have block height', block);
@@ -131,7 +130,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
       await indexer.runFunctions(block, functions, isHistorical, { provision: true });
 
-      // await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
+      await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
