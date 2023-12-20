@@ -97,14 +97,6 @@ impl Default for Contract {
                     role: Role::Owner,
                 },
                 AccountRole {
-                    account_id: "root.near".parse().unwrap(),
-                    role: Role::Owner,
-                },
-                AccountRole {
-                    account_id: "khorolets.near".parse().unwrap(),
-                    role: Role::Owner,
-                },
-                AccountRole {
                     account_id: "darunrs.near".parse().unwrap(),
                     role: Role::Owner,
                 },
@@ -149,9 +141,20 @@ impl Contract {
             registry.insert(account_id.clone(), new_indexers);
         }
 
+        let account_roles: Vec<_> = Contract::default()
+            .account_roles
+            .into_iter()
+            .chain(
+                state
+                    .account_roles
+                    .into_iter()
+                    .filter(|account_role| account_role.role == Role::User),
+            )
+            .collect();
+
         Self {
             registry,
-            account_roles: state.account_roles,
+            account_roles,
         }
     }
 
@@ -470,10 +473,20 @@ mod tests {
 
         env::state_write(&OldState {
             registry,
-            account_roles: vec![AccountRole {
-                account_id: account_id.clone(),
-                role: Role::Owner,
-            }],
+            account_roles: vec![
+                AccountRole {
+                    account_id: account_id.clone(),
+                    role: Role::Owner,
+                },
+                AccountRole {
+                    account_id: "should-be-removed.near".parse().unwrap(),
+                    role: Role::Owner,
+                },
+                AccountRole {
+                    account_id: "bob.near".parse().unwrap(),
+                    role: Role::User,
+                },
+            ],
         });
 
         let contract = Contract::migrate();
@@ -512,10 +525,14 @@ mod tests {
         );
         assert_eq!(
             contract.account_roles,
-            vec![AccountRole {
-                account_id,
-                role: Role::Owner,
-            }]
+            Contract::default()
+                .account_roles
+                .into_iter()
+                .chain(std::iter::once(AccountRole {
+                    account_id: "bob.near".parse().unwrap(),
+                    role: Role::User,
+                }))
+                .collect::<Vec<_>>()
         );
     }
 
