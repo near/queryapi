@@ -6,7 +6,7 @@ import StreamHandler from '../stream-handler/stream-handler';
 
 const PROTO_PATH = 'protos/runner.proto';
 
-export default function startServer (): grpc.Server {
+export default function startRunnerServer (): grpc.Server {
   const packageDefinition = protoLoader.loadSync(PROTO_PATH);
   const runnerProto = (grpc.loadPackageDefinition(
     packageDefinition
@@ -18,7 +18,7 @@ export default function startServer (): grpc.Server {
 
   server.bindAsync(
     '0.0.0.0:50007', // TODO: Read port from ENV
-    credentials.createInsecure(),
+    credentials.createInsecure(), // TODO: Use secure credentials with allow for Coordinator
     (err: Error | null, port: number) => {
       if (err) {
         console.error(`Server error: ${err.message}`);

@@ -2,50 +2,39 @@ syntax = "proto3";
 package spec;
 
 service Runner {
-    // Starts a new Runner stream worker
+    // Starts a new Runner executor
     rpc StartExecutor (StartExecutorRequest) returns (StartExecutorResponse);
 
-    // Updates an existing Runner stream worker
-    rpc UpdateExecutor (UpdateExecutorRequest) returns (UpdateExecutorResponse);
-
-    // Stops an existing Runner stream worker
+    // Stops an existing Runner executor
     rpc StopExecutor (StopExecutorRequest) returns (StopExecutorResponse);
 
-    // Lists all Runner stream workers
+    // Lists all Runner executor
     rpc ListExecutors (ListExecutorsRequest) returns (ListExecutorsResponse);
 }
 
 // Start Executor Request 
 message StartExecutorRequest {
-    string stream_id = 1;
+    string executor_id = 1;
     string redis_stream = 2;
-    string indexer_config = 3; // JSON containing code, schema, etc.
+    string account_id = 3;
+    string function_name = 4;
+    string code = 5;
+    string schema = 6;
 }
 
 // Start Executor Response 
 message StartExecutorResponse {
-    string stream_id = 1;
-}
-
-// Update Executor Request 
-message UpdateExecutorRequest {
-    string stream_id = 1;
-    string indexer_config = 2; // JSON containing code, schema, etc.
-}
-
-// Update Executor Response 
-message UpdateExecutorResponse {
-    string stream_id = 1;
+    string executor_id = 1;
 }
 
 // Stop Executor Request
 message StopExecutorRequest {
-    string stream_id = 1;
+    string executor_id = 1;
 }
 
 // Stop Executor Response
 message StopExecutorResponse {
-    string stream_id = 1;
+    string executor_id = 1;
 }
 
 // List Executor Request
@@ -54,13 +43,13 @@ message ListExecutorsRequest {
 
 // List Executor Response
 message ListExecutorsResponse {
-    // List of all streams, including stopped or crashed ones
-    repeated ExecutorInfo streams = 1;
+    // List of all executors, including stopped or crashed ones
+    repeated ExecutorInfo executors = 1;
 }
 
 // Information about a single BlockExecutor instance.
 message ExecutorInfo {
-    string stream_id = 1;
+    string executor_id = 1;
     string indexer_name = 2;
     string status = 3;
 }
