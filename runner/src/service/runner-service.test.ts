@@ -36,7 +36,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, JSON.stringify(BASIC_INDEXER_CONFIG));
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG);
     expect(mockCallback).toHaveBeenCalledWith(null, { streamId: BASIC_STREAM_ID });
@@ -47,7 +47,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest('', BASIC_REDIS_STREAM, JSON.stringify(BASIC_INDEXER_CONFIG));
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -61,7 +61,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, undefined, JSON.stringify(BASIC_INDEXER_CONFIG));
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -75,7 +75,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, undefined);
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -95,7 +95,7 @@ describe('Runner gRPC Service', () => {
       }
     ));
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -109,7 +109,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, '{');
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -129,8 +129,8 @@ describe('Runner gRPC Service', () => {
     };
     const startRequest = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, JSON.stringify(indexerConfig));
 
-    service.StartStream(startRequest, mockCallback);
-    service.StartStream(startRequest, mockCallback);
+    service.StartExecutor(startRequest, mockCallback);
+    service.StartExecutor(startRequest, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(1);
     expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, indexerConfig);
@@ -138,7 +138,7 @@ describe('Runner gRPC Service', () => {
       [null, { streamId: BASIC_STREAM_ID }],
       [{
         code: grpc.status.ALREADY_EXISTS,
-        message: `Stream ${BASIC_STREAM_ID} can't be started as it already exists.`
+        message: `Stream Executor ${BASIC_STREAM_ID} can't be started as it already exists.`
       }, null]
     ]);
   });
@@ -153,12 +153,12 @@ describe('Runner gRPC Service', () => {
     const indexerConfig = BASIC_INDEXER_CONFIG;
     const startRequest = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, JSON.stringify(indexerConfig));
 
-    service.StartStream(startRequest, mockCallback);
+    service.StartExecutor(startRequest, mockCallback);
 
     indexerConfig.code = 'test-code-2';
     const updateRequest = generateRequest(BASIC_STREAM_ID, undefined, JSON.stringify(indexerConfig));
 
-    service.UpdateStream(updateRequest, mockCallback);
+    service.UpdateExecutor(updateRequest, mockCallback);
 
     indexerConfig.code = 'test-code';
     expect(streamHandlerType).toHaveBeenCalledTimes(1);
@@ -178,7 +178,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest('', undefined, JSON.stringify(BASIC_INDEXER_CONFIG));
 
-    service.UpdateStream(request, mockCallback);
+    service.UpdateExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -192,12 +192,12 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, undefined, JSON.stringify(BASIC_INDEXER_CONFIG));
 
-    service.UpdateStream(request, mockCallback);
+    service.UpdateExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
       code: grpc.status.INVALID_ARGUMENT,
-      message: `Stream ${BASIC_STREAM_ID} cannot be updated as it does not exist.`
+      message: `Stream Executor ${BASIC_STREAM_ID} cannot be updated as it does not exist.`
     }, null);
   });
 
@@ -206,7 +206,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, undefined);
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -226,7 +226,7 @@ describe('Runner gRPC Service', () => {
       }
     ));
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -240,7 +240,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, '{');
 
-    service.StartStream(request, mockCallback);
+    service.StartExecutor(request, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -261,13 +261,13 @@ describe('Runner gRPC Service', () => {
     const requestA = generateRequest(BASIC_STREAM_ID + '-A', BASIC_REDIS_STREAM + '-A', JSON.stringify(BASIC_INDEXER_CONFIG));
     const requestB = generateRequest(BASIC_STREAM_ID + '-B', BASIC_REDIS_STREAM + '-B', JSON.stringify(BASIC_INDEXER_CONFIG));
 
-    service.StartStream(requestA, mockCallback);
-    service.StartStream(requestB, mockCallback);
+    service.StartExecutor(requestA, mockCallback);
+    service.StartExecutor(requestB, mockCallback);
 
     const stopRequest = generateRequest(BASIC_STREAM_ID + '-A', undefined, undefined); // Stops stream A
 
     await new Promise((resolve, reject) => {
-      service.StopStream(stopRequest, function (err, response) {
+      service.StopExecutor(stopRequest, function (err, response) {
         if (err) {
           reject(err); return;
         }
@@ -276,7 +276,7 @@ describe('Runner gRPC Service', () => {
       });
     });
 
-    service.StartStream(requestA, mockCallback);
+    service.StartExecutor(requestA, mockCallback);
 
     expect(streamHandlerType).toHaveBeenCalledTimes(3);
     expect(stop).toHaveBeenCalledTimes(1);
@@ -299,7 +299,7 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest('', undefined, undefined);
 
-    service.StopStream(request, mockCallback);
+    service.StopExecutor(request, mockCallback);
 
     expect(stop).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
@@ -319,12 +319,12 @@ describe('Runner gRPC Service', () => {
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_STREAM_ID, undefined, undefined);
 
-    service.StopStream(request, mockCallback);
+    service.StopExecutor(request, mockCallback);
 
     expect(stop).toHaveBeenCalledTimes(0);
     expect(mockCallback).toHaveBeenCalledWith({
       code: grpc.status.INVALID_ARGUMENT,
-      message: `Stream ${BASIC_STREAM_ID} cannot be stopped as it does not exist.`
+      message: `Stream Executor ${BASIC_STREAM_ID} cannot be stopped as it does not exist.`
     }, null);
   });
 
@@ -340,10 +340,10 @@ describe('Runner gRPC Service', () => {
     const startRequest = generateRequest(BASIC_STREAM_ID, BASIC_REDIS_STREAM, JSON.stringify(BASIC_INDEXER_CONFIG));
     const stopRequest = generateRequest(BASIC_STREAM_ID, undefined, undefined);
 
-    service.StartStream(startRequest, mockCallback);
+    service.StartExecutor(startRequest, mockCallback);
 
     await new Promise((resolve, reject) => {
-      service.StopStream(stopRequest, function (err, response) {
+      service.StopExecutor(stopRequest, function (err, response) {
         if (err) { // Should get somehow fails error
           mockCallback(err, response);
           resolve(err.details); return;
@@ -379,18 +379,18 @@ describe('Runner gRPC Service', () => {
     const listRequest = generateRequest(undefined, undefined, undefined);
     const stopRequest = generateRequest(BASIC_STREAM_ID + '-A', undefined, undefined); // Stops stream A
 
-    await listStreamsPromise(listRequest, service, mockCallback);
+    await listExecutorsPromise(listRequest, service, mockCallback);
 
-    service.StartStream(requestA, mockCallback);
+    service.StartExecutor(requestA, mockCallback);
 
-    await listStreamsPromise(listRequest, service, mockCallback);
+    await listExecutorsPromise(listRequest, service, mockCallback);
 
-    service.StartStream(requestB, mockCallback);
+    service.StartExecutor(requestB, mockCallback);
 
-    await listStreamsPromise(listRequest, service, mockCallback);
+    await listExecutorsPromise(listRequest, service, mockCallback);
 
     await new Promise((resolve, reject) => {
-      service.StopStream(stopRequest, function (err, response) {
+      service.StopExecutor(stopRequest, function (err, response) {
         if (err) {
           reject(err); return;
         }
@@ -399,11 +399,11 @@ describe('Runner gRPC Service', () => {
       });
     });
 
-    await listStreamsPromise(listRequest, service, mockCallback);
+    await listExecutorsPromise(listRequest, service, mockCallback);
 
-    service.StartStream(requestA, mockCallback);
+    service.StartExecutor(requestA, mockCallback);
 
-    await listStreamsPromise(listRequest, service, mockCallback);
+    await listExecutorsPromise(listRequest, service, mockCallback);
 
     expect(streamHandlerType).toHaveBeenCalledTimes(3);
     expect(stop).toHaveBeenCalledTimes(1);
@@ -434,9 +434,9 @@ describe('Runner gRPC Service', () => {
   });
 });
 
-async function listStreamsPromise (listRequest: any, service: RunnerHandlers, mockCallback: jest.Mock<any, any>): Promise<any> {
+async function listExecutorsPromise (listRequest: any, service: RunnerHandlers, mockCallback: jest.Mock<any, any>): Promise<any> {
   await new Promise((resolve, reject) => {
-    service.ListStreams(listRequest, function (err, response) {
+    service.ListExecutors(listRequest, function (err, response) {
       if (err) {
         reject(err); return;
       }

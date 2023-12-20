@@ -1,14 +1,14 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import { type RunnerHandlers } from '../generated/spec/Runner';
-import { type StartStreamResponse__Output, type StartStreamResponse } from '../generated/spec/StartStreamResponse';
-import { type StartStreamRequest__Output } from '../generated/spec/StartStreamRequest';
-import { type UpdateStreamRequest__Output } from '../generated/spec/UpdateStreamRequest';
-import { type UpdateStreamResponse__Output, type UpdateStreamResponse } from '../generated/spec/UpdateStreamResponse';
-import { type StopStreamRequest__Output } from '../generated/spec/StopStreamRequest';
-import { type StopStreamResponse__Output, type StopStreamResponse } from '../generated/spec/StopStreamResponse';
-import { type ListStreamsRequest__Output } from '../generated/spec/ListStreamsRequest';
-import { type ListStreamsResponse__Output, type ListStreamsResponse } from '../generated/spec/ListStreamsResponse';
-import { type StreamInfo__Output } from '../generated/spec/StreamInfo';
+import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../generated/spec/StartExecutorResponse';
+import { type StartExecutorRequest__Output } from '../generated/spec/StartExecutorRequest';
+import { type UpdateExecutorRequest__Output } from '../generated/spec/UpdateExecutorRequest';
+import { type UpdateExecutorResponse__Output, type UpdateExecutorResponse } from '../generated/spec/UpdateExecutorResponse';
+import { type StopExecutorRequest__Output } from '../generated/spec/StopExecutorRequest';
+import { type StopExecutorResponse__Output, type StopExecutorResponse } from '../generated/spec/StopExecutorResponse';
+import { type ListExecutorsRequest__Output } from '../generated/spec/ListExecutorsRequest';
+import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/spec/ListExecutorsResponse';
+import { type ExecutorInfo__Output } from '../generated/spec/ExecutorInfo';
 import type StreamHandler from '../stream-handler';
 import * as grpc from '@grpc/grpc-js';
 import assert from 'assert';
@@ -19,10 +19,10 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
   const streamHandlers: StreamHandlers = new Map();
 
   const RunnerService: RunnerHandlers = {
-    StartStream (call: ServerUnaryCall<StartStreamRequest__Output, StartStreamResponse>, callback: sendUnaryData<StartStreamResponse__Output>): void {
-      console.log('StartStream called', call.request);
+    StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
+      console.log('StartExecutor called');
       // Validate request
-      const validationResult = validateStartStreamRequest(call.request, streamHandlers);
+      const validationResult = validateStartExecutorRequest(call.request, streamHandlers);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
@@ -44,10 +44,10 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       }
     },
 
-    UpdateStream (call: ServerUnaryCall<UpdateStreamRequest__Output, UpdateStreamResponse>, callback: sendUnaryData<UpdateStreamResponse__Output>): void {
-      console.log('UpdateStream called', call.request);
+    UpdateExecutor (call: ServerUnaryCall<UpdateExecutorRequest__Output, UpdateExecutorResponse>, callback: sendUnaryData<UpdateExecutorResponse__Output>): void {
+      console.log('UpdateExecutor called');
       // Validate request
-      const validationResult = validateUpdateStreamRequest(call.request, streamHandlers);
+      const validationResult = validateUpdateExecutorRequest(call.request, streamHandlers);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
@@ -68,10 +68,10 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       }
     },
 
-    StopStream (call: ServerUnaryCall<StopStreamRequest__Output, StopStreamResponse>, callback: sendUnaryData<StopStreamResponse__Output>): void {
-      console.log('StopStream called', call.request);
+    StopExecutor (call: ServerUnaryCall<StopExecutorRequest__Output, StopExecutorResponse>, callback: sendUnaryData<StopExecutorResponse__Output>): void {
+      console.log('StopExecutor called');
       // Validate request
-      const validationResult = validateStopStreamRequest(call.request, streamHandlers);
+      const validationResult = validateStopExecutorRequest(call.request, streamHandlers);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
@@ -89,11 +89,11 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
         });
     },
 
-    ListStreams (call: ServerUnaryCall<ListStreamsRequest__Output, ListStreamsResponse>, callback: sendUnaryData<ListStreamsResponse__Output>): void {
+    ListExecutors (_: ServerUnaryCall<ListExecutorsRequest__Output, ListExecutorsResponse>, callback: sendUnaryData<ListExecutorsResponse__Output>): void {
       // TODO: Refactor to make use of repeated field
-      console.log('ListStreams called', call.request);
+      console.log('ListExecutors called');
       // TODO: Return more information than just streamId
-      const response: StreamInfo__Output[] = [];
+      const response: ExecutorInfo__Output[] = [];
       try {
         streamHandlers.forEach((handler, stream) => {
           response.push({
@@ -161,7 +161,7 @@ function validateIndexerConfig (indexerConfig: string): any | null {
   return null;
 }
 
-function validateStartStreamRequest (request: StartStreamRequest__Output, streamHandlers: StreamHandlers): any | null {
+function validateStartExecutorRequest (request: StartExecutorRequest__Output, streamHandlers: StreamHandlers): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -174,7 +174,7 @@ function validateStartStreamRequest (request: StartStreamRequest__Output, stream
   }
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) !== undefined) {
-    grpcError.message = `Stream ${request.streamId} can't be started as it already exists.`;
+    grpcError.message = `Stream Executor ${request.streamId} can't be started as it already exists.`;
     grpcError.code = grpc.status.ALREADY_EXISTS;
     return grpcError;
   }
@@ -193,7 +193,7 @@ function validateStartStreamRequest (request: StartStreamRequest__Output, stream
   return null;
 }
 
-function validateUpdateStreamRequest (request: UpdateStreamRequest__Output, streamHandlers: StreamHandlers): any | null {
+function validateUpdateExecutorRequest (request: UpdateExecutorRequest__Output, streamHandlers: StreamHandlers): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -206,7 +206,7 @@ function validateUpdateStreamRequest (request: UpdateStreamRequest__Output, stre
   }
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) === undefined) {
-    grpcError.message = `Stream ${request.streamId} cannot be updated as it does not exist.`;
+    grpcError.message = `Stream Executor ${request.streamId} cannot be updated as it does not exist.`;
     return grpcError;
   }
 
@@ -218,7 +218,7 @@ function validateUpdateStreamRequest (request: UpdateStreamRequest__Output, stre
   return null;
 }
 
-function validateStopStreamRequest (request: StopStreamRequest__Output, streamHandlers: StreamHandlers): any | null {
+function validateStopExecutorRequest (request: StopExecutorRequest__Output, streamHandlers: StreamHandlers): any | null {
   const grpcError = {
     code: grpc.status.INVALID_ARGUMENT,
     message: ''
@@ -231,7 +231,7 @@ function validateStopStreamRequest (request: StopStreamRequest__Output, streamHa
   }
   assert(request.streamId !== undefined);
   if (streamHandlers.get(request.streamId) === undefined) {
-    grpcError.message = `Stream ${request.streamId} cannot be stopped as it does not exist.`;
+    grpcError.message = `Stream Executor ${request.streamId} cannot be stopped as it does not exist.`;
     return grpcError;
   }
 

@@ -3,63 +3,63 @@ package spec;
 
 service Runner {
     // Starts a new Runner stream worker
-    rpc StartStream (StartStreamRequest) returns (StartStreamResponse);
+    rpc StartExecutor (StartExecutorRequest) returns (StartExecutorResponse);
 
     // Updates an existing Runner stream worker
-    rpc UpdateStream (UpdateStreamRequest) returns (UpdateStreamResponse);
+    rpc UpdateExecutor (UpdateExecutorRequest) returns (UpdateExecutorResponse);
 
     // Stops an existing Runner stream worker
-    rpc StopStream (StopStreamRequest) returns (StopStreamResponse);
+    rpc StopExecutor (StopExecutorRequest) returns (StopExecutorResponse);
 
     // Lists all Runner stream workers
-    rpc ListStreams (ListStreamsRequest) returns (ListStreamsResponse);
+    rpc ListExecutors (ListExecutorsRequest) returns (ListExecutorsResponse);
 }
 
-// Start Stream Request 
-message StartStreamRequest {
+// Start Executor Request 
+message StartExecutorRequest {
     string stream_id = 1;
     string redis_stream = 2;
     string indexer_config = 3; // JSON containing code, schema, etc.
 }
 
-// Start Stream Response 
-message StartStreamResponse {
+// Start Executor Response 
+message StartExecutorResponse {
     string stream_id = 1;
 }
 
-// Update Stream Request 
-message UpdateStreamRequest {
+// Update Executor Request 
+message UpdateExecutorRequest {
     string stream_id = 1;
     string indexer_config = 2; // JSON containing code, schema, etc.
 }
 
-// Update Stream Response 
-message UpdateStreamResponse {
+// Update Executor Response 
+message UpdateExecutorResponse {
     string stream_id = 1;
 }
 
-// Stop Stream Request
-message StopStreamRequest {
+// Stop Executor Request
+message StopExecutorRequest {
     string stream_id = 1;
 }
 
-// Stop Stream Response
-message StopStreamResponse {
+// Stop Executor Response
+message StopExecutorResponse {
     string stream_id = 1;
 }
 
-// List Stream Request
-message ListStreamsRequest {
+// List Executor Request
+message ListExecutorsRequest {
 }
 
-// List Stream Response
-message ListStreamsResponse {
+// List Executor Response
+message ListExecutorsResponse {
     // List of all streams, including stopped or crashed ones
-    repeated StreamInfo streams = 1;
+    repeated ExecutorInfo streams = 1;
 }
 
-// Information about a single BlockStream instance.
-message StreamInfo {
+// Information about a single BlockExecutor instance.
+message ExecutorInfo {
     string stream_id = 1;
     string indexer_name = 2;
     string status = 3;
