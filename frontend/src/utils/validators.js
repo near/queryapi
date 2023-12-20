@@ -8,3 +8,7 @@ export function validateContractId(accountId) {
   );
 }
 
+export function validateContractIds(accountIds) {
+  const ids = accountIds.split(',').map(id => id.trim());
+  return ids.every(accountId => validateContractId(accountId));
+}

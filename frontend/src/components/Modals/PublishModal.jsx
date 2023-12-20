@@ -2,7 +2,7 @@ import React, { useContext, useState } from "react";
 import { Button, Modal, Alert } from "react-bootstrap";
 import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import { validateContractId } from "../../utils/validators";
+import { validateContractIds } from "../../utils/validators";
 
 export const PublishModal = ({
   registerFunction,
@@ -30,7 +30,7 @@ export const PublishModal = ({
       return
     }
 
-    if (!validateContractId(indexerConfig.filter)) {
+    if (!validateContractIds(indexerConfig.filter)) {
       setError( () => "Please provide a valid contract name")
       return
     }

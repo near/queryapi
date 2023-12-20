@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult>
+    <CommonPrefixes>
+        <Prefix>000000000000/</Prefix>
+    </CommonPrefixes>
+</ListBucketResult>

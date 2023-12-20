@@ -64,13 +64,12 @@ export default class RedisClient {
     await this.client.xDel(streamKey, id);
   };
 
-  async getUnprocessedStreamMessages (
+  async getUnprocessedStreamMessageCount (
     streamKey: string,
-    startId = this.SMALLEST_STREAM_ID,
-  ): Promise<StreamMessage[]> {
-    const results = await this.client.xRange(streamKey, startId, this.LARGEST_STREAM_ID);
+  ): Promise<number> {
+    const results = await this.client.xLen(streamKey);
 
-    return results as StreamMessage[];
+    return results;
   };
 
   async getStreamStorage (streamKey: string): Promise<StreamStorage> {

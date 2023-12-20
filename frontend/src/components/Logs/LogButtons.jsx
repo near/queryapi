@@ -29,6 +29,7 @@ const LogButtons = ({
   setHeights,
   latestHeight,
   isUserIndexer,
+  reloadData
 }) => {
   const {
     indexerName,
@@ -93,6 +94,20 @@ const LogButtons = ({
                 aria-label="Action Button Group"
               >
                 <>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Reload Data</Tooltip>}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => reloadData()}
+                    >
+                      <ArrowCounterclockwise style={{ paddingRight: "2px" }} size={24} />
+                      Reload
+                    </Button>
+                  </OverlayTrigger>
                   <OverlayTrigger
                     placement="bottom"
                     overlay={<Tooltip>Open Editor</Tooltip>}
