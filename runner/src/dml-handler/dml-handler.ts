@@ -37,9 +37,6 @@ export default class DmlHandler {
     const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (result.rows?.length === 0) {
-      console.log('No rows were inserted.');
-    }
     return result.rows;
   }
 
@@ -53,9 +50,6 @@ export default class DmlHandler {
     }
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (!(result.rows && result.rows.length > 0)) {
-      console.log('No rows were selected.');
-    }
     return result.rows;
   }
 
@@ -69,9 +63,6 @@ export default class DmlHandler {
     const query = `UPDATE ${schemaName}."${tableName}" SET ${updateParam} WHERE ${whereParam} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (!(result.rows && result.rows.length > 0)) {
-      console.log('No rows were selected.');
-    }
     return result.rows;
   }
 
@@ -87,9 +78,6 @@ export default class DmlHandler {
     const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (result.rows?.length === 0) {
-      console.log('No rows were inserted or updated.');
-    }
     return result.rows;
   }
 
@@ -100,9 +88,6 @@ export default class DmlHandler {
     const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${param} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    if (!(result.rows && result.rows.length > 0)) {
-      console.log('No rows were deleted.');
-    }
     return result.rows;
   }
 }

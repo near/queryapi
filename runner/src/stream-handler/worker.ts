@@ -68,7 +68,6 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
       streamMessageStartId = '0';
       continue;
     }
-    console.log(`Fetched ${messages?.length} messages from stream ${streamKey}`);
 
     for (const streamMessage of messages) {
       const { id, message } = streamMessage;
