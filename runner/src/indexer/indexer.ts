@@ -65,7 +65,7 @@ export default class Indexer {
         const indexerFunction = functions[functionName];
 
         const runningMessage = `Running function ${functionName} on block ${blockHeight}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
-        console.log(runningMessage); // Print the running message to the console (Lambda logs)
+        console.log(runningMessage); // Print the running message to the console
 
         simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));
 
@@ -192,7 +192,6 @@ export default class Indexer {
     }
 
     const tableNamesArray = Array.from(tableNames);
-    console.log('Retrieved the following table names from schema: ', tableNamesArray);
     return Array.from(tableNamesArray);
   }
 
