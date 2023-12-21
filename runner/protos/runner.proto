@@ -1,0 +1,56 @@
+syntax = "proto3";
+package spec;
+
+service Runner {
+    // Starts a new Runner executor
+    rpc StartExecutor (StartExecutorRequest) returns (StartExecutorResponse);
+
+    // Stops an existing Runner executor
+    rpc StopExecutor (StopExecutorRequest) returns (StopExecutorResponse);
+
+    // Lists all Runner executor
+    rpc ListExecutors (ListExecutorsRequest) returns (ListExecutorsResponse);
+}
+
+// Start Executor Request 
+message StartExecutorRequest {
+    string executor_id = 1;
+    string redis_stream = 2;
+    string account_id = 3;
+    string function_name = 4;
+    string code = 5;
+    string schema = 6;
+}
+
+// Start Executor Response 
+message StartExecutorResponse {
+    string executor_id = 1;
+}
+
+// Stop Executor Request
+message StopExecutorRequest {
+    string executor_id = 1;
+}
+
+// Stop Executor Response
+message StopExecutorResponse {
+    string executor_id = 1;
+}
+
+// List Executor Request
+message ListExecutorsRequest {
+}
+
+// List Executor Response
+message ListExecutorsResponse {
+    // List of all executors, including stopped or crashed ones
+    repeated ExecutorInfo executors = 1;
+}
+
+// Information about a single BlockExecutor instance.
+message ExecutorInfo {
+    string executor_id = 1;
+    string account_id = 2;
+    string function_name = 3;
+    string status = 4;
+}

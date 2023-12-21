@@ -2,13 +2,13 @@ import { startServer as startMetricsServer } from './metrics';
 import RedisClient from './redis-client';
 import StreamHandler from './stream-handler';
 
+const STREAM_HANDLER_THROTTLE_MS = 500;
+
 const redisClient = new RedisClient();
 
 startMetricsServer().catch((err) => {
   console.error('Failed to start metrics server', err);
 });
-
-const STREAM_HANDLER_THROTTLE_MS = 500;
 
 type StreamHandlers = Record<string, StreamHandler>;
 

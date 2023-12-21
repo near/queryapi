@@ -3,16 +3,25 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics } from '../metrics';
 
+export interface IndexerConfig {
+  account_id: string
+  function_name: string
+  code: string
+  schema: string
+}
+
 export default class StreamHandler {
   private readonly worker: Worker;
 
   constructor (
-    public readonly streamKey: string
+    public readonly streamKey: string,
+    public readonly indexerConfig: IndexerConfig | undefined = undefined
   ) {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
           streamKey,
+          indexerConfig,
         },
       });
 
@@ -21,6 +30,10 @@ export default class StreamHandler {
     } else {
       throw new Error('StreamHandler should not be instantiated in a worker thread');
     }
+  }
+
+  async stop (): Promise<void> {
+    await this.worker.terminate();
   }
 
   private handleError (error: Error): void {

@@ -6,6 +6,7 @@ import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
+import { type IndexerConfig } from './stream-handler';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -26,8 +27,11 @@ interface WorkerContext {
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 
+let config: IndexerConfig | undefined;
+
 void (async function main () {
-  const { streamKey } = workerData;
+  const { streamKey, indexerConfig } = workerData;
+  config = indexerConfig;
   const redisClient = new RedisClient();
   const workerContext: WorkerContext = {
     redisClient,
@@ -92,7 +96,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const startTime = performance.now();
-      const indexerConfig = await workerContext.redisClient.getStreamStorage(streamKey);
+      const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
       indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
       const functions = {
         [indexerName]: {
