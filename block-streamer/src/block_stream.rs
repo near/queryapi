@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::Context;
 use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
@@ -142,10 +142,12 @@ pub(crate) async fn start_block_stream(
                 .await
         }
         MatchingRule::ActionFunctionCall { .. } => {
-            bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+            tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+            Ok(vec![])
         }
         MatchingRule::Event { .. } => {
-            bail!("Event matching rule not yet supported for historical processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+            tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+            Ok(vec![])
         }
     }?;
 
