@@ -35,10 +35,11 @@ impl BlockStreamsHandlerImpl {
     }
 
     pub async fn stop(&mut self, stream_id: String) -> anyhow::Result<()> {
-        let _ = self
-            .client
-            .stop_stream(Request::new(StopStreamRequest { stream_id }))
-            .await?;
+        let request = Request::new(StopStreamRequest { stream_id });
+
+        tracing::debug!("Sending stop stream request: {:#?}", request);
+
+        let _ = self.client.stop_stream(request).await?;
 
         Ok(())
     }
@@ -85,16 +86,17 @@ impl BlockStreamsHandlerImpl {
             }
         };
 
-        let _ = self
-            .client
-            .start_stream(Request::new(StartStreamRequest {
-                start_block_height,
-                account_id,
-                function_name,
-                version,
-                rule: Some(rule),
-            }))
-            .await?;
+        let request = Request::new(StartStreamRequest {
+            start_block_height,
+            account_id,
+            function_name,
+            version,
+            rule: Some(rule),
+        });
+
+        tracing::debug!("Sending start stream request: {:#?}", request);
+
+        let _ = self.client.start_stream(request).await?;
 
         Ok(())
     }

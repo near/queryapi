@@ -1,3 +1,5 @@
+use tracing_subscriber::prelude::*;
+
 use crate::block_streams_handler::BlockStreamsHandler;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
@@ -8,7 +10,11 @@ mod registry;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let registry = Registry::connect("https://rpc.mainnet.near.org");
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::layer())
+        .with(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+
     let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
     let mut block_stream_handler = BlockStreamsHandler::connect().await?;
 
