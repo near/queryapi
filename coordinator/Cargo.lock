@@ -2183,8 +2183,9 @@ dependencies = [
 
 [[package]]
 name = "near-lake-framework"
-version = "0.0.0"
-source = "git+https://github.com/near/near-lake-framework-rs?branch=aws-logging#96f2d949c5cbdabce9b848c1ec93895369106355"
+version = "0.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db8b91504ca51c85273060bb1d88229d49deb1363fa74f1750e9258af82e887d"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -2192,6 +2193,7 @@ dependencies = [
  "aws-config",
  "aws-credential-types",
  "aws-sdk-s3",
+ "aws-smithy-types",
  "aws-types",
  "derive_builder",
  "futures",

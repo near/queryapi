@@ -18,9 +18,9 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
     let mut block_stream_handler = BlockStreamsHandler::connect().await?;
 
-    synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler).await?;
-
-    Ok(())
+    loop {
+        synchronise_registry_config(&registry, &redis_client, &mut block_stream_handler).await?;
+    }
 }
 
 async fn synchronise_registry_config(
