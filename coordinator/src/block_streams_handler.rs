@@ -4,7 +4,7 @@ use tonic::Request;
 
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
-    start_stream_request::Rule, ActionAnyRule, ListStreamsRequest, ListStreamsResponse,
+    start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, ListStreamsRequest,
     StartStreamRequest, Status, StopStreamRequest,
 };
 
@@ -43,6 +43,15 @@ impl BlockStreamsHandlerImpl {
         Ok(())
     }
 
+    fn match_status(status: &registry_types::Status) -> i32 {
+        match status {
+            registry_types::Status::Success => Status::Success,
+            registry_types::Status::Fail => Status::Failure,
+            registry_types::Status::Any => Status::Any,
+        }
+        .into()
+    }
+
     pub async fn start(
         &mut self,
         start_block_height: u64,
@@ -57,13 +66,23 @@ impl BlockStreamsHandlerImpl {
                 status,
             } => Rule::ActionAnyRule(ActionAnyRule {
                 affected_account_id: affected_account_id.to_owned(),
-                status: match status {
-                    registry_types::Status::Success => Status::Success.into(),
-                    registry_types::Status::Fail => Status::Failure.into(),
-                    registry_types::Status::Any => Status::Any.into(),
-                },
+                status: Self::match_status(status),
             }),
-            _ => anyhow::bail!("Encountered unsupported indexer rule"),
+            registry_types::MatchingRule::ActionFunctionCall {
+                affected_account_id,
+                status,
+                function,
+            } => Rule::ActionFunctionCallRule(ActionFunctionCallRule {
+                affected_account_id: affected_account_id.to_owned(),
+                function_name: function.to_owned(),
+                status: Self::match_status(status),
+            }),
+            unsupported_rule => {
+                anyhow::bail!(
+                    "Encountered unsupported indexer rule: {:?}",
+                    unsupported_rule
+                )
+            }
         };
 
         let _ = self

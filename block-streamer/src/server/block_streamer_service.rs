@@ -43,6 +43,17 @@ impl BlockStreamerService {
             .lock()
             .map_err(|err| Status::internal(format!("Failed to acquire lock: {}", err)))
     }
+
+    fn match_status(grpc_status: i32) -> Result<registry_types::Status, Status> {
+        match grpc_status {
+            0 => Ok(registry_types::Status::Success),
+            1 => Ok(registry_types::Status::Fail),
+            2 => Ok(registry_types::Status::Any),
+            _ => Err(Status::invalid_argument(
+                "Invalid status value for ActionAnyRule",
+            )),
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -58,26 +69,16 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .ok_or(Status::invalid_argument("Rule must be provided"))?;
 
         let matching_rule = match rule {
-            start_stream_request::Rule::ActionAnyRule(action_any_rule) => {
-                let affected_account_id = action_any_rule.affected_account_id;
-                let status = match action_any_rule.status {
-                    0 => Ok(registry_types::Status::Success),
-                    1 => Ok(registry_types::Status::Fail),
-                    2 => Ok(registry_types::Status::Any),
-                    _ => Err(Status::invalid_argument(
-                        "Invalid status value for ActionAnyRule",
-                    )),
-                }?;
-
-                MatchingRule::ActionAny {
-                    affected_account_id,
-                    status,
+            start_stream_request::Rule::ActionAnyRule(action_any) => MatchingRule::ActionAny {
+                affected_account_id: action_any.affected_account_id,
+                status: Self::match_status(action_any.status)?,
+            },
+            start_stream_request::Rule::ActionFunctionCallRule(action_function_call) => {
+                MatchingRule::ActionFunctionCall {
+                    affected_account_id: action_function_call.affected_account_id,
+                    status: Self::match_status(action_function_call.status)?,
+                    function: action_function_call.function_name,
                 }
-            }
-            _ => {
-                return Err(Status::unimplemented(
-                    "Rules other than ActionAny are not supported yet",
-                ))
             }
         };
         let filter_rule = IndexerRule {
