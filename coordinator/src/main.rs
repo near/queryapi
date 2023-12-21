@@ -15,6 +15,7 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
+    let registry = Registry::connect("https://rpc.testnet.near.org");
     let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
     let mut block_stream_handler = BlockStreamsHandler::connect().await?;
 
