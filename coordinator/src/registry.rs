@@ -49,17 +49,16 @@ impl RegistryImpl {
         registry: HashMap<AccountId, HashMap<String, registry_types::IndexerConfig>>,
     ) -> IndexerRegistry {
         registry
-            .iter()
+            .into_iter()
             .map(|(account_id, indexers)| {
                 let indexers = indexers
-                    .iter()
+                    .into_iter()
                     .map(|(function_name, indexer)| {
-                        let indexer = indexer.clone();
                         (
-                            function_name.clone(),
+                            function_name.to_owned(),
                             IndexerConfig {
                                 account_id: account_id.clone(),
-                                function_name: function_name.clone(),
+                                function_name,
                                 code: indexer.code,
                                 start_block_height: indexer.start_block_height,
                                 schema: indexer.schema,
@@ -71,7 +70,7 @@ impl RegistryImpl {
                     })
                     .collect::<HashMap<_, _>>();
 
-                (account_id.clone(), indexers)
+                (account_id, indexers)
             })
             .collect::<HashMap<_, _>>()
     }
