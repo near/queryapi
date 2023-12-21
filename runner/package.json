@@ -12,7 +12,7 @@
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
     "start:docker": "node dist/index.js",
-    "test": "npm run codegen && node --experimental-vm-modules ./node_modules/.bin/jest",
+    "test": "npm run build && node --experimental-vm-modules ./node_modules/.bin/jest",
     "lint": "eslint -c .eslintrc.js"
   },
   "keywords": [],

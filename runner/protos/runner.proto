@@ -50,6 +50,7 @@ message ListExecutorsResponse {
 // Information about a single BlockExecutor instance.
 message ExecutorInfo {
     string executor_id = 1;
-    string indexer_name = 2;
-    string status = 3;
+    string account_id = 2;
+    string function_name = 3;
+    string status = 4;
 }

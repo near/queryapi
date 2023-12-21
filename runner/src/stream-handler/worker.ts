@@ -29,13 +29,6 @@ const sleep = async (ms: number): Promise<void> => { await new Promise((resolve)
 
 let config: IndexerConfig | undefined;
 
-parentPort?.on('message', (message) => {
-  if (message.indexerConfig) {
-    // Update the streamKey inside the Worker
-    config = message.indexerConfig;
-  }
-});
-
 void (async function main () {
   const { streamKey, indexerConfig } = workerData;
   config = indexerConfig;

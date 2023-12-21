@@ -3,39 +3,27 @@ import type StreamHandler from '../stream-handler/stream-handler';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
 
-let BASIC_EXECUTOR_ID = 'test-executor-id';
-let BASIC_REDIS_STREAM = 'test-redis-stream';
-let BASIC_ACCOUNT_ID = 'test-account-id';
-let BASIC_FUNCTION_NAME = 'test-function-name';
-let BASIC_CODE = 'test-code';
-let BASIC_SCHEMA = 'test-schema';
-let BASIC_INDEXER_CONFIG = {
+const BASIC_EXECUTOR_ID = 'test-executor-id';
+const BASIC_REDIS_STREAM = 'test-redis-stream';
+const BASIC_ACCOUNT_ID = 'test-account-id';
+const BASIC_FUNCTION_NAME = 'test-function-name';
+const BASIC_CODE = 'test-code';
+const BASIC_SCHEMA = 'test-schema';
+const BASIC_INDEXER_CONFIG = {
   account_id: BASIC_ACCOUNT_ID,
   function_name: BASIC_FUNCTION_NAME,
   code: BASIC_CODE,
   schema: BASIC_SCHEMA,
 };
 
-beforeAll(() => {
-  BASIC_EXECUTOR_ID = 'test-executor-id';
-  BASIC_REDIS_STREAM = 'test-redis-stream';
-  BASIC_ACCOUNT_ID = 'test-account-id';
-  BASIC_FUNCTION_NAME = 'test-function-name';
-  BASIC_CODE = 'test-code';
-  BASIC_SCHEMA = 'test-schema';
-  BASIC_INDEXER_CONFIG = {
-    account_id: BASIC_ACCOUNT_ID,
-    function_name: BASIC_FUNCTION_NAME,
-    code: BASIC_CODE,
-    schema: BASIC_SCHEMA,
-  };
-});
-
 describe('Runner gRPC Service', () => {
   let genericStreamHandlerType: typeof StreamHandler;
   beforeEach(() => {
-    genericStreamHandlerType = jest.fn().mockImplementation(() => {
-      return { updateIndexerConfig: jest.fn() };
+    genericStreamHandlerType = jest.fn().mockImplementation((...args) => {
+      return {
+        updateIndexerConfig: jest.fn(),
+        indexerConfig: { account_id: args[1].account_id, function_name: args[1].function_name }
+      };
     });
   });
 
@@ -253,7 +241,7 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation((...args) => {
       return {
         stop,
-        indexerName: `${args[1].account_id as string}/${args[1].function_name as string}`,
+        indexerConfig: { account_id: args[1].account_id, function_name: args[1].function_name },
       };
     });
     const service = getRunnerService(streamHandlerType);
@@ -294,17 +282,20 @@ describe('Runner gRPC Service', () => {
     const emptyList: never[] = [];
     const oneExecutorList = [{
       executorId: BASIC_EXECUTOR_ID + '-A',
-      indexerName: BASIC_INDEXER_CONFIG.account_id + '/' + BASIC_INDEXER_CONFIG.function_name,
+      accountId: BASIC_INDEXER_CONFIG.account_id,
+      functionName: BASIC_INDEXER_CONFIG.function_name,
       status: 'RUNNING'
     }];
     const twoExecutorList = [{
       executorId: BASIC_EXECUTOR_ID + '-A',
-      indexerName: BASIC_INDEXER_CONFIG.account_id + '/' + BASIC_INDEXER_CONFIG.function_name,
+      accountId: BASIC_INDEXER_CONFIG.account_id,
+      functionName: BASIC_INDEXER_CONFIG.function_name,
       status: 'RUNNING'
     },
     {
       executorId: BASIC_EXECUTOR_ID + '-B',
-      indexerName: BASIC_INDEXER_CONFIG.account_id + '/' + BASIC_INDEXER_CONFIG.function_name,
+      accountId: BASIC_INDEXER_CONFIG.account_id,
+      functionName: BASIC_INDEXER_CONFIG.function_name,
       status: 'RUNNING'
     }];
     expect(mockCallback.mock.calls[0][1]).toEqual({ executors: emptyList });

@@ -18,7 +18,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
 
   const RunnerService: RunnerHandlers = {
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
-      console.log('StartExecutor called');
+      console.log('StartExecutor called on', call.request.executorId);
       // Validate request
       const validationResult = validateStartExecutorRequest(call.request, streamHandlers);
       if (validationResult !== null) {
@@ -42,7 +42,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
     },
 
     StopExecutor (call: ServerUnaryCall<StopExecutorRequest__Output, StopExecutorResponse>, callback: sendUnaryData<StopExecutorResponse__Output>): void {
-      console.log('StopExecutor called');
+      console.log('StopExecutor called on', call.request.executorId);
       // Validate request
       const validationResult = validateStopExecutorRequest(call.request, streamHandlers);
       if (validationResult !== null) {
@@ -68,10 +68,14 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       // TODO: Return more information than just executorId
       const response: ExecutorInfo__Output[] = [];
       try {
-        streamHandlers.forEach((handler, stream) => {
+        streamHandlers.forEach((handler, executorId) => {
+          if (handler.indexerConfig?.account_id === undefined || handler.indexerConfig?.function_name === undefined) {
+            throw new Error(`Stream handler ${executorId} has no/invalid indexer config.`);
+          }
           response.push({
-            executorId: stream,
-            indexerName: handler.indexerName,
+            executorId,
+            accountId: handler.indexerConfig?.account_id,
+            functionName: handler.indexerConfig?.function_name,
             status: 'RUNNING' // TODO: Keep updated status in stream handler
           });
         });
