@@ -34,9 +34,10 @@ export default class DmlHandler {
     tableName = addQuotes(tableName);
 
     const keys = Object.keys(objects[0]);
+    const quotedKeys = keys.map(key => addQuotes(key));
     // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
     const values = objects.map(obj => keys.map(key => obj[key]));
-    const query = `INSERT INTO ${schemaName}.${tableName} (${keys.map(key => addQuotes(key)).join(', ')}) VALUES %L RETURNING *`;
+    const query = `INSERT INTO ${schemaName}.${tableName} (${quotedKeys.join(', ')}) VALUES %L RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
@@ -44,9 +45,9 @@ export default class DmlHandler {
 
   async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
     tableName = addQuotes(tableName);
-    const keys = Object.keys(object);
+    const quotedKeys = Object.keys(object).map(key => addQuotes(key));
     const values = Object.values(object);
-    const param = Array.from({ length: keys.length }, (_, index) => `${addQuotes(keys[index])}=$${index + 1}`).join(' AND ');
+    const param = Array.from({ length: quotedKeys.length }, (_, index) => `${quotedKeys[index]}=$${index + 1}`).join(' AND ');
     let query = `SELECT * FROM ${schemaName}.${tableName} WHERE ${param}`;
     if (limit !== null) {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
@@ -58,10 +59,10 @@ export default class DmlHandler {
 
   async update (schemaName: string, tableName: string, whereObject: any, updateObject: any): Promise<any[]> {
     tableName = addQuotes(tableName);
-    const updateKeys = Object.keys(updateObject);
-    const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${addQuotes(updateKeys[index])}=$${index + 1}`).join(', ');
-    const whereKeys = Object.keys(whereObject);
-    const whereParam = Array.from({ length: whereKeys.length }, (_, index) => `${addQuotes(whereKeys[index])}=$${index + 1 + updateKeys.length}`).join(' AND ');
+    const quotedUpdateKeys = Object.keys(updateObject).map(key => addQuotes(key));
+    const updateParam = Array.from({ length: quotedUpdateKeys.length }, (_, index) => `${quotedUpdateKeys[index]}=$${index + 1}`).join(', ');
+    const quotedWhereKeys = Object.keys(whereObject).map(key => addQuotes(key));
+    const whereParam = Array.from({ length: quotedWhereKeys.length }, (_, index) => `${quotedWhereKeys[index]}=$${index + 1 + quotedUpdateKeys.length}`).join(' AND ');
 
     const queryValues = [...Object.values(updateObject), ...Object.values(whereObject)];
     const query = `UPDATE ${schemaName}.${tableName} SET ${updateParam} WHERE ${whereParam} RETURNING *`;
@@ -74,16 +75,17 @@ export default class DmlHandler {
     if (!objects?.length) {
       return [];
     }
+    const keys = Object.keys(objects[0]);
 
     tableName = addQuotes(tableName);
     conflictColumns = conflictColumns.map(key => addQuotes(key));
     updateColumns = updateColumns.map(key => addQuotes(key));
+    const quotedKeys = keys.map(key => addQuotes(key));
 
-    const keys = Object.keys(objects[0]);
     // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
     const values = objects.map(obj => keys.map(key => obj[key]));
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
-    const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
+    const query = `INSERT INTO ${schemaName}.${tableName} (${quotedKeys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
@@ -91,9 +93,9 @@ export default class DmlHandler {
 
   async delete (schemaName: string, tableName: string, object: any): Promise<any[]> {
     tableName = addQuotes(tableName);
-    const keys = Object.keys(object);
+    const quotedKeys = Object.keys(object).map(key => addQuotes(key));
     const values = Object.values(object);
-    const param = Array.from({ length: keys.length }, (_, index) => `${addQuotes(keys[index])}=$${index + 1}`).join(' AND ');
+    const param = Array.from({ length: quotedKeys.length }, (_, index) => `${quotedKeys[index]}=$${index + 1}`).join(' AND ');
     const query = `DELETE FROM ${schemaName}.${tableName} WHERE ${param} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
