@@ -46,12 +46,13 @@ impl BlockStreamerService {
 
     fn match_status(grpc_status: i32) -> Result<registry_types::Status, Status> {
         match grpc_status {
-            0 => Ok(registry_types::Status::Success),
-            1 => Ok(registry_types::Status::Fail),
-            2 => Ok(registry_types::Status::Any),
-            _ => Err(Status::invalid_argument(
-                "Invalid status value for ActionAnyRule",
-            )),
+            1 => Ok(registry_types::Status::Success),
+            2 => Ok(registry_types::Status::Fail),
+            3 => Ok(registry_types::Status::Any),
+            status => Err(Status::invalid_argument(format!(
+                "Invalid Status provided: {}",
+                status
+            ))),
         }
     }
 }
@@ -241,7 +242,7 @@ mod tests {
                 version: 0,
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: 0,
+                    status: 1,
                 })),
             }))
             .await
@@ -274,7 +275,7 @@ mod tests {
                 version: 0,
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: 0,
+                    status: 1,
                 })),
             }))
             .await
