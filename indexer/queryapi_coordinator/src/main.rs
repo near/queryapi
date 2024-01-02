@@ -44,84 +44,80 @@ pub(crate) struct QueryApiContext<'a> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut client = runner_client::create_client("http://localhost:50007").await.unwrap();
-    let response = client.list_executors(ListExecutorsRequest {}).await?;
-    println!("{:#?}", response);
-    Ok(())
-    // opts::init_tracing();
+    opts::init_tracing();
 
-    // opts::dotenv::dotenv().ok();
+    opts::dotenv::dotenv().ok();
 
-    // let opts = Opts::parse();
+    let opts = Opts::parse();
 
-    // let chain_id = &opts.chain_id();
-    // let registry_contract_id = opts.registry_contract_id.clone();
+    let chain_id = &opts.chain_id();
+    let registry_contract_id = opts.registry_contract_id.clone();
 
-    // let aws_config = aws_config::from_env().load().await;
-    // let s3_client = aws_sdk_s3::Client::new(&aws_config);
+    let aws_config = aws_config::from_env().load().await;
+    let s3_client = aws_sdk_s3::Client::new(&aws_config);
 
-    // tracing::info!(target: INDEXER, "Connecting to redis...");
-    // let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
+    tracing::info!(target: INDEXER, "Connecting to redis...");
+    let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
 
-    // let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
+    let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
 
-    // // fetch raw indexer functions for use in indexer
-    // // Could this give us results from a newer block than the next block we receive from the Lake?
-    // tracing::info!(
-    //     target: INDEXER,
-    //     "Fetching indexer functions from contract registry..."
-    // );
-    // let indexer_functions = indexer_registry::read_indexer_functions_from_registry(
-    //     &json_rpc_client,
-    //     &registry_contract_id,
-    // )
-    // .await;
-    // let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
-    // let indexer_registry: SharedIndexerRegistry =
-    //     std::sync::Arc::new(Mutex::new(indexer_functions));
+    // fetch raw indexer functions for use in indexer
+    // Could this give us results from a newer block than the next block we receive from the Lake?
+    tracing::info!(
+        target: INDEXER,
+        "Fetching indexer functions from contract registry..."
+    );
+    let indexer_functions = indexer_registry::read_indexer_functions_from_registry(
+        &json_rpc_client,
+        &registry_contract_id,
+    )
+    .await;
+    let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
+    let indexer_registry: SharedIndexerRegistry =
+        std::sync::Arc::new(Mutex::new(indexer_functions));
 
-    // let streamers = std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new()));
+    let streamers = std::sync::Arc::new(tokio::sync::Mutex::new(HashMap::new()));
 
-    // tracing::info!(target: INDEXER, "Generating LakeConfig...");
-    // let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
+    tracing::info!(target: INDEXER, "Generating LakeConfig...");
+    let config: near_lake_framework::LakeConfig = opts.to_lake_config().await;
 
-    // tracing::info!(target: INDEXER, "Instantiating the stream...",);
-    // let (sender, stream) = near_lake_framework::streamer(config);
+    tracing::info!(target: INDEXER, "Instantiating the stream...",);
+    let (sender, stream) = near_lake_framework::streamer(config);
 
-    // tokio::spawn(utils::stats(redis_connection_manager.clone()));
-    // tokio::spawn(metrics::init_server(opts.port).expect("Failed to start metrics server"));
+    tokio::spawn(utils::stats(redis_connection_manager.clone()));
+    tokio::spawn(metrics::init_server(opts.port).expect("Failed to start metrics server"));
 
-    // tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
-    // let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
-    //     .map(|streamer_message| {
-    //         let context = QueryApiContext {
-    //             redis_connection_manager: &redis_connection_manager,
-    //             registry_contract_id: &registry_contract_id,
-    //             streamer_message,
-    //             chain_id,
-    //             json_rpc_client: &json_rpc_client,
-    //             s3_client: &s3_client,
-    //             indexer_registry: &indexer_registry,
-    //             streamers: &streamers,
-    //         };
+    tracing::info!(target: INDEXER, "Starting queryapi_coordinator...",);
+    let mut handlers = tokio_stream::wrappers::ReceiverStream::new(stream)
+        .map(|streamer_message| {
+            let context = QueryApiContext {
+                redis_connection_manager: &redis_connection_manager,
+                registry_contract_id: &registry_contract_id,
+                streamer_message,
+                chain_id,
+                json_rpc_client: &json_rpc_client,
+                s3_client: &s3_client,
+                indexer_registry: &indexer_registry,
+                streamers: &streamers,
+            };
 
-    //         handle_streamer_message(context)
-    //     })
-    //     .buffer_unordered(1usize);
+            handle_streamer_message(context)
+        })
+        .buffer_unordered(1usize);
 
-    // while let Some(handle_message) = handlers.next().await {
-    //     if let Err(err) = handle_message {
-    //         tracing::error!(target: INDEXER, "{:#?}", err);
-    //     }
-    // }
-    // drop(handlers); // close the channel so the sender will stop
+    while let Some(handle_message) = handlers.next().await {
+        if let Err(err) = handle_message {
+            tracing::error!(target: INDEXER, "{:#?}", err);
+        }
+    }
+    drop(handlers); // close the channel so the sender will stop
 
-    // // propagate errors from the sender
-    // match sender.await {
-    //     Ok(Ok(())) => Ok(()),
-    //     Ok(Err(e)) => Err(e),
-    //     Err(e) => Err(anyhow::Error::from(e)), // JoinError
-    // }
+    // propagate errors from the sender
+    match sender.await {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(e) => Err(anyhow::Error::from(e)), // JoinError
+    }
 }
 
 async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
