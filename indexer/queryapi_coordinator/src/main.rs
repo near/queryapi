@@ -22,7 +22,6 @@ mod metrics;
 mod opts;
 mod s3;
 mod utils;
-mod runner_client;
 
 pub(crate) const INDEXER: &str = "queryapi_coordinator";
 
