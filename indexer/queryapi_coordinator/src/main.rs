@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
-use runner_client::runner_client::ListExecutorsRequest;
 use tokio::sync::Mutex;
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};

@@ -3,7 +3,7 @@ import * as protoLoader from '@grpc/proto-loader';
 import { type ProtoGrpcType } from '../generated/runner';
 import { type RunnerClient } from '../generated/runner/Runner';
 
-// TODO: Replace this client with a Rust client
+// TODO: Remove this client when coordinator can make calls
 
 const PROTO_PATH = 'protos/runner.proto';
 

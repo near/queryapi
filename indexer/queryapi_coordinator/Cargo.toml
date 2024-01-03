@@ -43,8 +43,11 @@ unescape = "0.1.0"
 aws-types = "0.53.0"
 aws-credential-types = "0.53.0"
 aws-sdk-s3 = "0.23.0"
+
+# grpc
 tonic = "0.10.2"
 prost = "0.12.3"
+protoc = "2.28.0"
 
 [build-dependencies]
 tonic-build = "0.10.2"
