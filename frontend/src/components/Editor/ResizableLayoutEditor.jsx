@@ -4,6 +4,7 @@ import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
 import { validateSQLSchema } from "@/utils/validators";
+import { useDebouncedCallback } from "use-debounce";
 
 // Define styles as separate objects
 const containerStyle = {
@@ -58,10 +59,13 @@ const ResizableEditor = ({
     sizeThresholdSecond: 60,
   });
 
-  const handleOnChangeSchema = (value) => {
+  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
+    validateSQLSchema(_schema)
+  }, 1000);
 
-    setSchema(value);
-    validateSQLSchema(value)
+  const handleOnChangeSchema = (_schema) => {
+    setSchema(_schema);
+    debouncedValidateSQLSchema(_schema);
   }
 
   // Render logic based on fileName

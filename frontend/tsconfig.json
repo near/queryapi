@@ -24,7 +24,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "src/components/Editor/Editor.js",
+    "src/components/Editor/Editor.jsx",
     "src/pages/query-api-editor/editor.js",
     "src/components/CreateNewIndexer/CreateNewIndexer.js"
   ],
