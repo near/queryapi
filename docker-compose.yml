@@ -41,7 +41,7 @@ services:
       PORT: 9180
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
-      RUNNER_HOST: runner
+      RUNNER_HOST: localhost
       RUNNER_PORT: 6001
 
   redis:

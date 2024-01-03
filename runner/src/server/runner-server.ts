@@ -15,10 +15,10 @@ export default function startRunnerServer (): grpc.Server {
   const server = new grpc.Server();
   server.addService(runnerProto.runner.Runner.service, getRunnerService(StreamHandler));
   const credentials = grpc.ServerCredentials;
-  const serverIp = (process.env.RUNNER_HOST ?? 'undefined') + ':' + (process.env.RUNNER_PORT ?? 'undefined');
+  const serverIpAddress = `${(process.env.RUNNER_HOST ?? 'undefined')}:${(process.env.RUNNER_PORT ?? 'undefined')}`;
 
   server.bindAsync(
-    serverIp,
+    serverIpAddress,
     credentials.createInsecure(), // TODO: Use secure credentials with allow for Coordinator
     (err: Error | null, port: number) => {
       if (err) {

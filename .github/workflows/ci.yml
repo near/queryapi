@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    # TODO: Move this to New Coordinator's CI Workflow
     - name: Install Protoc
       uses: arduino/setup-protoc@v2
     - name: Run check
@@ -28,6 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    # TODO: Move this to New Coordinator's CI Workflow
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Run check
       working-directory: ./indexer
       run: cargo test
@@ -46,6 +50,9 @@ jobs:
         override: true
         profile: minimal
         components: rustfmt
+    # TODO: Move this to New Coordinator's CI Workflow
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Check formatting
       working-directory: ./indexer
       run: |
@@ -64,6 +71,9 @@ jobs:
         override: true
         profile: minimal
         components: clippy
+    # TODO: Move this to New Coordinator's CI Workflow
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v2
     - name: Clippy check
       working-directory: ./indexer
       run: |
