@@ -12,13 +12,12 @@ services:
       REDIS_CONNECTION_STRING: redis://redis
       LAKE_AWS_ACCESS_KEY:
       LAKE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_AWS_ACCESS_KEY:
-      QUEUE_AWS_SECRET_ACCESS_KEY:
       QUEUE_URL: MOCK
       START_FROM_BLOCK_QUEUE_URL: MOCK
       PORT: 9180
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
-      AWS_QUEUE_REGION: eu-central-1
+      RUNNER_HOST: runner
+      RUNNER_PORT: 6001
     command:
       - mainnet
       - from-interruption
@@ -42,6 +41,8 @@ services:
       PORT: 9180
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
+      RUNNER_HOST: runner
+      RUNNER_PORT: 6001
 
   redis:
     image: redis

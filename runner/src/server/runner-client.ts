@@ -9,7 +9,7 @@ const PROTO_PATH = 'protos/runner.proto';
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH);
 const runner = (grpc.loadPackageDefinition(packageDefinition) as unknown) as ProtoGrpcType;
-// TODO: Use secure creds with env variable Port number
-const runnerClient: RunnerClient = new runner.runner.Runner('localhost:50007', grpc.credentials.createInsecure());
+const serverIp = (process.env.RUNNER_HOST ?? 'undefined') + ':' + (process.env.RUNNER_PORT ?? 'undefined');
+const runnerClient: RunnerClient = new runner.runner.Runner(serverIp, grpc.credentials.createInsecure());
 
 export default runnerClient;
