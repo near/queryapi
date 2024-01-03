@@ -3,6 +3,8 @@ import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
+import { validateSQLSchema } from "@/utils/validators";
+import { useDebouncedCallback } from "use-debounce";
 
 // Define styles as separate objects
 const containerStyle = {
@@ -57,6 +59,15 @@ const ResizableEditor = ({
     sizeThresholdSecond: 60,
   });
 
+  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
+    validateSQLSchema(_schema)
+  }, 1000);
+
+  const handleOnChangeSchema = (_schema) => {
+    setSchema(_schema);
+    debouncedValidateSQLSchema(_schema);
+  }
+
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground />,
@@ -98,7 +109,7 @@ const ResizableEditor = ({
           defaultValue={defaultSchema}
           defaultLanguage="sql"
           readOnly={isCreateNewIndexer === true ? false : false}
-          onChange={(text) => setSchema(text)}
+          onChange={handleOnChangeSchema}
           handleEditorWillMount={undefined}
         />
       ),
