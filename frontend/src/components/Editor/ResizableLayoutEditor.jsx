@@ -3,6 +3,7 @@ import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
+import { validateSQLSchema } from "@/utils/validators";
 
 // Define styles as separate objects
 const containerStyle = {
@@ -57,6 +58,12 @@ const ResizableEditor = ({
     sizeThresholdSecond: 60,
   });
 
+  const handleOnChangeSchema = (value) => {
+
+    setSchema(value);
+    validateSQLSchema(value)
+  }
+
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground />,
@@ -98,7 +105,7 @@ const ResizableEditor = ({
           defaultValue={defaultSchema}
           defaultLanguage="sql"
           readOnly={isCreateNewIndexer === true ? false : false}
-          onChange={(text) => setSchema(text)}
+          onChange={handleOnChangeSchema}
           handleEditorWillMount={undefined}
         />
       ),
