@@ -9,10 +9,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 borsh = "1.0.0"
-getrandom = { version = "0.2", features = ["js"] }
 near-sdk = "5.0.0-alpha.1"
 uint = { version = "0.9.3", default-features = false }
-registry-types = { path = "../types", features = ["nearsdk"] }
+registry-types = { path = "../types", features = ["near-sdk"] }
 
 [profile.release]
 codegen-units = 1
@@ -21,6 +20,3 @@ lto = true
 debug = false
 panic = "abort"
 overflow-checks = true
-
-[workspace]
-members = []

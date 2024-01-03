@@ -916,10 +916,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
 dependencies = [
  "cfg-if 1.0.0",
- "js-sys",
  "libc",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2051,7 +2049,6 @@ name = "registry"
 version = "1.0.0"
 dependencies = [
  "borsh 1.2.1",
- "getrandom 0.2.11",
  "near-sdk",
  "registry-types",
  "uint",
@@ -2062,7 +2059,6 @@ name = "registry-types"
 version = "0.1.0"
 dependencies = [
  "borsh 1.2.1",
- "near-primitives",
  "near-sdk",
  "serde",
 ]
