@@ -22,6 +22,7 @@ import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
+import { validateSQLSchema } from "@/utils/validators";
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -49,9 +50,7 @@ const Editor = ({
     }`;
 
   const [blockHeightError, setBlockHeightError] = useState(undefined);
-  const [codeFormattingError, setCodeFormattingError] = useState(undefined);
-  const [schemaFormattingError, setSchemaFormattingError] = useState(undefined);
-  const [typesGenerationError, setTypesGenerationError] = useState(undefined);
+  const [error, setError] = useState();
 
   const [fileName, setFileName] = useState("indexingLogic.js");
 
@@ -121,10 +120,10 @@ const Editor = ({
     if (fileName === "indexingLogic.js") {
       try {
         setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
-        setTypesGenerationError(undefined);
-      } catch (typesError) {
-        console.log("typesGenerationError generating types for saved schema.\n", typesError);
-        setTypesGenerationError("There was an error generating types from your schema. Please fix your schema or file a support ticket.");
+        setError(undefined);
+      } catch (error) {
+        console.error("Error generating types for saved schema.\n", error.message);
+        setError("There was an error with your schema. Check the console for more details.");
       }
     }
   }, [fileName]);
@@ -150,47 +149,34 @@ const Editor = ({
     }
   }
 
-  const checkSQLSchemaFormatting = () => {
-    try {
-      let formatted_sql = formatSQL(schema);
-      let formatted_schema = formatted_sql;
-      try {
-        pgSchemaTypeGen.generateTypes(formatted_sql); // Sanity check
-      } catch (typesError) {
-        console.log("Error generating types from schema", typesError);
-        setTypesGenerationError("There was an error generating types from your schema. Please fix your schema or file a support ticket." );
-      }
-      setSchemaFormattingError(undefined);
-      return formatted_schema;
-    } catch (formattingError) {
-      console.log("formattingError", formattingError);
-      setSchemaFormattingError("Please check your SQL schema formatting and specify an Indexer Name");
-      return undefined;
-    }
-  };
 
-
-  const forkIndexer = async(indexerName) => {
-      let code = indexingCode;
-      setAccountId(currentUserAccountId)
-      let prevAccountId = indexerDetails.accountId.replaceAll(".", "_");
-      let newAccountId = currentUserAccountId.replaceAll(".", "_");
-      let prevIndexerName = indexerDetails.indexerName.replaceAll("-", "_").trim().toLowerCase();
-      let newIndexerName = indexerName.replaceAll("-", "_").trim().toLowerCase();
-      code = code.replaceAll(prevAccountId, newAccountId);
-      code = code.replaceAll(prevIndexerName, newIndexerName);
-      setIndexingCode(formatIndexingCode(code))
+  const forkIndexer = async (indexerName) => {
+    let code = indexingCode;
+    setAccountId(currentUserAccountId)
+    let prevAccountId = indexerDetails.accountId.replaceAll(".", "_");
+    let newAccountId = currentUserAccountId.replaceAll(".", "_");
+    let prevIndexerName = indexerDetails.indexerName.replaceAll("-", "_").trim().toLowerCase();
+    let newIndexerName = indexerName.replaceAll("-", "_").trim().toLowerCase();
+    code = code.replaceAll(prevAccountId, newAccountId);
+    code = code.replaceAll(prevIndexerName, newIndexerName);
+    setIndexingCode(formatIndexingCode(code))
   }
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    let formatted_schema = checkSQLSchemaFormatting();
+    const { data: formattedSchema, error } = await validateSQLSchema(schema);
+
+    if (error) {
+      setError("There was an error in your schema, please check the console for more details");
+      return;
+    }
+
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerName = indexerName.replaceAll(" ", "_");
 
     request("register-function", {
       indexerName: indexerName,
       code: innerCode,
-      schema: formatted_schema,
+      schema: formattedSchema,
       blockHeight: indexerConfig.startBlockHeight,
       contractFilter: indexerConfig.filter,
     });
@@ -250,16 +236,17 @@ const Editor = ({
     let formattedSql = schema;
     try {
       formattedCode = formatIndexingCode(indexingCode);
-      setCodeFormattingError(undefined);
+      setError(undefined);
     } catch (error) {
-      console.log("error", error)
-      setCodeFormattingError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
+      console.error("error", error)
+      setError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
     }
     try {
       formattedSql = formatSQL(schema);
-      setSchemaFormattingError(undefined);
+      setError(undefined);
     } catch (error) {
-      setSchemaFormattingError("Could not format your SQL schema. Make sure it is proper SQL DDL");
+      console.error(error);
+      setError("Could not format your SQL schema. Make sure it is proper SQL DDL");
     }
     setIndexingCode(formattedCode);
     setSchema(formattedSql);
@@ -270,10 +257,10 @@ const Editor = ({
     try {
       setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
-      setTypesGenerationError(undefined);
-    } catch (typesError) {
-      console.log("typesGenerationError generating types for saved schema.\n", typesError);
-      setTypesGenerationError("Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL.");
+      setError(undefined);
+    } catch (error) {
+      console.error("Error generating types for saved schema.\n", error);
+      setError("Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL.");
     }
   }
 
@@ -339,91 +326,81 @@ const Editor = ({
           Indexer Function could not be found. Are you sure this indexer exists?
         </Alert>
       )}
-    {(indexerDetails.code || isCreateNewIndexer) && <>
-      <EditorButtons
-        handleFormating={handleFormating}
-        handleCodeGen={handleCodeGen}
-        executeIndexerFunction={executeIndexerFunction}
-        currentUserAccountId={currentUserAccountId}
-        getActionButtonText={getActionButtonText}
-        heights={heights}
-        setHeights={setHeights}
-        isCreateNewIndexer={isCreateNewIndexer}
-        isExecuting={isExecutingIndexerFunction}
-        stopExecution={() => indexerRunner.stop()}
-        latestHeight={height}
-        isUserIndexer={indexerDetails.accountId === currentUserAccountId}
-        handleDeleteIndexer={handleDeleteIndexer}
-      />
-      <ResetChangesModal
-        handleReload={handleReload}
-      />
-      <PublishModal
-        registerFunction={registerFunction}
-        actionButtonText={getActionButtonText()}
-        blockHeightError={blockHeightError}
-      />
-      <ForkIndexerModal
-        forkIndexer={forkIndexer}
-      />
+      {(indexerDetails.code || isCreateNewIndexer) && <>
+        <EditorButtons
+          handleFormating={handleFormating}
+          handleCodeGen={handleCodeGen}
+          executeIndexerFunction={executeIndexerFunction}
+          currentUserAccountId={currentUserAccountId}
+          getActionButtonText={getActionButtonText}
+          heights={heights}
+          setHeights={setHeights}
+          isCreateNewIndexer={isCreateNewIndexer}
+          isExecuting={isExecutingIndexerFunction}
+          stopExecution={() => indexerRunner.stop()}
+          latestHeight={height}
+          isUserIndexer={indexerDetails.accountId === currentUserAccountId}
+          handleDeleteIndexer={handleDeleteIndexer}
+        />
+        <ResetChangesModal
+          handleReload={handleReload}
+        />
+        <PublishModal
+          registerFunction={registerFunction}
+          actionButtonText={getActionButtonText()}
+          blockHeightError={blockHeightError}
+        />
+        <ForkIndexerModal
+          forkIndexer={forkIndexer}
+        />
 
-      <div
-        className="px-3 pt-3"
-        style={{
-          flex: "display",
-          justifyContent: "space-around",
-          width: "100%",
-          height: "100%",
-        }}
-      >
-          {codeFormattingError && (
-          <Alert className="px-3 pt-3" variant="danger">
-              {codeFormattingError}
+        <div
+          className="px-3 pt-3"
+          style={{
+            flex: "display",
+            justifyContent: "space-around",
+            width: "100%",
+            height: "100%",
+          }}
+        >
+          {error && (
+            <Alert dismissible="true" onClose={() => setError(undefined)} className="px-3 pt-3" variant="danger">
+              {error}
             </Alert>
           )}
-          {schemaFormattingError && (
-            <Alert className="px-3 pt-3" variant="danger">
-              {schemaFormattingError}
-          </Alert>
-        )}
-        {typesGenerationError &&  (
-          <Alert className="px-3 pt-3" variant="danger">
-            {typesGenerationError}
-          </Alert>
-        )}
-        {debugMode && !debugModeInfoDisabled && (
-          <Alert
-            className="px-3 pt-3"
-            dismissible="true"
-            onClose={() => setDebugModeInfoDisabled(true)}
-            variant="info"
-          >
-            To debug, you will need to open your browser console window in
-            order to see the logs.
-          </Alert>
-        )}
-        <FileSwitcher
-          fileName={fileName}
-          setFileName={setFileName}
-          diffView={diffView}
-          setDiffView={setDiffView}
-        />
-        <ResizableLayoutEditor
-          fileName={fileName}
-          indexingCode={indexingCode}
-          blockView={blockView}
-          diffView={diffView}
-          setIndexingCode={setIndexingCode}
-          setSchema={setSchema}
-          block_details={block_details}
-          originalSQLCode={originalSQLCode}
-          originalIndexingCode={originalIndexingCode}
-          schema={schema}
-          isCreateNewIndexer={isCreateNewIndexer}
-          handleEditorWillMount={handleEditorWillMount}
-          handleEditorMount={handleEditorMount}
-        />
-      </div>
+          {debugMode && !debugModeInfoDisabled && (
+            <Alert
+              className="px-3 pt-3"
+              dismissible="true"
+              onClose={() => setDebugModeInfoDisabled(true)}
+              variant="info"
+            >
+              To debug, you will need to open your browser console window in
+              order to see the logs.
+            </Alert>
+          )}
+          <FileSwitcher
+            fileName={fileName}
+            setFileName={setFileName}
+            diffView={diffView}
+            setDiffView={setDiffView}
+          />
+          <ResizableLayoutEditor
+            fileName={fileName}
+            indexingCode={indexingCode}
+            blockView={blockView}
+            diffView={diffView}
+            setIndexingCode={setIndexingCode}
+            setSchema={setSchema}
+            block_details={block_details}
+            originalSQLCode={originalSQLCode}
+            originalIndexingCode={originalIndexingCode}
+            schema={schema}
+            isCreateNewIndexer={isCreateNewIndexer}
+            handleEditorWillMount={handleEditorWillMount}
+            handleEditorMount={handleEditorMount}
+          />
+        </div>
       </>}
     </div>
   );
