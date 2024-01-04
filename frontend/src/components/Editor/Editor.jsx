@@ -248,8 +248,6 @@ const Editor = ({
       console.error(error);
       setError("Could not format your SQL schema. Make sure it is proper SQL DDL");
     }
-    setIndexingCode(formattedCode);
-    setSchema(formattedSql);
     return { formattedCode, formattedSql }
   };
 

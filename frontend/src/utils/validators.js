@@ -32,6 +32,6 @@ export async function validateSQLSchema(schema) {
   } catch (error) {
 
     console.error(error.message)
-    return { data: null, error };
+    return { data: schema, error };
   }
 };
