@@ -22,7 +22,7 @@ import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
-import { validateSQLSchema } from "@/utils/validators";
+import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -217,7 +217,9 @@ const Editor = ({
           setSchema(unformatted_schema);
         }
 
-        reformatAll(unformatted_wrapped_indexing_code, unformatted_schema);
+        const { formattedCode, formattedSchema } = reformatAll(unformatted_wrapped_indexing_code, unformatted_schema);
+        setIndexingCode(formattedCode);
+        setSchema(formattedSchema);
       } catch (formattingError) {
         console.log(formattingError);
       }
@@ -232,23 +234,21 @@ const Editor = ({
   };
 
   const reformatAll = (indexingCode, schema) => {
-    let formattedCode = indexingCode
-    let formattedSql = schema;
-    try {
-      formattedCode = formatIndexingCode(indexingCode);
-      setError(undefined);
-    } catch (error) {
-      console.error("error", error)
+    let { formattedCode, codeError } = validateJSCode(indexingCode);
+
+    if (codeError) {
+      formattedCode = indexingCode
       setError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
     }
-    try {
-      formattedSql = formatSQL(schema);
-      setError(undefined);
-    } catch (error) {
-      console.error(error);
-      setError("Could not format your SQL schema. Make sure it is proper SQL DDL");
+
+    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
+
+    if (schemaError) {
+      formattedSchema = schema;
+      setError("There was an error in your SQL schema. Make sure it is proper SQL DDL");
     }
-    return { formattedCode, formattedSql }
+
+    return { formattedCode, formattedSchema }
   };
 
   function handleCodeGen() {
@@ -263,7 +263,9 @@ const Editor = ({
   }
 
   async function handleFormating() {
-    await reformatAll(indexingCode, schema);
+    const { formattedCode, formattedSchema } = await reformatAll(indexingCode, schema);
+    setIndexingCode(formattedCode);
+    setSchema(formattedSchema);
   }
 
   function handleEditorMount(editor) {

@@ -1,4 +1,4 @@
-import { formatSQL } from "./formatters";
+import { formatIndexingCode, formatSQL } from "./formatters";
 import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
 import { CONTRACT_NAME_REGEX } from '../constants/RegexExp';
 
@@ -31,6 +31,18 @@ export async function validateSQLSchema(schema) {
     return { data: formattedSchema, error: null }
   } catch (error) {
 
+    console.error(error.message)
+    return { data: schema, error };
+  }
+};
+
+export async function validateJSCode(code) {
+
+  try {
+    const formattedCode = await formatIndexingCode(code);
+    return { data: formattedCode, error: null }
+
+  } catch (error) {
     console.error(error.message)
     return { data: schema, error };
   }
