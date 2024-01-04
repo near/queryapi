@@ -1,4 +1,5 @@
 import type StreamHandler from '../stream-handler/stream-handler';
+import { Status } from '../stream-handler/stream-handler';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
 
@@ -16,6 +17,7 @@ const BASIC_INDEXER_CONFIG = {
   code: BASIC_CODE,
   schema: BASIC_SCHEMA,
   version: BASIC_VERSION
+  status: Status.RUNNING
 };
 
 describe('Runner gRPC Service', () => {
@@ -203,7 +205,7 @@ describe('Runner gRPC Service', () => {
     });
   });
 
-  it('valid list executor request lists executors correctly', async () => {
+  it('valid list executor request lists executors correctly, with stopped indexer', async () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
