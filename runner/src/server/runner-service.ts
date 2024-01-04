@@ -1,6 +1,7 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
 import assert from 'assert';
+import { Status } from '../stream-handler/stream-handler';
 import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';
@@ -55,7 +56,8 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
           function_name: functionName,
           version: Number(version),
           code,
-          schema,
+          schema,,
+          status: Status.RUNNING
         });
         streamHandlers.set(executorId, streamHandler);
         callback(null, { executorId });
@@ -86,21 +88,20 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
     },
 
     ListExecutors (_: ServerUnaryCall<ListExecutorsRequest__Output, ListExecutorsResponse>, callback: sendUnaryData<ListExecutorsResponse__Output>): void {
-      // TODO: Refactor to make use of repeated field
       console.log('ListExecutors called');
-      // TODO: Return more information than just executorId
       const response: ExecutorInfo__Output[] = [];
       try {
         streamHandlers.forEach((handler, executorId) => {
-          if (handler.indexerConfig?.account_id === undefined || handler.indexerConfig?.function_name === undefined) {
-            throw new Error(`Stream handler ${executorId} has no/invalid indexer config.`);
+          const config = handler.getIndexerConfig();
+          if (config === undefined) {
+            throw new Error(`Stream handler ${executorId} has no indexer config.`);
           }
           response.push({
             executorId,
-            accountId: handler.indexerConfig?.account_id,
-            functionName: handler.indexerConfig?.function_name,
+            accountId: config.account_id,
+            functionName: config.function_name,
             version: handler.indexerConfig?.version.toString(),
-            status: 'RUNNING' // TODO: Keep updated status in stream handler
+            status: config.status
           });
         });
         callback(null, {

@@ -6,6 +6,7 @@ import StreamHandler from './stream-handler';
 const STREAM_HANDLER_THROTTLE_MS = 500;
 
 const redisClient = new RedisClient();
+let runnerServer;
 
 startMetricsServer().catch((err) => {
   console.error('Failed to start metrics server', err);
@@ -19,7 +20,13 @@ void (async function main () {
 
     const version = process.env.RUNNER_VERSION ?? 'V1';
     if (version === 'V2') {
-      startRunnerServer();
+      console.log('Starting Runner in V2 mode.');
+      runnerServer = startRunnerServer();
+    } else if (version === 'V1') {
+      console.log('Starting Runner in V1 mode.');
+    } else {
+      console.error('Unknown version', version);
+      process.exit(1);
     }
 
     while (true) {
@@ -35,9 +42,6 @@ void (async function main () {
 
           streamHandlers[streamKey] = streamHandler;
         });
-      } else {
-        console.error('Unknown version', version);
-        process.exit(1);
       }
 
       await new Promise((resolve) =>
@@ -46,5 +50,6 @@ void (async function main () {
     }
   } finally {
     await redisClient.disconnect();
+    runnerServer?.forceShutdown();
   }
 })();

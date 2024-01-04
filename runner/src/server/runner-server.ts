@@ -23,7 +23,7 @@ export default function startRunnerServer (): grpc.Server {
       if (err) {
         console.error(`Server error: ${err.message}`);
       } else {
-        console.log(`Server bound on port: ${port}`);
+        console.log(`gRPC server bound on port: ${port}`);
         server.start();
       }
     }
