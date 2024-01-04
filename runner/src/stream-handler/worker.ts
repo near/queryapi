@@ -96,6 +96,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const startTime = performance.now();
+      // Indexer config will not be updated by Redis storage if it is passed in as workerData
       const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
       indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
       const functions = {
