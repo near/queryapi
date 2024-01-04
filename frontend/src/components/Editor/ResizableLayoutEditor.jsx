@@ -48,7 +48,6 @@ const ResizableEditor = ({
   schema,
   indexingCode,
   handleEditorWillMount,
-  handleEditorMount,
   isCreateNewIndexer
 }) => {
   const { firstRef, secondRef, dragBarRef } = useDragResize({

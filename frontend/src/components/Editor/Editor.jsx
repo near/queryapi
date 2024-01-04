@@ -271,18 +271,6 @@ const Editor = ({
     setSchema(formattedSchema);
   }
 
-  function handleEditorMount(editor) {
-    const modifiedEditor = editor.getModifiedEditor();
-    modifiedEditor.onDidChangeModelContent((_) => {
-      if (fileName == "indexingLogic.js") {
-        setIndexingCode(modifiedEditor.getValue());
-      }
-      if (fileName == "schema.sql") {
-        setSchema(modifiedEditor.getValue());
-      }
-    });
-  }
-
   function handleEditorWillMount(monaco) {
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
@@ -401,7 +389,6 @@ const Editor = ({
             schema={schema}
             isCreateNewIndexer={isCreateNewIndexer}
             handleEditorWillMount={handleEditorWillMount}
-            handleEditorMount={handleEditorMount}
           />
         </div>
       </>}
