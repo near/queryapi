@@ -2,6 +2,7 @@ FROM rust:1.68 AS build
 ARG CARGO_BUILD_MODE=release
 WORKDIR /tmp/
 COPY ./ ./
+RUN apt update && apt install -yy protobuf-compiler
 RUN if [ "$CARGO_BUILD_MODE" = "debug" ]; then \
         cargo build --package queryapi_coordinator; \
     else \

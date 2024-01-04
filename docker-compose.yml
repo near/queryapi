@@ -10,8 +10,8 @@ services:
       - redis
     environment:
       REDIS_CONNECTION_STRING: redis://redis
-      LAKE_AWS_ACCESS_KEY:
-      LAKE_AWS_SECRET_ACCESS_KEY:
+      AWS_ACCESS_KEY_ID: MOCK
+      AWS_SECRET_ACCESS_KEY: MOCK
       QUEUE_URL: MOCK
       START_FROM_BLOCK_QUEUE_URL: MOCK
       PORT: 9180
