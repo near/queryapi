@@ -24,7 +24,7 @@ tokio-stream = "0.1.14"
 tonic = "0.10.2"
 wildmatch = "2.1.1"
 
-registry-types = { path = "../registry/types" }
+registry-types = { path = "../registry/types", features = ["near-primitives"] }
 
 near-lake-framework = "0.7.4"
 

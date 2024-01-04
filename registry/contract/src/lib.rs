@@ -21,6 +21,25 @@ pub type IndexersByAccount = UnorderedMap<AccountId, IndexerConfigByFunctionName
 
 pub type IndexerConfigByFunctionName = UnorderedMap<FunctionName, IndexerConfig>;
 
+#[derive(BorshDeserialize, BorshSerialize, Debug)]
+pub struct OldState {
+    registry: OldIndexersByAccount,
+    account_roles: Vec<AccountRole>,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(crate = "near_sdk::serde")]
+pub struct OldIndexerConfig {
+    pub code: String,
+    pub start_block_height: Option<u64>,
+    pub schema: Option<String>,
+    pub filter: IndexerRule,
+}
+
+pub type OldIndexersByAccount = UnorderedMap<AccountId, OldIndexerConfigByFunctionName>;
+
+pub type OldIndexerConfigByFunctionName = UnorderedMap<FunctionName, OldIndexerConfig>;
+
 // Migration types
 #[derive(BorshStorageKey, BorshSerialize)]
 pub enum StorageKeys {
@@ -28,6 +47,8 @@ pub enum StorageKeys {
     Account(CryptoHash), // can be removed after migration
     RegistryV1,
     AccountV1(CryptoHash),
+    RegistryV2,
+    AccountV2(CryptoHash),
 }
 
 /// These roles are used to control access across the various contract methods.
@@ -76,14 +97,6 @@ impl Default for Contract {
                     role: Role::Owner,
                 },
                 AccountRole {
-                    account_id: "root.near".parse().unwrap(),
-                    role: Role::Owner,
-                },
-                AccountRole {
-                    account_id: "khorolets.near".parse().unwrap(),
-                    role: Role::Owner,
-                },
-                AccountRole {
                     account_id: "darunrs.near".parse().unwrap(),
                     role: Role::Owner,
                 },
@@ -99,6 +112,52 @@ impl Default for Contract {
 // Implement the contract structure
 #[near_bindgen]
 impl Contract {
+    #[private]
+    #[init(ignore_state)]
+    pub fn migrate() -> Self {
+        let state: OldState = env::state_read().expect("failed to parse existing state");
+
+        let mut registry = IndexersByAccount::new(StorageKeys::RegistryV2);
+
+        for (account_id, indexers) in state.registry.iter() {
+            let mut new_indexers: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(
+                StorageKeys::AccountV2(env::sha256_array(account_id.as_bytes())),
+            );
+
+            for (function_name, indexer_config) in indexers.iter() {
+                new_indexers.insert(
+                    function_name.to_string(),
+                    IndexerConfig {
+                        updated_at_block_height: None,
+                        created_at_block_height: env::block_height(),
+                        schema: indexer_config.schema.clone(),
+                        code: indexer_config.code.clone(),
+                        start_block_height: indexer_config.start_block_height,
+                        filter: indexer_config.filter.clone(),
+                    },
+                );
+            }
+
+            registry.insert(account_id.clone(), new_indexers);
+        }
+
+        let account_roles: Vec<_> = Contract::default()
+            .account_roles
+            .into_iter()
+            .chain(
+                state
+                    .account_roles
+                    .into_iter()
+                    .filter(|account_role| account_role.role == Role::User),
+            )
+            .collect();
+
+        Self {
+            registry,
+            account_roles,
+        }
+    }
+
     pub fn near_social_indexer_rule() -> IndexerRule {
         let contract = "social.near";
         let method = "set";
@@ -244,7 +303,7 @@ impl Contract {
             }
         };
 
-        let filter_rule: IndexerRule = match filter_json {
+        let filter: IndexerRule = match filter_json {
             Some(filter_json) => {
                 let filter_rule: IndexerRule =
                     serde_json::from_str(&filter_json).unwrap_or_else(|_| {
@@ -262,20 +321,36 @@ impl Contract {
             &account_id
         );
 
-        self.registry
-            .entry(account_id.clone())
-            .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
-                env::sha256_array(account_id.as_bytes()),
-            )))
-            .insert(
-                function_name,
-                IndexerConfig {
+        let account_indexers =
+            self.registry
+                .entry(account_id.clone())
+                .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
+                    env::sha256_array(account_id.as_bytes()),
+                )));
+
+        match account_indexers.entry(function_name) {
+            near_sdk::store::unordered_map::Entry::Occupied(mut entry) => {
+                let indexer = entry.get();
+                entry.insert(IndexerConfig {
                     code,
                     start_block_height,
                     schema,
-                    filter: filter_rule,
-                },
-            );
+                    filter,
+                    updated_at_block_height: Some(env::block_height()),
+                    created_at_block_height: indexer.created_at_block_height,
+                });
+            }
+            near_sdk::store::unordered_map::Entry::Vacant(entry) => {
+                entry.insert(IndexerConfig {
+                    code,
+                    start_block_height,
+                    schema,
+                    filter,
+                    updated_at_block_height: None,
+                    created_at_block_height: env::block_height(),
+                });
+            }
+        }
     }
 
     pub fn remove_indexer_function(&mut self, function_name: String, account_id: Option<String>) {
@@ -367,6 +442,99 @@ mod tests {
     use super::*;
 
     use std::collections::HashMap;
+
+    #[test]
+    fn migrate() {
+        let mut registry = OldIndexersByAccount::new(StorageKeys::RegistryV1);
+        let account_id = "morgs.near".parse::<AccountId>().unwrap();
+        let mut functions = OldIndexerConfigByFunctionName::new(StorageKeys::AccountV1(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+
+        functions.insert(
+            "test".to_string(),
+            OldIndexerConfig {
+                code: "return block;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+            },
+        );
+        functions.insert(
+            "test2".to_string(),
+            OldIndexerConfig {
+                code: "return block2;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+            },
+        );
+        registry.insert(account_id.clone(), functions);
+
+        env::state_write(&OldState {
+            registry,
+            account_roles: vec![
+                AccountRole {
+                    account_id: account_id.clone(),
+                    role: Role::Owner,
+                },
+                AccountRole {
+                    account_id: "should-be-removed.near".parse().unwrap(),
+                    role: Role::Owner,
+                },
+                AccountRole {
+                    account_id: "bob.near".parse().unwrap(),
+                    role: Role::User,
+                },
+            ],
+        });
+
+        let contract = Contract::migrate();
+
+        assert_eq!(
+            contract
+                .registry
+                .get(&account_id)
+                .unwrap()
+                .get("test")
+                .unwrap(),
+            &IndexerConfig {
+                code: "return block;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: env::block_height(),
+            }
+        );
+        assert_eq!(
+            contract
+                .registry
+                .get(&account_id)
+                .unwrap()
+                .get("test2")
+                .unwrap(),
+            &IndexerConfig {
+                code: "return block2;".to_string(),
+                start_block_height: None,
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: env::block_height(),
+            }
+        );
+        assert_eq!(
+            contract.account_roles,
+            Contract::default()
+                .account_roles
+                .into_iter()
+                .chain(std::iter::once(AccountRole {
+                    account_id: "bob.near".parse().unwrap(),
+                    role: Role::User,
+                }))
+                .collect::<Vec<_>>()
+        );
+    }
 
     #[test]
     fn list_account_roles() {
@@ -584,6 +752,8 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
 
         contract.register_indexer_function(
@@ -615,6 +785,8 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
         contract.register_indexer_function(
             "test".to_string(),
@@ -728,6 +900,8 @@ mod tests {
             start_block_height: None,
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
 
         contract.register_indexer_function(
@@ -748,6 +922,36 @@ mod tests {
                 .unwrap(),
             &config
         );
+    }
+
+    #[test]
+    fn sets_updated_at_and_created_at_for_new_account() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: "bob.near".parse().unwrap(),
+                role: Role::User,
+            }],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "".to_string(),
+            Some(100),
+            Some("".to_string()),
+            None,
+            None,
+        );
+
+        let indexer_config = contract
+            .registry
+            .get(&"bob.near".parse::<AccountId>().unwrap())
+            .unwrap()
+            .get("test")
+            .unwrap();
+
+        assert_eq!(indexer_config.updated_at_block_height, None);
+        assert_eq!(indexer_config.created_at_block_height, env::block_height());
     }
 
     #[test]
@@ -773,6 +977,8 @@ mod tests {
                 id: None,
                 name: None,
             },
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
 
         contract.register_indexer_function(
@@ -817,6 +1023,8 @@ mod tests {
                 id: None,
                 name: None,
             },
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
 
         contract.register_indexer_function(
@@ -863,6 +1071,56 @@ mod tests {
     }
 
     #[test]
+    fn sets_updated_at_and_created_at_for_existing_account() {
+        let account_id = "bob.near".parse::<AccountId>().unwrap();
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        account_indexers.insert(
+            "test".to_string(),
+            IndexerConfig {
+                code: "var x= 1;".to_string(),
+                start_block_height: Some(43434343),
+                schema: None,
+                filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 100,
+            },
+        );
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
+        let mut contract = Contract {
+            registry,
+            account_roles: vec![AccountRole {
+                account_id: "bob.near".parse().unwrap(),
+                role: Role::User,
+            }],
+        };
+
+        contract.register_indexer_function(
+            "test".to_string(),
+            "".to_string(),
+            Some(100),
+            Some("".to_string()),
+            None,
+            None,
+        );
+
+        let indexer_config = contract
+            .registry
+            .get(&"bob.near".parse::<AccountId>().unwrap())
+            .unwrap()
+            .get("test")
+            .unwrap();
+
+        assert_eq!(
+            indexer_config.updated_at_block_height,
+            Some(env::block_height())
+        );
+        assert_eq!(indexer_config.created_at_block_height, 100);
+    }
+
+    #[test]
     fn register_indexer_function_for_existing_account() {
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -875,6 +1133,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -891,6 +1151,8 @@ mod tests {
             start_block_height: None,
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
 
         contract.register_indexer_function(
@@ -925,6 +1187,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -958,6 +1222,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -992,6 +1258,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1020,6 +1288,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1054,6 +1324,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1079,6 +1351,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         account_indexers.insert(
@@ -1088,6 +1362,8 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                updated_at_block_height: None,
+                created_at_block_height: 0,
             },
         );
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
@@ -1136,6 +1412,8 @@ mod tests {
             start_block_height: None,
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1162,6 +1440,8 @@ mod tests {
             start_block_height: None,
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
         let account_id = "alice.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1196,6 +1476,8 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1225,6 +1507,8 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
@@ -1262,6 +1546,8 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
         };
         let account_id = "alice.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
