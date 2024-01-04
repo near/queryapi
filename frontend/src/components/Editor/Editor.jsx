@@ -83,13 +83,28 @@ const Editor = ({
   const disposableRef = useRef(null);
 
   useEffect(() => {
-    if (!indexerDetails.code || !indexerDetails.schema) return
-    const { formattedCode, formattedSchema } = reformatAll(indexerDetails.code, indexerDetails.schema)
-    setOriginalSQLCode(formattedSchema)
-    setOriginalIndexingCode(formattedCode)
-    setIndexingCode(formattedCode)
-    setSchema(formattedSchema)
-  }, [indexerDetails.code, indexerDetails.schema]);
+    if (!indexerDetails.code) {
+      const { data: formattedCode, error } = validateJSCode(indexerDetails.code)
+
+      if (error) {
+        setError("There was an error while formatting your code. Please check the console for more details")
+      }
+      setOriginalIndexingCode(formattedCode)
+      setIndexingCode(formattedCode)
+    }
+  }, [indexerDetails.code]);
+
+  useEffect(() => {
+    if (indexerDetails.schema) {
+      const { data: formattedSchema, error } = validateSQLSchema(indexerDetails.schema);
+
+      if (error) {
+        setError("There was an error in your schema. Please check the console for more details")
+      }
+
+      setSchema(formattedSchema)
+    }
+  }, [indexerDetails.schema])
 
   useEffect(() => {
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
@@ -115,18 +130,6 @@ const Editor = ({
     const blockHeight = getLatestBlockHeight()
     return blockHeight
   }
-
-  useEffect(() => {
-    if (fileName === "indexingLogic.js") {
-      try {
-        setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
-        setError(undefined);
-      } catch (error) {
-        console.error("Error generating types for saved schema.\n", error.message);
-        setError("There was an error with your schema. Check the console for more details.");
-      }
-    }
-  }, [fileName]);
 
   useEffect(() => {
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);

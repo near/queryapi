@@ -22,6 +22,8 @@ export function validateContractIds(accountIds) {
  * @returns {{ data: string | null, error: string | null }} - An object containing the formatted schema and error (if any).
  */
 export async function validateSQLSchema(schema) {
+  if (!schema) return { data: null, error: null };
+
   const pgSchemaTypeGen = new PgSchemaTypeGen();
 
   try {
@@ -37,6 +39,8 @@ export async function validateSQLSchema(schema) {
 };
 
 export async function validateJSCode(code) {
+
+  if (!code) return { data: null, error: null };
 
   try {
     const formattedCode = await formatIndexingCode(code);
