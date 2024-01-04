@@ -126,11 +126,6 @@ const Editor = ({
     attachTypesToMonaco();
   }, [schemaTypes, monacoMount]);
 
-  const requestLatestBlockHeight = async () => {
-    const blockHeight = getLatestBlockHeight()
-    return blockHeight
-  }
-
   useEffect(() => {
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
@@ -297,7 +292,7 @@ const Editor = ({
         await indexerRunner.start(startingBlockHeight, indexingCode, schema, schemaName, option)
         break
       case "latest":
-        const latestHeight = await requestLatestBlockHeight()
+        const latestHeight = getLatestBlockHeight();
         if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, schema, schemaName, option)
     }
     setIsExecutingIndexerFunction(() => false)
