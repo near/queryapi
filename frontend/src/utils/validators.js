@@ -56,6 +56,6 @@ export async function validateJSCode(code) {
 
   } catch (error) {
     console.error(error.message)
-    return { data: schema, error };
+    return { data: code, error };
   }
 };
