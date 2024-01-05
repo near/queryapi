@@ -23,6 +23,7 @@ import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
+import { useDebouncedCallback } from "use-debounce";
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -67,6 +68,7 @@ const Editor = ({
   const [diffView, setDiffView] = useState(false);
   const [blockView, setBlockView] = useState(false);
 
+
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
 
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
@@ -81,6 +83,12 @@ const Editor = ({
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
   const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef(null);
+  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
+    const { error: schemaError } = validateSQLSchema(_schema);
+    if (!schemaError) {
+      setError();
+    }
+  }, 500);
 
   useEffect(() => {
     if (indexerDetails.code != null) {
@@ -113,15 +121,12 @@ const Editor = ({
 
   useEffect(() => {
     (async () => {
-      if (fileName === 'indexingLogic.js') {
-        const { _, error: schemaError } = await validateSQLSchema(schema);
-        if (schemaError) setError("There is an error in your schema. Please check the console for more details")
-        else setError();
-      } else {
-        const { _, error: codeError } = await validateJSCode(indexingCode);
-        if (codeError) setError("There is an error in your code. Please check the console for more details")
-        else setError();
-      }
+      const { error: schemaError } = await validateSQLSchema(schema);
+      const { error: codeError } = await validateJSCode(indexingCode);
+
+      if (schemaError) setError("There is an error in your schema. Please check the console for more details")
+      else if (codeError) setError("There is an error in your code. Please check the console for more details")
+      else setError();
     })()
 
   }, [fileName])
@@ -166,7 +171,6 @@ const Editor = ({
       disposableRef.current = newDisposable;
     }
   }
-
 
   const forkIndexer = async (indexerName) => {
     let code = indexingCode;
@@ -317,6 +321,15 @@ const Editor = ({
     setIsExecutingIndexerFunction(() => false)
   }
 
+  function handleOnChangeSchema(_schema) {
+    setSchema(_schema);
+    debouncedValidateSQLSchema(_schema);
+  }
+
+  function handleOnChangeCode(_code) {
+    setIndexingCode(_code);
+  }
+
   return (
     <div
       style={{
@@ -369,7 +382,7 @@ const Editor = ({
           }}
         >
           {error && (
-            <Alert dismissible="true" className="px-3 pt-3" variant="danger">
+            <Alert dismissible="true" onClose={() => setError()} className="px-3 pt-3" variant="danger">
               {error}
             </Alert>
           )}
@@ -395,8 +408,8 @@ const Editor = ({
             indexingCode={indexingCode}
             blockView={blockView}
             diffView={diffView}
-            setIndexingCode={setIndexingCode}
-            setSchema={setSchema}
+            onChangeCode={handleOnChangeCode}
+            onChangeSchema={handleOnChangeSchema}
             block_details={block_details}
             originalSQLCode={originalSQLCode}
             originalIndexingCode={originalIndexingCode}

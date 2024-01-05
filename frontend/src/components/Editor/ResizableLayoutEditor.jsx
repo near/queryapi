@@ -4,7 +4,6 @@ import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
 import { validateSQLSchema } from "@/utils/validators";
-import { useDebouncedCallback } from "use-debounce";
 
 // Define styles as separate objects
 const containerStyle = {
@@ -40,8 +39,8 @@ const ResizableEditor = ({
   blockView,
   diffView,
   consoleView,
-  setIndexingCode,
-  setSchema,
+  onChangeCode,
+  onChangeSchema,
   block_details,
   originalSQLCode,
   originalIndexingCode,
@@ -57,15 +56,6 @@ const ResizableEditor = ({
     sizeThresholdFirst: 60,
     sizeThresholdSecond: 60,
   });
-
-  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
-    validateSQLSchema(_schema)
-  }, 1000);
-
-  const handleOnChangeSchema = (_schema) => {
-    setSchema(_schema);
-    debouncedValidateSQLSchema(_schema);
-  }
 
   // Render logic based on fileName
   const editorComponents = {
@@ -87,7 +77,7 @@ const ResizableEditor = ({
           defaultValue={defaultCode}
           defaultLanguage="typescript"
           readOnly={false}
-          onChange={(text) => setIndexingCode(text)}
+          onChange={onChangeCode}
           handleEditorWillMount={handleEditorWillMount}
         />
       ),
@@ -108,7 +98,7 @@ const ResizableEditor = ({
           defaultValue={defaultSchema}
           defaultLanguage="sql"
           readOnly={isCreateNewIndexer === true ? false : false}
-          onChange={handleOnChangeSchema}
+          onChange={onChangeSchema}
           handleEditorWillMount={undefined}
         />
       ),
@@ -135,8 +125,8 @@ export default function ResizableLayoutEditor({
   blockView,
   diffView,
   consoleView,
-  setIndexingCode,
-  setSchema,
+  onChangeCode,
+  onChangeSchema,
   block_details,
   originalSQLCode,
   originalIndexingCode,
@@ -168,8 +158,8 @@ export default function ResizableLayoutEditor({
           indexingCode={indexingCode}
           blockView={blockView}
           diffView={diffView}
-          setIndexingCode={setIndexingCode}
-          setSchema={setSchema}
+          onChangeCode={onChangeCode}
+          onChangeSchema={onChangeSchema}
           block_details={block_details}
           originalSQLCode={originalSQLCode}
           originalIndexingCode={originalIndexingCode}
