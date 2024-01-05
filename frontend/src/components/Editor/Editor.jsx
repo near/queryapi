@@ -91,44 +91,46 @@ const Editor = ({
     }
   }, 500);
 
+  const debouncedValidateCode = useDebouncedCallback((_code) => {
+    const { error: codeError } = validateJSCode(_code);
+    if (!codeError) {
+      setError();
+    }
+  }, 500);
+
   useEffect(() => {
     if (indexerDetails.code != null) {
-      (async () => {
-        const { data: formattedCode, error: codeError } = await validateJSCode(indexerDetails.code)
+      const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code)
 
-        if (codeError) {
-          setError(CODE_FORMATTING_ERROR)
-        }
+      if (codeError) {
+        setError(CODE_FORMATTING_ERROR)
+      }
 
-        setOriginalIndexingCode(formattedCode)
-        setIndexingCode(formattedCode)
-      })()
+      setOriginalIndexingCode(formattedCode)
+      setIndexingCode(formattedCode)
     }
 
   }, [indexerDetails.code]);
 
   useEffect(() => {
     if (indexerDetails.schema != null) {
-      (async () => {
-        const { data: formattedSchema, error: schemaError } = await validateSQLSchema(indexerDetails.schema);
-        if (schemaError) {
-          setError(SCHEMA_GENERAL_ERROR)
-        }
+      const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
+      if (schemaError) {
+        setError(SCHEMA_GENERAL_ERROR)
+      }
 
-        setSchema(formattedSchema)
-      })();
+      setSchema(formattedSchema)
     }
   }, [indexerDetails.schema])
 
   useEffect(() => {
-    (async () => {
-      const { error: schemaError } = await validateSQLSchema(schema);
-      const { error: codeError } = await validateJSCode(indexingCode);
 
-      if (schemaError) setError(SCHEMA_GENERAL_ERROR)
-      else if (codeError) setError(CODE_GENERAL_ERROR)
-      else setError();
-    })()
+    const { error: schemaError } = validateSQLSchema(schema);
+    const { error: codeError } = validateJSCode(indexingCode);
+
+    if (schemaError) setError(SCHEMA_GENERAL_ERROR)
+    else if (codeError) setError(CODE_GENERAL_ERROR)
+    else setError();
 
   }, [fileName])
 
@@ -186,7 +188,7 @@ const Editor = ({
   }
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    const { data: formattedSchema, error: schemaError } = await validateSQLSchema(schema);
+    const { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
 
     if (schemaError) {
       setError(SCHEMA_GENERAL_ERROR);
@@ -256,15 +258,15 @@ const Editor = ({
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
-  const reformatAll = async (indexingCode, schema) => {
-    let { formattedCode, codeError } = await validateJSCode(indexingCode);
+  const reformatAll = (indexingCode, schema) => {
+    let { data: formattedCode, error: codeError } = validateJSCode(indexingCode);
 
     if (codeError) {
       formattedCode = indexingCode
       setError(CODE_FORMATTING_ERROR);
     }
 
-    let { data: formattedSchema, error: schemaError } = await validateSQLSchema(schema);
+    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
 
     if (schemaError) {
       formattedSchema = schema;
@@ -284,8 +286,8 @@ const Editor = ({
     }
   }
 
-  async function handleFormating() {
-    const { formattedCode, formattedSchema } = await reformatAll(indexingCode, schema);
+  function handleFormating() {
+    const { formattedCode, formattedSchema } = reformatAll(indexingCode, schema);
     setIndexingCode(formattedCode);
     setSchema(formattedSchema);
   }
@@ -329,6 +331,7 @@ const Editor = ({
 
   function handleOnChangeCode(_code) {
     setIndexingCode(_code);
+    debouncedValidateCode(_code);
   }
 
   return (

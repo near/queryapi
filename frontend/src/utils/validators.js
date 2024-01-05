@@ -21,7 +21,7 @@ export function validateContractIds(accountIds) {
  * @param {string} schema - The SQL schema to validate and format.
  * @returns {{ data: string | null, error: string | null }} - An object containing the formatted schema and error (if any).
  */
-export async function validateSQLSchema(schema) {
+export function validateSQLSchema(schema) {
   if (!schema) return { data: null, error: null };
 
   if (schema === formatSQL(defaultSchema)) return { data: schema, error: null };
@@ -46,12 +46,12 @@ export async function validateSQLSchema(schema) {
  * @param {string} code - The JavaScript code to be validated and formatted.
  * @returns {{ data: string | null, error: string | null }} An object containing either the formatted code or an error.
  */
-export async function validateJSCode(code) {
+export function validateJSCode(code) {
 
   if (!code) return { data: null, error: null };
 
   try {
-    const formattedCode = await formatIndexingCode(code);
+    const formattedCode = formatIndexingCode(code);
     return { data: formattedCode, error: null }
 
   } catch (error) {
