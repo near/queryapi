@@ -40,6 +40,12 @@ export async function validateSQLSchema(schema) {
   }
 };
 
+/**
+ * Asynchronously validates and formats JavaScript code.
+ * 
+ * @param {string} code - The JavaScript code to be validated and formatted.
+ * @returns {{ data: string | null, error: string | null }} An object containing either the formatted code or an error.
+ */
 export async function validateJSCode(code) {
 
   if (!code) return { data: null, error: null };
