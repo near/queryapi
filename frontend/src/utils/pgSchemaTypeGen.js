@@ -55,8 +55,10 @@ export class PgSchemaTypeGen {
 		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
 		const dbSchema = {};
 
+		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
+
 		// Process each statement in the schema
-		for (const statement of schemaSyntaxTree) {
+		for (const statement of statements) {
 			if (statement.type === "create" && statement.keyword === "table") {
 				// Process CREATE TABLE statements
 				const tableName = statement.table[0].table;
