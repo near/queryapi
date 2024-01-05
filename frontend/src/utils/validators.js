@@ -28,8 +28,6 @@ export async function validateSQLSchema(schema) {
 
   const pgSchemaTypeGen = new PgSchemaTypeGen();
 
-  console.log(schema)
-
   try {
     const formattedSchema = formatSQL(schema);
     pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
