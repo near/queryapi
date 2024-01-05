@@ -24,6 +24,7 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
+import { SCHEMA_GENERAL_ERROR, CODE_GENERAL_ERROR, CODE_FORMATTING_ERROR, SCHEMA_FORMATTING_ERROR } from '../../constants/Strings';
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -96,7 +97,7 @@ const Editor = ({
         const { data: formattedCode, error: codeError } = await validateJSCode(indexerDetails.code)
 
         if (codeError) {
-          setError("There was an error while formatting your code. Please check the console for more details")
+          setError(CODE_FORMATTING_ERROR)
         }
 
         setOriginalIndexingCode(formattedCode)
@@ -111,7 +112,7 @@ const Editor = ({
       (async () => {
         const { data: formattedSchema, error: schemaError } = await validateSQLSchema(indexerDetails.schema);
         if (schemaError) {
-          setError("There was an error in your schema. Please check the console for more details")
+          setError(SCHEMA_GENERAL_ERROR)
         }
 
         setSchema(formattedSchema)
@@ -124,8 +125,8 @@ const Editor = ({
       const { error: schemaError } = await validateSQLSchema(schema);
       const { error: codeError } = await validateJSCode(indexingCode);
 
-      if (schemaError) setError("There is an error in your schema. Please check the console for more details")
-      else if (codeError) setError("There is an error in your code. Please check the console for more details")
+      if (schemaError) setError(SCHEMA_GENERAL_ERROR)
+      else if (codeError) setError(CODE_GENERAL_ERROR)
       else setError();
     })()
 
@@ -188,7 +189,7 @@ const Editor = ({
     const { data: formattedSchema, error: schemaError } = await validateSQLSchema(schema);
 
     if (schemaError) {
-      setError("There was an error in your schema, please check the console for more details");
+      setError(SCHEMA_GENERAL_ERROR);
       return;
     }
 
@@ -260,14 +261,14 @@ const Editor = ({
 
     if (codeError) {
       formattedCode = indexingCode
-      setError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
+      setError(CODE_FORMATTING_ERROR);
     }
 
     let { data: formattedSchema, error: schemaError } = await validateSQLSchema(schema);
 
     if (schemaError) {
       formattedSchema = schema;
-      setError("There was an error in your SQL schema. Make sure it is proper SQL DDL");
+      setError(SCHEMA_GENERAL_ERROR);
     }
 
     return { formattedCode, formattedSchema }
@@ -279,7 +280,7 @@ const Editor = ({
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
     } catch (_error) {
       console.error("Error generating types for saved schema.\n", _error);
-      setError("Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL.");
+      setError(SCHEMA_FORMATTING_ERROR);
     }
   }
 
