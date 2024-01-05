@@ -83,28 +83,48 @@ const Editor = ({
   const disposableRef = useRef(null);
 
   useEffect(() => {
-    if (!indexerDetails.code) {
-      const { data: formattedCode, error } = validateJSCode(indexerDetails.code)
+    if (indexerDetails.code != null) {
+      (async () => {
+        const { data: formattedCode, error: codeError } = await validateJSCode(indexerDetails.code)
 
-      if (error) {
-        setError("There was an error while formatting your code. Please check the console for more details")
-      }
-      setOriginalIndexingCode(formattedCode)
-      setIndexingCode(formattedCode)
+        if (codeError) {
+          setError("There was an error while formatting your code. Please check the console for more details")
+        }
+
+        setOriginalIndexingCode(formattedCode)
+        setIndexingCode(formattedCode)
+      })()
     }
+
   }, [indexerDetails.code]);
 
   useEffect(() => {
-    if (indexerDetails.schema) {
-      const { data: formattedSchema, error } = validateSQLSchema(indexerDetails.schema);
+    if (indexerDetails.schema != null) {
+      (async () => {
+        const { data: formattedSchema, error: schemaError } = await validateSQLSchema(indexerDetails.schema);
+        if (schemaError) {
+          setError("There was an error in your schema. Please check the console for more details")
+        }
 
-      if (error) {
-        setError("There was an error in your schema. Please check the console for more details")
-      }
-
-      setSchema(formattedSchema)
+        setSchema(formattedSchema)
+      })();
     }
   }, [indexerDetails.schema])
+
+  useEffect(() => {
+    (async () => {
+      if (fileName === 'indexingLogic.js') {
+        const { _, error: schemaError } = await validateSQLSchema(schema);
+        if (schemaError) setError("There is an error in your schema. Please check the console for more details")
+        else setError();
+      } else {
+        const { _, error: codeError } = await validateJSCode(indexingCode);
+        if (codeError) setError("There is an error in your code. Please check the console for more details")
+        else setError();
+      }
+    })()
+
+  }, [fileName])
 
   useEffect(() => {
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
@@ -161,9 +181,9 @@ const Editor = ({
   }
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    const { data: formattedSchema, error } = await validateSQLSchema(schema);
+    const { data: formattedSchema, error: schemaError } = await validateSQLSchema(schema);
 
-    if (error) {
+    if (schemaError) {
       setError("There was an error in your schema, please check the console for more details");
       return;
     }
@@ -231,15 +251,15 @@ const Editor = ({
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
-  const reformatAll = (indexingCode, schema) => {
-    let { formattedCode, codeError } = validateJSCode(indexingCode);
+  const reformatAll = async (indexingCode, schema) => {
+    let { formattedCode, codeError } = await validateJSCode(indexingCode);
 
     if (codeError) {
       formattedCode = indexingCode
       setError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
     }
 
-    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
+    let { data: formattedSchema, error: schemaError } = await validateSQLSchema(schema);
 
     if (schemaError) {
       formattedSchema = schema;
@@ -253,9 +273,8 @@ const Editor = ({
     try {
       setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
-      setError(undefined);
-    } catch (error) {
-      console.error("Error generating types for saved schema.\n", error);
+    } catch (_error) {
+      console.error("Error generating types for saved schema.\n", _error);
       setError("Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL.");
     }
   }
@@ -350,7 +369,7 @@ const Editor = ({
           }}
         >
           {error && (
-            <Alert dismissible="true" onClose={() => setError(undefined)} className="px-3 pt-3" variant="danger">
+            <Alert dismissible="true" className="px-3 pt-3" variant="danger">
               {error}
             </Alert>
           )}

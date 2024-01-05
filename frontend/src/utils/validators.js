@@ -1,4 +1,4 @@
-import { formatIndexingCode, formatSQL } from "./formatters";
+import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
 import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
 import { CONTRACT_NAME_REGEX } from '../constants/RegexExp';
 
@@ -24,10 +24,14 @@ export function validateContractIds(accountIds) {
 export async function validateSQLSchema(schema) {
   if (!schema) return { data: null, error: null };
 
+  if (schema === formatSQL(defaultSchema)) return { data: schema, error: null };
+
   const pgSchemaTypeGen = new PgSchemaTypeGen();
 
+  console.log(schema)
+
   try {
-    const formattedSchema = await formatSQL(schema);
+    const formattedSchema = formatSQL(schema);
     pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
 
     return { data: formattedSchema, error: null }
