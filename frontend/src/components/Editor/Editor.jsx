@@ -260,17 +260,16 @@ const Editor = ({
 
   const reformatAll = (indexingCode, schema) => {
     let { data: formattedCode, error: codeError } = validateJSCode(indexingCode);
+    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
 
     if (codeError) {
       formattedCode = indexingCode
       setError(CODE_FORMATTING_ERROR);
-    }
-
-    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
-
-    if (schemaError) {
+    } else if (schemaError) {
       formattedSchema = schema;
-      setError(SCHEMA_GENERAL_ERROR);
+      setError(SCHEMA_GENERAL_ERROR)
+    } else {
+      setError()
     }
 
     return { formattedCode, formattedSchema }
