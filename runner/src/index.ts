@@ -3,8 +3,6 @@ import RedisClient from './redis-client';
 import startRunnerServer from './server/runner-server';
 import StreamHandler from './stream-handler';
 
-const STREAM_HANDLER_THROTTLE_MS = 500;
-
 const redisClient = new RedisClient();
 let runnerServer;
 
@@ -17,10 +15,12 @@ type StreamHandlers = Record<string, StreamHandler>;
 void (async function main () {
   try {
     const streamHandlers: StreamHandlers = {};
+    let STREAM_HANDLER_THROTTLE_MS = 500;
 
     const version = process.env.RUNNER_VERSION ?? 'V1';
     if (version === 'V2') {
       console.log('Starting Runner in V2 mode.');
+      STREAM_HANDLER_THROTTLE_MS = 360000; // 1 hour
       runnerServer = startRunnerServer();
     } else if (version === 'V1') {
       console.log('Starting Runner in V1 mode.');
