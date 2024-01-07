@@ -1,3 +1,4 @@
+use anyhow::Context;
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
@@ -19,7 +20,9 @@ pub struct BlockStreamsHandlerImpl {
 #[cfg_attr(test, mockall::automock)]
 impl BlockStreamsHandlerImpl {
     pub async fn connect() -> anyhow::Result<Self> {
-        let client = BlockStreamerClient::connect("http://[::1]:10000").await?;
+        let client = BlockStreamerClient::connect("http://[::1]:10000")
+            .await
+            .context("Unable to connect to Block Streamer")?;
 
         Ok(Self { client })
     }

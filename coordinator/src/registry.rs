@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::collections::HashMap;
 
 use near_jsonrpc_client::methods::query::RpcQueryRequest;
@@ -24,6 +25,10 @@ pub struct IndexerConfig {
 impl IndexerConfig {
     pub fn get_full_name(&self) -> String {
         format!("{}/{}", self.account_id, self.function_name)
+    }
+
+    pub fn get_redis_stream(&self) -> String {
+        format!("{}:block_stream", self.get_full_name())
     }
 }
 
@@ -82,11 +87,15 @@ impl RegistryImpl {
                 block_reference: BlockReference::Finality(Finality::Final),
                 request: QueryRequest::CallFunction {
                     method_name: "list_indexer_functions".to_string(),
-                    account_id: "queryapi.dataplatform.near".to_string().try_into().unwrap(),
+                    account_id: "dev-queryapi.dataplatform.near"
+                        .to_string()
+                        .try_into()
+                        .unwrap(),
                     args: FunctionArgs::from("{}".as_bytes().to_vec()),
                 },
             })
-            .await?;
+            .await
+            .context("Failed to list registry contract")?;
 
         if let QueryResponseKind::CallResult(call_result) = response.kind {
             let list_registry_response: AccountOrAllIndexers =
