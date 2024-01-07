@@ -1,4 +1,4 @@
-import { type RunnerHandlers } from '../generated/spec/Runner';
+import { type RunnerHandlers } from '../generated/runner/Runner';
 import type StreamHandler from '../stream-handler/stream-handler';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';

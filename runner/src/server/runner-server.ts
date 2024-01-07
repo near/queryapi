@@ -13,7 +13,7 @@ export default function startRunnerServer (): grpc.Server {
   ) as unknown) as ProtoGrpcType;
 
   const server = new grpc.Server();
-  server.addService(runnerProto.spec.Runner.service, getRunnerService(StreamHandler));
+  server.addService(runnerProto.runner.Runner.service, getRunnerService(StreamHandler));
   const credentials = grpc.ServerCredentials;
 
   server.bindAsync(
