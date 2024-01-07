@@ -19,6 +19,8 @@ message StartExecutorRequest {
     string function_name = 4;
     string code = 5;
     string schema = 6;
+    // Block height corresponding to the created/updated height of the indexer
+    uint64 version = 7;
 }
 
 // Start Executor Response 
@@ -52,4 +54,6 @@ message ExecutorInfo {
     string account_id = 2;
     string function_name = 3;
     string status = 4;
+    // Block height corresponding to the created/updated height of the indexer
+    uint64 version = 5;
 }

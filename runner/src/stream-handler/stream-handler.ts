@@ -8,6 +8,7 @@ export interface IndexerConfig {
   function_name: string
   code: string
   schema: string
+  version: number
 }
 
 export default class StreamHandler {

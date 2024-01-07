@@ -33,7 +33,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
         return;
       }
 
-      const { accountId, functionName, code, schema, redisStream } = call.request;
+      const { accountId, functionName, code, schema, redisStream, version } = call.request;
       const executorId = hashString(`${accountId}/${functionName}`);
 
       if (streamHandlers.has(executorId)) {
@@ -46,15 +46,16 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
         return;
       }
 
-      console.log('Starting executor', accountId, functionName, executorId);
+      console.log('Starting executor: ', { accountId, functionName, executorId, version });
 
       // Handle request
       try {
         const streamHandler = new StreamHandlerType(redisStream, {
           account_id: accountId,
           function_name: functionName,
+          version: Number(version),
           code,
-          schema
+          schema,
         });
         streamHandlers.set(executorId, streamHandler);
         callback(null, { executorId });
@@ -91,6 +92,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       const response: ExecutorInfo__Output[] = [];
       try {
         streamHandlers.forEach((handler, executorId) => {
+          console.log({ streamHandlers, handler, executorId });
           if (handler.indexerConfig?.account_id === undefined || handler.indexerConfig?.function_name === undefined) {
             throw new Error(`Stream handler ${executorId} has no/invalid indexer config.`);
           }
@@ -98,6 +100,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
             executorId,
             accountId: handler.indexerConfig?.account_id,
             functionName: handler.indexerConfig?.function_name,
+            version: handler.indexerConfig?.version.toString(),
             status: 'RUNNING' // TODO: Keep updated status in stream handler
           });
         });

@@ -9,11 +9,13 @@ const BASIC_FUNCTION_NAME = 'test-function-name';
 const BASIC_EXECUTOR_ID = '964551da443042a0c834d5fe9bb2c07023b69f1528404f0f0a3fc8a27c2d1c44';
 const BASIC_CODE = 'test-code';
 const BASIC_SCHEMA = 'test-schema';
+const BASIC_VERSION = 1;
 const BASIC_INDEXER_CONFIG = {
   account_id: BASIC_ACCOUNT_ID,
   function_name: BASIC_FUNCTION_NAME,
   code: BASIC_CODE,
   schema: BASIC_SCHEMA,
+  version: BASIC_VERSION
 };
 
 describe('Runner gRPC Service', () => {
@@ -30,7 +32,7 @@ describe('Runner gRPC Service', () => {
   it('starts a executor with correct settings', () => {
     const service = getRunnerService(genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
-    const request = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
+    const request = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
 
     service.StartExecutor(request, mockCallback);
 
@@ -91,7 +93,7 @@ describe('Runner gRPC Service', () => {
   it('starts a executor twice with correct settings, gets error second time', () => {
     const service = getRunnerService(genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
-    const startRequest = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
+    const startRequest = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
 
     service.StartExecutor(startRequest, mockCallback);
     service.StartExecutor(startRequest, mockCallback);
@@ -205,14 +207,14 @@ describe('Runner gRPC Service', () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
-    const streamHandlerType = jest.fn().mockImplementation((...args) => {
+    const streamHandlerType = jest.fn().mockImplementation((_, indexerConfig) => {
       return {
         stop,
-        indexerConfig: { account_id: args[1].account_id, function_name: args[1].function_name },
+        indexerConfig: { account_id: indexerConfig.account_id, function_name: indexerConfig.function_name, version: indexerConfig.version }
       };
     });
     const service = getRunnerService(streamHandlerType);
-    const request = generateRequest(BASIC_REDIS_STREAM + '-A', BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
+    const request = generateRequest(BASIC_REDIS_STREAM + '-A', BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
 
     await new Promise((resolve, reject) => {
       service.StartExecutor(request, (err) => {
@@ -229,7 +231,8 @@ describe('Runner gRPC Service', () => {
             executorId: BASIC_EXECUTOR_ID,
             accountId: BASIC_INDEXER_CONFIG.account_id,
             functionName: BASIC_INDEXER_CONFIG.function_name,
-            status: 'RUNNING'
+            status: 'RUNNING',
+            version: '1'
           }]
         });
         resolve(null);
@@ -256,17 +259,19 @@ describe('Runner gRPC Service', () => {
 });
 
 function generateRequest (
-  redisStream: string | undefined = undefined,
-  accountId: string | undefined = undefined,
-  functionName: string | undefined = undefined,
-  code: string | undefined = undefined,
-  schema: string | undefined = undefined): any {
+  redisStream?: string,
+  accountId?: string,
+  functionName?: string,
+  code?: string,
+  schema?: string,
+  version?: number): any {
   const request = {
-    ...(redisStream !== undefined && { redisStream }),
-    ...(accountId !== undefined && { accountId }),
-    ...(functionName !== undefined && { functionName }),
-    ...(code !== undefined && { code }),
-    ...(schema !== undefined && { schema }),
+    ...(redisStream && { redisStream }),
+    ...(accountId && { accountId }),
+    ...(functionName && { functionName }),
+    ...(code && { code }),
+    ...(schema && { schema }),
+    ...(version && { version: Number(version) })
   };
   return {
     request
