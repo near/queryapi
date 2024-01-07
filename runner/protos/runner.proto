@@ -14,7 +14,6 @@ service Runner {
 
 // Start Executor Request 
 message StartExecutorRequest {
-    string executor_id = 1;
     string redis_stream = 2;
     string account_id = 3;
     string function_name = 4;

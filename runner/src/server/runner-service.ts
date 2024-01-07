@@ -1,6 +1,7 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
 import assert from 'assert';
+import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';
 import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../generated/runner/StartExecutorResponse';
@@ -14,29 +15,49 @@ import type StreamHandler from '../stream-handler';
 
 type StreamHandlers = Map<string, StreamHandler>;
 
+const hashString = (input: string): string => {
+  const hash = crypto.createHash('sha256');
+  hash.update(input);
+  return hash.digest('hex');
+};
+
 function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandlers {
   const streamHandlers: StreamHandlers = new Map();
 
   const RunnerService: RunnerHandlers = {
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
-      console.log('StartExecutor called on', call.request.executorId);
       // Validate request
-      const validationResult = validateStartExecutorRequest(call.request, streamHandlers);
+      const validationResult = validateStartExecutorRequest(call.request);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
       }
 
+      const { accountId, functionName, code, schema, redisStream } = call.request;
+      const executorId = hashString(`${accountId}/${functionName}`);
+
+      if (streamHandlers.has(executorId)) {
+        const alreadyExistsError = {
+          code: grpc.status.ALREADY_EXISTS,
+          message: `Executor ${executorId} can't be started as it already exists.`
+        };
+        callback(alreadyExistsError, null);
+
+        return;
+      }
+
+      console.log('Starting executor', accountId, functionName, executorId);
+
       // Handle request
       try {
-        const streamHandler = new StreamHandlerType(call.request.redisStream, {
-          account_id: call.request.accountId,
-          function_name: call.request.functionName,
-          code: call.request.code,
-          schema: call.request.schema
+        const streamHandler = new StreamHandlerType(redisStream, {
+          account_id: accountId,
+          function_name: functionName,
+          code,
+          schema
         });
-        streamHandlers.set(call.request.executorId, streamHandler);
-        callback(null, { executorId: call.request.executorId });
+        streamHandlers.set(executorId, streamHandler);
+        callback(null, { executorId });
       } catch (error) {
         callback(handleInternalError(error), null);
       }
@@ -117,19 +138,9 @@ function validateStringParameter (parameterName: string, parameterValue: string)
   return null;
 }
 
-function validateStartExecutorRequest (request: StartExecutorRequest__Output, streamHandlers: StreamHandlers): any | null {
-  const grpcError = {
-    code: grpc.status.INVALID_ARGUMENT,
-    message: ''
-  };
-
+function validateStartExecutorRequest (request: StartExecutorRequest__Output): any | null {
   // Validate request parameters
-  let validationResult = validateStringParameter('executorId', request.executorId);
-  if (validationResult !== null) {
-    return validationResult;
-  }
-
-  validationResult = validateStringParameter('redisStream', request.redisStream);
+  let validationResult = validateStringParameter('redisStream', request.redisStream);
   if (validationResult !== null) {
     return validationResult;
   }
@@ -154,12 +165,6 @@ function validateStartExecutorRequest (request: StartExecutorRequest__Output, st
     return validationResult;
   }
 
-  // Validate executorId uniqueness
-  if (streamHandlers.get(request.executorId) !== undefined) {
-    grpcError.message = `Executor ${request.executorId} can't be started as it already exists.`;
-    grpcError.code = grpc.status.ALREADY_EXISTS;
-    return grpcError;
-  }
   return null;
 }
 
