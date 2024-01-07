@@ -1,10 +1,12 @@
 use tracing_subscriber::prelude::*;
 
 use crate::block_streams_handler::BlockStreamsHandler;
+use crate::executors_handler::ExecutorsHandler;
 use crate::redis::RedisClient;
 use crate::registry::{IndexerRegistry, Registry};
 
 mod block_streams_handler;
+mod executors_handler;
 mod redis;
 mod registry;
 
@@ -15,19 +17,54 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let registry = Registry::connect("https://rpc.testnet.near.org");
+    let registry = Registry::connect("https://rpc.mainnet.near.org");
     let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
     let mut block_stream_handler = BlockStreamsHandler::connect().await?;
+    let mut executors_handler = ExecutorsHandler::connect().await?;
 
     loop {
         let indexer_registry = registry.fetch().await?;
         synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
             .await?;
+        synchronise_executors(&indexer_registry, &mut executors_handler).await?;
     }
 }
 
-async fn synchronise_registry_config(
-    registry: &Registry,
+async fn synchronise_executors(
+    indexer_registry: &IndexerRegistry,
+    executors_handler: &mut ExecutorsHandler,
+) -> anyhow::Result<()> {
+    let mut active_executors = executors_handler.list().await?;
+
+    for (account_id, indexers) in indexer_registry.iter() {
+        for (function_name, indexer_config) in indexers.iter() {
+            let active_executors = active_executors
+                .iter()
+                .position(|stream| {
+                    stream.account_id == account_id.to_string()
+                        && &stream.function_name == function_name
+                })
+                .map(|index| active_executors.swap_remove(index));
+
+            if active_executors.is_some() {
+                continue;
+            }
+
+            executors_handler
+                .start(
+                    account_id.to_string(),
+                    function_name.to_string(),
+                    indexer_config.code.clone(),
+                    indexer_config.schema.clone().unwrap_or_default(),
+                    indexer_config.get_redis_stream(),
+                )
+                .await?;
+        }
+    }
+
+    Ok(())
+}
+
 async fn synchronise_block_streams(
     indexer_registry: &IndexerRegistry,
     redis_client: &RedisClient,
@@ -108,6 +145,55 @@ mod tests {
     use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
     use crate::registry::IndexerConfig;
+
+    mod executors {
+        use super::*;
+
+        #[tokio::test]
+        async fn starts_exectuors() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: "code".to_string(),
+                        schema: Some("schema".to_string()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: None,
+                        start_block_height: Some(100),
+                    },
+                )]),
+            )]);
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_list().returning(|| Ok(vec![]));
+            executors_handler
+                .expect_start()
+                .with(
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq("code".to_string()),
+                    predicate::eq("schema".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
+                )
+                .returning(|_, _, _, _, _| Ok(()));
+
+            synchronise_executors(&indexer_registry, &mut executors_handler)
+                .await
+                .unwrap();
+        }
+    }
 
     mod block_stream {
         use super::*;

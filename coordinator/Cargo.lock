@@ -992,6 +992,7 @@ dependencies = [
  "near-primitives",
  "redis 0.24.0",
  "registry-types",
+ "runner",
  "serde_json",
  "tokio",
  "tonic 0.10.2",
@@ -3122,6 +3123,16 @@ dependencies = [
  "spin",
  "untrusted",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "runner"
+version = "0.1.0"
+dependencies = [
+ "prost 0.12.3",
+ "tokio",
+ "tonic 0.10.2",
+ "tonic-build 0.10.2",
 ]
 
 [[package]]
