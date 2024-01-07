@@ -1,11 +1,10 @@
-use block_streamer::StreamInfo;
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
     start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, ListStreamsRequest,
-    StartStreamRequest, Status, StopStreamRequest,
+    StartStreamRequest, Status, StopStreamRequest, StreamInfo,
 };
 
 #[cfg(not(test))]
