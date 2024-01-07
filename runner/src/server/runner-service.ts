@@ -1,4 +1,7 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
+import * as grpc from '@grpc/grpc-js';
+import assert from 'assert';
+
 import { type RunnerHandlers } from '../generated/runner/Runner';
 import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../generated/runner/StartExecutorResponse';
 import { type StartExecutorRequest__Output } from '../generated/runner/StartExecutorRequest';
@@ -8,8 +11,6 @@ import { type ListExecutorsRequest__Output } from '../generated/runner/ListExecu
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
 import type StreamHandler from '../stream-handler';
-import * as grpc from '@grpc/grpc-js';
-import assert from 'assert';
 
 type StreamHandlers = Map<string, StreamHandler>;
 
