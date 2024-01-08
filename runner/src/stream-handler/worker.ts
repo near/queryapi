@@ -7,10 +7,24 @@ import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { type IndexerConfig } from './stream-handler';
+import { Tracer, BatchRecorder } from 'zipkin';
+import { HttpLogger } from 'zipkin-transport-http';
+import CLSContext from 'zipkin-context-cls';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
+
+const tracer = new Tracer({
+  ctxImpl: new CLSContext('zipkin'),
+  recorder: new BatchRecorder({
+    logger: new HttpLogger({
+      endpoint: 'http://localhost:9411/api/v2/spans'
+    })
+  }),
+  localServiceName: 'runner' // name of this application
+});
+
 interface QueueMessage {
   block: Block
   streamMessageId: string
@@ -74,6 +88,8 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 
     for (const streamMessage of messages) {
       const { id, message } = streamMessage;
+      const mainSpan = tracer.createChildId();
+      const mainSpan = tracer.startSpan('main_task');
       workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
     }
 

@@ -27,6 +27,7 @@
     "@types/pg-format": "^1.0.2",
     "@types/pluralize": "^0.0.29",
     "@types/verror": "^1.10.6",
+    "@types/zipkin-context-cls": "^0.11.7",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "eslint": "^8.46.0",
@@ -57,6 +58,9 @@
     "prom-client": "^14.2.0",
     "redis": "^4.6.7",
     "verror": "^1.10.1",
-    "vm2": "^3.9.19"
+    "vm2": "^3.9.19",
+    "zipkin": "^0.22.0",
+    "zipkin-context-cls": "^0.22.0",
+    "zipkin-transport-http": "^0.22.0"
   }
 }
