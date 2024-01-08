@@ -92,7 +92,6 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       const response: ExecutorInfo__Output[] = [];
       try {
         streamHandlers.forEach((handler, executorId) => {
-          console.log({ streamHandlers, handler, executorId });
           if (handler.indexerConfig?.account_id === undefined || handler.indexerConfig?.function_name === undefined) {
             throw new Error(`Stream handler ${executorId} has no/invalid indexer config.`);
           }
