@@ -1,6 +1,12 @@
 import React, { createContext, useState, useContext } from 'react';
 
-const ModalContext = createContext();
+const ModalContext = createContext({
+    openModal: false,
+    message: "",
+    data: {},
+    showModal: () => { },
+    hideModal: () => { }
+});
 
 export const useModal = () => useContext(ModalContext);
 
