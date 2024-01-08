@@ -25,12 +25,8 @@ import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
 import { SCHEMA_GENERAL_ERROR_MESSAGE, CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE } from '../../constants/Strings';
-import { ValidationError } from "@/classes/ValidationError";
-
-const BLOCKHEIGHT_LIMIT = 3600;
 
 const Editor = ({
-  onLoadErrorText,
   actionButtonText,
 }) => {
   const {
@@ -39,7 +35,6 @@ const Editor = ({
     setShowPublishModal,
     debugMode,
     isCreateNewIndexer,
-    indexerNameField,
     setAccountId,
   } = useContext(IndexerDetailsContext);
 
@@ -73,7 +68,7 @@ const Editor = ({
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
 
-  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
+  const { height, currentUserAccountId } = useInitialPayload();
 
   const handleLog = (_, log, callback) => {
     if (log) console.log(log);
