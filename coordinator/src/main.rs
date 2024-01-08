@@ -24,8 +24,8 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         let indexer_registry = registry.fetch().await?;
-        synchronise_executors(&indexer_registry, &mut executors_handler).await?;
 
+        synchronise_executors(&indexer_registry, &mut executors_handler).await?;
         synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
             .await?;
     }
@@ -70,6 +70,10 @@ async fn synchronise_executors(
                 )
                 .await?;
         }
+    }
+
+    for active_executor in active_executors {
+        executors_handler.stop(active_executor.executor_id).await?;
     }
 
     Ok(())
@@ -305,6 +309,32 @@ mod tests {
             executors_handler.expect_stop().never();
 
             executors_handler.expect_start().never();
+
+            synchronise_executors(&indexer_registry, &mut executors_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn stops_executors_not_in_registry() {
+            let indexer_registry = HashMap::from([]);
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_list().returning(|| {
+                Ok(vec![runner::ExecutorInfo {
+                    executor_id: "executor_id".to_string(),
+                    account_id: "morgs.near".to_string(),
+                    function_name: "test".to_string(),
+                    status: "running".to_string(),
+                    version: 2,
+                }])
+            });
+
+            executors_handler
+                .expect_stop()
+                .with(predicate::eq("executor_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
 
             synchronise_executors(&indexer_registry, &mut executors_handler)
                 .await
