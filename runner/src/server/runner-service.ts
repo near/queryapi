@@ -56,7 +56,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
           function_name: functionName,
           version: Number(version),
           code,
-          schema,,
+          schema,
           status: Status.RUNNING
         });
         streamHandlers.set(executorId, streamHandler);
@@ -100,7 +100,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
             executorId,
             accountId: config.account_id,
             functionName: config.function_name,
-            version: handler.indexerConfig?.version.toString(),
+            version: config.version.toString(),
             status: config.status
           });
         });

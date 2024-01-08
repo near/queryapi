@@ -16,7 +16,7 @@ const BASIC_INDEXER_CONFIG = {
   function_name: BASIC_FUNCTION_NAME,
   code: BASIC_CODE,
   schema: BASIC_SCHEMA,
-  version: BASIC_VERSION
+  version: BASIC_VERSION,
   status: Status.RUNNING
 };
 
@@ -212,7 +212,9 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation((_, indexerConfig) => {
       return {
         stop,
-        indexerConfig: { account_id: indexerConfig.account_id, function_name: indexerConfig.function_name, version: indexerConfig.version }
+        getIndexerConfig: jest.fn().mockReturnValue(
+          { account_id: indexerConfig.account_id, function_name: indexerConfig.function_name, status: indexerConfig.status, version: indexerConfig.version }
+        )
       };
     });
     const service = getRunnerService(streamHandlerType);
