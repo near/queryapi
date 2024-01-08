@@ -1912,9 +1912,9 @@ dependencies = [
 
 [[package]]
 name = "near-lake-framework"
-version = "0.7.5"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8b91504ca51c85273060bb1d88229d49deb1363fa74f1750e9258af82e887d"
+checksum = "2a4259d516729a7d938e3024064fe53c005673169383daa1db5ea360e0950c9d"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -1922,7 +1922,6 @@ dependencies = [
  "aws-config",
  "aws-credential-types",
  "aws-sdk-s3",
- "aws-smithy-types",
  "aws-types",
  "derive_builder",
  "futures",
