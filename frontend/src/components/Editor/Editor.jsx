@@ -24,7 +24,7 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import { SCHEMA_GENERAL_ERROR_MESSAGE, CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../../constants/Strings';
+import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../../constants/Strings';
 import { InfoModal } from '@/core/InfoModal';
 import { useModal } from "@/contexts/ModalContext";
 
@@ -113,8 +113,11 @@ const Editor = ({
   useEffect(() => {
     if (indexerDetails.schema != null) {
       const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
-      if (schemaError) {
-        setError(SCHEMA_GENERAL_ERROR_MESSAGE)
+
+      if (schemaError?.type === FORMATTING_ERROR_TYPE) {
+        setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+      } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
+        setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
       }
 
       setSchema(formattedSchema)
@@ -126,9 +129,14 @@ const Editor = ({
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
 
-    if (schemaError) setError(SCHEMA_GENERAL_ERROR_MESSAGE)
-    else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE)
-    else setError();
+    if (schemaError?.type === FORMATTING_ERROR_TYPE) {
+      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+    } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
+      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
+    } else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE)
+    else {
+      setError()
+    };
 
   }, [fileName])
 
@@ -279,9 +287,13 @@ const Editor = ({
     if (codeError) {
       formattedCode = indexingCode
       setError(CODE_FORMATTING_ERROR_MESSAGE);
-    } else if (schemaError) {
+    }
+    else if (schemaError?.type === FORMATTING_ERROR_TYPE) {
       formattedSchema = schema;
-      setError(SCHEMA_GENERAL_ERROR_MESSAGE)
+      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+    } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
+      formattedSchema = schema;
+      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE)
     } else {
       setError()
     }
