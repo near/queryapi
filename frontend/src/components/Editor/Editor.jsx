@@ -24,7 +24,8 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import { SCHEMA_GENERAL_ERROR, CODE_GENERAL_ERROR, CODE_FORMATTING_ERROR, SCHEMA_FORMATTING_ERROR } from '../../constants/Strings';
+import { SCHEMA_GENERAL_ERROR_MESSAGE, CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE } from '../../constants/Strings';
+import { ValidationError } from "@/classes/ValidationError";
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -103,7 +104,7 @@ const Editor = ({
       const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code)
 
       if (codeError) {
-        setError(CODE_FORMATTING_ERROR)
+        setError(CODE_FORMATTING_ERROR_MESSAGE)
       }
 
       setOriginalIndexingCode(formattedCode)
@@ -116,7 +117,7 @@ const Editor = ({
     if (indexerDetails.schema != null) {
       const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
       if (schemaError) {
-        setError(SCHEMA_GENERAL_ERROR)
+        setError(SCHEMA_GENERAL_ERROR_MESSAGE)
       }
 
       setSchema(formattedSchema)
@@ -128,8 +129,8 @@ const Editor = ({
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
 
-    if (schemaError) setError(SCHEMA_GENERAL_ERROR)
-    else if (codeError) setError(CODE_GENERAL_ERROR)
+    if (schemaError) setError(SCHEMA_GENERAL_ERROR_MESSAGE)
+    else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE)
     else setError();
 
   }, [fileName])
@@ -188,20 +189,26 @@ const Editor = ({
   }
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    const { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
+    const { data: validatedSchema, error: schemaValidationError } = validateSQLSchema(schema);
+    const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
 
-    if (schemaError) {
-      setError(SCHEMA_GENERAL_ERROR);
+    if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
+      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
       return;
     }
 
-    let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    if (codeValidationError) {
+      setError(CODE_FORMATTING_ERROR_MESSAGE);
+      return;
+    }
+
+    let innerCode = validatedCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerName = indexerName.replaceAll(" ", "_");
 
     request("register-function", {
       indexerName: indexerName,
       code: innerCode,
-      schema: formattedSchema,
+      schema: validatedSchema,
       blockHeight: indexerConfig.startBlockHeight,
       contractFilter: indexerConfig.filter,
     });
@@ -264,10 +271,10 @@ const Editor = ({
 
     if (codeError) {
       formattedCode = indexingCode
-      setError(CODE_FORMATTING_ERROR);
+      setError(CODE_FORMATTING_ERROR_MESSAGE);
     } else if (schemaError) {
       formattedSchema = schema;
-      setError(SCHEMA_GENERAL_ERROR)
+      setError(SCHEMA_GENERAL_ERROR_MESSAGE)
     } else {
       setError()
     }
@@ -281,7 +288,7 @@ const Editor = ({
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
     } catch (_error) {
       console.error("Error generating types for saved schema.\n", _error);
-      setError(SCHEMA_FORMATTING_ERROR);
+      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
     }
   }
 
