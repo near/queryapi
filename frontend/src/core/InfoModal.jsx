@@ -1,12 +1,14 @@
 import { Button, Modal } from "react-bootstrap";
 import PropTypes from 'prop-types';
 
-export const ErrorModal = ({
+export const InfoModal = ({
     open,
     title,
     message,
     okButtonText = "OK",
+    cancelButtonText = "CANCEL",
     onOkButtonPressed,
+    onCancelButtonPressed,
     onClose,
 }) => {
 
@@ -15,6 +17,12 @@ export const ErrorModal = ({
             onClose()
         }
     }
+
+    const handleOnOkButtonPressed = () => {
+        onOkButtonPressed()
+        onClose()
+    }
+
     return (
         <Modal
             show={open}
@@ -27,10 +35,17 @@ export const ErrorModal = ({
                 <p>{message}</p>
             </Modal.Body>
             <Modal.Footer>
+                {onCancelButtonPressed && (
+                    <Button
+                        variant="secondary"
+                        onClick={onCancelButtonPressed}>
+                        {cancelButtonText}
+                    </Button>
+                )}
                 {onOkButtonPressed && (
                     <Button
                         variant="primary"
-                        onClick={onOkButtonPressed}>
+                        onClick={handleOnOkButtonPressed}>
                         {okButtonText}
                     </Button>
                 )}
@@ -39,12 +54,13 @@ export const ErrorModal = ({
     );
 };
 
-
-BlockDetailsModal.propTypes = {
+InfoModal.propTypes = {
     open: PropTypes.bool.isRequired,
     title: PropTypes.string.isRequired,
     message: PropTypes.string.isRequired,
     okButtonText: PropTypes.string,
-    onOkButtonPressed: PropTypes.func.isRequired,
+    onOkButtonPressed: PropTypes.func,
+    cancelButtonText: PropTypes.string,
+    onCancelButtonPressed: PropTypes.func,
     onClose: PropTypes.func,
 };

@@ -24,7 +24,9 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import { SCHEMA_GENERAL_ERROR_MESSAGE, CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE } from '../../constants/Strings';
+import { SCHEMA_GENERAL_ERROR_MESSAGE, CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../../constants/Strings';
+import { InfoModal } from '@/core/InfoModal';
+import { useModal } from "@/contexts/ModalContext";
 
 const Editor = ({
   actionButtonText,
@@ -64,7 +66,7 @@ const Editor = ({
   const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState(false);
   const [diffView, setDiffView] = useState(false);
   const [blockView, setBlockView] = useState(false);
-
+  const { openModal, showModal, data, message, hideModal } = useModal();
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
 
@@ -187,11 +189,6 @@ const Editor = ({
     const { data: validatedSchema, error: schemaValidationError } = validateSQLSchema(schema);
     const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
 
-    if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-      return;
-    }
-
     if (codeValidationError) {
       setError(CODE_FORMATTING_ERROR_MESSAGE);
       return;
@@ -200,6 +197,20 @@ const Editor = ({
     let innerCode = validatedCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     indexerName = indexerName.replaceAll(" ", "_");
 
+    if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
+      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+      return;
+    } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
+      showModal("There was an error in your schema when generating types from it. The contexDB object won't be generated. Do you want to proceed to register the Indexer anyway?", {
+        indexerName,
+        code: innerCode,
+        schema: validatedSchema,
+        blockHeight: indexerConfig.startBlockHeight,
+        contractFilter: indexerConfig.filter
+      });
+      return;
+    }
+
     request("register-function", {
       indexerName: indexerName,
       code: innerCode,
@@ -207,6 +218,7 @@ const Editor = ({
       blockHeight: indexerConfig.startBlockHeight,
       contractFilter: indexerConfig.filter,
     });
+
     setShowPublishModal(false);
   };
 
@@ -335,96 +347,110 @@ const Editor = ({
     debouncedValidateCode(_code);
   }
 
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
-        height: "85vh",
-      }}
-    >
-      {!indexerDetails.code && !isCreateNewIndexer && (
-        <Alert className="px-3 pt-3" variant="danger">
-          Indexer Function could not be found. Are you sure this indexer exists?
-        </Alert>
-      )}
-      {(indexerDetails.code || isCreateNewIndexer) && <>
-        <EditorButtons
-          handleFormating={handleFormating}
-          handleCodeGen={handleCodeGen}
-          executeIndexerFunction={executeIndexerFunction}
-          currentUserAccountId={currentUserAccountId}
-          getActionButtonText={getActionButtonText}
-          heights={heights}
-          setHeights={setHeights}
-          isCreateNewIndexer={isCreateNewIndexer}
-          isExecuting={isExecutingIndexerFunction}
-          stopExecution={() => indexerRunner.stop()}
-          latestHeight={height}
-          isUserIndexer={indexerDetails.accountId === currentUserAccountId}
-          handleDeleteIndexer={handleDeleteIndexer}
-        />
-        <ResetChangesModal
-          handleReload={handleReload}
-        />
-        <PublishModal
-          registerFunction={registerFunction}
-          actionButtonText={getActionButtonText()}
-          blockHeightError={blockHeightError}
-        />
-        <ForkIndexerModal
-          forkIndexer={forkIndexer}
-        />
+  function handleRegisterIndexerWithErrors(args) {
+    request("register-function", args);
+  }
 
-        <div
-          className="px-3 pt-3"
-          style={{
-            flex: "display",
-            justifyContent: "space-around",
-            width: "100%",
-            height: "100%",
-          }}
-        >
-          {error && (
-            <Alert dismissible="true" onClose={() => setError()} className="px-3 pt-3" variant="danger">
-              {error}
-            </Alert>
-          )}
-          {debugMode && !debugModeInfoDisabled && (
-            <Alert
-              className="px-3 pt-3"
-              dismissible="true"
-              onClose={() => setDebugModeInfoDisabled(true)}
-              variant="info"
-            >
-              To debug, you will need to open your browser console window in
-              order to see the logs.
-            </Alert>
-          )}
-          <FileSwitcher
-            fileName={fileName}
-            setFileName={setFileName}
-            diffView={diffView}
-            setDiffView={setDiffView}
-          />
-          <ResizableLayoutEditor
-            fileName={fileName}
-            indexingCode={indexingCode}
-            blockView={blockView}
-            diffView={diffView}
-            onChangeCode={handleOnChangeCode}
-            onChangeSchema={handleOnChangeSchema}
-            block_details={block_details}
-            originalSQLCode={originalSQLCode}
-            originalIndexingCode={originalIndexingCode}
-            schema={schema}
+  return (
+    <>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          height: "85vh",
+        }}
+      >
+        {!indexerDetails.code && !isCreateNewIndexer && (
+          <Alert className="px-3 pt-3" variant="danger">
+            Indexer Function could not be found. Are you sure this indexer exists?
+          </Alert>
+        )}
+        {(indexerDetails.code || isCreateNewIndexer) && <>
+          <EditorButtons
+            handleFormating={handleFormating}
+            handleCodeGen={handleCodeGen}
+            executeIndexerFunction={executeIndexerFunction}
+            currentUserAccountId={currentUserAccountId}
+            getActionButtonText={getActionButtonText}
+            heights={heights}
+            setHeights={setHeights}
             isCreateNewIndexer={isCreateNewIndexer}
-            handleEditorWillMount={handleEditorWillMount}
+            isExecuting={isExecutingIndexerFunction}
+            stopExecution={() => indexerRunner.stop()}
+            latestHeight={height}
+            isUserIndexer={indexerDetails.accountId === currentUserAccountId}
+            handleDeleteIndexer={handleDeleteIndexer}
           />
-        </div>
-      </>}
-    </div>
+          <ResetChangesModal
+            handleReload={handleReload}
+          />
+          <PublishModal
+            registerFunction={registerFunction}
+            actionButtonText={getActionButtonText()}
+            blockHeightError={blockHeightError}
+          />
+          <ForkIndexerModal
+            forkIndexer={forkIndexer}
+          />
+
+          <div
+            className="px-3 pt-3"
+            style={{
+              flex: "display",
+              justifyContent: "space-around",
+              width: "100%",
+              height: "100%",
+            }}
+          >
+            {error && (
+              <Alert dismissible="true" onClose={() => setError()} className="px-3 pt-3" variant="danger">
+                {error}
+              </Alert>
+            )}
+            {debugMode && !debugModeInfoDisabled && (
+              <Alert
+                className="px-3 pt-3"
+                dismissible="true"
+                onClose={() => setDebugModeInfoDisabled(true)}
+                variant="info"
+              >
+                To debug, you will need to open your browser console window in
+                order to see the logs.
+              </Alert>
+            )}
+            <FileSwitcher
+              fileName={fileName}
+              setFileName={setFileName}
+              diffView={diffView}
+              setDiffView={setDiffView}
+            />
+            <ResizableLayoutEditor
+              fileName={fileName}
+              indexingCode={indexingCode}
+              blockView={blockView}
+              diffView={diffView}
+              onChangeCode={handleOnChangeCode}
+              onChangeSchema={handleOnChangeSchema}
+              block_details={block_details}
+              originalSQLCode={originalSQLCode}
+              originalIndexingCode={originalIndexingCode}
+              schema={schema}
+              isCreateNewIndexer={isCreateNewIndexer}
+              handleEditorWillMount={handleEditorWillMount}
+            />
+          </div>
+        </>}
+      </div>
+      <InfoModal
+        open={openModal}
+        title="Validation Error"
+        message={message}
+        okButtonText="Proceed"
+        onOkButtonPressed={() => handleRegisterIndexerWithErrors(data)}
+        onCancelButtonPressed={hideModal}
+        onClose={hideModal} />
+    </>
   );
 };
 
