@@ -40,6 +40,7 @@ impl ExecutorsHandlerImpl {
         code: String,
         schema: String,
         redis_stream: String,
+        version: u64,
     ) -> anyhow::Result<()> {
         let request = Request::new(StartExecutorRequest {
             account_id,
@@ -47,6 +48,7 @@ impl ExecutorsHandlerImpl {
             code,
             schema,
             redis_stream,
+            version,
         });
 
         tracing::debug!("Sending start executor request: {:#?}", request);

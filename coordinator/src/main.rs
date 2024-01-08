@@ -24,9 +24,10 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         let indexer_registry = registry.fetch().await?;
+        synchronise_executors(&indexer_registry, &mut executors_handler).await?;
+
         synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
             .await?;
-        synchronise_executors(&indexer_registry, &mut executors_handler).await?;
     }
 }
 
@@ -38,7 +39,7 @@ async fn synchronise_executors(
 
     for (account_id, indexers) in indexer_registry.iter() {
         for (function_name, indexer_config) in indexers.iter() {
-            let active_executors = active_executors
+            let active_executor = active_executors
                 .iter()
                 .position(|stream| {
                     stream.account_id == account_id.to_string()
@@ -46,8 +47,16 @@ async fn synchronise_executors(
                 })
                 .map(|index| active_executors.swap_remove(index));
 
-            if active_executors.is_some() {
-                continue;
+            let registry_version = indexer_config
+                .updated_at_block_height
+                .unwrap_or(indexer_config.created_at_block_height);
+
+            if let Some(active_executor) = active_executor {
+                if active_executor.version == registry_version {
+                    continue;
+                }
+
+                executors_handler.stop(active_executor.executor_id).await?;
             }
 
             executors_handler
@@ -57,6 +66,7 @@ async fn synchronise_executors(
                     indexer_config.code.clone(),
                     indexer_config.schema.clone().unwrap_or_default(),
                     indexer_config.get_redis_stream(),
+                    registry_version,
                 )
                 .await?;
         }
@@ -186,8 +196,115 @@ mod tests {
                     predicate::eq("code".to_string()),
                     predicate::eq("schema".to_string()),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
+                    predicate::eq(1),
                 )
-                .returning(|_, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_executors(&indexer_registry, &mut executors_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn restarts_executors_with_mismatched_versions() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: "code".to_string(),
+                        schema: Some("schema".to_string()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: Some(2),
+                        start_block_height: Some(100),
+                    },
+                )]),
+            )]);
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_list().returning(|| {
+                Ok(vec![runner::ExecutorInfo {
+                    executor_id: "executor_id".to_string(),
+                    account_id: "morgs.near".to_string(),
+                    function_name: "test".to_string(),
+                    status: "running".to_string(),
+                    version: 1,
+                }])
+            });
+            executors_handler
+                .expect_stop()
+                .with(predicate::eq("executor_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+
+            executors_handler
+                .expect_start()
+                .with(
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq("code".to_string()),
+                    predicate::eq("schema".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
+                    predicate::eq(2),
+                )
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_executors(&indexer_registry, &mut executors_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn ignores_executors_with_matching_versions() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: "code".to_string(),
+                        schema: Some("schema".to_string()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: Some(2),
+                        start_block_height: Some(100),
+                    },
+                )]),
+            )]);
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_list().returning(|| {
+                Ok(vec![runner::ExecutorInfo {
+                    executor_id: "executor_id".to_string(),
+                    account_id: "morgs.near".to_string(),
+                    function_name: "test".to_string(),
+                    status: "running".to_string(),
+                    version: 2,
+                }])
+            });
+            executors_handler.expect_stop().never();
+
+            executors_handler.expect_start().never();
 
             synchronise_executors(&indexer_registry, &mut executors_handler)
                 .await
