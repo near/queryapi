@@ -14,13 +14,13 @@ service Runner {
 
 // Start Executor Request 
 message StartExecutorRequest {
-    string redis_stream = 2;
-    string account_id = 3;
-    string function_name = 4;
-    string code = 5;
-    string schema = 6;
+    string redis_stream = 1;
+    string account_id = 2;
+    string function_name = 3;
+    string code = 4;
+    string schema = 5;
     // Block height corresponding to the created/updated height of the indexer
-    uint64 version = 7;
+    uint64 version = 6;
 }
 
 // Start Executor Response 
