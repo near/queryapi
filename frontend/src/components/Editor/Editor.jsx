@@ -22,7 +22,9 @@ import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
-import { validateSQLSchema } from "@/utils/validators";
+import { validateJSCode, validateSQLSchema } from "@/utils/validators";
+import { useDebouncedCallback } from "use-debounce";
+import { SCHEMA_GENERAL_ERROR, CODE_GENERAL_ERROR, CODE_FORMATTING_ERROR, SCHEMA_FORMATTING_ERROR } from '../../constants/Strings';
 
 const BLOCKHEIGHT_LIMIT = 3600;
 
@@ -67,6 +69,7 @@ const Editor = ({
   const [diffView, setDiffView] = useState(false);
   const [blockView, setBlockView] = useState(false);
 
+
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
 
   const { height, selectedTab, currentUserAccountId } = useInitialPayload();
@@ -81,15 +84,55 @@ const Editor = ({
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
   const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef(null);
+  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
+    const { error: schemaError } = validateSQLSchema(_schema);
+    if (!schemaError) {
+      setError();
+    }
+  }, 500);
+
+  const debouncedValidateCode = useDebouncedCallback((_code) => {
+    const { error: codeError } = validateJSCode(_code);
+    if (!codeError) {
+      setError();
+    }
+  }, 500);
 
   useEffect(() => {
-    if (!indexerDetails.code || !indexerDetails.schema) return
-    const { formattedCode, formattedSchema } = reformatAll(indexerDetails.code, indexerDetails.schema)
-    setOriginalSQLCode(formattedSchema)
-    setOriginalIndexingCode(formattedCode)
-    setIndexingCode(formattedCode)
-    setSchema(formattedSchema)
-  }, [indexerDetails.code, indexerDetails.schema]);
+    if (indexerDetails.code != null) {
+      const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code)
+
+      if (codeError) {
+        setError(CODE_FORMATTING_ERROR)
+      }
+
+      setOriginalIndexingCode(formattedCode)
+      setIndexingCode(formattedCode)
+    }
+
+  }, [indexerDetails.code]);
+
+  useEffect(() => {
+    if (indexerDetails.schema != null) {
+      const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
+      if (schemaError) {
+        setError(SCHEMA_GENERAL_ERROR)
+      }
+
+      setSchema(formattedSchema)
+    }
+  }, [indexerDetails.schema])
+
+  useEffect(() => {
+
+    const { error: schemaError } = validateSQLSchema(schema);
+    const { error: codeError } = validateJSCode(indexingCode);
+
+    if (schemaError) setError(SCHEMA_GENERAL_ERROR)
+    else if (codeError) setError(CODE_GENERAL_ERROR)
+    else setError();
+
+  }, [fileName])
 
   useEffect(() => {
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
@@ -110,23 +153,6 @@ const Editor = ({
     localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
     attachTypesToMonaco();
   }, [schemaTypes, monacoMount]);
-
-  const requestLatestBlockHeight = async () => {
-    const blockHeight = getLatestBlockHeight()
-    return blockHeight
-  }
-
-  useEffect(() => {
-    if (fileName === "indexingLogic.js") {
-      try {
-        setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
-        setError(undefined);
-      } catch (error) {
-        console.error("Error generating types for saved schema.\n", error.message);
-        setError("There was an error with your schema. Check the console for more details.");
-      }
-    }
-  }, [fileName]);
 
   useEffect(() => {
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
@@ -149,7 +175,6 @@ const Editor = ({
     }
   }
 
-
   const forkIndexer = async (indexerName) => {
     let code = indexingCode;
     setAccountId(currentUserAccountId)
@@ -163,10 +188,10 @@ const Editor = ({
   }
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    const { data: formattedSchema, error } = await validateSQLSchema(schema);
+    const { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
 
-    if (error) {
-      setError("There was an error in your schema, please check the console for more details");
+    if (schemaError) {
+      setError(SCHEMA_GENERAL_ERROR);
       return;
     }
 
@@ -217,7 +242,9 @@ const Editor = ({
           setSchema(unformatted_schema);
         }
 
-        reformatAll(unformatted_wrapped_indexing_code, unformatted_schema);
+        const { formattedCode, formattedSchema } = reformatAll(unformatted_wrapped_indexing_code, unformatted_schema);
+        setIndexingCode(formattedCode);
+        setSchema(formattedSchema);
       } catch (formattingError) {
         console.log(formattingError);
       }
@@ -232,52 +259,36 @@ const Editor = ({
   };
 
   const reformatAll = (indexingCode, schema) => {
-    let formattedCode = indexingCode
-    let formattedSql = schema;
-    try {
-      formattedCode = formatIndexingCode(indexingCode);
-      setError(undefined);
-    } catch (error) {
-      console.error("error", error)
-      setError("Oh snap! We could not format your code. Make sure it is proper Javascript code.");
+    let { data: formattedCode, error: codeError } = validateJSCode(indexingCode);
+    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
+
+    if (codeError) {
+      formattedCode = indexingCode
+      setError(CODE_FORMATTING_ERROR);
+    } else if (schemaError) {
+      formattedSchema = schema;
+      setError(SCHEMA_GENERAL_ERROR)
+    } else {
+      setError()
     }
-    try {
-      formattedSql = formatSQL(schema);
-      setError(undefined);
-    } catch (error) {
-      console.error(error);
-      setError("Could not format your SQL schema. Make sure it is proper SQL DDL");
-    }
-    setIndexingCode(formattedCode);
-    setSchema(formattedSql);
-    return { formattedCode, formattedSql }
+
+    return { formattedCode, formattedSchema }
   };
 
   function handleCodeGen() {
     try {
       setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
-      setError(undefined);
-    } catch (error) {
-      console.error("Error generating types for saved schema.\n", error);
-      setError("Oh snap! We could not generate types for your SQL schema. Make sure it is proper SQL DDL.");
+    } catch (_error) {
+      console.error("Error generating types for saved schema.\n", _error);
+      setError(SCHEMA_FORMATTING_ERROR);
     }
   }
 
-  async function handleFormating() {
-    await reformatAll(indexingCode, schema);
-  }
-
-  function handleEditorMount(editor) {
-    const modifiedEditor = editor.getModifiedEditor();
-    modifiedEditor.onDidChangeModelContent((_) => {
-      if (fileName == "indexingLogic.js") {
-        setIndexingCode(modifiedEditor.getValue());
-      }
-      if (fileName == "schema.sql") {
-        setSchema(modifiedEditor.getValue());
-      }
-    });
+  function handleFormating() {
+    const { formattedCode, formattedSchema } = reformatAll(indexingCode, schema);
+    setIndexingCode(formattedCode);
+    setSchema(formattedSchema);
   }
 
   function handleEditorWillMount(monaco) {
@@ -306,10 +317,20 @@ const Editor = ({
         await indexerRunner.start(startingBlockHeight, indexingCode, schema, schemaName, option)
         break
       case "latest":
-        const latestHeight = await requestLatestBlockHeight()
+        const latestHeight = await getLatestBlockHeight();
         if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, schema, schemaName, option)
     }
     setIsExecutingIndexerFunction(() => false)
+  }
+
+  function handleOnChangeSchema(_schema) {
+    setSchema(_schema);
+    debouncedValidateSQLSchema(_schema);
+  }
+
+  function handleOnChangeCode(_code) {
+    setIndexingCode(_code);
+    debouncedValidateCode(_code);
   }
 
   return (
@@ -364,7 +385,7 @@ const Editor = ({
           }}
         >
           {error && (
-            <Alert dismissible="true" onClose={() => setError(undefined)} className="px-3 pt-3" variant="danger">
+            <Alert dismissible="true" onClose={() => setError()} className="px-3 pt-3" variant="danger">
               {error}
             </Alert>
           )}
@@ -390,15 +411,14 @@ const Editor = ({
             indexingCode={indexingCode}
             blockView={blockView}
             diffView={diffView}
-            setIndexingCode={setIndexingCode}
-            setSchema={setSchema}
+            onChangeCode={handleOnChangeCode}
+            onChangeSchema={handleOnChangeSchema}
             block_details={block_details}
             originalSQLCode={originalSQLCode}
             originalIndexingCode={originalIndexingCode}
             schema={schema}
             isCreateNewIndexer={isCreateNewIndexer}
             handleEditorWillMount={handleEditorWillMount}
-            handleEditorMount={handleEditorMount}
           />
         </div>
       </>}
