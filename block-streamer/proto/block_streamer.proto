@@ -24,10 +24,12 @@ message StartStreamRequest {
     string function_name = 3;
     // Block height corresponding to the created/updated height of the indexer
     uint64 version = 4;
+    // Key of Redis Stream to publish blocks to
+    string redis_stream = 5;
     // Filter rule to apply to incoming blocks
     oneof rule {
-        ActionAnyRule action_any_rule = 5;
-        ActionFunctionCallRule action_function_call_rule = 6;
+        ActionAnyRule action_any_rule = 6;
+        ActionFunctionCallRule action_function_call_rule = 7;
     }
 }
 

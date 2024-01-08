@@ -113,6 +113,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             indexer_config.clone(),
             self.chain_id.clone(),
             request.version,
+            request.redis_stream,
         );
 
         block_stream
@@ -240,6 +241,7 @@ mod tests {
                 account_id: "morgs.near".to_string(),
                 function_name: "test".to_string(),
                 version: 0,
+                redis_stream: "stream".to_string(),
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
                     status: 1,
@@ -273,6 +275,7 @@ mod tests {
                 account_id: "morgs.near".to_string(),
                 function_name: "test".to_string(),
                 version: 0,
+                redis_stream: "stream".to_string(),
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
                     status: 1,

@@ -61,6 +61,7 @@ impl BlockStreamsHandlerImpl {
         account_id: String,
         function_name: String,
         version: u64,
+        redis_stream: String,
         rule: registry_types::MatchingRule,
     ) -> anyhow::Result<()> {
         let rule = match &rule {
@@ -93,6 +94,7 @@ impl BlockStreamsHandlerImpl {
             account_id,
             function_name,
             version,
+            redis_stream,
             rule: Some(rule),
         });
 

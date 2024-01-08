@@ -20,15 +20,22 @@ pub struct BlockStream {
     pub indexer_config: IndexerConfig,
     pub chain_id: ChainId,
     pub version: u64,
+    pub redis_stream: String,
 }
 
 impl BlockStream {
-    pub fn new(indexer_config: IndexerConfig, chain_id: ChainId, version: u64) -> Self {
+    pub fn new(
+        indexer_config: IndexerConfig,
+        chain_id: ChainId,
+        version: u64,
+        redis_stream: String,
+    ) -> Self {
         Self {
             task: None,
             indexer_config,
             chain_id,
             version,
+            redis_stream,
         }
     }
 
@@ -48,6 +55,7 @@ impl BlockStream {
 
         let indexer_config = self.indexer_config.clone();
         let chain_id = self.chain_id.clone();
+        let redis_stream = self.redis_stream.clone();
 
         let handle = tokio::spawn(async move {
             tokio::select! {
@@ -67,7 +75,8 @@ impl BlockStream {
                     delta_lake_client,
                     lake_s3_config,
                     &chain_id,
-                    LAKE_PREFETCH_SIZE
+                    LAKE_PREFETCH_SIZE,
+                    redis_stream
                 ) => {
                     result.map_err(|err| {
                         tracing::error!(
@@ -112,6 +121,7 @@ pub(crate) async fn start_block_stream(
     lake_s3_config: aws_sdk_s3::Config,
     chain_id: &ChainId,
     lake_prefetch_size: usize,
+    redis_stream: String,
 ) -> anyhow::Result<()> {
     tracing::info!(
         account_id = indexer.account_id.as_str(),
@@ -161,10 +171,7 @@ pub(crate) async fn start_block_stream(
     for block in &blocks_from_index {
         let block = block.to_owned();
         redis_client
-            .xadd(
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                &[("block_height".to_string(), block)],
-            )
+            .xadd(redis_stream.clone(), &[("block_height".to_string(), block)])
             .await
             .context("Failed to add block to Redis Stream")?;
         redis_client
@@ -304,6 +311,7 @@ mod tests {
             lake_s3_config,
             &ChainId::Mainnet,
             1,
+            "stream key".to_string(),
         )
         .await
         .unwrap();
