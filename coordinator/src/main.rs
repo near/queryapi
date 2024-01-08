@@ -114,14 +114,14 @@ async fn synchronise_block_streams(
                 indexer_config.start_block_height
             {
                 start_block_height
-            } else if let Ok(last_indexed_block) = redis_client
+            } else if let Ok(last_published_block) = redis_client
                 .get::<String, u64>(format!(
-                    "{}:last_indexed_block",
+                    "{}:last_published_block",
                     indexer_config.get_full_name()
                 ))
                 .await
             {
-                last_indexed_block
+                last_published_block
             } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height {
                 updated_at_block_height
             } else {

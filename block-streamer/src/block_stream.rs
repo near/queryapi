@@ -176,11 +176,11 @@ pub(crate) async fn start_block_stream(
             .context("Failed to add block to Redis Stream")?;
         redis_client
             .set(
-                format!("{}:last_indexed_block", indexer.get_full_name()),
+                format!("{}:last_published_block", indexer.get_full_name()),
                 block,
             )
             .await
-            .context("Failed to set last_indexed_block")?;
+            .context("Failed to set last_published_block")?;
     }
 
     let mut last_indexed_block =
@@ -215,11 +215,11 @@ pub(crate) async fn start_block_stream(
 
         redis_client
             .set(
-                format!("{}:last_indexed_block", indexer.get_full_name()),
+                format!("{}:last_published_block", indexer.get_full_name()),
                 last_indexed_block,
             )
             .await
-            .context("Failed to set last_indexed_block")?;
+            .context("Failed to set last_published_block")?;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.indexer_rule,
