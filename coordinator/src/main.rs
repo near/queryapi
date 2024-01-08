@@ -17,10 +17,20 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let registry = Registry::connect("https://rpc.mainnet.near.org");
-    let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
-    let mut block_stream_handler = BlockStreamsHandler::connect().await?;
-    let mut executors_handler = ExecutorsHandler::connect().await?;
+    let rpc_url = std::env::var("RPC_URL").expect("RPC_URL not set");
+    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL not set");
+    let block_streamer_url =
+        std::env::var("BLOCK_STREAMER_URL").expect("BLOCK_STREAMER_URL not set");
+    let runner_url = std::env::var("RUNNER_URL").expect("RUNNER_URL not set");
+    let registry_contract_id = std::env::var("REGISTRY_CONTRACT_ID")
+        .expect("REGISTRY_CONTRACT_ID not set")
+        .parse()
+        .expect("Invalid registry contract ID");
+
+    let registry = Registry::connect(&rpc_url, registry_contract_id);
+    let redis_client = RedisClient::connect(&redis_url).await?;
+    let mut block_stream_handler = BlockStreamsHandler::connect(block_streamer_url).await?;
+    let mut executors_handler = ExecutorsHandler::connect(runner_url).await?;
 
     loop {
         let indexer_registry = registry.fetch().await?;

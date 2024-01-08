@@ -19,8 +19,8 @@ pub struct BlockStreamsHandlerImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl BlockStreamsHandlerImpl {
-    pub async fn connect() -> anyhow::Result<Self> {
-        let client = BlockStreamerClient::connect("http://[::1]:10000")
+    pub async fn connect(block_streamer_url: String) -> anyhow::Result<Self> {
+        let client = BlockStreamerClient::connect(block_streamer_url)
             .await
             .context("Unable to connect to Block Streamer")?;
 

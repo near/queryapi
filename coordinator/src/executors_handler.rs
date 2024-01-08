@@ -16,8 +16,8 @@ pub struct ExecutorsHandlerImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl ExecutorsHandlerImpl {
-    pub async fn connect() -> anyhow::Result<Self> {
-        let client = RunnerClient::connect("http://localhost:50007")
+    pub async fn connect(runner_url: String) -> anyhow::Result<Self> {
+        let client = RunnerClient::connect(runner_url)
             .await
             .context("Unable to connect to Runner")?;
 
