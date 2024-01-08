@@ -209,7 +209,7 @@ const Editor = ({
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
       return;
     } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
-      showModal("There was an error in your schema when generating types from it. The contexDB object won't be generated. Do you want to proceed to register the Indexer anyway?", {
+      showModal(, {
         indexerName,
         code: innerCode,
         schema: validatedSchema,
