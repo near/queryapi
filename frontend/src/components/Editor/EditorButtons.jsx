@@ -24,7 +24,7 @@ import {
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import { TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
+import { SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
 const EditorButtons = ({
   handleFormating,
@@ -180,7 +180,7 @@ const EditorButtons = ({
                     <Button
                       variant="primary"
                       className="px-3"
-                      disabled={!!error && error.type !== TYPE_GENERATION_ERROR_TYPE}
+                      disabled={!!error && error !== SCHEMA_TYPE_GENERATION_ERROR_MESSAGE}
                       onClick={() => setShowPublishModal(true)}
                     >
                       Publish
