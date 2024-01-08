@@ -24,7 +24,7 @@ import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../../constants/Strings';
+import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR } from '../../constants/Strings';
 import { InfoModal } from '@/core/InfoModal';
 import { useModal } from "@/contexts/ModalContext";
 
@@ -209,7 +209,7 @@ const Editor = ({
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
       return;
     } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
-      showModal(, {
+      showModal(INDEXER_REGISTER_TYPE_GENERATION_ERROR, {
         indexerName,
         code: innerCode,
         schema: validatedSchema,
