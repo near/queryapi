@@ -84,14 +84,18 @@ const Editor = ({
   const disposableRef = useRef(null);
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
     const { error: schemaError } = validateSQLSchema(_schema);
-    if (!schemaError) {
+    if (schemaError?.type === FORMATTING_ERROR_TYPE) {
+      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+    } else {
       setError();
     }
   }, 500);
 
   const debouncedValidateCode = useDebouncedCallback((_code) => {
     const { error: codeError } = validateJSCode(_code);
-    if (!codeError) {
+    if (codeError) {
+      setError(CODE_FORMATTING_ERROR_MESSAGE)
+    } else {
       setError();
     }
   }, 500);
@@ -382,6 +386,7 @@ const Editor = ({
           <EditorButtons
             handleFormating={handleFormating}
             handleCodeGen={handleCodeGen}
+            error={error}
             executeIndexerFunction={executeIndexerFunction}
             currentUserAccountId={currentUserAccountId}
             getActionButtonText={getActionButtonText}
