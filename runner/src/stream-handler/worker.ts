@@ -88,8 +88,6 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 
     for (const streamMessage of messages) {
       const { id, message } = streamMessage;
-      const mainSpan = tracer.createChildId();
-      const mainSpan = tracer.startSpan('main_task');
       workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
     }
 
@@ -110,19 +108,23 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         await sleep(100);
         continue;
       }
+      const mainTrace = tracer.createRootId();
       const startTime = performance.now();
       // TODO: Remove redis storage call after full V2 migration
-      const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
-      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-      const functions = {
-        [indexerName]: {
-          account_id: indexerConfig.account_id,
-          function_name: indexerConfig.function_name,
-          code: indexerConfig.code,
-          schema: indexerConfig.schema,
-          provisioned: false,
-        },
-      };
+      const functions = await tracer.letId(tracer.createChildId(mainTrace), async () => {
+        const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
+        indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
+        return {
+          [indexerName]: {
+            account_id: indexerConfig.account_id,
+            function_name: indexerConfig.function_name,
+            code: indexerConfig.code,
+            schema: indexerConfig.schema,
+            provisioned: false,
+          },
+        };
+      });
+
       const blockStartTime = performance.now();
       const queueMessage = await workerContext.queue.at(0);
       if (queueMessage === undefined) {
