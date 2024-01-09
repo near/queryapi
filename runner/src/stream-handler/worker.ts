@@ -7,7 +7,7 @@ import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { type IndexerConfig } from './stream-handler';
-import { Tracer, BatchRecorder } from 'zipkin';
+import { Tracer, BatchRecorder, jsonEncoder, type Recorder } from 'zipkin';
 import { HttpLogger } from 'zipkin-transport-http';
 import CLSContext from 'zipkin-context-cls';
 
@@ -15,13 +15,37 @@ if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
 
+const zipkinBaseUrl = 'http://localhost:9411';
+
+const httpLogger = new HttpLogger({
+  endpoint: `${zipkinBaseUrl}/api/v2/spans`,
+  jsonEncoder: jsonEncoder.JSON_V2
+});
+
+function debugRecorder (serviceName: string): Recorder {
+  const logger = {
+    logSpan: (span: any) => {
+      const json = jsonEncoder.JSON_V2.encode(span);
+      console.log(`${serviceName} reporting: ${json}`);
+      httpLogger.logSpan(span);
+    }
+  };
+
+  const batchRecorder = new BatchRecorder({ logger });
+
+  return {
+    record: (rec: any) => {
+      const { spanId, traceId } = rec.traceId;
+      console.log(`${serviceName} recording: ${traceId as string}/${spanId as string} ${rec.annotation as string}`);
+      batchRecorder.record(rec);
+    }
+  };
+}
+
+// Setup the tracer
 const tracer = new Tracer({
   ctxImpl: new CLSContext('zipkin'),
-  recorder: new BatchRecorder({
-    logger: new HttpLogger({
-      endpoint: 'http://localhost:9411/api/v2/spans'
-    })
-  }),
+  recorder: debugRecorder('runner'),
   localServiceName: 'runner' // name of this application
 });
 
@@ -108,10 +132,12 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         await sleep(100);
         continue;
       }
-      const mainTrace = tracer.createRootId();
+      // const mainTrace = tracer.createRootId();
       const startTime = performance.now();
       // TODO: Remove redis storage call after full V2 migration
-      const functions = await tracer.letId(tracer.createChildId(mainTrace), async () => {
+      // const childTrace = tracer.createChildId(mainTrace);
+      const functions = await tracer.local('config-fetch', async () => {
+        // console.log('TRACING', childTrace.traceId);
         const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
         indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
         return {
