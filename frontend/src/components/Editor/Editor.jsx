@@ -291,8 +291,7 @@ const Editor = ({
     if (codeError) {
       formattedCode = indexingCode
       setError(CODE_FORMATTING_ERROR_MESSAGE);
-    }
-    else if (schemaError?.type === FORMATTING_ERROR_TYPE) {
+    } else if (schemaError?.type === FORMATTING_ERROR_TYPE) {
       formattedSchema = schema;
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
     } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {

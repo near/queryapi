@@ -23,10 +23,7 @@
   "include": [
     "next-env.d.ts",
     "**/*.ts",
-    "**/*.tsx",
-    "src/components/Editor/Editor.jsx",
-    "src/pages/query-api-editor/editor.js",
-    "src/components/CreateNewIndexer/CreateNewIndexer.js"
-, "src/core/InfoModal.jsx", "src/pages/_app.jsx", "src/pages/_document.jsx", "src/pages/index.jsx"  ],
+    "**/*.tsx"
+  ],
   "exclude": ["node_modules"]
 }
