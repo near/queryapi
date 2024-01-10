@@ -48,14 +48,14 @@ fn build_indexer_function(
     }
 }
 
-pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
+pub(crate) fn build_registry_from_json(
+    raw_registry: HashMap<String, HashMap<String, Value>>,
+) -> IndexerRegistry {
     let mut registry: IndexerRegistry = HashMap::new();
-    let raw_registry = raw_registry.as_object().unwrap();
-    let raw_registry = raw_registry["All"].as_object().unwrap();
 
     for (account, functions) in raw_registry {
         let mut fns = HashMap::new();
-        for (function_name, function_config) in functions.as_object().unwrap() {
+        for (function_name, function_config) in functions {
             let indexer_rule = match serde_json::from_value(function_config["filter"].clone()) {
                 Ok(indexer_rule) => indexer_rule,
                 Err(e) => {
@@ -70,7 +70,7 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
             };
 
             let idx_fn = match build_indexer_function(
-                function_config,
+                &function_config,
                 function_name.to_string(),
                 account.to_string().parse().unwrap(),
                 &indexer_rule,
@@ -350,20 +350,56 @@ fn build_registry_indexer_rule(
 pub async fn read_indexer_functions_from_registry(
     rpc_client: &JsonRpcClient,
     registry_contract_id: &str,
-) -> Value {
-    match read_only_call(
-        rpc_client,
-        registry_contract_id,
-        "list_indexer_functions",
-        FunctionArgs::from(json!({}).to_string().into_bytes()),
-    )
-    .await
-    {
-        Ok(functions) => functions,
-        Err(err) => {
-            panic!("Unable to read indexer functions from registry: {:?}", err);
+) -> HashMap<String, HashMap<String, Value>> {
+    let mut offset = 0;
+    let limit = 10;
+    let mut results: HashMap<String, HashMap<String, Value>> = HashMap::new();
+
+    loop {
+        let args = FunctionArgs::from(
+            json!({
+                "offset": offset,
+                "limit": limit,
+            })
+            .to_string()
+            .into_bytes(),
+        );
+
+        let functions = match read_only_call(
+            rpc_client,
+            registry_contract_id,
+            "list_indexer_functions",
+            args,
+        )
+        .await
+        {
+            Ok(functions) => functions,
+            Err(err) => {
+                panic!("Unable to read indexer functions from registry: {:?}", err);
+            }
+        };
+
+        let functions = functions.as_object();
+        if functions.is_none() {
+            break;
         }
+        if functions.unwrap().is_empty() {
+            break;
+        }
+
+        for (account_id, indexer_functions) in functions.unwrap().iter() {
+            if !results.contains_key(account_id) {
+                results.insert(account_id.clone(), HashMap::new());
+            }
+            let account_functions = results.get_mut(account_id).unwrap();
+            for (function_name, function_config) in indexer_functions.as_object().unwrap() {
+                account_functions.insert(function_name.clone(), function_config.clone());
+            }
+        }
+
+        offset += limit;
     }
+    results
 }
 
 async fn read_only_call(

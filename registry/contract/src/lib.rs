@@ -4,6 +4,7 @@ use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash};
 
+use std::collections::HashMap;
 use registry_types::{
     AccountOrAllIndexers, IndexerConfig, IndexerRule, IndexerRuleKind, MatchingRule, Status,
 };
@@ -393,7 +394,9 @@ impl Contract {
         }
     }
 
-    pub fn list_indexer_functions(&self, account_id: Option<String>) -> AccountOrAllIndexers {
+    pub fn list_indexer_functions(&self, account_id: Option<String>, limit: Option<u8>, offset: Option<u16>) -> AccountOrAllIndexers {
+        let limit = limit.unwrap_or(50);
+        let offset = offset.unwrap_or(0);
         match account_id {
             Some(account_id) => {
                 let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
@@ -409,26 +412,48 @@ impl Contract {
                 AccountOrAllIndexers::Account(
                     account_indexers
                         .iter()
+                        .skip(offset as usize)
+                        .take(limit as usize)
                         .map(|(function_name, config)| (function_name.clone(), config.clone()))
                         .collect(),
                 )
             }
-            None => AccountOrAllIndexers::All(
-                self.registry
+            None => {
+                let flat_registry = self.registry.iter().flat_map(|(account_id, account_indexers)| {
+                    account_indexers.iter().map(move |(function_name, _)| (account_id.clone(), function_name.clone()))
+                }).collect::<Vec<(AccountId, FunctionName)>>();
+
+                let results = &mut HashMap::new();
+                flat_registry
                     .iter()
-                    .map(|(account_id, account_indexers)| {
-                        (
-                            account_id.clone(),
-                            account_indexers
-                                .iter()
-                                .map(|(function_name, config)| {
-                                    (function_name.clone(), config.clone())
-                                })
-                                .collect(),
-                        )
-                    })
-                    .collect(),
-            ),
+                    .skip(offset as usize)
+                    .take(limit as usize)
+                    .for_each(|(account_id, function_name)| {
+                        let account_indexers = self.registry.get(&account_id.clone()).unwrap_or_else(|| {
+                            env::panic_str(
+                                format!("Account {} has no registered functions", account_id).as_str(),
+                            )
+                        });
+                        let indexer_config = account_indexers.get(&function_name.clone()).unwrap_or_else(|| {
+                            env::panic_str(
+                                format!(
+                                    "Function {} is not registered under account {}",
+                                    &function_name, account_id
+                                )
+                                .as_str(),
+                            )
+                        });
+                        if !results.contains_key(account_id) {
+                            results.insert(account_id.clone(), HashMap::new());
+                        }
+                        results.get_mut(&account_id.clone()).unwrap().insert(function_name.clone(), indexer_config.clone());
+                    });
+
+
+                AccountOrAllIndexers::All(
+                    results.to_owned()
+                )
+            }
         }
     }
 }
@@ -1492,7 +1517,7 @@ mod tests {
         };
 
         assert_eq!(
-            contract.list_indexer_functions(None),
+            contract.list_indexer_functions(None, None, None),
             AccountOrAllIndexers::All(HashMap::from([(
                 "bob.near".parse().unwrap(),
                 HashMap::from([("test".to_string(), config)])
@@ -1523,8 +1548,73 @@ mod tests {
         };
 
         assert_eq!(
-            contract.list_indexer_functions(Some("bob.near".to_string())),
+            contract.list_indexer_functions(Some("bob.near".to_string()), None, None),
             AccountOrAllIndexers::Account(HashMap::from([("test".to_string(), config)]))
+        );
+    }
+
+    #[test]
+    fn list_indexer_functions_with_limit_and_offset() {
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: Some(43434343),
+            schema: None,
+            filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
+        };
+        let account_id = "bob.near".parse::<AccountId>().unwrap();
+        let account_id2 = "jane.near".parse::<AccountId>().unwrap();
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        let mut account_indexers2 = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id2.as_bytes()),
+        ));
+        account_indexers.insert("test".to_string(), config.clone());
+        account_indexers2.insert("best".to_string(), config.clone());
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
+        registry.insert(account_id2, account_indexers2);
+        let contract = Contract {
+            registry,
+            account_roles: vec![],
+        };
+
+        assert_eq!(
+            contract.list_indexer_functions(None, Some(10), Some(1)),
+            AccountOrAllIndexers::All(HashMap::from([(
+                "jane.near".parse().unwrap(),
+                HashMap::from([("best".to_string(), config)])
+            )]))
+        );
+    }
+
+    #[test]
+    fn list_indexer_functions_with_limit_and_offset_out_of_bounds() {
+        let config = IndexerConfig {
+            code: "var x= 1;".to_string(),
+            start_block_height: Some(43434343),
+            schema: None,
+            filter: Contract::near_social_indexer_rule(),
+            updated_at_block_height: None,
+            created_at_block_height: 0,
+        };
+        let account_id = "bob.near".parse::<AccountId>().unwrap();
+        let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
+            env::sha256_array(account_id.as_bytes()),
+        ));
+        account_indexers.insert("test".to_string(), config.clone());
+        let mut registry = IndexersByAccount::new(StorageKeys::Registry);
+        registry.insert(account_id, account_indexers);
+        let contract = Contract {
+            registry,
+            account_roles: vec![],
+        };
+
+        assert_eq!(
+            contract.list_indexer_functions(None, Some(1), Some(100)),
+            AccountOrAllIndexers::All(HashMap::from([]))
         );
     }
 
@@ -1536,7 +1626,7 @@ mod tests {
             account_roles: vec![],
         };
 
-        contract.list_indexer_functions(Some("bob.near".to_string()));
+        contract.list_indexer_functions(Some("bob.near".to_string()), None, None);
     }
 
     #[test]
@@ -1562,7 +1652,7 @@ mod tests {
         };
 
         assert_eq!(
-            contract.list_indexer_functions(Some("alice.near".to_string())),
+            contract.list_indexer_functions(Some("alice.near".to_string()), None, None),
             AccountOrAllIndexers::Account(HashMap::from([("test".to_string(), config)]))
         );
     }
