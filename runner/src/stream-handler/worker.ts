@@ -7,7 +7,7 @@ import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { type IndexerConfig } from './stream-handler';
-import { Tracer, BatchRecorder, jsonEncoder, type Recorder } from 'zipkin';
+import { Tracer, BatchRecorder, jsonEncoder, type Recorder, Annotation } from 'zipkin';
 import { HttpLogger } from 'zipkin-transport-http';
 import CLSContext from 'zipkin-context-cls';
 
@@ -132,27 +132,19 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         await sleep(100);
         continue;
       }
-      // const mainTrace = tracer.createRootId();
       const startTime = performance.now();
       // TODO: Remove redis storage call after full V2 migration
-      // const childTrace = tracer.createChildId(mainTrace);
-      const functions = await tracer.local('config-fetch', async () => {
-        // console.log('TRACING', childTrace.traceId);
-        const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
-        indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-        return {
-          [indexerName]: {
-            account_id: indexerConfig.account_id,
-            function_name: indexerConfig.function_name,
-            code: indexerConfig.code,
-            schema: indexerConfig.schema,
-            provisioned: false,
-          },
-        };
-      });
+
+      const newTrace = tracer.createRootId();
+      tracer.setId(newTrace);
+      tracer.recordServiceName('runner');
+      tracer.recordAnnotation(new Annotation.LocalOperationStart(`Processing block for ${indexerName} ${workerContext.streamType}`));
+      tracer.recordAnnotation(new Annotation.LocalOperationStop());
 
       const blockStartTime = performance.now();
-      const queueMessage = await workerContext.queue.at(0);
+      const queueMessage = await tracer.local('fetch block data', async () => {
+        return await workerContext.queue.at(0);
+      });
       if (queueMessage === undefined) {
         continue;
       }
@@ -165,7 +157,25 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
-      await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+
+      const indexerConfig = await tracer.local('fetch config from redis', async () => {
+        return await (config ?? workerContext.redisClient.getStreamStorage(streamKey));
+      });
+      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
+      const functions = {
+        [indexerName]: {
+          account_id: indexerConfig.account_id,
+          function_name: indexerConfig.function_name,
+          code: indexerConfig.code,
+          schema: indexerConfig.schema,
+          provisioned: false,
+        },
+      };
+
+      await tracer.local('run function', async () => {
+        await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+      });
+
       await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
