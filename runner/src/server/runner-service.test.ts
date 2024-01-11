@@ -32,7 +32,7 @@ describe('Runner gRPC Service', () => {
   });
 
   it('starts a executor with correct settings', () => {
-    const service = getRunnerService(genericStreamHandlerType);
+    const service = getRunnerService(new Map(), genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
 
@@ -43,7 +43,7 @@ describe('Runner gRPC Service', () => {
   });
 
   it('Invalid start executor request with missing redis stream Id parameter', () => {
-    const service = getRunnerService(genericStreamHandlerType);
+    const service = getRunnerService(new Map(), genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest(undefined, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
 
@@ -57,7 +57,7 @@ describe('Runner gRPC Service', () => {
   });
 
   it('Invalid start executor request with missing config parameters', () => {
-    const service = getRunnerService(genericStreamHandlerType);
+    const service = getRunnerService(new Map(), genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     let request = generateRequest(BASIC_REDIS_STREAM, undefined, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
     service.StartExecutor(request, mockCallback);
@@ -93,7 +93,7 @@ describe('Runner gRPC Service', () => {
   });
 
   it('starts a executor twice with correct settings, gets error second time', () => {
-    const service = getRunnerService(genericStreamHandlerType);
+    const service = getRunnerService(new Map(), genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     const startRequest = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
 
@@ -118,7 +118,7 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation(() => {
       return { stop };
     });
-    const service = getRunnerService(streamHandlerType);
+    const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     const requestA = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
 
@@ -145,7 +145,7 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation(() => {
       return { stop };
     });
-    const service = getRunnerService(streamHandlerType);
+    const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     const request = generateRequest('');
 
@@ -165,7 +165,7 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation(() => {
       return { stop };
     });
-    const service = getRunnerService(streamHandlerType);
+    const service = getRunnerService(new Map(), streamHandlerType);
 
     service.StopExecutor({ request: { executorId: 'non-existant' } } as any, (err) => {
       expect(err).toEqual({
@@ -185,7 +185,7 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation(() => {
       return { stop };
     });
-    const service = getRunnerService(streamHandlerType);
+    const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
     const startRequest = generateRequest(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA);
 
@@ -217,7 +217,7 @@ describe('Runner gRPC Service', () => {
         )
       };
     });
-    const service = getRunnerService(streamHandlerType);
+    const service = getRunnerService(new Map(), streamHandlerType);
     const request = generateRequest(BASIC_REDIS_STREAM + '-A', BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
 
     await new Promise((resolve, reject) => {
