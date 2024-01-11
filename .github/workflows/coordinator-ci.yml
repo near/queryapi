@@ -1,13 +1,13 @@
-name: Block Streamer
+name: Coordinator
 
 on:
   push:
     branches: [ main ]
     paths:
-      - "block-streamer/**"
+      - "coordinator/**"
   pull_request:
     paths:
-      - "block-streamer/**"
+      - "coordinator/**"
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,7 +22,7 @@ jobs:
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Check
-      working-directory: ./block-streamer
+      working-directory: ./coordinator
       run: cargo check
 
   test:
@@ -34,7 +34,7 @@ jobs:
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
     - name: Test
-      working-directory: ./block-streamer
+      working-directory: ./coordinator
       run: cargo test
 
 
@@ -55,7 +55,7 @@ jobs:
         profile: minimal
         components: rustfmt
     - name: Check formatting
-      working-directory: ./block-streamer
+      working-directory: ./coordinator
       run: |
         cargo fmt -- --check
 
@@ -76,6 +76,6 @@ jobs:
         profile: minimal
         components: clippy
     - name: Clippy check
-      working-directory: ./block-streamer
+      working-directory: ./coordinator
       run: |
         cargo clippy
