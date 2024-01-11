@@ -19,14 +19,14 @@ async fn main() -> anyhow::Result<()> {
 
     let registry = Registry::connect("https://rpc.mainnet.near.org");
     let redis_client = RedisClient::connect("redis://127.0.0.1").await?;
-    let mut block_stream_handler = BlockStreamsHandler::connect().await?;
+    let mut block_streams_handler = BlockStreamsHandler::connect().await?;
     let mut executors_handler = ExecutorsHandler::connect().await?;
 
     loop {
         let indexer_registry = registry.fetch().await?;
 
         synchronise_executors(&indexer_registry, &mut executors_handler).await?;
-        synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+        synchronise_block_streams(&indexer_registry, &redis_client, &mut block_streams_handler)
             .await?;
     }
 }
@@ -165,7 +165,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn starts_exectuors() {
+        async fn starts_executors() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
