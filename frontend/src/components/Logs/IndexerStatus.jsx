@@ -6,20 +6,12 @@ import {
   OverlayTrigger,
   Tooltip,
 } from "react-bootstrap";
-import { useQuery, gql } from "@apollo/client";
+import { useQuery } from "@apollo/client";
+import { GET_INDEXER_STATUS } from "../../apollo/queries";
 
-const Status = ({ functionName, latestHeight }) => {
-  const GET_STATUS = gql`
-    query GetState($_functionName: String!) {
-      indexer_state(where: { function_name: { _eq: $_functionName } }) {
-        status
-        function_name
-        current_block_height
-        current_historical_block_height
-      }
-    }
-  `;
-  const { loading, error, data } = useQuery(GET_STATUS, {
+const IndexerStatus = ({ functionName, latestHeight }) => {
+
+  const { loading, error, data } = useQuery(GET_INDEXER_STATUS, {
     variables: {
       _functionName: functionName,
     },
@@ -53,10 +45,10 @@ const Status = ({ functionName, latestHeight }) => {
                 placement="bottom"
                 overlay={<Tooltip> Current Block Height of Near is {latestHeight}. Your indexer has a gap of {latestHeight - item.current_block_height} Blocks</Tooltip>}
               >
-              <ListGroup.Item>
-                Current Block Height:{" "}
-                <strong>{item.current_block_height}</strong>
-              </ListGroup.Item>
+                <ListGroup.Item>
+                  Current Block Height:{" "}
+                  <strong>{item.current_block_height}</strong>
+                </ListGroup.Item>
               </OverlayTrigger>
               <ListGroup.Item>
                 Historical Block Height:{" "}
@@ -85,4 +77,4 @@ const Status = ({ functionName, latestHeight }) => {
   );
 };
 
-export default Status;
+export default IndexerStatus;

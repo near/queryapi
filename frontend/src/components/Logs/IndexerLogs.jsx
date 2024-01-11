@@ -4,7 +4,7 @@ import "gridjs/dist/theme/mermaid.css";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
-import Status from "./Status";
+import IndexerStatus from "./IndexerStatus";
 
 const LIMIT = 100;
 
@@ -235,7 +235,7 @@ const IndexerLogsComponent = () => {
           isUserIndexer={indexerDetails.accountId === currentUserAccountId}
           reloadData={reloadData}
         />
-        <Status
+        <IndexerStatus
           functionName={functionName}
           latestHeight={latestHeight}
         />
