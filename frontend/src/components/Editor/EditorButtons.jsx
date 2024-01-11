@@ -24,13 +24,12 @@ import {
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
 const EditorButtons = ({
   handleFormating,
   handleCodeGen,
   executeIndexerFunction,
-  currentUserAccountId,
-  getActionButtonText,
   isExecuting,
   stopExecution,
   heights,
@@ -38,6 +37,7 @@ const EditorButtons = ({
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
+  error
 }) => {
 
   const {
@@ -49,10 +49,7 @@ const EditorButtons = ({
     setShowForkIndexerModal,
     debugMode,
     isCreateNewIndexer,
-    indexerNameField,
-    setIndexerNameField,
     setShowLogsView,
-    showLogsView,
   } = useContext(IndexerDetailsContext);
 
   const removeHeight = (index) => {
@@ -76,11 +73,11 @@ const EditorButtons = ({
                 <Breadcrumb.Item className="flex align-center " href="#">
                   {accountId}
                 </Breadcrumb.Item>
-                  {indexerName && (
-                <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
-                 {indexerName}
-                </Breadcrumb.Item>
-                  )}
+                {indexerName && (
+                  <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
+                    {indexerName}
+                  </Breadcrumb.Item>
+                )}
               </Breadcrumb>
               {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
@@ -117,33 +114,33 @@ const EditorButtons = ({
               >
                 {isUserIndexer && !isCreateNewIndexer && (
                   <>
-                  <OverlayTrigger
-                    placement="bottom"
-                    overlay={<Tooltip>Delete Indexer</Tooltip>}
-                  >
-                    <Button
-                      size="sm"
-                      className="flex align-center"
-                      variant="danger"
-                      onClick={() => handleDeleteIndexer()}
+                    <OverlayTrigger
+                      placement="bottom"
+                      overlay={<Tooltip>Delete Indexer</Tooltip>}
                     >
-                      <TrashFill size={22} />
-                    </Button>
-                  </OverlayTrigger>
-                  <OverlayTrigger
-                  placement="bottom"
-                  overlay={<Tooltip>Fork this Indexer</Tooltip>}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex align-center"
-                    onClick={() => setShowForkIndexerModal(true)}
-                  >
-                    <NodePlus style={{ paddingRight: "2px" }} size={24} />
-                  </Button>
-                </OverlayTrigger>
-                    </>
+                      <Button
+                        size="sm"
+                        className="flex align-center"
+                        variant="danger"
+                        onClick={() => handleDeleteIndexer()}
+                      >
+                        <TrashFill size={22} />
+                      </Button>
+                    </OverlayTrigger>
+                    <OverlayTrigger
+                      placement="bottom"
+                      overlay={<Tooltip>Fork this Indexer</Tooltip>}
+                    >
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex align-center"
+                        onClick={() => setShowForkIndexerModal(true)}
+                      >
+                        <NodePlus style={{ paddingRight: "2px" }} size={24} />
+                      </Button>
+                    </OverlayTrigger>
+                  </>
                 )}
 
                 {!isCreateNewIndexer && (
@@ -183,6 +180,7 @@ const EditorButtons = ({
                     <Button
                       variant="primary"
                       className="px-3"
+                      disabled={!!error && error !== SCHEMA_TYPE_GENERATION_ERROR_MESSAGE}
                       onClick={() => setShowPublishModal(true)}
                     >
                       Publish

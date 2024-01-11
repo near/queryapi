@@ -1,6 +1,8 @@
 import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
 import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
 import { CONTRACT_NAME_REGEX } from '../constants/RegexExp';
+import { ValidationError } from '../classes/ValidationError';
+import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
 export function validateContractId(accountId) {
   return (
@@ -27,16 +29,23 @@ export function validateSQLSchema(schema) {
   if (schema === formatSQL(defaultSchema)) return { data: schema, error: null };
 
   const pgSchemaTypeGen = new PgSchemaTypeGen();
+  let formattedSchema;
 
   try {
-    const formattedSchema = formatSQL(schema);
-    pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
-
-    return { data: formattedSchema, error: null }
+    formattedSchema = formatSQL(schema);
   } catch (error) {
-
     console.error(error.message)
-    return { data: schema, error };
+    return { data: schema, error: new ValidationError(error.message, FORMATTING_ERROR_TYPE) };
+  }
+
+  if (formattedSchema) {
+    try {
+      pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
+      return { data: formattedSchema, error: null }
+    } catch (error) {
+      console.error(error.message)
+      return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE) };
+    }
   }
 };
 
