@@ -72,8 +72,10 @@ async fn synchronise_executors(
         }
     }
 
-    for active_executor in active_executors {
-        executors_handler.stop(active_executor.executor_id).await?;
+    for unregistered_executor in active_executors {
+        executors_handler
+            .stop(unregistered_executor.executor_id)
+            .await?;
     }
 
     Ok(())
@@ -141,9 +143,9 @@ async fn synchronise_block_streams(
         }
     }
 
-    for active_block_stream in active_block_streams {
+    for unregistered_block_stream in active_block_streams {
         block_streams_handler
-            .stop(active_block_stream.stream_id)
+            .stop(unregistered_block_stream.stream_id)
             .await?;
     }
 
