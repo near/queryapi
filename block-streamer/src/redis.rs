@@ -7,10 +7,6 @@ pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
 pub use RedisClientImpl as RedisClient;
 
-pub fn generate_historical_stream_key(prefix: &str) -> String {
-    format!("{}:historical:stream", prefix)
-}
-
 pub struct RedisClientImpl {
     connection: ConnectionManager,
 }
