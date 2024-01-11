@@ -164,7 +164,7 @@ pub(crate) async fn start_block_stream(
     tracing::debug!(
         account_id = indexer.account_id.as_str(),
         function_name = indexer.function_name,
-        "Flushing {} block heights from index files to historical Stream",
+        "Flushing {} block heights from index files to Redis Stream",
         blocks_from_index.len(),
     );
 
