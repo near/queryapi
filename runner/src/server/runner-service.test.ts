@@ -169,7 +169,7 @@ describe('Runner gRPC Service', () => {
 
     service.StopExecutor({ request: { executorId: 'non-existant' } } as any, (err) => {
       expect(err).toEqual({
-        code: grpc.status.INVALID_ARGUMENT,
+        code: grpc.status.NOT_FOUND,
         message: 'Executor non-existant cannot be stopped as it does not exist.'
       });
       expect(stop).toHaveBeenCalledTimes(0);

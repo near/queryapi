@@ -17,7 +17,7 @@ export default function startRunnerServer (executors: Map<string, StreamHandler>
   const credentials = grpc.ServerCredentials;
 
   server.bindAsync(
-    '0.0.0.0:50007', // TODO: Read port from ENV
+    `${process.env.RUNNER_HOST ?? 'undefined'}:${process.env.RUNNER_PORT ?? 'undefined'}`,
     credentials.createInsecure(), // TODO: Use secure credentials with allow for Coordinator
     (err: Error | null, port: number) => {
       if (err) {

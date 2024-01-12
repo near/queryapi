@@ -57,7 +57,7 @@ function incrementId (id: string): string {
 }
 
 async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
-  const HISTORICAL_BATCH_SIZE = 10;
+  const HISTORICAL_BATCH_SIZE = parseInt(process.env.BATCH_SIZE ?? '10');
   let streamMessageStartId = '0';
 
   while (true) {
@@ -96,7 +96,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const startTime = performance.now();
-      // Indexer config will not be updated by Redis storage if it is passed in as workerData
+      // TODO: Remove redis storage call after full V2 migration
       const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
       indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
       const functions = {
@@ -123,7 +123,6 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
       await indexer.runFunctions(block, functions, isHistorical, { provision: true });
-
       await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 

@@ -78,6 +78,8 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
+      console.log('Stopping executor: ', { executorId });
+
       // Handle request
       executors.get(executorId)?.stop()
         .then(() => {
@@ -93,9 +95,17 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
       const response: ExecutorInfo__Output[] = [];
       try {
         executors.forEach((handler, executorId) => {
-          const config = handler.getIndexerConfig();
+          let config = handler.getIndexerConfig();
           if (config === undefined) {
-            throw new Error(`Stream handler ${executorId} has no indexer config.`);
+            // TODO: Throw error instead when V1 is deprecated
+            config = {
+              account_id: '',
+              function_name: '',
+              version: -1, // Ensure Coordinator V2 sees version mismatch
+              code: '',
+              schema: '',
+              status: Status.RUNNING
+            };
           }
           response.push({
             executorId,
