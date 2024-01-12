@@ -29,6 +29,16 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
+      // TODO: Remove toggle after full V2 migration
+      if (process.env.RUNNER_VERSION !== 'V2') {
+        const notEnabledError = {
+          code: grpc.status.FAILED_PRECONDITION,
+          message: 'Runner V2 is not enabled.'
+        };
+        callback(notEnabledError, null);
+        return;
+      }
+
       const { accountId, functionName, code, schema, redisStream, version } = call.request;
       const executorId = hashString(`${accountId}/${functionName}`);
 
@@ -75,6 +85,16 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           message: `Executor ${executorId} cannot be stopped as it does not exist.`
         };
         callback(notFoundError, null);
+        return;
+      }
+
+      // TODO: Remove toggle after full V2 migration
+      if (process.env.RUNNER_VERSION !== 'V2') {
+        const notEnabledError = {
+          code: grpc.status.FAILED_PRECONDITION,
+          message: 'Runner V2 is not enabled.'
+        };
+        callback(notEnabledError, null);
         return;
       }
 
