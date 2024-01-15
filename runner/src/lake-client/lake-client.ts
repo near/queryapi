@@ -15,13 +15,13 @@ export default class LakeClient {
     return blockHeight.toString().padStart(12, '0');
   }
 
-  private async fetchShardsPromises (blockHeight: number, numberOfShards: number): Promise<Array<Promise<any>>> {
+  private fetchShards (blockHeight: number, numberOfShards: number): Array<Promise<any>> {
     return ([...Array(numberOfShards).keys()].map(async (shardId) =>
-      await this.fetchShardPromise(blockHeight, shardId)
+      await this.fetchShard(blockHeight, shardId)
     ));
   }
 
-  private async fetchShardPromise (blockHeight: number, shardId: number): Promise<any> {
+  private async fetchShard (blockHeight: number, shardId: number): Promise<any> {
     const params = {
       Bucket: `near-lake-data-${this.network}`,
       Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
@@ -76,12 +76,9 @@ export default class LakeClient {
       }
     }
 
-    const blockPromise = this.fetchBlockPromise(blockHeight);
-    const shardsPromises = await this.fetchShardsPromises(blockHeight, 4);
+    const block = await this.fetchBlockPromise(blockHeight);
+    const shards = await Promise.all(this.fetchShards(blockHeight, block.chunks.length));
 
-    const results = await Promise.all([blockPromise, ...shardsPromises]);
-    const block = results.shift();
-    const shards = results;
     return Block.fromStreamerMessage({
       block,
       shards,
