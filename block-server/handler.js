@@ -44,7 +44,7 @@ const fetchStreamerMessage = async function(block_height, options) {
     };
 }
 
-const fetchShardsPromises = async function(block_height, number_of_shards, options) {
+const fetchShardsPromises = function(block_height, number_of_shards, options) {
     return ([...Array(number_of_shards).keys()].map((shard_id) =>
         fetchShardPromise(block_height, shard_id, options)));
 }
