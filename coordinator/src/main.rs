@@ -29,21 +29,20 @@ async fn main() -> anyhow::Result<()> {
 
     let registry = Registry::connect(registry_contract_id, &rpc_url);
     let redis_client = RedisClient::connect(&redis_url).await?;
-    let mut block_streams_handler = BlockStreamsHandler::connect(block_streamer_url).await?;
-    let mut executors_handler = ExecutorsHandler::connect(runner_url).await?;
+    let block_streams_handler = BlockStreamsHandler::connect(block_streamer_url).await?;
+    let executors_handler = ExecutorsHandler::connect(runner_url).await?;
 
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        synchronise_executors(&indexer_registry, &mut executors_handler).await?;
-        synchronise_block_streams(&indexer_registry, &redis_client, &mut block_streams_handler)
-            .await?;
+        synchronise_executors(&indexer_registry, &executors_handler).await?;
+        synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler).await?;
     }
 }
 
 async fn synchronise_executors(
     indexer_registry: &IndexerRegistry,
-    executors_handler: &mut ExecutorsHandler,
+    executors_handler: &ExecutorsHandler,
 ) -> anyhow::Result<()> {
     let mut active_executors = executors_handler.list().await?;
 
@@ -94,7 +93,7 @@ async fn synchronise_executors(
 async fn synchronise_block_streams(
     indexer_registry: &IndexerRegistry,
     redis_client: &RedisClient,
-    block_streams_handler: &mut BlockStreamsHandler,
+    block_streams_handler: &BlockStreamsHandler,
 ) -> anyhow::Result<()> {
     let mut active_block_streams = block_streams_handler.list().await?;
 
@@ -217,7 +216,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_executors(&indexer_registry, &mut executors_handler)
+            synchronise_executors(&indexer_registry, &executors_handler)
                 .await
                 .unwrap();
         }
@@ -277,7 +276,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_executors(&indexer_registry, &mut executors_handler)
+            synchronise_executors(&indexer_registry, &executors_handler)
                 .await
                 .unwrap();
         }
@@ -323,7 +322,7 @@ mod tests {
 
             executors_handler.expect_start().never();
 
-            synchronise_executors(&indexer_registry, &mut executors_handler)
+            synchronise_executors(&indexer_registry, &executors_handler)
                 .await
                 .unwrap();
         }
@@ -349,7 +348,7 @@ mod tests {
                 .returning(|_| Ok(()))
                 .once();
 
-            synchronise_executors(&indexer_registry, &mut executors_handler)
+            synchronise_executors(&indexer_registry, &executors_handler)
                 .await
                 .unwrap();
         }
@@ -407,7 +406,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -461,7 +460,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -515,7 +514,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -544,7 +543,7 @@ mod tests {
                 .returning(|_| Ok(()))
                 .once();
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -593,7 +592,7 @@ mod tests {
             block_stream_handler.expect_stop().never();
             block_stream_handler.expect_start().never();
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -659,7 +658,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }

@@ -24,9 +24,10 @@ impl ExecutorsHandlerImpl {
         Ok(Self { client })
     }
 
-    pub async fn list(&mut self) -> anyhow::Result<Vec<ExecutorInfo>> {
+    pub async fn list(&self) -> anyhow::Result<Vec<ExecutorInfo>> {
         let response = self
             .client
+            .clone()
             .list_executors(Request::new(ListExecutorsRequest {}))
             .await?;
 
@@ -34,7 +35,7 @@ impl ExecutorsHandlerImpl {
     }
 
     pub async fn start(
-        &mut self,
+        &self,
         account_id: String,
         function_name: String,
         code: String,
@@ -53,17 +54,17 @@ impl ExecutorsHandlerImpl {
 
         tracing::debug!("Sending start executor request: {:#?}", request);
 
-        self.client.start_executor(request).await?;
+        self.client.clone().start_executor(request).await?;
 
         Ok(())
     }
 
-    pub async fn stop(&mut self, executor_id: String) -> anyhow::Result<()> {
+    pub async fn stop(&self, executor_id: String) -> anyhow::Result<()> {
         let request = Request::new(StopExecutorRequest { executor_id });
 
         tracing::debug!("Sending stop executor request: {:#?}", request);
 
-        self.client.stop_executor(request).await?;
+        self.client.clone().stop_executor(request).await?;
 
         Ok(())
     }

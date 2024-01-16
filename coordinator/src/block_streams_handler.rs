@@ -27,21 +27,22 @@ impl BlockStreamsHandlerImpl {
         Ok(Self { client })
     }
 
-    pub async fn list(&mut self) -> anyhow::Result<Vec<StreamInfo>> {
+    pub async fn list(&self) -> anyhow::Result<Vec<StreamInfo>> {
         let response = self
             .client
+            .clone()
             .list_streams(Request::new(ListStreamsRequest {}))
             .await?;
 
         Ok(response.into_inner().streams)
     }
 
-    pub async fn stop(&mut self, stream_id: String) -> anyhow::Result<()> {
+    pub async fn stop(&self, stream_id: String) -> anyhow::Result<()> {
         let request = Request::new(StopStreamRequest { stream_id });
 
         tracing::debug!("Sending stop stream request: {:#?}", request);
 
-        let _ = self.client.stop_stream(request).await?;
+        let _ = self.client.clone().stop_stream(request).await?;
 
         Ok(())
     }
@@ -56,7 +57,7 @@ impl BlockStreamsHandlerImpl {
     }
 
     pub async fn start(
-        &mut self,
+        &self,
         start_block_height: u64,
         account_id: String,
         function_name: String,
@@ -100,7 +101,7 @@ impl BlockStreamsHandlerImpl {
 
         tracing::debug!("Sending start stream request: {:#?}", request);
 
-        let _ = self.client.start_stream(request).await?;
+        let _ = self.client.clone().start_stream(request).await?;
 
         Ok(())
     }
