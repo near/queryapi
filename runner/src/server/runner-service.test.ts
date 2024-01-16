@@ -213,9 +213,12 @@ describe('Runner gRPC Service', () => {
     const streamHandlerType = jest.fn().mockImplementation((_, indexerConfig) => {
       return {
         stop,
-        getIndexerConfig: jest.fn().mockReturnValue(
-          { account_id: indexerConfig.account_id, function_name: indexerConfig.function_name, status: indexerConfig.status, version: indexerConfig.version }
-        )
+        indexerConfig: {
+          account_id: indexerConfig.account_id,
+          function_name: indexerConfig.function_name,
+          status: indexerConfig.status,
+          version: indexerConfig.version
+        }
       };
     });
     const service = getRunnerService(new Map(), streamHandlerType);

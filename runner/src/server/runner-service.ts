@@ -29,16 +29,6 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      // TODO: Remove toggle after full V2 migration
-      if (process.env.RUNNER_VERSION !== 'V2') {
-        const notEnabledError = {
-          code: grpc.status.FAILED_PRECONDITION,
-          message: 'Runner V2 is not enabled.'
-        };
-        callback(notEnabledError, null);
-        return;
-      }
-
       const { accountId, functionName, code, schema, redisStream, version } = call.request;
       const executorId = hashString(`${accountId}/${functionName}`);
 
@@ -88,16 +78,6 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      // TODO: Remove toggle after full V2 migration
-      if (process.env.RUNNER_VERSION !== 'V2') {
-        const notEnabledError = {
-          code: grpc.status.FAILED_PRECONDITION,
-          message: 'Runner V2 is not enabled.'
-        };
-        callback(notEnabledError, null);
-        return;
-      }
-
       console.log('Stopping executor: ', { executorId });
 
       // Handle request
@@ -115,7 +95,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
       const response: ExecutorInfo__Output[] = [];
       try {
         executors.forEach((handler, executorId) => {
-          let config = handler.getIndexerConfig();
+          let config = handler.indexerConfig;
           if (config === undefined) {
             // TODO: Throw error instead when V1 is deprecated
             config = {

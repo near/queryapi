@@ -21,7 +21,7 @@ export default class StreamHandler {
 
   constructor (
     public readonly streamKey: string,
-    private readonly indexerConfig: IndexerConfig | undefined = undefined
+    public readonly indexerConfig: IndexerConfig | undefined = undefined
   ) {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
@@ -36,10 +36,6 @@ export default class StreamHandler {
     } else {
       throw new Error('StreamHandler should not be instantiated in a worker thread');
     }
-  }
-
-  getIndexerConfig (): IndexerConfig | undefined {
-    return this.indexerConfig;
   }
 
   async stop (): Promise<void> {
