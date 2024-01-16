@@ -7,9 +7,9 @@ import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { type IndexerConfig } from './stream-handler';
-import { Tracer, BatchRecorder, jsonEncoder, type Recorder, Annotation } from 'zipkin';
+import { Tracer, BatchRecorder, jsonEncoder, /* type Recorder, */ Annotation, ExplicitContext } from 'zipkin';
 import { HttpLogger } from 'zipkin-transport-http';
-import CLSContext from 'zipkin-context-cls';
+// import CLSContext from 'zipkin-context-cls';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -22,30 +22,31 @@ const httpLogger = new HttpLogger({
   jsonEncoder: jsonEncoder.JSON_V2
 });
 
-function debugRecorder (serviceName: string): Recorder {
-  const logger = {
-    logSpan: (span: any) => {
-      const json = jsonEncoder.JSON_V2.encode(span);
-      console.log(`${serviceName} reporting: ${json}`);
-      httpLogger.logSpan(span);
-    }
-  };
+// function debugRecorder (serviceName: string): Recorder {
+//   const logger = {
+//     logSpan: (span: any) => {
+//       const json = jsonEncoder.JSON_V2.encode(span);
+//       console.log(`${serviceName} reporting: ${json}`);
+//       httpLogger.logSpan(span);
+//     }
+//   };
 
-  const batchRecorder = new BatchRecorder({ logger });
+//   const batchRecorder = new BatchRecorder({ logger });
 
-  return {
-    record: (rec: any) => {
-      const { spanId, traceId } = rec.traceId;
-      console.log(`${serviceName} recording: ${traceId as string}/${spanId as string} ${rec.annotation as string}`);
-      batchRecorder.record(rec);
-    }
-  };
-}
+//   return {
+//     record: (rec: any) => {
+//       const { spanId, traceId } = rec.traceId;
+//       console.log(`${serviceName} recording: ${traceId as string}/${spanId as string} ${rec.annotation as string}`);
+//       batchRecorder.record(rec);
+//     }
+//   };
+// }
 
 // Setup the tracer
 const tracer = new Tracer({
-  ctxImpl: new CLSContext('zipkin'),
-  recorder: debugRecorder('runner'),
+  ctxImpl: new ExplicitContext(),
+  // recorder: debugRecorder('runner'),
+  recorder: new BatchRecorder({ logger: httpLogger }),
   localServiceName: 'runner' // name of this application
 });
 
@@ -122,11 +123,13 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   const indexer = new Indexer();
   const isHistorical = workerContext.streamType === 'historical';
-  let streamMessageId = '';
+  // let streamMessageId = '';
   let indexerName = '';
   let currBlockHeight = 0;
 
   while (true) {
+    tracer.setId(tracer.createRootId());
+    tracer.recordServiceName('runner');
     try {
       if (workerContext.queue.length === 0) {
         await sleep(100);
@@ -135,10 +138,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       const startTime = performance.now();
       // TODO: Remove redis storage call after full V2 migration
 
-      const newTrace = tracer.createRootId();
-      tracer.setId(newTrace);
-      tracer.recordServiceName('runner');
-      tracer.recordAnnotation(new Annotation.LocalOperationStart(`Processing block for ${indexerName} ${workerContext.streamType}`));
+      tracer.recordAnnotation(new Annotation.LocalOperationStart(`Processing block for ${workerContext.streamKey}`));
       tracer.recordAnnotation(new Annotation.LocalOperationStop());
 
       const blockStartTime = performance.now();
@@ -150,7 +150,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       const block = queueMessage.block;
       currBlockHeight = block.blockHeight;
-      streamMessageId = queueMessage.streamMessageId;
+      // streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
         console.error('Block failed to process or does not have block height', block);
@@ -173,11 +173,13 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       };
 
       await tracer.local('run function', async () => {
-        await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+        await indexer.runFunctions(block, functions, isHistorical, { provision: true }, tracer.id);
       });
 
-      await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
-      await workerContext.queue.shift();
+      await tracer.local('delete stream and queue message', async () => {
+        // await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
+        await workerContext.queue.shift();
+      });
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 

@@ -5,6 +5,44 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import { BatchRecorder, type TraceId, /* type Recorder, */ Tracer, jsonEncoder, ExplicitContext } from 'zipkin';
+// import CLSContext from 'zipkin-context-cls';
+import { HttpLogger } from 'zipkin-transport-http';
+
+const zipkinBaseUrl = 'http://localhost:9411';
+
+const httpLogger = new HttpLogger({
+  endpoint: `${zipkinBaseUrl}/api/v2/spans`,
+  jsonEncoder: jsonEncoder.JSON_V2
+});
+
+// function debugRecorder (serviceName: string): Recorder {
+//   const logger = {
+//     logSpan: (span: any) => {
+//       const json = jsonEncoder.JSON_V2.encode(span);
+//       console.log(`${serviceName} reporting: ${json}`);
+//       httpLogger.logSpan(span);
+//     }
+//   };
+
+//   const batchRecorder = new BatchRecorder({ logger });
+
+//   return {
+//     record: (rec: any) => {
+//       const { spanId, traceId } = rec.traceId;
+//       console.log(`${serviceName} recording: ${traceId as string}/${spanId as string} ${rec.annotation as string}`);
+//       batchRecorder.record(rec);
+//     }
+//   };
+// }
+
+// Setup the tracer
+const tracer = new Tracer({
+  ctxImpl: new ExplicitContext(),
+  // recorder: debugRecorder('runner'),
+  recorder: new BatchRecorder({ logger: httpLogger }),
+  localServiceName: 'runner' // name of this application
+});
 
 interface Dependencies {
   fetch: typeof fetch
@@ -51,8 +89,10 @@ export default class Indexer {
     block: Block,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
-    options: { provision?: boolean } = { provision: false }
+    options: { provision?: boolean } = { provision: false },
+    traceId: TraceId | null = null
   ): Promise<string[]> {
+    tracer.setId(traceId ?? tracer.createRootId());
     const blockHeight = block.blockHeight;
 
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
@@ -72,49 +112,61 @@ export default class Indexer {
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
 
         if (options.provision && !indexerFunction.provisioned) {
-          try {
-            if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
-              await this.setStatus(functionName, blockHeight, 'PROVISIONING');
-              simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: starting'));
+          await tracer.local('provision function', async () => {
+            try {
+              if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
+                await this.setStatus(functionName, blockHeight, 'PROVISIONING');
+                simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: starting'));
 
-              await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
+                await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
 
-              simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: successful'));
+                simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: successful'));
+              }
+            } catch (e) {
+              const error = e as Error;
+              simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
+              throw error;
             }
-          } catch (e) {
-            const error = e as Error;
-            simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
-            throw error;
-          }
+          });
         }
 
-        await this.setStatus(functionName, blockHeight, 'RUNNING');
-        const vm = new VM({ timeout: 3000, allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
+        await tracer.local('set status', async () => {
+          await this.setStatus(functionName, blockHeight, 'RUNNING');
+        });
+        const vm = await tracer.local('create vm', async () => {
+          return new VM({ timeout: 3000, allowAsync: true });
+        });
+        const context = await tracer.local('build context', async () => {
+          return this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
+        });
 
         vm.freeze(block, 'block');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-        try {
-          await vm.run(modifiedFunction);
-        } catch (e) {
-          const error = e as Error;
-          // NOTE: logging the exception would likely leak some information about the index runner.
-          // For now, we just log the message. In the future we could sanitize the stack trace
-          // and give the correct line number offsets within the indexer function
-          console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
-          await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
-          throw e;
-        }
+        await tracer.local('run user code', async () => {
+          try {
+            await vm.run(modifiedFunction);
+          } catch (e) {
+            const error = e as Error;
+            // NOTE: logging the exception would likely leak some information about the index runner.
+            // For now, we just log the message. In the future we could sanitize the stack trace
+            // and give the correct line number offsets within the indexer function
+            console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
+            await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
+            throw e;
+          }
+        });
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
         await this.setStatus(functionName, blockHeight, 'STOPPED');
         throw e;
       } finally {
-        await Promise.all(simultaneousPromises);
+        await tracer.local('complete mutations', async () => {
+          await Promise.all(simultaneousPromises);
+        });
       }
     }
     return allMutations;
