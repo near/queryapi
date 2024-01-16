@@ -14,7 +14,7 @@ describe('LakeClient', () => {
       .mockReturnValueOnce({ // block
         Body: {
           transformToString: () => JSON.stringify({
-            chunks: [0],
+            chunks: [0, 1, 2, 3],
             header: {
               height: blockHeight,
               hash: blockHash,
@@ -88,7 +88,7 @@ describe('LakeClient', () => {
       .mockReturnValueOnce({ // block
         Body: {
           transformToString: () => JSON.stringify({
-            chunks: [0],
+            chunks: [0, 1, 2, 3],
             header: {
               height: blockHeight,
               hash: blockHash,
@@ -130,7 +130,7 @@ describe('LakeClient', () => {
       .mockReturnValueOnce({ // block
         Body: {
           transformToString: () => JSON.stringify({
-            chunks: [0],
+            chunks: [0, 1, 2, 3],
             header: {
               height: blockHeight,
               hash: blockHash,
