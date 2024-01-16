@@ -14,8 +14,8 @@ pub struct RedisClientImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
-    pub async fn connect(redis_connection_str: &str) -> Result<Self, RedisError> {
-        let connection = redis::Client::open(redis_connection_str)?
+    pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
+        let connection = redis::Client::open(redis_url)?
             .get_connection_manager()
             .await?;
 

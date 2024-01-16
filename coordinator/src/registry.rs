@@ -39,14 +39,18 @@ pub use RegistryImpl as Registry;
 
 pub struct RegistryImpl {
     json_rpc_client: JsonRpcClient,
+    registry_contract_id: AccountId,
 }
 
 #[cfg_attr(test, mockall::automock)]
 impl RegistryImpl {
-    pub fn connect(rpc_url: &str) -> Self {
+    pub fn connect(registry_contract_id: AccountId, rpc_url: &str) -> Self {
         let json_rpc_client = JsonRpcClient::connect(rpc_url);
 
-        Self { json_rpc_client }
+        Self {
+            registry_contract_id,
+            json_rpc_client,
+        }
     }
 
     fn enrich_indexer_registry(
@@ -87,10 +91,7 @@ impl RegistryImpl {
                 block_reference: BlockReference::Finality(Finality::Final),
                 request: QueryRequest::CallFunction {
                     method_name: "list_indexer_functions".to_string(),
-                    account_id: "dev-queryapi.dataplatform.near"
-                        .to_string()
-                        .try_into()
-                        .unwrap(),
+                    account_id: self.registry_contract_id.clone(),
                     args: FunctionArgs::from("{}".as_bytes().to_vec()),
                 },
             })
