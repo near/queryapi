@@ -18,9 +18,12 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
+    let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
+    let server_port = std::env::var("SERVER_PORT").expect("SERVER_PORT is not set");
+
     tracing::info!("Starting Block Streamer Service...");
 
-    let redis_client = std::sync::Arc::new(redis::RedisClient::connect("redis://127.0.0.1").await?);
+    let redis_client = std::sync::Arc::new(redis::RedisClient::connect(&redis_url).await?);
 
     let aws_config = aws_config::from_env().load().await;
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
@@ -29,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
-    server::init(redis_client, delta_lake_client, s3_config).await?;
+    server::init(&server_port, redis_client, delta_lake_client, s3_config).await?;
 
     Ok(())
 }
