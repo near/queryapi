@@ -23,7 +23,6 @@ const BASIC_INDEXER_CONFIG = {
 describe('Runner gRPC Service', () => {
   let genericStreamHandlerType: typeof StreamHandler;
   beforeEach(() => {
-    process.env.RUNNER_VERSION = 'V2';
     genericStreamHandlerType = jest.fn().mockImplementation((...args) => {
       return {
         updateIndexerConfig: jest.fn(),
