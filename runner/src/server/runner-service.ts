@@ -52,7 +52,6 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           version: Number(version),
           code,
           schema,
-          status: Status.RUNNING
         });
         executors.set(executorId, streamHandler);
         callback(null, { executorId });
@@ -96,6 +95,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
       try {
         executors.forEach((handler, executorId) => {
           let config = handler.indexerConfig;
+          let context = handler.executorContext;
           if (config === undefined) {
             // TODO: Throw error instead when V1 is deprecated
             config = {
@@ -104,6 +104,8 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
               version: -1, // Ensure Coordinator V2 sees version mismatch
               code: '',
               schema: '',
+            };
+            context = {
               status: Status.RUNNING
             };
           }
@@ -112,7 +114,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
             accountId: config.account_id,
             functionName: config.function_name,
             version: config.version.toString(),
-            status: config.status
+            status: context.status
           });
         });
         callback(null, {

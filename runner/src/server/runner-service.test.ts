@@ -17,7 +17,9 @@ const BASIC_INDEXER_CONFIG = {
   code: BASIC_CODE,
   schema: BASIC_SCHEMA,
   version: BASIC_VERSION,
-  status: Status.RUNNING
+};
+const BASIC_EXECUTOR_CONTEXT = {
+  status: Status.RUNNING,
 };
 
 describe('Runner gRPC Service', () => {
@@ -215,9 +217,9 @@ describe('Runner gRPC Service', () => {
         indexerConfig: {
           account_id: indexerConfig.account_id,
           function_name: indexerConfig.function_name,
-          status: indexerConfig.status,
           version: indexerConfig.version
-        }
+        },
+        executorContext: BASIC_EXECUTOR_CONTEXT
       };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
@@ -238,7 +240,7 @@ describe('Runner gRPC Service', () => {
             executorId: BASIC_EXECUTOR_ID,
             accountId: BASIC_INDEXER_CONFIG.account_id,
             functionName: BASIC_INDEXER_CONFIG.function_name,
-            status: 'RUNNING',
+            status: Status.RUNNING,
             version: '1'
           }]
         });
