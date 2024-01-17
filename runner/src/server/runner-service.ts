@@ -1,6 +1,6 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
-import assert from 'assert';
+import { Status } from '../stream-handler/stream-handler';
 import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';
@@ -11,9 +11,7 @@ import { type StopExecutorResponse__Output, type StopExecutorResponse } from '..
 import { type ListExecutorsRequest__Output } from '../generated/runner/ListExecutorsRequest';
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
-import type StreamHandler from '../stream-handler';
-
-type StreamHandlers = Map<string, StreamHandler>;
+import StreamHandler from '../stream-handler';
 
 const hashString = (input: string): string => {
   const hash = crypto.createHash('sha256');
@@ -21,9 +19,7 @@ const hashString = (input: string): string => {
   return hash.digest('hex');
 };
 
-function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandlers {
-  const streamHandlers: StreamHandlers = new Map();
-
+function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
       // Validate request
@@ -36,7 +32,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
       const { accountId, functionName, code, schema, redisStream, version } = call.request;
       const executorId = hashString(`${accountId}/${functionName}`);
 
-      if (streamHandlers.has(executorId)) {
+      if (executors.has(executorId)) {
         const alreadyExistsError = {
           code: grpc.status.ALREADY_EXISTS,
           message: `Executor ${executorId} can't be started as it already exists.`
@@ -57,7 +53,7 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
           code,
           schema,
         });
-        streamHandlers.set(executorId, streamHandler);
+        executors.set(executorId, streamHandler);
         callback(null, { executorId });
       } catch (error) {
         callback(handleInternalError(error), null);
@@ -65,19 +61,28 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
     },
 
     StopExecutor (call: ServerUnaryCall<StopExecutorRequest__Output, StopExecutorResponse>, callback: sendUnaryData<StopExecutorResponse__Output>): void {
-      console.log('StopExecutor called on', call.request.executorId);
+      const executorId: string = call.request.executorId;
       // Validate request
-      const validationResult = validateStopExecutorRequest(call.request, streamHandlers);
+      const validationResult = validateStopExecutorRequest(call.request);
       if (validationResult !== null) {
         callback(validationResult, null);
         return;
       }
+      if (executors.get(executorId) === undefined) {
+        const notFoundError = {
+          code: grpc.status.NOT_FOUND,
+          message: `Executor ${executorId} cannot be stopped as it does not exist.`
+        };
+        callback(notFoundError, null);
+        return;
+      }
+
+      console.log('Stopping executor: ', { executorId });
 
       // Handle request
-      const executorId: string = call.request.executorId;
-      streamHandlers.get(executorId)?.stop()
+      executors.get(executorId)?.stop()
         .then(() => {
-          streamHandlers.delete(executorId);
+          executors.delete(executorId);
           callback(null, { executorId });
         }).catch(error => {
           const grpcError = handleInternalError(error);
@@ -86,21 +91,31 @@ function getRunnerService (StreamHandlerType: typeof StreamHandler): RunnerHandl
     },
 
     ListExecutors (_: ServerUnaryCall<ListExecutorsRequest__Output, ListExecutorsResponse>, callback: sendUnaryData<ListExecutorsResponse__Output>): void {
-      // TODO: Refactor to make use of repeated field
-      console.log('ListExecutors called');
-      // TODO: Return more information than just executorId
       const response: ExecutorInfo__Output[] = [];
       try {
-        streamHandlers.forEach((handler, executorId) => {
-          if (handler.indexerConfig?.account_id === undefined || handler.indexerConfig?.function_name === undefined) {
-            throw new Error(`Stream handler ${executorId} has no/invalid indexer config.`);
+        executors.forEach((handler, executorId) => {
+          let config = handler.indexerConfig;
+          let context = handler.executorContext;
+          if (config === undefined) {
+            // TODO: Throw error instead when V1 is deprecated
+            const [accountId, functionName] = executorId.substring(0, executorId.indexOf(':')).split('/', 2);
+            config = {
+              account_id: accountId,
+              function_name: functionName,
+              version: -1, // Ensure Coordinator V2 sees version mismatch
+              code: '',
+              schema: '',
+            };
+            context = {
+              status: Status.RUNNING
+            };
           }
           response.push({
             executorId,
-            accountId: handler.indexerConfig?.account_id,
-            functionName: handler.indexerConfig?.function_name,
-            version: handler.indexerConfig?.version.toString(),
-            status: 'RUNNING' // TODO: Keep updated status in stream handler
+            accountId: config.account_id,
+            functionName: config.function_name,
+            version: config.version.toString(),
+            status: context.status
           });
         });
         callback(null, {
@@ -121,6 +136,7 @@ function handleInternalError (error: unknown): any {
   if (error instanceof Error) {
     errorMessage = error.message;
   }
+  console.error(errorMessage);
   return {
     code: grpc.status.INTERNAL,
     message: errorMessage
@@ -170,21 +186,11 @@ function validateStartExecutorRequest (request: StartExecutorRequest__Output): a
   return null;
 }
 
-function validateStopExecutorRequest (request: StopExecutorRequest__Output, streamHandlers: StreamHandlers): any | null {
-  const grpcError = {
-    code: grpc.status.INVALID_ARGUMENT,
-    message: ''
-  };
-
+function validateStopExecutorRequest (request: StopExecutorRequest__Output): any | null {
   // Validate executorId
   const validationResult = validateStringParameter('executorId', request.executorId);
   if (validationResult !== null) {
     return validationResult;
-  }
-  assert(request.executorId !== undefined);
-  if (streamHandlers.get(request.executorId) === undefined) {
-    grpcError.message = `Executor ${request.executorId} cannot be stopped as it does not exist.`;
-    return grpcError;
   }
 
   return null;

@@ -3,6 +3,10 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics } from '../metrics';
 
+export enum Status {
+  RUNNING = 'RUNNING',
+  STOPPED = 'STOPPED',
+}
 export interface IndexerConfig {
   account_id: string
   function_name: string
@@ -11,8 +15,13 @@ export interface IndexerConfig {
   version: number
 }
 
+interface ExecutorContext {
+  status: Status
+}
+
 export default class StreamHandler {
   private readonly worker: Worker;
+  public readonly executorContext: ExecutorContext;
 
   constructor (
     public readonly streamKey: string,
@@ -25,6 +34,9 @@ export default class StreamHandler {
           indexerConfig,
         },
       });
+      this.executorContext = {
+        status: Status.RUNNING,
+      };
 
       this.worker.on('message', this.handleMessage.bind(this));
       this.worker.on('error', this.handleError.bind(this));
@@ -39,6 +51,9 @@ export default class StreamHandler {
 
   private handleError (error: Error): void {
     console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
+    if (this.indexerConfig !== undefined) {
+      this.executorContext.status = Status.STOPPED;
+    }
     this.worker.terminate().catch(() => {
       console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
     });

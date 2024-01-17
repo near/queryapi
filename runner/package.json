@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "rm -rf ./dist && npm run codegen && tsc",
-    "codegen": "rm -rf ./src/generated && proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated/ protos/runner.proto",
+    "codegen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated/ protos/runner.proto",
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
     "start:docker": "node dist/index.js",

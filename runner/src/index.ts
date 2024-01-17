@@ -1,39 +1,33 @@
 import { startServer as startMetricsServer } from './metrics';
 import RedisClient from './redis-client';
+import startRunnerServer from './server/runner-server';
 import StreamHandler from './stream-handler';
 
-const STREAM_HANDLER_THROTTLE_MS = 500;
-
+const executors = new Map<string, StreamHandler>();
 const redisClient = new RedisClient();
+const grpcServer = startRunnerServer(executors);
 
 startMetricsServer().catch((err) => {
   console.error('Failed to start metrics server', err);
 });
 
-type StreamHandlers = Record<string, StreamHandler>;
-
 void (async function main () {
   try {
-    const streamHandlers: StreamHandlers = {};
-
+    const STREAM_HANDLER_THROTTLE_MS = 500;
     while (true) {
       const streamKeys = await redisClient.getStreams();
-
       streamKeys.forEach((streamKey) => {
-        if (streamHandlers[streamKey] !== undefined) {
-          return;
+        if (executors.get(streamKey) === undefined) {
+          const streamHandler = new StreamHandler(streamKey);
+          executors.set(streamKey, streamHandler);
         }
-
-        const streamHandler = new StreamHandler(streamKey);
-
-        streamHandlers[streamKey] = streamHandler;
       });
-
       await new Promise((resolve) =>
         setTimeout(resolve, STREAM_HANDLER_THROTTLE_MS),
       );
     }
   } finally {
     await redisClient.disconnect();
+    grpcServer.forceShutdown();
   }
 })();
