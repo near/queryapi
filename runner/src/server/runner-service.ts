@@ -98,9 +98,10 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           let context = handler.executorContext;
           if (config === undefined) {
             // TODO: Throw error instead when V1 is deprecated
+            const [accountId, functionName] = executorId.substring(0, executorId.indexOf(':')).split('/', 2);
             config = {
-              account_id: '',
-              function_name: '',
+              account_id: accountId,
+              function_name: functionName,
               version: -1, // Ensure Coordinator V2 sees version mismatch
               code: '',
               schema: '',
