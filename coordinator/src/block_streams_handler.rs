@@ -1,12 +1,11 @@
 use anyhow::Context;
-use tonic::transport::channel::Channel;
-use tonic::Request;
-
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
     start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, ListStreamsRequest,
     StartStreamRequest, Status, StopStreamRequest, StreamInfo,
 };
+use tonic::transport::channel::Channel;
+use tonic::Request;
 
 #[cfg(not(test))]
 pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
@@ -20,9 +19,10 @@ pub struct BlockStreamsHandlerImpl {
 #[cfg_attr(test, mockall::automock)]
 impl BlockStreamsHandlerImpl {
     pub async fn connect(block_streamer_url: String) -> anyhow::Result<Self> {
-        let client = BlockStreamerClient::connect(block_streamer_url)
-            .await
-            .context("Unable to connect to Block Streamer")?;
+        let channel = Channel::from_shared(block_streamer_url)
+            .context("Block Streamer URL is invalid")?
+            .connect_lazy();
+        let client = BlockStreamerClient::new(channel);
 
         Ok(Self { client })
     }
@@ -32,17 +32,25 @@ impl BlockStreamsHandlerImpl {
             .client
             .clone()
             .list_streams(Request::new(ListStreamsRequest {}))
-            .await?;
+            .await
+            .context("Failed to list streams")?;
 
         Ok(response.into_inner().streams)
     }
 
     pub async fn stop(&self, stream_id: String) -> anyhow::Result<()> {
-        let request = Request::new(StopStreamRequest { stream_id });
+        let request = Request::new(StopStreamRequest {
+            stream_id: stream_id.clone(),
+        });
 
         tracing::debug!("Sending stop stream request: {:#?}", request);
 
-        let _ = self.client.clone().stop_stream(request).await?;
+        let _ = self
+            .client
+            .clone()
+            .stop_stream(request)
+            .await
+            .context(format!("Failed to stop stream: {stream_id}"))?;
 
         Ok(())
     }
@@ -92,16 +100,23 @@ impl BlockStreamsHandlerImpl {
 
         let request = Request::new(StartStreamRequest {
             start_block_height,
-            account_id,
-            function_name,
             version,
             redis_stream,
+            account_id: account_id.clone(),
+            function_name: function_name.clone(),
             rule: Some(rule),
         });
 
         tracing::debug!("Sending start stream request: {:#?}", request);
 
-        let _ = self.client.clone().start_stream(request).await?;
+        let _ = self
+            .client
+            .clone()
+            .start_stream(request)
+            .await
+            .context(format!(
+                "Failed to start stream: {account_id}/{function_name}"
+            ))?;
 
         Ok(())
     }

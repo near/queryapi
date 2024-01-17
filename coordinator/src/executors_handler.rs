@@ -1,9 +1,8 @@
 use anyhow::Context;
-use tonic::transport::channel::Channel;
-use tonic::Request;
-
 use runner::runner_client::RunnerClient;
 use runner::{ExecutorInfo, ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
+use tonic::transport::channel::Channel;
+use tonic::Request;
 
 #[cfg(not(test))]
 pub use ExecutorsHandlerImpl as ExecutorsHandler;
@@ -17,9 +16,10 @@ pub struct ExecutorsHandlerImpl {
 #[cfg_attr(test, mockall::automock)]
 impl ExecutorsHandlerImpl {
     pub async fn connect(runner_url: String) -> anyhow::Result<Self> {
-        let client = RunnerClient::connect(runner_url)
-            .await
-            .context("Unable to connect to Runner")?;
+        let channel = Channel::from_shared(runner_url)
+            .context("Runner URL is invalid")?
+            .connect_lazy();
+        let client = RunnerClient::new(channel);
 
         Ok(Self { client })
     }
@@ -29,7 +29,8 @@ impl ExecutorsHandlerImpl {
             .client
             .clone()
             .list_executors(Request::new(ListExecutorsRequest {}))
-            .await?;
+            .await
+            .context("Failed to list executors")?;
 
         Ok(response.into_inner().executors)
     }
@@ -44,27 +45,39 @@ impl ExecutorsHandlerImpl {
         version: u64,
     ) -> anyhow::Result<()> {
         let request = Request::new(StartExecutorRequest {
-            account_id,
-            function_name,
             code,
             schema,
             redis_stream,
             version,
+            account_id: account_id.clone(),
+            function_name: function_name.clone(),
         });
 
         tracing::debug!("Sending start executor request: {:#?}", request);
 
-        self.client.clone().start_executor(request).await?;
+        self.client
+            .clone()
+            .start_executor(request)
+            .await
+            .context(format!(
+                "Failed to start executor: {account_id}/{function_name}/{version}",
+            ))?;
 
         Ok(())
     }
 
     pub async fn stop(&self, executor_id: String) -> anyhow::Result<()> {
-        let request = Request::new(StopExecutorRequest { executor_id });
+        let request = Request::new(StopExecutorRequest {
+            executor_id: executor_id.clone(),
+        });
 
         tracing::debug!("Sending stop executor request: {:#?}", request);
 
-        self.client.clone().stop_executor(request).await?;
+        self.client
+            .clone()
+            .stop_executor(request)
+            .await
+            .context(format!("Failed to stop executor: {executor_id}"))?;
 
         Ok(())
     }
