@@ -9,6 +9,7 @@ mod block_streams_handler;
 mod executors_handler;
 mod redis;
 mod registry;
+mod utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

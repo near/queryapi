@@ -4,6 +4,8 @@ use runner::{ExecutorInfo, ListExecutorsRequest, StartExecutorRequest, StopExecu
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
+use crate::utils::exponential_retry;
+
 #[cfg(not(test))]
 pub use ExecutorsHandlerImpl as ExecutorsHandler;
 #[cfg(test)]
@@ -25,14 +27,24 @@ impl ExecutorsHandlerImpl {
     }
 
     pub async fn list(&self) -> anyhow::Result<Vec<ExecutorInfo>> {
-        let response = self
-            .client
-            .clone()
-            .list_executors(Request::new(ListExecutorsRequest {}))
-            .await
-            .context("Failed to list executors")?;
+        exponential_retry(
+            || async {
+                let response = self
+                    .client
+                    .clone()
+                    .list_executors(Request::new(ListExecutorsRequest {}))
+                    .await
+                    .context("Failed to list executors")?;
 
-        Ok(response.into_inner().executors)
+                Ok(response.into_inner().executors)
+            },
+            |e: &anyhow::Error| {
+                e.downcast_ref::<tonic::Status>()
+                    .map(|s| s.code() == tonic::Code::Unavailable)
+                    .unwrap_or(false)
+            },
+        )
+        .await
     }
 
     pub async fn start(
@@ -44,41 +56,61 @@ impl ExecutorsHandlerImpl {
         redis_stream: String,
         version: u64,
     ) -> anyhow::Result<()> {
-        let request = Request::new(StartExecutorRequest {
+        let request = StartExecutorRequest {
             code,
             schema,
             redis_stream,
             version,
             account_id: account_id.clone(),
             function_name: function_name.clone(),
-        });
+        };
 
         tracing::debug!("Sending start executor request: {:#?}", request);
 
-        self.client
-            .clone()
-            .start_executor(request)
-            .await
-            .context(format!(
-                "Failed to start executor: {account_id}/{function_name}/{version}",
-            ))?;
+        exponential_retry(
+            || async {
+                self.client
+                    .clone()
+                    .start_executor(Request::new(request.clone()))
+                    .await
+                    .context(format!(
+                        "Failed to start executor: {account_id}/{function_name}/{version}",
+                    ))?;
 
-        Ok(())
+                Ok(())
+            },
+            |e: &anyhow::Error| {
+                e.downcast_ref::<tonic::Status>()
+                    .map(|s| s.code() == tonic::Code::Unavailable)
+                    .unwrap_or(false)
+            },
+        )
+        .await
     }
 
     pub async fn stop(&self, executor_id: String) -> anyhow::Result<()> {
-        let request = Request::new(StopExecutorRequest {
+        let request = StopExecutorRequest {
             executor_id: executor_id.clone(),
-        });
+        };
 
         tracing::debug!("Sending stop executor request: {:#?}", request);
 
-        self.client
-            .clone()
-            .stop_executor(request)
-            .await
-            .context(format!("Failed to stop executor: {executor_id}"))?;
+        exponential_retry(
+            || async {
+                self.client
+                    .clone()
+                    .stop_executor(Request::new(request.clone()))
+                    .await
+                    .context(format!("Failed to stop executor: {executor_id}"))?;
 
-        Ok(())
+                Ok(())
+            },
+            |e: &anyhow::Error| {
+                e.downcast_ref::<tonic::Status>()
+                    .map(|s| s.code() == tonic::Code::Unavailable)
+                    .unwrap_or(false)
+            },
+        )
+        .await
     }
 }
