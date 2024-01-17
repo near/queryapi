@@ -67,25 +67,20 @@ impl ExecutorsHandlerImpl {
 
         tracing::debug!("Sending start executor request: {:#?}", request);
 
-        exponential_retry(
-            || async {
-                self.client
-                    .clone()
-                    .start_executor(Request::new(request.clone()))
-                    .await
-                    .context(format!(
-                        "Failed to start executor: {account_id}/{function_name}/{version}",
-                    ))?;
+        let _ = self
+            .client
+            .clone()
+            .start_executor(Request::new(request.clone()))
+            .await
+            .map_err(|error| {
+                tracing::error!(
+                    account_id,
+                    function_name,
+                    "Failed to start executor\n{error:?}"
+                );
+            });
 
-                Ok(())
-            },
-            |e: &anyhow::Error| {
-                e.downcast_ref::<tonic::Status>()
-                    .map(|s| s.code() == tonic::Code::Unavailable)
-                    .unwrap_or(false)
-            },
-        )
-        .await
+        Ok(())
     }
 
     pub async fn stop(&self, executor_id: String) -> anyhow::Result<()> {
@@ -95,22 +90,15 @@ impl ExecutorsHandlerImpl {
 
         tracing::debug!("Sending stop executor request: {:#?}", request);
 
-        exponential_retry(
-            || async {
-                self.client
-                    .clone()
-                    .stop_executor(Request::new(request.clone()))
-                    .await
-                    .context(format!("Failed to stop executor: {executor_id}"))?;
+        let _ = self
+            .client
+            .clone()
+            .stop_executor(Request::new(request.clone()))
+            .await
+            .map_err(|e| {
+                tracing::error!(executor_id, "Failed to stop executor\n{e:?}");
+            });
 
-                Ok(())
-            },
-            |e: &anyhow::Error| {
-                e.downcast_ref::<tonic::Status>()
-                    .map(|s| s.code() == tonic::Code::Unavailable)
-                    .unwrap_or(false)
-            },
-        )
-        .await
+        Ok(())
     }
 }

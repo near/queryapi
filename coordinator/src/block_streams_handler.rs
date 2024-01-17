@@ -57,24 +57,16 @@ impl BlockStreamsHandlerImpl {
 
         tracing::debug!("Sending stop stream request: {:#?}", request);
 
-        exponential_retry(
-            || async {
-                let _ = self
-                    .client
-                    .clone()
-                    .stop_stream(Request::new(request.clone()))
-                    .await
-                    .context(format!("Failed to stop stream: {stream_id}"))?;
+        let _ = self
+            .client
+            .clone()
+            .stop_stream(Request::new(request.clone()))
+            .await
+            .map_err(|e| {
+                tracing::error!(stream_id, "Failed to stop stream\n{e:?}");
+            });
 
-                Ok(())
-            },
-            |e: &anyhow::Error| {
-                e.downcast_ref::<tonic::Status>()
-                    .map(|s| s.code() == tonic::Code::Unavailable)
-                    .unwrap_or(false)
-            },
-        )
-        .await
+        Ok(())
     }
 
     fn match_status(status: &registry_types::Status) -> i32 {
@@ -131,25 +123,19 @@ impl BlockStreamsHandlerImpl {
 
         tracing::debug!("Sending start stream request: {:#?}", request);
 
-        exponential_retry(
-            || async {
-                let _ = self
-                    .client
-                    .clone()
-                    .start_stream(Request::new(request.clone()))
-                    .await
-                    .context(format!(
-                        "Failed to start stream: {account_id}/{function_name}"
-                    ))?;
+        let _ = self
+            .client
+            .clone()
+            .start_stream(Request::new(request.clone()))
+            .await
+            .map_err(|error| {
+                tracing::error!(
+                    account_id,
+                    function_name,
+                    "Failed to start stream\n{error:?}"
+                );
+            });
 
-                Ok(())
-            },
-            |e: &anyhow::Error| {
-                e.downcast_ref::<tonic::Status>()
-                    .map(|s| s.code() == tonic::Code::Unavailable)
-                    .unwrap_or(false)
-            },
-        )
-        .await
+        Ok(())
     }
 }
