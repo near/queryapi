@@ -36,8 +36,10 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        synchronise_executors(&indexer_registry, &executors_handler).await?;
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler).await?;
+        tokio::try_join!(
+            synchronise_executors(&indexer_registry, &executors_handler),
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler)
+        )?;
     }
 }
 
