@@ -17,11 +17,10 @@ export default function startRunnerServer (executors: Map<string, StreamHandler>
   server.addService(runnerProto.runner.Runner.service, getRunnerService(executors));
   const credentials = grpc.ServerCredentials;
 
-  assert(process.env.RUNNER_HOST, 'RUNNER_HOST is not defined');
-  assert(process.env.RUNNER_PORT, 'RUNNER_PORT is not defined');
+  assert(process.env.GRPC_SERVER_PORT, 'GRPC_SERVER_PORT is not defined');
 
   server.bindAsync(
-    `${process.env.RUNNER_HOST}:${process.env.RUNNER_PORT}`,
+    `localhost:${process.env.GRPC_SERVER_PORT}`,
     credentials.createInsecure(), // TODO: Use secure credentials with allow for Coordinator
     (err: Error | null, port: number) => {
       if (err) {
