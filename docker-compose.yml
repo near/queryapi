@@ -64,6 +64,7 @@ services:
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
       PGHOST: postgres
+      PGHOST_HASURA: postgres
       PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
