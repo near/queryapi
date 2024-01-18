@@ -25,6 +25,8 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_client = std::sync::Arc::new(redis::RedisClient::connect(&redis_url).await?);
 
+    tracing::info!("Connected to Redis");
+
     let aws_config = aws_config::from_env().load().await;
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
     let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
