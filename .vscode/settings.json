@@ -1,0 +1,8 @@
+{
+    "eslint.workingDirectories": [
+      "./frontend",
+      "./runner",
+      "./indexer-js-queue-handler",
+      "./indexer",
+    ]
+  }
