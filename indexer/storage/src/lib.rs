@@ -9,6 +9,10 @@ pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
 }
 
+pub fn generate_block_stream_key(prefix: &str) -> String {
+    format!("{}:last_published_block", prefix)
+}
+
 pub fn generate_real_time_stream_key(prefix: &str) -> String {
     format!("{}:real_time:stream", prefix)
 }

@@ -178,9 +178,13 @@ async fn synchronise_block_streams(
                 .updated_at_block_height
                 .unwrap_or(indexer_config.created_at_block_height);
 
+            let mut start_block_height = None;
+            
             if let Some(active_block_stream) = active_block_stream {
                 if active_block_stream.version == registry_version {
                     continue;
+                } else if let Some(height) = indexer_config.start_block_height {
+                    start_block_height = Some(height);
                 }
 
                 block_streams_handler
@@ -188,23 +192,21 @@ async fn synchronise_block_streams(
                     .await?;
             }
 
-            let start_block_height = if let Some(start_block_height) =
-                indexer_config.start_block_height
-            {
-                start_block_height
-            } else if let Ok(last_published_block) = redis_client
-                .get::<String, u64>(format!(
-                    "{}:last_published_block",
-                    indexer_config.get_full_name()
-                ))
-                .await
-            {
-                last_published_block
-            } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height {
-                updated_at_block_height
-            } else {
-                indexer_config.created_at_block_height
-            };
+            if (start_block_height == None) {
+                if let Ok(last_published_block) = redis_client
+                    .get::<String, u64>(format!(
+                        "{}:last_published_block",
+                        indexer_config.get_full_name()
+                    ))
+                    .await
+                {
+                    start_block_height = Some(last_published_block);
+                } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height {
+                    start_block_height = Some(updated_at_block_height);
+                } else {
+                    start_block_height = Some(indexer_config.created_at_block_height);
+                }
+            }
 
             tracing::info!(
                 account_id = account_id.as_str(),
@@ -215,7 +217,7 @@ async fn synchronise_block_streams(
 
             block_streams_handler
                 .start(
-                    start_block_height,
+                    start_block_height.unwrap(),
                     indexer_config.account_id.to_string(),
                     indexer_config.function_name.clone(),
                     registry_version,
