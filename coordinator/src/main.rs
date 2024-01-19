@@ -184,6 +184,7 @@ async fn synchronise_block_streams(
                 if active_block_stream.version == registry_version {
                     continue;
                 } else if let Some(height) = indexer_config.start_block_height {
+                    // If indexer was updated with active block stream, and had start block height
                     start_block_height = Some(height);
                 }
 
@@ -193,19 +194,26 @@ async fn synchronise_block_streams(
             }
 
             if start_block_height == None {
-                if let Ok(last_published_block) = redis_client
+                start_block_height = if let Ok(last_published_block) = redis_client
                     .get::<String, u64>(format!(
                         "{}:last_published_block",
                         indexer_config.get_full_name()
                     ))
                     .await
                 {
-                    start_block_height = Some(last_published_block);
+                    // If existing indexer's block stream is being resumed
+                    Some(last_published_block)
+                } else if let Some(start_block_height) = indexer_config.start_block_height {
+                    // If indexer is brand new and has start block height,
+                    // or if existing indexer was updated without a redis value written afterward (Shouldn't happen)
+                    Some(start_block_height)
                 } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height
                 {
-                    start_block_height = Some(updated_at_block_height);
+                    // If an exisitng indexer never had redis value written, and did not have a start block height
+                    Some(updated_at_block_height)
                 } else {
-                    start_block_height = Some(indexer_config.created_at_block_height);
+                    // If a brand new indexer did not have a start block height
+                    Some(indexer_config.created_at_block_height)
                 }
             }
 
@@ -442,7 +450,127 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn uses_start_block_height_when_set() {
+        async fn uses_last_published_block_height_when_restarting_existing_indexer_block_stream() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: String::new(),
+                        schema: Some(String::new()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: Some(200),
+                        start_block_height: Some(100),
+                    },
+                )]),
+            )]);
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_get::<String, u64>()
+                .returning(|_| Ok(500));
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| Ok(vec![]));
+            block_stream_handler
+                .expect_start()
+                .with(
+                    predicate::eq(500),
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq(200),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
+                    predicate::eq(MatchingRule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
+                    }),
+                )
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn uses_last_published_block_height_when_updating_without_start_block_height() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: String::new(),
+                        schema: Some(String::new()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: Some(200),
+                        start_block_height: None,
+                    },
+                )]),
+            )]);
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_get::<String, u64>()
+                .returning(|_| Ok(500));
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| {
+                Ok(vec![block_streamer::StreamInfo {
+                    stream_id: "morgs.near/test:block_stream".to_string(),
+                    account_id: "morgs.near".to_string(),
+                    function_name: "test".to_string(),
+                    version: 1,
+                }])
+            });
+            block_stream_handler
+                .expect_stop()
+                .with(predicate::eq("morgs.near/test:block_stream".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+            block_stream_handler
+                .expect_start()
+                .with(
+                    predicate::eq(500),
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq(200),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
+                    predicate::eq(MatchingRule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
+                    }),
+                )
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn uses_start_block_height_for_brand_new_indexer() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
@@ -496,7 +624,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn uses_updated_at_when_no_start_block_height() {
+        async fn uses_start_block_height_when_updating_with_start_block_height() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
@@ -515,7 +643,125 @@ mod tests {
                                 status: Status::Any,
                             },
                         },
-                        created_at_block_height: 101,
+                        created_at_block_height: 1,
+                        updated_at_block_height: Some(200),
+                        start_block_height: Some(100),
+                    },
+                )]),
+            )]);
+
+            let redis_client = RedisClient::default();
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| {
+                Ok(vec![block_streamer::StreamInfo {
+                    stream_id: "morgs.near/test:block_stream".to_string(),
+                    account_id: "morgs.near".to_string(),
+                    function_name: "test".to_string(),
+                    version: 1,
+                }])
+            });
+            block_stream_handler
+                .expect_stop()
+                .with(predicate::eq("morgs.near/test:block_stream".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+            block_stream_handler
+                .expect_start()
+                .with(
+                    predicate::eq(100),
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq(200),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
+                    predicate::eq(MatchingRule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
+                    }),
+                )
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn uses_start_block_height_when_no_last_published_block_and_no_block_stream() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: String::new(),
+                        schema: Some(String::new()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
+                        updated_at_block_height: Some(200),
+                        start_block_height: Some(100),
+                    },
+                )]),
+            )]);
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_get::<String, u64>()
+                .returning(|_| anyhow::bail!("none"));
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| Ok(vec![]));
+            block_stream_handler
+                .expect_start()
+                .with(
+                    predicate::eq(100),
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq(200),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
+                    predicate::eq(MatchingRule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
+                    }),
+                )
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn uses_updated_block_height_when_no_last_published_block_no_block_stream_no_start_block_height(
+        ) {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: String::new(),
+                        schema: Some(String::new()),
+                        filter: IndexerRule {
+                            id: None,
+                            name: None,
+                            indexer_rule_kind: IndexerRuleKind::Action,
+                            matching_rule: MatchingRule::ActionAny {
+                                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                                status: Status::Any,
+                            },
+                        },
+                        created_at_block_height: 1,
                         updated_at_block_height: Some(200),
                         start_block_height: None,
                     },
@@ -550,7 +796,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn uses_created_at_when_no_updated_at_block_height() {
+        async fn uses_created_block_height_for_brand_new_indexer_without_start() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
@@ -569,7 +815,7 @@ mod tests {
                                 status: Status::Any,
                             },
                         },
-                        created_at_block_height: 101,
+                        created_at_block_height: 1,
                         updated_at_block_height: None,
                         start_block_height: None,
                     },
@@ -586,10 +832,10 @@ mod tests {
             block_stream_handler
                 .expect_start()
                 .with(
-                    predicate::eq(101),
+                    predicate::eq(1),
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
-                    predicate::eq(101),
+                    predicate::eq(1),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(MatchingRule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
