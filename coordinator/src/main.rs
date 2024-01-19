@@ -179,7 +179,7 @@ async fn synchronise_block_streams(
                 .unwrap_or(indexer_config.created_at_block_height);
 
             let mut start_block_height = None;
-            
+
             if let Some(active_block_stream) = active_block_stream {
                 if active_block_stream.version == registry_version {
                     continue;
@@ -192,7 +192,7 @@ async fn synchronise_block_streams(
                     .await?;
             }
 
-            if (start_block_height == None) {
+            if start_block_height == None {
                 if let Ok(last_published_block) = redis_client
                     .get::<String, u64>(format!(
                         "{}:last_published_block",
@@ -201,7 +201,8 @@ async fn synchronise_block_streams(
                     .await
                 {
                     start_block_height = Some(last_published_block);
-                } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height {
+                } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height
+                {
                     start_block_height = Some(updated_at_block_height);
                 } else {
                     start_block_height = Some(indexer_config.created_at_block_height);
