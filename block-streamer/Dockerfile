@@ -5,7 +5,11 @@ COPY block-streamer/ block-streamer/
 COPY registry/types/ registry/types/
 WORKDIR /tmp/block-streamer/
 RUN apt update && apt install -yy protobuf-compiler
-RUN cargo build --package block-streamer
+RUN if [ "$CARGO_BUILD_MODE" = "debug" ]; then \
+        cargo build --package block-streamer; \
+    else \
+        cargo build --release --package block-streamer; \
+    fi
 
 FROM ubuntu:22.04
 ARG CARGO_BUILD_MODE=debug
