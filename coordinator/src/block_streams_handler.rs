@@ -105,10 +105,11 @@ impl BlockStreamsHandlerImpl {
                 status: Self::match_status(status),
             }),
             unsupported_rule => {
-                anyhow::bail!(
+                tracing::error!(
                     "Encountered unsupported indexer rule: {:?}",
                     unsupported_rule
-                )
+                );
+                return Ok(());
             }
         };
 
