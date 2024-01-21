@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use futures_util::future::Future;
 
-const INITIAL_DELAY_SECONDS: u64 = 1;
+const INITIAL_DELAY_SECONDS: Duration = Duration::from_secs(1);
 
 pub async fn exponential_retry<F, Fut, T, E>(operation: F) -> Result<T, E>
 where
@@ -11,7 +11,7 @@ where
     E: std::fmt::Debug,
 {
     let mut attempts = 1;
-    let mut delay = Duration::from_secs(INITIAL_DELAY_SECONDS);
+    let mut delay = INITIAL_DELAY_SECONDS;
 
     loop {
         match operation().await {

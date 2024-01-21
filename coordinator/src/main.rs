@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
 use crate::block_streams_handler::BlockStreamsHandler;
@@ -10,6 +13,8 @@ mod executors_handler;
 mod redis;
 mod registry;
 mod utils;
+
+const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -38,7 +43,11 @@ async fn main() -> anyhow::Result<()> {
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
-            synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler),
+            async {
+                sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
+                Ok(())
+            }
         )?;
     }
 }
