@@ -20,7 +20,7 @@ pub struct BlockStreamsHandlerImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl BlockStreamsHandlerImpl {
-    pub async fn connect(block_streamer_url: String) -> anyhow::Result<Self> {
+    pub fn connect(block_streamer_url: String) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(block_streamer_url)
             .context("Block Streamer URL is invalid")?
             .connect_lazy();
