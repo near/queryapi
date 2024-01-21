@@ -41,9 +41,11 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
+        let allowlist: Vec<String> = redis_client.get("allowlist").await?;
+
         let indexer_registry = indexer_registry
             .into_iter()
-            .filter(|(account_id, _)| ["morgs.near"].contains(&account_id.as_str()))
+            .filter(|(account_id, _)| allowlist.contains(&account_id.to_string()))
             .collect();
 
         tokio::try_join!(
