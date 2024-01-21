@@ -89,34 +89,31 @@ impl RegistryImpl {
     }
 
     pub async fn fetch(&self) -> anyhow::Result<IndexerRegistry> {
-        exponential_retry(
-            || async {
-                let response = self
-                    .json_rpc_client
-                    .call(RpcQueryRequest {
-                        block_reference: BlockReference::Finality(Finality::Final),
-                        request: QueryRequest::CallFunction {
-                            method_name: Self::LIST_METHOD.to_string(),
-                            account_id: self.registry_contract_id.clone(),
-                            args: FunctionArgs::from("{}".as_bytes().to_vec()),
-                        },
-                    })
-                    .await
-                    .context("Failed to list registry contract")?;
+        exponential_retry(|| async {
+            let response = self
+                .json_rpc_client
+                .call(RpcQueryRequest {
+                    block_reference: BlockReference::Finality(Finality::Final),
+                    request: QueryRequest::CallFunction {
+                        method_name: Self::LIST_METHOD.to_string(),
+                        account_id: self.registry_contract_id.clone(),
+                        args: FunctionArgs::from("{}".as_bytes().to_vec()),
+                    },
+                })
+                .await
+                .context("Failed to list registry contract")?;
 
-                if let QueryResponseKind::CallResult(call_result) = response.kind {
-                    let list_registry_response: AccountOrAllIndexers =
-                        serde_json::from_slice(&call_result.result)?;
+            if let QueryResponseKind::CallResult(call_result) = response.kind {
+                let list_registry_response: AccountOrAllIndexers =
+                    serde_json::from_slice(&call_result.result)?;
 
-                    if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
-                        return Ok(self.enrich_indexer_registry(all_indexers));
-                    }
+                if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
+                    return Ok(self.enrich_indexer_registry(all_indexers));
                 }
+            }
 
-                anyhow::bail!("Invalid registry response")
-            },
-            |_| true,
-        )
+            anyhow::bail!("Invalid registry response")
+        })
         .await
     }
 }

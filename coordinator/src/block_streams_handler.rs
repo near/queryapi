@@ -30,23 +30,16 @@ impl BlockStreamsHandlerImpl {
     }
 
     pub async fn list(&self) -> anyhow::Result<Vec<StreamInfo>> {
-        exponential_retry(
-            || async {
-                let response = self
-                    .client
-                    .clone()
-                    .list_streams(Request::new(ListStreamsRequest {}))
-                    .await
-                    .context("Failed to list streams")?;
+        exponential_retry(|| async {
+            let response = self
+                .client
+                .clone()
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .context("Failed to list streams")?;
 
-                Ok(response.into_inner().streams)
-            },
-            |e: &anyhow::Error| {
-                e.downcast_ref::<tonic::Status>()
-                    .map(|s| s.code() == tonic::Code::Unavailable)
-                    .unwrap_or(false)
-            },
-        )
+            Ok(response.into_inner().streams)
+        })
         .await
     }
 

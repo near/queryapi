@@ -27,23 +27,16 @@ impl ExecutorsHandlerImpl {
     }
 
     pub async fn list(&self) -> anyhow::Result<Vec<ExecutorInfo>> {
-        exponential_retry(
-            || async {
-                let response = self
-                    .client
-                    .clone()
-                    .list_executors(Request::new(ListExecutorsRequest {}))
-                    .await
-                    .context("Failed to list executors")?;
+        exponential_retry(|| async {
+            let response = self
+                .client
+                .clone()
+                .list_executors(Request::new(ListExecutorsRequest {}))
+                .await
+                .context("Failed to list executors")?;
 
-                Ok(response.into_inner().executors)
-            },
-            |e: &anyhow::Error| {
-                e.downcast_ref::<tonic::Status>()
-                    .map(|s| s.code() == tonic::Code::Unavailable)
-                    .unwrap_or(false)
-            },
-        )
+            Ok(response.into_inner().executors)
+        })
         .await
     }
 
