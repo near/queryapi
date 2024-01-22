@@ -35,8 +35,8 @@ async fn main() -> anyhow::Result<()> {
 
     let registry = Registry::connect(registry_contract_id, &rpc_url);
     let redis_client = RedisClient::connect(&redis_url).await?;
-    let block_streams_handler = BlockStreamsHandler::connect(block_streamer_url)?;
-    let executors_handler = ExecutorsHandler::connect(runner_url)?;
+    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
+    let executors_handler = ExecutorsHandler::connect(&runner_url)?;
 
     loop {
         let indexer_registry = registry.fetch().await?;
