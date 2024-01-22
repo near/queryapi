@@ -1,5 +1,5 @@
 FROM rust:1.75 AS build
-ARG CARGO_BUILD_MODE=debug
+ARG CARGO_BUILD_MODE=release
 WORKDIR /tmp/
 COPY block-streamer/ block-streamer/
 COPY registry/types/ registry/types/
@@ -12,7 +12,7 @@ RUN if [ "$CARGO_BUILD_MODE" = "debug" ]; then \
     fi
 
 FROM ubuntu:22.04
-ARG CARGO_BUILD_MODE=debug
+ARG CARGO_BUILD_MODE=release
 ENV RUST_LOG=info
 RUN apt update && apt install -yy openssl ca-certificates
 USER nobody

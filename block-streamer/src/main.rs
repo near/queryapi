@@ -34,7 +34,6 @@ async fn main() -> anyhow::Result<()> {
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
-    tracing::info!("Starting gRPC Server...");
     server::init(&server_port, redis_client, delta_lake_client, s3_config).await?;
 
     Ok(())
