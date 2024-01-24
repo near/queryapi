@@ -10,7 +10,7 @@ pub async fn init(
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_config: aws_sdk_s3::Config,
 ) -> anyhow::Result<()> {
-    let addr = format!("[::]:{}", port).parse()?;
+    let addr = format!("0.0.0.0:{}", port).parse()?;
 
     tracing::info!("Starting RPC server at {}", addr);
 

@@ -20,13 +20,13 @@ export default function startRunnerServer (executors: Map<string, StreamHandler>
   assert(process.env.GRPC_SERVER_PORT, 'GRPC_SERVER_PORT is not defined');
 
   server.bindAsync(
-    `[::]:${process.env.GRPC_SERVER_PORT}`,
+    `0.0.0.0:${process.env.GRPC_SERVER_PORT}`,
     credentials.createInsecure(), // TODO: Use secure credentials with allow for Coordinator
     (err: Error | null, port: number) => {
       if (err) {
         console.error(`Server error: ${err.message}`);
       } else {
-        console.log(`gRPC server bound on port: ${port}`);
+        console.log(`gRPC server bound on: 0.0.0.0:${port}`);
         server.start();
       }
     }
