@@ -38,7 +38,11 @@ impl BlockStreamsHandlerImpl {
                 .await
                 .context("Failed to list streams")?;
 
-            Ok(response.into_inner().streams)
+            let streams = response.into_inner().streams;
+
+            tracing::debug!("List streams response: {:#?}", streams);
+
+            Ok(streams)
         })
         .await
     }
@@ -48,9 +52,7 @@ impl BlockStreamsHandlerImpl {
             stream_id: stream_id.clone(),
         };
 
-        tracing::debug!("Sending stop stream request: {:#?}", request);
-
-        let _ = self
+        let response = self
             .client
             .clone()
             .stop_stream(Request::new(request.clone()))
@@ -58,6 +60,8 @@ impl BlockStreamsHandlerImpl {
             .map_err(|e| {
                 tracing::error!(stream_id, "Failed to stop stream\n{e:?}");
             });
+
+        tracing::debug!(stream_id, "Stop stream response: {:#?}", response);
 
         Ok(())
     }
@@ -115,9 +119,7 @@ impl BlockStreamsHandlerImpl {
             rule: Some(rule),
         };
 
-        tracing::debug!("Sending start stream request: {:#?}", request);
-
-        let _ = self
+        let response = self
             .client
             .clone()
             .start_stream(Request::new(request.clone()))
@@ -129,6 +131,14 @@ impl BlockStreamsHandlerImpl {
                     "Failed to start stream\n{error:?}"
                 );
             });
+
+        tracing::debug!(
+            account_id,
+            function_name,
+            version,
+            "Start stream response: {:#?}",
+            response
+        );
 
         Ok(())
     }
