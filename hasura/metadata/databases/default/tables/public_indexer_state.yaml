@@ -3,6 +3,7 @@ table:
   schema: public
 insert_permissions:
 - permission:
+    backend_only: true
     check: {}
     columns:
     - function_name
@@ -22,6 +23,7 @@ select_permissions:
   role: append
 update_permissions:
 - permission:
+    backend_only: true
     check: {}
     columns:
     - function_name

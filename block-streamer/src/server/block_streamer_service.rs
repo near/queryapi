@@ -43,6 +43,18 @@ impl BlockStreamerService {
             .lock()
             .map_err(|err| Status::internal(format!("Failed to acquire lock: {}", err)))
     }
+
+    fn match_status(grpc_status: i32) -> Result<registry_types::Status, Status> {
+        match grpc_status {
+            1 => Ok(registry_types::Status::Success),
+            2 => Ok(registry_types::Status::Fail),
+            3 => Ok(registry_types::Status::Any),
+            status => Err(Status::invalid_argument(format!(
+                "Invalid Status provided: {}",
+                status
+            ))),
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -58,26 +70,16 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .ok_or(Status::invalid_argument("Rule must be provided"))?;
 
         let matching_rule = match rule {
-            start_stream_request::Rule::ActionAnyRule(action_any_rule) => {
-                let affected_account_id = action_any_rule.affected_account_id;
-                let status = match action_any_rule.status {
-                    0 => Ok(registry_types::Status::Success),
-                    1 => Ok(registry_types::Status::Fail),
-                    2 => Ok(registry_types::Status::Any),
-                    _ => Err(Status::invalid_argument(
-                        "Invalid status value for ActionAnyRule",
-                    )),
-                }?;
-
-                MatchingRule::ActionAny {
-                    affected_account_id,
-                    status,
+            start_stream_request::Rule::ActionAnyRule(action_any) => MatchingRule::ActionAny {
+                affected_account_id: action_any.affected_account_id,
+                status: Self::match_status(action_any.status)?,
+            },
+            start_stream_request::Rule::ActionFunctionCallRule(action_function_call) => {
+                MatchingRule::ActionFunctionCall {
+                    affected_account_id: action_function_call.affected_account_id,
+                    status: Self::match_status(action_function_call.status)?,
+                    function: action_function_call.function_name,
                 }
-            }
-            _ => {
-                return Err(Status::unimplemented(
-                    "Rules other than ActionAny are not supported yet",
-                ))
             }
         };
         let filter_rule = IndexerRule {
@@ -107,8 +109,12 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             None => drop(lock),
         }
 
-        let mut block_stream =
-            block_stream::BlockStream::new(indexer_config.clone(), self.chain_id.clone());
+        let mut block_stream = block_stream::BlockStream::new(
+            indexer_config.clone(),
+            self.chain_id.clone(),
+            request.version,
+            request.redis_stream,
+        );
 
         block_stream
             .start(
@@ -169,11 +175,9 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .values()
             .map(|block_stream| StreamInfo {
                 stream_id: block_stream.indexer_config.get_hash_id(),
-                chain_id: self.chain_id.to_string(),
-                indexer_name: block_stream.indexer_config.get_full_name(),
-                start_block_height: 0,
-                status: "OK".to_string(),
-                // last_indexed_block
+                account_id: block_stream.indexer_config.account_id.to_string(),
+                function_name: block_stream.indexer_config.function_name.clone(),
+                version: block_stream.version,
             })
             .collect();
 
@@ -236,9 +240,11 @@ mod tests {
                 start_block_height: 0,
                 account_id: "morgs.near".to_string(),
                 function_name: "test".to_string(),
+                version: 0,
+                redis_stream: "stream".to_string(),
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: 0,
+                    status: 1,
                 })),
             }))
             .await
@@ -268,9 +274,11 @@ mod tests {
                 start_block_height: 0,
                 account_id: "morgs.near".to_string(),
                 function_name: "test".to_string(),
+                version: 0,
+                redis_stream: "stream".to_string(),
                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: 0,
+                    status: 1,
                 })),
             }))
             .await

@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::Context;
 use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
@@ -19,14 +19,23 @@ pub struct BlockStream {
     task: Option<Task>,
     pub indexer_config: IndexerConfig,
     pub chain_id: ChainId,
+    pub version: u64,
+    pub redis_stream: String,
 }
 
 impl BlockStream {
-    pub fn new(indexer_config: IndexerConfig, chain_id: ChainId) -> Self {
+    pub fn new(
+        indexer_config: IndexerConfig,
+        chain_id: ChainId,
+        version: u64,
+        redis_stream: String,
+    ) -> Self {
         Self {
             task: None,
             indexer_config,
             chain_id,
+            version,
+            redis_stream,
         }
     }
 
@@ -46,13 +55,15 @@ impl BlockStream {
 
         let indexer_config = self.indexer_config.clone();
         let chain_id = self.chain_id.clone();
+        let redis_stream = self.redis_stream.clone();
 
         let handle = tokio::spawn(async move {
             tokio::select! {
                 _ = cancellation_token_clone.cancelled() => {
                     tracing::info!(
-                        "Cancelling block stream task for indexer: {}",
-                        indexer_config.get_full_name(),
+                        account_id = indexer_config.account_id.as_str(),
+                        function_name = indexer_config.function_name,
+                        "Cancelling block stream task",
                     );
 
                     Ok(())
@@ -64,12 +75,14 @@ impl BlockStream {
                     delta_lake_client,
                     lake_s3_config,
                     &chain_id,
-                    LAKE_PREFETCH_SIZE
+                    LAKE_PREFETCH_SIZE,
+                    redis_stream
                 ) => {
                     result.map_err(|err| {
                         tracing::error!(
-                            "Block stream task for indexer: {} stopped due to error: {:?}",
-                            indexer_config.get_full_name(),
+                            account_id = indexer_config.account_id.as_str(),
+                            function_name = indexer_config.function_name,
+                            "Block stream task stopped due to error: {:?}",
                             err,
                         );
                         err
@@ -108,10 +121,13 @@ pub(crate) async fn start_block_stream(
     lake_s3_config: aws_sdk_s3::Config,
     chain_id: &ChainId,
     lake_prefetch_size: usize,
+    redis_stream: String,
 ) -> anyhow::Result<()> {
     tracing::info!(
-        "Starting block stream at {start_block_height} for indexer: {}",
-        indexer.get_full_name(),
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        start_block_height,
+        "Starting block stream",
     );
 
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
@@ -125,9 +141,10 @@ pub(crate) async fn start_block_stream(
             ..
         } => {
             tracing::debug!(
-                "Fetching block heights starting from {} from delta lake for indexer: {}",
+                account_id = indexer.account_id.as_str(),
+                function_name = indexer.function_name,
+                "Fetching block heights starting from {} from delta lake",
                 start_block_height,
-                indexer.get_full_name()
             );
 
             delta_lake_client
@@ -135,27 +152,35 @@ pub(crate) async fn start_block_stream(
                 .await
         }
         MatchingRule::ActionFunctionCall { .. } => {
-            bail!("ActionFunctionCall matching rule not yet supported for historical processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+            tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+            Ok(vec![])
         }
         MatchingRule::Event { .. } => {
-            bail!("Event matching rule not yet supported for historical processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+            tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+            Ok(vec![])
         }
     }?;
 
     tracing::debug!(
-        "Flushing {} block heights from index files to historical Stream for indexer: {}",
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        "Flushing {} block heights from index files to Redis Stream",
         blocks_from_index.len(),
-        indexer.get_full_name(),
     );
 
     for block in &blocks_from_index {
+        let block = block.to_owned();
         redis_client
-            .xadd(
-                crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
-                &[("block_height".to_string(), block.to_owned())],
-            )
+            .xadd(redis_stream.clone(), &[("block_height".to_string(), block)])
             .await
             .context("Failed to add block to Redis Stream")?;
+        redis_client
+            .set(
+                format!("{}:last_published_block", indexer.get_full_name()),
+                block,
+            )
+            .await
+            .context("Failed to set last_published_block")?;
     }
 
     let mut last_indexed_block =
@@ -167,8 +192,9 @@ pub(crate) async fn start_block_stream(
             });
 
     tracing::debug!(
-        "Starting near-lake-framework from {last_indexed_block} for indexer: {}",
-        indexer.get_full_name(),
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        "Starting near-lake-framework from {last_indexed_block} for indexer",
     );
 
     let lake_config = match &chain_id {
@@ -187,6 +213,14 @@ pub(crate) async fn start_block_stream(
         let block_height = streamer_message.block.header.height;
         last_indexed_block = block_height;
 
+        redis_client
+            .set(
+                format!("{}:last_published_block", indexer.get_full_name()),
+                last_indexed_block,
+            )
+            .await
+            .context("Failed to set last_published_block")?;
+
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.indexer_rule,
             &streamer_message,
@@ -196,7 +230,7 @@ pub(crate) async fn start_block_stream(
         if !matches.is_empty() {
             redis_client
                 .xadd(
-                    crate::redis::generate_historical_stream_key(&indexer.get_full_name()),
+                    redis_stream.clone(),
                     &[("block_height".to_string(), block_height.to_owned())],
                 )
                 .await
@@ -207,9 +241,10 @@ pub(crate) async fn start_block_stream(
     drop(sender);
 
     tracing::debug!(
-        "Stopped block stream at {} for indexer: {}",
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        "Stopped block stream at {}",
         last_indexed_block,
-        indexer.get_full_name(),
     );
 
     Ok(())
@@ -219,10 +254,10 @@ pub(crate) async fn start_block_stream(
 mod tests {
     use super::*;
 
+    use mockall::predicate;
+
     #[tokio::test]
     async fn adds_matching_blocks_from_index_and_lake() {
-        let expected_matching_block_height_count = 3;
-
         let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
         mock_delta_lake_client
             .expect_get_latest_block_metadata()
@@ -242,8 +277,16 @@ mod tests {
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
             .expect_xadd::<String, u64>()
+            .with(predicate::eq("stream key".to_string()), predicate::always())
+            .returning(|_, fields| {
+                assert!(vec![107503702, 107503703, 107503705].contains(&fields[0].1));
+                Ok(())
+            })
+            .times(3);
+        mock_redis_client
+            .expect_set::<String, u64>()
             .returning(|_, _| Ok(()))
-            .times(expected_matching_block_height_count);
+            .times(4);
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
@@ -272,6 +315,7 @@ mod tests {
             lake_s3_config,
             &ChainId::Mainnet,
             1,
+            "stream key".to_string(),
         )
         .await
         .unwrap();

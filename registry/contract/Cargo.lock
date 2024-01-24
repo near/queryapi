@@ -2059,7 +2059,6 @@ name = "registry-types"
 version = "0.1.0"
 dependencies = [
  "borsh 1.2.1",
- "near-primitives",
  "near-sdk",
  "serde",
 ]

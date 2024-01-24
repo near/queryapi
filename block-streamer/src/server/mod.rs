@@ -5,13 +5,12 @@ pub mod blockstreamer {
 }
 
 pub async fn init(
+    port: &str,
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_config: aws_sdk_s3::Config,
 ) -> anyhow::Result<()> {
-    let addr = "[::1]:10000"
-        .parse()
-        .expect("Failed to parse RPC socket address");
+    let addr = format!("[::1]:{}", port).parse()?;
 
     tracing::info!("Starting RPC server at {}", addr);
 
