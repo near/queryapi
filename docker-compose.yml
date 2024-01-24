@@ -1,7 +1,7 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
-  coordinator:
+  coordinator-v1:
     build:
       context: ./indexer
       args:
@@ -22,6 +22,21 @@ services:
     command:
       - mainnet
       - from-interruption
+
+  coordinator:
+    build:
+      context: .
+      dockerfile: ./coordinator/Dockerfile
+      args:
+        - CARGO_BUILD_MODE=debug
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis
+      BLOCK_STREAMER_URL: http://block_streamer:8001
+      RUNNER_URL: http://runner:7001
+      REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
+      RUST_LOG: info
 
   runner:
     build:
