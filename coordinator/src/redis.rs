@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-pub use redis::RedisError;
+use anyhow::Context;
 use redis::{aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 #[cfg(test)]
@@ -14,10 +14,11 @@ pub struct RedisClientImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
-    pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
+    pub async fn connect(redis_url: &str) -> anyhow::Result<Self> {
         let connection = redis::Client::open(redis_url)?
             .get_connection_manager()
-            .await?;
+            .await
+            .context("Unable to connect to Redis")?;
 
         Ok(Self { connection })
     }
