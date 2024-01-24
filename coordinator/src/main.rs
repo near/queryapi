@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use anyhow::Context;
+use near_primitives::types::AccountId;
 use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
@@ -26,20 +28,32 @@ async fn main() -> anyhow::Result<()> {
     let rpc_url = std::env::var("RPC_URL").expect("RPC_URL is not set");
     let registry_contract_id = std::env::var("REGISTRY_CONTRACT_ID")
         .expect("REGISTRY_CONTRACT_ID is not set")
-        .parse()
+        .parse::<AccountId>()
         .expect("REGISTRY_CONTRACT_ID is not a valid account ID");
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
     let block_streamer_url =
         std::env::var("BLOCK_STREAMER_URL").expect("BLOCK_STREAMER_URL is not set");
     let runner_url = std::env::var("RUNNER_URL").expect("RUNNER_URL is not set");
 
-    let registry = Registry::connect(registry_contract_id, &rpc_url);
+    let registry = Registry::connect(registry_contract_id.clone(), &rpc_url);
     let redis_client = RedisClient::connect(&redis_url).await?;
-    let block_streams_handler = BlockStreamsHandler::connect(block_streamer_url)?;
-    let executors_handler = ExecutorsHandler::connect(runner_url)?;
+    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
+    let executors_handler = ExecutorsHandler::connect(&runner_url)?;
+
+    tracing::info!(
+        rpc_url,
+        registry_contract_id = registry_contract_id.as_str(),
+        block_streamer_url,
+        runner_url,
+        redis_url,
+        "Starting Coordinator"
+    );
 
     loop {
         let indexer_registry = registry.fetch().await?;
+
+        let indexer_registry =
+            filter_registry_by_allowlist(indexer_registry, &redis_client).await?;
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
@@ -50,6 +64,33 @@ async fn main() -> anyhow::Result<()> {
             }
         )?;
     }
+}
+
+#[derive(serde::Deserialize, Debug)]
+struct AllowListEntry {
+    account_id: AccountId,
+}
+
+type AllowList = Vec<AllowListEntry>;
+
+async fn filter_registry_by_allowlist(
+    indexer_registry: IndexerRegistry,
+    redis_client: &RedisClient,
+) -> anyhow::Result<IndexerRegistry> {
+    let raw_allowlist: String = redis_client.get(String::from("allowlist")).await?;
+    let allowlist: AllowList =
+        serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")?;
+
+    tracing::debug!("Using allowlist: {:#?}", allowlist);
+
+    Ok(indexer_registry
+        .into_iter()
+        .filter(|(account_id, _)| {
+            allowlist
+                .iter()
+                .any(|entry| entry.account_id == *account_id)
+        })
+        .collect())
 }
 
 async fn synchronise_executors(
@@ -80,6 +121,13 @@ async fn synchronise_executors(
                 executors_handler.stop(active_executor.executor_id).await?;
             }
 
+            tracing::info!(
+                account_id = account_id.as_str(),
+                function_name,
+                registry_version,
+                "Starting executor"
+            );
+
             executors_handler
                 .start(
                     account_id.to_string(),
@@ -94,6 +142,13 @@ async fn synchronise_executors(
     }
 
     for unregistered_executor in active_executors {
+        tracing::info!(
+            account_id = unregistered_executor.account_id.as_str(),
+            function_name = unregistered_executor.function_name,
+            registry_version = unregistered_executor.version,
+            "Stopping executor"
+        );
+
         executors_handler
             .stop(unregistered_executor.executor_id)
             .await?;
@@ -151,6 +206,13 @@ async fn synchronise_block_streams(
                 indexer_config.created_at_block_height
             };
 
+            tracing::info!(
+                account_id = account_id.as_str(),
+                function_name,
+                registry_version,
+                "Starting block stream"
+            );
+
             block_streams_handler
                 .start(
                     start_block_height,
@@ -165,6 +227,13 @@ async fn synchronise_block_streams(
     }
 
     for unregistered_block_stream in active_block_streams {
+        tracing::info!(
+            account_id = unregistered_block_stream.account_id.as_str(),
+            function_name = unregistered_block_stream.function_name,
+            registry_version = unregistered_block_stream.version,
+            "Stopping block stream"
+        );
+
         block_streams_handler
             .stop(unregistered_block_stream.stream_id)
             .await?;

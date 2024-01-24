@@ -17,8 +17,8 @@ pub struct ExecutorsHandlerImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl ExecutorsHandlerImpl {
-    pub fn connect(runner_url: String) -> anyhow::Result<Self> {
-        let channel = Channel::from_shared(runner_url)
+    pub fn connect(runner_url: &str) -> anyhow::Result<Self> {
+        let channel = Channel::from_shared(runner_url.to_string())
             .context("Runner URL is invalid")?
             .connect_lazy();
         let client = RunnerClient::new(channel);

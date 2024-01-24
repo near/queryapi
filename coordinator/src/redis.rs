@@ -25,15 +25,17 @@ impl RedisClientImpl {
 
     pub async fn get<T, U>(&self, key: T) -> anyhow::Result<U>
     where
-        T: ToRedisArgs + Debug + Send + Sync + 'static,
-        U: FromRedisValue + Send + Sync + 'static,
+        T: ToRedisArgs + Debug + 'static,
+        U: FromRedisValue + Debug + 'static,
     {
-        tracing::debug!("GET: {:?}", key);
-
-        redis::cmd("GET")
-            .arg(key)
+        let value = redis::cmd("GET")
+            .arg(&key)
             .query_async(&mut self.connection.clone())
             .await
-            .map_err(|e| e.into())
+            .map_err(|e| anyhow::format_err!(e))?;
+
+        tracing::debug!("GET: {:?}={:?}", key, value);
+
+        Ok(value)
     }
 }
