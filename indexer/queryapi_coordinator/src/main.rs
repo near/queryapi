@@ -186,7 +186,9 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
     )
     .await?;
 
-    indexer_registry::index_registry_changes(block_height, &context).await?;
+    let deny_list = fetch_deny_list(context.redis_connection_manager).await?;
+
+    indexer_registry::index_registry_changes(block_height, &context, &deny_list).await?;
 
     while let Some(indexer_function_with_matches) =
         indexer_function_filter_matches_futures.next().await

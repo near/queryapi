@@ -89,15 +89,17 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 pub(crate) async fn index_registry_changes(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
+    deny_list: &crate::DenyList,
 ) -> anyhow::Result<()> {
     index_and_process_remove_calls(context).await;
 
-    index_and_process_register_calls(current_block_height, context).await
+    index_and_process_register_calls(current_block_height, context, deny_list).await
 }
 
 async fn index_and_process_register_calls(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
+    deny_list: &crate::DenyList,
 ) -> anyhow::Result<()> {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
@@ -119,6 +121,17 @@ async fn index_and_process_register_calls(
             match new_indexer_function {
                 None => continue,
                 Some(mut new_indexer_function) => {
+                    if deny_list
+                        .iter()
+                        .any(|entry| entry.account_id == new_indexer_function.account_id)
+                    {
+                        tracing::info!(
+                            "Ignoring registered indexer {} from deny list",
+                            new_indexer_function.get_full_name()
+                        );
+                        continue;
+                    }
+
                     let mut indexer_registry_lock = context.indexer_registry.lock().await;
                     let fns = indexer_registry_lock
                         .entry(new_indexer_function.account_id.clone())
