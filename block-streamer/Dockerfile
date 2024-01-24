@@ -13,7 +13,6 @@ RUN if [ "$CARGO_BUILD_MODE" = "debug" ]; then \
 
 FROM ubuntu:22.04
 ARG CARGO_BUILD_MODE=release
-ENV RUST_LOG=info
 RUN apt update && apt install -yy openssl ca-certificates
 USER nobody
 COPY --from=build /tmp/block-streamer/target/$CARGO_BUILD_MODE/block-streamer /block-streamer
