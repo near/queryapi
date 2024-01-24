@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
 use tokio::sync::Mutex;
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use near_lake_framework::near_indexer_primitives::types::BlockHeight;
+use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 use near_lake_framework::near_indexer_primitives::StreamerMessage;
 use utils::serialize_to_camel_case_json_string;
 
@@ -40,6 +41,13 @@ pub(crate) struct QueryApiContext<'a> {
     pub streamers: &'a Streamers,
 }
 
+#[derive(serde::Deserialize, Debug)]
+struct DenyListEntry {
+    account_id: AccountId,
+}
+
+type DenyList = Vec<DenyListEntry>;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     opts::init_tracing();
@@ -57,6 +65,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
 
+    let denylist = fetch_deny_list(&redis_connection_manager).await?;
+    tracing::info!("Using denylist: {:#?}", denylist);
+
     let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
 
     // fetch raw indexer functions for use in indexer
@@ -71,6 +82,22 @@ async fn main() -> anyhow::Result<()> {
     )
     .await;
     let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
+    let indexer_functions = indexer_functions
+        .into_iter()
+        .filter(|(account_id, _)| {
+            let account_in_deny_list = denylist.iter().any(|entry| entry.account_id == *account_id);
+
+            if account_in_deny_list {
+                tracing::info!(
+                    target: INDEXER,
+                    "Ignoring {account_id} from denylist"
+                );
+            }
+
+            !account_in_deny_list
+        })
+        .collect();
+
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
 
@@ -116,6 +143,15 @@ async fn main() -> anyhow::Result<()> {
         Ok(Err(e)) => Err(e),
         Err(e) => Err(anyhow::Error::from(e)), // JoinError
     }
+}
+
+async fn fetch_deny_list(redis_connection_manager: &ConnectionManager) -> anyhow::Result<DenyList> {
+    // It's named allowlist as we allow accounts for V2, but deny them for V1
+    let raw_denylist: String = storage::get(redis_connection_manager, "allowlist").await?;
+    let denylist: DenyList =
+        serde_json::from_str(&raw_denylist).context("Failed to parse denylist")?;
+
+    Ok(denylist)
 }
 
 async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
