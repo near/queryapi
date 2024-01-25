@@ -1,6 +1,24 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
+  block-streamer:
+    build:
+      context: .
+      dockerfile: ./block-streamer/Dockerfile
+      args:
+        - CARGO_BUILD_MODE=debug
+    depends_on:
+      - redis
+    environment:
+      SERVER_PORT: 8002
+      REDIS_URL: redis://redis
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_REGION: eu-central-1
+      RUST_LOG: info
+    ports:
+      - "8002:8002"
+
   coordinator-v1:
     build:
       context: ./indexer
@@ -12,10 +30,6 @@ services:
       REDIS_CONNECTION_STRING: redis://redis
       LAKE_AWS_ACCESS_KEY:
       LAKE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_AWS_ACCESS_KEY:
-      QUEUE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_URL: MOCK
-      START_FROM_BLOCK_QUEUE_URL: MOCK
       PORT: 9180
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       AWS_QUEUE_REGION: eu-central-1
@@ -50,6 +64,7 @@ services:
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
       PGHOST: postgres
+      PGHOST_HASURA: postgres
       PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
@@ -58,6 +73,8 @@ services:
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
       GRPC_SERVER_PORT: 7001
+    ports:
+      - "7001:7001"
 
   redis:
     image: redis
