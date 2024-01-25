@@ -19,17 +19,17 @@ import {
   TrashFill,
   XCircle,
   NodePlus,
-  Code
+  Code,
+  FileText,
 } from "react-bootstrap-icons";
 import { BlockPicker } from "./BlockPicker";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
 const EditorButtons = ({
   handleFormating,
   handleCodeGen,
   executeIndexerFunction,
-  currentUserAccountId,
-  getActionButtonText,
   isExecuting,
   stopExecution,
   heights,
@@ -37,6 +37,7 @@ const EditorButtons = ({
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
+  error
 }) => {
 
   const {
@@ -48,8 +49,7 @@ const EditorButtons = ({
     setShowForkIndexerModal,
     debugMode,
     isCreateNewIndexer,
-    indexerNameField,
-    setIndexerNameField
+    setShowLogsView,
   } = useContext(IndexerDetailsContext);
 
   const removeHeight = (index) => {
@@ -69,16 +69,15 @@ const EditorButtons = ({
         >
           <Row className="w-100">
             <Col style={{ display: "flex", justifyContent: "start", flexDirection: "column" }}>
-
               <Breadcrumb className="flex">
                 <Breadcrumb.Item className="flex align-center " href="#">
                   {accountId}
                 </Breadcrumb.Item>
-                  {indexerName && (
-                <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
-                 {indexerName}
-                </Breadcrumb.Item>
-                  )}
+                {indexerName && (
+                  <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
+                    {indexerName}
+                  </Breadcrumb.Item>
+                )}
               </Breadcrumb>
               {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
@@ -107,7 +106,7 @@ const EditorButtons = ({
               )}
             </Col>
             <Col
-              style={{ display: "flex", justifyContent: "end", height: "40px" }}
+              style={{ display: "flex", justifyContent: "end", flexDirection: "column", alignItems: "flex-end" }}
             >
               <ButtonGroup
                 className="inline-block"
@@ -115,76 +114,51 @@ const EditorButtons = ({
               >
                 {isUserIndexer && !isCreateNewIndexer && (
                   <>
+                    <OverlayTrigger
+                      placement="bottom"
+                      overlay={<Tooltip>Delete Indexer</Tooltip>}
+                    >
+                      <Button
+                        size="sm"
+                        className="flex align-center"
+                        variant="danger"
+                        onClick={() => handleDeleteIndexer()}
+                      >
+                        <TrashFill size={22} />
+                      </Button>
+                    </OverlayTrigger>
+                    <OverlayTrigger
+                      placement="bottom"
+                      overlay={<Tooltip>Fork this Indexer</Tooltip>}
+                    >
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex align-center"
+                        onClick={() => setShowForkIndexerModal(true)}
+                      >
+                        <NodePlus style={{ paddingRight: "2px" }} size={24} />
+                      </Button>
+                    </OverlayTrigger>
+                  </>
+                )}
+
+                {!isCreateNewIndexer && (
                   <OverlayTrigger
                     placement="bottom"
-                    overlay={<Tooltip>Delete Indexer</Tooltip>}
+                    overlay={<Tooltip>Open Logs</Tooltip>}
                   >
                     <Button
                       size="sm"
+                      variant="secondary"
                       className="flex align-center"
-                      variant="danger"
-                      onClick={() => handleDeleteIndexer()}
+                      onClick={() => setShowLogsView(true)}
                     >
-                      <TrashFill size={22} />
+                      <FileText style={{ paddingRight: "2px" }} size={24} />
+                      Show Logs
                     </Button>
                   </OverlayTrigger>
-                  <OverlayTrigger
-                  placement="bottom"
-                  overlay={<Tooltip>Fork this Indexer</Tooltip>}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex align-center"
-                    onClick={() => setShowForkIndexerModal(true)}
-                  >
-                    <NodePlus style={{ paddingRight: "2px" }} size={24} />
-                  </Button>
-                </OverlayTrigger>
-                    </>
                 )}
-
-                <OverlayTrigger
-                  placement="bottom"
-                  overlay={<Tooltip>Reset Changes To Code</Tooltip>}
-                >
-                  <Button
-                    size="sm"
-                    className="flex align-center"
-                    variant="secondary"
-                    onClick={() => setShowResetCodeModel(true)}
-                  >
-                    <ArrowCounterclockwise size={22} />
-                  </Button>
-                </OverlayTrigger>
-
-                <OverlayTrigger
-                  placement="bottom"
-                  overlay={<Tooltip>Format Code</Tooltip>}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex align-center"
-                    onClick={() => handleFormating()}
-                  >
-                    <Justify style={{ paddingRight: "2px" }} size={24} />
-                  </Button>
-                </OverlayTrigger>
-
-                <OverlayTrigger
-                  placement="bottom"
-                  overlay={<Tooltip>Generate Types</Tooltip>}
-                >
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex align-center"
-                    onClick={() => handleCodeGen()}
-                  >
-                    <Code style={{ paddingRight: "2px" }} size={24} />
-                  </Button>
-                </OverlayTrigger>
                 {(!isUserIndexer && !isCreateNewIndexer) ? (
                   <OverlayTrigger
                     placement="bottom"
@@ -206,6 +180,7 @@ const EditorButtons = ({
                     <Button
                       variant="primary"
                       className="px-3"
+                      disabled={!!error && error !== SCHEMA_TYPE_GENERATION_ERROR_MESSAGE}
                       onClick={() => setShowPublishModal(true)}
                     >
                       Publish
@@ -213,6 +188,51 @@ const EditorButtons = ({
                   </OverlayTrigger>
                 )}
               </ButtonGroup>
+              <Row
+                style={{ display: "flex", justifyContent: "center", width: "60%", padding: "5px" }}
+              >
+                <ButtonGroup>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Reset Changes To Code</Tooltip>}
+                  >
+                    <Button
+                      size="sm"
+                      className="flex align-center"
+                      variant="secondary"
+                      onClick={() => setShowResetCodeModel(true)}
+                    >
+                      <ArrowCounterclockwise size={22} />
+                    </Button>
+                  </OverlayTrigger>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Format Code</Tooltip>}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => handleFormating()}
+                    >
+                      <Justify style={{ paddingRight: "2px" }} size={24} />
+                    </Button>
+                  </OverlayTrigger>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Generate Types</Tooltip>}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => handleCodeGen()}
+                    >
+                      <Code style={{ paddingRight: "2px" }} size={24} />
+                    </Button>
+                  </OverlayTrigger>
+                </ButtonGroup>
+              </Row>
             </Col>
           </Row>
           {debugMode && heights.length > 0 && (

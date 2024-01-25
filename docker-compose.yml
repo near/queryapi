@@ -1,7 +1,25 @@
 version: "3.9"  # optional since v1.27.0
 services:
 
-  coordinator:
+  block-streamer:
+    build:
+      context: .
+      dockerfile: ./block-streamer/Dockerfile
+      args:
+        - CARGO_BUILD_MODE=debug
+    depends_on:
+      - redis
+    environment:
+      SERVER_PORT: 8002
+      REDIS_URL: redis://redis
+      AWS_ACCESS_KEY_ID:
+      AWS_SECRET_ACCESS_KEY:
+      AWS_REGION: eu-central-1
+      RUST_LOG: info
+    ports:
+      - "8002:8002"
+
+  coordinator-v1:
     build:
       context: ./indexer
       args:
@@ -12,16 +30,27 @@ services:
       REDIS_CONNECTION_STRING: redis://redis
       LAKE_AWS_ACCESS_KEY:
       LAKE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_AWS_ACCESS_KEY:
-      QUEUE_AWS_SECRET_ACCESS_KEY:
-      QUEUE_URL: MOCK
-      START_FROM_BLOCK_QUEUE_URL: MOCK
       PORT: 9180
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       AWS_QUEUE_REGION: eu-central-1
     command:
       - mainnet
       - from-interruption
+
+  coordinator:
+    build:
+      context: .
+      dockerfile: ./coordinator/Dockerfile
+      args:
+        - CARGO_BUILD_MODE=debug
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: redis://redis
+      BLOCK_STREAMER_URL: http://block_streamer:8001
+      RUNNER_URL: http://runner:7001
+      REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
+      RUST_LOG: info
 
   runner:
     build:
@@ -35,6 +64,7 @@ services:
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
       PGHOST: postgres
+      PGHOST_HASURA: postgres
       PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
@@ -42,6 +72,9 @@ services:
       PORT: 9180
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
+      GRPC_SERVER_PORT: 7001
+    ports:
+      - "7001:7001"
 
   redis:
     image: redis
@@ -88,7 +121,23 @@ services:
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
       HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
       HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:4000/auth
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - grafana:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=secret
+    
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
       
 volumes:
   postgres:
   redis:
+  grafana:

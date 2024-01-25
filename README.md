@@ -8,7 +8,7 @@ With QueryApi you can
 ## 🧩 Components
 1. [QueryApi Coordinator](./indexer)
 An Indexer that tracks changes to the QueryApi registry contract. It triggers the execution of those IndexerFunctions
-when they match new blocks by placing messages on an SQS queue. Spawns historical processing threads when needed.
+when they match new blocks by placing messages on a Redis Stream. Spawns historical processing threads when needed.
    1.a.  Subfolders provide crates for the different components of the Indexer: indexer_rule_type (shared with registry contract), 
 indexer_rules_engine, storage.
 2. [Indexer Runner](.indexer-js-queue-handler)
@@ -70,7 +70,6 @@ docker compose up
 
 ### Local Configuration
 - Coordinator watches the dev registry contract by default (`dev-queryapi.dataplatform.near`). To use a different contract, you can update the `REGISTRY_CONTRACT_ID` environment variable.
-- Coodinator will log SQS messages rather than sending them. To use an actual Queue, you can update the `QUEUE_URL` and `START_FROM_BLOCK_QUEUE_URL` environment variables.
 
 ### Known Issues
 

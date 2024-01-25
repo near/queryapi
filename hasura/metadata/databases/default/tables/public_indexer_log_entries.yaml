@@ -3,6 +3,7 @@ table:
   schema: public
 insert_permissions:
 - permission:
+    backend_only: true
     check: {}
     columns:
     - block_height

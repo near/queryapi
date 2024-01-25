@@ -95,9 +95,6 @@ const TextLink = styled.a`
 
 if (!indexer_name) return "missing indexer_name";
 
-let v1_endpoint = `${REPL_GRAPHQL_ENDPOINT}`;
-let v2_endpoint = `${REPL_GRAPHQL_ENDPOINT_V2}`;
-
 State.init({
   logs: [],
   state: [],
@@ -108,10 +105,9 @@ State.init({
   indexer_resPage: 0,
   logsPage: 0,
   statePage: 0,
-  v2Toggle: Storage.privateGet("QueryApiV2Toggle") || false,
 });
 
-let graphQLEndpoint = state.v2Toggle ? v2_endpoint : v1_endpoint;
+let graphQLEndpoint = `${REPL_GRAPHQL_ENDPOINT}`;
 
 function fetchGraphQL(operationsDoc, operationName, variables) {
   return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
@@ -164,12 +160,7 @@ const indexerStateDoc = `
   }
 `;
 
-const prevV2ToggleSelected = Storage.privateGet("QueryApiV2Toggle");
-if (
-  !state.initialFetch ||
-  (prevV2ToggleSelected !== state.v2Toggle)
-) {
-  Storage.privateSet("QueryApiV2Toggle", state.v2Toggle);
+if (!state.initialFetch) {
   State.update({
     logs: [],
     state: [],
@@ -256,44 +247,6 @@ const onIndexerResPageChange = (page) => {
   State.update({ indexer_resPage: page, currentPage: page });
 };
 
-const DisclaimerContainer = styled.div`
-  padding: 10px;
-  margin: 0.5px;
-  text-color: black;
-  display: flex;
-  width: 50;
-  border: 2px solid rgb(240, 240, 240);
-  border-radius: 8px;
-  align-items: "center";
-  margin-bottom: 5px;
-`;
-
-const Notice = styled.div`
-  font-weight: 900;
-  font-size: 22px;
-  align-self: flex-start;
-  margin: 10px 0px 30px;
-  text-align: center;
-  padding-bottom: 5px;
-  border-bottom: 1px solid rgb(240, 240, 241);
-  color: rgb(36, 39, 42);
-`;
-
-const DisclaimerText = styled.p`
-  font-size: 14px;
-  line-height: 20px;
-  font-weight: 400;
-  color: rgb(17, 24, 28);
-  word-break: break-word;
-  width: 700px;
-  text-align: start;
-  padding-left: 10px;
-
-  @media (max-width: 1024px) {
-    width: 80%;
-  }
-`;
-
 return (
   <>
     <Card>
@@ -303,39 +256,6 @@ return (
           GraphQL Playground
           <i className="bi bi-box-arrow-up-right"></i>
         </TextLink>
-        <div
-          style={{
-            marginTop: "5px",
-            display: "flex",
-            width: "100%",
-            justifyContent: "center",
-          }}
-        >
-          <DisclaimerContainer>
-            <div className="flex">
-              <Notice>V2 Testing Notice</Notice>
-              <div style={{ display: "flex" }}>
-                <DisclaimerText>
-                  QueryAPI is still in beta. We are working on a OueryAPI V2
-                  with faster historical processing, easier access to DB and
-                  more control over your indexer. V2 is running in parallel and
-                  you can see the logs from this new version by toggling this
-                  button.
-                </DisclaimerText>
-                <Widget
-                  src={`${REPL_ACCOUNT_ID}/widget/components.toggle`}
-                  props={{
-                    active: state.v2Toggle,
-                    label: "",
-                    onSwitch: () => {
-                      State.update({ v2Toggle: !state.v2Toggle });
-                    },
-                  }}
-                />
-              </div>
-            </div>
-          </DisclaimerContainer>
-        </div>
       </Title>
 
       <CardBody>

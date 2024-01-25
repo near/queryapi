@@ -22,25 +22,13 @@ pub struct Opts {
     pub redis_connection_string: String,
     /// AWS Access Key with the rights to read from AWS S3
     #[clap(long, env)]
-    pub lake_aws_access_key: String,
-    #[clap(long, env)]
+    pub aws_access_key_id: String,
     /// AWS Secret Access Key with the rights to read from AWS S3
-    pub lake_aws_secret_access_key: String,
-    /// AWS Access Key with the rights to send messages to the `--queue-url`
     #[clap(long, env)]
-    pub queue_aws_access_key: String,
-    /// AWS Secret Access Key with the rights to send messages to the `--queue-url`
-    #[clap(long, env)]
-    pub queue_aws_secret_access_key: String,
-    /// Which AWS region to use with the `--queue-url`
-    #[clap(long, env)]
-    pub aws_queue_region: String,
-    /// URL to the main AWS SQS queue backed by Queue Handler lambda
-    #[clap(long, env)]
-    pub queue_url: String,
-    /// URL to the AWS SQS queue for processing historical data
-    #[clap(long, env)]
-    pub start_from_block_queue_url: String,
+    pub aws_secret_access_key: String,
+    /// AWS Region to use for S3
+    #[clap(long, env, default_value = "eu-central-1")]
+    pub aws_region: String,
     /// Registry contract to use
     #[clap(env)]
     pub registry_contract_id: String,
@@ -61,6 +49,7 @@ pub enum ChainId {
 }
 
 #[derive(Subcommand, Debug, Clone)]
+#[allow(clippy::enum_variant_names)]
 pub enum StartOptions {
     FromBlock { height: u64 },
     FromInterruption,
@@ -86,38 +75,6 @@ impl Opts {
         }
     }
 
-    // Creates AWS Credentials for NEAR Lake
-    pub fn lake_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
-        let provider = aws_credential_types::Credentials::new(
-            self.lake_aws_access_key.clone(),
-            self.lake_aws_secret_access_key.clone(),
-            None,
-            None,
-            "queryapi_coordinator_lake",
-        );
-        aws_credential_types::provider::SharedCredentialsProvider::new(provider)
-    }
-
-    // Creates AWS Credentials for SQS Queue
-    pub fn queue_credentials(&self) -> aws_credential_types::provider::SharedCredentialsProvider {
-        let provider = aws_credential_types::Credentials::new(
-            self.queue_aws_access_key.clone(),
-            self.queue_aws_secret_access_key.clone(),
-            None,
-            None,
-            "queryapi_coordinator_queue",
-        );
-        aws_credential_types::provider::SharedCredentialsProvider::new(provider)
-    }
-
-    /// Creates AWS Shared Config for NEAR Lake
-    pub fn lake_aws_sdk_config(&self) -> aws_types::sdk_config::SdkConfig {
-        aws_types::sdk_config::SdkConfig::builder()
-            .credentials_provider(self.lake_credentials())
-            .region(aws_types::region::Region::new("eu-central-1"))
-            .build()
-    }
-
     pub fn rpc_url(&self) -> &str {
         // To query metadata (timestamp) about blocks more than 5 epochs old we need an archival node
         match self.chain_id {
@@ -129,9 +86,7 @@ impl Opts {
 
 impl Opts {
     pub async fn to_lake_config(&self) -> near_lake_framework::LakeConfig {
-        let s3_config = aws_sdk_s3::config::Builder::from(&self.lake_aws_sdk_config()).build();
-
-        let config_builder = near_lake_framework::LakeConfigBuilder::default().s3_config(s3_config);
+        let config_builder = near_lake_framework::LakeConfigBuilder::default();
 
         match &self.chain_id {
             ChainId::Mainnet(_) => config_builder

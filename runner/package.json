@@ -7,11 +7,12 @@
     "node": "18.17"
   },
   "scripts": {
-    "build": "rm -rf ./dist && tsc",
+    "build": "rm -rf ./dist && npm run codegen && tsc",
+    "codegen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated/ protos/runner.proto",
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
     "start:docker": "node dist/index.js",
-    "test": "node --experimental-vm-modules ./node_modules/.bin/jest",
+    "test": "npm run codegen && node --experimental-vm-modules ./node_modules/.bin/jest",
     "lint": "eslint -c .eslintrc.js"
   },
   "keywords": [],
@@ -43,8 +44,11 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.414.0",
+    "@grpc/grpc-js": "^1.9.12",
+    "@grpc/proto-loader": "^0.7.10",
     "@near-lake/primitives": "^0.1.0",
     "express": "^4.18.2",
+    "long": "^5.2.3",
     "node-fetch": "^2.6.11",
     "node-sql-parser": "^4.10.0",
     "pg": "^8.11.1",
