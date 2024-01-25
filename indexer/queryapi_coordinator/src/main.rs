@@ -191,6 +191,13 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
                     &[("block_height", block_height)],
                 )
                 .await?;
+                storage::set(
+                    context.redis_connection_manager,
+                    storage::generate_block_stream_key(&indexer_function.get_full_name()),
+                    block_height,
+                    None,
+                )
+                .await?;
             }
         }
     }
