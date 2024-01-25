@@ -1,0 +1,37 @@
+[package]
+name = "block-streamer"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.57"
+async-trait = "0.1.74"
+aws-config = { version = "1.0.0", features = ["behavior-version-latest"]}
+aws-sdk-s3 = "0.39.1"
+borsh = "0.10.2"
+chrono = "0.4.25"
+futures = "0.3.5"
+mockall = "0.11.4"
+prost = "0.12.3"
+redis = { version = "0.21.5", features = ["tokio-comp", "connection-manager"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1.0.55"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+tokio = { version = "1.28.0", features = ["full"]}
+tokio-util = "0.7.10"
+tokio-stream = "0.1.14"
+tonic = "0.10.2"
+wildmatch = "2.1.1"
+
+registry-types = { path = "../registry/types", features = ["near-primitives"] }
+
+near-lake-framework = "=0.7.4"
+
+[build-dependencies]
+tonic-build = "0.10"
+
+[dev-dependencies]
+aws-smithy-runtime = { version = "1.0.0", features = ["test-util"] }
+aws-smithy-types = "1.0.1"
+http = "0.2.9"
