@@ -118,6 +118,13 @@ async fn synchronise_executors(
                     continue;
                 }
 
+                tracing::info!(
+                    account_id = active_executor.account_id.as_str(),
+                    function_name = active_executor.function_name,
+                    registry_version = active_executor.version,
+                    "Stopping executor"
+                );
+
                 executors_handler.stop(active_executor.executor_id).await?;
             }
 
@@ -146,7 +153,7 @@ async fn synchronise_executors(
             account_id = unregistered_executor.account_id.as_str(),
             function_name = unregistered_executor.function_name,
             registry_version = unregistered_executor.version,
-            "Stopping executor"
+            "Stopping unregistered executor"
         );
 
         executors_handler
@@ -184,6 +191,13 @@ async fn synchronise_block_streams(
                 if active_block_stream.version == registry_version {
                     continue;
                 }
+
+                tracing::info!(
+                    account_id = active_block_stream.account_id.as_str(),
+                    function_name = active_block_stream.function_name,
+                    registry_version = active_block_stream.version,
+                    "Stopping block stream"
+                );
 
                 block_streams_handler
                     .stop(active_block_stream.stream_id)
@@ -233,7 +247,7 @@ async fn synchronise_block_streams(
             account_id = unregistered_block_stream.account_id.as_str(),
             function_name = unregistered_block_stream.function_name,
             registry_version = unregistered_block_stream.version,
-            "Stopping block stream"
+            "Stopping unregistered block stream"
         );
 
         block_streams_handler

@@ -35,7 +35,11 @@ impl ExecutorsHandlerImpl {
                 .await
                 .context("Failed to list executors")?;
 
-            Ok(response.into_inner().executors)
+            let executors = response.into_inner().executors;
+
+            tracing::debug!("List executors response: {:#?}", executors);
+
+            Ok(executors)
         })
         .await
     }
@@ -58,9 +62,7 @@ impl ExecutorsHandlerImpl {
             function_name: function_name.clone(),
         };
 
-        tracing::debug!("Sending start executor request: {:#?}", request);
-
-        let _ = self
+        let response = self
             .client
             .clone()
             .start_executor(Request::new(request.clone()))
@@ -73,6 +75,14 @@ impl ExecutorsHandlerImpl {
                 );
             });
 
+        tracing::debug!(
+            account_id,
+            function_name,
+            version,
+            "Start executors response: {:#?}",
+            response
+        );
+
         Ok(())
     }
 
@@ -81,16 +91,13 @@ impl ExecutorsHandlerImpl {
             executor_id: executor_id.clone(),
         };
 
-        tracing::debug!("Sending stop executor request: {:#?}", request);
-
-        let _ = self
+        let response = self
             .client
             .clone()
             .stop_executor(Request::new(request.clone()))
-            .await
-            .map_err(|e| {
-                tracing::error!(executor_id, "Failed to stop executor\n{e:?}");
-            });
+            .await?;
+
+        tracing::debug!(executor_id, "Stop executor response: {:#?}", response);
 
         Ok(())
     }

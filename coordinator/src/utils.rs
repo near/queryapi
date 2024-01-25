@@ -1,8 +1,9 @@
-use std::time::Duration;
+use std::{ops::Mul, time::Duration};
 
 use futures_util::future::Future;
 
 const INITIAL_DELAY_SECONDS: Duration = Duration::from_secs(1);
+const MAXIMUM_DELAY_SECONDS: Duration = Duration::from_secs(30);
 
 pub async fn exponential_retry<F, Fut, T, E>(operation: F) -> Result<T, E>
 where
@@ -24,7 +25,7 @@ where
                 tokio::time::sleep(delay).await;
 
                 attempts += 1;
-                delay *= 2;
+                delay = delay.mul(2).min(MAXIMUM_DELAY_SECONDS);
             }
         }
     }
