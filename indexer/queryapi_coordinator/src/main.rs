@@ -42,11 +42,11 @@ pub(crate) struct QueryApiContext<'a> {
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct DenyListEntry {
+struct DenylistEntry {
     account_id: AccountId,
 }
 
-type DenyList = Vec<DenyListEntry>;
+type Denylist = Vec<DenylistEntry>;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -65,7 +65,7 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
 
-    let denylist = fetch_deny_list(&redis_connection_manager).await?;
+    let denylist = fetch_denylist(&redis_connection_manager).await?;
     tracing::info!("Using denylist: {:#?}", denylist);
 
     let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
@@ -145,10 +145,10 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn fetch_deny_list(redis_connection_manager: &ConnectionManager) -> anyhow::Result<DenyList> {
+async fn fetch_denylist(redis_connection_manager: &ConnectionManager) -> anyhow::Result<Denylist> {
     // It's named allowlist as we allow accounts for V2, but deny them for V1
     let raw_denylist: String = storage::get(redis_connection_manager, "allowlist").await?;
-    let denylist: DenyList =
+    let denylist: Denylist =
         serde_json::from_str(&raw_denylist).context("Failed to parse denylist")?;
 
     Ok(denylist)
@@ -163,6 +163,8 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
             .cloned()
             .collect::<Vec<_>>()
     };
+
+    let denylist = fetch_denylist(context.redis_connection_manager).await?;
 
     let mut indexer_function_filter_matches_futures = stream::iter(indexer_functions.iter())
         .map(|indexer_function| {
@@ -186,9 +188,7 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
     )
     .await?;
 
-    let deny_list = fetch_deny_list(context.redis_connection_manager).await?;
-
-    indexer_registry::index_registry_changes(block_height, &context, &deny_list).await?;
+    indexer_registry::index_registry_changes(block_height, &context, &denylist).await?;
 
     while let Some(indexer_function_with_matches) =
         indexer_function_filter_matches_futures.next().await
