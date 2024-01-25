@@ -82,21 +82,7 @@ async fn main() -> anyhow::Result<()> {
     )
     .await;
     let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
-    let indexer_functions = indexer_functions
-        .into_iter()
-        .filter(|(account_id, _)| {
-            let account_in_deny_list = denylist.iter().any(|entry| entry.account_id == *account_id);
-
-            if account_in_deny_list {
-                tracing::info!(
-                    target: INDEXER,
-                    "Ignoring {account_id} from denylist"
-                );
-            }
-
-            !account_in_deny_list
-        })
-        .collect();
+    let indexer_functions = filter_registry_by_denylist(indexer_functions, &denylist);
 
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
@@ -152,6 +138,25 @@ async fn fetch_denylist(redis_connection_manager: &ConnectionManager) -> anyhow:
         serde_json::from_str(&raw_denylist).context("Failed to parse denylist")?;
 
     Ok(denylist)
+}
+
+fn filter_registry_by_denylist(
+    indexer_registry: IndexerRegistry,
+    denylist: &Denylist,
+) -> IndexerRegistry {
+    indexer_registry
+        .into_iter()
+        .filter(|(account_id, _)| {
+            let account_in_deny_list = denylist.iter().any(|entry| entry.account_id == *account_id);
+            if account_in_deny_list {
+                tracing::info!(
+                    target: INDEXER,
+                    "Ignoring {account_id} from denylist"
+                );
+            }
+            !account_in_deny_list
+        })
+        .collect()
 }
 
 async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
