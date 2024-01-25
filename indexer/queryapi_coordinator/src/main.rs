@@ -160,16 +160,19 @@ fn filter_registry_by_denylist(
 }
 
 async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
-    let indexer_functions = {
-        let lock = context.indexer_registry.lock().await;
-
-        lock.values()
-            .flat_map(|fns| fns.values())
-            .cloned()
-            .collect::<Vec<_>>()
-    };
-
     let denylist = fetch_denylist(context.redis_connection_manager).await?;
+
+    let indexer_functions: Vec<IndexerFunction> = {
+        let mut indexer_registry = context.indexer_registry.lock().await;
+
+        *indexer_registry = filter_registry_by_denylist(indexer_registry.clone(), &denylist);
+
+        indexer_registry
+            .clone()
+            .into_values()
+            .flat_map(|fns| fns.into_values())
+            .collect()
+    };
 
     let mut indexer_function_filter_matches_futures = stream::iter(indexer_functions.iter())
         .map(|indexer_function| {
