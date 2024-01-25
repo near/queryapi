@@ -121,14 +121,23 @@ async fn index_and_process_register_calls(
             match new_indexer_function {
                 None => continue,
                 Some(mut new_indexer_function) => {
-                    if denylist
+                    let account_in_deny_list = denylist
                         .iter()
-                        .any(|entry| entry.account_id == new_indexer_function.account_id)
-                    {
+                        .find(|entry| entry.account_id == new_indexer_function.account_id);
+
+                    if let Some(account_in_deny_list) = account_in_deny_list {
                         tracing::info!(
                             "Ignoring registered indexer {} from deny list",
                             new_indexer_function.get_full_name()
                         );
+
+                        if !account_in_deny_list.v1_ack {
+                            crate::acknowledge_account_in_denylist(
+                                new_indexer_function.account_id,
+                                context.redis_url,
+                            )?;
+                        }
+
                         continue;
                     }
 

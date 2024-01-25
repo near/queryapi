@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::Context;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
+use storage::redis::{ErrorKind, RedisError};
 use tokio::sync::Mutex;
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
@@ -39,11 +40,13 @@ pub(crate) struct QueryApiContext<'a> {
     pub redis_connection_manager: &'a ConnectionManager,
     pub indexer_registry: &'a SharedIndexerRegistry,
     pub streamers: &'a Streamers,
+    pub redis_url: &'a str,
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct DenylistEntry {
     account_id: AccountId,
+    v1_ack: bool,
 }
 
 type Denylist = Vec<DenylistEntry>;
@@ -82,7 +85,9 @@ async fn main() -> anyhow::Result<()> {
     )
     .await;
     let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
-    let indexer_functions = filter_registry_by_denylist(indexer_functions, &denylist);
+    let indexer_functions =
+        filter_registry_by_denylist(indexer_functions, &denylist, &opts.redis_connection_string)
+            .await;
 
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
@@ -110,6 +115,7 @@ async fn main() -> anyhow::Result<()> {
                 s3_client: &s3_client,
                 indexer_registry: &indexer_registry,
                 streamers: &streamers,
+                redis_url: &opts.redis_connection_string,
             };
 
             handle_streamer_message(context)
@@ -132,31 +138,67 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn fetch_denylist(redis_connection_manager: &ConnectionManager) -> anyhow::Result<Denylist> {
-    // It's named allowlist as we allow accounts for V2, but deny them for V1
-    let raw_denylist: String = storage::get(redis_connection_manager, "allowlist").await?;
+    let raw_denylist: String =
+        storage::get(redis_connection_manager, storage::DENYLIST_KEY).await?;
     let denylist: Denylist =
         serde_json::from_str(&raw_denylist).context("Failed to parse denylist")?;
 
     Ok(denylist)
 }
 
-fn filter_registry_by_denylist(
+fn acknowledge_account_in_denylist(account_id: AccountId, redis_url: &str) -> anyhow::Result<()> {
+    storage::atomic_update(
+        redis_url,
+        &[storage::DENYLIST_KEY],
+        move |raw_denylist: String| {
+            let mut denylist: Denylist = serde_json::from_str(&raw_denylist).map_err(|_| {
+                RedisError::from((ErrorKind::TypeError, "failed to deserialize denylist"))
+            })?;
+
+            let entry = denylist
+                .iter_mut()
+                .find(|entry| entry.account_id == account_id)
+                .unwrap();
+
+            entry.v1_ack = true;
+
+            serde_json::to_string(&denylist).map_err(|_| {
+                RedisError::from((ErrorKind::TypeError, "failed to serialize denylist"))
+            })
+        },
+    )
+}
+
+async fn filter_registry_by_denylist(
     indexer_registry: IndexerRegistry,
     denylist: &Denylist,
+    redis_url: &str,
 ) -> IndexerRegistry {
-    indexer_registry
-        .into_iter()
-        .filter(|(account_id, _)| {
-            let account_in_deny_list = denylist.iter().any(|entry| entry.account_id == *account_id);
-            if account_in_deny_list {
+    let mut filtered_registry = HashMap::new();
+
+    for (account_id, indexer) in indexer_registry.into_iter() {
+        let account_in_deny_list = denylist.iter().find(|entry| entry.account_id == account_id);
+
+        match account_in_deny_list {
+            Some(account_in_deny_list) => {
                 tracing::info!(
                     target: INDEXER,
-                    "Ignoring {account_id} from denylist"
+                    "Ignoring {account_id} from denylist",
                 );
+
+                if !account_in_deny_list.v1_ack {
+                    acknowledge_account_in_denylist(account_id, redis_url).unwrap();
+                }
+
+                continue;
             }
-            !account_in_deny_list
-        })
-        .collect()
+            None => {
+                filtered_registry.insert(account_id, indexer);
+            }
+        }
+    }
+
+    filtered_registry
 }
 
 async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
@@ -165,7 +207,9 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
     let indexer_functions: Vec<IndexerFunction> = {
         let mut indexer_registry = context.indexer_registry.lock().await;
 
-        *indexer_registry = filter_registry_by_denylist(indexer_registry.clone(), &denylist);
+        *indexer_registry =
+            filter_registry_by_denylist(indexer_registry.clone(), &denylist, context.redis_url)
+                .await;
 
         indexer_registry
             .clone()
