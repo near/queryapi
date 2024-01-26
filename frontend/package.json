@@ -30,7 +30,7 @@
     "gridjs": "6.0.6",
     "near-api-js": "1.1.0",
     "near-social-bridge": "^1.4.1",
-    "next": "13.1.6",
+    "next": "13.5.0",
     "node-sql-parser": "^4.10.0",
     "prettier": "^2.7.1",
     "prettier-plugin-sql": "^0.13.0",
