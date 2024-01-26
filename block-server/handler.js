@@ -35,20 +35,16 @@ const normalizeBlockHeight = function(block_height) {
 }
 
 const fetchStreamerMessage = async function(block_height, options) {
-    const blockPromise = fetchBlockPromise(block_height, options);
-    // hardcoding 4 shards to test performance
-    const shardsPromises = await fetchShardsPromises(block_height, 4, options); // block.chunks.length)
+    const block = await fetchBlockPromise(block_height, options);
+    const shards = await Promise.all(fetchShardsPromises(block_height, block.chunks.length, options))
 
-    const results = await Promise.all([blockPromise, ...shardsPromises]);
-    const block = results.shift();
-    const shards = results;
     return {
-        block: block,
-        shards: shards,
+        block,
+        shards,
     };
 }
 
-const fetchShardsPromises = async function(block_height, number_of_shards, options) {
+const fetchShardsPromises = function(block_height, number_of_shards, options) {
     return ([...Array(number_of_shards).keys()].map((shard_id) =>
         fetchShardPromise(block_height, shard_id, options)));
 }

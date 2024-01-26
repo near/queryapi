@@ -2,7 +2,6 @@ import React, { useContext, useState } from "react";
 import { Button, Modal, Alert, InputGroup, Form  } from "react-bootstrap";
 import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
-import { validateContractId } from "../../utils/validators";
 
 export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
   const {

@@ -3,13 +3,13 @@ import React, { useEffect, useContext } from "react";
 import Editor from "../../components/Editor";
 import { withRouter } from 'next/router'
 import { Alert } from 'react-bootstrap';
-// import { EditorContext } from '../../contexts/EditorContext';
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import IndexerLogs from "../../components/Logs/IndexerLogs";
 
 const QueryApiEditorPage = ({ router }) => {
   const { accountId, indexerName } = router.query
-  // const { setAccountId, setIndexerName } = useContext(EditorContext);
-  const { setAccountId, setIndexerName } = useContext(IndexerDetailsContext);
+  const { setAccountId, setIndexerName, showLogsView } = useContext(IndexerDetailsContext);
+
   useEffect(() => {
     if (accountId == undefined || indexerName == undefined) {
       return;
@@ -28,7 +28,13 @@ const QueryApiEditorPage = ({ router }) => {
     )
   }
   return (
-      <Editor  actionButtonText="Publish" onLoadErrorText="An error occured while trying to query indexer function details from registry." />
+    <>
+      {showLogsView ? (
+        <IndexerLogs />
+      ) : (
+        <Editor actionButtonText="Publish" onLoadErrorText="An error occurred while trying to query indexer function details from registry." />
+      )}
+    </>
   );
 };
 

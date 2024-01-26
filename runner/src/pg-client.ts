@@ -31,11 +31,7 @@ export default class PgClient {
   }
 
   async query<R extends QueryResultRow = any>(query: string, params: any[] = []): Promise<QueryResult<R>> {
-    const client = await this.pgPool.connect();
-    try {
-      return await (client.query<R>(query, params));
-    } finally {
-      client.release();
-    }
+    // Automatically manages client connections to pool
+    return await this.pgPool.query<R>(query, params);
   }
 }
