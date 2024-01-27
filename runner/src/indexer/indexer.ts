@@ -5,6 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import { string } from 'pg-format';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -168,31 +169,87 @@ export default class Indexer {
     };
   }
 
-  getTableNames (schema: string): string[] {
+  extractCreateTableStatements (schema: string): string[] {
+    const regex = /CREATE TABLE\s+.*?;\s*/gs;
+    let match;
+    const statements = [];
+
+    while ((match = regex.exec(schema)) !== null) {
+      statements.push(match[0]);
+    }
+
+    return statements;
+  }
+
+  findIdentifier (ddl: string, startIndex: number, keyword: string): { foundKeyword: string, endIndex: number } | null {
+    const searchablePart = ddl.substring(startIndex);
+
+    // Regex to find the keyword (with optional quotes)
+    const regex = new RegExp(`"?${keyword}"?`, 'i');
+    const match = regex.exec(searchablePart);
+
+    if (match) {
+      return {
+        foundKeyword: match[0], // Keyword including quotes
+        endIndex: startIndex + match.index + match[0].length // Adjusted index of the end of the keyword
+      };
+    } else {
+      return null;
+    }
+  }
+
+  getTableAndColumnNames (schema: string): Map<string, Set<string>> {
+    const startTime = performance.now();
+    const tableAndColumns = new Map<string, Set<string>>();
+    const createTableStatements = this.extractCreateTableStatements(schema);
+    const otherStart = performance.now();
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
+    const astTime = performance.now() - otherStart;
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
     const tableNames = new Set<string>();
 
     // Collect all table names from schema AST, throw error if duplicate table names exist
+    let createTableStatementIndex = 0;
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
-        const tableName: string = statement.table[0].table;
-
-        if (tableNames.has(tableName)) {
-          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
+        let startIndex = 0;
+        const statementString = createTableStatements[createTableStatementIndex++];
+        const tableSearch = this.findIdentifier(statementString, startIndex, statement.table[0].table);
+        if (tableSearch === null) {
+          throw new Error(`Could not find table name ${statement.table[0].table} in schema.`);
         }
 
-        tableNames.add(tableName);
+        const tableName = tableSearch.foundKeyword;
+        startIndex = tableSearch.endIndex;
+
+        if (tableNames.has(tableName)) {
+          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique.`);
+        }
+
+        tableAndColumns.set(tableName, new Set<string>());
+
+        for (const columnStatement of statement.create_definitions ?? []) {
+          console.log(columnStatement);
+          if (columnStatement.column?.column !== undefined) {
+            const columnSearch = this.findIdentifier(schema, startIndex, columnStatement.column.column);
+            if (columnSearch === null) {
+              throw new Error(`Could not find column name ${columnStatement.column.column as string} for table ${tableName} in schema.`);
+            }
+            const columnName = columnSearch.foundKeyword;
+            startIndex = columnSearch.endIndex;
+
+            if (tableAndColumns.get(tableName)?.has(columnName)) {
+              throw new Error(`Column ${columnName} already exists in table ${tableName}. Column names must be unique.`);
+            }
+
+            tableAndColumns.get(tableName)?.add(columnName);
+          }
+        }
       }
     }
 
-    // Ensure schema is not empty
-    if (tableNames.size === 0) {
-      throw new Error('Schema does not have any tables. There should be at least one table.');
-    }
-
-    const tableNamesArray = Array.from(tableNames);
-    return Array.from(tableNamesArray);
+    console.log(`getTableAndColumnNames took additional ${performance.now() - startTime - astTime}ms, total was ${performance.now() - startTime}ms`);
+    return tableAndColumns;
   }
 
   sanitizeTableName (tableName: string): string {
@@ -215,7 +272,8 @@ export default class Indexer {
 
   buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
     try {
-      const tables = this.getTableNames(schema);
+      const tableAndColumnNames = this.getTableAndColumnNames(schema);
+      const tables = Array.from(tableAndColumnNames.keys());
       const sanitizedTableNames = new Set<string>();
       const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account);
 
