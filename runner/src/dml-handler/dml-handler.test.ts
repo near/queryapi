@@ -175,9 +175,9 @@ describe('DML Handler tests', () => {
       receiptId: 111,
     };
 
-    const deleteObj = { 
+    const deleteObj = {
       accountId: 'test_acc_near',
-      block_height: 999 
+      block_height: 999
     };
 
     const quotedTableName = '"quotedTable"';
