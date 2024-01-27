@@ -257,6 +257,8 @@ export default class Indexer {
   sanitizeTableName (tableName: string): string {
     // Convert to PascalCase
     let pascalCaseTableName = tableName
+      // Remove quotes
+      .replace(/"/g, '')
       // Replace special characters with underscores
       .replace(/[^a-zA-Z0-9_]/g, '_')
       // Makes first letter and any letters following an underscore upper case

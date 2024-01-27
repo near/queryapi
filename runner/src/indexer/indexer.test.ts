@@ -422,28 +422,6 @@ CREATE TABLE
         CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
       );
 
-    CREATE TABLE
-      commentsTable (
-        iD SERIAL NOT NULL,
-        post_id SERIAL NOT NULL,
-        aCcoUntId VARCHAR NOT NULL,
-        BlockHeight DECIMAL(58, 0) NOT NULL,
-        conTent TEXT NOT NULL,
-        block_timestamp DECIMAL(20, 0) NOT NULL,
-        receiptId VARCHAR NOT NULL,
-        CONSTRAINT "comments_pkey" PRIMARY KEY (iD)
-    );
-
-    CREATE TABLE
-      PostLikes (
-        PosTId SERIAL NOT NULL,
-        account_id VARCHAR NOT NULL,
-        blockHeight DECIMAL(58, 0),
-        "block_timestamp" DECIMAL(20, 0) NOT NULL,
-        "receipt_id" VARCHAR NOT NULL,
-        CONSTRAINT "post_likes_pkey" PRIMARY KEY (PosTId, account_id)
-    );
-
     CREATE UNIQUE INDEX "posts_account_id_block_height_key" ON "posts" ("account_id" ASC, "block_height" ASC);
 
     CREATE UNIQUE INDEX "comments_post_id_account_id_block_height_key" ON "comments" (
@@ -457,6 +435,18 @@ CREATE TABLE
     ALTER TABLE "comments" ADD
         CONSTRAINT "comments_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts" ("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
 
+    CREATE TABLE
+      commentsTable (
+        iD SERIAL NOT NULL,
+        post_id SERIAL NOT NULL,
+        aCcoUntId VARCHAR NOT NULL,
+        BlockHeight DECIMAL(58, 0) NOT NULL,
+        conTent TEXT NOT NULL,
+        block_timestamp DECIMAL(20, 0) NOT NULL,
+        receiptId VARCHAR NOT NULL,
+        CONSTRAINT "comments_pkey" PRIMARY KEY (iD)
+    );
+
     ALTER TABLE "post_likes" ADD
         CONSTRAINT "post_likes_post_id_fkey" FOREIGN KEY ("post_id") REFERENCES "posts" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
@@ -468,6 +458,16 @@ CREATE TABLE
           AND (d.moderated_path IS NULL OR (d.moderated_path = '/post/main' AND d.moderated_blockheight = p.block_height))
     );
 
+    CREATE TABLE
+      "PostLikes" (
+        PosTId SERIAL NOT NULL,
+        account_id VARCHAR NOT NULL,
+        blockHeight DECIMAL(58, 0),
+        "block_timestamp" DECIMAL(20, 0) NOT NULL,
+        "receipt_id" VARCHAR NOT NULL,
+        CONSTRAINT "post_likes_pkey" PRIMARY KEY (PosTId, account_id)
+    );
+
     CREATE VIEW moderated_comments as
     SELECT * FROM dataplatform_near_social_feed.comments p
     WHERE NOT EXISTS (
@@ -477,7 +477,7 @@ CREATE TABLE
     );`;
 
     const tableAndColumnNames = indexer.getTableAndColumnNames(testSchema);
-    expect(Array.from(tableAndColumnNames.keys())).toStrictEqual(['"postsTable"', 'commentsTable', 'PostLikes']);
+    expect(Array.from(tableAndColumnNames.keys())).toStrictEqual(['"postsTable"', 'commentsTable', '"PostLikes"']);
     expect(tableAndColumnNames.get('"postsTable"')).toStrictEqual(new Map(
       [
         ['id', '"id"'],
@@ -501,7 +501,7 @@ CREATE TABLE
         ['receiptId', 'receiptId']
       ]
     ));
-    expect(tableAndColumnNames.get('PostLikes')).toStrictEqual(new Map(
+    expect(tableAndColumnNames.get('"PostLikes"')).toStrictEqual(new Map(
       [
         ['PosTId', 'PosTId'],
         ['account_id', 'account_id'],

@@ -16,7 +16,7 @@ describe('DML Handler tests', () => {
 
   const ACCOUNT = 'test_near';
   const SCHEMA = 'test_schema';
-  const TABLE_NAME = '"test_table"';
+  const TABLE_NAME = 'test_table';
   const DEFAULT_MAPPING = new Map<string, Map<string, string>>();
   DEFAULT_MAPPING.set(TABLE_NAME, new Map([
     ['account_id', 'account_id'],
@@ -43,13 +43,12 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
-    const mapping = new Map<string, Map<string, any>>();
 
     const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, block_height, block_timestamp, content, receipt_id, accounts_liked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
+      ['INSERT INTO test_schema.test_table (account_id, block_height, block_timestamp, content, receipt_id, accounts_liked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
     ]);
   });
 
@@ -69,7 +68,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
+      ['INSERT INTO test_schema.test_table (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
     ]);
   });
 
@@ -83,7 +82,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
+      ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
     ]);
   });
 
@@ -97,7 +96,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 LIMIT 1', Object.values(inputObj)]
+      ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2 LIMIT 1', Object.values(inputObj)]
     ]);
   });
 
@@ -116,7 +115,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
-      ['UPDATE test_schema."test_table" SET content=$1, receipt_id=$2 WHERE account_id=$3 AND block_height=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
+      ['UPDATE test_schema.test_table SET content=$1, receipt_id=$2 WHERE account_id=$3 AND block_height=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
     ]);
   });
 
@@ -139,7 +138,7 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, block_height) DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
+      ['INSERT INTO test_schema.test_table (account_id, block_height, receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, block_height) DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
     ]);
   });
 
@@ -153,7 +152,59 @@ describe('DML Handler tests', () => {
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['DELETE FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 RETURNING *', Object.values(inputObj)]
+      ['DELETE FROM test_schema.test_table WHERE account_id=$1 AND block_height=$2 RETURNING *', Object.values(inputObj)]
+    ]);
+  });
+
+  test('Test all calls with inconsistent quoting', async () => {
+    const inputObj = {
+      accountId: 'test_acc_near',
+      block_height: 999,
+      bLockTimeStamP: 'UTC',
+      ConTenT: 'test_content',
+      receiptId: 111,
+      accountsLiked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
+    };
+    const whereObj = {
+      accountId: 'test_acc_near',
+      block_height: 999,
+    };
+
+    const updateObj = {
+      ConTenT: 'test_content',
+      receiptId: 111,
+    };
+
+    const deleteObj = { 
+      accountId: 'test_acc_near',
+      block_height: 999 
+    };
+
+    const quotedTableName = '"quotedTable"';
+    const inconsistentQuotesMapping = new Map<string, Map<string, string>>();
+    inconsistentQuotesMapping.set(quotedTableName, new Map([
+      ['accountId', 'accountId'],
+      ['block_height', '"block_height"'],
+      ['bLockTimeStamP', 'bLockTimeStamP'],
+      ['ConTenT', 'ConTenT'],
+      ['receiptId', '"receiptId"'],
+      ['accountsLiked', 'accountsLiked']
+    ]));
+
+    const dmlHandler = await DmlHandler.create(ACCOUNT, inconsistentQuotesMapping, hasuraClient, PgClient);
+
+    // User facing Context DB functions are set up to pass in the original table name, not the sanitized one exposed to the user
+    await dmlHandler.insert(SCHEMA, quotedTableName, [inputObj]);
+    await dmlHandler.select(SCHEMA, quotedTableName, whereObj);
+    await dmlHandler.update(SCHEMA, quotedTableName, whereObj, updateObj);
+    await dmlHandler.upsert(SCHEMA, quotedTableName, [inputObj], ['accountId', 'block_height'], ['receiptId']);
+    await dmlHandler.delete(SCHEMA, quotedTableName, deleteObj);
+    expect(query.mock.calls).toEqual([
+      ['INSERT INTO test_schema."quotedTable" (accountId, "block_height", bLockTimeStamP, ConTenT, "receiptId", accountsLiked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []],
+      ['SELECT * FROM test_schema."quotedTable" WHERE accountId=$1 AND "block_height"=$2', Object.values(whereObj)],
+      ['UPDATE test_schema."quotedTable" SET ConTenT=$1, "receiptId"=$2 WHERE accountId=$3 AND "block_height"=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]],
+      ['INSERT INTO test_schema."quotedTable" (accountId, "block_height", bLockTimeStamP, ConTenT, "receiptId", accountsLiked) VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') ON CONFLICT (accountId, "block_height") DO UPDATE SET "receiptId" = excluded."receiptId" RETURNING *', []],
+      ['DELETE FROM test_schema."quotedTable" WHERE accountId=$1 AND "block_height"=$2 RETURNING *', Object.values(deleteObj)]
     ]);
   });
 });
