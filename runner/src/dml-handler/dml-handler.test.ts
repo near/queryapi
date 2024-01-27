@@ -16,7 +16,16 @@ describe('DML Handler tests', () => {
 
   const ACCOUNT = 'test_near';
   const SCHEMA = 'test_schema';
-  const TABLE_NAME = 'test_table';
+  const TABLE_NAME = '"test_table"';
+  const DEFAULT_MAPPING = new Map<string, Map<string, string>>();
+  DEFAULT_MAPPING.set(TABLE_NAME, new Map([
+    ['account_id', 'account_id'],
+    ['block_height', 'block_height'],
+    ['block_timestamp', 'block_timestamp'],
+    ['content', 'content'],
+    ['receipt_id', 'receipt_id'],
+    ['accounts_liked', 'accounts_liked']
+  ]));
 
   beforeEach(() => {
     query = jest.fn().mockReturnValue({ rows: [] });
@@ -34,8 +43,9 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
+    const mapping = new Map<string, Map<string, any>>();
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
     expect(query.mock.calls).toEqual([
@@ -55,7 +65,7 @@ describe('DML Handler tests', () => {
       receipt_id: 'abc',
     }];
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
@@ -69,7 +79,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
@@ -83,7 +93,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
     expect(query.mock.calls).toEqual([
@@ -102,7 +112,7 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
@@ -125,7 +135,7 @@ describe('DML Handler tests', () => {
     const conflictCol = ['account_id', 'block_height'];
     const updateCol = ['receipt_id'];
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
@@ -139,7 +149,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.create(ACCOUNT, DEFAULT_MAPPING, hasuraClient, PgClient);
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([

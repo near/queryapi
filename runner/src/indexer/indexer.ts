@@ -5,7 +5,6 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import { string } from 'pg-format';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -217,7 +216,7 @@ export default class Indexer {
         const statementString = createTableStatements[createTableStatementIndex++];
 
         const tableSearch = this.findIdentifier(statementString, startIndex, statement.table[0].table);
-        if (tableSearch === null) {
+        if (tableSearch === null || !tableSearch.foundKeyword.includes(statement.table[0].table)) {
           throw new Error(`Could not find table name ${statement.table[0].table} in schema.`);
         }
 
@@ -278,7 +277,7 @@ export default class Indexer {
       const tableAndColumnNames = this.getTableAndColumnNames(schema);
       const tables = Array.from(tableAndColumnNames.keys());
       const sanitizedTableNames = new Set<string>();
-      const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account);
+      const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account, tableAndColumnNames);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
