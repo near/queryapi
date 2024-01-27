@@ -478,6 +478,38 @@ CREATE TABLE
 
     const tableAndColumnNames = indexer.getTableAndColumnNames(testSchema);
     expect(Array.from(tableAndColumnNames.keys())).toStrictEqual(['"postsTable"', 'commentsTable', 'PostLikes']);
+    expect(tableAndColumnNames.get('"postsTable"')).toStrictEqual(new Map(
+      [
+        ['id', '"id"'],
+        ['accountId', 'accountId'],
+        ['block_height', '"block_height"'],
+        ['ReceiptId', 'ReceiptId'],
+        ['content', '"content"'],
+        ['BlockTimestamp', '"BlockTimestamp"'],
+        ['accounts_liked', '"accounts_liked"'],
+        ['lastComment_timestamp', 'lastComment_timestamp']
+      ]
+    ));
+    expect(tableAndColumnNames.get('commentsTable')).toStrictEqual(new Map(
+      [
+        ['iD', 'iD'],
+        ['post_id', 'post_id'],
+        ['aCcoUntId', 'aCcoUntId'],
+        ['BlockHeight', 'BlockHeight'],
+        ['conTent', 'conTent'],
+        ['block_timestamp', 'block_timestamp'],
+        ['receiptId', 'receiptId']
+      ]
+    ));
+    expect(tableAndColumnNames.get('PostLikes')).toStrictEqual(new Map(
+      [
+        ['PosTId', 'PosTId'],
+        ['account_id', 'account_id'],
+        ['blockHeight', 'blockHeight'],
+        ['block_timestamp', '"block_timestamp"'],
+        ['receipt_id', '"receipt_id"']
+      ]
+    ));
   });
 
   // test('SanitizeTableName works properly on many test cases', async () => {

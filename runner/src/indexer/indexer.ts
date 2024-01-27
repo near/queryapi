@@ -184,8 +184,9 @@ export default class Indexer {
   findIdentifier (ddl: string, startIndex: number, keyword: string): { foundKeyword: string, endIndex: number } | null {
     const searchablePart = ddl.substring(startIndex);
 
-    // Regex to find the keyword (with optional quotes)
-    const regex = new RegExp(`"?${keyword}"?`, 'i');
+    // Regex to find the keyword (1 or more whitespace preceeding, or an open parenthesis, followed by 1+ whitespace or a closing parenthesis)
+    // Includes quotes around keyword if they exist
+    const regex = new RegExp(`(?<=\\s+|\\()"?${keyword}"?(?=\\s+|\\))`, 'i');
     const match = regex.exec(searchablePart);
 
     if (match) {
@@ -198,9 +199,9 @@ export default class Indexer {
     }
   }
 
-  getTableAndColumnNames (schema: string): Map<string, Set<string>> {
+  getTableAndColumnNames (schema: string): Map<string, Map<string, string>> {
     const startTime = performance.now();
-    const tableAndColumns = new Map<string, Set<string>>();
+    const tableAndColumns = new Map<string, Map<string, string>>();
     const createTableStatements = this.extractCreateTableStatements(schema);
     const otherStart = performance.now();
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
@@ -208,12 +209,13 @@ export default class Indexer {
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
     const tableNames = new Set<string>();
 
-    // Collect all table names from schema AST, throw error if duplicate table names exist
+    // Collect all table names from schema AST, check if they are quoted or not, throw error if duplicate table names exist
     let createTableStatementIndex = 0;
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
         let startIndex = 0;
         const statementString = createTableStatements[createTableStatementIndex++];
+
         const tableSearch = this.findIdentifier(statementString, startIndex, statement.table[0].table);
         if (tableSearch === null) {
           throw new Error(`Could not find table name ${statement.table[0].table} in schema.`);
@@ -223,26 +225,27 @@ export default class Indexer {
         startIndex = tableSearch.endIndex;
 
         if (tableNames.has(tableName)) {
-          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique.`);
+          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes cannot be used to differentiate table names.`);
         }
 
-        tableAndColumns.set(tableName, new Set<string>());
+        tableAndColumns.set(tableName, new Map<string, string>());
 
         for (const columnStatement of statement.create_definitions ?? []) {
-          console.log(columnStatement);
           if (columnStatement.column?.column !== undefined) {
-            const columnSearch = this.findIdentifier(schema, startIndex, columnStatement.column.column);
+            const columnName: string = columnStatement.column.column;
+            const columnSearch = this.findIdentifier(statementString, startIndex, columnStatement.column.column);
             if (columnSearch === null) {
               throw new Error(`Could not find column name ${columnStatement.column.column as string} for table ${tableName} in schema.`);
             }
-            const columnName = columnSearch.foundKeyword;
+
+            const columnNameActual = columnSearch.foundKeyword;
             startIndex = columnSearch.endIndex;
 
             if (tableAndColumns.get(tableName)?.has(columnName)) {
-              throw new Error(`Column ${columnName} already exists in table ${tableName}. Column names must be unique.`);
+              throw new Error(`Column ${columnName} already exists in table ${tableName}. Column names must be unique. Quotes cannot be used to differentiate column names.`);
             }
 
-            tableAndColumns.get(tableName)?.add(columnName);
+            tableAndColumns.get(tableName)?.set(columnName, columnNameActual);
           }
         }
       }
