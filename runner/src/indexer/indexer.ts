@@ -199,35 +199,36 @@ export default class Indexer {
   }
 
   getTableAndColumnNames (schema: string): Map<string, Map<string, string>> {
-    const startTime = performance.now();
-    const tableAndColumns = new Map<string, Map<string, string>>();
+    const tablesAndColumns = new Map<string, Map<string, string>>();
     const createTableStatements = this.extractCreateTableStatements(schema);
-    const otherStart = performance.now();
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
-    const astTime = performance.now() - otherStart;
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-    const tableNames = new Set<string>();
 
-    // Collect all table names from schema AST, check if they are quoted or not, throw error if duplicate table names exist
     let createTableStatementIndex = 0;
+
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
-        let startIndex = 0;
+        let startIndex = 0; // Ensures parts of statement are not searched multiple times
+        const tableName = statement.table[0].table;
+
+        if (createTableStatementIndex >= createTableStatements.length) {
+          throw new Error(`Could not find matching CREATE TABLE statement for table ${tableName} in schema.`);
+        }
         const statementString = createTableStatements[createTableStatementIndex++];
 
-        const tableSearch = this.findIdentifier(statementString, startIndex, statement.table[0].table);
-        if (tableSearch === null || !tableSearch.foundKeyword.includes(statement.table[0].table)) {
-          throw new Error(`Could not find table name ${statement.table[0].table} in schema.`);
+        const tableSearch = this.findIdentifier(statementString, startIndex, tableName);
+        if (tableSearch === null || !tableSearch.foundKeyword.includes(tableName)) {
+          throw new Error(`Could not find table name ${tableName} in matched CREATE TABLE statement.`);
         }
 
-        const tableName = tableSearch.foundKeyword;
+        const tableNameActual = tableSearch.foundKeyword;
         startIndex = tableSearch.endIndex;
-
-        if (tableNames.has(tableName)) {
-          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes cannot be used to differentiate table names.`);
+        if (tablesAndColumns.has(`"${tableName}"`) || tablesAndColumns.has(tableName)) {
+          throw new Error(`Table ${tableNameActual} already exists in schema. Table names must be unique. Quotes cannot be used to differentiate table names.`);
         }
 
-        tableAndColumns.set(tableName, new Map<string, string>());
+        const columnNames = new Map<string, string>();
+        tablesAndColumns.set(tableNameActual, columnNames);
 
         for (const columnStatement of statement.create_definitions ?? []) {
           if (columnStatement.column?.column !== undefined) {
@@ -240,18 +241,18 @@ export default class Indexer {
             const columnNameActual = columnSearch.foundKeyword;
             startIndex = columnSearch.endIndex;
 
-            if (tableAndColumns.get(tableName)?.has(columnName)) {
+            if (columnNames.has(columnName) ?? columnNames.has(columnNameActual)) {
               throw new Error(`Column ${columnName} already exists in table ${tableName}. Column names must be unique. Quotes cannot be used to differentiate column names.`);
             }
 
-            tableAndColumns.get(tableName)?.set(columnName, columnNameActual);
+            columnNames.set(columnName, columnNameActual);
           }
         }
       }
     }
 
-    console.log(`getTableAndColumnNames took additional ${performance.now() - startTime - astTime}ms, total was ${performance.now() - startTime}ms`);
-    return tableAndColumns;
+    console.log('Tables and columns:', tablesAndColumns);
+    return tablesAndColumns;
   }
 
   sanitizeTableName (tableName: string): string {
