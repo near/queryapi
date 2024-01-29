@@ -79,6 +79,9 @@ const ResizableEditor = ({
           readOnly={false}
           onChange={onChangeCode}
           handleEditorWillMount={handleEditorWillMount}
+          options={{
+            wordWrap: "on",
+          }}
         />
       ),
     "schema.sql": () =>
@@ -100,6 +103,9 @@ const ResizableEditor = ({
           readOnly={isCreateNewIndexer === true ? false : false}
           onChange={onChangeSchema}
           handleEditorWillMount={undefined}
+          options={{
+            wordWrap: "on",
+          }}
         />
       ),
   };
