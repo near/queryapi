@@ -169,12 +169,22 @@ export default class Indexer {
   }
 
   extractCreateTableStatements (schema: string): string[] {
-    const regex = /CREATE TABLE\s+.*?;\s*/gs;
+    const createStatementRegex = /CREATE TABLE\s+.*?;\s*/gs;
     let match;
     const statements = [];
 
-    while ((match = regex.exec(schema)) !== null) {
+    while ((match = createStatementRegex.exec(schema)) !== null) {
       statements.push(match[0]);
+    }
+
+    // Try matching a create statement without semicolon
+    if (statements.length === 0) {
+      // Does not have global flag (/gs vs /s) so we only get first result, and is greedy matching after TABLE, (.*? vs .*)
+      // Multiple CREATE statements without semicolon should be caught before publishing.
+      const createStatementRegexWithoutSemicolon = /CREATE TABLE\s+.*/s;
+      if ((match = createStatementRegexWithoutSemicolon.exec(schema)) !== null) {
+        statements.push(match[0]);
+      }
     }
 
     return statements;
@@ -218,7 +228,7 @@ export default class Indexer {
 
         const tableSearch = this.findIdentifier(statementString, startIndex, tableName);
         if (tableSearch === null || !tableSearch.foundKeyword.includes(tableName)) {
-          throw new Error(`Could not find table name ${tableName} in matched CREATE TABLE statement.`);
+          throw new Error(`Could not find table name ${tableName} in matched CREATE TABLE statement. ${statementString}`);
         }
 
         const tableNameActual = tableSearch.foundKeyword;

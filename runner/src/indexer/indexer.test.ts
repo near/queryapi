@@ -400,6 +400,26 @@ CREATE TABLE
     }).toThrow('Table posts already exists in schema. Table names must be unique. Quotes cannot be used to differentiate table names.');
   });
 
+  test('GetTables works with single create statement without semicolon', async () => {
+    const testSchema = `
+    CREATE TABLE
+      "postsTable" (
+        "id" SERIAL NOT NULL,
+        accountId VARCHAR NOT NULL
+      )
+    `;
+
+    const indexer = new Indexer();
+    const tableAndColumnNames = indexer.getTableAndColumnNames(testSchema);
+    expect(Array.from(tableAndColumnNames.keys())).toStrictEqual(['"postsTable"']);
+    expect(tableAndColumnNames.get('"postsTable"')).toStrictEqual(new Map(
+      [
+        ['id', '"id"'],
+        ['accountId', 'accountId']
+      ]
+    ));
+  });
+
   test('GetTables returns table names with quotes if quoted', async () => {
     const indexer = new Indexer();
 
