@@ -28,6 +28,7 @@
     "graphiql": "3.0.6",
     "graphql": "^16.8.1",
     "gridjs": "6.0.6",
+    "monaco-editor": "^0.45.0",
     "near-api-js": "1.1.0",
     "near-social-bridge": "^1.4.1",
     "next": "13.1.6",
