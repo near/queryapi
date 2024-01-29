@@ -169,7 +169,7 @@ export default class Indexer {
   }
 
   extractCreateTableStatements (schema: string): string[] {
-    const createStatementRegex = /CREATE TABLE\s+.*?;\s*/gs;
+    const createStatementRegex = /CREATE\s+TABLE\s+.*?;\s*/gs;
     let match;
     const statements = [];
 
@@ -181,7 +181,7 @@ export default class Indexer {
     if (statements.length === 0) {
       // Does not have global flag (/gs vs /s) so we only get first result, and is greedy matching after TABLE, (.*? vs .*)
       // Multiple CREATE statements without semicolon should be caught before publishing.
-      const createStatementRegexWithoutSemicolon = /CREATE TABLE\s+.*/s;
+      const createStatementRegexWithoutSemicolon = /CREATE\s+TABLE\s+.*/s;
       if ((match = createStatementRegexWithoutSemicolon.exec(schema)) !== null) {
         statements.push(match[0]);
       }

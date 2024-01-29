@@ -420,6 +420,73 @@ CREATE TABLE
     ));
   });
 
+  test('GetTables works with single create statement without semicolon and separated CREATE and TABLE', async () => {
+    const testSchema = `
+    CREATE 
+    
+    TABLE
+
+      "postsTable" (
+        "id" SERIAL NOT NULL,
+        accountId VARCHAR NOT NULL
+      )
+    `;
+
+    const indexer = new Indexer();
+    const tableAndColumnNames = indexer.getTableAndColumnNames(testSchema);
+    expect(Array.from(tableAndColumnNames.keys())).toStrictEqual(['"postsTable"']);
+    expect(tableAndColumnNames.get('"postsTable"')).toStrictEqual(new Map(
+      [
+        ['id', '"id"'],
+        ['accountId', 'accountId']
+      ]
+    ));
+  });
+
+  test('GetTables works with separated CREATE and TABLE', async () => {
+    const testSchema = `
+    CREATE 
+    TABLE
+      "postsTable" (
+        "id" SERIAL NOT NULL,
+        accountId VARCHAR NOT NULL
+      );
+
+      CREATE           
+
+
+
+
+
+      TABLE
+
+
+
+
+
+        otherTable (
+          Id SERIAL NOT NULL,
+          "Accountid" VARCHAR NOT NULL
+        );
+    `;
+
+    const indexer = new Indexer();
+    const tableAndColumnNames = indexer.getTableAndColumnNames(testSchema);
+    expect(Array.from(tableAndColumnNames.keys())).toStrictEqual(['"postsTable"', 'otherTable']);
+    expect(tableAndColumnNames.get('"postsTable"')).toStrictEqual(new Map(
+      [
+        ['id', '"id"'],
+        ['accountId', 'accountId']
+      ]
+    ));
+    expect(tableAndColumnNames.get('otherTable')).toStrictEqual(new Map(
+      [
+        ['Id', 'Id'],
+        ['Accountid', '"Accountid"']
+      ]
+    ));
+  });
+
   test('GetTables returns table names with quotes if quoted', async () => {
     const indexer = new Indexer();
 
