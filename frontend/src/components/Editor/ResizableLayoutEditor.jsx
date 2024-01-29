@@ -85,6 +85,9 @@ const ResizableEditor = ({
             folding: false,
             lineNumberMinChars: 3,
             scrollBeyondLastLine: false,
+            automaticLayout: true,
+            formatOnPaste: true,
+            definitionLinkOpensInPeek: true,
           }}
         />
       ),
@@ -113,6 +116,8 @@ const ResizableEditor = ({
             folding: false,
             lineNumberMinChars: 3,
             scrollBeyondLastLine: false,
+            automaticLayout: true,
+            formatOnPaste: true,
           }}
         />
       ),
