@@ -81,6 +81,7 @@ const ResizableEditor = ({
           handleEditorWillMount={handleEditorWillMount}
           options={{
             wordWrap: "on",
+            minimap: {enabled: false},
           }}
         />
       ),
@@ -105,6 +106,7 @@ const ResizableEditor = ({
           handleEditorWillMount={undefined}
           options={{
             wordWrap: "on",
+            minimap: {enabled: false},
           }}
         />
       ),
