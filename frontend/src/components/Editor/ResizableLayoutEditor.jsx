@@ -47,7 +47,7 @@ const ResizableEditor = ({
   schema,
   indexingCode,
   handleEditorWillMount,
-  isCreateNewIndexer
+  isCreateNewIndexer,
 }) => {
   const { firstRef, secondRef, dragBarRef } = useDragResize({
     direction: "horizontal",
@@ -81,7 +81,10 @@ const ResizableEditor = ({
           handleEditorWillMount={handleEditorWillMount}
           options={{
             wordWrap: "on",
-            minimap: {enabled: false},
+            minimap: { enabled: false },
+            folding: false,
+            lineNumberMinChars: 3,
+            scrollBeyondLastLine: false,
           }}
         />
       ),
@@ -106,7 +109,10 @@ const ResizableEditor = ({
           handleEditorWillMount={undefined}
           options={{
             wordWrap: "on",
-            minimap: {enabled: false},
+            minimap: { enabled: false },
+            folding: false,
+            lineNumberMinChars: 3,
+            scrollBeyondLastLine: false,
           }}
         />
       ),
@@ -142,7 +148,7 @@ export default function ResizableLayoutEditor({
   indexingCode,
   handleEditorWillMount,
   handleEditorMount,
-  isCreateNewIndexer
+  isCreateNewIndexer,
 }) {
   const {
     dragBarRef: dragBarRefConsole,
