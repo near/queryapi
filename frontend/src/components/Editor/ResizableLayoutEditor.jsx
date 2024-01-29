@@ -3,9 +3,25 @@ import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
-import { validateSQLSchema } from "@/utils/validators";
+// import Editor from "@monaco-editor/react";
+import { GlyphContainer } from "./styled";
 
-// Define styles as separate objects
+function handleEditorMount(editor, monaco) {
+  const decorations = editor.deltaDecorations(
+    [],
+    [
+      {
+        range: new monaco.Range(3, 1, 3, 1),
+        options: {
+          isWholeLine: true,
+          className: "myGlyphMarginClass",
+          glyphMarginClassName: "myContentClass",
+        },
+      },
+    ]
+  );
+}
+
 const containerStyle = {
   display: "flex",
   flexDirection: "row",
@@ -24,13 +40,6 @@ const dragBarStyle = {
   width: "10px",
   backgroundColor: "gray",
   cursor: "col-resize",
-};
-
-const jsonViewerContainerStyle = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  minWidth: "100px",
 };
 
 const ResizableEditor = ({
@@ -71,25 +80,31 @@ const ResizableEditor = ({
           handleEditorMount={undefined}
         />
       ) : (
-        <MonacoEditorComponent
-          key="code-editor"
-          value={indexingCode}
-          defaultValue={defaultCode}
-          defaultLanguage="typescript"
-          readOnly={false}
-          onChange={onChangeCode}
-          handleEditorWillMount={handleEditorWillMount}
-          options={{
-            wordWrap: "on",
-            minimap: { enabled: false },
-            folding: false,
-            lineNumberMinChars: 3,
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            formatOnPaste: true,
-            definitionLinkOpensInPeek: true,
-          }}
-        />
+        <GlyphContainer
+          style={{ display: "flex", height: "100%", width: "100%" }}
+        >
+          <MonacoEditorComponent
+            key="code-editor"
+            value={indexingCode}
+            height="100vh"
+            defaultValue={defaultCode}
+            defaultLanguage="typescript"
+            readOnly={false}
+            onChange={onChangeCode}
+            onMount={handleEditorMount}
+            options={{
+              wordWrap: "on",
+              minimap: { enabled: false },
+              folding: false,
+              lineNumberMinChars: 3,
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              formatOnPaste: true,
+              definitionLinkOpensInPeek: true,
+              glyphMargin: true,
+            }}
+          />
+        </GlyphContainer>
       ),
     "schema.sql": () =>
       diffView ? (
@@ -102,24 +117,30 @@ const ResizableEditor = ({
           handleEditorMount={undefined}
         />
       ) : (
-        <MonacoEditorComponent
-          key="schema-editor"
-          value={schema}
-          defaultValue={defaultSchema}
-          defaultLanguage="sql"
-          readOnly={isCreateNewIndexer === true ? false : false}
-          onChange={onChangeSchema}
-          handleEditorWillMount={undefined}
-          options={{
-            wordWrap: "on",
-            minimap: { enabled: false },
-            folding: false,
-            lineNumberMinChars: 3,
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            formatOnPaste: true,
-          }}
-        />
+        <GlyphContainer
+          style={{ display: "flex", height: "100%", width: "100%" }}
+        >
+          <MonacoEditorComponent
+            key="schema-editor"
+            value={schema}
+            defaultValue={defaultSchema}
+            defaultLanguage="sql"
+            readOnly={isCreateNewIndexer === true ? false : false}
+            onChange={onChangeSchema}
+            onMount={handleEditorMount}
+            options={{
+              wordWrap: "on",
+              minimap: { enabled: false },
+              folding: false,
+              lineNumberMinChars: 3,
+              scrollBeyondLastLine: false,
+              automaticLayout: true,
+              formatOnPaste: true,
+              definitionLinkOpensInPeek: true,
+              glyphMargin: true,
+            }}
+          />
+        </GlyphContainer>
       ),
   };
 
@@ -129,11 +150,6 @@ const ResizableEditor = ({
         {editorComponents[fileName] && editorComponents[fileName]()}
       </div>
       <div ref={dragBarRef} style={dragBarStyle} />
-      {/* <div ref={secondRef} style={jsonViewerContainerStyle}> */}
-      {/*   <div> */}
-      {/*     <JsonViewer theme={"dark"} value={block_details} collapsed /> */}
-      {/*   </div> */}
-      {/* </div> */}
     </div>
   );
 };
@@ -187,36 +203,6 @@ export default function ResizableLayoutEditor({
           handleEditorMount={handleEditorMount}
         />
       </div>
-
-      {/* <div */}
-      {/*   ref={dragBarRefConsole} */}
-      {/*   style={{ */}
-      {/*     height: "5px", */}
-      {/*     backgroundColor: "gray", */}
-      {/*     cursor: "ns-resize", */}
-      {/*   }} */}
-      {/* /> */}
-      {/**/}
-      {/* <div */}
-      {/*   ref={secondRefConsole} */}
-      {/*   style={{ */}
-      {/*     backgroundColor: "gray", */}
-      {/*     overflow: "auto", */}
-      {/*     color: "white", */}
-      {/*     padding: "10px", */}
-      {/*   }} */}
-      {/* > */}
-      {/*   <div> */}
-      {/*     <div className="pb-3">Console</div> */}
-      {/**/}
-      {/*     {logs.map((log, i) => ( */}
-      {/*       <div key={i}> */}
-      {/*         <p> {log}</p> */}
-      {/*         <hr style={{ borderTop: "1px solid white" }} /> */}
-      {/*       </div> */}
-      {/*     ))} */}
-      {/*   </div> */}
-      {/* </div> */}
     </div>
   );
 }
