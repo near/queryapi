@@ -17,6 +17,7 @@ mod registry;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
+const V1_EXECUTOR_VERSION: u64 = 0;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -99,7 +100,13 @@ async fn synchronise_executors(
     indexer_registry: &IndexerRegistry,
     executors_handler: &ExecutorsHandler,
 ) -> anyhow::Result<()> {
-    let mut active_executors = executors_handler.list().await?;
+    let active_executors = executors_handler.list().await?;
+
+    // Ignore V1 executors
+    let mut active_executors: Vec<_> = active_executors
+        .into_iter()
+        .filter(|executor| executor.version != V1_EXECUTOR_VERSION)
+        .collect();
 
     for (account_id, indexers) in indexer_registry.iter() {
         for (function_name, indexer_config) in indexers.iter() {
