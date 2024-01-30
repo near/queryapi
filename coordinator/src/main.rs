@@ -70,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
 #[derive(serde::Deserialize, Debug)]
 struct AllowListEntry {
     account_id: AccountId,
+    v1_ack: bool,
 }
 
 type AllowList = Vec<AllowListEntry>;
@@ -82,16 +83,19 @@ async fn filter_registry_by_allowlist(
     let allowlist: AllowList =
         serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")?;
 
-    let filtered_registry = indexer_registry
+    let filtered_registry: IndexerRegistry = indexer_registry
         .into_iter()
         .filter(|(account_id, _)| {
             allowlist
                 .iter()
-                .any(|entry| entry.account_id == *account_id)
+                .any(|entry| entry.account_id == *account_id && entry.v1_ack)
         })
         .collect();
 
-    tracing::debug!("Using filtered registry: {:#?}", filtered_registry);
+    tracing::debug!(
+        "Accounts in filtered registry: {:#?}",
+        filtered_registry.keys()
+    );
 
     Ok(filtered_registry)
 }
