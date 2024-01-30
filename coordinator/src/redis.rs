@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 use std::fmt::Debug;
 
 use anyhow::Context;

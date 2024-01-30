@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 use anyhow::Context;
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
