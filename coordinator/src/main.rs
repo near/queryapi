@@ -53,8 +53,17 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        let indexer_registry =
-            filter_registry_by_allowlist(indexer_registry, &redis_client).await?;
+        let allowlist = fetch_allowlist(&redis_client).await?;
+
+        let indexer_registry = filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
+
+        migrate_pending_indexers(
+            &indexer_registry,
+            &allowlist,
+            &redis_client,
+            &executors_handler,
+        )
+        .await?;
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
@@ -68,21 +77,63 @@ async fn main() -> anyhow::Result<()> {
 }
 
 #[derive(serde::Deserialize, Debug)]
-struct AllowListEntry {
+struct AllowlistEntry {
     account_id: AccountId,
     v1_ack: bool,
+    migrated: bool,
 }
 
-type AllowList = Vec<AllowListEntry>;
+type Allowlist = Vec<AllowlistEntry>;
+
+async fn migrate_pending_indexers(
+    indexer_registry: &IndexerRegistry,
+    allowlist: &Allowlist,
+    redis_client: &RedisClient,
+    executors_handler: &ExecutorsHandler,
+) -> anyhow::Result<()> {
+    for entry in allowlist.iter().filter(|entry| !entry.migrated) {
+        let indexers = indexer_registry.get(&entry.account_id);
+
+        if indexers.is_none() {
+            tracing::warn!(
+                "Allowlist entry for account {} not in registry",
+                entry.account_id
+            );
+
+            continue;
+        }
+
+        let indexers = indexers.unwrap();
+
+        for (_, indexer_config) in indexers.iter() {
+            redis_client
+                .srem(
+                    RedisClient::STREAMS_SET,
+                    indexer_config.get_real_time_redis_stream(),
+                )
+                .await?;
+            redis_client
+                .srem(
+                    RedisClient::STREAMS_SET,
+                    indexer_config.get_historical_redis_stream(),
+                )
+                .await?;
+
+        }
+    }
+
+    Ok(())
+}
+
+async fn fetch_allowlist(redis_client: &RedisClient) -> anyhow::Result<Allowlist> {
+    let raw_allowlist: String = redis_client.get("allowlist").await?;
+    serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")
+}
 
 async fn filter_registry_by_allowlist(
     indexer_registry: IndexerRegistry,
-    redis_client: &RedisClient,
+    allowlist: &Allowlist,
 ) -> anyhow::Result<IndexerRegistry> {
-    let raw_allowlist: String = redis_client.get(String::from("allowlist")).await?;
-    let allowlist: AllowList =
-        serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")?;
-
     let filtered_registry: IndexerRegistry = indexer_registry
         .into_iter()
         .filter(|(account_id, _)| {
