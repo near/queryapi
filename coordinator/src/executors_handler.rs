@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 use anyhow::Context;
 use runner::runner_client::RunnerClient;
 use runner::{ExecutorInfo, ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};

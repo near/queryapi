@@ -102,7 +102,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
             config = {
               account_id: accountId,
               function_name: functionName,
-              version: -1, // Ensure Coordinator V2 sees version mismatch
+              version: 0, // Ensure Coordinator V2 sees version mismatch
               code: '',
               schema: '',
             };
