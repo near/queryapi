@@ -107,4 +107,16 @@ impl RedisClientImpl {
 
         Ok(())
     }
+
+    pub async fn xdel<K, I>(&self, key: K, id: I) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        I: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("XDEL: {:?} {:?}", key, id);
+
+        self.connection.clone().xdel(key, &[id]).await?;
+
+        Ok(())
+    }
 }

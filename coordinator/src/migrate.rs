@@ -80,6 +80,9 @@ pub async fn migrate_pending_indexers(
                     redis_client
                         .xadd(indexer_config.get_redis_stream(), &fields)
                         .await?;
+                    redis_client
+                        .xdel(indexer_config.get_real_time_redis_stream(), stream_id.id)
+                        .await?
                 }
             }
         }
@@ -258,6 +261,14 @@ mod tests {
             .with(
                 predicate::eq(String::from("morgs.near/test:block_stream")),
                 predicate::eq([(String::from("block_height"), String::from("123"))]),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        redis_client
+            .expect_xdel::<String, String>()
+            .with(
+                predicate::eq(String::from("morgs.near/test:real_time:stream")),
+                predicate::eq(String::from("1-0")),
             )
             .returning(|_, _| Ok(()))
             .once();
