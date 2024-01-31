@@ -42,6 +42,19 @@ impl RedisClientImpl {
 
         Ok(value)
     }
+
+    pub async fn rename<K, V>(&self, old_key: K, new_key: V) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        V: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("RENAME: {:?} -> {:?}", old_key, new_key);
+
+        self.connection.clone().rename(old_key, new_key).await?;
+
+        Ok(())
+    }
+
     pub async fn srem<T, U>(&self, key: T, value: U) -> anyhow::Result<()>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,
@@ -54,4 +67,44 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    pub async fn xread<K, V>(
+        &self,
+        key: K,
+        start_id: V,
+        count: usize,
+    ) -> anyhow::Result<Vec<streams::StreamId>>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        V: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("XREAD: {:?} {:?} {:?}", key, start_id, count);
+
+        let mut results: streams::StreamReadReply = self
+            .connection
+            .clone()
+            .xread_options(
+                &[key],
+                &[start_id],
+                &streams::StreamReadOptions::default().count(count),
+            )
+            .await?;
+
+        if results.keys.is_empty() {
+            return Ok([].to_vec());
+        }
+
+        Ok(results.keys.remove(0).ids)
+    }
+
+    pub async fn xadd<K, U>(&self, key: K, fields: &[(String, U)]) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        U: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("XADD: {:?} {:?} {:?}", key, "*", fields);
+
+        self.connection.clone().xadd(key, "*", fields).await?;
+
+        Ok(())
+    }
 }
