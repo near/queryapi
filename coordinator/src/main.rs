@@ -119,6 +119,12 @@ async fn migrate_pending_indexers(
                 )
                 .await?;
 
+            executors_handler
+                .stop(indexer_config.get_real_time_redis_stream())
+                .await?;
+            executors_handler
+                .stop(indexer_config.get_historical_redis_stream())
+                .await?;
         }
     }
 
