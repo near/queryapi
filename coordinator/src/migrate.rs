@@ -58,6 +58,10 @@ pub async fn migrate_pending_indexers(
                     .xread(indexer_config.get_real_time_redis_stream(), 0, 100)
                     .await?;
 
+                if stream_ids.is_empty() {
+                    break;
+                }
+
                 for stream_id in stream_ids {
                     let fields: Vec<(_, _)> = stream_id
                         .map
