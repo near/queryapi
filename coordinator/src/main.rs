@@ -6,13 +6,12 @@ use tracing_subscriber::prelude::*;
 
 use crate::block_streams_handler::BlockStreamsHandler;
 use crate::executors_handler::ExecutorsHandler;
-use crate::migrate::migrate_pending_indexers;
 use crate::redis::RedisClient;
 use crate::registry::{IndexerRegistry, Registry};
 
 mod block_streams_handler;
 mod executors_handler;
-mod migrate;
+mod migration;
 mod redis;
 mod registry;
 mod utils;
@@ -54,12 +53,12 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        let allowlist = migrate::fetch_allowlist(&redis_client).await?;
+        let allowlist = migration::fetch_allowlist(&redis_client).await?;
 
         let indexer_registry =
-            migrate::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
+            migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
 
-        migrate_pending_indexers(
+        migration::migrate_pending_indexers(
             &indexer_registry,
             &allowlist,
             &redis_client,
