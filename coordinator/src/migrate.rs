@@ -33,6 +33,8 @@ pub async fn migrate_pending_indexers(
         }
 
         set_migrated_flag(redis_client, entry.account_id.clone())?;
+
+        tracing::info!("Finished migrating {}", entry.account_id);
     }
 
     Ok(())
@@ -42,6 +44,11 @@ async fn remove_v1_control(
     redis_client: &RedisClient,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
+    tracing::info!(
+        "Removing {} from streams set",
+        indexer_config.get_full_name()
+    );
+
     // TODO should probably check if these exist?
     redis_client
         .srem(
@@ -63,6 +70,8 @@ async fn stop_v1_executors(
     executors_handler: &ExecutorsHandler,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
+    tracing::info!("Stopping {} v1 executors", indexer_config.get_full_name());
+
     executors_handler
         .stop(indexer_config.get_real_time_redis_stream())
         .await?;
@@ -77,6 +86,8 @@ async fn merge_streams(
     redis_client: &RedisClient,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
+    tracing::info!("Merging streams for {}", indexer_config.get_full_name());
+
     // TODO handle err no such key
     redis_client
         .rename(
@@ -122,6 +133,8 @@ async fn merge_streams(
 }
 
 fn set_migrated_flag(redis_client: &RedisClient, account_id: AccountId) -> anyhow::Result<()> {
+    tracing::info!("Setting migrated flag for {}", account_id);
+
     redis_client.atomic_update(RedisClient::ALLOWLIST, move |raw_allowlist: String| {
         let mut allowlist: Allowlist = serde_json::from_str(&raw_allowlist).map_err(|_| {
             RedisError::from((ErrorKind::TypeError, "failed to deserialize allowlist"))
