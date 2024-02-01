@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use anyhow::Context;
 use near_primitives::types::AccountId;
 use redis::{ErrorKind, RedisError};
@@ -62,18 +64,36 @@ pub async fn migrate_pending_accounts(
             continue;
         }
 
-        let indexers = indexers.unwrap();
-
-        for (_, indexer_config) in indexers.iter() {
-            remove_v1_control(redis_client, indexer_config).await?;
-            stop_v1_executors(executors_handler, indexer_config).await?;
-            merge_streams(redis_client, indexer_config).await?;
-        }
-
-        set_migrated_flag(redis_client, entry.account_id.clone())?;
-
-        tracing::info!("Finished migrating {}", entry.account_id);
+        migrate_account(
+            redis_client,
+            executors_handler,
+            &entry.account_id,
+            indexers.unwrap(),
+        )
+        .await
+        .unwrap();
     }
+
+    Ok(())
+}
+
+async fn migrate_account(
+    redis_client: &RedisClient,
+    executors_handler: &ExecutorsHandler,
+    account_id: &AccountId,
+    indexers: &HashMap<String, IndexerConfig>,
+) -> anyhow::Result<()> {
+    tracing::info!("Migrating account {}", account_id);
+
+    for (_, indexer_config) in indexers.iter() {
+        remove_v1_control(redis_client, indexer_config).await?;
+        stop_v1_executors(executors_handler, indexer_config).await?;
+        merge_streams(redis_client, indexer_config).await?;
+    }
+
+    set_migrated_flag(redis_client, account_id)?;
+
+    tracing::info!("Finished migrating {}", account_id);
 
     Ok(())
 }
@@ -170,8 +190,10 @@ async fn merge_streams(
     Ok(())
 }
 
-fn set_migrated_flag(redis_client: &RedisClient, account_id: AccountId) -> anyhow::Result<()> {
+fn set_migrated_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
     tracing::info!("Setting migrated flag for {}", account_id);
+
+    let account_id = account_id.to_owned();
 
     redis_client.atomic_update(RedisClient::ALLOWLIST, move |raw_allowlist: String| {
         let mut allowlist: Allowlist = serde_json::from_str(&raw_allowlist).map_err(|_| {
