@@ -93,13 +93,13 @@ async fn migrate_account(
     for (_, indexer_config) in indexers.iter() {
         tracing::info!("Migrating {}", indexer_config.get_full_name());
 
-        remove_from_streams_set(redis_client, indexer_config)
+        let existing_streams = remove_from_streams_set(redis_client, indexer_config)
             .await
             .context("Failed to remove from streams set")?;
-        stop_v1_executors(executors_handler, indexer_config)
+        stop_v1_executors(executors_handler, &existing_streams)
             .await
             .context("Failed to stop executors")?;
-        merge_streams(redis_client, indexer_config)
+        merge_streams(redis_client, &existing_streams, indexer_config)
             .await
             .context("Failed to merge streams")?;
     }
@@ -114,84 +114,105 @@ async fn migrate_account(
 async fn remove_from_streams_set(
     redis_client: &RedisClient,
     indexer_config: &IndexerConfig,
-) -> anyhow::Result<()> {
-    // TODO should probably check if these exist?
-    redis_client
-        .srem(
-            RedisClient::STREAMS_SET,
-            indexer_config.get_real_time_redis_stream(),
-        )
-        .await?;
-    redis_client
+) -> anyhow::Result<Vec<String>> {
+    let mut result = vec![];
+
+    if redis_client
         .srem(
             RedisClient::STREAMS_SET,
             indexer_config.get_historical_redis_stream(),
         )
-        .await?;
+        .await?
+        .is_some()
+    {
+        result.push(indexer_config.get_historical_redis_stream());
+    }
 
-    Ok(())
+    if redis_client
+        .srem(
+            RedisClient::STREAMS_SET,
+            indexer_config.get_real_time_redis_stream(),
+        )
+        .await?
+        .is_some()
+    {
+        result.push(indexer_config.get_real_time_redis_stream());
+    };
+
+    Ok(result)
 }
 
 async fn stop_v1_executors(
     executors_handler: &ExecutorsHandler,
-    indexer_config: &IndexerConfig,
+    existing_streams: &Vec<String>,
 ) -> anyhow::Result<()> {
-    executors_handler
-        .stop(indexer_config.get_real_time_redis_stream())
-        .await?;
-    executors_handler
-        .stop(indexer_config.get_historical_redis_stream())
-        .await?;
+    for stream in existing_streams {
+        executors_handler.stop(stream.to_owned()).await?;
+    }
 
     Ok(())
 }
 
 async fn merge_streams(
     redis_client: &RedisClient,
+    existing_streams: &Vec<String>,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
-    // TODO handle err no such key
-    redis_client
-        .rename(
-            indexer_config.get_historical_redis_stream(),
-            indexer_config.get_redis_stream(),
-        )
-        .await?;
-
-    loop {
-        let stream_ids = redis_client
-            .xread(indexer_config.get_real_time_redis_stream(), 0, 100)
-            .await?;
-
-        if stream_ids.is_empty() {
-            break;
-        }
-
-        for stream_id in stream_ids {
-            let fields: Vec<(_, _)> = stream_id
-                .map
-                .into_iter()
-                .filter_map(|field| {
-                    if let ::redis::Value::Data(data) = field.1 {
-                        return Some((field.0, String::from_utf8(data).unwrap()));
-                    }
-
-                    // TODO data should always be serializable as string - log some
-                    // warning?
-                    None
-                })
-                .collect();
-
+    match existing_streams.len() {
+        0 => Ok(()),
+        1 => {
             redis_client
-                .xadd(indexer_config.get_redis_stream(), &fields)
+                .rename(
+                    existing_streams[0].to_owned(),
+                    indexer_config.get_redis_stream(),
+                )
                 .await?;
-            redis_client
-                .xdel(indexer_config.get_real_time_redis_stream(), stream_id.id)
-                .await?
-        }
-    }
 
-    Ok(())
+            Ok(())
+        }
+        2 => {
+            let historical_stream = existing_streams[0].to_owned();
+            let real_time_stream = existing_streams[1].to_owned();
+
+            redis_client
+                .rename(historical_stream, indexer_config.get_redis_stream())
+                .await?;
+
+            loop {
+                let stream_ids = redis_client.xread(real_time_stream.clone(), 0, 100).await?;
+
+                if stream_ids.is_empty() {
+                    break;
+                }
+
+                for stream_id in stream_ids {
+                    let fields: Vec<(_, _)> = stream_id
+                        .map
+                        .into_iter()
+                        .filter_map(|field| {
+                            if let ::redis::Value::Data(data) = field.1 {
+                                return Some((field.0, String::from_utf8(data).unwrap()));
+                            }
+
+                            tracing::warn!("Ignoring unexpected value in stream: {:?}", field.1);
+
+                            None
+                        })
+                        .collect();
+
+                    redis_client
+                        .xadd(indexer_config.get_redis_stream(), &fields)
+                        .await?;
+                    redis_client
+                        .xdel(indexer_config.get_real_time_redis_stream(), stream_id.id)
+                        .await?
+                }
+            }
+
+            Ok(())
+        }
+        _ => anyhow::bail!("Unexpected number of streams"),
+    }
 }
 
 fn set_failed_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
@@ -280,7 +301,7 @@ mod tests {
             account_id: "morgs.near".parse().unwrap(),
             v1_ack: true,
             migrated: true,
-            failed: true,
+            failed: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -304,7 +325,7 @@ mod tests {
             account_id: "morgs.near".parse().unwrap(),
             v1_ack: true,
             migrated: true,
-            failed: true,
+            failed: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -351,7 +372,7 @@ mod tests {
             account_id: "morgs.near".parse().unwrap(),
             v1_ack: true,
             migrated: false,
-            failed: true,
+            failed: false,
         }];
 
         let mut redis_client = RedisClient::default();
@@ -361,7 +382,7 @@ mod tests {
                 predicate::eq("streams"),
                 predicate::eq(String::from("morgs.near/test:historical:stream")),
             )
-            .returning(|_, _| Ok(()))
+            .returning(|_, _| Ok(Some(())))
             .once();
         redis_client
             .expect_srem::<&str, String>()
@@ -369,7 +390,7 @@ mod tests {
                 predicate::eq("streams"),
                 predicate::eq(String::from("morgs.near/test:real_time:stream")),
             )
-            .returning(|_, _| Ok(()))
+            .returning(|_, _| Ok(Some(())))
             .once();
         redis_client
             .expect_rename::<String, String>()

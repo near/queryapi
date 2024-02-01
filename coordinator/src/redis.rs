@@ -62,16 +62,18 @@ impl RedisClientImpl {
         Ok(())
     }
 
-    pub async fn srem<T, U>(&self, key: T, value: U) -> anyhow::Result<()>
+    pub async fn srem<T, U>(&self, key: T, value: U) -> anyhow::Result<Option<()>>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,
         U: ToRedisArgs + Debug + Send + Sync + 'static,
     {
         tracing::debug!("SREM: {:?}={:?}", key, value);
 
-        self.connection.clone().srem(key, value).await?;
-
-        Ok(())
+        match self.connection.clone().srem(key, value).await {
+            Ok(1) => Ok(Some(())),
+            Ok(_) => Ok(None),
+            Err(e) => Err(anyhow::format_err!(e)),
+        }
     }
 
     pub async fn xread<K, V>(
