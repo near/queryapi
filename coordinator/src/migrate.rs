@@ -12,7 +12,10 @@ pub async fn migrate_pending_indexers(
     redis_client: &RedisClient,
     executors_handler: &ExecutorsHandler,
 ) -> anyhow::Result<()> {
-    for entry in allowlist.iter().filter(|entry| !entry.migrated) {
+    for entry in allowlist
+        .iter()
+        .filter(|entry| !entry.migrated && entry.v1_ack)
+    {
         let indexers = indexer_registry.get(&entry.account_id);
 
         if indexers.is_none() {
