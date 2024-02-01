@@ -13,6 +13,7 @@ pub struct AllowlistEntry {
     account_id: AccountId,
     v1_ack: bool,
     migrated: bool,
+    failed: bool,
 }
 
 pub type Allowlist = Vec<AllowlistEntry>;
@@ -51,7 +52,7 @@ pub async fn migrate_pending_accounts(
 ) -> anyhow::Result<()> {
     for entry in allowlist
         .iter()
-        .filter(|entry| !entry.migrated && entry.v1_ack)
+        .filter(|entry| !entry.migrated && entry.v1_ack && !entry.failed)
     {
         let indexers = indexer_registry.get(&entry.account_id);
 
@@ -64,14 +65,18 @@ pub async fn migrate_pending_accounts(
             continue;
         }
 
-        migrate_account(
+        let _ = migrate_account(
             redis_client,
             executors_handler,
             &entry.account_id,
             indexers.unwrap(),
         )
         .await
-        .unwrap();
+        .or_else(|err| {
+            tracing::error!("Failed to migrate {}: {:?}", entry.account_id, err);
+
+            set_failed_flag(redis_client, &entry.account_id)
+        });
     }
 
     Ok(())
@@ -86,9 +91,17 @@ async fn migrate_account(
     tracing::info!("Migrating account {}", account_id);
 
     for (_, indexer_config) in indexers.iter() {
-        remove_v1_control(redis_client, indexer_config).await?;
-        stop_v1_executors(executors_handler, indexer_config).await?;
-        merge_streams(redis_client, indexer_config).await?;
+        tracing::info!("Migrating {}", indexer_config.get_full_name());
+
+        remove_from_streams_set(redis_client, indexer_config)
+            .await
+            .context("Failed to remove from streams set")?;
+        stop_v1_executors(executors_handler, indexer_config)
+            .await
+            .context("Failed to stop executors")?;
+        merge_streams(redis_client, indexer_config)
+            .await
+            .context("Failed to merge streams")?;
     }
 
     set_migrated_flag(redis_client, account_id)?;
@@ -98,15 +111,10 @@ async fn migrate_account(
     Ok(())
 }
 
-async fn remove_v1_control(
+async fn remove_from_streams_set(
     redis_client: &RedisClient,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
-    tracing::info!(
-        "Removing {} from streams set",
-        indexer_config.get_full_name()
-    );
-
     // TODO should probably check if these exist?
     redis_client
         .srem(
@@ -128,8 +136,6 @@ async fn stop_v1_executors(
     executors_handler: &ExecutorsHandler,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
-    tracing::info!("Stopping {} v1 executors", indexer_config.get_full_name());
-
     executors_handler
         .stop(indexer_config.get_real_time_redis_stream())
         .await?;
@@ -144,8 +150,6 @@ async fn merge_streams(
     redis_client: &RedisClient,
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
-    tracing::info!("Merging streams for {}", indexer_config.get_full_name());
-
     // TODO handle err no such key
     redis_client
         .rename(
@@ -190,9 +194,29 @@ async fn merge_streams(
     Ok(())
 }
 
-fn set_migrated_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
-    tracing::info!("Setting migrated flag for {}", account_id);
+fn set_failed_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
+    let account_id = account_id.to_owned();
 
+    redis_client.atomic_update(RedisClient::ALLOWLIST, move |raw_allowlist: String| {
+        let mut allowlist: Allowlist = serde_json::from_str(&raw_allowlist).map_err(|_| {
+            RedisError::from((ErrorKind::TypeError, "failed to deserialize allowlist"))
+        })?;
+
+        let entry = allowlist
+            .iter_mut()
+            .find(|entry| entry.account_id == account_id)
+            .unwrap();
+
+        entry.failed = true;
+
+        serde_json::to_string(&allowlist)
+            .map_err(|_| RedisError::from((ErrorKind::TypeError, "failed to serialize allowlist")))
+    })?;
+
+    Ok(())
+}
+
+fn set_migrated_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
     let account_id = account_id.to_owned();
 
     redis_client.atomic_update(RedisClient::ALLOWLIST, move |raw_allowlist: String| {
@@ -256,6 +280,7 @@ mod tests {
             account_id: "morgs.near".parse().unwrap(),
             v1_ack: true,
             migrated: true,
+            failed: true,
         }];
 
         let redis_client = RedisClient::default();
@@ -279,6 +304,7 @@ mod tests {
             account_id: "morgs.near".parse().unwrap(),
             v1_ack: true,
             migrated: true,
+            failed: true,
         }];
 
         let redis_client = RedisClient::default();
@@ -325,6 +351,7 @@ mod tests {
             account_id: "morgs.near".parse().unwrap(),
             v1_ack: true,
             migrated: false,
+            failed: true,
         }];
 
         let mut redis_client = RedisClient::default();
