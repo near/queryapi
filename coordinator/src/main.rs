@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<()> {
         let indexer_registry =
             migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
 
-        migration::migrate_pending_indexers(
+        migration::migrate_pending_accounts(
             &indexer_registry,
             &allowlist,
             &redis_client,

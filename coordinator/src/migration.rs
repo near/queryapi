@@ -41,7 +41,7 @@ pub async fn filter_registry_by_allowlist(
     Ok(filtered_registry)
 }
 
-pub async fn migrate_pending_indexers(
+pub async fn migrate_pending_accounts(
     indexer_registry: &IndexerRegistry,
     allowlist: &Allowlist,
     redis_client: &RedisClient,
@@ -239,7 +239,7 @@ mod tests {
         let redis_client = RedisClient::default();
         let executors_handler = ExecutorsHandler::default();
 
-        migrate_pending_indexers(
+        migrate_pending_accounts(
             &indexer_registry,
             &allowlist,
             &redis_client,
@@ -262,7 +262,7 @@ mod tests {
         let redis_client = RedisClient::default();
         let executors_handler = ExecutorsHandler::default();
 
-        migrate_pending_indexers(
+        migrate_pending_accounts(
             &indexer_registry,
             &allowlist,
             &redis_client,
@@ -392,7 +392,7 @@ mod tests {
             .returning(|_| Ok(()))
             .once();
 
-        migrate_pending_indexers(
+        migrate_pending_accounts(
             &indexer_registry,
             &allowlist,
             &redis_client,
