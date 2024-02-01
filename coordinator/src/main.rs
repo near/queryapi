@@ -55,9 +55,6 @@ async fn main() -> anyhow::Result<()> {
 
         let allowlist = migration::fetch_allowlist(&redis_client).await?;
 
-        let indexer_registry =
-            migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
-
         migration::migrate_pending_accounts(
             &indexer_registry,
             &allowlist,
@@ -65,6 +62,9 @@ async fn main() -> anyhow::Result<()> {
             &executors_handler,
         )
         .await?;
+
+        let indexer_registry =
+            migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),

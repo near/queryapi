@@ -30,9 +30,9 @@ pub async fn filter_registry_by_allowlist(
     let filtered_registry: IndexerRegistry = indexer_registry
         .into_iter()
         .filter(|(account_id, _)| {
-            allowlist
-                .iter()
-                .any(|entry| entry.account_id == *account_id && entry.v1_ack)
+            allowlist.iter().any(|entry| {
+                entry.account_id == *account_id && entry.v1_ack && entry.migrated && !entry.failed
+            })
         })
         .collect();
 
@@ -211,7 +211,7 @@ async fn merge_streams(
 
             Ok(())
         }
-        _ => anyhow::bail!("Unexpected number of streams"),
+        _ => anyhow::bail!("Unexpected number of pre-existing streams"),
     }
 }
 
