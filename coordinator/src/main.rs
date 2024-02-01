@@ -78,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-#[derive(serde::Deserialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct AllowlistEntry {
     account_id: AccountId,
     v1_ack: bool,
@@ -88,7 +88,7 @@ pub struct AllowlistEntry {
 pub type Allowlist = Vec<AllowlistEntry>;
 
 async fn fetch_allowlist(redis_client: &RedisClient) -> anyhow::Result<Allowlist> {
-    let raw_allowlist: String = redis_client.get("allowlist").await?;
+    let raw_allowlist: String = redis_client.get(RedisClient::ALLOWLIST).await?;
     serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")
 }
 

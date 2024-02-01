@@ -1,3 +1,6 @@
+use near_primitives::types::AccountId;
+use redis::{ErrorKind, RedisError};
+
 use crate::executors_handler::ExecutorsHandler;
 use crate::redis::RedisClient;
 use crate::registry::{IndexerConfig, IndexerRegistry};
@@ -28,6 +31,8 @@ pub async fn migrate_pending_indexers(
             stop_v1_executors(executors_handler, indexer_config).await?;
             merge_streams(redis_client, indexer_config).await?;
         }
+
+        set_migrated_flag(redis_client, entry.account_id.clone())?;
     }
 
     Ok(())
@@ -112,6 +117,26 @@ async fn merge_streams(
                 .await?
         }
     }
+
+    Ok(())
+}
+
+fn set_migrated_flag(redis_client: &RedisClient, account_id: AccountId) -> anyhow::Result<()> {
+    redis_client.atomic_update(RedisClient::ALLOWLIST, move |raw_allowlist: String| {
+        let mut allowlist: Allowlist = serde_json::from_str(&raw_allowlist).map_err(|_| {
+            RedisError::from((ErrorKind::TypeError, "failed to deserialize allowlist"))
+        })?;
+
+        let entry = allowlist
+            .iter_mut()
+            .find(|entry| entry.account_id == account_id)
+            .unwrap();
+
+        entry.migrated = true;
+
+        serde_json::to_string(&allowlist)
+            .map_err(|_| RedisError::from((ErrorKind::TypeError, "failed to serialize allowlist")))
+    })?;
 
     Ok(())
 }
@@ -297,6 +322,9 @@ mod tests {
             )
             .returning(|_, _| Ok(()))
             .once();
+        redis_client
+            .expect_atomic_update::<&str, String, String>()
+            .returning(|_, _| Ok(()));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler

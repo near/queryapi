@@ -3,7 +3,9 @@
 use std::fmt::Debug;
 
 use anyhow::Context;
-use redis::{aio::ConnectionManager, streams, AsyncCommands, FromRedisValue, ToRedisArgs};
+use redis::{
+    aio::ConnectionManager, streams, AsyncCommands, FromRedisValue, RedisResult, ToRedisArgs,
+};
 
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
@@ -12,11 +14,13 @@ pub use RedisClientImpl as RedisClient;
 
 pub struct RedisClientImpl {
     connection: ConnectionManager,
+    url: String,
 }
 
 #[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
     pub const STREAMS_SET: &str = "streams";
+    pub const ALLOWLIST: &str = "allowlist";
 
     pub async fn connect(redis_url: &str) -> anyhow::Result<Self> {
         let connection = redis::Client::open(redis_url)?
@@ -24,7 +28,10 @@ impl RedisClientImpl {
             .await
             .context("Unable to connect to Redis")?;
 
-        Ok(Self { connection })
+        Ok(Self {
+            connection,
+            url: redis_url.to_string(),
+        })
     }
 
     pub async fn get<T, U>(&self, key: T) -> anyhow::Result<U>
@@ -116,6 +123,25 @@ impl RedisClientImpl {
         tracing::debug!("XDEL: {:?} {:?}", key, id);
 
         self.connection.clone().xdel(key, &[id]).await?;
+
+        Ok(())
+    }
+
+    pub fn atomic_update<K, O, N, F>(&self, key: K, update_fn: F) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Copy + 'static,
+        O: FromRedisValue + 'static,
+        N: ToRedisArgs + 'static,
+        F: Fn(O) -> RedisResult<N> + 'static,
+    {
+        let mut conn = redis::Client::open(self.url.clone())?.get_connection()?;
+
+        redis::transaction(&mut conn, &[key], |conn, pipe| {
+            let old_value = redis::cmd("GET").arg(key).query(conn)?;
+            let new_value = update_fn(old_value)?;
+
+            pipe.cmd("SET").arg(key).arg(new_value).query(conn)
+        })?;
 
         Ok(())
     }
