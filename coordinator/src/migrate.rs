@@ -1,10 +1,45 @@
+use anyhow::Context;
 use near_primitives::types::AccountId;
 use redis::{ErrorKind, RedisError};
 
 use crate::executors_handler::ExecutorsHandler;
 use crate::redis::RedisClient;
 use crate::registry::{IndexerConfig, IndexerRegistry};
-use crate::Allowlist;
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub struct AllowlistEntry {
+    account_id: AccountId,
+    v1_ack: bool,
+    migrated: bool,
+}
+
+pub type Allowlist = Vec<AllowlistEntry>;
+
+pub async fn fetch_allowlist(redis_client: &RedisClient) -> anyhow::Result<Allowlist> {
+    let raw_allowlist: String = redis_client.get(RedisClient::ALLOWLIST).await?;
+    serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")
+}
+
+pub async fn filter_registry_by_allowlist(
+    indexer_registry: IndexerRegistry,
+    allowlist: &Allowlist,
+) -> anyhow::Result<IndexerRegistry> {
+    let filtered_registry: IndexerRegistry = indexer_registry
+        .into_iter()
+        .filter(|(account_id, _)| {
+            allowlist
+                .iter()
+                .any(|entry| entry.account_id == *account_id && entry.v1_ack)
+        })
+        .collect();
+
+    tracing::debug!(
+        "Accounts in filtered registry: {:#?}",
+        filtered_registry.keys()
+    );
+
+    Ok(filtered_registry)
+}
 
 pub async fn migrate_pending_indexers(
     indexer_registry: &IndexerRegistry,
@@ -167,7 +202,6 @@ mod tests {
     use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
 
     use crate::registry::IndexerConfig;
-    use crate::AllowlistEntry;
 
     #[tokio::test]
     async fn ignores_migrated_indexers() {
