@@ -255,7 +255,7 @@ export default class Indexer {
                 `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}`);
 
               // Wait for initialiiation of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.create(account);
+              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call insert with parameters
               return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
@@ -267,7 +267,7 @@ export default class Indexer {
                 `Selecting objects with values ${JSON.stringify(filterObj)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
 
               // Wait for initialiiation of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.create(account);
+              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call select with parameters
               return await dmlHandler.select(schemaName, tableName, filterObj, limit);
@@ -278,7 +278,7 @@ export default class Indexer {
                 `Updating objects that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
 
               // Wait for initialiiation of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.create(account);
+              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call update with parameters
               return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
@@ -289,7 +289,7 @@ export default class Indexer {
                 `Inserting objects with values ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
               // Wait for initialiiation of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.create(account);
+              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call upsert with parameters
               return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
@@ -300,7 +300,7 @@ export default class Indexer {
                 `Deleting objects with values ${JSON.stringify(filterObj)} from table ${tableName} on schema ${schemaName}`);
 
               // Wait for initialiiation of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.create(account);
+              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call delete with parameters
               return await dmlHandler.delete(schemaName, tableName, filterObj);
@@ -343,7 +343,7 @@ export default class Indexer {
   }
 
   async writeLog (functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
-    console.log(message);
+    // console.log(message);
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');
