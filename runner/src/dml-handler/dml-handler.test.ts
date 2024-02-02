@@ -35,7 +35,7 @@ describe('DML Handler tests', () => {
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
     expect(query.mock.calls).toEqual([
@@ -55,7 +55,7 @@ describe('DML Handler tests', () => {
       receipt_id: 'abc',
     }];
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
@@ -69,7 +69,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
@@ -83,7 +83,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
     expect(query.mock.calls).toEqual([
@@ -102,7 +102,7 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
@@ -125,7 +125,7 @@ describe('DML Handler tests', () => {
     const conflictCol = ['account_id', 'block_height'];
     const updateCol = ['receipt_id'];
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
@@ -139,7 +139,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = await DmlHandler.create(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = await DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([

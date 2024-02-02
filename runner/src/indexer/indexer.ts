@@ -90,7 +90,6 @@ export default class Indexer {
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
         const vm = new VM({ timeout: 3000, allowAsync: true });
-
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
@@ -223,7 +222,7 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      let dmlHandler: DmlHandler | null = null;
+      const dmlHandler: DmlHandler = DmlHandler.createLazy(account);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
@@ -243,9 +242,6 @@ export default class Indexer {
               await this.writeLog(functionName, blockHeight,
                 `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
-              // Get a single instance of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
-
               // Call insert with parameters
               return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
             },
@@ -253,9 +249,6 @@ export default class Indexer {
               // Write log before calling select
               await this.writeLog(functionName, blockHeight,
                 `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
-
-              // Get a single instance of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call select with parameters
               return await dmlHandler.select(schemaName, tableName, filterObj, limit);
@@ -265,9 +258,6 @@ export default class Indexer {
               await this.writeLog(functionName, blockHeight,
                 `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
-              // Get a single instance of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
-
               // Call update with parameters
               return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
             },
@@ -276,9 +266,6 @@ export default class Indexer {
               await this.writeLog(functionName, blockHeight,
                 `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
-              // Get a single instance of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
-
               // Call upsert with parameters
               return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
             },
@@ -286,9 +273,6 @@ export default class Indexer {
               // Write log before calling delete
               await this.writeLog(functionName, blockHeight,
                 `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
-
-              // Get a single instance of DmlHandler
-              dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call delete with parameters
               return await dmlHandler.delete(schemaName, tableName, filterObj);

@@ -1,38 +1,37 @@
 import { wrapError } from '../utility';
 import PgClientModule from '../pg-client';
 import HasuraClient from '../hasura-client/hasura-client';
-import PgClient from '../pg-client';
-import assert from 'assert';
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   initialized = false;
   initPromise: Promise<void> | null = null;
-  static hasuraClient: HasuraClient;
-  static PgClient: typeof PgClientModule;
+  private pgClient: PgClientModule | null = null;
 
   private constructor (
     private readonly account: string,
     private readonly hasuraClient: HasuraClient,
-    private readonly PgClient: typeof PgClientModule,
-    private pgClient: PgClientModule | null = null,
-  ) {
-    if (pgClient) {
-      this.initialized = true;
-    }
-  }
+    private readonly PgClient: typeof PgClientModule
+  ) {}
 
-  static async createLazy (
+  static createLazy (
     account: string,
     hasuraClient: HasuraClient = new HasuraClient(),
     PgClient = PgClientModule
-  ): Promise<DmlHandler> {
+  ): DmlHandler {
     return new DmlHandler(account, hasuraClient, PgClient);
   }
 
+  async initialize (): Promise<void> {
+    if (!this.initPromise) {
+      this.initPromise = this.getPgClient();
+    }
+    await this.initPromise;
+  }
+
   async getPgClient (): Promise<void> {
-    console.log('getPgClient AFTER');
+    console.log('getPgClient');
     // throw new Error('upstream timeout');
     const connectionParameters = await this.hasuraClient.getDbConnectionParameters(this.account);
     const pgClient = new this.PgClient({
@@ -44,33 +43,6 @@ export default class DmlHandler {
     });
 
     this.pgClient = pgClient;
-  }
-
-  async initialize (): Promise<void> {
-    if (!this.initPromise) {
-      console.log('getPgClient BEFORE');
-      this.initPromise = this.getPgClient();
-    }
-    await this.initPromise;
-  }
-
-  static async create (
-    account: string,
-    hasuraClient: HasuraClient = new HasuraClient(),
-    PgClient = PgClientModule
-  ): Promise<DmlHandler> {
-    // await sleep(500);
-    throw new Error('upstream timeout');
-    // const connectionParameters = await hasuraClient.getDbConnectionParameters(account);
-    // const pgClient = new PgClient({
-    //   user: connectionParameters.username,
-    //   password: connectionParameters.password,
-    //   host: process.env.PGHOST,
-    //   port: Number(connectionParameters.port),
-    //   database: connectionParameters.database,
-    // });
-
-    // return new DmlHandler(pgClient);
   }
 
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
