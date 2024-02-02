@@ -104,7 +104,8 @@ async fn migrate_account(
             .context("Failed to merge streams")?;
     }
 
-    set_migrated_flag(redis_client, account_id)?;
+    // TODO Uncomment when V2 correctly continues from V1 stop point
+    // set_migrated_flag(redis_client, account_id)?;
 
     tracing::info!("Finished migrating {}", account_id);
 
