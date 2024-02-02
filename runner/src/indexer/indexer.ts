@@ -87,18 +87,9 @@ export default class Indexer {
             throw error;
           }
         }
-        // const account = functionName.split('/')[0].replace(/[.-]/g, '_');
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
-        // const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account).catch((e) => {
-        //   console.error(`${functionName}: Error creating DmlHandler`, e);
-        //   throw e;
-        // });
         const vm = new VM({ timeout: 3000, allowAsync: true });
-        console.log('DML Handler BEFORE');
-        // const dmlHandler = await dmlHandlerLazyLoader;
-        console.log('DML Handler AFTER');
-        const dmlHandler = null;
 
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
@@ -109,7 +100,6 @@ export default class Indexer {
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
         try {
           await vm.run(modifiedFunction);
-          console.log('DONE');
         } catch (e) {
           const error = e as Error;
           // NOTE: logging the exception would likely leak some information about the index runner.
@@ -118,7 +108,7 @@ export default class Indexer {
           console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
           await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
-        };
+        }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
@@ -147,7 +137,6 @@ export default class Indexer {
   }
 
   buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string): Context {
-    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
 
@@ -175,7 +164,7 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(account, schemaName, schema, blockHeight)
+      db: this.buildDatabaseContext(functionName, schemaName, schema, blockHeight)
     };
   }
 
@@ -225,11 +214,12 @@ export default class Indexer {
   }
 
   buildDatabaseContext (
-    account: string,
+    functionName: string,
     schemaName: string,
     schema: string,
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
+    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
@@ -246,27 +236,25 @@ export default class Indexer {
         }
 
         // Generate context.db methods for table
-        const defaultLog = `Calling context.db.${sanitizedTableName}.`;
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
               // Write log before calling insert
-              await this.writeLog(`context.db.${sanitizedTableName}.insert`, blockHeight, defaultLog + '.insert',
-                `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}`);
+              await this.writeLog(functionName, blockHeight,
+                `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
-              // Wait for initialiiation of DmlHandler
+              // Get a single instance of DmlHandler
               dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call insert with parameters
               return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
             },
             select: async (filterObj: any, limit = null) => {
-              console.log('filterObj', filterObj, 'limit', limit);
               // Write log before calling select
-              await this.writeLog(`context.db.${sanitizedTableName}.select`, blockHeight, defaultLog + '.select',
-                `Selecting objects with values ${JSON.stringify(filterObj)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
+              await this.writeLog(functionName, blockHeight,
+                `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
-              // Wait for initialiiation of DmlHandler
+              // Get a single instance of DmlHandler
               dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call select with parameters
@@ -274,10 +262,10 @@ export default class Indexer {
             },
             update: async (filterObj: any, updateObj: any) => {
               // Write log before calling update
-              await this.writeLog(`context.db.${sanitizedTableName}.update`, blockHeight, defaultLog + '.update',
-                `Updating objects that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
+              await this.writeLog(functionName, blockHeight,
+                `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
-              // Wait for initialiiation of DmlHandler
+              // Get a single instance of DmlHandler
               dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call update with parameters
@@ -285,10 +273,10 @@ export default class Indexer {
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               // Write log before calling upsert
-              await this.writeLog(`context.db.${sanitizedTableName}.upsert`, blockHeight, defaultLog + '.upsert',
-                `Inserting objects with values ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+              await this.writeLog(functionName, blockHeight,
+                `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
-              // Wait for initialiiation of DmlHandler
+              // Get a single instance of DmlHandler
               dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call upsert with parameters
@@ -296,10 +284,10 @@ export default class Indexer {
             },
             delete: async (filterObj: any) => {
               // Write log before calling delete
-              await this.writeLog(`context.db.${sanitizedTableName}.delete`, blockHeight, defaultLog + '.delete',
-                `Deleting objects with values ${JSON.stringify(filterObj)} from table ${tableName} on schema ${schemaName}`);
+              await this.writeLog(functionName, blockHeight,
+                `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
-              // Wait for initialiiation of DmlHandler
+              // Get a single instance of DmlHandler
               dmlHandler = dmlHandler ?? await DmlHandler.createLazy(account);
 
               // Call delete with parameters
@@ -343,7 +331,6 @@ export default class Indexer {
   }
 
   async writeLog (functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
-    // console.log(message);
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');

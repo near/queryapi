@@ -32,7 +32,8 @@ export default class DmlHandler {
   }
 
   async getPgClient (): Promise<void> {
-    console.log('getPgClient');
+    console.log('getPgClient AFTER');
+    // throw new Error('upstream timeout');
     const connectionParameters = await this.hasuraClient.getDbConnectionParameters(this.account);
     const pgClient = new this.PgClient({
       user: connectionParameters.username,
@@ -47,6 +48,7 @@ export default class DmlHandler {
 
   async initialize (): Promise<void> {
     if (!this.initPromise) {
+      console.log('getPgClient BEFORE');
       this.initPromise = this.getPgClient();
     }
     await this.initPromise;
