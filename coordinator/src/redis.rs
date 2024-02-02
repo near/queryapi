@@ -129,6 +129,8 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    // `redis::transaction`s currently don't work with async connections, so we have to create a _new_
+    // blocking connection to atmoically update a value.
     pub fn atomic_update<K, O, N, F>(&self, key: K, update_fn: F) -> anyhow::Result<()>
     where
         K: ToRedisArgs + Copy + 'static,
