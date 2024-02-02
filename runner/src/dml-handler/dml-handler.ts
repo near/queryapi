@@ -2,6 +2,7 @@ import { wrapError } from '../utility';
 import PgClientModule from '../pg-client';
 import HasuraClient from '../hasura-client/hasura-client';
 
+const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -14,16 +15,18 @@ export default class DmlHandler {
     hasuraClient: HasuraClient = new HasuraClient(),
     PgClient = PgClientModule
   ): Promise<DmlHandler> {
-    const connectionParameters = await hasuraClient.getDbConnectionParameters(account);
-    const pgClient = new PgClient({
-      user: connectionParameters.username,
-      password: connectionParameters.password,
-      host: process.env.PGHOST,
-      port: Number(connectionParameters.port),
-      database: connectionParameters.database,
-    });
+    // await sleep(500);
+    throw new Error('upstream timeout');
+    // const connectionParameters = await hasuraClient.getDbConnectionParameters(account);
+    // const pgClient = new PgClient({
+    //   user: connectionParameters.username,
+    //   password: connectionParameters.password,
+    //   host: process.env.PGHOST,
+    //   port: Number(connectionParameters.port),
+    //   database: connectionParameters.database,
+    // });
 
-    return new DmlHandler(pgClient);
+    // return new DmlHandler(pgClient);
   }
 
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
