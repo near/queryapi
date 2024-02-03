@@ -5,7 +5,6 @@ import HasuraClient from '../hasura-client/hasura-client';
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   getPgClientPromise: Promise<PgClientModule> | null = null;
-  initializeFailure = false;
 
   private constructor (
     private readonly account: string,
@@ -25,12 +24,7 @@ export default class DmlHandler {
     if (!this.getPgClientPromise) {
       this.getPgClientPromise = this.getPgClient();
     }
-    try {
-      return await this.getPgClientPromise;
-    } catch (e) {
-      this.initializeFailure = true;
-      throw e;
-    }
+    return await this.getPgClientPromise;
   }
 
   async getPgClient (): Promise<PgClientModule> {
