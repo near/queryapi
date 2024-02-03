@@ -122,7 +122,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
       await indexer.runFunctions(block, functions, isHistorical, { provision: true });
-      // await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
+      await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
