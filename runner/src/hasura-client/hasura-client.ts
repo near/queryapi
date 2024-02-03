@@ -100,7 +100,6 @@ export default class HasuraClient {
   }
 
   async getDbConnectionParameters (account: string): Promise<any> {
-    console.log('CALLING HASURA');
     const metadata = await this.exportMetadata();
     const source = metadata.sources.find((source: { name: any, configuration: any }) => source.name === account);
     if (source === undefined) {

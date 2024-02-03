@@ -222,7 +222,7 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler: DmlHandler = DmlHandler.createLazy(account);
+      const dmlHandler: DmlHandler = this.deps.DmlHandler.createLazy(account);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {

@@ -2,12 +2,10 @@ import { wrapError } from '../utility';
 import PgClientModule from '../pg-client';
 import HasuraClient from '../hasura-client/hasura-client';
 
-const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-  initialized = false;
-  initPromise: Promise<void> | null = null;
-  private pgClient: PgClientModule | null = null;
+  getPgClientPromise: Promise<PgClientModule> | null = null;
+  initializeFailure = false;
 
   private constructor (
     private readonly account: string,
@@ -23,16 +21,19 @@ export default class DmlHandler {
     return new DmlHandler(account, hasuraClient, PgClient);
   }
 
-  async initialize (): Promise<void> {
-    if (!this.initPromise) {
-      this.initPromise = this.getPgClient();
+  async initialize (): Promise<PgClientModule> {
+    if (!this.getPgClientPromise) {
+      this.getPgClientPromise = this.getPgClient();
     }
-    await this.initPromise;
+    try {
+      return await this.getPgClientPromise;
+    } catch (e) {
+      this.initializeFailure = true;
+      throw e;
+    }
   }
 
-  async getPgClient (): Promise<void> {
-    console.log('getPgClient');
-    // throw new Error('upstream timeout');
+  async getPgClient (): Promise<PgClientModule> {
     const connectionParameters = await this.hasuraClient.getDbConnectionParameters(this.account);
     const pgClient = new this.PgClient({
       user: connectionParameters.username,
@@ -42,11 +43,11 @@ export default class DmlHandler {
       database: connectionParameters.database,
     });
 
-    this.pgClient = pgClient;
+    return pgClient;
   }
 
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
-    await this.initialize();
+    const pgClient = await this.initialize();
     if (!objects?.length) {
       return [];
     }
@@ -56,12 +57,13 @@ export default class DmlHandler {
     const values = objects.map(obj => keys.map(key => obj[key]));
     const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient?.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    return result?.rows ?? [];
+    const result = await wrapError(async () => await pgClient.query(pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    return result.rows;
   }
 
   async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
-    await this.initialize();
+    const pgClient = await this.initialize();
+
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
@@ -70,12 +72,13 @@ export default class DmlHandler {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
     }
 
-    const result = await wrapError(async () => await this.pgClient?.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    return result?.rows ?? [];
+    const result = await wrapError(async () => await pgClient.query(pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    return result.rows;
   }
 
   async update (schemaName: string, tableName: string, whereObject: any, updateObject: any): Promise<any[]> {
-    await this.initialize();
+    const pgClient = await this.initialize();
+
     const updateKeys = Object.keys(updateObject);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
     const whereKeys = Object.keys(whereObject);
@@ -84,12 +87,12 @@ export default class DmlHandler {
     const queryValues = [...Object.values(updateObject), ...Object.values(whereObject)];
     const query = `UPDATE ${schemaName}."${tableName}" SET ${updateParam} WHERE ${whereParam} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient?.query(this.pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    return result?.rows ?? [];
+    const result = await wrapError(async () => await pgClient.query(pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    return result.rows;
   }
 
   async upsert (schemaName: string, tableName: string, objects: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
-    await this.initialize();
+    const pgClient = await this.initialize();
     if (!objects?.length) {
       return [];
     }
@@ -100,18 +103,19 @@ export default class DmlHandler {
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
     const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient?.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    return result?.rows ?? [];
+    const result = await wrapError(async () => await pgClient.query(pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    return result.rows;
   }
 
   async delete (schemaName: string, tableName: string, object: any): Promise<any[]> {
-    await this.initialize();
+    const pgClient = await this.initialize();
+
     const keys = Object.keys(object);
     const values = Object.values(object);
     const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
     const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${param} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient?.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
-    return result?.rows ?? [];
+    const result = await wrapError(async () => await pgClient.query(pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    return result.rows;
   }
 }
