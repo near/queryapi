@@ -513,6 +513,45 @@ CREATE TABLE
     expect(mockGetPgClient).toHaveBeenCalledTimes(1);
   });
 
+  test('indexer builds context handles simultaneous initialize errors', async () => {
+    const dmlHandlerInstance = DmlHandler.createLazy('test_account');
+    const mockGetPgClient = jest.spyOn(dmlHandlerInstance, 'getPgClient').mockImplementation(async () => {
+      throw new Error('upstream timeout');
+    });
+    const initializeSpy = jest.spyOn(dmlHandlerInstance, 'initialize');
+    const upsertSpy = jest.spyOn(dmlHandlerInstance, 'upsert');
+    const mockDmlHandler: any = {
+      createLazy: jest.fn().mockReturnValue(dmlHandlerInstance)
+    };
+    const indexer = new Indexer({
+      fetch: genericMockFetch as unknown as typeof fetch,
+      DmlHandler: mockDmlHandler
+    });
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const promises = [];
+
+    for (let i = 1; i <= 100; i++) {
+      const promise = context.db.Posts.upsert(
+        {
+          account_id: 'morgs_near',
+          block_height: i,
+          receipt_id: 'abc',
+          content: 'test_content',
+          block_timestamp: 800,
+          accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
+        },
+        ['account_id', 'block_height'],
+        ['content', 'block_timestamp']
+      );
+      promises.push(promise);
+    }
+    await expect(Promise.all(promises)).rejects.toThrow('upstream timeout');
+
+    expect(initializeSpy).toHaveBeenCalled();
+    expect(upsertSpy).toHaveBeenCalled();
+    expect(mockGetPgClient).toHaveBeenCalledTimes(1);
+  });
+
   test('indexer builds context and selects objects from existing table', async () => {
     const selectFn = jest.fn();
     selectFn.mockImplementation((...args) => {
