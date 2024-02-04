@@ -61,9 +61,20 @@ pub struct IndexerRule {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub enum StartBlock {
+    /// Specific block height to start indexing from
+    Height(u64),
+    /// Real-time indexing, always taking the latest finalized block to stream
+    Latest,
+    /// Starts indexing from the block the Indexer was interrupted last time
+    Interruption,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IndexerConfig {
     pub code: String,
     pub start_block_height: Option<u64>,
+    pub start_block: StartBlock,
     pub schema: Option<String>,
     pub filter: IndexerRule,
     pub updated_at_block_height: Option<u64>,
