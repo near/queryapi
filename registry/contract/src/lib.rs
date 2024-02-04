@@ -5,7 +5,8 @@ use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash};
 
 use registry_types::{
-    AccountOrAllIndexers, IndexerConfig, IndexerRule, IndexerRuleKind, MatchingRule, Status,
+    AccountOrAllIndexers, IndexerConfig, IndexerRule, IndexerRuleKind, MatchingRule, StartBlock,
+    Status,
 };
 
 type FunctionName = String;
@@ -131,6 +132,7 @@ impl Contract {
                         updated_at_block_height: None,
                         created_at_block_height: env::block_height(),
                         schema: indexer_config.schema.clone(),
+                        start_block: StartBlock::Latest,
                         code: indexer_config.code.clone(),
                         start_block_height: indexer_config.start_block_height,
                         filter: indexer_config.filter.clone(),
@@ -288,6 +290,8 @@ impl Contract {
         schema: Option<String>,
         account_id: Option<String>,
         filter_json: Option<String>,
+        // TODO if this isn't optional then it's a breaking change -
+        start_block: Option<StartBlock>,
     ) {
         let account_id = match account_id {
             Some(account_id) => {
@@ -321,6 +325,8 @@ impl Contract {
             &account_id
         );
 
+        let start_block = start_block.unwrap_or(StartBlock::Latest);
+
         let account_indexers =
             self.registry
                 .entry(account_id.clone())
@@ -336,6 +342,7 @@ impl Contract {
                     start_block_height,
                     schema,
                     filter,
+                    start_block,
                     updated_at_block_height: Some(env::block_height()),
                     created_at_block_height: indexer.created_at_block_height,
                 });
@@ -346,6 +353,7 @@ impl Contract {
                     start_block_height,
                     schema,
                     filter,
+                    start_block,
                     updated_at_block_height: None,
                     created_at_block_height: env::block_height(),
                 });
@@ -502,6 +510,7 @@ mod tests {
                 code: "return block;".to_string(),
                 start_block_height: None,
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: env::block_height(),
@@ -518,6 +527,7 @@ mod tests {
                 code: "return block2;".to_string(),
                 start_block_height: None,
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: env::block_height(),
@@ -751,6 +761,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
+            start_block: StartBlock::Latest,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -761,6 +772,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema.clone(),
+            None,
             None,
             None,
         );
@@ -784,6 +796,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
+            start_block: StartBlock::Latest,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -793,6 +806,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema.clone(),
+            None,
             None,
             None,
         );
@@ -817,6 +831,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         );
     }
 
@@ -834,6 +849,7 @@ mod tests {
             Some(43434343),
             None,
             Some("alice.near".to_string()),
+            None,
             None,
         );
     }
@@ -856,6 +872,7 @@ mod tests {
             None,
             Some("alice.near".to_string()),
             None,
+            None,
         );
     }
 
@@ -875,6 +892,7 @@ mod tests {
             Some(434343),
             None,
             Some("alice.near".to_string()),
+            None,
             None,
         );
 
@@ -899,6 +917,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
+            start_block: StartBlock::Latest,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -909,6 +928,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema.clone(),
+            None,
             None,
             None,
         );
@@ -941,6 +961,7 @@ mod tests {
             Some("".to_string()),
             None,
             None,
+            None,
         );
 
         let indexer_config = contract
@@ -967,6 +988,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
+            start_block: StartBlock::Latest,
             filter: IndexerRule {
                 indexer_rule_kind: IndexerRuleKind::Action,
                 matching_rule: MatchingRule::ActionFunctionCall {
@@ -988,6 +1010,7 @@ mod tests {
             config.schema.clone(),
             None,
             Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_FUNCTION_CALL","affected_account_id":"test","function":"test","status":"FAIL"}}"#.to_string()),
+            None
         );
 
         assert_eq!(
@@ -1014,6 +1037,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
+            start_block: StartBlock::Latest,
             filter: IndexerRule {
                 indexer_rule_kind: IndexerRuleKind::Action,
                 matching_rule: MatchingRule::ActionAny {
@@ -1034,6 +1058,7 @@ mod tests {
             config.schema.clone(),
             None,
             Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"test","status":"SUCCESS"}}"#.to_string()),
+            None,
         );
 
         assert_eq!(
@@ -1067,6 +1092,7 @@ mod tests {
             None,
             None,
             Some(filter_json_missing_rule_type.to_string()),
+            None,
         );
     }
 
@@ -1083,6 +1109,7 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                start_block: StartBlock::Latest,
                 updated_at_block_height: None,
                 created_at_block_height: 100,
             },
@@ -1102,6 +1129,7 @@ mod tests {
             "".to_string(),
             Some(100),
             Some("".to_string()),
+            None,
             None,
             None,
         );
@@ -1132,6 +1160,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1152,6 +1181,7 @@ mod tests {
             schema: None,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
+            start_block: StartBlock::Latest,
             created_at_block_height: 0,
         };
 
@@ -1160,6 +1190,7 @@ mod tests {
             config.code.clone(),
             config.start_block_height,
             config.schema,
+            None,
             None,
             None,
         );
@@ -1186,6 +1217,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1221,6 +1253,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1257,6 +1290,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1287,6 +1321,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1323,6 +1358,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1350,6 +1386,7 @@ mod tests {
                 code: "var x= 1;".to_string(),
                 start_block_height: Some(43434343),
                 schema: None,
+                start_block: StartBlock::Latest,
                 filter: Contract::near_social_indexer_rule(),
                 updated_at_block_height: None,
                 created_at_block_height: 0,
@@ -1362,6 +1399,7 @@ mod tests {
                 start_block_height: Some(43434343),
                 schema: None,
                 filter: Contract::near_social_indexer_rule(),
+                start_block: StartBlock::Latest,
                 updated_at_block_height: None,
                 created_at_block_height: 0,
             },
@@ -1412,6 +1450,7 @@ mod tests {
             start_block_height: None,
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            start_block: StartBlock::Latest,
             updated_at_block_height: None,
             created_at_block_height: 0,
         };
@@ -1439,6 +1478,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: None,
             schema: None,
+            start_block: StartBlock::Latest,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -1476,6 +1516,7 @@ mod tests {
             start_block_height: Some(43434343),
             schema: None,
             filter: Contract::near_social_indexer_rule(),
+            start_block: StartBlock::Latest,
             updated_at_block_height: None,
             created_at_block_height: 0,
         };
@@ -1506,6 +1547,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
+            start_block: StartBlock::Latest,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -1545,6 +1587,7 @@ mod tests {
             code: "var x= 1;".to_string(),
             start_block_height: Some(43434343),
             schema: None,
+            start_block: StartBlock::Latest,
             filter: Contract::near_social_indexer_rule(),
             updated_at_block_height: None,
             created_at_block_height: 0,
