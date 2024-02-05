@@ -73,7 +73,7 @@ pub enum Status {
 
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum IndexerRule {
+pub enum Rule {
     ActionAny {
         affected_account_id: String,
         status: Status,
@@ -107,7 +107,7 @@ pub struct IndexerConfig {
     pub code: String,
     pub start_block: StartBlock,
     pub schema: String,
-    pub filter: IndexerRule,
+    pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
 }
