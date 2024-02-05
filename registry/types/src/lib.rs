@@ -127,6 +127,12 @@ impl From<IndexerConfig> for OldIndexerConfig {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum OldAccountOrAllIndexers {
+    All(HashMap<AccountId, HashMap<FunctionName, OldIndexerConfig>>),
+    Account(HashMap<FunctionName, OldIndexerConfig>),
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Status {
@@ -226,8 +232,6 @@ impl From<OldIndexerConfig> for IndexerConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub enum AccountOrAllIndexers {
-    All(HashMap<AccountId, HashMap<FunctionName, OldIndexerConfig>>),
-    Account(HashMap<FunctionName, OldIndexerConfig>),
-}
+pub type AccountIndexers = HashMap<FunctionName, IndexerConfig>;
+
+pub type AllIndexers = HashMap<AccountId, AccountIndexers>;
