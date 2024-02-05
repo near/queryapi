@@ -37,7 +37,6 @@ pub enum MatchingRule {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
-#[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum IndexerRuleKind {
     Action,
     Event,
