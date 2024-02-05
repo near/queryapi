@@ -72,7 +72,7 @@ pub struct AccountRole {
 impl Default for Contract {
     fn default() -> Self {
         Self {
-            registry: IndexersByAccount::new(StorageKeys::Registry),
+            registry: IndexersByAccount::new(StorageKeys::RegistryV3),
             account_roles: vec![
                 AccountRole {
                     account_id: "morgs.near".parse().unwrap(),
@@ -297,7 +297,7 @@ impl Contract {
         let account_indexers =
             self.registry
                 .entry(account_id.clone())
-                .or_insert(IndexerConfigByFunctionName::new(StorageKeys::Account(
+                .or_insert(IndexerConfigByFunctionName::new(StorageKeys::AccountV3(
                     env::sha256_array(account_id.as_bytes()),
                 )));
 
