@@ -36,6 +36,40 @@ pub enum MatchingRule {
     },
 }
 
+impl From<Rule> for MatchingRule {
+    fn from(value: Rule) -> Self {
+        match value {
+            Rule::ActionAny {
+                affected_account_id,
+                status,
+            } => MatchingRule::ActionAny {
+                affected_account_id,
+                status,
+            },
+            Rule::Event {
+                contract_account_id,
+                standard,
+                version,
+                event,
+            } => MatchingRule::Event {
+                contract_account_id,
+                standard,
+                version,
+                event,
+            },
+            Rule::ActionFunctionCall {
+                affected_account_id,
+                status,
+                function,
+            } => MatchingRule::ActionFunctionCall {
+                affected_account_id,
+                status,
+                function,
+            },
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
 pub enum IndexerRuleKind {
     Action,
@@ -61,6 +95,36 @@ pub struct OldIndexerConfig {
     pub filter: OldIndexerRule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+}
+
+impl From<IndexerConfig> for OldIndexerConfig {
+    fn from(config: IndexerConfig) -> Self {
+        let start_block_height = match config.start_block {
+            StartBlock::Latest => None,
+            StartBlock::Interruption => None,
+            StartBlock::Height(height) => Some(height),
+        };
+
+        let schema = if config.schema.is_empty() {
+            None
+        } else {
+            Some(config.schema)
+        };
+
+        OldIndexerConfig {
+            start_block_height,
+            schema,
+            code: config.code,
+            filter: OldIndexerRule {
+                indexer_rule_kind: IndexerRuleKind::Action,
+                matching_rule: config.rule.into(),
+                id: None,
+                name: None,
+            },
+            created_at_block_height: config.created_at_block_height,
+            updated_at_block_height: config.updated_at_block_height,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize, PartialEq, Eq)]
@@ -91,6 +155,40 @@ pub enum Rule {
     },
 }
 
+impl From<MatchingRule> for Rule {
+    fn from(value: MatchingRule) -> Self {
+        match value {
+            MatchingRule::ActionAny {
+                affected_account_id,
+                status,
+            } => Rule::ActionAny {
+                affected_account_id,
+                status,
+            },
+            MatchingRule::Event {
+                contract_account_id,
+                standard,
+                version,
+                event,
+            } => Rule::Event {
+                contract_account_id,
+                standard,
+                version,
+                event,
+            },
+            MatchingRule::ActionFunctionCall {
+                affected_account_id,
+                status,
+                function,
+            } => Rule::ActionFunctionCall {
+                affected_account_id,
+                status,
+                function,
+            },
+        }
+    }
+}
+
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StartBlock {
@@ -110,6 +208,22 @@ pub struct IndexerConfig {
     pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+}
+
+impl From<OldIndexerConfig> for IndexerConfig {
+    fn from(config: OldIndexerConfig) -> Self {
+        Self {
+            start_block: match config.start_block_height {
+                Some(height) => StartBlock::Height(height),
+                None => StartBlock::Latest,
+            },
+            schema: config.schema.unwrap_or(String::new()),
+            code: config.code,
+            rule: config.filter.matching_rule.into(),
+            created_at_block_height: config.created_at_block_height,
+            updated_at_block_height: config.updated_at_block_height,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
