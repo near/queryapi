@@ -2,7 +2,7 @@ use near_lake_framework::near_indexer_primitives::types::AccountId;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use registry_types::IndexerRule;
+use registry_types::OldIndexerRule as IndexerRule;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct IndexerConfig {

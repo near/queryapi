@@ -255,7 +255,7 @@ mod tests {
     use mockall::predicate;
     use std::collections::HashMap;
 
-    use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule as IndexerRule, Status};
 
     use crate::registry::IndexerConfig;
 

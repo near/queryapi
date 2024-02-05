@@ -294,7 +294,7 @@ mod tests {
             )
             .unwrap(),
             function_name: "test".to_string(),
-            indexer_rule: registry_types::IndexerRule {
+            indexer_rule: registry_types::OldIndexerRule {
                 indexer_rule_kind: registry_types::IndexerRuleKind::Action,
                 matching_rule: registry_types::MatchingRule::ActionAny {
                     affected_account_id: "queryapi.dataplatform.near".to_string(),

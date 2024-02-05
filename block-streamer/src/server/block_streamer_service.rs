@@ -6,7 +6,7 @@ use tonic::{Request, Response, Status};
 
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
-use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule};
+use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule as IndexerRule};
 
 use crate::block_stream;
 use crate::server::blockstreamer;
