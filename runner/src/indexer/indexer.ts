@@ -136,7 +136,6 @@ export default class Indexer {
   }
 
   buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string): Context {
-    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
 
@@ -164,7 +163,7 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(account, schemaName, schema, blockHeight)
+      db: this.buildDatabaseContext(functionName, schemaName, schema, blockHeight)
     };
   }
 
@@ -213,11 +212,17 @@ export default class Indexer {
     return pascalCaseTableName;
   }
 
-  buildDatabaseContext (account: string, schemaName: string, schema: string, blockHeight: number): Record<string, Record<string, (...args: any[]) => any>> {
+  buildDatabaseContext (
+    functionName: string,
+    schemaName: string,
+    schema: string,
+    blockHeight: number,
+  ): Record<string, Record<string, (...args: any[]) => any>> {
+    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      const dmlHandlerLazyLoader: Promise<DmlHandler> = this.deps.DmlHandler.create(account);
+      const dmlHandler: DmlHandler = this.deps.DmlHandler.createLazy(account);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
@@ -230,60 +235,44 @@ export default class Indexer {
         }
 
         // Generate context.db methods for table
-        const defaultLog = `Calling context.db.${sanitizedTableName}.`;
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
               // Write log before calling insert
-              await this.writeLog(`context.db.${sanitizedTableName}.insert`, blockHeight, defaultLog + '.insert',
-                `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}`);
-
-              // Wait for initialiiation of DmlHandler
-              const dmlHandler = await dmlHandlerLazyLoader;
+              await this.writeLog(functionName, blockHeight,
+                `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
               // Call insert with parameters
               return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
             },
             select: async (filterObj: any, limit = null) => {
               // Write log before calling select
-              await this.writeLog(`context.db.${sanitizedTableName}.select`, blockHeight, defaultLog + '.select',
-                `Selecting objects with values ${JSON.stringify(filterObj)} in table ${tableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`);
-
-              // Wait for initialiiation of DmlHandler
-              const dmlHandler = await dmlHandlerLazyLoader;
+              await this.writeLog(functionName, blockHeight,
+                `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
               // Call select with parameters
               return await dmlHandler.select(schemaName, tableName, filterObj, limit);
             },
             update: async (filterObj: any, updateObj: any) => {
               // Write log before calling update
-              await this.writeLog(`context.db.${sanitizedTableName}.update`, blockHeight, defaultLog + '.update',
-                `Updating objects that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)} in table ${tableName} on schema ${schemaName}`);
-
-              // Wait for initialiiation of DmlHandler
-              const dmlHandler = await dmlHandlerLazyLoader;
+              await this.writeLog(functionName, blockHeight,
+                `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
               // Call update with parameters
               return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               // Write log before calling upsert
-              await this.writeLog(`context.db.${sanitizedTableName}.upsert`, blockHeight, defaultLog + '.upsert',
-                `Inserting objects with values ${JSON.stringify(objectsToInsert)} into table ${tableName} on schema ${schemaName}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
-
-              // Wait for initialiiation of DmlHandler
-              const dmlHandler = await dmlHandlerLazyLoader;
+              await this.writeLog(functionName, blockHeight,
+                `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
               // Call upsert with parameters
               return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
             },
             delete: async (filterObj: any) => {
               // Write log before calling delete
-              await this.writeLog(`context.db.${sanitizedTableName}.delete`, blockHeight, defaultLog + '.delete',
-                `Deleting objects with values ${JSON.stringify(filterObj)} from table ${tableName} on schema ${schemaName}`);
-
-              // Wait for initialiiation of DmlHandler
-              const dmlHandler = await dmlHandlerLazyLoader;
+              await this.writeLog(functionName, blockHeight,
+                `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
               // Call delete with parameters
               return await dmlHandler.delete(schemaName, tableName, filterObj);
@@ -298,7 +287,8 @@ export default class Indexer {
       }, {});
       return result;
     } catch (error) {
-      console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
+      const errorContent = error as Error;
+      console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.', errorContent.message);
     }
 
     return {}; // Default to empty object if error
