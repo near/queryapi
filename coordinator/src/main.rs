@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use near_primitives::types::AccountId;
+use registry_types::StartBlock;
 use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
@@ -130,7 +131,7 @@ async fn synchronise_executors(
                     account_id.to_string(),
                     function_name.to_string(),
                     indexer_config.code.clone(),
-                    indexer_config.schema.clone().unwrap_or_default(),
+                    indexer_config.schema.clone(),
                     indexer_config.get_redis_stream(),
                     registry_version,
                 )
@@ -177,6 +178,7 @@ async fn synchronise_block_streams(
 
             // TODO: Ensure start block height is only used to successfully start block stream ONCE
             // TODO: Ensure last published blockheight is used on fresh restarts for existing indexers
+
             if let Some(active_block_stream) = active_block_stream {
                 if active_block_stream.version == registry_version {
                     continue;
@@ -194,22 +196,13 @@ async fn synchronise_block_streams(
                     .await?;
             }
 
-            let start_block_height = if let Some(start_block_height) =
-                indexer_config.start_block_height
-            {
-                start_block_height
-            } else if let Ok(Some(last_published_block)) = redis_client
-                .get::<String, u64>(format!(
-                    "{}:last_published_block",
-                    indexer_config.get_full_name()
-                ))
-                .await
-            {
-                last_published_block
-            } else if let Some(updated_at_block_height) = indexer_config.updated_at_block_height {
-                updated_at_block_height
-            } else {
-                indexer_config.created_at_block_height
+            let start_block_height = match indexer_config.start_block {
+                StartBlock::Latest => registry_version,
+                StartBlock::Height(height) => height,
+                StartBlock::Continue => redis_client
+                    .get(indexer_config.get_last_published_block())
+                    .await?
+                    .unwrap_or(registry_version),
             };
 
             tracing::info!(
@@ -226,7 +219,7 @@ async fn synchronise_block_streams(
                     indexer_config.function_name.clone(),
                     registry_version,
                     indexer_config.get_redis_stream(),
-                    indexer_config.filter.matching_rule.clone(),
+                    indexer_config.rule.clone(),
                 )
                 .await?;
         }
@@ -255,7 +248,7 @@ mod tests {
     use mockall::predicate;
     use std::collections::HashMap;
 
-    use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule as IndexerRule, Status};
+    use registry_types::{Rule, StartBlock, Status};
 
     use crate::registry::IndexerConfig;
 
@@ -272,19 +265,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: "code".to_string(),
-                        schema: Some("schema".to_string()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: "schema".to_string(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: None,
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -318,19 +306,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: "code".to_string(),
-                        schema: Some("schema".to_string()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: "schema".to_string(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(2),
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -378,19 +361,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: "code".to_string(),
-                        schema: Some("schema".to_string()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: "schema".to_string(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(2),
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -456,19 +434,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(200),
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -488,14 +461,14 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -510,19 +483,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(200),
-                        start_block_height: None,
+                        start_block: StartBlock::Continue,
                     },
                 )]),
             )]);
@@ -554,7 +522,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
@@ -576,19 +544,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: None,
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -608,7 +571,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(1),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
@@ -630,19 +593,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(200),
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -671,7 +629,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
@@ -693,19 +651,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(200),
-                        start_block_height: Some(100),
+                        start_block: StartBlock::Height(100),
                     },
                 )]),
             )]);
@@ -725,7 +678,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
@@ -748,19 +701,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: Some(200),
-                        start_block_height: None,
+                        start_block: StartBlock::Latest,
                     },
                 )]),
             )]);
@@ -780,7 +728,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
@@ -802,19 +750,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 1,
                         updated_at_block_height: None,
-                        start_block_height: None,
+                        start_block: StartBlock::Latest,
                     },
                 )]),
             )]);
@@ -834,7 +777,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(1),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),
@@ -885,19 +828,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 101,
                         updated_at_block_height: None,
-                        start_block_height: None,
+                        start_block: StartBlock::Latest,
                     },
                 )]),
             )]);
@@ -934,19 +872,14 @@ mod tests {
                         account_id: "morgs.near".parse().unwrap(),
                         function_name: "test".to_string(),
                         code: String::new(),
-                        schema: Some(String::new()),
-                        filter: IndexerRule {
-                            id: None,
-                            name: None,
-                            indexer_rule_kind: IndexerRuleKind::Action,
-                            matching_rule: MatchingRule::ActionAny {
-                                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                                status: Status::Any,
-                            },
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
                         },
                         created_at_block_height: 101,
                         updated_at_block_height: Some(200),
-                        start_block_height: Some(1000),
+                        start_block: StartBlock::Height(1000),
                     },
                 )]),
             )]);
@@ -978,7 +911,7 @@ mod tests {
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
                     predicate::eq("morgs.near/test:block_stream".to_string()),
-                    predicate::eq(MatchingRule::ActionAny {
+                    predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
                     }),

@@ -84,17 +84,17 @@ impl BlockStreamsHandlerImpl {
         function_name: String,
         version: u64,
         redis_stream: String,
-        rule: registry_types::MatchingRule,
+        rule: registry_types::Rule,
     ) -> anyhow::Result<()> {
         let rule = match &rule {
-            registry_types::MatchingRule::ActionAny {
+            registry_types::Rule::ActionAny {
                 affected_account_id,
                 status,
             } => Rule::ActionAnyRule(ActionAnyRule {
                 affected_account_id: affected_account_id.to_owned(),
                 status: Self::match_status(status),
             }),
-            registry_types::MatchingRule::ActionFunctionCall {
+            registry_types::Rule::ActionFunctionCall {
                 affected_account_id,
                 status,
                 function,

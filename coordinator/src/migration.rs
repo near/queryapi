@@ -281,7 +281,7 @@ mod tests {
     use std::collections::HashMap;
 
     use mockall::predicate;
-    use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule, Status};
+    use registry_types::{Rule, StartBlock, Status};
 
     use crate::registry::IndexerConfig;
 
@@ -295,19 +295,14 @@ mod tests {
                     account_id: "morgs.near".parse().unwrap(),
                     function_name: "test".to_string(),
                     code: String::new(),
-                    schema: Some(String::new()),
-                    filter: OldIndexerRule {
-                        id: None,
-                        name: None,
-                        indexer_rule_kind: IndexerRuleKind::Action,
-                        matching_rule: MatchingRule::ActionAny {
-                            affected_account_id: "queryapi.dataplatform.near".to_string(),
-                            status: Status::Any,
-                        },
+                    schema: String::new(),
+                    rule: Rule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
                     },
                     created_at_block_height: 101,
                     updated_at_block_height: Some(200),
-                    start_block_height: Some(1000),
+                    start_block: StartBlock::Height(1000),
                 },
             )]),
         )]);
@@ -368,19 +363,14 @@ mod tests {
                     account_id: "morgs.near".parse().unwrap(),
                     function_name: "test".to_string(),
                     code: String::new(),
-                    schema: Some(String::new()),
-                    filter: OldIndexerRule {
-                        id: None,
-                        name: None,
-                        indexer_rule_kind: IndexerRuleKind::Action,
-                        matching_rule: MatchingRule::ActionAny {
-                            affected_account_id: "queryapi.dataplatform.near".to_string(),
-                            status: Status::Any,
-                        },
+                    schema: String::new(),
+                    rule: Rule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
                     },
                     created_at_block_height: 101,
                     updated_at_block_height: Some(200),
-                    start_block_height: Some(1000),
+                    start_block: StartBlock::Height(1000),
                 },
             )]),
         )]);
