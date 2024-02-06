@@ -7,7 +7,7 @@ interface StreamMessage {
   }
 }
 
-interface StreamStorage {
+export interface StreamStorage {
   account_id: string
   function_name: string
   code: string

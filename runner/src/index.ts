@@ -17,7 +17,7 @@ void (async function main () {
     while (true) {
       const streamKeys = await redisClient.getStreams();
       streamKeys.forEach((streamKey) => {
-        if (executors.get(streamKey) === undefined) {
+        if (executors.get(streamKey) === undefined && streamKey.includes('some bogus')) {
           const streamHandler = new StreamHandler(streamKey);
           executors.set(streamKey, streamHandler);
         }

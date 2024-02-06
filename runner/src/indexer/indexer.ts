@@ -5,8 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import { BatchRecorder, type TraceId, /* type Recorder, */ Tracer, jsonEncoder, ExplicitContext } from 'zipkin';
-// import CLSContext from 'zipkin-context-cls';
+import { BatchRecorder, type TraceId, Tracer, jsonEncoder, ExplicitContext } from 'zipkin';
 import { HttpLogger } from 'zipkin-transport-http';
 
 const zipkinBaseUrl = 'http://localhost:9411';
@@ -145,19 +144,19 @@ export default class Indexer {
         vm.freeze(context, 'console'); // provide console.log via context.log
 
         const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-        await tracer.local('run user code', async () => {
-          try {
+        try {
+          await tracer.local('run user code', async () => {
             await vm.run(modifiedFunction);
-          } catch (e) {
-            const error = e as Error;
-            // NOTE: logging the exception would likely leak some information about the index runner.
-            // For now, we just log the message. In the future we could sanitize the stack trace
-            // and give the correct line number offsets within the indexer function
-            console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
-            await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
-            throw e;
-          }
-        });
+          });
+        } catch (e) {
+          const error = e as Error;
+          // NOTE: logging the exception would likely leak some information about the index runner.
+          // For now, we just log the message. In the future we could sanitize the stack trace
+          // and give the correct line number offsets within the indexer function
+          console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
+          await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
+          throw e;
+        }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
@@ -207,7 +206,9 @@ export default class Indexer {
           value: value ? JSON.stringify(value) : null
         };
         console.log(`${functionName}: Running set:`, mutation, variables);
-        return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
+        return tracer.local('context set', async () => {
+          return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
+        });
       },
       log: async (...log) => {
         return await this.writeLog(functionName, blockHeight, ...log);
@@ -295,7 +296,9 @@ export default class Indexer {
                 `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
               // Call insert with parameters
-              return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+              return tracer.local('context.db insert', async () => {
+                return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+              });
             },
             select: async (filterObj: any, limit = null) => {
               // Write log before calling select
@@ -303,7 +306,9 @@ export default class Indexer {
                 `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
               // Call select with parameters
-              return await dmlHandler.select(schemaName, tableName, filterObj, limit);
+              return tracer.local('context.db select', async () => {
+                return await dmlHandler.select(schemaName, tableName, filterObj, limit);
+              });
             },
             update: async (filterObj: any, updateObj: any) => {
               // Write log before calling update
@@ -311,7 +316,9 @@ export default class Indexer {
                 `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
               // Call update with parameters
-              return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
+              return tracer.local('context.db update', async () => {
+                return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
+              });
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               // Write log before calling upsert
@@ -319,7 +326,9 @@ export default class Indexer {
                 `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
               // Call upsert with parameters
-              return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+              return tracer.local('context.db upsert', async () => {
+                return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+              });
             },
             delete: async (filterObj: any) => {
               // Write log before calling delete
@@ -327,7 +336,9 @@ export default class Indexer {
                 `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
               // Call delete with parameters
-              return await dmlHandler.delete(schemaName, tableName, filterObj);
+              return tracer.local('context.db insert', async () => {
+                return await dmlHandler.delete(schemaName, tableName, filterObj);
+              });
             }
           }
         };
@@ -367,23 +378,25 @@ export default class Indexer {
   }
 
   async writeLog (functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
-    const parsedMessage: string = message
-      .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
-      .join(':');
+    return tracer.local('write log', async () => {
+      const parsedMessage: string = message
+        .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
+        .join(':');
 
-    const mutation =
+      const mutation =
             `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
                 insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
              }`;
 
-    return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
-      functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
-      .then((result: any) => {
-        return result?.insert_indexer_log_entries_one?.id;
-      })
-      .catch((e: any) => {
-        console.error(`${functionName}: Error writing log`, e);
-      });
+      return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
+        functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+        .then((result: any) => {
+          return result?.insert_indexer_log_entries_one?.id;
+        })
+        .catch((e: any) => {
+          console.error(`${functionName}: Error writing log`, e);
+        });
+    });
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
@@ -424,20 +437,22 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
-    const response: Response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Hasura-Use-Backend-Only-Permissions': 'true',
-        ...(hasuraRoleName && {
-          'X-Hasura-Role': hasuraRoleName,
-          'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
+    const response: Response = await tracer.local('graphQL operation', async () => {
+      return await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hasura-Use-Backend-Only-Permissions': 'true',
+          ...(hasuraRoleName && {
+            'X-Hasura-Role': hasuraRoleName,
+            'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
+          }),
+        },
+        body: JSON.stringify({
+          query: operation,
+          ...(variables && { variables }),
         }),
-      },
-      body: JSON.stringify({
-        query: operation,
-        ...(variables && { variables }),
-      }),
+      });
     });
 
     const { data, errors } = await response.json();
