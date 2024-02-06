@@ -3,9 +3,9 @@ import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
-// import Editor from "@monaco-editor/react";
-import { GlyphContainer } from "./styled";
+import { GlyphContainer } from "./GlyphContainer";
 
+console.log('decorations here! ')
 function handleEditorMount(editor, monaco) {
   const decorations = editor.deltaDecorations(
     [],
@@ -16,6 +16,7 @@ function handleEditorMount(editor, monaco) {
           isWholeLine: true,
           className: "myGlyphMarginClass",
           glyphMarginClassName: "myContentClass",
+          glyphMarginHoverMessage: { value: "Error message here" },
         },
       },
     ]
@@ -102,6 +103,7 @@ const ResizableEditor = ({
               formatOnPaste: true,
               definitionLinkOpensInPeek: true,
               glyphMargin: true,
+              // font: 'serif'
             }}
           />
         </GlyphContainer>
@@ -138,6 +140,7 @@ const ResizableEditor = ({
               formatOnPaste: true,
               definitionLinkOpensInPeek: true,
               glyphMargin: true,
+              // font: 'serif'
             }}
           />
         </GlyphContainer>
