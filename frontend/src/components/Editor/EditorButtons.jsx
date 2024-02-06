@@ -1,10 +1,30 @@
 import React, { useContext } from "react";
-import { BlockPicker } from "./BlockPicker";
-import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import {
-  SCHEMA_TYPE_GENERATION_ERROR_MESSAGE,
-  TYPE_GENERATION_ERROR_TYPE,
-} from "@/constants/Strings";
+  Breadcrumb,
+  Button,
+  Form,
+  InputGroup,
+  Navbar,
+  Container,
+  Col,
+  Row,
+  ButtonGroup,
+  OverlayTrigger,
+  Tooltip,
+  Badge,
+} from "react-bootstrap";
+import {
+  ArrowCounterclockwise,
+  Justify,
+  TrashFill,
+  XCircle,
+  NodePlus,
+  Code,
+  FileText,
+} from "react-bootstrap-icons";
+import { BlockPicker } from "./BlockPicker";
+import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
 const EditorButtons = ({
   handleFormating,
@@ -17,8 +37,9 @@ const EditorButtons = ({
   latestHeight,
   isUserIndexer,
   handleDeleteIndexer,
-  error,
+  error
 }) => {
+
   const {
     indexerName,
     accountId,
@@ -37,218 +58,201 @@ const EditorButtons = ({
 
   return (
     <>
-      <nav class="bg-primary border-gray-200 dark:bg-nightmode-primary rounded shadow">
-        <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-          {!isCreateNewIndexer && (
-            <div>
-              <div class="flex rounded-lg shadow-sm">
-                <span class="px-4 inline-flex items-center min-w-fit rounded-s-md border border-e-0 border-gray-200 bg-gray-50 text-sm text-gray-500 dark:bg-gray-700 dark:border-gray-700 dark:text-gray-400">
-                  Contract Filter
-                </span>
-                <input
+      <Navbar bg="light" variant="light">
+        <Container
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            margin: "0px",
+            maxWidth: "100%",
+          }}
+        >
+          <Row className="w-100">
+            <Col style={{ display: "flex", justifyContent: "start", flexDirection: "column" }}>
+              <Breadcrumb className="flex">
+                <Breadcrumb.Item className="flex align-center " href="#">
+                  {accountId}
+                </Breadcrumb.Item>
+                {indexerName && (
+                  <Breadcrumb.Item href="#" active style={{ display: "flex" }}>
+                    {indexerName}
+                  </Breadcrumb.Item>
+                )}
+              </Breadcrumb>
+              {!isCreateNewIndexer && <InputGroup size="sm" hasValidation={true} style={{ width: "fit-content" }}>
+                <InputGroup.Text> Contract Filter</InputGroup.Text>
+                <Form.Control
                   disabled={!isCreateNewIndexer}
                   value={indexerDetails.config.filter}
-                  required={true}
-                  placeholder="social.near"
                   type="text"
-                  class="py-2 px-3 pe-11 block w-full border-gray-200 shadow-sm rounded-e-lg text-sm focus:z-10 focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 dark:bg-slate-900 dark:border-gray-700 dark:text-gray-400 dark:focus:ring-gray-600"
+                  placeholder="social.near"
+                  required={true}
                 />
-              </div>
-            </div>
-          )}
-          <button
-            data-collapse-toggle="navbar-default"
-            type="button"
-            class="inline-flex items-center p-2 w-10 h-10 justify-center text-sm text-gray-500 rounded-lg md:hidden hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
-            aria-controls="navbar-default"
-            aria-expanded="false"
-          >
-            <span class="sr-only">Open editor menu</span>
-            <svg
-              class="w-5 h-5"
-              aria-hidden="true"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 17 14"
-            >
-              <path
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M1 1h15M1 7h15M1 13h15"
-              />
-            </svg>
-          </button>
-          <div class="hidden w-full md:block md:w-auto" id="navbar-default">
-            <ul class="font-medium flex flex-col p-4 md:p-0 mt-4 border border-gray-100 rounded-lg bg-gray-50 md:flex-row md:space-x-8 rtl:space-x-reverse md:mt-0 md:border-0 md:bg-white dark:bg-nightmode-primary dark:border-gray-700">
+                <Form.Control.Feedback type="invalid">
+                  Please provide a valid contract name.
+                </Form.Control.Feedback>
+              </InputGroup>}
+            </Col>
+            <Col style={{ display: "flex", justifyContent: "center" }}>
               {debugMode && (
-                <li>
-                  <BlockPicker
-                    heights={heights}
-                    setHeights={setHeights}
-                    executeIndexerFunction={executeIndexerFunction}
-                    latestHeight={latestHeight}
-                    isExecuting={isExecuting}
-                    stopExecution={stopExecution}
-                  />
-                </li>
+                <BlockPicker
+                  heights={heights}
+                  setHeights={setHeights}
+                  executeIndexerFunction={executeIndexerFunction}
+                  latestHeight={latestHeight}
+                  isExecuting={isExecuting}
+                  stopExecution={stopExecution}
+                />
               )}
-
-              {!isCreateNewIndexer && (
-                <li>
-                  <span class="group relative">
-                    <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                      <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                        Open Logs
-                      </div>
-                    </div>
-                    <button
-                      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-nightmode-secondary dark:hover:bg-nightmode-secondaryhover dark:focus:ring-dark-800"
-                      onClick={() => setShowLogsView(true)}
+            </Col>
+            <Col
+              style={{ display: "flex", justifyContent: "end", flexDirection: "column", alignItems: "flex-end" }}
+            >
+              <ButtonGroup
+                className="inline-block"
+                aria-label="Action Button Group"
+              >
+                {isUserIndexer && !isCreateNewIndexer && (
+                  <>
+                    <OverlayTrigger
+                      placement="bottom"
+                      overlay={<Tooltip>Delete Indexer</Tooltip>}
                     >
-                      Show Logs
-                    </button>
-                  </span>
-                </li>
-              )}
-
-              {isUserIndexer &&
-                !isCreateNewIndexer && (
-                  <li>
-                    <div>
-                      <span class="group relative">
-                        <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                          <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                            Delete Indexer
-                          </div>
-                        </div>
-                        <button
-                          class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                          onClick={() => handleDeleteIndexer()}
-                        >
-                          Trash Icon
-                        </button>
-                      </span>
-                    </div>
-                  </li>
-                ) && (
-                  <li>
-                    <span class="group relative">
-                      <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                        <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                          Fork Indexer
-                        </div>
-                      </div>
-                      <button
-                        class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                      <Button
+                        size="sm"
+                        className="flex align-center"
+                        variant="danger"
+                        onClick={() => handleDeleteIndexer()}
+                      >
+                        <TrashFill size={22} />
+                      </Button>
+                    </OverlayTrigger>
+                    <OverlayTrigger
+                      placement="bottom"
+                      overlay={<Tooltip>Fork this Indexer</Tooltip>}
+                    >
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex align-center"
                         onClick={() => setShowForkIndexerModal(true)}
                       >
-                        Fork Icon
-                      </button>
-                    </span>
-                  </li>
+                        <NodePlus style={{ paddingRight: "2px" }} size={24} />
+                      </Button>
+                    </OverlayTrigger>
+                  </>
                 )}
 
-              {!isUserIndexer && !isCreateNewIndexer ? (
-                <li>
-                  <span class="group relative">
-                    <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                      <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                        Fork Indexer
-                      </div>
-                    </div>
-                    <button
-                      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                {!isCreateNewIndexer && (
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Open Logs</Tooltip>}
+                  >
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => setShowLogsView(true)}
+                    >
+                      <FileText style={{ paddingRight: "2px" }} size={24} />
+                      Show Logs
+                    </Button>
+                  </OverlayTrigger>
+                )}
+                {(!isUserIndexer && !isCreateNewIndexer) ? (
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Fork Indexer</Tooltip>}
+                  >
+                    <Button
+                      variant="primary"
+                      className="px-3"
                       onClick={() => setShowForkIndexerModal(true)}
                     >
-                      Fork Icon
-                    </button>
-                  </span>
-                </li>
-              ) : (
-                <li>
-                  <span class="group relative">
-                    <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                      <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                        Publish Indexer
-                      </div>
-                    </div>
-                    <button
-                      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                      disabled={
-                        !!error &&
-                        error !== SCHEMA_TYPE_GENERATION_ERROR_MESSAGE
-                      }
+                      Fork Indexer
+                    </Button>
+                  </OverlayTrigger>
+                ) : (
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Publish</Tooltip>}
+                  >
+                    <Button
+                      variant="primary"
+                      className="px-3"
+                      disabled={!!error && error !== SCHEMA_TYPE_GENERATION_ERROR_MESSAGE}
                       onClick={() => setShowPublishModal(true)}
                     >
-                      Publish Icon
-                    </button>
-                  </span>
-                </li>
-              )}
-
-              <li>
-                <span class="group relative">
-                  <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                    <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                      Reset Changes To Code
-                    </div>
-                  </div>
-                  <button
-                    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                    onClick={() => setShowResetCodeModel(true)}
+                      Publish
+                    </Button>
+                  </OverlayTrigger>
+                )}
+              </ButtonGroup>
+              <Row
+                style={{ display: "flex", justifyContent: "center", width: "60%", padding: "5px" }}
+              >
+                <ButtonGroup>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Reset Changes To Code</Tooltip>}
                   >
-                    Reset Icon
-                  </button>
-                </span>
-              </li>
-
-              <li>
-                <span class="group relative">
-                  <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                    <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                      Format Code
-                    </div>
-                  </div>
-                  <button
-                    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                    onClick={() => handleFormating()}
+                    <Button
+                      size="sm"
+                      className="flex align-center"
+                      variant="secondary"
+                      onClick={() => setShowResetCodeModel(true)}
+                    >
+                      <ArrowCounterclockwise size={22} />
+                    </Button>
+                  </OverlayTrigger>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Format Code</Tooltip>}
                   >
-                    Format Icon
-                  </button>
-                </span>
-              </li>
-
-              <li>
-                <span class="group relative">
-                  <div class="absolute bottom-[calc(100%+0.5rem)] left-[50%] -translate-x-[50%] hidden group-hover:block w-auto">
-                    <div class="bottom-full right-0 rounded bg-black px-4 py-1 text-xs text-white whitespace-nowrap">
-                      Generate Types
-                    </div>
-                  </div>
-                  <button
-                    class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
-                    onClick={() => handleCodeGen()}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => handleFormating()}
+                    >
+                      <Justify style={{ paddingRight: "2px" }} size={24} />
+                    </Button>
+                  </OverlayTrigger>
+                  <OverlayTrigger
+                    placement="bottom"
+                    overlay={<Tooltip>Generate Types</Tooltip>}
                   >
-                    Generate Types Icon
-                  </button>
-                </span>
-              </li>
-            </ul>
-
-            {debugMode && heights.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="flex align-center"
+                      onClick={() => handleCodeGen()}
+                    >
+                      <Code style={{ paddingRight: "2px" }} size={24} />
+                    </Button>
+                  </OverlayTrigger>
+                </ButtonGroup>
+              </Row>
+            </Col>
+          </Row>
+          {debugMode && heights.length > 0 && (
+            <Row className="w-100 pt-2">
               <div>
                 {heights.map((height, index) => (
-                  <button onClick={() => removeHeight(index)} key={index}>
-                    (X): {height}
-                  </button>
+                  <Badge pill bg="secondary" className="mx-1 mr-2" key={index}>
+                    {height}
+                    <XCircle
+                      size={18}
+                      style={{ paddingLeft: "4px", cursor: "pointer" }}
+                      onClick={() => removeHeight(index)}
+                    />
+                  </Badge>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
-      </nav>
+            </Row>
+          )}
+        </Container>
+      </Navbar>
     </>
   );
 };
