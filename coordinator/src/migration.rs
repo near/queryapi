@@ -14,12 +14,17 @@ pub struct AllowlistEntry {
     v1_ack: bool,
     migrated: bool,
     failed: bool,
+    v2_control: bool,
 }
 
 pub type Allowlist = Vec<AllowlistEntry>;
 
 pub async fn fetch_allowlist(redis_client: &RedisClient) -> anyhow::Result<Allowlist> {
-    let raw_allowlist: String = redis_client.get(RedisClient::ALLOWLIST).await?;
+    let raw_allowlist: String = redis_client
+        .get(RedisClient::ALLOWLIST)
+        .await?
+        .ok_or(anyhow::anyhow!("Allowlist doesn't exist"))?;
+
     serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")
 }
 
@@ -31,7 +36,11 @@ pub async fn filter_registry_by_allowlist(
         .into_iter()
         .filter(|(account_id, _)| {
             allowlist.iter().any(|entry| {
-                entry.account_id == *account_id && entry.v1_ack && entry.migrated && !entry.failed
+                entry.account_id == *account_id
+                    && entry.v1_ack
+                    && entry.migrated
+                    && !entry.failed
+                    && entry.v2_control
             })
         })
         .collect();
@@ -104,8 +113,7 @@ async fn migrate_account(
             .context("Failed to merge streams")?;
     }
 
-    // TODO Uncomment when V2 correctly continues from V1 stop point
-    // set_migrated_flag(redis_client, account_id)?;
+    set_migrated_flag(redis_client, account_id)?;
 
     tracing::info!("Finished migrating {}", account_id);
 
@@ -125,6 +133,9 @@ async fn remove_from_streams_set(
         )
         .await?
         .is_some()
+        && redis_client
+            .exists(indexer_config.get_historical_redis_stream())
+            .await?
     {
         result.push(indexer_config.get_historical_redis_stream());
     }
@@ -136,6 +147,9 @@ async fn remove_from_streams_set(
         )
         .await?
         .is_some()
+        && redis_client
+            .exists(indexer_config.get_real_time_redis_stream())
+            .await?
     {
         result.push(indexer_config.get_real_time_redis_stream());
     };
@@ -303,6 +317,7 @@ mod tests {
             v1_ack: true,
             migrated: true,
             failed: false,
+            v2_control: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -327,6 +342,7 @@ mod tests {
             v1_ack: true,
             migrated: true,
             failed: false,
+            v2_control: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -374,6 +390,7 @@ mod tests {
             v1_ack: true,
             migrated: false,
             failed: false,
+            v2_control: false,
         }];
 
         let mut redis_client = RedisClient::default();
@@ -392,6 +409,20 @@ mod tests {
                 predicate::eq(String::from("morgs.near/test:real_time:stream")),
             )
             .returning(|_, _| Ok(Some(())))
+            .once();
+        redis_client
+            .expect_exists::<String>()
+            .with(predicate::eq(String::from(
+                "morgs.near/test:historical:stream",
+            )))
+            .returning(|_| Ok(true))
+            .once();
+        redis_client
+            .expect_exists::<String>()
+            .with(predicate::eq(String::from(
+                "morgs.near/test:real_time:stream",
+            )))
+            .returning(|_| Ok(true))
             .once();
         redis_client
             .expect_rename::<String, String>()

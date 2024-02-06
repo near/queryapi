@@ -198,7 +198,7 @@ async fn synchronise_block_streams(
                 indexer_config.start_block_height
             {
                 start_block_height
-            } else if let Ok(last_published_block) = redis_client
+            } else if let Ok(Some(last_published_block)) = redis_client
                 .get::<String, u64>(format!(
                     "{}:last_published_block",
                     indexer_config.get_full_name()
@@ -476,7 +476,7 @@ mod tests {
             let mut redis_client = RedisClient::default();
             redis_client
                 .expect_get::<String, u64>()
-                .returning(|_| Ok(500));
+                .returning(|_| Ok(Some(500)));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -530,7 +530,7 @@ mod tests {
             let mut redis_client = RedisClient::default();
             redis_client
                 .expect_get::<String, u64>()
-                .returning(|_| Ok(500));
+                .returning(|_| Ok(Some(500)));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| {

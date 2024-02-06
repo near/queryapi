@@ -47,6 +47,9 @@ pub(crate) struct QueryApiContext<'a> {
 struct DenylistEntry {
     account_id: AccountId,
     v1_ack: bool,
+    migrated: bool,
+    failed: bool,
+    v2_control: bool,
 }
 
 type Denylist = Vec<DenylistEntry>;
