@@ -144,6 +144,20 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    pub async fn exists<K>(&self, key: K) -> anyhow::Result<bool>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("EXISTS {key:?}");
+
+        self.connection
+            .clone()
+            .exists(&key)
+            .await
+            .map_err(|e| anyhow::format_err!(e))
+            .context(format!("EXISTS {key:?}"))
+    }
+
     // `redis::transaction`s currently don't work with async connections, so we have to create a _new_
     // blocking connection to atmoically update a value.
     pub fn atomic_update<K, O, N, F>(&self, key: K, update_fn: F) -> anyhow::Result<()>

@@ -130,6 +130,9 @@ async fn remove_from_streams_set(
         )
         .await?
         .is_some()
+        && redis_client
+            .exists(indexer_config.get_historical_redis_stream())
+            .await?
     {
         result.push(indexer_config.get_historical_redis_stream());
     }
@@ -141,6 +144,9 @@ async fn remove_from_streams_set(
         )
         .await?
         .is_some()
+        && redis_client
+            .exists(indexer_config.get_real_time_redis_stream())
+            .await?
     {
         result.push(indexer_config.get_real_time_redis_stream());
     };
@@ -398,6 +404,20 @@ mod tests {
                 predicate::eq(String::from("morgs.near/test:real_time:stream")),
             )
             .returning(|_, _| Ok(Some(())))
+            .once();
+        redis_client
+            .expect_exists::<String>()
+            .with(predicate::eq(String::from(
+                "morgs.near/test:historical:stream",
+            )))
+            .returning(|_| Ok(true))
+            .once();
+        redis_client
+            .expect_exists::<String>()
+            .with(predicate::eq(String::from(
+                "morgs.near/test:real_time:stream",
+            )))
+            .returning(|_| Ok(true))
             .once();
         redis_client
             .expect_rename::<String, String>()
