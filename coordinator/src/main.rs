@@ -529,7 +529,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -636,7 +636,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
@@ -685,7 +685,7 @@ mod tests {
                 )
                 .returning(|_, _, _, _, _, _| Ok(()));
 
-            synchronise_block_streams(&indexer_registry, &redis_client, &mut block_stream_handler)
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
                 .unwrap();
         }
