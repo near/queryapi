@@ -126,7 +126,6 @@ async fn remove_from_streams_set(
 ) -> anyhow::Result<Vec<String>> {
     let mut result = vec![];
 
-    // TODO check if stream entries actually exist
     if redis_client
         .srem(
             RedisClient::STREAMS_SET,
@@ -175,7 +174,6 @@ async fn merge_streams(
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
     match existing_streams.len() {
-        // TODO create a dummy stream so main control loop doesn't fail?
         0 => Ok(()),
         1 => {
             redis_client
