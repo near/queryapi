@@ -43,7 +43,8 @@ impl RedisClientImpl {
             .arg(&key)
             .query_async(&mut self.connection.clone())
             .await
-            .map_err(|e| anyhow::format_err!(e))?;
+            .map_err(|e| anyhow::format_err!(e))
+            .context(format!("GET: {key:?}"))?;
 
         tracing::debug!("GET: {:?}={:?}", key, value);
 
@@ -57,7 +58,11 @@ impl RedisClientImpl {
     {
         tracing::debug!("RENAME: {:?} -> {:?}", old_key, new_key);
 
-        self.connection.clone().rename(old_key, new_key).await?;
+        self.connection
+            .clone()
+            .rename(&old_key, &new_key)
+            .await
+            .context(format!("RENAME: {old_key:?} {new_key:?}"))?;
 
         Ok(())
     }
@@ -69,11 +74,12 @@ impl RedisClientImpl {
     {
         tracing::debug!("SREM: {:?}={:?}", key, value);
 
-        match self.connection.clone().srem(key, value).await {
+        match self.connection.clone().srem(&key, &value).await {
             Ok(1) => Ok(Some(())),
             Ok(_) => Ok(None),
             Err(e) => Err(anyhow::format_err!(e)),
         }
+        .context(format!("SREM: {key:?} {value:?}"))
     }
 
     pub async fn xread<K, V>(
@@ -92,11 +98,12 @@ impl RedisClientImpl {
             .connection
             .clone()
             .xread_options(
-                &[key],
-                &[start_id],
+                &[&key],
+                &[&start_id],
                 &streams::StreamReadOptions::default().count(count),
             )
-            .await?;
+            .await
+            .context(format!("XREAD {key:?} {start_id:?} {count:?}"))?;
 
         if results.keys.is_empty() {
             return Ok([].to_vec());
@@ -112,7 +119,11 @@ impl RedisClientImpl {
     {
         tracing::debug!("XADD: {:?} {:?} {:?}", key, "*", fields);
 
-        self.connection.clone().xadd(key, "*", fields).await?;
+        self.connection
+            .clone()
+            .xadd(&key, "*", fields)
+            .await
+            .context(format!("XADD {key:?} {fields:?}"))?;
 
         Ok(())
     }
@@ -124,7 +135,11 @@ impl RedisClientImpl {
     {
         tracing::debug!("XDEL: {:?} {:?}", key, id);
 
-        self.connection.clone().xdel(key, &[id]).await?;
+        self.connection
+            .clone()
+            .xdel(&key, &[&id])
+            .await
+            .context(format!("XDEL {key:?} {id:?}"))?;
 
         Ok(())
     }
