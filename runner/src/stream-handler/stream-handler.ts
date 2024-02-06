@@ -2,9 +2,11 @@ import path from 'path';
 import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics } from '../metrics';
+import Indexer from '../indexer';
 
 export enum Status {
   RUNNING = 'RUNNING',
+  FAILING = 'FAILING',
   STOPPED = 'STOPPED',
 }
 export interface IndexerConfig {
@@ -54,6 +56,11 @@ export default class StreamHandler {
     if (this.indexerConfig !== undefined) {
       this.executorContext.status = Status.STOPPED;
     }
+    const indexer = new Indexer();
+    const functionName = this.indexerConfig ? `${this.indexerConfig.account_id}/${this.indexerConfig.function_name}` : this.streamKey.split(':')[0];
+    indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
+      console.log(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
+    });
     this.worker.terminate().catch(() => {
       console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
     });
