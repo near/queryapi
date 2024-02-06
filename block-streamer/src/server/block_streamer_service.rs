@@ -6,7 +6,6 @@ use tonic::{Request, Response, Status};
 
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
-use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule as IndexerRule};
 
 use crate::block_stream;
 use crate::server::blockstreamer;
@@ -69,25 +68,20 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .rule
             .ok_or(Status::invalid_argument("Rule must be provided"))?;
 
-        let matching_rule = match rule {
-            start_stream_request::Rule::ActionAnyRule(action_any) => MatchingRule::ActionAny {
-                affected_account_id: action_any.affected_account_id,
-                status: Self::match_status(action_any.status)?,
-            },
+        let rule = match rule {
+            start_stream_request::Rule::ActionAnyRule(action_any) => {
+                registry_types::Rule::ActionAny {
+                    affected_account_id: action_any.affected_account_id,
+                    status: Self::match_status(action_any.status)?,
+                }
+            }
             start_stream_request::Rule::ActionFunctionCallRule(action_function_call) => {
-                MatchingRule::ActionFunctionCall {
+                registry_types::Rule::ActionFunctionCall {
                     affected_account_id: action_function_call.affected_account_id,
                     status: Self::match_status(action_function_call.status)?,
                     function: action_function_call.function_name,
                 }
             }
-        };
-        let filter_rule = IndexerRule {
-            // TODO: Remove kind as it is unused
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule,
-            id: None,
-            name: None,
         };
 
         let account_id = near_indexer_primitives::types::AccountId::try_from(request.account_id)
@@ -99,8 +93,8 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             })?;
         let indexer_config = IndexerConfig {
             account_id,
+            rule,
             function_name: request.function_name,
-            indexer_rule: filter_rule,
         };
 
         let lock = self.get_block_streams_lock()?;

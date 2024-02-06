@@ -2,20 +2,20 @@ use near_lake_framework::near_indexer_primitives::{
     views::{ActionView, ExecutionStatusView, ReceiptEnumView},
     IndexerExecutionOutcomeWithReceipt,
 };
-use registry_types::{MatchingRule, Status};
+use registry_types::{Rule, Status};
 
 use crate::rules::types::Event;
 
 pub fn matches(
-    matching_rule: &MatchingRule,
+    indexer_rule: &Rule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
 ) -> bool {
-    match matching_rule {
-        MatchingRule::ActionAny {
+    match indexer_rule {
+        Rule::ActionAny {
             affected_account_id,
             status,
         } => match_action_any(affected_account_id, status, receipt_execution_outcome),
-        MatchingRule::ActionFunctionCall {
+        Rule::ActionFunctionCall {
             affected_account_id,
             status,
             function,
@@ -25,7 +25,7 @@ pub fn matches(
             function,
             receipt_execution_outcome,
         ),
-        MatchingRule::Event {
+        Rule::Event {
             contract_account_id,
             event,
             standard,

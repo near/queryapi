@@ -4,7 +4,7 @@ use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
-use registry_types::MatchingRule;
+use registry_types::Rule;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
 /// we need this configurable for testing purposes.
@@ -135,8 +135,8 @@ pub(crate) async fn start_block_stream(
         .last_indexed_block
         .parse::<near_indexer_primitives::types::BlockHeight>()?;
 
-    let blocks_from_index = match &indexer.indexer_rule.matching_rule {
-        MatchingRule::ActionAny {
+    let blocks_from_index = match &indexer.rule {
+        Rule::ActionAny {
             affected_account_id,
             ..
         } => {
@@ -151,11 +151,11 @@ pub(crate) async fn start_block_stream(
                 .list_matching_block_heights(start_block_height, affected_account_id)
                 .await
         }
-        MatchingRule::ActionFunctionCall { .. } => {
+        Rule::ActionFunctionCall { .. } => {
             tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
             Ok(vec![])
         }
-        MatchingRule::Event { .. } => {
+        Rule::Event { .. } => {
             tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
             Ok(vec![])
         }
@@ -222,7 +222,7 @@ pub(crate) async fn start_block_stream(
             .context("Failed to set last_published_block")?;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
-            &indexer.indexer_rule,
+            &indexer.rule,
             &streamer_message,
             chain_id.clone(),
         );
@@ -294,14 +294,9 @@ mod tests {
             )
             .unwrap(),
             function_name: "test".to_string(),
-            indexer_rule: registry_types::OldIndexerRule {
-                indexer_rule_kind: registry_types::IndexerRuleKind::Action,
-                matching_rule: registry_types::MatchingRule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: registry_types::Status::Success,
-                },
-                name: None,
-                id: None,
+            rule: registry_types::Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: registry_types::Status::Success,
             },
         };
 
