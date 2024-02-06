@@ -14,6 +14,7 @@ pub struct AllowlistEntry {
     v1_ack: bool,
     migrated: bool,
     failed: bool,
+    v2_control: bool,
 }
 
 pub type Allowlist = Vec<AllowlistEntry>;
@@ -35,7 +36,11 @@ pub async fn filter_registry_by_allowlist(
         .into_iter()
         .filter(|(account_id, _)| {
             allowlist.iter().any(|entry| {
-                entry.account_id == *account_id && entry.v1_ack && entry.migrated && !entry.failed
+                entry.account_id == *account_id
+                    && entry.v1_ack
+                    && entry.migrated
+                    && !entry.failed
+                    && entry.v2_control
             })
         })
         .collect();
@@ -108,8 +113,7 @@ async fn migrate_account(
             .context("Failed to merge streams")?;
     }
 
-    // TODO Uncomment when V2 correctly continues from V1 stop point
-    // set_migrated_flag(redis_client, account_id)?;
+    set_migrated_flag(redis_client, account_id)?;
 
     tracing::info!("Finished migrating {}", account_id);
 
@@ -315,6 +319,7 @@ mod tests {
             v1_ack: true,
             migrated: true,
             failed: false,
+            v2_control: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -339,6 +344,7 @@ mod tests {
             v1_ack: true,
             migrated: true,
             failed: false,
+            v2_control: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -386,6 +392,7 @@ mod tests {
             v1_ack: true,
             migrated: false,
             failed: false,
+            v2_control: false,
         }];
 
         let mut redis_client = RedisClient::default();

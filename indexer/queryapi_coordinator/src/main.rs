@@ -50,6 +50,7 @@ struct DenylistEntry {
     v1_ack: bool,
     migrated: bool,
     failed: bool,
+    v2_control: bool,
 }
 
 type Denylist = Vec<DenylistEntry>;
