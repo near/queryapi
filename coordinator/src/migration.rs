@@ -19,7 +19,11 @@ pub struct AllowlistEntry {
 pub type Allowlist = Vec<AllowlistEntry>;
 
 pub async fn fetch_allowlist(redis_client: &RedisClient) -> anyhow::Result<Allowlist> {
-    let raw_allowlist: String = redis_client.get(RedisClient::ALLOWLIST).await?;
+    let raw_allowlist: String = redis_client
+        .get(RedisClient::ALLOWLIST)
+        .await?
+        .ok_or(anyhow::anyhow!("Allowlist doesn't exist"))?;
+
     serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")
 }
 
@@ -118,6 +122,7 @@ async fn remove_from_streams_set(
 ) -> anyhow::Result<Vec<String>> {
     let mut result = vec![];
 
+    // TODO check if stream entries actually exist
     if redis_client
         .srem(
             RedisClient::STREAMS_SET,
@@ -160,6 +165,7 @@ async fn merge_streams(
     indexer_config: &IndexerConfig,
 ) -> anyhow::Result<()> {
     match existing_streams.len() {
+        // TODO create a dummy stream so main control loop doesn't fail?
         0 => Ok(()),
         1 => {
             redis_client

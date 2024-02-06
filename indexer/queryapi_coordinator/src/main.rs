@@ -43,6 +43,7 @@ pub(crate) struct QueryApiContext<'a> {
     pub redis_url: &'a str,
 }
 
+// TODO add missing keys to prevent deserialization error on v2 side
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct DenylistEntry {
     account_id: AccountId,
