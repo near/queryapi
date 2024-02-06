@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use anyhow::Context;
 use near_primitives::types::AccountId;
 use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
@@ -12,6 +11,7 @@ use crate::registry::{IndexerRegistry, Registry};
 
 mod block_streams_handler;
 mod executors_handler;
+mod migration;
 mod redis;
 mod registry;
 mod utils;
@@ -53,8 +53,18 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
+        let allowlist = migration::fetch_allowlist(&redis_client).await?;
+
+        migration::migrate_pending_accounts(
+            &indexer_registry,
+            &allowlist,
+            &redis_client,
+            &executors_handler,
+        )
+        .await?;
+
         let indexer_registry =
-            filter_registry_by_allowlist(indexer_registry, &redis_client).await?;
+            migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
@@ -65,35 +75,6 @@ async fn main() -> anyhow::Result<()> {
             }
         )?;
     }
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct AllowListEntry {
-    account_id: AccountId,
-}
-
-type AllowList = Vec<AllowListEntry>;
-
-async fn filter_registry_by_allowlist(
-    indexer_registry: IndexerRegistry,
-    redis_client: &RedisClient,
-) -> anyhow::Result<IndexerRegistry> {
-    let raw_allowlist: String = redis_client.get(String::from("allowlist")).await?;
-    let allowlist: AllowList =
-        serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")?;
-
-    let filtered_registry = indexer_registry
-        .into_iter()
-        .filter(|(account_id, _)| {
-            allowlist
-                .iter()
-                .any(|entry| entry.account_id == *account_id)
-        })
-        .collect();
-
-    tracing::debug!("Using filtered registry: {:#?}", filtered_registry);
-
-    Ok(filtered_registry)
 }
 
 async fn synchronise_executors(

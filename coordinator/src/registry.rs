@@ -34,6 +34,14 @@ impl IndexerConfig {
     pub fn get_redis_stream(&self) -> String {
         format!("{}:block_stream", self.get_full_name())
     }
+
+    pub fn get_historical_redis_stream(&self) -> String {
+        format!("{}:historical:stream", self.get_full_name())
+    }
+
+    pub fn get_real_time_redis_stream(&self) -> String {
+        format!("{}:real_time:stream", self.get_full_name())
+    }
 }
 
 #[cfg(test)]
