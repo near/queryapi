@@ -3,7 +3,8 @@ import type fetch from 'node-fetch';
 
 import Indexer from './indexer';
 import { VM } from 'vm2';
-import type DmlHandler from '../dml-handler/dml-handler';
+import DmlHandler from '../dml-handler/dml-handler';
+import type PgClient from '../pg-client';
 
 describe('Indexer unit tests', () => {
   const oldEnv = process.env;
@@ -162,7 +163,7 @@ CREATE TABLE
       }),
     });
   const genericMockDmlHandler: any = {
-    create: jest.fn()
+    createLazy: jest.fn()
   } as unknown as DmlHandler;
 
   beforeEach(() => {
@@ -438,7 +439,7 @@ CREATE TABLE
 
   test('indexer builds context and inserts an objects into existing table', async () => {
     const mockDmlHandler: any = {
-      create: jest.fn().mockImplementation(() => {
+      createLazy: jest.fn().mockImplementation(() => {
         return { insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
       })
     };
@@ -471,10 +472,17 @@ CREATE TABLE
   });
 
   test('indexer builds context and does simultaneous upserts', async () => {
+    const dmlHandlerInstance = DmlHandler.createLazy('test_account');
+    const mockGetPgClient = jest.spyOn(dmlHandlerInstance, 'getPgClient').mockImplementation(async () => {
+      return {
+        query: jest.fn().mockReturnValue({ rows: [] }),
+        format: jest.fn().mockReturnValue('mock')
+      } as unknown as PgClient;
+    });
+    const initializeSpy = jest.spyOn(dmlHandlerInstance, 'initialize');
+    const upsertSpy = jest.spyOn(dmlHandlerInstance, 'upsert');
     const mockDmlHandler: any = {
-      create: jest.fn().mockImplementation(() => {
-        return { upsert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
-      })
+      createLazy: jest.fn().mockReturnValue(dmlHandlerInstance)
     };
     const indexer = new Indexer({
       fetch: genericMockFetch as unknown as typeof fetch,
@@ -499,7 +507,49 @@ CREATE TABLE
       promises.push(promise);
     }
     await Promise.all(promises);
-    expect(mockDmlHandler.create).toHaveBeenCalledTimes(1);
+
+    expect(initializeSpy).toHaveBeenCalledTimes(100);
+    expect(upsertSpy).toHaveBeenCalledTimes(100);
+    expect(mockGetPgClient).toHaveBeenCalledTimes(1);
+  });
+
+  test('indexer builds context handles simultaneous initialize errors', async () => {
+    const dmlHandlerInstance = DmlHandler.createLazy('test_account');
+    const mockGetPgClient = jest.spyOn(dmlHandlerInstance, 'getPgClient').mockImplementation(async () => {
+      throw new Error('upstream timeout');
+    });
+    const initializeSpy = jest.spyOn(dmlHandlerInstance, 'initialize');
+    const upsertSpy = jest.spyOn(dmlHandlerInstance, 'upsert');
+    const mockDmlHandler: any = {
+      createLazy: jest.fn().mockReturnValue(dmlHandlerInstance)
+    };
+    const indexer = new Indexer({
+      fetch: genericMockFetch as unknown as typeof fetch,
+      DmlHandler: mockDmlHandler
+    });
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const promises = [];
+
+    for (let i = 1; i <= 100; i++) {
+      const promise = context.db.Posts.upsert(
+        {
+          account_id: 'morgs_near',
+          block_height: i,
+          receipt_id: 'abc',
+          content: 'test_content',
+          block_timestamp: 800,
+          accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
+        },
+        ['account_id', 'block_height'],
+        ['content', 'block_timestamp']
+      );
+      promises.push(promise);
+    }
+    await expect(Promise.all(promises)).rejects.toThrow('upstream timeout');
+
+    expect(initializeSpy).toHaveBeenCalled();
+    expect(upsertSpy).toHaveBeenCalled();
+    expect(mockGetPgClient).toHaveBeenCalledTimes(1);
   });
 
   test('indexer builds context and selects objects from existing table', async () => {
@@ -509,7 +559,7 @@ CREATE TABLE
       return args[args.length - 1] === null ? [{ colA: 'valA' }, { colA: 'valA' }] : [{ colA: 'valA' }];
     });
     const mockDmlHandler: any = {
-      create: jest.fn().mockImplementation(() => {
+      createLazy: jest.fn().mockImplementation(() => {
         return { select: selectFn };
       })
     };
@@ -532,7 +582,7 @@ CREATE TABLE
 
   test('indexer builds context and updates multiple objects from existing table', async () => {
     const mockDmlHandler: any = {
-      create: jest.fn().mockImplementation(() => {
+      createLazy: jest.fn().mockImplementation(() => {
         return {
           update: jest.fn().mockImplementation((_, __, whereObj, updateObj) => {
             if (whereObj.account_id === 'morgs_near' && updateObj.content === 'test_content') {
@@ -564,7 +614,7 @@ CREATE TABLE
 
   test('indexer builds context and upserts on existing table', async () => {
     const mockDmlHandler: any = {
-      create: jest.fn().mockImplementation(() => {
+      createLazy: jest.fn().mockImplementation(() => {
         return {
           upsert: jest.fn().mockImplementation((_, __, objects, conflict, update) => {
             if (objects.length === 2 && conflict.includes('account_id') && update.includes('content')) {
@@ -609,7 +659,7 @@ CREATE TABLE
 
   test('indexer builds context and deletes objects from existing table', async () => {
     const mockDmlHandler: any = {
-      create: jest.fn().mockImplementation(() => {
+      createLazy: jest.fn().mockImplementation(() => {
         return { delete: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
       })
     };
@@ -630,7 +680,7 @@ CREATE TABLE
 
   test('indexer builds context and verifies all methods generated', async () => {
     const mockDmlHandler: any = {
-      create: jest.fn()
+      createLazy: jest.fn()
     };
 
     const indexer = new Indexer({
@@ -672,7 +722,7 @@ CREATE TABLE
 
   test('indexer builds context and returns empty array if failed to generate db methods', async () => {
     const mockDmlHandler: any = {
-      create: jest.fn()
+      createLazy: jest.fn()
     };
 
     const indexer = new Indexer({

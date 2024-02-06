@@ -1,12 +1,15 @@
-use anyhow::Context;
-use tonic::transport::channel::Channel;
-use tonic::Request;
+#![cfg_attr(test, allow(dead_code))]
 
+use anyhow::Context;
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
     start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, ListStreamsRequest,
     StartStreamRequest, Status, StopStreamRequest, StreamInfo,
 };
+use tonic::transport::channel::Channel;
+use tonic::Request;
+
+use crate::utils::exponential_retry;
 
 #[cfg(not(test))]
 pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
@@ -19,29 +22,48 @@ pub struct BlockStreamsHandlerImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl BlockStreamsHandlerImpl {
-    pub async fn connect(block_streamer_url: String) -> anyhow::Result<Self> {
-        let client = BlockStreamerClient::connect(block_streamer_url)
-            .await
-            .context("Unable to connect to Block Streamer")?;
+    pub fn connect(block_streamer_url: &str) -> anyhow::Result<Self> {
+        let channel = Channel::from_shared(block_streamer_url.to_string())
+            .context("Block Streamer URL is invalid")?
+            .connect_lazy();
+        let client = BlockStreamerClient::new(channel);
 
         Ok(Self { client })
     }
 
-    pub async fn list(&mut self) -> anyhow::Result<Vec<StreamInfo>> {
-        let response = self
-            .client
-            .list_streams(Request::new(ListStreamsRequest {}))
-            .await?;
+    pub async fn list(&self) -> anyhow::Result<Vec<StreamInfo>> {
+        exponential_retry(|| async {
+            let response = self
+                .client
+                .clone()
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .context("Failed to list streams")?;
 
-        Ok(response.into_inner().streams)
+            let streams = response.into_inner().streams;
+
+            tracing::debug!("List streams response: {:#?}", streams);
+
+            Ok(streams)
+        })
+        .await
     }
 
-    pub async fn stop(&mut self, stream_id: String) -> anyhow::Result<()> {
-        let request = Request::new(StopStreamRequest { stream_id });
+    pub async fn stop(&self, stream_id: String) -> anyhow::Result<()> {
+        let request = StopStreamRequest {
+            stream_id: stream_id.clone(),
+        };
 
-        tracing::debug!("Sending stop stream request: {:#?}", request);
+        let response = self
+            .client
+            .clone()
+            .stop_stream(Request::new(request.clone()))
+            .await
+            .map_err(|e| {
+                tracing::error!(stream_id, "Failed to stop stream\n{e:?}");
+            });
 
-        let _ = self.client.stop_stream(request).await?;
+        tracing::debug!(stream_id, "Stop stream response: {:#?}", response);
 
         Ok(())
     }
@@ -56,7 +78,7 @@ impl BlockStreamsHandlerImpl {
     }
 
     pub async fn start(
-        &mut self,
+        &self,
         start_block_height: u64,
         account_id: String,
         function_name: String,
@@ -82,25 +104,43 @@ impl BlockStreamsHandlerImpl {
                 status: Self::match_status(status),
             }),
             unsupported_rule => {
-                anyhow::bail!(
+                tracing::error!(
                     "Encountered unsupported indexer rule: {:?}",
                     unsupported_rule
-                )
+                );
+                return Ok(());
             }
         };
 
-        let request = Request::new(StartStreamRequest {
+        let request = StartStreamRequest {
             start_block_height,
+            version,
+            redis_stream,
+            account_id: account_id.clone(),
+            function_name: function_name.clone(),
+            rule: Some(rule),
+        };
+
+        let response = self
+            .client
+            .clone()
+            .start_stream(Request::new(request.clone()))
+            .await
+            .map_err(|error| {
+                tracing::error!(
+                    account_id,
+                    function_name,
+                    "Failed to start stream\n{error:?}"
+                );
+            });
+
+        tracing::debug!(
             account_id,
             function_name,
             version,
-            redis_stream,
-            rule: Some(rule),
-        });
-
-        tracing::debug!("Sending start stream request: {:#?}", request);
-
-        let _ = self.client.start_stream(request).await?;
+            "Start stream response: {:#?}",
+            response
+        );
 
         Ok(())
     }

@@ -1,12 +1,21 @@
-pub use redis::{self, aio::ConnectionManager, FromRedisValue, ToRedisArgs};
+pub use redis::{
+    self, aio::ConnectionManager, ErrorKind, FromRedisValue, RedisError, RedisResult, ToRedisArgs,
+};
 
 const STORAGE: &str = "storage_alertexer";
 
 pub const LAKE_BUCKET_PREFIX: &str = "near-lake-data-";
 pub const STREAMS_SET_KEY: &str = "streams";
+/// Corresponds to the `allowlist` key in Redis. Accounts within this list will be executed on the
+/// V2 architecture, hence allow, and will be ignored on the V1 (this) architecture, hence deny.
+pub const DENYLIST_KEY: &str = "allowlist";
 
 pub async fn get_redis_client(redis_connection_str: &str) -> redis::Client {
     redis::Client::open(redis_connection_str).expect("can create redis client")
+}
+
+pub fn generate_block_stream_key(prefix: &str) -> String {
+    format!("{}:last_published_block", prefix)
 }
 
 pub fn generate_real_time_stream_key(prefix: &str) -> String {
@@ -193,4 +202,25 @@ pub async fn get_last_indexed_block(
         .arg("last_indexed_block")
         .query_async(&mut redis_connection_manager.clone())
         .await?)
+}
+
+// `redis::transaction`s currently don't work with async connections, so we have to create a _new_
+// blocking connection to atmoically update a value.
+pub fn atomic_update<K, O, N, F>(redis_url: &str, key: K, update_fn: F) -> anyhow::Result<()>
+where
+    K: ToRedisArgs + Copy + 'static,
+    O: FromRedisValue + 'static,
+    N: ToRedisArgs + 'static,
+    F: Fn(O) -> RedisResult<N> + 'static,
+{
+    let mut conn = redis::Client::open(redis_url)?.get_connection()?;
+
+    redis::transaction(&mut conn, &[key], |conn, pipe| {
+        let old_value = redis::cmd("GET").arg(key).query(conn)?;
+        let new_value = update_fn(old_value)?;
+
+        pipe.cmd("SET").arg(key).arg(new_value).query(conn)
+    })?;
+
+    Ok(())
 }

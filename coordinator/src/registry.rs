@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 use anyhow::Context;
 use std::collections::HashMap;
 
@@ -7,6 +9,8 @@ use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::{AccountId, BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
 use registry_types::{AccountOrAllIndexers, IndexerRule};
+
+use crate::utils::exponential_retry;
 
 pub type IndexerRegistry = HashMap<AccountId, HashMap<String, IndexerConfig>>;
 
@@ -30,6 +34,14 @@ impl IndexerConfig {
     pub fn get_redis_stream(&self) -> String {
         format!("{}:block_stream", self.get_full_name())
     }
+
+    pub fn get_historical_redis_stream(&self) -> String {
+        format!("{}:historical:stream", self.get_full_name())
+    }
+
+    pub fn get_real_time_redis_stream(&self) -> String {
+        format!("{}:real_time:stream", self.get_full_name())
+    }
 }
 
 #[cfg(test)]
@@ -44,6 +56,8 @@ pub struct RegistryImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl RegistryImpl {
+    const LIST_METHOD: &str = "list_indexer_functions";
+
     pub fn connect(registry_contract_id: AccountId, rpc_url: &str) -> Self {
         let json_rpc_client = JsonRpcClient::connect(rpc_url);
 
@@ -85,28 +99,31 @@ impl RegistryImpl {
     }
 
     pub async fn fetch(&self) -> anyhow::Result<IndexerRegistry> {
-        let response = self
-            .json_rpc_client
-            .call(RpcQueryRequest {
-                block_reference: BlockReference::Finality(Finality::Final),
-                request: QueryRequest::CallFunction {
-                    method_name: "list_indexer_functions".to_string(),
-                    account_id: self.registry_contract_id.clone(),
-                    args: FunctionArgs::from("{}".as_bytes().to_vec()),
-                },
-            })
-            .await
-            .context("Failed to list registry contract")?;
+        exponential_retry(|| async {
+            let response = self
+                .json_rpc_client
+                .call(RpcQueryRequest {
+                    block_reference: BlockReference::Finality(Finality::Final),
+                    request: QueryRequest::CallFunction {
+                        method_name: Self::LIST_METHOD.to_string(),
+                        account_id: self.registry_contract_id.clone(),
+                        args: FunctionArgs::from("{}".as_bytes().to_vec()),
+                    },
+                })
+                .await
+                .context("Failed to list registry contract")?;
 
-        if let QueryResponseKind::CallResult(call_result) = response.kind {
-            let list_registry_response: AccountOrAllIndexers =
-                serde_json::from_slice(&call_result.result)?;
+            if let QueryResponseKind::CallResult(call_result) = response.kind {
+                let list_registry_response: AccountOrAllIndexers =
+                    serde_json::from_slice(&call_result.result)?;
 
-            if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
-                return Ok(self.enrich_indexer_registry(all_indexers));
+                if let AccountOrAllIndexers::All(all_indexers) = list_registry_response {
+                    return Ok(self.enrich_indexer_registry(all_indexers));
+                }
             }
-        }
 
-        anyhow::bail!("Invalid registry response")
+            anyhow::bail!("Invalid registry response")
+        })
+        .await
     }
 }

@@ -8,6 +8,7 @@ describe('HasuraClient', () => {
   const HASURA_ENDPOINT = 'mock-hasura-endpoint';
   const HASURA_ADMIN_SECRET = 'mock-hasura-admin-secret';
   const PGHOST = 'localhost';
+  const PGHOST_HASURA = 'localhost';
   const PGPORT = '5432';
 
   beforeAll(() => {
@@ -16,6 +17,7 @@ describe('HasuraClient', () => {
       HASURA_ENDPOINT,
       HASURA_ADMIN_SECRET,
       PGHOST,
+      PGHOST_HASURA,
       PGPORT,
     };
   });
