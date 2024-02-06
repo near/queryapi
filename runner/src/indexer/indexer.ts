@@ -5,6 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
+import { Status } from '../stream-handler/stream-handler';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -111,7 +112,7 @@ export default class Indexer {
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         console.error(`${functionName}: Failed to run function`, e);
-        await this.setStatus(functionName, blockHeight, 'STOPPED');
+        await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
         await Promise.all(simultaneousPromises);
