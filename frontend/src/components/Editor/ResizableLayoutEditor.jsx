@@ -3,25 +3,6 @@ import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
-import { GlyphContainer } from "./GlyphContainer";
-
-console.log('decorations here! ')
-function handleEditorMount(editor, monaco) {
-  const decorations = editor.deltaDecorations(
-    [],
-    [
-      {
-        range: new monaco.Range(3, 1, 3, 1),
-        options: {
-          isWholeLine: true,
-          className: "myGlyphMarginClass",
-          glyphMarginClassName: "myContentClass",
-          glyphMarginHoverMessage: { value: "Error message here" },
-        },
-      },
-    ]
-  );
-}
 
 const containerStyle = {
   display: "flex",
@@ -56,9 +37,10 @@ const ResizableEditor = ({
   originalIndexingCode,
   schema,
   indexingCode,
-  handleEditorWillMount,
+  onMount,
   isCreateNewIndexer,
 }) => {
+  console.log(onMount, "onMount")
   const { firstRef, secondRef, dragBarRef } = useDragResize({
     direction: "horizontal",
     initiallyHidden: null,
@@ -78,35 +60,31 @@ const ResizableEditor = ({
           modified={indexingCode}
           language="typescript"
           readOnly={false}
-          handleEditorMount={undefined}
+          onMount={onMount}
         />
       ) : (
-        <GlyphContainer
-          style={{ display: "flex", height: "100%", width: "100%" }}
-        >
-          <MonacoEditorComponent
-            key="code-editor"
-            value={indexingCode}
-            height="100vh"
-            defaultValue={defaultCode}
-            defaultLanguage="typescript"
-            readOnly={false}
-            onChange={onChangeCode}
-            onMount={handleEditorMount}
-            options={{
-              wordWrap: "on",
-              minimap: { enabled: false },
-              folding: false,
-              lineNumberMinChars: 3,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              formatOnPaste: true,
-              definitionLinkOpensInPeek: true,
-              glyphMargin: true,
-              // font: 'serif'
-            }}
-          />
-        </GlyphContainer>
+        <MonacoEditorComponent
+          key="code-editor"
+          value={indexingCode}
+          height="100vh"
+          defaultValue={defaultCode}
+          defaultLanguage="typescript"
+          readOnly={false}
+          onChange={onChangeCode}
+          onMount={onMount}
+          options={{
+            wordWrap: "on",
+            minimap: { enabled: false },
+            folding: false,
+            lineNumberMinChars: 3,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            formatOnPaste: true,
+            definitionLinkOpensInPeek: true,
+            glyphMargin: true,
+            font: 'serif'
+          }}
+        />
       ),
     "schema.sql": () =>
       diffView ? (
@@ -116,34 +94,30 @@ const ResizableEditor = ({
           modified={schema}
           language="sql"
           readOnly={isCreateNewIndexer === true ? false : true}
-          handleEditorMount={undefined}
+          onMount={onMount}
         />
       ) : (
-        <GlyphContainer
-          style={{ display: "flex", height: "100%", width: "100%" }}
-        >
-          <MonacoEditorComponent
-            key="schema-editor"
-            value={schema}
-            defaultValue={defaultSchema}
-            defaultLanguage="sql"
-            readOnly={isCreateNewIndexer === true ? false : false}
-            onChange={onChangeSchema}
-            onMount={handleEditorMount}
-            options={{
-              wordWrap: "on",
-              minimap: { enabled: false },
-              folding: false,
-              lineNumberMinChars: 3,
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-              formatOnPaste: true,
-              definitionLinkOpensInPeek: true,
-              glyphMargin: true,
-              // font: 'serif'
-            }}
-          />
-        </GlyphContainer>
+        <MonacoEditorComponent
+          key="schema-editor"
+          value={schema}
+          defaultValue={defaultSchema}
+          defaultLanguage="sql"
+          readOnly={isCreateNewIndexer === true ? false : false}
+          onChange={onChangeSchema}
+          onMount={onMount}
+          options={{
+            wordWrap: "on",
+            minimap: { enabled: false },
+            folding: false,
+            lineNumberMinChars: 3,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            formatOnPaste: true,
+            definitionLinkOpensInPeek: true,
+            glyphMargin: true,
+            font: 'serif'
+          }}
+        />
       ),
   };
 
@@ -170,8 +144,7 @@ export default function ResizableLayoutEditor({
   originalIndexingCode,
   schema,
   indexingCode,
-  handleEditorWillMount,
-  handleEditorMount,
+  onMount,
   isCreateNewIndexer,
 }) {
   const {
@@ -202,8 +175,7 @@ export default function ResizableLayoutEditor({
           originalSQLCode={originalSQLCode}
           originalIndexingCode={originalIndexingCode}
           schema={schema}
-          handleEditorWillMount={handleEditorWillMount}
-          handleEditorMount={handleEditorMount}
+          onMount={onMount}
         />
       </div>
     </div>

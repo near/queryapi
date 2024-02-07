@@ -17,7 +17,6 @@ export const MonacoEditorComponent = ({
     theme="vs-dark"
     onMount={onMount}
     onChange={onChange}
-    // beforeMount={handleEditorWillMount} //I dont think this is needed
     options={{ ...options, readOnly }}
   />
 );

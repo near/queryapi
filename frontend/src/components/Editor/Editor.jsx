@@ -36,22 +36,10 @@ import {
 } from "../../constants/Strings";
 import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
-
-//need access to monaco here.
-// monaco.languages.registerCompletionItemProvider('sql', {
-//   provideCompletionItems: function(model, position) {
-//       return {
-//           suggestions: {
-//                         label: 'select version',
-//                         kind: monaco.languages.CompletionItemKind.Property,
-//                         insertText: ['select version()']
-//                        }
-//       };
-//   }
-// });
+import { GlyphContainer } from "./GlyphContainer";
+console.log('here', GlyphContainer)
 
 const Editor = ({ actionButtonText }) => {
-  console.log(actionButtonText); // publish
   const {
     indexerDetails,
     setShowResetCodeModel,
@@ -61,18 +49,14 @@ const Editor = ({ actionButtonText }) => {
     setAccountId,
   } = useContext(IndexerDetailsContext);
 
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${
-    indexerDetails.accountId
-  }#${indexerDetails.indexerName || "new"}`;
-  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${
-    indexerDetails.indexerName || "new"
-  }`;
-  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${
-    indexerDetails.accountId
-  }#${indexerDetails.indexerName || "new"}`;
-  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${
-    indexerDetails.indexerName || "new"
-  }`;
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId
+    }#${indexerDetails.indexerName || "new"}`;
+  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
+  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId
+    }#${indexerDetails.indexerName || "new"}`;
+  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
+    }`;
 
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [error, setError] = useState();
@@ -116,6 +100,8 @@ const Editor = ({ actionButtonText }) => {
   const disposableRef = useRef(null);
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
     console.log("hit debounced function");
+
+    console.log(ResizableLayoutEditor);
     const { error: schemaError } = validateSQLSchema(_schema);
     if (schemaError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
@@ -386,11 +372,27 @@ const Editor = ({ actionButtonText }) => {
     setSchema(formattedSchema);
   }
 
-  function handleEditorWillMount(monaco) {
+  function handleEditorWillMount(editor, monaco) {
+    console.log("is this ever even hit?");
+    const decorations = editor.deltaDecorations(
+      [],
+      [
+        {
+          range: new monaco.Range(3, 1, 3, 1),
+          options: {
+            isWholeLine: true,
+            className: "myGlyphMarginClass",
+            glyphMarginClassName: "myContentClass",
+            glyphMarginHoverMessage: { value: "Error message here" },
+          },
+        },
+      ]
+    );
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
+
     setMonacoMount(true);
   }
 
@@ -444,8 +446,7 @@ const Editor = ({ actionButtonText }) => {
   }
 
   function handleOnChangeSchema(_schema) {
-    console.log("tracking debouncedValidateCode changes for schema");
-    // console.log(_schema)
+    console.log("check for potnetial err here");
     setSchema(_schema);
     debouncedValidateSQLSchema(_schema);
   }
@@ -535,20 +536,24 @@ const Editor = ({ actionButtonText }) => {
                 diffView={diffView}
                 setDiffView={setDiffView}
               />
-              <ResizableLayoutEditor
-                fileName={fileName}
-                indexingCode={indexingCode}
-                blockView={blockView}
-                diffView={diffView}
-                onChangeCode={handleOnChangeCode}
-                onChangeSchema={handleOnChangeSchema}
-                block_details={block_details}
-                originalSQLCode={originalSQLCode}
-                originalIndexingCode={originalIndexingCode}
-                schema={schema}
-                isCreateNewIndexer={isCreateNewIndexer}
-                handleEditorWillMount={handleEditorWillMount}
-              />
+              <GlyphContainer
+                style={{ height: "100%", width: "100%" }}
+              >
+                <ResizableLayoutEditor
+                  fileName={fileName}
+                  indexingCode={indexingCode}
+                  blockView={blockView}
+                  diffView={diffView}
+                  onChangeCode={handleOnChangeCode}
+                  onChangeSchema={handleOnChangeSchema}
+                  block_details={block_details}
+                  originalSQLCode={originalSQLCode}
+                  originalIndexingCode={originalIndexingCode}
+                  schema={schema}
+                  isCreateNewIndexer={isCreateNewIndexer}
+                  onMount={handleEditorWillMount}
+                />
+              </GlyphContainer>
             </div>
           </>
         )}

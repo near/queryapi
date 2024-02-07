@@ -6,7 +6,7 @@ export const DiffEditorComponent = ({
   language,
   readOnly,
   options,
-  handleEditorMount,
+  onMount,
 }) => (
   <DiffEditor
     original={original}
@@ -15,7 +15,7 @@ export const DiffEditorComponent = ({
     height="100%"
     language={language}
     theme="vs-dark"
-    onMount={handleEditorMount}
+    onMount={onMount}
     options={{ ...options, readOnly }}
   />
 );
