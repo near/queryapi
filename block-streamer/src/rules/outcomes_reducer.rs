@@ -115,7 +115,7 @@ fn build_indexer_rule_match_payload(
 
 #[cfg(test)]
 mod tests {
-    use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule as IndexerRule, Status};
 
     use crate::rules::outcomes_reducer::reduce_indexer_rule_matches_from_outcomes;
     use crate::rules::types::{ChainId, IndexerRuleMatch};

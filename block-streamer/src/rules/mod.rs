@@ -3,7 +3,7 @@ pub mod outcomes_reducer;
 pub mod types;
 
 use near_lake_framework::near_indexer_primitives::StreamerMessage;
-use registry_types::{IndexerRule, MatchingRule};
+use registry_types::{MatchingRule, OldIndexerRule as IndexerRule};
 
 use types::{ChainId, IndexerRuleMatch};
 

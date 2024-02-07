@@ -281,7 +281,7 @@ mod tests {
     use std::collections::HashMap;
 
     use mockall::predicate;
-    use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use registry_types::{IndexerRuleKind, MatchingRule, OldIndexerRule, Status};
 
     use crate::registry::IndexerConfig;
 
@@ -296,7 +296,7 @@ mod tests {
                     function_name: "test".to_string(),
                     code: String::new(),
                     schema: Some(String::new()),
-                    filter: IndexerRule {
+                    filter: OldIndexerRule {
                         id: None,
                         name: None,
                         indexer_rule_kind: IndexerRuleKind::Action,
@@ -369,7 +369,7 @@ mod tests {
                     function_name: "test".to_string(),
                     code: String::new(),
                     schema: Some(String::new()),
-                    filter: IndexerRule {
+                    filter: OldIndexerRule {
                         id: None,
                         name: None,
                         indexer_rule_kind: IndexerRuleKind::Action,

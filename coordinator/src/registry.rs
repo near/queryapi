@@ -8,7 +8,9 @@ use near_jsonrpc_client::JsonRpcClient;
 use near_jsonrpc_primitives::types::query::QueryResponseKind;
 use near_primitives::types::{AccountId, BlockReference, Finality, FunctionArgs};
 use near_primitives::views::QueryRequest;
-use registry_types::{AccountOrAllIndexers, IndexerRule};
+use registry_types::{
+    OldAccountOrAllIndexers as AccountOrAllIndexers, OldIndexerRule as IndexerRule,
+};
 
 use crate::utils::exponential_retry;
 
@@ -69,7 +71,7 @@ impl RegistryImpl {
 
     fn enrich_indexer_registry(
         &self,
-        registry: HashMap<AccountId, HashMap<String, registry_types::IndexerConfig>>,
+        registry: HashMap<AccountId, HashMap<String, registry_types::OldIndexerConfig>>,
     ) -> IndexerRegistry {
         registry
             .into_iter()
