@@ -268,6 +268,22 @@ impl Contract {
             &account_id
         );
 
+        match &rule {
+            Rule::ActionAny {
+                affected_account_id,
+                ..
+            }
+            | Rule::ActionFunctionCall {
+                affected_account_id,
+                ..
+            } => {
+                if affected_account_id == "*" {
+                    self.assert_roles(vec![Role::Owner]);
+                }
+            }
+            _ => {}
+        }
+
         let account_indexers =
             self.registry
                 .entry(account_id.clone())
@@ -330,6 +346,22 @@ impl Contract {
                     .unwrap_or_else(|e| {
                         env::panic_str(&format!("Invalid filter JSON {}", e));
                     });
+
+                match &filter_rule.matching_rule {
+                    MatchingRule::ActionAny {
+                        affected_account_id,
+                        ..
+                    }
+                    | MatchingRule::ActionFunctionCall {
+                        affected_account_id,
+                        ..
+                    } => {
+                        if affected_account_id == "*" {
+                            self.assert_roles(vec![Role::Owner]);
+                        }
+                    }
+                    _ => {}
+                }
 
                 filter_rule
             }
@@ -1233,6 +1265,45 @@ mod tests {
                 .len(),
             2
         );
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near does not have one of required roles [Owner]")]
+    fn prevents_non_owners_from_using_wildcard() {
+        let mut contract = Contract::default();
+        contract.account_roles.push(AccountRole {
+            account_id: "bob.near".parse().unwrap(),
+            role: Role::User,
+        });
+
+        contract.register_indexer_function(
+            String::from("name"),
+            String::from("code"),
+            Some(0),
+            Some(String::from("schema")),
+            None,
+            Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"*","status":"SUCCESS"}}"#.to_string()),
+        );
+    }
+
+    #[test]
+    fn allows_owners_to_use_wildcard() {
+        let mut contract = Contract::default();
+        contract.account_roles.push(AccountRole {
+            account_id: "bob.near".parse().unwrap(),
+            role: Role::Owner,
+        });
+
+        contract.register_indexer_function(
+            String::from("name"),
+            String::from("code"),
+            Some(0),
+            Some(String::from("schema")),
+            None,
+            Some(r#"{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"*","status":"SUCCESS"}}"#.to_string()),
+        );
+
+        assert_eq!(contract.registry.len(), 1);
     }
 
     #[test]
