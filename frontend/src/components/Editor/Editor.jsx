@@ -37,6 +37,7 @@ import {
 import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
 
+//need access to monaco here.
 // monaco.languages.registerCompletionItemProvider('sql', {
 //   provideCompletionItems: function(model, position) {
 //       return {
