@@ -101,7 +101,7 @@ impl From<IndexerConfig> for OldIndexerConfig {
     fn from(config: IndexerConfig) -> Self {
         let start_block_height = match config.start_block {
             StartBlock::Latest => None,
-            StartBlock::Interruption => None,
+            StartBlock::Continue => None,
             StartBlock::Height(height) => Some(height),
         };
 
@@ -198,12 +198,13 @@ impl From<MatchingRule> for Rule {
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StartBlock {
-    /// Specific block height to start indexing from
+    /// Specifies the particular block height from which to start indexing from.
     Height(u64),
-    /// Real-time indexing, always taking the latest finalized block to stream
+    /// Starts indexing from the most recently finalized block.
     Latest,
-    /// Starts indexing from the block the Indexer was interrupted last time
-    Interruption,
+    /// Resumes indexing from the block immediately following the last one successfully indexed
+    /// prior to update.
+    Continue,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
