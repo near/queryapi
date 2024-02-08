@@ -7,6 +7,7 @@ use tracing_subscriber::prelude::*;
 
 use crate::block_streams_handler::BlockStreamsHandler;
 use crate::executors_handler::ExecutorsHandler;
+use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
 use crate::registry::{IndexerRegistry, Registry};
 
@@ -69,7 +70,7 @@ async fn main() -> anyhow::Result<()> {
             migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
 
         tokio::try_join!(
-            synchronise_executors(&indexer_registry, &executors_handler),
+            // synchronise_executors(&indexer_registry, &executors_handler),
             synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler),
             async {
                 sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
@@ -101,9 +102,7 @@ async fn synchronise_executors(
                 })
                 .map(|index| active_executors.swap_remove(index));
 
-            let registry_version = indexer_config
-                .updated_at_block_height
-                .unwrap_or(indexer_config.created_at_block_height);
+            let registry_version = indexer_config.get_registry_version();
 
             if let Some(active_executor) = active_executor {
                 if active_executor.version == registry_version {
@@ -173,112 +172,13 @@ async fn synchronise_block_streams(
                 })
                 .map(|index| active_block_streams.swap_remove(index));
 
-            let registry_version = indexer_config
-                .updated_at_block_height
-                .unwrap_or(indexer_config.created_at_block_height);
-
-            if let Some(active_block_stream) = active_block_stream {
-                if active_block_stream.version == registry_version {
-                    continue;
-                }
-
-                tracing::info!(
-                    account_id = active_block_stream.account_id.as_str(),
-                    function_name = active_block_stream.function_name,
-                    version = active_block_stream.version,
-                    "Stopping block stream"
-                );
-
-                block_streams_handler
-                    .stop(active_block_stream.stream_id)
-                    .await?;
-            }
-
-            let stream_version = redis_client.get_stream_version(indexer_config).await?;
-
-            let start_block_height =
-                if stream_version.map_or(true, |version| version == registry_version) {
-                    tracing::info!(
-                        account_id = account_id.as_str(),
-                        function_name,
-                        version = registry_version,
-                        "Resuming block stream"
-                    );
-
-                    redis_client
-                        .get_last_published_block(indexer_config)
-                        .await?
-                        .unwrap_or_else(|| {
-                            tracing::warn!(
-                                "Indexer has no `last_published_block`, using registry version"
-                            );
-
-                            registry_version
-                        })
-                } else {
-                    match indexer_config.start_block {
-                        StartBlock::Latest => {
-                            tracing::info!(
-                                account_id = account_id.as_str(),
-                                function_name,
-                                version = registry_version,
-                                "Starting block stream with latest"
-                            );
-
-                            redis_client.clear_block_stream(indexer_config).await?;
-
-                            registry_version
-                        }
-                        StartBlock::Height(height) => {
-                            tracing::info!(
-                                account_id = account_id.as_str(),
-                                function_name,
-                                version = registry_version,
-                                height,
-                                "Starting block stream with height"
-                            );
-
-                            redis_client.clear_block_stream(indexer_config).await?;
-
-                            height
-                        }
-
-                        StartBlock::Continue => {
-                            tracing::info!(
-                                account_id = account_id.as_str(),
-                                function_name,
-                                version = registry_version,
-                                "Starting block stream with continue"
-                            );
-
-                            redis_client
-                                .get_last_published_block(indexer_config)
-                                .await?
-                                .unwrap_or_else(|| {
-                                    tracing::warn!(
-                                    "Indexer has no `last_published_block`, using registry version"
-                                );
-
-                                    registry_version
-                                })
-                        }
-                    }
-                };
-
-            redis_client
-                .set_stream_version(indexer_config, registry_version)
-                .await?;
-
-            block_streams_handler
-                .start(
-                    start_block_height,
-                    indexer_config.account_id.to_string(),
-                    indexer_config.function_name.clone(),
-                    registry_version,
-                    indexer_config.get_redis_stream_key(),
-                    indexer_config.rule.clone(),
-                )
-                .await?;
+            synchronise_block_stream(
+                active_block_stream,
+                indexer_config,
+                redis_client,
+                block_streams_handler,
+            )
+            .await?;
         }
     }
 
@@ -296,6 +196,129 @@ async fn synchronise_block_streams(
     }
 
     Ok(())
+}
+
+async fn synchronise_block_stream(
+    active_block_stream: Option<block_streamer::StreamInfo>,
+    indexer_config: &IndexerConfig,
+    redis_client: &RedisClient,
+    block_streams_handler: &BlockStreamsHandler,
+) -> anyhow::Result<()> {
+    let registry_version = indexer_config.get_registry_version();
+
+    if let Some(active_block_stream) = active_block_stream {
+        if active_block_stream.version == registry_version {
+            return Ok(());
+        }
+
+        tracing::info!(
+            account_id = indexer_config.account_id.as_str(),
+            function_name = indexer_config.function_name.as_str(),
+            version = active_block_stream.version,
+            "Stopping block stream"
+        );
+
+        block_streams_handler
+            .stop(active_block_stream.stream_id)
+            .await?;
+    }
+
+    let stream_version = redis_client.get_stream_version(indexer_config).await?;
+
+    let start_block_height = determine_start_block_height(
+        stream_version,
+        registry_version,
+        indexer_config,
+        redis_client,
+    )
+    .await?;
+
+    clear_block_stream_if_needed(
+        stream_version,
+        registry_version,
+        indexer_config,
+        redis_client,
+    )
+    .await?;
+
+    block_streams_handler
+        .start(
+            start_block_height,
+            indexer_config.account_id.to_string(),
+            indexer_config.function_name.clone(),
+            registry_version,
+            indexer_config.get_redis_stream_key(),
+            indexer_config.rule.clone(),
+        )
+        .await?;
+
+    redis_client
+        .set_stream_version(indexer_config, registry_version)
+        .await?;
+
+    Ok(())
+}
+
+async fn clear_block_stream_if_needed(
+    stream_version: Option<u64>,
+    registry_version: u64,
+    indexer_config: &IndexerConfig,
+    redis_client: &RedisClient,
+) -> anyhow::Result<()> {
+    let just_migrated_or_unmodified =
+        stream_version.map_or(true, |version| version == registry_version);
+
+    if !just_migrated_or_unmodified {
+        match indexer_config.start_block {
+            StartBlock::Latest | StartBlock::Height(_) => {
+                tracing::info!(
+                    account_id = indexer_config.account_id.as_str(),
+                    function_name = indexer_config.function_name,
+                    version = registry_version,
+                    "Clearing existing block stream"
+                );
+
+                redis_client.clear_block_stream(indexer_config).await?;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
+async fn determine_start_block_height(
+    stream_version: Option<u64>,
+    registry_version: u64,
+    indexer_config: &IndexerConfig,
+    redis_client: &RedisClient,
+) -> anyhow::Result<u64> {
+    let just_migrated_or_unmodified =
+        stream_version.map_or(true, |version| version == registry_version);
+
+    if just_migrated_or_unmodified || indexer_config.start_block == StartBlock::Continue {
+        return Ok(redis_client
+            .get_last_published_block(indexer_config)
+            .await?
+            .unwrap_or_else(|| {
+                tracing::warn!(
+                    account_id = indexer_config.account_id.as_str(),
+                    function_name = indexer_config.function_name,
+                    version = registry_version,
+                    "Indexer has no `last_published_block`, using registry version"
+                );
+
+                registry_version
+            }));
+    }
+
+    match indexer_config.start_block {
+        StartBlock::Latest => Ok(registry_version),
+        StartBlock::Height(height) => Ok(height),
+        _ => {
+            unreachable!("StartBlock::Continue already handled")
+        }
+    }
 }
 
 #[cfg(test)]

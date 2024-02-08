@@ -37,4 +37,9 @@ impl IndexerConfig {
     pub fn get_redis_stream_version_key(&self) -> String {
         format!("{}:version", self.get_redis_stream_key())
     }
+
+    pub fn get_registry_version(&self) -> u64 {
+        self.updated_at_block_height
+            .unwrap_or(self.created_at_block_height)
+    }
 }
