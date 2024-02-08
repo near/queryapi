@@ -12,6 +12,7 @@ use crate::registry::{IndexerRegistry, Registry};
 
 mod block_streams_handler;
 mod executors_handler;
+mod indexer_config;
 mod migration;
 mod redis;
 mod registry;
@@ -308,7 +309,7 @@ mod tests {
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
 
-    use crate::registry::IndexerConfig;
+    use crate::indexer_config::IndexerConfig;
 
     mod executors {
         use super::*;

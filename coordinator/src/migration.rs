@@ -5,8 +5,9 @@ use near_primitives::types::AccountId;
 use redis::{ErrorKind, RedisError};
 
 use crate::executors_handler::ExecutorsHandler;
+use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
-use crate::registry::{IndexerConfig, IndexerRegistry};
+use crate::registry::IndexerRegistry;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct AllowlistEntry {
@@ -283,7 +284,7 @@ mod tests {
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
 
-    use crate::registry::IndexerConfig;
+    use crate::indexer_config::IndexerConfig;
 
     #[tokio::test]
     async fn ignores_migrated_indexers() {
