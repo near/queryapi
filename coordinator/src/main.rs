@@ -176,13 +176,6 @@ async fn synchronise_block_streams(
                 .updated_at_block_height
                 .unwrap_or(indexer_config.created_at_block_height);
 
-            // TODO: Ensure start block height is only used to successfully start block stream ONCE
-            // redis streams need to be stateful, and should include the version in their name,
-            // that way across restarts, block streams can only be started, if a stream with the same version does not exist
-            //
-            // Streams with no version have just been migrated, and should therefore Continue,
-            // rather than using the StartBlock
-
             if let Some(active_block_stream) = active_block_stream {
                 if active_block_stream.version == registry_version {
                     continue;
@@ -200,18 +193,12 @@ async fn synchronise_block_streams(
                     .await?;
             }
 
-            // at this point there is no block stream
-
             let stream_version: u64 = redis_client
                 .get(indexer_config.get_redis_stream_version())
                 .await?
-                // TODO handle None, i.e. just migrated, maybe set to registry version so it forces
-                // it to be re-used?
-                .unwrap();
+                // Indexer has just been migrated, force block stream to continue
+                .unwrap_or(registry_version);
 
-            // if versions are same, Continue, if not, update but you may also want to continue
-
-            // most likely block_streamer restart
             if stream_version == registry_version {
                 let last_published_block: u64 = redis_client
                     .get(indexer_config.get_last_published_block())
@@ -232,9 +219,6 @@ async fn synchronise_block_streams(
                 continue;
             }
 
-            // stream/registry version mismatch - means we need to update
-            // either active block stream was stopped above, or registry was updated while block
-            // streamer was down
             let start_block_height = match indexer_config.start_block {
                 StartBlock::Latest => {
                     redis_client
@@ -525,6 +509,7 @@ mod tests {
                     "morgs.near/test:last_published_block",
                 )))
                 .returning(|_| Ok(Some(500)));
+            redis_client.expect_del::<String>().never();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -853,6 +838,66 @@ mod tests {
                 .expect_start()
                 .with(
                     predicate::eq(1000),
+                    predicate::eq("morgs.near".to_string()),
+                    predicate::eq("test".to_string()),
+                    predicate::eq(200),
+                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq(Rule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
+                    }),
+                )
+                .returning(|_, _, _, _, _, _| Ok(()));
+
+            synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn resumes_stream_post_migration() {
+            let indexer_registry = HashMap::from([(
+                "morgs.near".parse().unwrap(),
+                HashMap::from([(
+                    "test".to_string(),
+                    IndexerConfig {
+                        account_id: "morgs.near".parse().unwrap(),
+                        function_name: "test".to_string(),
+                        code: String::new(),
+                        schema: String::new(),
+                        rule: Rule::ActionAny {
+                            affected_account_id: "queryapi.dataplatform.near".to_string(),
+                            status: Status::Any,
+                        },
+                        created_at_block_height: 101,
+                        updated_at_block_height: Some(200),
+                        start_block: StartBlock::Height(1000),
+                    },
+                )]),
+            )]);
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_get::<String, u64>()
+                .with(predicate::eq(String::from(
+                    "morgs.near/test:block_stream:version",
+                )))
+                .returning(|_| Ok(None));
+            redis_client
+                .expect_get::<String, u64>()
+                .with(predicate::eq(String::from(
+                    "morgs.near/test:last_published_block",
+                )))
+                .returning(|_| Ok(Some(100)));
+            redis_client.expect_del::<String>().never();
+
+            let mut block_stream_handler = BlockStreamsHandler::default();
+            block_stream_handler.expect_list().returning(|| Ok(vec![]));
+            block_stream_handler.expect_stop().never();
+            block_stream_handler
+                .expect_start()
+                .with(
+                    predicate::eq(100),
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
