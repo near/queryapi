@@ -85,7 +85,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   const indexer = new Indexer();
   const isHistorical = workerContext.streamType === 'historical';
   let streamMessageId = '';
-  let indexerName = '';
+  let indexerName = streamKey.split(':')[0];
   let currBlockHeight = 0;
 
   while (true) {
