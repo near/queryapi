@@ -347,7 +347,8 @@ mod tests {
                     predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(1),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_executors(&indexer_registry, &executors_handler)
                 .await
@@ -402,7 +403,8 @@ mod tests {
                     predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(2),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_executors(&indexer_registry, &executors_handler)
                 .await
@@ -508,13 +510,23 @@ mod tests {
                 .with(predicate::eq(String::from(
                     "morgs.near/test:block_stream:version",
                 )))
-                .returning(|_| Ok(Some(200)));
+                .returning(|_| Ok(Some(200)))
+                .once();
             redis_client
                 .expect_get::<String, u64>()
                 .with(predicate::eq(String::from(
                     "morgs.near/test:last_published_block",
                 )))
-                .returning(|_| Ok(Some(500)));
+                .returning(|_| Ok(Some(500)))
+                .once();
+            redis_client
+                .expect_set::<String, u64>()
+                .with(
+                    predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                    predicate::eq(200),
+                )
+                .returning(|_, _| Ok(()))
+                .once();
             redis_client.expect_del::<String>().never();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
@@ -532,7 +544,8 @@ mod tests {
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
@@ -567,18 +580,21 @@ mod tests {
                 .with(predicate::eq(String::from(
                     "morgs.near/test:block_stream:version",
                 )))
-                .returning(|_| Ok(Some(1)));
+                .returning(|_| Ok(Some(1)))
+                .once();
             redis_client
                 .expect_del::<String>()
                 .with(predicate::eq(String::from("morgs.near/test:block_stream")))
-                .returning(|_| Ok(()));
+                .returning(|_| Ok(()))
+                .once();
             redis_client
                 .expect_set::<String, u64>()
                 .with(
                     predicate::eq(String::from("morgs.near/test:block_stream:version")),
                     predicate::eq(200),
                 )
-                .returning(|_, _| Ok(()));
+                .returning(|_, _| Ok(()))
+                .once();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -596,7 +612,8 @@ mod tests {
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
@@ -631,18 +648,21 @@ mod tests {
                 .with(predicate::eq(String::from(
                     "morgs.near/test:block_stream:version",
                 )))
-                .returning(|_| Ok(Some(1)));
+                .returning(|_| Ok(Some(1)))
+                .once();
             redis_client
                 .expect_del::<String>()
                 .with(predicate::eq(String::from("morgs.near/test:block_stream")))
-                .returning(|_| Ok(()));
+                .returning(|_| Ok(()))
+                .once();
             redis_client
                 .expect_set::<String, u64>()
                 .with(
                     predicate::eq(String::from("morgs.near/test:block_stream:version")),
                     predicate::eq(200),
                 )
-                .returning(|_, _| Ok(()));
+                .returning(|_, _| Ok(()))
+                .once();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -660,7 +680,8 @@ mod tests {
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
@@ -695,20 +716,23 @@ mod tests {
                 .with(predicate::eq(String::from(
                     "morgs.near/test:block_stream:version",
                 )))
-                .returning(|_| Ok(Some(1)));
+                .returning(|_| Ok(Some(1)))
+                .once();
             redis_client
                 .expect_get::<String, u64>()
                 .with(predicate::eq(String::from(
                     "morgs.near/test:last_published_block",
                 )))
-                .returning(|_| Ok(Some(100)));
+                .returning(|_| Ok(Some(100)))
+                .once();
             redis_client
                 .expect_set::<String, u64>()
                 .with(
                     predicate::eq(String::from("morgs.near/test:block_stream:version")),
                     predicate::eq(200),
                 )
-                .returning(|_, _| Ok(()));
+                .returning(|_, _| Ok(()))
+                .once();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -726,7 +750,8 @@ mod tests {
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
@@ -828,18 +853,21 @@ mod tests {
                 .with(predicate::eq(String::from(
                     "morgs.near/test:block_stream:version",
                 )))
-                .returning(|_| Ok(Some(101)));
+                .returning(|_| Ok(Some(101)))
+                .once();
             redis_client
                 .expect_del::<String>()
                 .with(predicate::eq(String::from("morgs.near/test:block_stream")))
-                .returning(|_| Ok(()));
+                .returning(|_| Ok(()))
+                .once();
             redis_client
                 .expect_set::<String, u64>()
                 .with(
                     predicate::eq(String::from("morgs.near/test:block_stream:version")),
                     predicate::eq(199),
                 )
-                .returning(|_, _| Ok(()));
+                .returning(|_, _| Ok(()))
+                .once();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| {
@@ -868,7 +896,8 @@ mod tests {
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
@@ -903,13 +932,23 @@ mod tests {
                 .with(predicate::eq(String::from(
                     "morgs.near/test:block_stream:version",
                 )))
-                .returning(|_| Ok(None));
+                .returning(|_| Ok(None))
+                .once();
             redis_client
                 .expect_get::<String, u64>()
                 .with(predicate::eq(String::from(
                     "morgs.near/test:last_published_block",
                 )))
-                .returning(|_| Ok(Some(100)));
+                .returning(|_| Ok(Some(100)))
+                .once();
+            redis_client
+                .expect_set::<String, u64>()
+                .with(
+                    predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                    predicate::eq(200),
+                )
+                .returning(|_, _| Ok(()))
+                .once();
             redis_client.expect_del::<String>().never();
 
             let mut block_stream_handler = BlockStreamsHandler::default();
@@ -928,7 +967,8 @@ mod tests {
                         status: Status::Any,
                     }),
                 )
-                .returning(|_, _, _, _, _, _| Ok(()));
+                .returning(|_, _, _, _, _, _| Ok(()))
+                .once();
 
             synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
                 .await
