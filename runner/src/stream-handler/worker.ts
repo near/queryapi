@@ -6,7 +6,7 @@ import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
-import { type IndexerConfig } from './stream-handler';
+import { WorkerMessageType, type IndexerConfig, type WorkerMessage } from './stream-handler';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -114,6 +114,8 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       const block = queueMessage.block;
       currBlockHeight = block.blockHeight;
+      const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
+      parentPort?.postMessage(blockHeightMessage);
       streamMessageId = queueMessage.streamMessageId;
 
       if (block === undefined || block.blockHeight == null) {
@@ -133,11 +135,13 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
     } catch (err) {
       await sleep(10000);
       console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);
+      throw err;
     } finally {
       const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
       METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
 
-      parentPort?.postMessage(await promClient.register.getMetricsAsJSON());
+      const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
+      parentPort?.postMessage(metricsMessage);
     }
   }
 }
