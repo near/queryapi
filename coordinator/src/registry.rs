@@ -46,6 +46,10 @@ impl IndexerConfig {
     pub fn get_last_published_block(&self) -> String {
         format!("{}:last_published_block", self.get_full_name())
     }
+
+    pub fn get_redis_stream_version(&self) -> String {
+        format!("{}:version", self.get_redis_stream())
+    }
 }
 
 #[cfg(test)]
