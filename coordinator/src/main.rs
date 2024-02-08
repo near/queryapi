@@ -212,10 +212,6 @@ async fn synchronise_block_streams(
                     .await?
                     .unwrap()
             } else {
-                redis_client
-                    .set(indexer_config.get_redis_stream_version(), registry_version)
-                    .await?;
-
                 match indexer_config.start_block {
                     StartBlock::Latest => {
                         tracing::info!(
@@ -265,6 +261,9 @@ async fn synchronise_block_streams(
                 version = registry_version,
                 "Starting block stream"
             );
+            redis_client
+                .set(indexer_config.get_redis_stream_version(), registry_version)
+                .await?;
 
             block_streams_handler
                 .start(
