@@ -310,7 +310,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn starts_executors() {
+        async fn starts_executor() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
@@ -351,7 +351,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn restarts_executors_with_mismatched_versions() {
+        async fn restarts_executor_when_registry_version_differs() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
@@ -406,7 +406,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn ignores_executors_with_matching_versions() {
+        async fn ignores_executor_with_matching_registry_version() {
             let indexer_registry = HashMap::from([(
                 "morgs.near".parse().unwrap(),
                 HashMap::from([(
@@ -447,7 +447,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn stops_executors_not_in_registry() {
+        async fn stops_executor_not_in_registry() {
             let indexer_registry = HashMap::from([]);
 
             let mut executors_handler = ExecutorsHandler::default();
