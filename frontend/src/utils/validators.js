@@ -34,7 +34,7 @@ export function validateSQLSchema(schema) {
   try {
     formattedSchema = formatSQL(schema);
   } catch (error) {
-    console.error(error.message)
+    
     return { data: schema, error: new ValidationError(error.message, FORMATTING_ERROR_TYPE) };
   }
 

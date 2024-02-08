@@ -40,7 +40,6 @@ const ResizableEditor = ({
   onMount,
   isCreateNewIndexer,
 }) => {
-  console.log(onMount, "onMount")
   const { firstRef, secondRef, dragBarRef } = useDragResize({
     direction: "horizontal",
     initiallyHidden: null,
