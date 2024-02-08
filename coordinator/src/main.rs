@@ -5,8 +5,8 @@ use registry_types::StartBlock;
 use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
-use crate::block_streams_handler::BlockStreamsHandler;
-use crate::executors_handler::ExecutorsHandler;
+use crate::block_streams_handler::{BlockStreamsHandler, StreamInfo};
+use crate::executors_handler::{ExecutorInfo, ExecutorsHandler};
 use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
 use crate::registry::{IndexerRegistry, Registry};
@@ -102,40 +102,7 @@ async fn synchronise_executors(
                 })
                 .map(|index| active_executors.swap_remove(index));
 
-            let registry_version = indexer_config.get_registry_version();
-
-            if let Some(active_executor) = active_executor {
-                if active_executor.version == registry_version {
-                    continue;
-                }
-
-                tracing::info!(
-                    account_id = active_executor.account_id.as_str(),
-                    function_name = active_executor.function_name,
-                    registry_version = active_executor.version,
-                    "Stopping executor"
-                );
-
-                executors_handler.stop(active_executor.executor_id).await?;
-            }
-
-            tracing::info!(
-                account_id = account_id.as_str(),
-                function_name,
-                registry_version,
-                "Starting executor"
-            );
-
-            executors_handler
-                .start(
-                    account_id.to_string(),
-                    function_name.to_string(),
-                    indexer_config.code.clone(),
-                    indexer_config.schema.clone(),
-                    indexer_config.get_redis_stream_key(),
-                    registry_version,
-                )
-                .await?;
+            synchronise_executor(active_executor, indexer_config, executors_handler).await?;
         }
     }
 
@@ -151,6 +118,49 @@ async fn synchronise_executors(
             .stop(unregistered_executor.executor_id)
             .await?;
     }
+
+    Ok(())
+}
+
+async fn synchronise_executor(
+    active_executor: Option<ExecutorInfo>,
+    indexer_config: &IndexerConfig,
+    executors_handler: &ExecutorsHandler,
+) -> anyhow::Result<()> {
+    let registry_version = indexer_config.get_registry_version();
+
+    if let Some(active_executor) = active_executor {
+        if active_executor.version == registry_version {
+            return Ok(());
+        }
+
+        tracing::info!(
+            account_id = indexer_config.account_id.as_str(),
+            function_name = indexer_config.function_name,
+            version = active_executor.version,
+            "Stopping executor"
+        );
+
+        executors_handler.stop(active_executor.executor_id).await?;
+    }
+
+    tracing::info!(
+        account_id = indexer_config.account_id.as_str(),
+        function_name = indexer_config.function_name,
+        registry_version,
+        "Starting executor"
+    );
+
+    executors_handler
+        .start(
+            indexer_config.account_id.to_string(),
+            indexer_config.function_name.to_string(),
+            indexer_config.code.clone(),
+            indexer_config.schema.clone(),
+            indexer_config.get_redis_stream_key(),
+            registry_version,
+        )
+        .await?;
 
     Ok(())
 }
@@ -199,7 +209,7 @@ async fn synchronise_block_streams(
 }
 
 async fn synchronise_block_stream(
-    active_block_stream: Option<block_streamer::StreamInfo>,
+    active_block_stream: Option<StreamInfo>,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
     block_streams_handler: &BlockStreamsHandler,
@@ -240,6 +250,14 @@ async fn synchronise_block_stream(
         redis_client,
     )
     .await?;
+
+    tracing::info!(
+        account_id = indexer_config.account_id.as_str(),
+        function_name = indexer_config.function_name.as_str(),
+        version = registry_version,
+        start_block_height,
+        "Starting block stream"
+    );
 
     block_streams_handler
         .start(

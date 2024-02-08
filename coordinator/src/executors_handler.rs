@@ -1,8 +1,10 @@
 #![cfg_attr(test, allow(dead_code))]
 
+pub use runner::ExecutorInfo;
+
 use anyhow::Context;
 use runner::runner_client::RunnerClient;
-use runner::{ExecutorInfo, ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
+use runner::{ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
