@@ -199,47 +199,38 @@ async fn synchronise_block_streams(
                 // Indexer has just been migrated, force block stream to continue
                 .unwrap_or(registry_version);
 
-            if stream_version == registry_version {
-                let last_published_block: u64 = redis_client
+            let start_block_height = if stream_version == registry_version {
+                redis_client
                     .get(indexer_config.get_last_published_block())
                     .await?
-                    .unwrap();
-
-                block_streams_handler
-                    .start(
-                        last_published_block,
-                        indexer_config.account_id.to_string(),
-                        indexer_config.function_name.clone(),
-                        registry_version,
-                        indexer_config.get_redis_stream(),
-                        indexer_config.rule.clone(),
-                    )
+                    .unwrap()
+            } else {
+                redis_client
+                    .set(indexer_config.get_redis_stream_version(), registry_version)
                     .await?;
 
-                continue;
-            }
+                match indexer_config.start_block {
+                    StartBlock::Latest => {
+                        redis_client.del(indexer_config.get_redis_stream()).await?;
 
-            let start_block_height = match indexer_config.start_block {
-                StartBlock::Latest => {
-                    redis_client.del(indexer_config.get_redis_stream()).await?;
+                        registry_version
+                    }
+                    StartBlock::Height(height) => {
+                        redis_client.del(indexer_config.get_redis_stream()).await?;
 
-                    registry_version
+                        height
+                    }
+                    StartBlock::Continue => redis_client
+                        .get(indexer_config.get_last_published_block())
+                        .await?
+                        .unwrap(),
                 }
-                StartBlock::Height(height) => {
-                    redis_client.del(indexer_config.get_redis_stream()).await?;
-
-                    height
-                }
-                StartBlock::Continue => redis_client
-                    .get(indexer_config.get_last_published_block())
-                    .await?
-                    .unwrap(),
             };
 
             tracing::info!(
                 account_id = account_id.as_str(),
                 function_name,
-                registry_version,
+                version = registry_version,
                 "Starting block stream"
             );
 
@@ -260,7 +251,7 @@ async fn synchronise_block_streams(
         tracing::info!(
             account_id = unregistered_block_stream.account_id.as_str(),
             function_name = unregistered_block_stream.function_name,
-            registry_version = unregistered_block_stream.version,
+            version = unregistered_block_stream.version,
             "Stopping unregistered block stream"
         );
 
