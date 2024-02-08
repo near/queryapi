@@ -50,6 +50,21 @@ impl RedisClientImpl {
 
         Ok(value)
     }
+    pub async fn set<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        V: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("SET: {key:?} {value:?}");
+
+        self.connection
+            .clone()
+            .set(&key, &value)
+            .await
+            .context(format!("SET: {key:?} {value:?}"))?;
+
+        Ok(())
+    }
 
     pub async fn rename<K, V>(&self, old_key: K, new_key: V) -> anyhow::Result<()>
     where

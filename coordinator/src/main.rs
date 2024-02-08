@@ -211,7 +211,7 @@ async fn synchronise_block_streams(
                         indexer_config.account_id.to_string(),
                         indexer_config.function_name.clone(),
                         registry_version,
-                        format!("{}:{registry_version}", indexer_config.get_redis_stream()),
+                        indexer_config.get_redis_stream(),
                         indexer_config.rule.clone(),
                     )
                     .await?;
@@ -221,40 +221,19 @@ async fn synchronise_block_streams(
 
             let start_block_height = match indexer_config.start_block {
                 StartBlock::Latest => {
-                    redis_client
-                        .del(format!(
-                            "{}:{}",
-                            indexer_config.get_redis_stream(),
-                            stream_version
-                        ))
-                        .await?;
+                    redis_client.del(indexer_config.get_redis_stream()).await?;
 
                     registry_version
                 }
                 StartBlock::Height(height) => {
-                    redis_client
-                        .del(format!(
-                            "{}:{}",
-                            indexer_config.get_redis_stream(),
-                            stream_version
-                        ))
-                        .await?;
+                    redis_client.del(indexer_config.get_redis_stream()).await?;
 
                     height
                 }
-                StartBlock::Continue => {
-                    redis_client
-                        .rename(
-                            format!("{}:{}", indexer_config.get_redis_stream(), stream_version),
-                            format!("{}:{}", indexer_config.get_redis_stream(), registry_version),
-                        )
-                        .await?;
-
-                    redis_client
-                        .get(indexer_config.get_last_published_block())
-                        .await?
-                        .unwrap()
-                }
+                StartBlock::Continue => redis_client
+                    .get(indexer_config.get_last_published_block())
+                    .await?
+                    .unwrap(),
             };
 
             tracing::info!(
@@ -270,7 +249,7 @@ async fn synchronise_block_streams(
                     indexer_config.account_id.to_string(),
                     indexer_config.function_name.clone(),
                     registry_version,
-                    format!("{}:{}", indexer_config.get_redis_stream(), registry_version),
+                    indexer_config.get_redis_stream(),
                     indexer_config.rule.clone(),
                 )
                 .await?;
@@ -520,7 +499,7 @@ mod tests {
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
-                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
@@ -564,10 +543,15 @@ mod tests {
                 .returning(|_| Ok(Some(1)));
             redis_client
                 .expect_del::<String>()
-                .with(predicate::eq(String::from(
-                    "morgs.near/test:block_stream:1",
-                )))
+                .with(predicate::eq(String::from("morgs.near/test:block_stream")))
                 .returning(|_| Ok(()));
+            redis_client
+                .expect_set::<String, u64>()
+                .with(
+                    predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                    predicate::eq(200),
+                )
+                .returning(|_, _| Ok(()));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -579,7 +563,7 @@ mod tests {
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
-                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
@@ -623,10 +607,15 @@ mod tests {
                 .returning(|_| Ok(Some(1)));
             redis_client
                 .expect_del::<String>()
-                .with(predicate::eq(String::from(
-                    "morgs.near/test:block_stream:1",
-                )))
+                .with(predicate::eq(String::from("morgs.near/test:block_stream")))
                 .returning(|_| Ok(()));
+            redis_client
+                .expect_set::<String, u64>()
+                .with(
+                    predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                    predicate::eq(200),
+                )
+                .returning(|_, _| Ok(()));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -638,7 +627,7 @@ mod tests {
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
-                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
@@ -681,18 +670,18 @@ mod tests {
                 )))
                 .returning(|_| Ok(Some(1)));
             redis_client
-                .expect_rename::<String, String>()
-                .with(
-                    predicate::eq(String::from("morgs.near/test:block_stream:1")),
-                    predicate::eq(String::from("morgs.near/test:block_stream:200")),
-                )
-                .returning(|_, _| Ok(()));
-            redis_client
                 .expect_get::<String, u64>()
                 .with(predicate::eq(String::from(
                     "morgs.near/test:last_published_block",
                 )))
                 .returning(|_| Ok(Some(100)));
+            redis_client
+                .expect_set::<String, u64>()
+                .with(
+                    predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                    predicate::eq(200),
+                )
+                .returning(|_, _| Ok(()));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -704,7 +693,7 @@ mod tests {
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
-                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
@@ -800,7 +789,7 @@ mod tests {
                             status: Status::Any,
                         },
                         created_at_block_height: 101,
-                        updated_at_block_height: Some(200),
+                        updated_at_block_height: Some(199),
                         start_block: StartBlock::Height(1000),
                     },
                 )]),
@@ -815,10 +804,15 @@ mod tests {
                 .returning(|_| Ok(Some(101)));
             redis_client
                 .expect_del::<String>()
-                .with(predicate::eq(String::from(
-                    "morgs.near/test:block_stream:101",
-                )))
+                .with(predicate::eq(String::from("morgs.near/test:block_stream")))
                 .returning(|_| Ok(()));
+            redis_client
+                .expect_set::<String, u64>()
+                .with(
+                    predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                    predicate::eq(199),
+                )
+                .returning(|_, _| Ok(()));
 
             let mut block_stream_handler = BlockStreamsHandler::default();
             block_stream_handler.expect_list().returning(|| {
@@ -840,8 +834,8 @@ mod tests {
                     predicate::eq(1000),
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
-                    predicate::eq(200),
-                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq(199),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
@@ -901,7 +895,7 @@ mod tests {
                     predicate::eq("morgs.near".to_string()),
                     predicate::eq("test".to_string()),
                     predicate::eq(200),
-                    predicate::eq("morgs.near/test:block_stream:200".to_string()),
+                    predicate::eq("morgs.near/test:block_stream".to_string()),
                     predicate::eq(Rule::ActionAny {
                         affected_account_id: "queryapi.dataplatform.near".to_string(),
                         status: Status::Any,
