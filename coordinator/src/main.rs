@@ -193,74 +193,79 @@ async fn synchronise_block_streams(
                     .await?;
             }
 
-            let stream_version: u64 = redis_client
-                .get(indexer_config.get_redis_stream_version())
-                .await?
-                // Indexer has just been migrated, force block stream to continue
-                .unwrap_or(registry_version);
+            let stream_version = redis_client
+                .get::<_, u64>(indexer_config.get_redis_stream_version())
+                .await?;
 
-            let start_block_height = if stream_version == registry_version {
-                tracing::info!(
-                    account_id = account_id.as_str(),
-                    function_name,
-                    version = registry_version,
-                    "Resuming stopped block stream"
-                );
+            let start_block_height =
+                if stream_version.map_or(true, |version| version == registry_version) {
+                    tracing::info!(
+                        account_id = account_id.as_str(),
+                        function_name,
+                        version = registry_version,
+                        "Resuming block stream"
+                    );
 
-                redis_client
-                    .get(indexer_config.get_last_published_block())
-                    .await?
-                    .unwrap()
-            } else {
-                match indexer_config.start_block {
-                    StartBlock::Latest => {
-                        tracing::info!(
-                            account_id = account_id.as_str(),
-                            function_name,
-                            version = registry_version,
-                            "Starting block stream from latest"
-                        );
+                    redis_client
+                        .get(indexer_config.get_last_published_block())
+                        .await?
+                        .unwrap_or_else(|| {
+                            tracing::warn!(
+                                "Indexer has no `last_published_block`, using registry version"
+                            );
 
-                        redis_client.del(indexer_config.get_redis_stream()).await?;
+                            registry_version
+                        })
+                } else {
+                    match indexer_config.start_block {
+                        StartBlock::Latest => {
+                            tracing::info!(
+                                account_id = account_id.as_str(),
+                                function_name,
+                                version = registry_version,
+                                "Starting block stream with latest"
+                            );
 
-                        registry_version
+                            redis_client.del(indexer_config.get_redis_stream()).await?;
+
+                            registry_version
+                        }
+                        StartBlock::Height(height) => {
+                            tracing::info!(
+                                account_id = account_id.as_str(),
+                                function_name,
+                                version = registry_version,
+                                height,
+                                "Starting block stream with height"
+                            );
+
+                            redis_client.del(indexer_config.get_redis_stream()).await?;
+
+                            height
+                        }
+
+                        StartBlock::Continue => {
+                            tracing::info!(
+                                account_id = account_id.as_str(),
+                                function_name,
+                                version = registry_version,
+                                "Starting block stream with continue"
+                            );
+
+                            redis_client
+                                .get(indexer_config.get_last_published_block())
+                                .await?
+                                .unwrap_or_else(|| {
+                                    tracing::warn!(
+                                    "Indexer has no `last_published_block`, using registry version"
+                                );
+
+                                    registry_version
+                                })
+                        }
                     }
-                    StartBlock::Height(height) => {
-                        tracing::info!(
-                            account_id = account_id.as_str(),
-                            function_name,
-                            version = registry_version,
-                            height,
-                            "Starting block stream from height"
-                        );
+                };
 
-                        redis_client.del(indexer_config.get_redis_stream()).await?;
-
-                        height
-                    }
-
-                    StartBlock::Continue => {
-                        tracing::info!(
-                            account_id = account_id.as_str(),
-                            function_name,
-                            version = registry_version,
-                            "Continuing block stream"
-                        );
-
-                        redis_client
-                            .get(indexer_config.get_last_published_block())
-                            .await?
-                            .unwrap()
-                    }
-                }
-            };
-
-            tracing::info!(
-                account_id = account_id.as_str(),
-                function_name,
-                version = registry_version,
-                "Starting block stream"
-            );
             redis_client
                 .set(indexer_config.get_redis_stream_version(), registry_version)
                 .await?;
