@@ -130,29 +130,29 @@ async fn remove_from_streams_set(
     if redis_client
         .srem(
             RedisClient::STREAMS_SET,
-            indexer_config.get_historical_redis_stream(),
+            indexer_config.get_historical_redis_stream_key(),
         )
         .await?
         .is_some()
         && redis_client
-            .exists(indexer_config.get_historical_redis_stream())
+            .exists(indexer_config.get_historical_redis_stream_key())
             .await?
     {
-        result.push(indexer_config.get_historical_redis_stream());
+        result.push(indexer_config.get_historical_redis_stream_key());
     }
 
     if redis_client
         .srem(
             RedisClient::STREAMS_SET,
-            indexer_config.get_real_time_redis_stream(),
+            indexer_config.get_real_time_redis_stream_key(),
         )
         .await?
         .is_some()
         && redis_client
-            .exists(indexer_config.get_real_time_redis_stream())
+            .exists(indexer_config.get_real_time_redis_stream_key())
             .await?
     {
-        result.push(indexer_config.get_real_time_redis_stream());
+        result.push(indexer_config.get_real_time_redis_stream_key());
     };
 
     Ok(result)
@@ -180,7 +180,7 @@ async fn merge_streams(
             redis_client
                 .rename(
                     existing_streams[0].to_owned(),
-                    indexer_config.get_redis_stream(),
+                    indexer_config.get_redis_stream_key(),
                 )
                 .await?;
 
@@ -191,7 +191,7 @@ async fn merge_streams(
             let real_time_stream = existing_streams[1].to_owned();
 
             redis_client
-                .rename(historical_stream, indexer_config.get_redis_stream())
+                .rename(historical_stream, indexer_config.get_redis_stream_key())
                 .await?;
 
             loop {
@@ -217,10 +217,13 @@ async fn merge_streams(
                         .collect();
 
                     redis_client
-                        .xadd(indexer_config.get_redis_stream(), &fields)
+                        .xadd(indexer_config.get_redis_stream_key(), &fields)
                         .await?;
                     redis_client
-                        .xdel(indexer_config.get_real_time_redis_stream(), stream_id.id)
+                        .xdel(
+                            indexer_config.get_real_time_redis_stream_key(),
+                            stream_id.id,
+                        )
                         .await?
                 }
             }

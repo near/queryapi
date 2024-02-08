@@ -7,6 +7,8 @@ use redis::{
     aio::ConnectionManager, streams, AsyncCommands, FromRedisValue, RedisResult, ToRedisArgs,
 };
 
+use crate::indexer_config::IndexerConfig;
+
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
@@ -206,5 +208,34 @@ impl RedisClientImpl {
         })?;
 
         Ok(())
+    }
+
+    pub async fn get_stream_version(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<u64>> {
+        self.get::<_, u64>(indexer_config.get_redis_stream_version_key())
+            .await
+    }
+
+    pub async fn get_last_published_block(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<u64>> {
+        self.get::<_, u64>(indexer_config.get_last_published_block_key())
+            .await
+    }
+
+    pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        self.del(indexer_config.get_redis_stream_key()).await
+    }
+
+    pub async fn set_stream_version(
+        &self,
+        indexer_config: &IndexerConfig,
+        version: u64,
+    ) -> anyhow::Result<()> {
+        self.set(indexer_config.get_redis_stream_version_key(), version)
+            .await
     }
 }

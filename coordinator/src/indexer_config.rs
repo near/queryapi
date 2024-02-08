@@ -1,7 +1,7 @@
 use near_primitives::types::AccountId;
 use registry_types::{Rule, StartBlock};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct IndexerConfig {
     pub account_id: AccountId,
     pub function_name: String,
@@ -18,23 +18,23 @@ impl IndexerConfig {
         format!("{}/{}", self.account_id, self.function_name)
     }
 
-    pub fn get_redis_stream(&self /*, version: u64*/) -> String {
+    pub fn get_redis_stream_key(&self) -> String {
         format!("{}:block_stream", self.get_full_name())
     }
 
-    pub fn get_historical_redis_stream(&self) -> String {
+    pub fn get_historical_redis_stream_key(&self) -> String {
         format!("{}:historical:stream", self.get_full_name())
     }
 
-    pub fn get_real_time_redis_stream(&self) -> String {
+    pub fn get_real_time_redis_stream_key(&self) -> String {
         format!("{}:real_time:stream", self.get_full_name())
     }
 
-    pub fn get_last_published_block(&self) -> String {
+    pub fn get_last_published_block_key(&self) -> String {
         format!("{}:last_published_block", self.get_full_name())
     }
 
-    pub fn get_redis_stream_version(&self) -> String {
-        format!("{}:version", self.get_redis_stream())
+    pub fn get_redis_stream_version_key(&self) -> String {
+        format!("{}:version", self.get_redis_stream_key())
     }
 }
