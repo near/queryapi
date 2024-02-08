@@ -127,6 +127,7 @@ pub(crate) async fn start_block_stream(
         account_id = indexer.account_id.as_str(),
         function_name = indexer.function_name,
         start_block_height,
+        redis_stream,
         "Starting block stream",
     );
 
