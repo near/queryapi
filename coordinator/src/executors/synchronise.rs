@@ -1,8 +1,9 @@
 use tracing::Instrument;
 
-use crate::executors_handler::{ExecutorInfo, ExecutorsHandler};
 use crate::indexer_config::IndexerConfig;
 use crate::registry::IndexerRegistry;
+
+use super::handler::{ExecutorInfo, ExecutorsHandler};
 
 const V1_EXECUTOR_VERSION: u64 = 0;
 

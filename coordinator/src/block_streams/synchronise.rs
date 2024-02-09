@@ -1,10 +1,11 @@
 use registry_types::StartBlock;
 use tracing::Instrument;
 
-use crate::block_streams_handler::{BlockStreamsHandler, StreamInfo};
 use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
+
+use super::handler::{BlockStreamsHandler, StreamInfo};
 
 pub async fn synchronise_block_streams(
     indexer_registry: &IndexerRegistry,

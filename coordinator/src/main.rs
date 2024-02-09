@@ -4,19 +4,17 @@ use near_primitives::types::AccountId;
 use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
-use crate::block_streams_handler::BlockStreamsHandler;
-use crate::executors_handler::ExecutorsHandler;
+use crate::block_streams::{synchronise_block_streams, BlockStreamsHandler};
+use crate::executors::{synchronise_executors, ExecutorsHandler};
 use crate::redis::RedisClient;
 use crate::registry::Registry;
-use crate::synchronise::{synchronise_block_streams, synchronise_executors};
 
-mod block_streams_handler;
-mod executors_handler;
+mod block_streams;
+mod executors;
 mod indexer_config;
 mod migration;
 mod redis;
 mod registry;
-mod synchronise;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);

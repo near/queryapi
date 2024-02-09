@@ -4,7 +4,7 @@ use anyhow::Context;
 use near_primitives::types::AccountId;
 use redis::{ErrorKind, RedisError};
 
-use crate::executors_handler::ExecutorsHandler;
+use crate::executors::ExecutorsHandler;
 use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
