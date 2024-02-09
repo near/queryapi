@@ -17,8 +17,19 @@ export interface IndexerConfig {
   version: number
 }
 
+export enum WorkerMessageType {
+  METRICS = 'METRICS',
+  BLOCK_HEIGHT = 'BLOCK_HEIGHT',
+}
+
+export interface WorkerMessage {
+  type: WorkerMessageType
+  data: any
+}
+
 interface ExecutorContext {
   status: Status
+  block_height: number
 }
 
 export default class StreamHandler {
@@ -38,6 +49,7 @@ export default class StreamHandler {
       });
       this.executorContext = {
         status: Status.RUNNING,
+        block_height: indexerConfig?.version ?? 0,
       };
 
       this.worker.on('message', this.handleMessage.bind(this));
@@ -61,12 +73,22 @@ export default class StreamHandler {
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
       console.log(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
+    indexer.writeLog(functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`).catch((e) => {
+      console.log(`Failed to write log for stream: ${this.streamKey}`, e);
+    });
     this.worker.terminate().catch(() => {
       console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
     });
   }
 
-  private handleMessage (message: string): void {
-    registerWorkerMetrics(this.worker.threadId, message);
+  private handleMessage (message: WorkerMessage): void {
+    switch (message.type) {
+      case WorkerMessageType.BLOCK_HEIGHT:
+        this.executorContext.block_height = message.data;
+        break;
+      case WorkerMessageType.METRICS:
+        registerWorkerMetrics(this.worker.threadId, message.data);
+        break;
+    }
   }
 }
