@@ -80,7 +80,7 @@ const ResizableEditor = ({
             automaticLayout: true,
             formatOnPaste: true,
             definitionLinkOpensInPeek: true,
-            glyphMargin: true,
+            // glyphMargin: true,
             font: 'serif'
           }}
         />

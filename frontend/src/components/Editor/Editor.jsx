@@ -46,7 +46,7 @@ const Editor = ({ actionButtonText }) => {
   const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
-
+  const SCHEMA_TAB_NAME = "schema.sql";
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [error, setError] = useState();
 
@@ -83,40 +83,35 @@ const Editor = ({ actionButtonText }) => {
   const monacoEditorRef = useRef(null);
 
 
-  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
-    console.log("hit debounced function");
+  const parseGlyphError = (error, line) => {
+    const { line: startLine, column: startColumn } = line?.start || { line: 1, column: 1 };
+    const { line: endLine, column: endColumn } = line?.end || { line: 1, column: 1 };
+    const displayedError = error?.message || 'No Errors';
 
     monacoEditorRef.current.deltaDecorations(
       [decorations],
       [
         {
-          range: new monaco.Range(3, 1, 3, 1),
+          range: new monaco.Range(startLine, startColumn, endLine, endColumn),
           options: {
             isWholeLine: true,
-            glyphMarginClassName: "glyphError",
-            glyphMarginHoverMessage: { value: "Error Here" },
+            glyphMarginClassName: error ? "glyphError" : "glyphSuccess",
+            glyphMarginHoverMessage: { value: displayedError },
           },
         },
       ]
     );
+  }
 
-    const { error: schemaError } = validateSQLSchema(_schema);
-    console.log('returned error:', schemaError?.type, schemaError?.message);
-
-    if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-    } else {
-      setError();
-    }
+  const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
+    const { error, location } = validateSQLSchema(_schema);
+    error ? parseGlyphError(error, location) : parseGlyphError();
+    return;
   }, 500);
 
   const debouncedValidateCode = useDebouncedCallback((_code) => {
     const { error: codeError } = validateJSCode(_code);
-    if (codeError) {
-      setError(CODE_FORMATTING_ERROR_MESSAGE);
-    } else {
-      setError();
-    }
+    codeError ? setError(CODE_FORMATTING_ERROR_MESSAGE) : setError();
   }, 500);
 
   useEffect(() => {
@@ -136,7 +131,6 @@ const Editor = ({ actionButtonText }) => {
   }, [indexerDetails.code]);
 
   useEffect(() => {
-    console.log("triggered due to indexerDetails.schema");
     if (indexerDetails.schema != null) {
       const { data: formattedSchema, error: schemaError } = validateSQLSchema(
         indexerDetails.schema
@@ -153,8 +147,7 @@ const Editor = ({ actionButtonText }) => {
   }, [indexerDetails.schema]);
 
   useEffect(() => {
-    console.log("triggered due to fileName");
-    const { error: schemaError } = validateSQLSchema(schema);
+    const { error: schemaError, location } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
 
     if (schemaError?.type === FORMATTING_ERROR_TYPE) {
@@ -166,12 +159,11 @@ const Editor = ({ actionButtonText }) => {
       setError();
       handleCodeGen();
     }
+    if (fileName === SCHEMA_TAB_NAME) debouncedValidateSQLSchema(schema);
+
   }, [fileName]);
 
   useEffect(() => {
-    console.log(
-      "triggered due to indexerDetails.accountId, indexerDetails.indexerName"
-    );
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
     const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
 
@@ -182,21 +174,16 @@ const Editor = ({ actionButtonText }) => {
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
   useEffect(() => {
-    console.log(
-      "triggered due to schema, indexingCode and adding to localstorage"
-    );
     localStorage.setItem(SCHEMA_STORAGE_KEY, schema);
     localStorage.setItem(CODE_STORAGE_KEY, indexingCode);
   }, [schema, indexingCode]);
 
   useEffect(() => {
-    console.log("triggered due to schemaTypes, monacoMount");
     localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
     attachTypesToMonaco();
   }, [schemaTypes, monacoMount]);
 
   useEffect(() => {
-    console.log("triggered due to heights");
     localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
   }, [heights]);
 
@@ -444,7 +431,6 @@ const Editor = ({ actionButtonText }) => {
   }
 
   function handleOnChangeSchema(_schema) {
-    console.log("check for potnetial err here");
     setSchema(_schema);
     debouncedValidateSQLSchema(_schema);
   }
