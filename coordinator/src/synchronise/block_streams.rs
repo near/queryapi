@@ -1,4 +1,5 @@
 use registry_types::StartBlock;
+use tracing::Instrument;
 
 use crate::block_streams_handler::{BlockStreamsHandler, StreamInfo};
 use crate::indexer_config::IndexerConfig;
@@ -22,12 +23,20 @@ pub async fn synchronise_block_streams(
                 })
                 .map(|index| active_block_streams.swap_remove(index));
 
+            let span = tracing::info_span!(
+                "Synchronising block stream",
+                account_id = account_id.as_str(),
+                function_name = function_name.as_str(),
+                current_version = indexer_config.get_registry_version()
+            );
+
             synchronise_block_stream(
                 active_block_stream,
                 indexer_config,
                 redis_client,
                 block_streams_handler,
             )
+            .instrument(span)
             .await?;
         }
     }
@@ -63,10 +72,8 @@ async fn synchronise_block_stream(
         }
 
         tracing::info!(
-            account_id = indexer_config.account_id.as_str(),
-            function_name = indexer_config.function_name.as_str(),
-            version = active_block_stream.version,
-            "Stopping block stream"
+            previous_version = active_block_stream.version,
+            "Stopping outdated block stream"
         );
 
         block_streams_handler
@@ -92,13 +99,7 @@ async fn synchronise_block_stream(
     )
     .await?;
 
-    tracing::info!(
-        account_id = indexer_config.account_id.as_str(),
-        function_name = indexer_config.function_name.as_str(),
-        version = registry_version,
-        start_block_height,
-        "Starting block stream"
-    );
+    tracing::info!("Starting block stream");
 
     // TODO take just indexer_config?
     block_streams_handler
@@ -131,12 +132,7 @@ async fn clear_block_stream_if_needed(
     if !just_migrated_or_unmodified {
         match indexer_config.start_block {
             StartBlock::Latest | StartBlock::Height(_) => {
-                tracing::info!(
-                    account_id = indexer_config.account_id.as_str(),
-                    function_name = indexer_config.function_name,
-                    version = registry_version,
-                    "Clearing existing block stream"
-                );
+                tracing::info!("Clearing redis stream");
 
                 redis_client.clear_block_stream(indexer_config).await?;
             }

@@ -1,3 +1,5 @@
+use tracing::Instrument;
+
 use crate::executors_handler::{ExecutorInfo, ExecutorsHandler};
 use crate::indexer_config::IndexerConfig;
 use crate::registry::IndexerRegistry;
@@ -27,8 +29,17 @@ pub async fn synchronise_executors(
                 })
                 .map(|index| active_executors.swap_remove(index));
 
+            let span = tracing::info_span!(
+                "Synchronising executor",
+                account_id = account_id.as_str(),
+                function_name = function_name.as_str(),
+                current_version = indexer_config.get_registry_version()
+            );
+
             // TODO capture errors thrown in here
-            synchronise_executor(active_executor, indexer_config, executors_handler).await?;
+            synchronise_executor(active_executor, indexer_config, executors_handler)
+                .instrument(span)
+                .await?;
         }
     }
 
@@ -60,22 +71,12 @@ async fn synchronise_executor(
             return Ok(());
         }
 
-        tracing::info!(
-            account_id = indexer_config.account_id.as_str(),
-            function_name = indexer_config.function_name,
-            version = active_executor.version,
-            "Stopping executor"
-        );
+        tracing::info!("Stopping executor");
 
         executors_handler.stop(active_executor.executor_id).await?;
     }
 
-    tracing::info!(
-        account_id = indexer_config.account_id.as_str(),
-        function_name = indexer_config.function_name,
-        registry_version,
-        "Starting executor"
-    );
+    tracing::info!("Starting executor");
 
     executors_handler
         .start(
