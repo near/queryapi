@@ -1,6 +1,24 @@
 import express from 'express';
 import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 
+const HEAP_TOTAL_ALLOCATION = new Gauge({
+  name: 'queryapi_runner_heap_total_allocation_megabytes',
+  help: 'Size of heap allocation for indexer function',
+  labelNames: ['indexer', 'type'],
+});
+
+const HEAP_USED = new Gauge({
+  name: 'queryapi_runner_heap_used_megabytes',
+  help: 'Size of used heap space for indexer function',
+  labelNames: ['indexer', 'type'],
+});
+
+const PREFETCH_QUEUE_COUNT = new Gauge({
+  name: 'queryapi_runner_prefetch_queue_count',
+  help: 'Count of items in prefetch queue for indexer function',
+  labelNames: ['indexer', 'type'],
+});
+
 const BLOCK_WAIT_DURATION = new Histogram({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
@@ -37,6 +55,9 @@ const EXECUTION_DURATION = new Histogram({
 });
 
 export const METRICS = {
+  HEAP_TOTAL_ALLOCATION,
+  HEAP_USED,
+  PREFETCH_QUEUE_COUNT,
   BLOCK_WAIT_DURATION,
   CACHE_HIT,
   CACHE_MISS,

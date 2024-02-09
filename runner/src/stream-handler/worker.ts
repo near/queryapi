@@ -57,27 +57,32 @@ function incrementId (id: string): string {
 }
 
 async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
-  const HISTORICAL_BATCH_SIZE = parseInt(process.env.BATCH_SIZE ?? '10');
+  const HISTORICAL_BATCH_SIZE = parseInt(process.env.PREFETCH_QUEUE_LIMIT ?? '10');
   let streamMessageStartId = '0';
 
   while (true) {
     const preFetchCount = HISTORICAL_BATCH_SIZE - workerContext.queue.length;
-    if (preFetchCount <= 0) {
-      await sleep(100);
-      continue;
-    }
-    const messages = await workerContext.redisClient.getStreamMessages(streamKey, streamMessageStartId, preFetchCount);
-    if (messages == null) {
-      await sleep(100);
-      continue;
-    }
+    try {
+      if (preFetchCount <= 0) {
+        await sleep(100);
+        continue;
+      }
+      const messages = await workerContext.redisClient.getStreamMessages(streamKey, streamMessageStartId, preFetchCount);
+      if (messages == null) {
+        await sleep(100);
+        continue;
+      }
 
-    for (const streamMessage of messages) {
-      const { id, message } = streamMessage;
-      workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
-    }
+      for (const streamMessage of messages) {
+        const { id, message } = streamMessage;
+        workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
+      }
 
-    streamMessageStartId = incrementId(messages[messages.length - 1].id);
+      streamMessageStartId = incrementId(messages[messages.length - 1].id);
+    } catch (err) {
+      console.error('Error fetching stream messages', err);
+      await sleep(500);
+    }
   }
 }
 
@@ -139,6 +144,10 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
     } finally {
       const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
       METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
+      const memoryUsage = process.memoryUsage();
+      METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapTotal / (1024 * 1024));
+      METRICS.HEAP_USED.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapUsed / (1024 * 1024));
+      METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerName, type: workerContext.streamType }).set(workerContext.queue.length);
 
       const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
       parentPort?.postMessage(metricsMessage);

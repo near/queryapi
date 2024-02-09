@@ -142,7 +142,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn fetch_denylist(redis_connection_manager: &ConnectionManager) -> anyhow::Result<Denylist> {
     let raw_denylist: String =
-        storage::get(redis_connection_manager, storage::DENYLIST_KEY).await?;
+        storage::get(redis_connection_manager, storage::DENYLIST_KEY).await.unwrap_or("".to_owned());
     let denylist: Denylist =
         serde_json::from_str(&raw_denylist).context("Failed to parse denylist")?;
 
