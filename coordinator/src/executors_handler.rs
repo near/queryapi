@@ -8,6 +8,7 @@ use runner::{ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
+use crate::indexer_config::IndexerConfig;
 use crate::utils::exponential_retry;
 
 #[cfg(not(test))]
@@ -48,22 +49,14 @@ impl ExecutorsHandlerImpl {
         .await
     }
 
-    pub async fn start(
-        &self,
-        account_id: String,
-        function_name: String,
-        code: String,
-        schema: String,
-        redis_stream: String,
-        version: u64,
-    ) -> anyhow::Result<()> {
+    pub async fn start(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
         let request = StartExecutorRequest {
-            code,
-            schema,
-            redis_stream,
-            version,
-            account_id: account_id.clone(),
-            function_name: function_name.clone(),
+            code: indexer_config.code.clone(),
+            schema: indexer_config.schema.clone(),
+            redis_stream: indexer_config.get_redis_stream_key(),
+            version: indexer_config.get_registry_version(),
+            account_id: indexer_config.account_id.to_string(),
+            function_name: indexer_config.function_name.clone(),
         };
 
         let response = self
@@ -73,16 +66,16 @@ impl ExecutorsHandlerImpl {
             .await
             .map_err(|error| {
                 tracing::error!(
-                    account_id,
-                    function_name,
+                    account_id = indexer_config.account_id.as_str(),
+                    function_name = indexer_config.function_name,
                     "Failed to start executor\n{error:?}"
                 );
             });
 
         tracing::debug!(
-            account_id,
-            function_name,
-            version,
+            account_id = indexer_config.account_id.as_str(),
+            function_name = indexer_config.function_name,
+            version = indexer_config.get_registry_version(),
             "Start executors response: {:#?}",
             response
         );

@@ -64,10 +64,8 @@ async fn synchronise_block_stream(
     redis_client: &RedisClient,
     block_streams_handler: &BlockStreamsHandler,
 ) -> anyhow::Result<()> {
-    let registry_version = indexer_config.get_registry_version();
-
     if let Some(active_block_stream) = active_block_stream {
-        if active_block_stream.version == registry_version {
+        if active_block_stream.version == indexer_config.get_registry_version() {
             return Ok(());
         }
 
@@ -83,51 +81,30 @@ async fn synchronise_block_stream(
 
     let stream_version = redis_client.get_stream_version(indexer_config).await?;
 
-    let start_block_height = determine_start_block_height(
-        stream_version,
-        registry_version,
-        indexer_config,
-        redis_client,
-    )
-    .await?;
+    let start_block_height =
+        determine_start_block_height(stream_version, indexer_config, redis_client).await?;
 
-    clear_block_stream_if_needed(
-        stream_version,
-        registry_version,
-        indexer_config,
-        redis_client,
-    )
-    .await?;
+    clear_block_stream_if_needed(stream_version, indexer_config, redis_client).await?;
 
     tracing::info!("Starting block stream");
 
-    // TODO take just indexer_config?
     block_streams_handler
-        .start(
-            start_block_height,
-            indexer_config.account_id.to_string(),
-            indexer_config.function_name.clone(),
-            registry_version,
-            indexer_config.get_redis_stream_key(),
-            indexer_config.rule.clone(),
-        )
+        .start(start_block_height, indexer_config)
         .await?;
 
-    redis_client
-        .set_stream_version(indexer_config, registry_version)
-        .await?;
+    redis_client.set_stream_version(indexer_config).await?;
 
     Ok(())
 }
 
 async fn clear_block_stream_if_needed(
     stream_version: Option<u64>,
-    registry_version: u64,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<()> {
-    let just_migrated_or_unmodified =
-        stream_version.map_or(true, |version| version == registry_version);
+    let just_migrated_or_unmodified = stream_version.map_or(true, |version| {
+        version == indexer_config.get_registry_version()
+    });
 
     if !just_migrated_or_unmodified {
         match indexer_config.start_block {
@@ -145,10 +122,11 @@ async fn clear_block_stream_if_needed(
 
 async fn determine_start_block_height(
     stream_version: Option<u64>,
-    registry_version: u64,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<u64> {
+    let registry_version = indexer_config.get_registry_version();
+
     let just_migrated_or_unmodified =
         stream_version.map_or(true, |version| version == registry_version);
 
@@ -221,8 +199,8 @@ mod tests {
             .once();
         redis_client
             .expect_set_stream_version()
-            .with(predicate::eq(indexer_config), predicate::eq(200))
-            .returning(|_, _| Ok(()))
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(()))
             .once();
         redis_client.expect_clear_block_stream().never();
 
@@ -230,18 +208,8 @@ mod tests {
         block_stream_handler.expect_list().returning(|| Ok(vec![]));
         block_stream_handler
             .expect_start()
-            .with(
-                predicate::eq(500),
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq(200),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(Rule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any,
-                }),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(500), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
             .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
@@ -282,8 +250,8 @@ mod tests {
             .once();
         redis_client
             .expect_set_stream_version()
-            .with(predicate::eq(indexer_config.clone()), predicate::eq(200))
-            .returning(|_, _| Ok(()))
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(()))
             .once();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
@@ -291,18 +259,8 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler
             .expect_start()
-            .with(
-                predicate::eq(200),
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq(200),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(Rule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any,
-                }),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(200), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
             .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
@@ -343,8 +301,8 @@ mod tests {
             .once();
         redis_client
             .expect_set_stream_version()
-            .with(predicate::eq(indexer_config.clone()), predicate::eq(200))
-            .returning(|_, _| Ok(()))
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(()))
             .once();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
@@ -352,18 +310,8 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler
             .expect_start()
-            .with(
-                predicate::eq(100),
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq(200),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(Rule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any,
-                }),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(100), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
             .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
@@ -404,8 +352,8 @@ mod tests {
             .once();
         redis_client
             .expect_set_stream_version()
-            .with(predicate::eq(indexer_config.clone()), predicate::eq(200))
-            .returning(|_, _| Ok(()))
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(()))
             .once();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
@@ -413,18 +361,8 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler
             .expect_start()
-            .with(
-                predicate::eq(100),
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq(200),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(Rule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any,
-                }),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(100), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
             .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
@@ -532,8 +470,8 @@ mod tests {
             .once();
         redis_client
             .expect_set_stream_version()
-            .with(predicate::eq(indexer_config.clone()), predicate::eq(199))
-            .returning(|_, _| Ok(()))
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(()))
             .once();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
@@ -552,18 +490,8 @@ mod tests {
             .once();
         block_stream_handler
             .expect_start()
-            .with(
-                predicate::eq(1000),
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq(199),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(Rule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any,
-                }),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(1000), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
             .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
@@ -604,8 +532,8 @@ mod tests {
             .once();
         redis_client
             .expect_set_stream_version()
-            .with(predicate::eq(indexer_config.clone()), predicate::eq(200))
-            .returning(|_, _| Ok(()))
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(()))
             .once();
         redis_client.expect_del::<String>().never();
 
@@ -614,18 +542,8 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler
             .expect_start()
-            .with(
-                predicate::eq(100),
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq(200),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(Rule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any,
-                }),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(100), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
             .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)

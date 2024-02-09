@@ -230,12 +230,11 @@ impl RedisClientImpl {
         self.del(indexer_config.get_redis_stream_key()).await
     }
 
-    pub async fn set_stream_version(
-        &self,
-        indexer_config: &IndexerConfig,
-        version: u64,
-    ) -> anyhow::Result<()> {
-        self.set(indexer_config.get_redis_stream_version_key(), version)
-            .await
+    pub async fn set_stream_version(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        self.set(
+            indexer_config.get_redis_stream_version_key(),
+            indexer_config.get_registry_version(),
+        )
+        .await
     }
 }

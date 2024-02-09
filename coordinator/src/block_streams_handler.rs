@@ -11,6 +11,7 @@ use block_streamer::{
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
+use crate::indexer_config::IndexerConfig;
 use crate::utils::exponential_retry;
 
 #[cfg(not(test))]
@@ -82,13 +83,9 @@ impl BlockStreamsHandlerImpl {
     pub async fn start(
         &self,
         start_block_height: u64,
-        account_id: String,
-        function_name: String,
-        version: u64,
-        redis_stream: String,
-        rule: registry_types::Rule,
+        indexer_config: &IndexerConfig,
     ) -> anyhow::Result<()> {
-        let rule = match &rule {
+        let rule = match &indexer_config.rule {
             registry_types::Rule::ActionAny {
                 affected_account_id,
                 status,
@@ -116,10 +113,10 @@ impl BlockStreamsHandlerImpl {
 
         let request = StartStreamRequest {
             start_block_height,
-            version,
-            redis_stream,
-            account_id: account_id.clone(),
-            function_name: function_name.clone(),
+            version: indexer_config.get_registry_version(),
+            redis_stream: indexer_config.get_redis_stream_key(),
+            account_id: indexer_config.account_id.to_string(),
+            function_name: indexer_config.function_name.clone(),
             rule: Some(rule),
         };
 
@@ -130,16 +127,16 @@ impl BlockStreamsHandlerImpl {
             .await
             .map_err(|error| {
                 tracing::error!(
-                    account_id,
-                    function_name,
+                    account_id = indexer_config.account_id.as_str(),
+                    function_name = indexer_config.function_name,
                     "Failed to start stream\n{error:?}"
                 );
             });
 
         tracing::debug!(
-            account_id,
-            function_name,
-            version,
+            account_id = indexer_config.account_id.as_str(),
+            function_name = indexer_config.function_name,
+            version = indexer_config.get_registry_version(),
             "Start stream response: {:#?}",
             response
         );

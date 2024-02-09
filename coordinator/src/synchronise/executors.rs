@@ -78,16 +78,7 @@ async fn synchronise_executor(
 
     tracing::info!("Starting executor");
 
-    executors_handler
-        .start(
-            indexer_config.account_id.to_string(),
-            indexer_config.function_name.to_string(),
-            indexer_config.code.clone(),
-            indexer_config.schema.clone(),
-            indexer_config.get_redis_stream_key(),
-            registry_version,
-        )
-        .await?;
+    executors_handler.start(indexer_config).await?;
 
     Ok(())
 }
@@ -105,39 +96,30 @@ mod tests {
 
     #[tokio::test]
     async fn starts_executor() {
+        let indexer_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: "code".to_string(),
+            schema: "schema".to_string(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: None,
+            start_block: StartBlock::Height(100),
+        };
         let indexer_registry = HashMap::from([(
             "morgs.near".parse().unwrap(),
-            HashMap::from([(
-                "test".to_string(),
-                IndexerConfig {
-                    account_id: "morgs.near".parse().unwrap(),
-                    function_name: "test".to_string(),
-                    code: "code".to_string(),
-                    schema: "schema".to_string(),
-                    rule: Rule::ActionAny {
-                        affected_account_id: "queryapi.dataplatform.near".to_string(),
-                        status: Status::Any,
-                    },
-                    created_at_block_height: 1,
-                    updated_at_block_height: None,
-                    start_block: StartBlock::Height(100),
-                },
-            )]),
+            HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| Ok(vec![]));
         executors_handler
             .expect_start()
-            .with(
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq("code".to_string()),
-                predicate::eq("schema".to_string()),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(1),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(indexer_config))
+            .returning(|_| Ok(()))
             .once();
 
         synchronise_executors(&indexer_registry, &executors_handler)
@@ -147,24 +129,22 @@ mod tests {
 
     #[tokio::test]
     async fn restarts_executor_when_registry_version_differs() {
+        let indexer_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: "code".to_string(),
+            schema: "schema".to_string(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: Some(2),
+            start_block: StartBlock::Height(100),
+        };
         let indexer_registry = HashMap::from([(
             "morgs.near".parse().unwrap(),
-            HashMap::from([(
-                "test".to_string(),
-                IndexerConfig {
-                    account_id: "morgs.near".parse().unwrap(),
-                    function_name: "test".to_string(),
-                    code: "code".to_string(),
-                    schema: "schema".to_string(),
-                    rule: Rule::ActionAny {
-                        affected_account_id: "queryapi.dataplatform.near".to_string(),
-                        status: Status::Any,
-                    },
-                    created_at_block_height: 1,
-                    updated_at_block_height: Some(2),
-                    start_block: StartBlock::Height(100),
-                },
-            )]),
+            HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
         let mut executors_handler = ExecutorsHandler::default();
@@ -185,15 +165,8 @@ mod tests {
 
         executors_handler
             .expect_start()
-            .with(
-                predicate::eq("morgs.near".to_string()),
-                predicate::eq("test".to_string()),
-                predicate::eq("code".to_string()),
-                predicate::eq("schema".to_string()),
-                predicate::eq("morgs.near/test:block_stream".to_string()),
-                predicate::eq(2),
-            )
-            .returning(|_, _, _, _, _, _| Ok(()))
+            .with(predicate::eq(indexer_config))
+            .returning(|_| Ok(()))
             .once();
 
         synchronise_executors(&indexer_registry, &executors_handler)
