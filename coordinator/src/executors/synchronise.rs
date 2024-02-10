@@ -30,17 +30,8 @@ pub async fn synchronise_executors(
                 })
                 .map(|index| active_executors.swap_remove(index));
 
-            let span = tracing::info_span!(
-                "Synchronising executor",
-                account_id = account_id.as_str(),
-                function_name = function_name.as_str(),
-                current_version = indexer_config.get_registry_version()
-            );
-
             // TODO capture errors thrown in here
-            synchronise_executor(active_executor, indexer_config, executors_handler)
-                .instrument(span)
-                .await?;
+            synchronise_executor(active_executor, indexer_config, executors_handler).await?;
         }
     }
 
@@ -60,6 +51,14 @@ pub async fn synchronise_executors(
     Ok(())
 }
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        account_id = %indexer_config.account_id,
+        function_name = indexer_config.function_name,
+        version = indexer_config.get_registry_version()
+    )
+)]
 async fn synchronise_executor(
     active_executor: Option<ExecutorInfo>,
     indexer_config: &IndexerConfig,
@@ -72,7 +71,7 @@ async fn synchronise_executor(
             return Ok(());
         }
 
-        tracing::info!("Stopping executor");
+        tracing::info!("Stopping outdated executor");
 
         executors_handler.stop(active_executor.executor_id).await?;
     }
