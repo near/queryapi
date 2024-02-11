@@ -147,15 +147,10 @@ async fn get_continuation_block_height(
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<u64> {
-    Ok(redis_client
+    redis_client
         .get_last_published_block(indexer_config)
         .await?
-        .unwrap_or_else(|| {
-            tracing::warn!("Indexer has no `last_published_block`, using registry version");
-
-            // TODO Probably throw error rather than use this
-            indexer_config.get_registry_version()
-        }))
+        .ok_or(anyhow::anyhow!("Indexer has no `last_published_block`"))
 }
 
 #[cfg(test)]
@@ -537,7 +532,6 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
-        redis_client.expect_del::<String>().never();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
         block_stream_handler.expect_list().returning(|| Ok(vec![]));
@@ -547,6 +541,48 @@ mod tests {
             .with(predicate::eq(100), predicate::eq(indexer_config))
             .returning(|_, _| Ok(()))
             .once();
+
+        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn does_not_start_stream_without_last_published_block() {
+        let indexer_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 101,
+            updated_at_block_height: Some(200),
+            start_block: StartBlock::Height(1000),
+        };
+        let indexer_registry = HashMap::from([(
+            "morgs.near".parse().unwrap(),
+            HashMap::from([("test".to_string(), indexer_config.clone())]),
+        )]);
+
+        let mut redis_client = RedisClient::default();
+        redis_client
+            .expect_get_stream_version()
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(None))
+            .once();
+        redis_client
+            .expect_get_last_published_block()
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| anyhow::bail!("no last_published_block"))
+            .once();
+
+        let mut block_stream_handler = BlockStreamsHandler::default();
+        block_stream_handler.expect_list().returning(|| Ok(vec![]));
+        block_stream_handler.expect_stop().never();
+        block_stream_handler.expect_start().never();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
             .await
