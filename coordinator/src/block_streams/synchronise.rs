@@ -23,17 +23,24 @@ pub async fn synchronise_block_streams(
                 })
                 .map(|index| active_block_streams.swap_remove(index));
 
-            synchronise_block_stream(
+            let _ = synchronise_block_stream(
                 active_block_stream,
                 indexer_config,
                 redis_client,
                 block_streams_handler,
             )
-            .await?;
+            .await
+            .map_err(|err| {
+                tracing::error!(
+                    account_id = account_id.as_str(),
+                    function_name,
+                    version = indexer_config.get_registry_version(),
+                    "failed to sync block stream: {err:?}"
+                )
+            });
         }
     }
 
-    // TODO stop all method?
     for unregistered_block_stream in active_block_streams {
         tracing::info!(
             account_id = unregistered_block_stream.account_id.as_str(),

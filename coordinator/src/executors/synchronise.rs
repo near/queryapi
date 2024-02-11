@@ -1,5 +1,3 @@
-use tracing::Instrument;
-
 use crate::indexer_config::IndexerConfig;
 use crate::registry::IndexerRegistry;
 
@@ -11,7 +9,6 @@ pub async fn synchronise_executors(
     indexer_registry: &IndexerRegistry,
     executors_handler: &ExecutorsHandler,
 ) -> anyhow::Result<()> {
-    // TODO move exponential backoff here for explicitness
     let active_executors = executors_handler.list().await?;
 
     // Ignore V1 executors
@@ -30,8 +27,16 @@ pub async fn synchronise_executors(
                 })
                 .map(|index| active_executors.swap_remove(index));
 
-            // TODO capture errors thrown in here
-            synchronise_executor(active_executor, indexer_config, executors_handler).await?;
+            let _ = synchronise_executor(active_executor, indexer_config, executors_handler)
+                .await
+                .map_err(|err| {
+                    tracing::error!(
+                        account_id = account_id.as_str(),
+                        function_name,
+                        version = indexer_config.get_registry_version(),
+                        "failed to sync executor: {err:?}"
+                    )
+                });
         }
     }
 
