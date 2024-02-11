@@ -113,6 +113,15 @@ impl BlockStream {
     }
 }
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        start_block_height,
+        redis_stream
+    )
+)]
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
@@ -123,18 +132,56 @@ pub(crate) async fn start_block_stream(
     lake_prefetch_size: usize,
     redis_stream: String,
 ) -> anyhow::Result<()> {
-    tracing::info!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
+    tracing::info!("Starting block stream",);
+
+    let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
+        delta_lake_client,
+        redis_client.clone(),
+        indexer,
+        redis_stream.clone(),
+    )
+    .await
+    .unwrap_or_else(|err| {
+        tracing::warn!(
+            "Failed to process Delta Lake blocks, continuing with original start block: {:?}",
+            err,
+        );
+
+        start_block_height
+    });
+
+    let last_indexed_near_lake_block = process_near_lake_blocks(
+        last_indexed_delta_lake_block,
+        lake_s3_config,
+        lake_prefetch_size,
+        redis_client,
+        indexer,
         redis_stream,
-        "Starting block stream",
+        chain_id,
+    )
+    .await?;
+
+    tracing::debug!(
+        last_indexed_block = last_indexed_near_lake_block,
+        "Stopped block stream",
     );
 
+    Ok(())
+}
+
+async fn process_delta_lake_blocks(
+    start_block_height: near_indexer_primitives::types::BlockHeight,
+    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    indexer: &IndexerConfig,
+    redis_stream: String,
+) -> anyhow::Result<u64> {
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
     let last_indexed_block = latest_block_metadata
         .last_indexed_block
-        .parse::<near_indexer_primitives::types::BlockHeight>()?;
+        .parse::<near_indexer_primitives::types::BlockHeight>()
+        .context("Failed to parse Delta Lake metadata")?;
 
     let blocks_from_index = match &indexer.rule {
         Rule::ActionAny {
@@ -184,7 +231,7 @@ pub(crate) async fn start_block_stream(
             .context("Failed to set last_published_block")?;
     }
 
-    let mut last_indexed_block =
+    let last_indexed_block =
         blocks_from_index
             .last()
             .map_or(last_indexed_block, |&last_block_in_index| {
@@ -192,21 +239,31 @@ pub(crate) async fn start_block_stream(
                 std::cmp::max(last_block_in_index, last_indexed_block)
             });
 
-    tracing::debug!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
-        "Starting near-lake-framework from {last_indexed_block} for indexer",
-    );
+    Ok(last_indexed_block)
+}
+
+async fn process_near_lake_blocks(
+    start_block_height: near_indexer_primitives::types::BlockHeight,
+    lake_s3_config: aws_sdk_s3::Config,
+    lake_prefetch_size: usize,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    indexer: &IndexerConfig,
+    redis_stream: String,
+    chain_id: &ChainId,
+) -> anyhow::Result<u64> {
+    tracing::debug!(start_block_height, "Starting near-lake-framework",);
 
     let lake_config = match &chain_id {
         ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
         ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
     }
     .s3_config(lake_s3_config)
-    .start_block_height(last_indexed_block)
+    .start_block_height(start_block_height)
     .blocks_preload_pool_size(lake_prefetch_size)
     .build()
     .context("Failed to build lake config")?;
+
+    let mut last_indexed_block = start_block_height;
 
     let (sender, mut stream) = near_lake_framework::streamer(lake_config);
 
@@ -241,14 +298,7 @@ pub(crate) async fn start_block_stream(
 
     drop(sender);
 
-    tracing::debug!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
-        "Stopped block stream at {}",
-        last_indexed_block,
-    );
-
-    Ok(())
+    Ok(last_indexed_block)
 }
 
 #[cfg(test)]
