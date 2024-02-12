@@ -1,6 +1,9 @@
+use std::cmp::Ordering;
+
 use registry_types::StartBlock;
 
 use crate::indexer_config::IndexerConfig;
+use crate::migration::MIGRATED_STREAM_VERSION;
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
 
@@ -86,12 +89,12 @@ async fn synchronise_block_stream(
             .await?;
     }
 
-    let stream_version = redis_client.get_stream_version(indexer_config).await?;
+    let stream_status = get_stream_status(indexer_config, redis_client).await?;
 
-    clear_block_stream_if_needed(stream_version, indexer_config, redis_client).await?;
+    clear_block_stream_if_needed(&stream_status, indexer_config, redis_client).await?;
 
     let start_block_height =
-        determine_start_block_height(stream_version, indexer_config, redis_client).await?;
+        determine_start_block_height(&stream_status, indexer_config, redis_client).await?;
 
     block_streams_handler
         .start(start_block_height, indexer_config)
@@ -102,40 +105,65 @@ async fn synchronise_block_stream(
     Ok(())
 }
 
+#[derive(Debug)]
+enum StreamStatus {
+    /// Stream has just been migrated to V2
+    Migrated,
+    /// Stream version is synchronized with the registry
+    Synced,
+    /// Stream version does not match registry
+    Outdated,
+    /// No stream version, therefore new
+    New,
+}
+
+async fn get_stream_status(
+    indexer_config: &IndexerConfig,
+    redis_client: &RedisClient,
+) -> anyhow::Result<StreamStatus> {
+    let stream_version = redis_client.get_stream_version(indexer_config).await?;
+
+    if stream_version.is_none() {
+        return Ok(StreamStatus::New);
+    }
+
+    let stream_version = stream_version.unwrap();
+
+    if stream_version == MIGRATED_STREAM_VERSION {
+        return Ok(StreamStatus::Migrated);
+    }
+
+    match indexer_config.get_registry_version().cmp(&stream_version) {
+        Ordering::Equal => Ok(StreamStatus::Synced),
+        Ordering::Greater => Ok(StreamStatus::Outdated),
+        Ordering::Less => todo!(),
+    }
+}
+
 async fn clear_block_stream_if_needed(
-    stream_version: Option<u64>,
+    stream_status: &StreamStatus,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<()> {
-    let just_migrated_or_unmodified = stream_version.map_or(true, |version| {
-        version == indexer_config.get_registry_version()
-    });
-
-    if !just_migrated_or_unmodified {
-        match indexer_config.start_block {
-            StartBlock::Latest | StartBlock::Height(_) => {
-                tracing::info!("Clearing redis stream");
-
-                redis_client.clear_block_stream(indexer_config).await?;
-            }
-            _ => {}
-        }
+    if matches!(
+        stream_status,
+        StreamStatus::Migrated | StreamStatus::Synced | StreamStatus::New
+    ) || indexer_config.start_block == StartBlock::Continue
+    {
+        return Ok(());
     }
 
-    Ok(())
+    tracing::info!("Clearing redis stream");
+
+    redis_client.clear_block_stream(indexer_config).await
 }
 
 async fn determine_start_block_height(
-    stream_version: Option<u64>,
+    stream_status: &StreamStatus,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<u64> {
-    let registry_version = indexer_config.get_registry_version();
-
-    let just_migrated_or_unmodified =
-        stream_version.map_or(true, |version| version == registry_version);
-
-    if just_migrated_or_unmodified {
+    if matches!(stream_status, StreamStatus::Migrated | StreamStatus::Synced) {
         tracing::info!("Resuming block stream");
 
         return get_continuation_block_height(indexer_config, redis_client).await;
@@ -144,7 +172,7 @@ async fn determine_start_block_height(
     tracing::info!("Stating new block stream");
 
     match indexer_config.start_block {
-        StartBlock::Latest => Ok(registry_version),
+        StartBlock::Latest => Ok(indexer_config.get_registry_version()),
         StartBlock::Height(height) => Ok(height),
         StartBlock::Continue => get_continuation_block_height(indexer_config, redis_client).await,
     }
@@ -527,7 +555,7 @@ mod tests {
         redis_client
             .expect_get_stream_version()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(None))
+            .returning(|_| Ok(Some(MIGRATED_STREAM_VERSION)))
             .once();
         redis_client
             .expect_get_last_published_block()
@@ -567,7 +595,49 @@ mod tests {
             },
             created_at_block_height: 101,
             updated_at_block_height: Some(200),
-            start_block: StartBlock::Height(1000),
+            start_block: StartBlock::Continue,
+        };
+        let indexer_registry = HashMap::from([(
+            "morgs.near".parse().unwrap(),
+            HashMap::from([("test".to_string(), indexer_config.clone())]),
+        )]);
+
+        let mut redis_client = RedisClient::default();
+        redis_client
+            .expect_get_stream_version()
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| Ok(Some(101)))
+            .once();
+        redis_client
+            .expect_get_last_published_block()
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| anyhow::bail!("no last_published_block"))
+            .once();
+
+        let mut block_stream_handler = BlockStreamsHandler::default();
+        block_stream_handler.expect_list().returning(|| Ok(vec![]));
+        block_stream_handler.expect_stop().never();
+        block_stream_handler.expect_start().never();
+
+        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn starts_block_stream_for_first_time() {
+        let indexer_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 101,
+            updated_at_block_height: None,
+            start_block: StartBlock::Height(50),
         };
         let indexer_registry = HashMap::from([(
             "morgs.near".parse().unwrap(),
@@ -581,15 +651,19 @@ mod tests {
             .returning(|_| Ok(None))
             .once();
         redis_client
-            .expect_get_last_published_block()
+            .expect_set_stream_version()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| anyhow::bail!("no last_published_block"))
+            .returning(|_| Ok(()))
             .once();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
         block_stream_handler.expect_list().returning(|| Ok(vec![]));
         block_stream_handler.expect_stop().never();
-        block_stream_handler.expect_start().never();
+        block_stream_handler
+            .expect_start()
+            .with(predicate::eq(50), predicate::eq(indexer_config))
+            .returning(|_, _| Ok(()))
+            .once();
 
         synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
             .await

@@ -9,6 +9,8 @@ use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
 
+pub const MIGRATED_STREAM_VERSION: u64 = 0;
+
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct AllowlistEntry {
     account_id: AccountId,
@@ -112,6 +114,9 @@ async fn migrate_account(
         merge_streams(redis_client, &existing_streams, indexer_config)
             .await
             .context("Failed to merge streams")?;
+        update_stream_version(redis_client, indexer_config)
+            .await
+            .context("Failed to set Redis Stream version")?;
     }
 
     set_migrated_flag(redis_client, account_id)?;
@@ -232,6 +237,20 @@ async fn merge_streams(
         }
         _ => anyhow::bail!("Unexpected number of pre-existing streams"),
     }
+}
+
+async fn update_stream_version(
+    redis_client: &RedisClient,
+    indexer_config: &IndexerConfig,
+) -> anyhow::Result<()> {
+    redis_client
+        .set(
+            indexer_config.get_redis_stream_version_key(),
+            MIGRATED_STREAM_VERSION,
+        )
+        .await?;
+
+    Ok(())
 }
 
 fn set_failed_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
@@ -465,6 +484,14 @@ mod tests {
             .with(
                 predicate::eq(String::from("morgs.near/test:real_time:stream")),
                 predicate::eq(String::from("1-0")),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        redis_client
+            .expect_set::<String, u64>()
+            .with(
+                predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                predicate::eq(MIGRATED_STREAM_VERSION),
             )
             .returning(|_, _| Ok(()))
             .once();
