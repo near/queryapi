@@ -81,7 +81,7 @@ async fn synchronise_executor(
         executors_handler.stop(active_executor.executor_id).await?;
     }
 
-    tracing::info!("Starting executor");
+    tracing::info!("Starting new executor");
 
     executors_handler.start(indexer_config).await?;
 

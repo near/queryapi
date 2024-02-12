@@ -136,7 +136,11 @@ async fn get_stream_status(
     match indexer_config.get_registry_version().cmp(&stream_version) {
         Ordering::Equal => Ok(StreamStatus::Synced),
         Ordering::Greater => Ok(StreamStatus::Outdated),
-        Ordering::Less => todo!(),
+        Ordering::Less => {
+            tracing::warn!("Found stream with version greater than registry, treating as outdated");
+
+            Ok(StreamStatus::Outdated)
+        }
     }
 }
 
