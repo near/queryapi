@@ -67,10 +67,14 @@ export const METRICS = {
 };
 
 const aggregatorRegistry = new AggregatorRegistry();
-const workerMetrics: Record<number, string> = {};
+const workerMetrics = new Map<number, string>();
 
 export const registerWorkerMetrics = (workerId: number, metrics: string): void => {
-  workerMetrics[workerId] = metrics;
+  workerMetrics.set(workerId, metrics);
+};
+
+export const deregisterWorkerMetrics = (workerId: number): void => {
+  workerMetrics.delete(workerId);
 };
 
 export const startServer = async (): Promise<void> => {
@@ -81,7 +85,7 @@ export const startServer = async (): Promise<void> => {
   app.get('/metrics', async (_req, res) => {
     res.set('Content-Type', aggregatorRegistry.contentType);
 
-    const metrics = await AggregatorRegistry.aggregate(Object.values(workerMetrics)).metrics();
+    const metrics = await AggregatorRegistry.aggregate(Array.from(workerMetrics.values())).metrics();
     res.send(metrics);
   });
 

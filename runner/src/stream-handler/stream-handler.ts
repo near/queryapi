@@ -1,7 +1,7 @@
 import path from 'path';
 import { Worker, isMainThread } from 'worker_threads';
 
-import { registerWorkerMetrics } from '../metrics';
+import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
 
 export enum Status {
@@ -60,6 +60,8 @@ export default class StreamHandler {
   }
 
   async stop (): Promise<void> {
+    deregisterWorkerMetrics(this.worker.threadId);
+
     await this.worker.terminate();
   }
 
