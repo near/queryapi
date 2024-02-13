@@ -183,7 +183,7 @@ impl RedisClientImpl {
 
         self.connection
             .clone()
-            .keys(&key)
+            .del(&key)
             .await
             .map_err(|e| anyhow::format_err!(e))
             .context(format!("DEL {key:?}"))
