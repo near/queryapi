@@ -178,12 +178,12 @@ async fn process_delta_lake_blocks(
     redis_stream: String,
 ) -> anyhow::Result<u64> {
     let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
-    let last_indexed_block = latest_block_metadata
+    let last_indexed_block_from_metadata = latest_block_metadata
         .last_indexed_block
         .parse::<near_indexer_primitives::types::BlockHeight>()
         .context("Failed to parse Delta Lake metadata")?;
 
-    if start_block_height >= last_indexed_block {
+    if start_block_height >= last_indexed_block_from_metadata {
         return Ok(start_block_height);
     }
 
@@ -238,9 +238,9 @@ async fn process_delta_lake_blocks(
     let last_indexed_block =
         blocks_from_index
             .last()
-            .map_or(last_indexed_block, |&last_block_in_index| {
+            .map_or(last_indexed_block_from_metadata, |&last_block_in_index| {
                 // Check for the case where index files are written right after we fetch the last_indexed_block metadata
-                std::cmp::max(last_block_in_index, last_indexed_block)
+                std::cmp::max(last_block_in_index, last_indexed_block_from_metadata)
             });
 
     Ok(last_indexed_block)
