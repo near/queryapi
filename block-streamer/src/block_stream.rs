@@ -118,8 +118,8 @@ impl BlockStream {
     fields(
         account_id = indexer.account_id.as_str(),
         function_name = indexer.function_name,
-        start_block_height,
-        redis_stream
+        start_block_height = start_block_height,
+        redis_stream = redis_stream
     )
 )]
 pub(crate) async fn start_block_stream(
@@ -182,6 +182,10 @@ async fn process_delta_lake_blocks(
         .last_indexed_block
         .parse::<near_indexer_primitives::types::BlockHeight>()
         .context("Failed to parse Delta Lake metadata")?;
+
+    if start_block_height >= last_indexed_block {
+        return Ok(start_block_height);
+    }
 
     let blocks_from_index = match &indexer.rule {
         Rule::ActionAny {
