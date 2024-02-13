@@ -141,15 +141,7 @@ pub(crate) async fn start_block_stream(
         indexer,
         redis_stream.clone(),
     )
-    .await
-    .unwrap_or_else(|err| {
-        tracing::warn!(
-            "Failed to process Delta Lake blocks, continuing with original start block: {:?}",
-            err,
-        );
-
-        start_block_height
-    });
+    .await?;
 
     let last_indexed_near_lake_block = process_near_lake_blocks(
         last_indexed_delta_lake_block,
