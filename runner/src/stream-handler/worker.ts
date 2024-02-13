@@ -51,11 +51,6 @@ async function handleStream (workerContext: WorkerContext, streamKey: string): P
   void blockQueueConsumer(workerContext, streamKey);
 }
 
-function incrementId (id: string): string {
-  const [main, sequence] = id.split('-');
-  return `${main}-${Number(sequence) + 1}`;
-}
-
 async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   const HISTORICAL_BATCH_SIZE = parseInt(process.env.PREFETCH_QUEUE_LIMIT ?? '10');
   let streamMessageStartId = '0';
@@ -78,7 +73,7 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
         workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
       }
 
-      streamMessageStartId = incrementId(messages[messages.length - 1].id);
+      streamMessageStartId = messages[messages.length - 1].id;
     } catch (err) {
       console.error('Error fetching stream messages', err);
       await sleep(500);
