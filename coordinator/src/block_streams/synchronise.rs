@@ -189,6 +189,7 @@ async fn get_continuation_block_height(
     redis_client
         .get_last_published_block(indexer_config)
         .await?
+        .map(|height| height + 1)
         .ok_or(anyhow::anyhow!("Indexer has no `last_published_block`"))
 }
 
@@ -244,7 +245,7 @@ mod tests {
         block_stream_handler.expect_list().returning(|| Ok(vec![]));
         block_stream_handler
             .expect_start()
-            .with(predicate::eq(500), predicate::eq(indexer_config))
+            .with(predicate::eq(501), predicate::eq(indexer_config))
             .returning(|_, _| Ok(()))
             .once();
 
@@ -397,7 +398,7 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler
             .expect_start()
-            .with(predicate::eq(100), predicate::eq(indexer_config))
+            .with(predicate::eq(101), predicate::eq(indexer_config))
             .returning(|_, _| Ok(()))
             .once();
 
@@ -577,7 +578,7 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler
             .expect_start()
-            .with(predicate::eq(100), predicate::eq(indexer_config))
+            .with(predicate::eq(101), predicate::eq(indexer_config))
             .returning(|_, _| Ok(()))
             .once();
 
