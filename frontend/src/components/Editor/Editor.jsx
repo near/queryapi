@@ -115,7 +115,6 @@ const Editor = ({ actionButtonText }) => {
   }, 500);
 
   useEffect(() => {
-    console.log("triggered due to indexerDetails.code");
     if (indexerDetails.code != null) {
       const { data: formattedCode, error: codeError } = validateJSCode(
         indexerDetails.code
