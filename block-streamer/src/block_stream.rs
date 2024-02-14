@@ -185,8 +185,6 @@ async fn process_delta_lake_blocks(
             ..
         } => {
             tracing::debug!(
-                account_id = indexer.account_id.as_str(),
-                function_name = indexer.function_name,
                 "Fetching block heights starting from {} from delta lake",
                 start_block_height,
             );
@@ -206,8 +204,6 @@ async fn process_delta_lake_blocks(
     }?;
 
     tracing::debug!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
         "Flushing {} block heights from index files to Redis Stream",
         blocks_from_index.len(),
     );
