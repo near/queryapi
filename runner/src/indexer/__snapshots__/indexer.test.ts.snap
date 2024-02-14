@@ -129,7 +129,7 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"STOPPED"}}",
+      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"buildnear.testnet/test","status":"FAILING"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",
@@ -199,7 +199,7 @@ exports[`Indexer unit tests Indexer.runFunctions() logs provisioning failures 1`
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"STOPPED"}}",
+      "body": "{"query":"\\n                mutation SetStatus($function_name: String, $status: String) {\\n                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n                    function_name\\n                    status\\n                  }\\n                }\\n            ","variables":{"function_name":"morgs.near/test","status":"FAILING"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",

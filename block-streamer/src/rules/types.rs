@@ -14,8 +14,6 @@ pub type BlockHashString = String;
 )]
 pub struct IndexerRuleMatch {
     pub chain_id: ChainId,
-    pub indexer_rule_id: Option<u32>,
-    pub indexer_rule_name: Option<String>,
     pub payload: IndexerRuleMatchPayload,
     pub block_height: u64,
 }

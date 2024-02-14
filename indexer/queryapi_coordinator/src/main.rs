@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use futures::stream::{self, StreamExt};
 use near_jsonrpc_client::JsonRpcClient;
+use storage::redis::{ErrorKind, RedisError};
 use tokio::sync::Mutex;
 
 use indexer_rules_engine::types::indexer_rule_match::{ChainId, IndexerRuleMatch};
-use near_lake_framework::near_indexer_primitives::types::BlockHeight;
+use near_lake_framework::near_indexer_primitives::types::{AccountId, BlockHeight};
 use near_lake_framework::near_indexer_primitives::StreamerMessage;
 use utils::serialize_to_camel_case_json_string;
 
@@ -38,7 +40,19 @@ pub(crate) struct QueryApiContext<'a> {
     pub redis_connection_manager: &'a ConnectionManager,
     pub indexer_registry: &'a SharedIndexerRegistry,
     pub streamers: &'a Streamers,
+    pub redis_url: &'a str,
 }
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+struct DenylistEntry {
+    account_id: AccountId,
+    v1_ack: bool,
+    migrated: bool,
+    failed: bool,
+    v2_control: bool,
+}
+
+type Denylist = Vec<DenylistEntry>;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -57,6 +71,9 @@ async fn main() -> anyhow::Result<()> {
     tracing::info!(target: INDEXER, "Connecting to redis...");
     let redis_connection_manager = storage::connect(&opts.redis_connection_string).await?;
 
+    let denylist = fetch_denylist(&redis_connection_manager).await?;
+    tracing::info!("Using denylist: {:#?}", denylist);
+
     let json_rpc_client = JsonRpcClient::connect(opts.rpc_url());
 
     // fetch raw indexer functions for use in indexer
@@ -71,6 +88,10 @@ async fn main() -> anyhow::Result<()> {
     )
     .await;
     let indexer_functions = indexer_registry::build_registry_from_json(indexer_functions);
+    let indexer_functions =
+        filter_registry_by_denylist(indexer_functions, &denylist, &opts.redis_connection_string)
+            .await;
+
     let indexer_registry: SharedIndexerRegistry =
         std::sync::Arc::new(Mutex::new(indexer_functions));
 
@@ -97,6 +118,7 @@ async fn main() -> anyhow::Result<()> {
                 s3_client: &s3_client,
                 indexer_registry: &indexer_registry,
                 streamers: &streamers,
+                redis_url: &opts.redis_connection_string,
             };
 
             handle_streamer_message(context)
@@ -118,14 +140,86 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
-    let indexer_functions = {
-        let lock = context.indexer_registry.lock().await;
+async fn fetch_denylist(redis_connection_manager: &ConnectionManager) -> anyhow::Result<Denylist> {
+    let raw_denylist: String = storage::get(redis_connection_manager, storage::DENYLIST_KEY)
+        .await
+        .unwrap_or("".to_owned());
+    let denylist: Denylist =
+        serde_json::from_str(&raw_denylist).context("Failed to parse denylist")?;
 
-        lock.values()
-            .flat_map(|fns| fns.values())
-            .cloned()
-            .collect::<Vec<_>>()
+    Ok(denylist)
+}
+
+fn acknowledge_account_in_denylist(account_id: AccountId, redis_url: &str) -> anyhow::Result<()> {
+    storage::atomic_update(
+        redis_url,
+        &[storage::DENYLIST_KEY],
+        move |raw_denylist: String| {
+            let mut denylist: Denylist = serde_json::from_str(&raw_denylist).map_err(|_| {
+                RedisError::from((ErrorKind::TypeError, "failed to deserialize denylist"))
+            })?;
+
+            let entry = denylist
+                .iter_mut()
+                .find(|entry| entry.account_id == account_id)
+                .unwrap();
+
+            entry.v1_ack = true;
+
+            serde_json::to_string(&denylist).map_err(|_| {
+                RedisError::from((ErrorKind::TypeError, "failed to serialize denylist"))
+            })
+        },
+    )
+}
+
+async fn filter_registry_by_denylist(
+    indexer_registry: IndexerRegistry,
+    denylist: &Denylist,
+    redis_url: &str,
+) -> IndexerRegistry {
+    let mut filtered_registry = HashMap::new();
+
+    for (account_id, indexer) in indexer_registry.into_iter() {
+        let account_in_deny_list = denylist.iter().find(|entry| entry.account_id == account_id);
+
+        match account_in_deny_list {
+            Some(account_in_deny_list) => {
+                tracing::info!(
+                    target: INDEXER,
+                    "Ignoring {account_id} from denylist",
+                );
+
+                if !account_in_deny_list.v1_ack {
+                    acknowledge_account_in_denylist(account_id, redis_url).unwrap();
+                }
+
+                continue;
+            }
+            None => {
+                filtered_registry.insert(account_id, indexer);
+            }
+        }
+    }
+
+    filtered_registry
+}
+
+async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result<u64> {
+    let denylist = fetch_denylist(context.redis_connection_manager).await?;
+
+    let indexer_functions: Vec<IndexerFunction> = {
+        let mut indexer_registry = context.indexer_registry.lock().await;
+
+        *indexer_registry =
+            filter_registry_by_denylist(indexer_registry.clone(), &denylist, context.redis_url)
+                .await;
+
+        indexer_registry
+            .clone()
+            .into_values()
+            .flat_map(|fns| fns.into_values())
+            .collect()
     };
 
     let mut indexer_function_filter_matches_futures = stream::iter(indexer_functions.iter())
@@ -150,7 +244,7 @@ async fn handle_streamer_message(context: QueryApiContext<'_>) -> anyhow::Result
     )
     .await?;
 
-    indexer_registry::index_registry_changes(block_height, &context).await?;
+    indexer_registry::index_registry_changes(block_height, &context, &denylist).await?;
 
     while let Some(indexer_function_with_matches) =
         indexer_function_filter_matches_futures.next().await

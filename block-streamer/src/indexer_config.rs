@@ -2,17 +2,13 @@ use near_lake_framework::near_indexer_primitives::types::AccountId;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-use registry_types::IndexerRule;
+use registry_types::Rule;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct IndexerConfig {
     pub account_id: AccountId,
     pub function_name: String,
-    // pub code: String,
-    // pub start_block_height: Option<u64>,
-    // pub schema: Option<String>,
-    // pub provisioned: bool,
-    pub indexer_rule: IndexerRule,
+    pub rule: Rule,
 }
 
 impl IndexerConfig {

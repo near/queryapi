@@ -89,15 +89,17 @@ pub(crate) fn build_registry_from_json(raw_registry: Value) -> IndexerRegistry {
 pub(crate) async fn index_registry_changes(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
+    denylist: &crate::Denylist,
 ) -> anyhow::Result<()> {
     index_and_process_remove_calls(context).await;
 
-    index_and_process_register_calls(current_block_height, context).await
+    index_and_process_register_calls(current_block_height, context, denylist).await
 }
 
 async fn index_and_process_register_calls(
     current_block_height: BlockHeight,
     context: &QueryApiContext<'_>,
+    denylist: &crate::Denylist,
 ) -> anyhow::Result<()> {
     let registry_method_name = "register_indexer_function";
     let registry_calls_rule =
@@ -119,6 +121,26 @@ async fn index_and_process_register_calls(
             match new_indexer_function {
                 None => continue,
                 Some(mut new_indexer_function) => {
+                    let account_in_deny_list = denylist
+                        .iter()
+                        .find(|entry| entry.account_id == new_indexer_function.account_id);
+
+                    if let Some(account_in_deny_list) = account_in_deny_list {
+                        tracing::info!(
+                            "Ignoring registered indexer {} from deny list",
+                            new_indexer_function.get_full_name()
+                        );
+
+                        if !account_in_deny_list.v1_ack {
+                            crate::acknowledge_account_in_denylist(
+                                new_indexer_function.account_id,
+                                context.redis_url,
+                            )?;
+                        }
+
+                        continue;
+                    }
+
                     let mut indexer_registry_lock = context.indexer_registry.lock().await;
                     let fns = indexer_registry_lock
                         .entry(new_indexer_function.account_id.clone())
