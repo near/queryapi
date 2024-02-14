@@ -246,6 +246,7 @@ impl DeltaLakeClientImpl {
                 }
             })
             .flat_map(|index_file| index_file.heights)
+            .filter(|block_height| *block_height >= start_block_height)
             .collect();
 
         let pattern_has_multiple_contracts = contract_pattern.chars().any(|c| c == ',' || c == '*');
@@ -260,7 +261,6 @@ impl DeltaLakeClientImpl {
             contract_pattern,
         );
 
-        // TODO Remove all block heights after start_block_height
         Ok(block_heights)
     }
 }
@@ -637,8 +637,40 @@ mod tests {
 
         assert_eq!(
             block_heights,
-            vec![45894617, 45894627, 45894628, 45894712, 45898413, 45898423, 45898424]
+            vec![45894628, 45894712, 45898413, 45898423, 45898424]
         )
+    }
+
+    #[tokio::test]
+    async fn filters_heights_less_than_start_block() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet"),
+                predicate::eq("000045898423/block.json"),
+            )
+            .returning(|_bucket, _prefix| Ok(generate_block_with_timestamp("2021-05-26")));
+        mock_s3_client.expect_list_all_objects().returning(|_, _| {
+            Ok(vec![
+                "silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json"
+                    .to_string(),
+            ])
+        });
+        mock_s3_client
+            .expect_get_text_file()
+            .with(predicate::eq(DELTA_LAKE_BUCKET.to_string()), predicate::eq("silver/accounts/action_receipt_actions/metadata/near/keypom/2023-10-31.json".to_string()))
+            .returning(|_bucket, _prefix| Ok("{\"heights\":[45898424,45898423,45898413,45894712],\"actions\":[{\"action_kind\":\"ADD_KEY\",\"block_heights\":[104616819]}]}".to_string()));
+
+        let delta_lake_client = DeltaLakeClientImpl::new(mock_s3_client);
+
+        let block_heights = delta_lake_client
+            .list_matching_block_heights(45898423, "keypom.near, hackathon.agency.near")
+            .await
+            .unwrap();
+
+        assert_eq!(block_heights, vec![45898423, 45898424])
     }
 
     #[tokio::test]
