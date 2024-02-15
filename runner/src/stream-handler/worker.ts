@@ -135,7 +135,6 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
     } catch (err) {
       await sleep(10000);
       console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);
-      throw err;
     } finally {
       const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
       METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
