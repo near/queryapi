@@ -4,7 +4,7 @@ use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
-use registry_types::MatchingRule;
+use registry_types::Rule;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
 /// we need this configurable for testing purposes.
@@ -113,6 +113,15 @@ impl BlockStream {
     }
 }
 
+#[tracing::instrument(
+    skip_all,
+    fields(
+        account_id = indexer.account_id.as_str(),
+        function_name = indexer.function_name,
+        start_block_height = start_block_height,
+        redis_stream = redis_stream
+    )
+)]
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
@@ -123,26 +132,59 @@ pub(crate) async fn start_block_stream(
     lake_prefetch_size: usize,
     redis_stream: String,
 ) -> anyhow::Result<()> {
-    tracing::info!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
+    tracing::info!("Starting block stream",);
+
+    let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
-        "Starting block stream",
+        delta_lake_client,
+        redis_client.clone(),
+        indexer,
+        redis_stream.clone(),
+    )
+    .await?;
+
+    let last_indexed_near_lake_block = process_near_lake_blocks(
+        last_indexed_delta_lake_block,
+        lake_s3_config,
+        lake_prefetch_size,
+        redis_client,
+        indexer,
+        redis_stream,
+        chain_id,
+    )
+    .await?;
+
+    tracing::debug!(
+        last_indexed_block = last_indexed_near_lake_block,
+        "Stopped block stream",
     );
 
-    let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
-    let last_indexed_block = latest_block_metadata
-        .last_indexed_block
-        .parse::<near_indexer_primitives::types::BlockHeight>()?;
+    Ok(())
+}
 
-    let blocks_from_index = match &indexer.indexer_rule.matching_rule {
-        MatchingRule::ActionAny {
+async fn process_delta_lake_blocks(
+    start_block_height: near_indexer_primitives::types::BlockHeight,
+    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    indexer: &IndexerConfig,
+    redis_stream: String,
+) -> anyhow::Result<u64> {
+    let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
+    let last_indexed_block_from_metadata = latest_block_metadata
+        .last_indexed_block
+        .parse::<near_indexer_primitives::types::BlockHeight>()
+        .context("Failed to parse Delta Lake metadata")?;
+
+    if start_block_height >= last_indexed_block_from_metadata {
+        return Ok(start_block_height);
+    }
+
+    let blocks_from_index = match &indexer.rule {
+        Rule::ActionAny {
             affected_account_id,
             ..
         } => {
             tracing::debug!(
-                account_id = indexer.account_id.as_str(),
-                function_name = indexer.function_name,
                 "Fetching block heights starting from {} from delta lake",
                 start_block_height,
             );
@@ -151,19 +193,17 @@ pub(crate) async fn start_block_stream(
                 .list_matching_block_heights(start_block_height, affected_account_id)
                 .await
         }
-        MatchingRule::ActionFunctionCall { .. } => {
+        Rule::ActionFunctionCall { .. } => {
             tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
             Ok(vec![])
         }
-        MatchingRule::Event { .. } => {
+        Rule::Event { .. } => {
             tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
             Ok(vec![])
         }
     }?;
 
     tracing::debug!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
         "Flushing {} block heights from index files to Redis Stream",
         blocks_from_index.len(),
     );
@@ -183,29 +223,39 @@ pub(crate) async fn start_block_stream(
             .context("Failed to set last_published_block")?;
     }
 
-    let mut last_indexed_block =
+    let last_indexed_block =
         blocks_from_index
             .last()
-            .map_or(last_indexed_block, |&last_block_in_index| {
+            .map_or(last_indexed_block_from_metadata, |&last_block_in_index| {
                 // Check for the case where index files are written right after we fetch the last_indexed_block metadata
-                std::cmp::max(last_block_in_index, last_indexed_block)
+                std::cmp::max(last_block_in_index, last_indexed_block_from_metadata)
             });
 
-    tracing::debug!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
-        "Starting near-lake-framework from {last_indexed_block} for indexer",
-    );
+    Ok(last_indexed_block)
+}
+
+async fn process_near_lake_blocks(
+    start_block_height: near_indexer_primitives::types::BlockHeight,
+    lake_s3_config: aws_sdk_s3::Config,
+    lake_prefetch_size: usize,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    indexer: &IndexerConfig,
+    redis_stream: String,
+    chain_id: &ChainId,
+) -> anyhow::Result<u64> {
+    tracing::debug!(start_block_height, "Starting near-lake-framework",);
 
     let lake_config = match &chain_id {
         ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
         ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
     }
     .s3_config(lake_s3_config)
-    .start_block_height(last_indexed_block)
+    .start_block_height(start_block_height)
     .blocks_preload_pool_size(lake_prefetch_size)
     .build()
     .context("Failed to build lake config")?;
+
+    let mut last_indexed_block = start_block_height;
 
     let (sender, mut stream) = near_lake_framework::streamer(lake_config);
 
@@ -222,7 +272,7 @@ pub(crate) async fn start_block_stream(
             .context("Failed to set last_published_block")?;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
-            &indexer.indexer_rule,
+            &indexer.rule,
             &streamer_message,
             chain_id.clone(),
         );
@@ -240,14 +290,7 @@ pub(crate) async fn start_block_stream(
 
     drop(sender);
 
-    tracing::debug!(
-        account_id = indexer.account_id.as_str(),
-        function_name = indexer.function_name,
-        "Stopped block stream at {}",
-        last_indexed_block,
-    );
-
-    Ok(())
+    Ok(last_indexed_block)
 }
 
 #[cfg(test)]
@@ -294,14 +337,9 @@ mod tests {
             )
             .unwrap(),
             function_name: "test".to_string(),
-            indexer_rule: registry_types::IndexerRule {
-                indexer_rule_kind: registry_types::IndexerRuleKind::Action,
-                matching_rule: registry_types::MatchingRule::ActionAny {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: registry_types::Status::Success,
-                },
-                name: None,
-                id: None,
+            rule: registry_types::Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: registry_types::Status::Success,
             },
         };
 

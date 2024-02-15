@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 const MAX_S3_LIST_REQUESTS: usize = 1000;
 
 #[cfg(test)]

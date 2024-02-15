@@ -1,6 +1,24 @@
 import express from 'express';
 import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 
+const HEAP_TOTAL_ALLOCATION = new Gauge({
+  name: 'queryapi_runner_heap_total_allocation_megabytes',
+  help: 'Size of heap allocation for indexer function',
+  labelNames: ['indexer', 'type'],
+});
+
+const HEAP_USED = new Gauge({
+  name: 'queryapi_runner_heap_used_megabytes',
+  help: 'Size of used heap space for indexer function',
+  labelNames: ['indexer', 'type'],
+});
+
+const PREFETCH_QUEUE_COUNT = new Gauge({
+  name: 'queryapi_runner_prefetch_queue_count',
+  help: 'Count of items in prefetch queue for indexer function',
+  labelNames: ['indexer', 'type'],
+});
+
 const BLOCK_WAIT_DURATION = new Histogram({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
@@ -37,6 +55,9 @@ const EXECUTION_DURATION = new Histogram({
 });
 
 export const METRICS = {
+  HEAP_TOTAL_ALLOCATION,
+  HEAP_USED,
+  PREFETCH_QUEUE_COUNT,
   BLOCK_WAIT_DURATION,
   CACHE_HIT,
   CACHE_MISS,
@@ -46,10 +67,14 @@ export const METRICS = {
 };
 
 const aggregatorRegistry = new AggregatorRegistry();
-const workerMetrics: Record<number, string> = {};
+const workerMetrics = new Map<number, string>();
 
 export const registerWorkerMetrics = (workerId: number, metrics: string): void => {
-  workerMetrics[workerId] = metrics;
+  workerMetrics.set(workerId, metrics);
+};
+
+export const deregisterWorkerMetrics = (workerId: number): void => {
+  workerMetrics.delete(workerId);
 };
 
 export const startServer = async (): Promise<void> => {
@@ -60,7 +85,7 @@ export const startServer = async (): Promise<void> => {
   app.get('/metrics', async (_req, res) => {
     res.set('Content-Type', aggregatorRegistry.contentType);
 
-    const metrics = await AggregatorRegistry.aggregate(Object.values(workerMetrics)).metrics();
+    const metrics = await AggregatorRegistry.aggregate(Array.from(workerMetrics.values())).metrics();
     res.send(metrics);
   });
 

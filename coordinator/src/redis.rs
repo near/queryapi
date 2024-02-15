@@ -7,6 +7,8 @@ use redis::{
     aio::ConnectionManager, streams, AsyncCommands, FromRedisValue, RedisResult, ToRedisArgs,
 };
 
+use crate::indexer_config::IndexerConfig;
+
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
@@ -34,20 +36,36 @@ impl RedisClientImpl {
         })
     }
 
-    pub async fn get<T, U>(&self, key: T) -> anyhow::Result<U>
+    pub async fn get<T, U>(&self, key: T) -> anyhow::Result<Option<U>>
     where
-        T: ToRedisArgs + Debug + 'static,
+        T: ToRedisArgs + Debug + Send + Sync + 'static,
         U: FromRedisValue + Debug + 'static,
     {
-        let value = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut self.connection.clone())
+        let value: Option<U> = self
+            .connection
+            .clone()
+            .get(&key)
             .await
-            .map_err(|e| anyhow::format_err!(e))?;
+            .context(format!("GET: {key:?}"))?;
 
         tracing::debug!("GET: {:?}={:?}", key, value);
 
         Ok(value)
+    }
+    pub async fn set<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        V: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("SET: {key:?} {value:?}");
+
+        self.connection
+            .clone()
+            .set(&key, &value)
+            .await
+            .context(format!("SET: {key:?} {value:?}"))?;
+
+        Ok(())
     }
 
     pub async fn rename<K, V>(&self, old_key: K, new_key: V) -> anyhow::Result<()>
@@ -57,7 +75,11 @@ impl RedisClientImpl {
     {
         tracing::debug!("RENAME: {:?} -> {:?}", old_key, new_key);
 
-        self.connection.clone().rename(old_key, new_key).await?;
+        self.connection
+            .clone()
+            .rename(&old_key, &new_key)
+            .await
+            .context(format!("RENAME: {old_key:?} {new_key:?}"))?;
 
         Ok(())
     }
@@ -69,11 +91,12 @@ impl RedisClientImpl {
     {
         tracing::debug!("SREM: {:?}={:?}", key, value);
 
-        match self.connection.clone().srem(key, value).await {
+        match self.connection.clone().srem(&key, &value).await {
             Ok(1) => Ok(Some(())),
             Ok(_) => Ok(None),
             Err(e) => Err(anyhow::format_err!(e)),
         }
+        .context(format!("SREM: {key:?} {value:?}"))
     }
 
     pub async fn xread<K, V>(
@@ -92,11 +115,12 @@ impl RedisClientImpl {
             .connection
             .clone()
             .xread_options(
-                &[key],
-                &[start_id],
+                &[&key],
+                &[&start_id],
                 &streams::StreamReadOptions::default().count(count),
             )
-            .await?;
+            .await
+            .context(format!("XREAD {key:?} {start_id:?} {count:?}"))?;
 
         if results.keys.is_empty() {
             return Ok([].to_vec());
@@ -112,7 +136,11 @@ impl RedisClientImpl {
     {
         tracing::debug!("XADD: {:?} {:?} {:?}", key, "*", fields);
 
-        self.connection.clone().xadd(key, "*", fields).await?;
+        self.connection
+            .clone()
+            .xadd(&key, "*", fields)
+            .await
+            .context(format!("XADD {key:?} {fields:?}"))?;
 
         Ok(())
     }
@@ -124,9 +152,41 @@ impl RedisClientImpl {
     {
         tracing::debug!("XDEL: {:?} {:?}", key, id);
 
-        self.connection.clone().xdel(key, &[id]).await?;
+        self.connection
+            .clone()
+            .xdel(&key, &[&id])
+            .await
+            .context(format!("XDEL {key:?} {id:?}"))?;
 
         Ok(())
+    }
+
+    pub async fn exists<K>(&self, key: K) -> anyhow::Result<bool>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("EXISTS {key:?}");
+
+        self.connection
+            .clone()
+            .exists(&key)
+            .await
+            .map_err(|e| anyhow::format_err!(e))
+            .context(format!("EXISTS {key:?}"))
+    }
+
+    pub async fn del<K>(&self, key: K) -> anyhow::Result<()>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("DEL {key:?}");
+
+        self.connection
+            .clone()
+            .del(&key)
+            .await
+            .map_err(|e| anyhow::format_err!(e))
+            .context(format!("DEL {key:?}"))
     }
 
     // `redis::transaction`s currently don't work with async connections, so we have to create a _new_
@@ -148,5 +208,33 @@ impl RedisClientImpl {
         })?;
 
         Ok(())
+    }
+
+    pub async fn get_stream_version(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<u64>> {
+        self.get::<_, u64>(indexer_config.get_redis_stream_version_key())
+            .await
+    }
+
+    pub async fn get_last_published_block(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<u64>> {
+        self.get::<_, u64>(indexer_config.get_last_published_block_key())
+            .await
+    }
+
+    pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        self.del(indexer_config.get_redis_stream_key()).await
+    }
+
+    pub async fn set_stream_version(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        self.set(
+            indexer_config.get_redis_stream_version_key(),
+            indexer_config.get_registry_version(),
+        )
+        .await
     }
 }

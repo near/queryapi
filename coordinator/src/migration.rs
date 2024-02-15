@@ -4,9 +4,12 @@ use anyhow::Context;
 use near_primitives::types::AccountId;
 use redis::{ErrorKind, RedisError};
 
-use crate::executors_handler::ExecutorsHandler;
+use crate::executors::ExecutorsHandler;
+use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
-use crate::registry::{IndexerConfig, IndexerRegistry};
+use crate::registry::IndexerRegistry;
+
+pub const MIGRATED_STREAM_VERSION: u64 = 0;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct AllowlistEntry {
@@ -14,12 +17,17 @@ pub struct AllowlistEntry {
     v1_ack: bool,
     migrated: bool,
     failed: bool,
+    v2_control: bool,
 }
 
 pub type Allowlist = Vec<AllowlistEntry>;
 
 pub async fn fetch_allowlist(redis_client: &RedisClient) -> anyhow::Result<Allowlist> {
-    let raw_allowlist: String = redis_client.get(RedisClient::ALLOWLIST).await?;
+    let raw_allowlist: String = redis_client
+        .get(RedisClient::ALLOWLIST)
+        .await?
+        .ok_or(anyhow::anyhow!("Allowlist doesn't exist"))?;
+
     serde_json::from_str(&raw_allowlist).context("Failed to parse allowlist")
 }
 
@@ -31,7 +39,11 @@ pub async fn filter_registry_by_allowlist(
         .into_iter()
         .filter(|(account_id, _)| {
             allowlist.iter().any(|entry| {
-                entry.account_id == *account_id && entry.v1_ack && entry.migrated && !entry.failed
+                entry.account_id == *account_id
+                    && entry.v1_ack
+                    && entry.migrated
+                    && !entry.failed
+                    && entry.v2_control
             })
         })
         .collect();
@@ -102,10 +114,12 @@ async fn migrate_account(
         merge_streams(redis_client, &existing_streams, indexer_config)
             .await
             .context("Failed to merge streams")?;
+        update_stream_version(redis_client, indexer_config)
+            .await
+            .context("Failed to set Redis Stream version")?;
     }
 
-    // TODO Uncomment when V2 correctly continues from V1 stop point
-    // set_migrated_flag(redis_client, account_id)?;
+    set_migrated_flag(redis_client, account_id)?;
 
     tracing::info!("Finished migrating {}", account_id);
 
@@ -121,23 +135,29 @@ async fn remove_from_streams_set(
     if redis_client
         .srem(
             RedisClient::STREAMS_SET,
-            indexer_config.get_historical_redis_stream(),
+            indexer_config.get_historical_redis_stream_key(),
         )
         .await?
         .is_some()
+        && redis_client
+            .exists(indexer_config.get_historical_redis_stream_key())
+            .await?
     {
-        result.push(indexer_config.get_historical_redis_stream());
+        result.push(indexer_config.get_historical_redis_stream_key());
     }
 
     if redis_client
         .srem(
             RedisClient::STREAMS_SET,
-            indexer_config.get_real_time_redis_stream(),
+            indexer_config.get_real_time_redis_stream_key(),
         )
         .await?
         .is_some()
+        && redis_client
+            .exists(indexer_config.get_real_time_redis_stream_key())
+            .await?
     {
-        result.push(indexer_config.get_real_time_redis_stream());
+        result.push(indexer_config.get_real_time_redis_stream_key());
     };
 
     Ok(result)
@@ -165,7 +185,7 @@ async fn merge_streams(
             redis_client
                 .rename(
                     existing_streams[0].to_owned(),
-                    indexer_config.get_redis_stream(),
+                    indexer_config.get_redis_stream_key(),
                 )
                 .await?;
 
@@ -176,7 +196,7 @@ async fn merge_streams(
             let real_time_stream = existing_streams[1].to_owned();
 
             redis_client
-                .rename(historical_stream, indexer_config.get_redis_stream())
+                .rename(historical_stream, indexer_config.get_redis_stream_key())
                 .await?;
 
             loop {
@@ -202,10 +222,13 @@ async fn merge_streams(
                         .collect();
 
                     redis_client
-                        .xadd(indexer_config.get_redis_stream(), &fields)
+                        .xadd(indexer_config.get_redis_stream_key(), &fields)
                         .await?;
                     redis_client
-                        .xdel(indexer_config.get_real_time_redis_stream(), stream_id.id)
+                        .xdel(
+                            indexer_config.get_real_time_redis_stream_key(),
+                            stream_id.id,
+                        )
                         .await?
                 }
             }
@@ -214,6 +237,20 @@ async fn merge_streams(
         }
         _ => anyhow::bail!("Unexpected number of pre-existing streams"),
     }
+}
+
+async fn update_stream_version(
+    redis_client: &RedisClient,
+    indexer_config: &IndexerConfig,
+) -> anyhow::Result<()> {
+    redis_client
+        .set(
+            indexer_config.get_redis_stream_version_key(),
+            MIGRATED_STREAM_VERSION,
+        )
+        .await?;
+
+    Ok(())
 }
 
 fn set_failed_flag(redis_client: &RedisClient, account_id: &AccountId) -> anyhow::Result<()> {
@@ -267,9 +304,9 @@ mod tests {
     use std::collections::HashMap;
 
     use mockall::predicate;
-    use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use registry_types::{Rule, StartBlock, Status};
 
-    use crate::registry::IndexerConfig;
+    use crate::indexer_config::IndexerConfig;
 
     #[tokio::test]
     async fn ignores_migrated_indexers() {
@@ -281,19 +318,14 @@ mod tests {
                     account_id: "morgs.near".parse().unwrap(),
                     function_name: "test".to_string(),
                     code: String::new(),
-                    schema: Some(String::new()),
-                    filter: IndexerRule {
-                        id: None,
-                        name: None,
-                        indexer_rule_kind: IndexerRuleKind::Action,
-                        matching_rule: MatchingRule::ActionAny {
-                            affected_account_id: "queryapi.dataplatform.near".to_string(),
-                            status: Status::Any,
-                        },
+                    schema: String::new(),
+                    rule: Rule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
                     },
                     created_at_block_height: 101,
                     updated_at_block_height: Some(200),
-                    start_block_height: Some(1000),
+                    start_block: StartBlock::Height(1000),
                 },
             )]),
         )]);
@@ -303,6 +335,7 @@ mod tests {
             v1_ack: true,
             migrated: true,
             failed: false,
+            v2_control: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -327,6 +360,7 @@ mod tests {
             v1_ack: true,
             migrated: true,
             failed: false,
+            v2_control: false,
         }];
 
         let redis_client = RedisClient::default();
@@ -352,19 +386,14 @@ mod tests {
                     account_id: "morgs.near".parse().unwrap(),
                     function_name: "test".to_string(),
                     code: String::new(),
-                    schema: Some(String::new()),
-                    filter: IndexerRule {
-                        id: None,
-                        name: None,
-                        indexer_rule_kind: IndexerRuleKind::Action,
-                        matching_rule: MatchingRule::ActionAny {
-                            affected_account_id: "queryapi.dataplatform.near".to_string(),
-                            status: Status::Any,
-                        },
+                    schema: String::new(),
+                    rule: Rule::ActionAny {
+                        affected_account_id: "queryapi.dataplatform.near".to_string(),
+                        status: Status::Any,
                     },
                     created_at_block_height: 101,
                     updated_at_block_height: Some(200),
-                    start_block_height: Some(1000),
+                    start_block: StartBlock::Height(1000),
                 },
             )]),
         )]);
@@ -374,6 +403,7 @@ mod tests {
             v1_ack: true,
             migrated: false,
             failed: false,
+            v2_control: false,
         }];
 
         let mut redis_client = RedisClient::default();
@@ -392,6 +422,20 @@ mod tests {
                 predicate::eq(String::from("morgs.near/test:real_time:stream")),
             )
             .returning(|_, _| Ok(Some(())))
+            .once();
+        redis_client
+            .expect_exists::<String>()
+            .with(predicate::eq(String::from(
+                "morgs.near/test:historical:stream",
+            )))
+            .returning(|_| Ok(true))
+            .once();
+        redis_client
+            .expect_exists::<String>()
+            .with(predicate::eq(String::from(
+                "morgs.near/test:real_time:stream",
+            )))
+            .returning(|_| Ok(true))
             .once();
         redis_client
             .expect_rename::<String, String>()
@@ -440,6 +484,14 @@ mod tests {
             .with(
                 predicate::eq(String::from("morgs.near/test:real_time:stream")),
                 predicate::eq(String::from("1-0")),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        redis_client
+            .expect_set::<String, u64>()
+            .with(
+                predicate::eq(String::from("morgs.near/test:block_stream:version")),
+                predicate::eq(MIGRATED_STREAM_VERSION),
             )
             .returning(|_, _| Ok(()))
             .once();

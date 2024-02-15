@@ -1,13 +1,13 @@
 use crate::rules::matcher;
 use crate::rules::types::Event;
 use crate::rules::types::{ChainId, IndexerRuleMatch, IndexerRuleMatchPayload};
-use crate::rules::{IndexerRule, MatchingRule};
+use crate::rules::Rule;
 use near_lake_framework::near_indexer_primitives::{
     IndexerExecutionOutcomeWithReceipt, StreamerMessage,
 };
 
 pub fn reduce_indexer_rule_matches_from_outcomes(
-    indexer_rule: &IndexerRule,
+    indexer_rule: &Rule,
     streamer_message: &StreamerMessage,
     chain_id: ChainId,
 ) -> Vec<IndexerRuleMatch> {
@@ -20,7 +20,7 @@ pub fn reduce_indexer_rule_matches_from_outcomes(
                 .iter()
                 // future: when extracting Actions, Events, etc this will be a filter operation
                 .find(|receipt_execution_outcome| {
-                    matcher::matches(&indexer_rule.matching_rule, receipt_execution_outcome)
+                    matcher::matches(indexer_rule, receipt_execution_outcome)
                 })
         })
         .map(|receipt_execution_outcome| {
@@ -36,7 +36,7 @@ pub fn reduce_indexer_rule_matches_from_outcomes(
 }
 
 fn build_indexer_rule_match(
-    indexer_rule: &IndexerRule,
+    indexer_rule: &Rule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     block_header_hash: String,
     block_height: u64,
@@ -44,8 +44,6 @@ fn build_indexer_rule_match(
 ) -> IndexerRuleMatch {
     IndexerRuleMatch {
         chain_id,
-        indexer_rule_id: indexer_rule.id,
-        indexer_rule_name: indexer_rule.name.clone(),
         payload: build_indexer_rule_match_payload(
             indexer_rule,
             receipt_execution_outcome,
@@ -56,7 +54,7 @@ fn build_indexer_rule_match(
 }
 
 fn build_indexer_rule_match_payload(
-    indexer_rule: &IndexerRule,
+    indexer_rule: &Rule,
     receipt_execution_outcome: &IndexerExecutionOutcomeWithReceipt,
     block_header_hash: String,
 ) -> IndexerRuleMatchPayload {
@@ -64,15 +62,15 @@ fn build_indexer_rule_match_payload(
     //   specified in the indexer function config.
     let transaction_hash = None;
 
-    match &indexer_rule.matching_rule {
-        MatchingRule::ActionAny { .. } | MatchingRule::ActionFunctionCall { .. } => {
+    match &indexer_rule {
+        Rule::ActionAny { .. } | Rule::ActionFunctionCall { .. } => {
             IndexerRuleMatchPayload::Actions {
                 block_hash: block_header_hash,
                 receipt_id: receipt_execution_outcome.receipt.receipt_id.to_string(),
                 transaction_hash,
             }
         }
-        MatchingRule::Event {
+        Rule::Event {
             event,
             standard,
             version,
@@ -115,21 +113,16 @@ fn build_indexer_rule_match_payload(
 
 #[cfg(test)]
 mod tests {
-    use registry_types::{IndexerRule, IndexerRuleKind, MatchingRule, Status};
+    use registry_types::{Rule, Status};
 
     use crate::rules::outcomes_reducer::reduce_indexer_rule_matches_from_outcomes;
     use crate::rules::types::{ChainId, IndexerRuleMatch};
 
     #[tokio::test]
     async fn match_wildcard_no_match() {
-        let wildcard_rule = IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "*.nearcrow.near".to_string(),
-                status: Status::Success,
-            },
-            id: None,
-            name: None,
+        let wildcard_rule = Rule::ActionAny {
+            affected_account_id: "*.nearcrow.near".to_string(),
+            status: Status::Success,
         };
 
         let streamer_message = crate::test_utils::get_streamer_message(93085141);
@@ -144,14 +137,9 @@ mod tests {
 
     #[tokio::test]
     async fn match_wildcard_contract_subaccount_name() {
-        let wildcard_rule = IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "*.nearcrowd.near".to_string(),
-                status: Status::Success,
-            },
-            id: None,
-            name: None,
+        let wildcard_rule = Rule::ActionAny {
+            affected_account_id: "*.nearcrowd.near".to_string(),
+            status: Status::Success,
         };
 
         let streamer_message = crate::test_utils::get_streamer_message(93085141);
@@ -166,14 +154,9 @@ mod tests {
 
     #[tokio::test]
     async fn match_wildcard_mid_contract_name() {
-        let wildcard_rule = IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "*crowd.near".to_string(),
-                status: Status::Success,
-            },
-            id: None,
-            name: None,
+        let wildcard_rule = Rule::ActionAny {
+            affected_account_id: "*crowd.near".to_string(),
+            status: Status::Success,
         };
 
         let streamer_message = crate::test_utils::get_streamer_message(93085141);
@@ -185,14 +168,9 @@ mod tests {
 
         assert_eq!(result.len(), 1); // see Extraction note in previous test
 
-        let wildcard_rule = IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "app.nea*owd.near".to_string(),
-                status: Status::Success,
-            },
-            id: None,
-            name: None,
+        let wildcard_rule = Rule::ActionAny {
+            affected_account_id: "app.nea*owd.near".to_string(),
+            status: Status::Success,
         };
 
         let result: Vec<IndexerRuleMatch> = reduce_indexer_rule_matches_from_outcomes(
@@ -206,14 +184,9 @@ mod tests {
 
     #[tokio::test]
     async fn match_csv_account() {
-        let wildcard_rule = IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "notintheblockaccount.near, app.nearcrowd.near".to_string(),
-                status: Status::Success,
-            },
-            id: None,
-            name: None,
+        let wildcard_rule = Rule::ActionAny {
+            affected_account_id: "notintheblockaccount.near, app.nearcrowd.near".to_string(),
+            status: Status::Success,
         };
 
         let streamer_message = crate::test_utils::get_streamer_message(93085141);
@@ -228,14 +201,9 @@ mod tests {
 
     #[tokio::test]
     async fn match_csv_wildcard_account() {
-        let wildcard_rule = IndexerRule {
-            indexer_rule_kind: IndexerRuleKind::Action,
-            matching_rule: MatchingRule::ActionAny {
-                affected_account_id: "notintheblockaccount.near, *.nearcrowd.near".to_string(),
-                status: Status::Success,
-            },
-            id: None,
-            name: None,
+        let wildcard_rule = Rule::ActionAny {
+            affected_account_id: "notintheblockaccount.near, *.nearcrowd.near".to_string(),
+            status: Status::Success,
         };
 
         let streamer_message = crate::test_utils::get_streamer_message(93085141);

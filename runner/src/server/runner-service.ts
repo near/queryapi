@@ -107,7 +107,8 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
               schema: '',
             };
             context = {
-              status: Status.RUNNING
+              status: Status.RUNNING,
+              block_height: context.block_height,
             };
           }
           response.push({
