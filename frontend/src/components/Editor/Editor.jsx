@@ -366,7 +366,7 @@ const Editor = ({ actionButtonText }) => {
           options: {
             isWholeLine: true,
             glyphMarginClassName: "glyphSuccess",
-            glyphMarginHoverMessage: { value: "No Errors" },
+            glyphMarginHoverMessage: { value: "" },
           },
         },
       ]

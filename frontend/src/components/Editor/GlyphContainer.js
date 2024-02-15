@@ -3,7 +3,7 @@ import styled from "styled-components";
 
 const GlyphContainer = styled.div`
 .glyphSuccess {
-    background: green;
+    background: transparent;
   }  
 
 .glyphError {

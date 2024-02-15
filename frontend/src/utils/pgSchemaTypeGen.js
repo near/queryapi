@@ -52,7 +52,6 @@ export class PgSchemaTypeGen {
 	}
 
 	generateTypes(sqlSchema) {
-		try {
 			const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
 			const dbSchema = {};
 
@@ -110,10 +109,6 @@ export class PgSchemaTypeGen {
 			const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
 			console.log(`Types successfully generated`);
 			return tsTypes;
-
-		} catch (error) {
-			throw error;
-		}
 	}
 
 	addColumn(columnDef, columns) {

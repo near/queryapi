@@ -33,6 +33,7 @@ export function validateSQLSchema(schema) {
   try {
     formattedSchema = formatSQL(schema);
   } catch (error) {
+    //todo: add error handling for location
     return { data: schema, error: new ValidationError(error.message, FORMATTING_ERROR_TYPE) };
   }
 
