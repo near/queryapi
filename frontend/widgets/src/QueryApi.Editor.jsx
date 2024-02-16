@@ -18,20 +18,24 @@ const initialPayload = {
 
 const registerFunctionHandler = (request, response) => {
   const gas = 200000000000000;
-  const { indexerName, code, schema, blockHeight, contractFilter } =
+  const { indexerName, code, schema, startBlock, contractFilter } =
     request.payload;
 
   const jsonFilter = `{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"${contractFilter || "social.near"}","status":"SUCCESS"}}`
 
   Near.call(
     `${REPL_REGISTRY_CONTRACT_ID}`,
-    "register_indexer_function",
+    "register",
     {
       function_name: indexerName,
       code,
       schema,
-      start_block_height: blockHeight,
-      filter_json: jsonFilter 
+      start_block: startBlock,
+      rule: {
+        kind: "ACTION_ANY",
+        affected_account_id: contractFilter,
+        status: "SUCCESS"
+      } 
     },
     gas
   );

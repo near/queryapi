@@ -16,11 +16,8 @@ export const PublishModal = ({
   const [indexerName, setIndexerName] = useState("")
   const [error, setError] = useState(null)
 
-  const updateConfig = (indexerName, filter, startBlockHeight, option) => {
-    if (option === "latestBlockHeight") {
-      startBlockHeight = null
-    }
-    setIndexerConfig({ filter, startBlockHeight })
+  const updateConfig = (indexerName, filter, height, startBlock) => {
+    setIndexerConfig({ filter, startBlock, height })
     setIndexerName(indexerName)
   }
 

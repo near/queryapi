@@ -250,11 +250,22 @@ const Editor = ({ actionButtonText }) => {
       return;
     }
 
+    let startBlock = null;
+    if (indexerConfig.startBlock === "startBlockHeight") {
+      startBlock = {
+        HEIGHT: indexerConfig.height
+      };
+    } else if (indexerConfig.startBlock === "startBlockLatest") {
+      startBlock = "LATEST";
+    } else {
+      startBlock = "CONTINUE"
+    }
+
     request("register-function", {
       indexerName: indexerName,
       code: innerCode,
       schema: validatedSchema,
-      blockHeight: indexerConfig.startBlockHeight,
+      startBlock,
       contractFilter: indexerConfig.filter,
     });
 
