@@ -5,7 +5,7 @@ export const MonacoEditorComponent = ({
   defaultLanguage,
   readOnly,
   onChange,
-  handleEditorWillMount,
+  onMount,
   options,
 }) => (
   <MonacoEditor
@@ -15,8 +15,8 @@ export const MonacoEditorComponent = ({
     defaultValue={defaultValue}
     defaultLanguage={defaultLanguage}
     theme="vs-dark"
+    onMount={onMount}
     onChange={onChange}
-    beforeMount={handleEditorWillMount}
     options={{ ...options, readOnly }}
   />
 );

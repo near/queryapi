@@ -25,7 +25,6 @@ export function validateContractIds(accountIds) {
  */
 export function validateSQLSchema(schema) {
   if (!schema) return { data: null, error: null };
-
   if (schema === formatSQL(defaultSchema)) return { data: schema, error: null };
 
   const pgSchemaTypeGen = new PgSchemaTypeGen();
@@ -34,7 +33,7 @@ export function validateSQLSchema(schema) {
   try {
     formattedSchema = formatSQL(schema);
   } catch (error) {
-    console.error(error.message)
+    //todo: add error handling for location
     return { data: schema, error: new ValidationError(error.message, FORMATTING_ERROR_TYPE) };
   }
 
@@ -43,8 +42,7 @@ export function validateSQLSchema(schema) {
       pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
       return { data: formattedSchema, error: null }
     } catch (error) {
-      console.error(error.message)
-      return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE) };
+      return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location };
     }
   }
 };
