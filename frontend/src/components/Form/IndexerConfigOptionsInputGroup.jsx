@@ -7,23 +7,24 @@ import { validateContractIds } from "../../utils/validators";
 
 const  GENESIS_BLOCK_HEIGHT = 9820210;
 
+const START_BLOCK = {
+  CONTINUE: "startBlockContinue",
+  LATEST: "startBlockLatest",
+  HEIGHT: "startBlockHeight",
+}
+
 const IndexerConfigOptions = ({ updateConfig }) => {
   const { indexerDetails, showPublishModal, isCreateNewIndexer, latestHeight } = useContext(IndexerDetailsContext); 
   const [blockHeight, setBlockHeight] = useState("0");
   const [contractFilter, setContractFilter] = useState("social.near");
-  const [selectedOption, setSelectedOption] = useState("latestBlockHeight");
+  const [startBlock, setStartBlock] = useState(START_BLOCK.LATEST);
   const [isContractFilterValid, setIsContractFilterValid] = useState(true);
   const [indexerNameField, setIndexerNameField] = useState(indexerDetails.indexerName || "");
   const [blockHeightError, setBlockHeightError] = useState(null)
 
-  const handleOptionChange = (event) => {
-    setSelectedOption(event.target.value);
-    // setBlockHeightError(null);
-  };
-
   useEffect(() => {
     if (indexerDetails.config?.startBlockHeight) {
-      setSelectedOption("specificBlockHeight")
+      setStartBlock(START_BLOCK.HEIGHT)
       setBlockHeight(indexerDetails.config.startBlockHeight)
     }
     if (indexerDetails.config?.filter) {
@@ -39,14 +40,14 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   }
 
   useEffect(() => {
-    if (selectedOption == "specificBlockHeight" && blockHeight <= GENESIS_BLOCK_HEIGHT) {
+    if (startBlock == START_BLOCK.HEIGHT && blockHeight <= GENESIS_BLOCK_HEIGHT) {
       setBlockHeightError(() => `Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`)
       return
     }
     setBlockHeightError(() => null)
-    updateConfig(indexerNameField, contractFilter, blockHeight, selectedOption)
+    updateConfig(indexerNameField, contractFilter, blockHeight, startBlock)
     },
-    [indexerNameField, contractFilter, selectedOption, blockHeight]
+    [indexerNameField, contractFilter, startBlock, blockHeight]
   )
 
   return (
@@ -64,18 +65,27 @@ const IndexerConfigOptions = ({ updateConfig }) => {
       </InputGroup>
       <InputGroup size="sm" className="pt-3">
         <InputGroup.Checkbox
-          value="latestBlockHeight"
-          checked={selectedOption === "latestBlockHeight"}
-          onChange={handleOptionChange}
+          value={START_BLOCK.LATEST}
+          checked={startBlock === START_BLOCK.LATEST}
+          onChange={() => setStartBlock(START_BLOCK.LATEST)}
           aria-label="Checkbox for following text input"
         />
         <InputGroup.Text>Start from latest block</InputGroup.Text>
       </InputGroup>
-      <InputGroup size="sm" className="px-1 pt-3">
+      <InputGroup size="sm" className="pt-3">
         <InputGroup.Checkbox
-          value="specificBlockHeight"
-          checked={selectedOption === "specificBlockHeight"}
-          onChange={handleOptionChange}
+          value={START_BLOCK.CONTINUE}
+          checked={startBlock === START_BLOCK.CONTINUE}
+          onChange={() => setStartBlock(START_BLOCK.CONTINUE)}
+          aria-label="Checkbox for following text input"
+        />
+        <InputGroup.Text>Continue from last processed block</InputGroup.Text>
+      </InputGroup>
+      <InputGroup size="sm" className="pt-3">
+        <InputGroup.Checkbox
+          value={START_BLOCK.HEIGHT}
+          checked={startBlock === START_BLOCK.HEIGHT}
+          onChange={() => setStartBlock(START_BLOCK.HEIGHT)}
           aria-label="Checkbox for following text input"
         />
         <InputGroup.Text>Start from block height</InputGroup.Text>
