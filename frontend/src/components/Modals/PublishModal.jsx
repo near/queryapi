@@ -31,7 +31,6 @@ export const PublishModal = ({
     }
 
     if (!validateContractIds(indexerConfig.filter)) {
-      console.log("Invalid contract name",indexerConfig.filter )
       setError( () => "Please provide a valid contract name")
       return
     }
