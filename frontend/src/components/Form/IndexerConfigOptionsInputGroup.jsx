@@ -69,7 +69,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
           onChange={handleOptionChange}
           aria-label="Checkbox for following text input"
         />
-        <InputGroup.Text>From Latest Block Height</InputGroup.Text>
+        <InputGroup.Text>Start from latest block</InputGroup.Text>
       </InputGroup>
       <InputGroup size="sm" className="px-1 pt-3">
         <InputGroup.Checkbox
@@ -78,7 +78,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
           onChange={handleOptionChange}
           aria-label="Checkbox for following text input"
         />
-        <InputGroup.Text>Specific Block Height</InputGroup.Text>
+        <InputGroup.Text>Start from block height</InputGroup.Text>
         <Form.Control
           value={blockHeight}
           onChange={(e) => setBlockHeight(parseInt(e.target.value))}
