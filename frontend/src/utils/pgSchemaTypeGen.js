@@ -15,104 +15,103 @@ export class PgSchemaTypeGen {
 			.replace(/^([a-zA-Z])|_([a-zA-Z])/g, (match) => match.toUpperCase())
 			// Removes all underscores
 			.replace(/_/g, '');
-  
-	  // Add underscore if first character is a number
-	  if (/^[0-9]/.test(pascalCaseTableName)) {
-		  pascalCaseTableName = '_' + pascalCaseTableName;
-	  }
-  
-	  return pascalCaseTableName;
+
+		// Add underscore if first character is a number
+		if (/^[0-9]/.test(pascalCaseTableName)) {
+			pascalCaseTableName = '_' + pascalCaseTableName;
+		}
+
+		return pascalCaseTableName;
 	}
 
-	getTableNames (schema) {
+	getTableNames(schema) {
 		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
 		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
 		const tableNames = new Set();
 
 		// Collect all table names from schema AST, throw error if duplicate table names exist
 		for (const statement of schemaSyntaxTree) {
-      if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
-        const tableName = statement.table[0].table;
-
-        if (tableNames.has(tableName)) {
-          throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
-        }
-
-        tableNames.add(tableName);
-      }
-    }
-
-    // Ensure schema is not empty
-    if (tableNames.size === 0) {
-      throw new Error('Schema does not have any tables. There should be at least one table.');
-    }
-
-    const tableNamesArray = Array.from(tableNames);
-    return Array.from(tableNamesArray);
-  }
-
-	generateTypes(sqlSchema) {
-		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
-		const dbSchema = {};
-
-		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
-
-		// Process each statement in the schema
-		for (const statement of statements) {
-			if (statement.type === "create" && statement.keyword === "table") {
-				// Process CREATE TABLE statements
+			if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
 				const tableName = statement.table[0].table;
-				if (dbSchema.hasOwnProperty(tableName)) {
+
+				if (tableNames.has(tableName)) {
 					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
 				}
 
-				let columns = {};
-				for (const columnSpec of statement.create_definitions) {
-					if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
-						// New Column
-						this.addColumn(columnSpec, columns);
-					} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
-						// Constraint on existing column
-						for (const foreignKeyDef of columnSpec.definition) {
-							columns[foreignKeyDef.column].nullable = false;
-						}
-					}
-				}
-				dbSchema[tableName] = columns;
-			} else if (statement.type === "alter") {
-				// Process ALTER TABLE statements
-				const tableName = statement.table[0].table;
-				for (const alterSpec of statement.expr) {
-					switch (alterSpec.action) {
-						case "add":
-							switch (alterSpec.resource) {
-								case "column": // Add column to table
-									this.addColumn(alterSpec, dbSchema[tableName]);
-									break;
-								case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
-									const newConstraint = alterSpec.create_definitions;
-									if (newConstraint.constraint_type == "primary key") {
-										for (const foreignKeyDef of newConstraint.definition) {
-											dbSchema[tableName][foreignKeyDef.column].nullable = false;
-										}
-									}
-									break;
-							}
-							break;
-						case "drop": // Can only drop column for now
-							delete dbSchema[tableName][alterSpec.column.column];
-							break;
-					}
-				}
+				tableNames.add(tableName);
 			}
 		}
 
-		const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
-    console.log(`Types successfully generated`);
-		return tsTypes;
+		// Ensure schema is not empty
+		if (tableNames.size === 0) {
+			throw new Error('Schema does not have any tables. There should be at least one table.');
+		}
+
+		const tableNamesArray = Array.from(tableNames);
+		return Array.from(tableNamesArray);
 	}
-	
-  addColumn(columnDef, columns) {
+
+	generateTypes(sqlSchema) {
+			const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
+			const dbSchema = {};
+
+			const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
+			// Process each statement in the schema
+			for (const statement of statements) {
+				if (statement.type === "create" && statement.keyword === "table") {
+					// Process CREATE TABLE statements
+					const tableName = statement.table[0].table;
+					if (dbSchema.hasOwnProperty(tableName)) {
+						throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
+					}
+
+					let columns = {};
+					for (const columnSpec of statement.create_definitions) {
+						if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
+							// New Column
+							this.addColumn(columnSpec, columns);
+						} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
+							// Constraint on existing column
+							for (const foreignKeyDef of columnSpec.definition) {
+								columns[foreignKeyDef.column].nullable = false;
+							}
+						}
+					}
+					dbSchema[tableName] = columns;
+				} else if (statement.type === "alter") {
+					// Process ALTER TABLE statements
+					const tableName = statement.table[0].table;
+					for (const alterSpec of statement.expr) {
+						switch (alterSpec.action) {
+							case "add":
+								switch (alterSpec.resource) {
+									case "column": // Add column to table
+										this.addColumn(alterSpec, dbSchema[tableName]);
+										break;
+									case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
+										const newConstraint = alterSpec.create_definitions;
+										if (newConstraint.constraint_type == "primary key") {
+											for (const foreignKeyDef of newConstraint.definition) {
+												dbSchema[tableName][foreignKeyDef.column].nullable = false;
+											}
+										}
+										break;
+								}
+								break;
+							case "drop": // Can only drop column for now
+								delete dbSchema[tableName][alterSpec.column.column];
+								break;
+						}
+					}
+				}
+			}
+
+			const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
+			console.log(`Types successfully generated`);
+			return tsTypes;
+	}
+
+	addColumn(columnDef, columns) {
 		const columnName = columnDef.column.column;
 		const columnType = this.getTypescriptType(columnDef.definition.dataType);
 		const nullable = this.getNullableStatus(columnDef);
@@ -127,7 +126,7 @@ export class PgSchemaTypeGen {
 			required: required,
 		};
 	}
-	
+
 	getNullableStatus(columnDef) {
 		const isPrimaryKey =
 			columnDef.hasOwnProperty("unique_or_primary") &&
@@ -137,7 +136,7 @@ export class PgSchemaTypeGen {
 			columnDef.nullable.value == "not null";
 		return isPrimaryKey || isNullable ? false : true;
 	}
-	
+
 	getRequiredStatus(columnDef, nullable) {
 		const hasDefaultValue =
 			columnDef.hasOwnProperty("default_val") && columnDef.default_val != null;
@@ -146,7 +145,7 @@ export class PgSchemaTypeGen {
 			.includes("serial");
 		return hasDefaultValue || isSerial || nullable ? false : true;
 	}
-	
+
 	generateTypeScriptDefinitions(schema) {
 		const tableList = new Set();
 		let tsDefinitions = "";
@@ -156,15 +155,15 @@ export class PgSchemaTypeGen {
 	log: (...log) => Promise<any>,
 	fetchFromSocialApi: (path, options) => Promise<Response>,
 	db: {`;
-	
+
 		// Process each table
 		for (const [tableName, columns] of Object.entries(schema)) {
 			let itemDefinition = "";
 			let inputDefinition = "";
 			const sanitizedTableName = this.sanitizeTableName(tableName);
-      if (tableList.has(sanitizedTableName)) {
-        throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
-      }
+			if (tableList.has(sanitizedTableName)) {
+				throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
+			}
 			tableList.add(sanitizedTableName);
 			// Create interfaces for strongly typed input and row item
 			itemDefinition += `declare interface ${sanitizedTableName}Item {\n`;
@@ -178,10 +177,10 @@ export class PgSchemaTypeGen {
 			itemDefinition += "}\n\n";
 			inputDefinition += "}\n\n";
 
-      // Create type containing column names to be used as a replacement for string[]. 
-      const columnNamesDef = `type ${sanitizedTableName}Columns = "${Object.keys(columns).join('" | "')}";\n\n`;
+			// Create type containing column names to be used as a replacement for string[]. 
+			const columnNamesDef = `type ${sanitizedTableName}Columns = "${Object.keys(columns).join('" | "')}";\n\n`;
 
-      // Add generated types to definitions
+			// Add generated types to definitions
 			tsDefinitions += itemDefinition + inputDefinition + columnNamesDef;
 
 			// Create context object with correctly formatted methods. Name, input, and output should match actual implementation
@@ -194,13 +193,13 @@ export class PgSchemaTypeGen {
 			delete: (filterObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
 		},`;
 		}
-	
+
 		contextObject += '\n  }\n};'
 		this.tableList = tableList;
-	
+
 		return tsDefinitions + contextObject;
 	}
-	
+
 	getTypescriptType(pgType) {
 		switch (pgType.toLowerCase()) {
 			// Numeric types
@@ -214,11 +213,11 @@ export class PgSchemaTypeGen {
 			case "serial":
 			case "bigserial":
 				return "number";
-	
+
 			// Monetary types
 			case "money":
 				return "number";
-	
+
 			// Character types
 			case "character varying":
 			case "varchar":
@@ -226,15 +225,15 @@ export class PgSchemaTypeGen {
 			case "char":
 			case "text":
 				return "string";
-	
+
 			// Binary data types
 			case "bytea":
 				return "Buffer";
-	
+
 			// Boolean type
 			case "boolean":
 				return "boolean";
-	
+
 			// Date/Time types
 			case "timestamp":
 			case "timestamp without time zone":
@@ -245,23 +244,23 @@ export class PgSchemaTypeGen {
 			case "time with time zone":
 			case "interval":
 				return "Date";
-	
+
 			// UUID type
 			case "uuid":
 				return "string";
-	
+
 			// JSON types
 			case "json":
 			case "jsonb":
 				return "any";
-	
+
 			// Arrays
 			case "integer[]":
 				return "number[]";
-	
+
 			case "text[]":
 				return "string[]";
-	
+
 			// Others
 			default:
 				return "any";
