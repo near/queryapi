@@ -4,12 +4,12 @@ import { CONTRACT_NAME_REGEX } from '../constants/RegexExp';
 import { ValidationError } from '../classes/ValidationError';
 import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
+//todo: this func is running on an onchange as oppose to a onsubmit
 export function validateContractId(accountId) {
-  return (
-    accountId.length >= 2 &&
-    accountId.length <= 64 &&
-    CONTRACT_NAME_REGEX.test(accountId)
-  );
+  const isWildcard = accountId.trim() === "*" || accountId.trim() === "*.near";
+  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
+  return isWildcard || (isRegexValid && isLengthValid);
 }
 
 export function validateContractIds(accountIds) {
