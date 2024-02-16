@@ -90,8 +90,8 @@ const IndexerConfigOptions = ({ updateConfig }) => {
           </Alert>
         )}
       </InputGroup>
-      <InputGroup size="sm" hasValidation={true} className="px-1 pt-3">
-        <InputGroup.Text> Contract Filter</InputGroup.Text>
+      <InputGroup size="sm" hasValidation={true} className="pt-3">
+        <InputGroup.Text>Contract Filter</InputGroup.Text>
         <Form.Control
           value={contractFilter}
           onChange={handleSetContractFilter}
