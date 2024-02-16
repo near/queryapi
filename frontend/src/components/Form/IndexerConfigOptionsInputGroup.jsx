@@ -1,9 +1,12 @@
 import React, { useContext, useState, useEffect } from "react";
-import { InputGroup, Alert } from "react-bootstrap";
+import { InputGroup, Alert, Warn } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
+
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractIds } from "../../utils/validators";
+
 const  GENESIS_BLOCK_HEIGHT = 9820210;
+
 const IndexerConfigOptions = ({ updateConfig }) => {
   const { indexerDetails, showPublishModal, isCreateNewIndexer, latestHeight } = useContext(IndexerDetailsContext); 
   const [blockHeight, setBlockHeight] = useState("0");
@@ -36,14 +39,15 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   }
 
   useEffect(() => {
-  if (selectedOption == "specificBlockHeight" && blockHeight <= GENESIS_BLOCK_HEIGHT) {
-    setBlockHeightError(() => `Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`)
-    return
-  }
-  setBlockHeightError(() => null)
-  updateConfig(indexerNameField, contractFilter, blockHeight, selectedOption)
-  },
-   [indexerNameField, contractFilter, selectedOption, blockHeight])
+    if (selectedOption == "specificBlockHeight" && blockHeight <= GENESIS_BLOCK_HEIGHT) {
+      setBlockHeightError(() => `Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`)
+      return
+    }
+    setBlockHeightError(() => null)
+    updateConfig(indexerNameField, contractFilter, blockHeight, selectedOption)
+    },
+    [indexerNameField, contractFilter, selectedOption, blockHeight]
+  )
 
   return (
     <>
@@ -58,15 +62,15 @@ const IndexerConfigOptions = ({ updateConfig }) => {
           onChange={(e) => setIndexerNameField(e.target.value.toLowerCase().trim())}
         />
       </InputGroup>
-        <InputGroup size="sm" className="pt-3">
-          <InputGroup.Checkbox
-            value="latestBlockHeight"
-            checked={selectedOption === "latestBlockHeight"}
-            onChange={handleOptionChange}
-            aria-label="Checkbox for following text input"
-          />
-          <InputGroup.Text>From Latest Block Height</InputGroup.Text>
-        </InputGroup>
+      <InputGroup size="sm" className="pt-3">
+        <InputGroup.Checkbox
+          value="latestBlockHeight"
+          checked={selectedOption === "latestBlockHeight"}
+          onChange={handleOptionChange}
+          aria-label="Checkbox for following text input"
+        />
+        <InputGroup.Text>From Latest Block Height</InputGroup.Text>
+      </InputGroup>
       <InputGroup size="sm" className="px-1 pt-3">
         <InputGroup.Checkbox
           value="specificBlockHeight"
