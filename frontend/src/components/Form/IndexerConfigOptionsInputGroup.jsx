@@ -32,8 +32,15 @@ const IndexerConfigOptions = ({ updateConfig }) => {
     }
   }, [indexerDetails])
 
-  function handleSetContractFilter(e) {
-    const contractFilter = e.target.value;
+  const onChangeStartBlock = (e) => {
+    setStartBlock(e.target.value)
+
+    if (e.target.value === START_BLOCK.CONTINUE) {
+      handleSetContractFilter(indexerDetails.config.filter)
+    }
+  }
+
+  function handleSetContractFilter(contractFilter) {
     setContractFilter(contractFilter);
     const isContractFilterValid = validateContractIds(contractFilter);
     setIsContractFilterValid(isContractFilterValid);
@@ -67,7 +74,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
         <InputGroup.Checkbox
           value={START_BLOCK.LATEST}
           checked={startBlock === START_BLOCK.LATEST}
-          onChange={() => setStartBlock(START_BLOCK.LATEST)}
+          onChange={onChangeStartBlock}
           aria-label="Checkbox for following text input"
         />
         <InputGroup.Text>Start from latest block</InputGroup.Text>
@@ -76,7 +83,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
         <InputGroup.Checkbox
           value={START_BLOCK.CONTINUE}
           checked={startBlock === START_BLOCK.CONTINUE}
-          onChange={() => setStartBlock(START_BLOCK.CONTINUE)}
+          onChange={onChangeStartBlock}
           aria-label="Checkbox for following text input"
         />
         <InputGroup.Text>Continue from last processed block</InputGroup.Text>
@@ -85,7 +92,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
         <InputGroup.Checkbox
           value={START_BLOCK.HEIGHT}
           checked={startBlock === START_BLOCK.HEIGHT}
-          onChange={() => setStartBlock(START_BLOCK.HEIGHT)}
+          onChange={onChangeStartBlock}
           aria-label="Checkbox for following text input"
         />
         <InputGroup.Text>Start from block height</InputGroup.Text>
@@ -103,16 +110,22 @@ const IndexerConfigOptions = ({ updateConfig }) => {
       <InputGroup size="sm" hasValidation={true} className="pt-3">
         <InputGroup.Text>Contract Filter</InputGroup.Text>
         <Form.Control
-          value={contractFilter}
-          onChange={handleSetContractFilter}
+          value={startBlock === START_BLOCK.CONTINUE ? indexerDetails.config.filter : contractFilter}
+          onChange={(e) => handleSetContractFilter(e.target.value)}
           isValid={isContractFilterValid}
           type="text"
           placeholder="social.near"
           required={true}
+          disabled={startBlock === START_BLOCK.CONTINUE}
         />
         <Form.Control.Feedback type="invalid">
           Please provide a valid contract name.
         </Form.Control.Feedback>
+        {startBlock === START_BLOCK.CONTINUE && (
+          <Alert className="px-3 mt-3" variant="warning">
+            Contract filter cannot be changed for &quot;Continue&quot; option.
+          </Alert>
+        )}
       </InputGroup>
     </>
   );
