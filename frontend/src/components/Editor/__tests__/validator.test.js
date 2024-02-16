@@ -192,7 +192,11 @@ describe('validateContractIds', () => {
   });
 
   test('it should return true for wildcard contract ID in a list', () => {
+<<<<<<< HEAD
     const mixedIds = 'contract1.near, *.kaching, contract3.near';
+=======
+    const mixedIds = 'contract1.near, *.near, contract3.near';
+>>>>>>> 172995c (fix:added jest setup)
     expect(validateContractIds(mixedIds)).toBe(true);
   });
 
@@ -226,6 +230,7 @@ describe('validateContractIds', () => {
     expect(validateContractIds(mixedIds)).toBe(true);
   });
 
+<<<<<<< HEAD
   test('it should return false for an invalid wildcard contract ID where the wildcard is in the string', () => {
     const invalidWildcard = '*invalid.near';
     expect(validateContractIds(invalidWildcard)).toBe(false);
@@ -240,4 +245,10 @@ describe('validateContractIds', () => {
     const validWildCardwithInvalid = '*.invalid.near, *contract1.near, *.near';
     expect(validateContractIds(validWildCardwithInvalid)).toBe(false);
   });
+=======
+  test('it should return false for an invalid wildcard contract ID', () => {
+    const invalidWildcard = '*invalid.near';
+    expect(validateContractIds(invalidWildcard)).toBe(false);
+  });
+>>>>>>> 172995c (fix:added jest setup)
 });
