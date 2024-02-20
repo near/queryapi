@@ -380,9 +380,12 @@ mod tests {
                     first_indexed_block_date: "".to_string(),
                 })
             });
-        mock_delta_lake_client.expect_list_matching_block_heights().times(0);
+        mock_delta_lake_client
+            .expect_list_matching_block_heights()
+            .times(0);
 
-        let mock_lake_s3_config = crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
+        let mock_lake_s3_config =
+            crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
@@ -399,16 +402,17 @@ mod tests {
                 Ok(())
             })
             .times(2);
-        
+
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
-                "morgs.near".to_string()
-            ).unwrap(),
+                "morgs.near".to_string(),
+            )
+            .unwrap(),
             function_name: "test".to_string(),
-            rule: registry_types::Rule::ActionAny { 
+            rule: registry_types::Rule::ActionAny {
                 affected_account_id: "*".to_string(),
                 status: registry_types::Status::Success,
-            }
+            },
         };
 
         start_block_stream(
