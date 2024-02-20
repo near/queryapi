@@ -5,7 +5,7 @@ use block_streamer::{start_stream_request::Rule, ActionAnyRule, StartStreamReque
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = BlockStreamerClient::connect("http://[::1]:10000").await?;
+    let mut client = BlockStreamerClient::connect("http://0.0.0.0:8002").await?;
 
     let response = client
         .start_stream(Request::new(StartStreamRequest {
@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             version: 0,
             redis_stream: "morgs.near/test:block_stream".to_string(),
             rule: Some(Rule::ActionAnyRule(ActionAnyRule {
-                affected_account_id: "social.near".to_string(),
+                affected_account_id: "*".to_string(),
                 status: Status::Success.into(),
             })),
         }))

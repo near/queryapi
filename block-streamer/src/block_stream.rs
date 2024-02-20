@@ -185,7 +185,7 @@ async fn process_delta_lake_blocks(
             ..
         } => {
             if affected_account_id.eq("*") {
-                tracing::debug!(
+                tracing::info!(
                     "Skipping fetching index files from delta lake due to wildcard contract filter {}",
                     affected_account_id
                 );
