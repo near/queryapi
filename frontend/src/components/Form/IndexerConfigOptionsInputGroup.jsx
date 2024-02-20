@@ -91,15 +91,17 @@ const IndexerConfigOptions = ({ updateConfig }) => {
         />
         <InputGroup.Text>Start from latest block</InputGroup.Text>
       </InputGroup>
-      <InputGroup size="sm" className="pt-3">
-        <InputGroup.Checkbox
-          value={START_BLOCK.CONTINUE}
-          checked={startBlock === START_BLOCK.CONTINUE}
-          onChange={onChangeStartBlock}
-          aria-label="Checkbox for following text input"
-        />
-        <InputGroup.Text>Continue from last processed block</InputGroup.Text>
-      </InputGroup>
+      {!isCreateNewIndexer && (
+        <InputGroup size="sm" className="pt-3">
+          <InputGroup.Checkbox
+            value={START_BLOCK.CONTINUE}
+            checked={startBlock === START_BLOCK.CONTINUE}
+            onChange={onChangeStartBlock}
+            aria-label="Checkbox for following text input"
+          />
+          <InputGroup.Text>Continue from last processed block</InputGroup.Text>
+        </InputGroup>
+      )}
       <InputGroup size="sm" className="pt-3">
         <InputGroup.Checkbox
           value={START_BLOCK.HEIGHT}

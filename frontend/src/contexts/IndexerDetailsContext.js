@@ -47,7 +47,7 @@ export const IndexerDetailsContext = React.createContext({
 export const IndexerDetailsProvider = ({ children }) => {
   const [accountId, setAccountId] = useState(undefined);
   const [indexerName, setIndexerName] = useState(undefined);
-  const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: null }, accountId: accountId, indexerName: indexerName })
+  const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: accountId, indexerName: indexerName })
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showForkIndexerModal, setShowForkIndexerModal] = useState(false);
