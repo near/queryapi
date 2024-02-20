@@ -359,24 +359,27 @@ const Editor = ({ actionButtonText }) => {
   }
 
   function handleEditorWillMount(editor, monaco) {
-    const decorations = editor.deltaDecorations([],
-      [
-        {
-          range: new monaco.Range(1, 1, 1, 1),
-          options: {
-            isWholeLine: true,
-            glyphMarginClassName: "glyphSuccess",
-            glyphMarginHoverMessage: { value: "" },
+    if (!diffView) {
+      const decorations = editor.deltaDecorations([],
+        [
+          {
+            range: new monaco.Range(1, 1, 1, 1),
+            options: {
+              isWholeLine: true,
+              glyphMarginClassName: "glyphSuccess",
+              glyphMarginHoverMessage: { value: "" },
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+      monacoEditorRef.current = editor;
+      setDecorations(decorations);
+    }
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
-    monacoEditorRef.current = editor;
-    setDecorations(decorations);
+    
     setMonacoMount(true);
   }
 
