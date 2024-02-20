@@ -22,7 +22,7 @@ import { getLatestBlockHeight } from "../utils/getLatestBlockHeight";
 // }
 
 export const IndexerDetailsContext = React.createContext({
-  indexerDetails: { code: undefined, schema: undefined, config: { filter: "social.near", startBlockHeight: null }, accountId: "", indexerName: "" },
+  indexerDetails: { code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: "", indexerName: "" },
   showResetCodeModel: false,
   setShowResetCodeModel: () => { },
   showPublishModal: false,
@@ -65,16 +65,13 @@ export const IndexerDetailsProvider = ({ children }) => {
   const requestIndexerDetails = async () => {
     const data = await queryIndexerFunctionDetails(accountId, indexerName);
     if (data) {
-      const indexerConfig = {
-        startBlockHeight: data.start_block_height,
-        filter: data.filter.matching_rule.affected_account_id,
-      }
       const details = {
         accountId: accountId,
         indexerName: indexerName,
         code: wrapCode(data.code),
         schema: data.schema,
-        config: indexerConfig
+        startBlock: data.start_block,
+        rule: data.rule
       }
       return details
     }
@@ -102,7 +99,8 @@ export const IndexerDetailsProvider = ({ children }) => {
         indexerName: indexer.indexerName,
         code: indexer.code,
         schema: indexer.schema,
-        config: indexer.config
+        startBlock: indexer.startBlock,
+        rule: indexer.rule
       }
       setIndexerDetails(details);
     })();

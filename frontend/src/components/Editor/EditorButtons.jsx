@@ -83,7 +83,7 @@ const EditorButtons = ({
                 <InputGroup.Text> Contract Filter</InputGroup.Text>
                 <Form.Control
                   disabled={!isCreateNewIndexer}
-                  value={indexerDetails.config.filter}
+                  value={indexerDetails.rule.affected_account_id}
                   type="text"
                   placeholder="social.near"
                   required={true}

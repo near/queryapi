@@ -23,12 +23,24 @@ const IndexerConfigOptions = ({ updateConfig }) => {
   const [blockHeightError, setBlockHeightError] = useState(null)
 
   useEffect(() => {
-    if (indexerDetails.config?.startBlockHeight) {
-      setStartBlock(START_BLOCK.HEIGHT)
-      setBlockHeight(indexerDetails.config.startBlockHeight)
+    if (indexerDetails.rule?.affected_account_id) {
+      setContractFilter(indexerDetails.rule.affected_account_id)
     }
-    if (indexerDetails.config?.filter) {
-      setContractFilter(indexerDetails.config.filter)
+
+    if (indexerDetails.startBlock?.HEIGHT) {
+      setStartBlock(START_BLOCK.HEIGHT)
+      setBlockHeight(indexerDetails.startBlock.HEIGHT)
+      return;
+    }
+
+    if (indexerDetails.startBlock == "LATEST") {
+      setStartBlock(START_BLOCK.LATEST)
+      return;
+    }
+
+    if (indexerDetails.startBlock == "CONTINUE") {
+      setStartBlock(START_BLOCK.CONTINUE)
+      return;
     }
   }, [indexerDetails])
 
@@ -36,7 +48,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
     setStartBlock(e.target.value)
 
     if (e.target.value === START_BLOCK.CONTINUE) {
-      handleSetContractFilter(indexerDetails.config.filter)
+      handleSetContractFilter(indexerDetails.rule.affected_account_id)
     }
   }
 
@@ -110,7 +122,7 @@ const IndexerConfigOptions = ({ updateConfig }) => {
       <InputGroup size="sm" hasValidation={true} className="pt-3">
         <InputGroup.Text>Contract Filter</InputGroup.Text>
         <Form.Control
-          value={startBlock === START_BLOCK.CONTINUE ? indexerDetails.config.filter : contractFilter}
+          value={startBlock === START_BLOCK.CONTINUE ? indexerDetails.rule.affected_account_id : contractFilter}
           onChange={(e) => handleSetContractFilter(e.target.value)}
           isValid={isContractFilterValid}
           type="text"
