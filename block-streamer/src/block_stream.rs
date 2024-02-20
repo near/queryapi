@@ -373,7 +373,7 @@ mod tests {
             .expect_get_latest_block_metadata()
             .returning(|| {
                 Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503703".to_string(),
+                    last_indexed_block: "107503700".to_string(),
                     processed_at_utc: "".to_string(),
                     first_indexed_block: "".to_string(),
                     last_indexed_block_date: "".to_string(),
@@ -387,7 +387,10 @@ mod tests {
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
             .expect_set::<String, u64>()
-            .returning(|_,_| Ok(()))
+            .returning(|_, fields| {
+                assert!(vec![107503704, 107503705].contains(&fields));
+                Ok(())
+            })
             .times(2);
         mock_redis_client
             .expect_xadd::<String, u64>()
