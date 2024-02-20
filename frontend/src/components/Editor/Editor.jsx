@@ -364,11 +364,7 @@ const Editor = ({ actionButtonText }) => {
         [
           {
             range: new monaco.Range(1, 1, 1, 1),
-            options: {
-              isWholeLine: true,
-              glyphMarginClassName: "glyphSuccess",
-              glyphMarginHoverMessage: { value: "" },
-            },
+            options: {},
           },
         ]
       );
