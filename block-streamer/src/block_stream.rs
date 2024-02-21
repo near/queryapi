@@ -190,7 +190,7 @@ async fn process_delta_lake_blocks(
                 .any(|account_id| DELTA_LAKE_SKIP_ACCOUNTS.contains(&account_id.trim()))
             {
                 tracing::debug!(
-                    "Skipping fetching index files from delta lake due to wildcard contract filter {}",
+                    "Skipping fetching index files from delta lake due to wildcard contract filter present in {}",
                     affected_account_id
                 );
                 return Ok(start_block_height);
