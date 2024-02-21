@@ -4,12 +4,14 @@ const WILD_CARD_REGEX = RegExp(/\*\./);
 
 function validateContractId(accountId) {
   accountId = accountId.trim();
+  if(accountId === '*') return true;
+
   const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
   if (!isLengthValid) return false;
 
   //test if the string starts with a '*.' and remove it if it does
   const isWildCard = WILD_CARD_REGEX.test(accountId);
-  isWildCard ? accountId = accountId.slice(2) : null;
+  accountId = isWildCard ? accountId.slice(2) : accountId;
 
   const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
   return isRegexValid;
@@ -165,6 +167,20 @@ describe('validateContractId', () => {
     expect(validateContractId(tooLong)).toBe(false);
   });
 
+  test('it should fail abc*.near', () => {
+    const validId = 'abc*.near';
+    expect(validateContractId(validId)).toBe(false);
+  });
+
+  test('it should succeed for *.a.b.c.near', () => {
+    const validId = '*.a.b.c.near';
+    expect(validateContractId(validId)).toBe(true);
+  });
+
+  test('it should succeed for *', () => {
+    const validId = '*';
+    expect(validateContractId(validId)).toBe(true);
+  });
 
 });
 

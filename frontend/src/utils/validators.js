@@ -6,12 +6,14 @@ import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/S
 
 function validateContractId(accountId) {
   accountId = accountId.trim();
+  if (accountId === '*') return true;
+
   const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
   if (!isLengthValid) return false;
 
   //test if the string starts with a '*.' and remove it if it does
   const isWildCard = WILD_CARD_REGEX.test(accountId);
-  isWildCard ? accountId = accountId.slice(2) : null;
+  accountId = isWildCard ? accountId.slice(2) : accountId;
 
   //test if rest of string is valid accounting for/not isWildCard
   const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
