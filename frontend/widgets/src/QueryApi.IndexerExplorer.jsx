@@ -16,7 +16,6 @@ if (props.tab && props.tab !== state.selectedTab) {
 }
 
 Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-  console.log({data})
   const indexers = [];
   const total_indexers = 0;
   Object.keys(data).forEach((accountId) => {
