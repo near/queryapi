@@ -5,7 +5,7 @@ use block_streamer::StopStreamRequest;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut client = BlockStreamerClient::connect("http://[::1]:10000").await?;
+    let mut client = BlockStreamerClient::connect("http://0.0.0.0:8002").await?;
 
     let response = client
         .stop_stream(Request::new(StopStreamRequest {
