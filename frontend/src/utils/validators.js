@@ -1,12 +1,12 @@
 import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
 import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
-import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX } from '../constants/RegexExp';
+import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from '../constants/RegexExp';
 import { ValidationError } from '../classes/ValidationError';
 import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
 function validateContractId(accountId) {
   accountId = accountId.trim();
-  if (accountId === '*') return true;
+  if (accountId === WILD_CARD) return true;
 
   const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
   if (!isLengthValid) return false;
