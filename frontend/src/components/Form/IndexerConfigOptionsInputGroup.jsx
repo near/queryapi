@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from "react";
-import { InputGroup, Alert, Warn } from "react-bootstrap";
+import { InputGroup, Alert } from "react-bootstrap";
 import Form from "react-bootstrap/Form";
 
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
