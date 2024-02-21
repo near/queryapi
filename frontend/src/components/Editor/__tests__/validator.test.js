@@ -1,10 +1,18 @@
-const CONTRACT_NAME_REGEX = /^(?:\*|(?:[a-z\d]+[-_])*[a-z\d]+)(?:\.(?:\*|(?:[a-z\d]+[-_])*[a-z\d]+))*\.near$/i;
+const CONTRACT_NAME_REGEX = RegExp(/^(([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*\.([a-z\d]+)|([a-z\d]+))$/);
+const WILD_CARD_REGEX = RegExp(/\*\./);
+// const INVALID_ACCOUNT = 'system';
 
 function validateContractId(accountId) {
-  const isWildcard = accountId.trim() === "*" || accountId.trim() === "*.near";
+  accountId = accountId.trim();
   const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  if (!isLengthValid) return false;
+
+  //test if the string starts with a '*.' and remove it if it does
+  const isWildCard = WILD_CARD_REGEX.test(accountId);
+  isWildCard ? accountId = accountId.slice(2) : null;
+
   const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
-  return isWildcard || (isRegexValid && isLengthValid);
+  return isRegexValid;
 }
 
 function validateContractIds(accountIds) {
@@ -43,9 +51,9 @@ describe('validateContractId', () => {
     expect(validateContractId(longId)).toBe(false);
   });
 
-  test('it should return false for contract ID with leading or trailing spaces', () => {
-    const spacedId = ' contract1.near ';
-    expect(validateContractId(spacedId)).toBe(false);
+  test('it should return true for contract ID with leading or trailing spaces', () => {
+    const spacedId = '*.kaching ';
+    expect(validateContractId(spacedId)).toBe(true);
   });
 
   test('it should return false for contract ID with consecutive dots', () => {
@@ -53,10 +61,111 @@ describe('validateContractId', () => {
     expect(validateContractId(dotId)).toBe(false);
   });
 
-  test('it should return false for contract ID with invalid characters', () => {
-    const invalidCharsId = 'contract@near';
-    expect(validateContractId(invalidCharsId)).toBe(false);
+  test('it should return false for contract ID with star in the middle characters', () => {
+    const invalidAsteriskOrder = 'contract.*.near';
+    expect(validateContractId(invalidAsteriskOrder)).toBe(false);
   });
+
+  test('it should return false for contract ID with asterisk in center of string characters', () => {
+    const invalidAsteriskPosition = 'contract*2.near';
+    expect(validateContractId(invalidAsteriskPosition)).toBe(false);
+  });
+
+  test('it should return false for double asterisk in string', () => {
+    const multipleAsteriskOrder = '**.near';
+    expect(validateContractId(multipleAsteriskOrder)).toBe(false);
+  });
+
+  test('it should return false for double . in string', () => {
+    const invalidDotPosition = '*..near';
+    expect(validateContractId(invalidDotPosition)).toBe(false);
+  });
+
+  test('it should return false for contract ID starting with a dot', () => {
+    const dotStartId = '.near';
+    expect(validateContractId(dotStartId)).toBe(false);
+  });
+
+  test('it should return false for contract ID ending with a dot', () => {
+    const dotEndId = 'contract.near.';
+    expect(validateContractId(dotEndId)).toBe(false);
+  });
+
+  test('it should return false for contract ID ending with underscore or hyphen', () => {
+    const underscoreEndId = 'contract.near_';
+    const hyphenEndId = 'contract.near-';
+    expect(validateContractId(underscoreEndId)).toBe(false);
+    expect(validateContractId(hyphenEndId)).toBe(false);
+  });
+
+  //test on nomicon - https://nomicon.io/DataStructures/Account
+  test('it should return false for string with whitespace characters', () => {
+    const invalidWhitespace = 'not ok';
+    expect(validateContractId(invalidWhitespace)).toBe(false);
+  });
+
+  test('it should return false for string that is too short', () => {
+    const tooShort = 'a';
+    expect(validateContractId(tooShort)).toBe(false);
+  });
+
+  test('it should return false for string with suffix separator', () => {
+    const suffixSeparator = '100-';
+    expect(validateContractId(suffixSeparator)).toBe(false);
+  });
+
+  test('it should return false for string with consecutive separators', () => {
+    const consecutiveSeparators = 'bo__wen';
+    expect(validateContractId(consecutiveSeparators)).toBe(false);
+  });
+
+  test('it should return false for string with prefix separator', () => {
+    const prefixSeparator = '_illia';
+    expect(validateContractId(prefixSeparator)).toBe(false);
+  });
+
+  test('it should return false for string with prefix dot separator', () => {
+    const prefixDotSeparator = '.near';
+    expect(validateContractId(prefixDotSeparator)).toBe(false);
+  });
+
+  test('it should return false for string with suffix dot separator', () => {
+    const suffixDotSeparator = 'near.';
+    expect(validateContractId(suffixDotSeparator)).toBe(false);
+  });
+
+  test('it should return false for string with two dot separators in a row', () => {
+    const twoDotSeparators = 'a..near';
+    expect(validateContractId(twoDotSeparators)).toBe(false);
+  });
+
+  test('it should return false for string with non-alphanumeric characters', () => {
+    const nonAlphanumeric = '$$$';
+    expect(validateContractId(nonAlphanumeric)).toBe(false);
+  });
+
+  test('it should return false for string with non-lowercase characters', () => {
+    const nonLowercase = 'WAT';
+    expect(validateContractId(nonLowercase)).toBe(false);
+  });
+
+  test('it should return false for string with @ character', () => {
+    const invalidAtCharacter = 'me@google.com';
+    expect(validateContractId(invalidAtCharacter)).toBe(false);
+  });
+
+  // not sure if this is valid
+  // test('it should return false for system account', () => {
+  //   const systemAccount = 'system';
+  //   expect(validateContractId(systemAccount)).toBe(false);
+  // });
+
+  test('it should return false for string that is too long', () => {
+    const tooLong = 'abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz';
+    expect(validateContractId(tooLong)).toBe(false);
+  });
+
+
 });
 
 describe('validateContractIds', () => {
@@ -66,7 +175,7 @@ describe('validateContractIds', () => {
   });
 
   test('it should return true for wildcard contract ID in a list', () => {
-    const mixedIds = 'contract1.near, *.near, contract3.near';
+    const mixedIds = 'contract1.near, *.kaching, contract3.near';
     expect(validateContractIds(mixedIds)).toBe(true);
   });
 
@@ -100,8 +209,18 @@ describe('validateContractIds', () => {
     expect(validateContractIds(mixedIds)).toBe(true);
   });
 
-  test('it should return false for an invalid wildcard contract ID', () => {
+  test('it should return false for an invalid wildcard contract ID where the wildcard is in the string', () => {
     const invalidWildcard = '*invalid.near';
     expect(validateContractIds(invalidWildcard)).toBe(false);
+  });
+
+  test('it should return false for an invalid wildcard contract ID followed by valid contractIDs', () => {
+    const invalidWildcardWithOthers = '*invalid.near, contract1.near, *.near';
+    expect(validateContractIds(invalidWildcardWithOthers)).toBe(false);
+  });
+
+  test('it should return false for an valid wildcard contract ID followed by invalid contractIDs', () => {
+    const validWildCardwithInvalid = '*.invalid.near, *contract1.near, *.near';
+    expect(validateContractIds(validWildCardwithInvalid)).toBe(false);
   });
 });

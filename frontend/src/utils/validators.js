@@ -1,15 +1,21 @@
 import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
 import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
-import { CONTRACT_NAME_REGEX } from '../constants/RegexExp';
+import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX } from '../constants/RegexExp';
 import { ValidationError } from '../classes/ValidationError';
 import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
 
-//todo: this func is running on an onchange as oppose to a onsubmit
-export function  validateContractId(accountId) {
-  const isWildcard = accountId.trim() === "*" || accountId.trim() === "*.near";
+function validateContractId(accountId) {
+  accountId = accountId.trim();
   const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  if (!isLengthValid) return false;
+
+  //test if the string starts with a '*.' and remove it if it does
+  const isWildCard = WILD_CARD_REGEX.test(accountId);
+  isWildCard ? accountId = accountId.slice(2) : null;
+
+  //test if rest of string is valid accounting for/not isWildCard
   const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
-  return isWildcard || (isRegexValid && isLengthValid);
+  return isRegexValid;
 }
 
 export function validateContractIds(accountIds) {
