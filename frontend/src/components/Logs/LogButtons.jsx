@@ -78,7 +78,7 @@ const LogButtons = ({
                 <InputGroup size="sm" style={{ width: "fit-content" }}>
                   <InputGroup.Text> Contract Filter</InputGroup.Text>
                   <Form.Control
-                    value={indexerDetails.config.filter}
+                    value={indexerDetails.rule.affected_account_id}
                     disabled={true}
                     type="text"
                     placeholder="social.near"
