@@ -168,6 +168,7 @@ describe('validateContractId', () => {
     expect(validateContractId(tooLong)).toBe(false);
   });
 
+<<<<<<< HEAD
   test('it should fail abc*.near', () => {
     const validId = 'abc*.near';
     expect(validateContractId(validId)).toBe(false);
@@ -182,6 +183,8 @@ describe('validateContractId', () => {
     const validId = '*';
     expect(validateContractId(validId)).toBe(true);
   });
+=======
+>>>>>>> 3b62127 (fix: wildcard implementation, adding test)
 
 });
 
@@ -193,10 +196,14 @@ describe('validateContractIds', () => {
 
   test('it should return true for wildcard contract ID in a list', () => {
 <<<<<<< HEAD
+<<<<<<< HEAD
     const mixedIds = 'contract1.near, *.kaching, contract3.near';
 =======
     const mixedIds = 'contract1.near, *.near, contract3.near';
 >>>>>>> 172995c (fix:added jest setup)
+=======
+    const mixedIds = 'contract1.near, *.kaching, contract3.near';
+>>>>>>> 3b62127 (fix: wildcard implementation, adding test)
     expect(validateContractIds(mixedIds)).toBe(true);
   });
 
@@ -231,6 +238,7 @@ describe('validateContractIds', () => {
   });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   test('it should return false for an invalid wildcard contract ID where the wildcard is in the string', () => {
     const invalidWildcard = '*invalid.near';
     expect(validateContractIds(invalidWildcard)).toBe(false);
@@ -251,4 +259,20 @@ describe('validateContractIds', () => {
     expect(validateContractIds(invalidWildcard)).toBe(false);
   });
 >>>>>>> 172995c (fix:added jest setup)
+=======
+  test('it should return false for an invalid wildcard contract ID where the wildcard is in the string', () => {
+    const invalidWildcard = '*invalid.near';
+    expect(validateContractIds(invalidWildcard)).toBe(false);
+  });
+
+  test('it should return false for an invalid wildcard contract ID followed by valid contractIDs', () => {
+    const invalidWildcardWithOthers = '*invalid.near, contract1.near, *.near';
+    expect(validateContractIds(invalidWildcardWithOthers)).toBe(false);
+  });
+
+  test('it should return false for an valid wildcard contract ID followed by invalid contractIDs', () => {
+    const validWildCardwithInvalid = '*.invalid.near, *contract1.near, *.near';
+    expect(validateContractIds(validWildCardwithInvalid)).toBe(false);
+  });
+>>>>>>> 3b62127 (fix: wildcard implementation, adding test)
 });
