@@ -12,7 +12,6 @@ use crate::registry::Registry;
 mod block_streams;
 mod executors;
 mod indexer_config;
-mod migration;
 mod redis;
 mod registry;
 mod utils;
@@ -52,19 +51,6 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         let indexer_registry = registry.fetch().await?;
-
-        let allowlist = migration::fetch_allowlist(&redis_client).await?;
-
-        migration::migrate_pending_accounts(
-            &indexer_registry,
-            &allowlist,
-            &redis_client,
-            &executors_handler,
-        )
-        .await?;
-
-        let indexer_registry =
-            migration::filter_registry_by_allowlist(indexer_registry, &allowlist).await?;
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),

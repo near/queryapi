@@ -250,11 +250,22 @@ const Editor = ({ actionButtonText }) => {
       return;
     }
 
+    let startBlock = null;
+    if (indexerConfig.startBlock === "startBlockHeight") {
+      startBlock = {
+        HEIGHT: indexerConfig.height
+      };
+    } else if (indexerConfig.startBlock === "startBlockLatest") {
+      startBlock = "LATEST";
+    } else {
+      startBlock = "CONTINUE"
+    }
+
     request("register-function", {
       indexerName: indexerName,
       code: innerCode,
       schema: validatedSchema,
-      blockHeight: indexerConfig.startBlockHeight,
+      startBlock,
       contractFilter: indexerConfig.filter,
     });
 
@@ -359,24 +370,23 @@ const Editor = ({ actionButtonText }) => {
   }
 
   function handleEditorWillMount(editor, monaco) {
-    const decorations = editor.deltaDecorations([],
-      [
-        {
-          range: new monaco.Range(1, 1, 1, 1),
-          options: {
-            isWholeLine: true,
-            glyphMarginClassName: "glyphSuccess",
-            glyphMarginHoverMessage: { value: "" },
+    if (!diffView) {
+      const decorations = editor.deltaDecorations([],
+        [
+          {
+            range: new monaco.Range(1, 1, 1, 1),
+            options: {},
           },
-        },
-      ]
-    );
+        ]
+      );
+      monacoEditorRef.current = editor;
+      setDecorations(decorations);
+    }
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
-    monacoEditorRef.current = editor;
-    setDecorations(decorations);
+    
     setMonacoMount(true);
   }
 
