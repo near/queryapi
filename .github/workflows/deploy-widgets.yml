@@ -60,6 +60,10 @@ jobs:
         run: |
           curl --proto '=https' --tlsv1.2 -LsSf https://github.com/FroVolod/bos-cli-rs/releases/download/v${{ inputs.cli-version }}/bos-cli-v${{ inputs.cli-version }}-installer.sh | sh
 
+      - run: |
+          mkdir /home/runner/.config/near-cli
+          echo -e "credentials_home_dir = \"/home/runner/.near-credentials\"\n\n[network_connection.mainnet]\nnetwork_name = \"mainnet\"\nrpc_url = \"https://archival-rpc.mainnet.near.org/\"\nwallet_url = \"https://wallet.near.org/\"\nexplorer_transaction_url = \"https://explorer.near.org/transactions/\"\nlinkdrop_account_id = \"near\"\n\n" > /home/runner/.config/near-cli/config.toml
+
       - name: Deploy widgets
         run: |
           for DIR in $(echo $DIRECTORY_PATHS | tr "," "\n")
