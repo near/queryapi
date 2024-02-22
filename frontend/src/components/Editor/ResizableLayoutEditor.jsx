@@ -3,9 +3,7 @@ import { MonacoEditorComponent } from "./MonacoEditorComponent";
 import { defaultCode, defaultSchema } from "../../utils/formatters";
 import { useDragResize } from "../../utils/resize";
 import GraphqlPlayground from "./../Playground";
-import { validateSQLSchema } from "@/utils/validators";
 
-// Define styles as separate objects
 const containerStyle = {
   display: "flex",
   flexDirection: "row",
@@ -26,13 +24,6 @@ const dragBarStyle = {
   cursor: "col-resize",
 };
 
-const jsonViewerContainerStyle = {
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-  minWidth: "100px",
-};
-
 const ResizableEditor = ({
   accountId,
   fileName,
@@ -46,8 +37,8 @@ const ResizableEditor = ({
   originalIndexingCode,
   schema,
   indexingCode,
-  handleEditorWillMount,
-  isCreateNewIndexer
+  onMount,
+  isCreateNewIndexer,
 }) => {
   const { firstRef, secondRef, dragBarRef } = useDragResize({
     direction: "horizontal",
@@ -68,17 +59,30 @@ const ResizableEditor = ({
           modified={indexingCode}
           language="typescript"
           readOnly={false}
-          handleEditorMount={undefined}
+          onMount={onMount}
         />
       ) : (
         <MonacoEditorComponent
           key="code-editor"
           value={indexingCode}
+          height="100vh"
           defaultValue={defaultCode}
           defaultLanguage="typescript"
           readOnly={false}
           onChange={onChangeCode}
-          handleEditorWillMount={handleEditorWillMount}
+          onMount={onMount}
+          options={{
+            wordWrap: "on",
+            minimap: { enabled: false },
+            folding: false,
+            lineNumberMinChars: 3,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            formatOnPaste: true,
+            definitionLinkOpensInPeek: true,
+            // glyphMargin: true,
+            font: 'serif'
+          }}
         />
       ),
     "schema.sql": () =>
@@ -89,7 +93,7 @@ const ResizableEditor = ({
           modified={schema}
           language="sql"
           readOnly={isCreateNewIndexer === true ? false : true}
-          handleEditorMount={undefined}
+          onMount={onMount}
         />
       ) : (
         <MonacoEditorComponent
@@ -99,7 +103,19 @@ const ResizableEditor = ({
           defaultLanguage="sql"
           readOnly={isCreateNewIndexer === true ? false : false}
           onChange={onChangeSchema}
-          handleEditorWillMount={undefined}
+          onMount={onMount}
+          options={{
+            wordWrap: "on",
+            minimap: { enabled: false },
+            folding: false,
+            lineNumberMinChars: 3,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            formatOnPaste: true,
+            definitionLinkOpensInPeek: true,
+            glyphMargin: true,
+            font: 'serif'
+          }}
         />
       ),
   };
@@ -110,11 +126,6 @@ const ResizableEditor = ({
         {editorComponents[fileName] && editorComponents[fileName]()}
       </div>
       <div ref={dragBarRef} style={dragBarStyle} />
-      {/* <div ref={secondRef} style={jsonViewerContainerStyle}> */}
-      {/*   <div> */}
-      {/*     <JsonViewer theme={"dark"} value={block_details} collapsed /> */}
-      {/*   </div> */}
-      {/* </div> */}
     </div>
   );
 };
@@ -132,9 +143,8 @@ export default function ResizableLayoutEditor({
   originalIndexingCode,
   schema,
   indexingCode,
-  handleEditorWillMount,
-  handleEditorMount,
-  isCreateNewIndexer
+  onMount,
+  isCreateNewIndexer,
 }) {
   const {
     dragBarRef: dragBarRefConsole,
@@ -164,40 +174,9 @@ export default function ResizableLayoutEditor({
           originalSQLCode={originalSQLCode}
           originalIndexingCode={originalIndexingCode}
           schema={schema}
-          handleEditorWillMount={handleEditorWillMount}
-          handleEditorMount={handleEditorMount}
+          onMount={onMount}
         />
       </div>
-
-      {/* <div */}
-      {/*   ref={dragBarRefConsole} */}
-      {/*   style={{ */}
-      {/*     height: "5px", */}
-      {/*     backgroundColor: "gray", */}
-      {/*     cursor: "ns-resize", */}
-      {/*   }} */}
-      {/* /> */}
-      {/**/}
-      {/* <div */}
-      {/*   ref={secondRefConsole} */}
-      {/*   style={{ */}
-      {/*     backgroundColor: "gray", */}
-      {/*     overflow: "auto", */}
-      {/*     color: "white", */}
-      {/*     padding: "10px", */}
-      {/*   }} */}
-      {/* > */}
-      {/*   <div> */}
-      {/*     <div className="pb-3">Console</div> */}
-      {/**/}
-      {/*     {logs.map((log, i) => ( */}
-      {/*       <div key={i}> */}
-      {/*         <p> {log}</p> */}
-      {/*         <hr style={{ borderTop: "1px solid white" }} /> */}
-      {/*       </div> */}
-      {/*     ))} */}
-      {/*   </div> */}
-      {/* </div> */}
     </div>
   );
 }

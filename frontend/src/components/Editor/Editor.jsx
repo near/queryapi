@@ -7,8 +7,9 @@ import {
   defaultSchema,
   defaultSchemaTypes,
 } from "../../utils/formatters";
-import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
 import { Alert } from "react-bootstrap";
+import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
+
 import primitives from "!!raw-loader!../../../primitives.d.ts";
 import { request, useInitialPayload } from "near-social-bridge";
 import IndexerRunner from "../../utils/indexerRunner";
@@ -20,17 +21,18 @@ import EditorButtons from "./EditorButtons";
 import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
-import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR } from '../../constants/Strings';
-import { InfoModal } from '@/core/InfoModal';
+import {
+  CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR,
+} from "../../constants/Strings";
+import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
+import { GlyphContainer } from "./GlyphContainer";
 
-const Editor = ({
-  actionButtonText,
-}) => {
+const Editor = ({ actionButtonText }) => {
   const {
     indexerDetails,
     setShowResetCodeModel,
@@ -40,15 +42,11 @@ const Editor = ({
     setAccountId,
   } = useContext(IndexerDetailsContext);
 
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId
-    }#${indexerDetails.indexerName || "new"}`;
-  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
-    }`;
-  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
-    }`;
-  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"
-    }`;
-
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
+  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
+  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
+  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
+  const SCHEMA_TAB_NAME = "schema.sql";
   const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [error, setError] = useState();
 
@@ -69,9 +67,9 @@ const Editor = ({
   const { openModal, showModal, data, message, hideModal } = useModal();
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState(false);
-
   const { height, currentUserAccountId } = useInitialPayload();
 
+  const [decorations, setDecorations] = useState([]);
   const handleLog = (_, log, callback) => {
     if (log) console.log(log);
     if (callback) {
@@ -82,41 +80,60 @@ const Editor = ({
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
   const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef(null);
+  const monacoEditorRef = useRef(null);
+
+
+  const parseGlyphError = (error, line) => {
+    const { line: startLine, column: startColumn } = line?.start || { line: 1, column: 1 };
+    const { line: endLine, column: endColumn } = line?.end || { line: 1, column: 1 };
+    const displayedError = error?.message || 'No Errors';
+
+    monacoEditorRef.current.deltaDecorations(
+      [decorations],
+      [
+        {
+          range: new monaco.Range(startLine, startColumn, endLine, endColumn),
+          options: {
+            isWholeLine: true,
+            glyphMarginClassName: error ? "glyphError" : "glyphSuccess",
+            glyphMarginHoverMessage: { value: displayedError },
+          },
+        },
+      ]
+    );
+  }
+
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
-    const { error: schemaError } = validateSQLSchema(_schema);
-    if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-    } else {
-      setError();
-    }
+    const { error, location } = validateSQLSchema(_schema);
+    error ? parseGlyphError(error, location) : parseGlyphError();
+    return;
   }, 500);
 
   const debouncedValidateCode = useDebouncedCallback((_code) => {
     const { error: codeError } = validateJSCode(_code);
-    if (codeError) {
-      setError(CODE_FORMATTING_ERROR_MESSAGE)
-    } else {
-      setError();
-    }
+    codeError ? setError(CODE_FORMATTING_ERROR_MESSAGE) : setError();
   }, 500);
 
   useEffect(() => {
     if (indexerDetails.code != null) {
-      const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code)
+      const { data: formattedCode, error: codeError } = validateJSCode(
+        indexerDetails.code
+      );
 
       if (codeError) {
-        setError(CODE_FORMATTING_ERROR_MESSAGE)
+        setError(CODE_FORMATTING_ERROR_MESSAGE);
       }
 
-      setOriginalIndexingCode(formattedCode)
-      setIndexingCode(formattedCode)
+      setOriginalIndexingCode(formattedCode);
+      setIndexingCode(formattedCode);
     }
-
   }, [indexerDetails.code]);
 
   useEffect(() => {
     if (indexerDetails.schema != null) {
-      const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
+      const { data: formattedSchema, error: schemaError } = validateSQLSchema(
+        indexerDetails.schema
+      );
 
       if (schemaError?.type === FORMATTING_ERROR_TYPE) {
         setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
@@ -124,25 +141,26 @@ const Editor = ({
         setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
       }
 
-      setSchema(formattedSchema)
+      setSchema(formattedSchema);
     }
-  }, [indexerDetails.schema])
+  }, [indexerDetails.schema]);
 
   useEffect(() => {
-
-    const { error: schemaError } = validateSQLSchema(schema);
+    const { error: schemaError, location } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
 
     if (schemaError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
     } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
       setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
-    } else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE)
+    } else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE);
     else {
-      setError()
-    };
+      setError();
+      handleCodeGen();
+    }
+    if (fileName === SCHEMA_TAB_NAME) debouncedValidateSQLSchema(schema);
 
-  }, [fileName])
+  }, [fileName]);
 
   useEffect(() => {
     const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
@@ -175,38 +193,47 @@ const Editor = ({
       disposableRef.current = null;
     }
 
-    if (window.monaco) { // Check if monaco is loaded
+    if (window.monaco) {
+      // Check if monaco is loaded
       // Add generated types to monaco and store disposable to clear them later
-      const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
+      const newDisposable =
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
       if (newDisposable != null) {
         console.log("Types successfully imported to Editor");
       }
       disposableRef.current = newDisposable;
     }
-  }
+  };
 
   const forkIndexer = async (indexerName) => {
     let code = indexingCode;
-    setAccountId(currentUserAccountId)
+    setAccountId(currentUserAccountId);
     let prevAccountId = indexerDetails.accountId.replaceAll(".", "_");
     let newAccountId = currentUserAccountId.replaceAll(".", "_");
-    let prevIndexerName = indexerDetails.indexerName.replaceAll("-", "_").trim().toLowerCase();
+    let prevIndexerName = indexerDetails.indexerName
+      .replaceAll("-", "_")
+      .trim()
+      .toLowerCase();
     let newIndexerName = indexerName.replaceAll("-", "_").trim().toLowerCase();
     code = code.replaceAll(prevAccountId, newAccountId);
     code = code.replaceAll(prevIndexerName, newIndexerName);
-    setIndexingCode(formatIndexingCode(code))
-  }
+    setIndexingCode(formatIndexingCode(code));
+  };
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    const { data: validatedSchema, error: schemaValidationError } = validateSQLSchema(schema);
-    const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
+    const { data: validatedSchema, error: schemaValidationError } =
+      validateSQLSchema(schema);
+    const { data: validatedCode, error: codeValidationError } =
+      validateJSCode(indexingCode);
 
     if (codeValidationError) {
       setError(CODE_FORMATTING_ERROR_MESSAGE);
       return;
     }
 
-    let innerCode = validatedCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
+    let innerCode = validatedCode.match(
+      /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
+    )[1];
     indexerName = indexerName.replaceAll(" ", "_");
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
@@ -218,16 +245,27 @@ const Editor = ({
         code: innerCode,
         schema: validatedSchema,
         blockHeight: indexerConfig.startBlockHeight,
-        contractFilter: indexerConfig.filter
+        contractFilter: indexerConfig.filter,
       });
       return;
+    }
+
+    let startBlock = null;
+    if (indexerConfig.startBlock === "startBlockHeight") {
+      startBlock = {
+        HEIGHT: indexerConfig.height
+      };
+    } else if (indexerConfig.startBlock === "startBlockLatest") {
+      startBlock = "LATEST";
+    } else {
+      startBlock = "CONTINUE"
     }
 
     request("register-function", {
       indexerName: indexerName,
       code: innerCode,
       schema: validatedSchema,
-      blockHeight: indexerConfig.startBlockHeight,
+      startBlock,
       contractFilter: indexerConfig.filter,
     });
 
@@ -250,14 +288,17 @@ const Editor = ({
       return;
     }
 
-    const data = await queryIndexerFunctionDetails(indexerDetails.accountId, indexerDetails.indexerName);
+    const data = await queryIndexerFunctionDetails(
+      indexerDetails.accountId,
+      indexerDetails.indexerName
+    );
     if (data == null) {
       setIndexingCode(defaultCode);
       setSchema(defaultSchema);
       setSchemaTypes(defaultSchemaTypes);
     } else {
       try {
-        let unformatted_wrapped_indexing_code = wrapCode(data.code)
+        let unformatted_wrapped_indexing_code = wrapCode(data.code);
         let unformatted_schema = data.schema;
         if (unformatted_wrapped_indexing_code !== null) {
           setOriginalIndexingCode(() => unformatted_wrapped_indexing_code);
@@ -268,7 +309,10 @@ const Editor = ({
           setSchema(unformatted_schema);
         }
 
-        const { formattedCode, formattedSchema } = reformatAll(unformatted_wrapped_indexing_code, unformatted_schema);
+        const { formattedCode, formattedSchema } = reformatAll(
+          unformatted_wrapped_indexing_code,
+          unformatted_schema
+        );
         setIndexingCode(formattedCode);
         setSchema(formattedSchema);
       } catch (formattingError) {
@@ -276,32 +320,34 @@ const Editor = ({
       }
     }
     setShowResetCodeModel(false);
-  }
+  };
 
   const getActionButtonText = () => {
     const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
-    if (isCreateNewIndexer) return "Create New Indexer"
+    if (isCreateNewIndexer) return "Create New Indexer";
     return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
   const reformatAll = (indexingCode, schema) => {
-    let { data: formattedCode, error: codeError } = validateJSCode(indexingCode);
-    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
+    let { data: formattedCode, error: codeError } =
+      validateJSCode(indexingCode);
+    let { data: formattedSchema, error: schemaError } =
+      validateSQLSchema(schema);
 
     if (codeError) {
-      formattedCode = indexingCode
+      formattedCode = indexingCode;
       setError(CODE_FORMATTING_ERROR_MESSAGE);
     } else if (schemaError?.type === FORMATTING_ERROR_TYPE) {
       formattedSchema = schema;
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
     } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
       formattedSchema = schema;
-      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE)
+      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
     } else {
-      setError()
+      setError();
     }
 
-    return { formattedCode, formattedSchema }
+    return { formattedCode, formattedSchema };
   };
 
   function handleCodeGen() {
@@ -315,41 +361,82 @@ const Editor = ({
   }
 
   function handleFormating() {
-    const { formattedCode, formattedSchema } = reformatAll(indexingCode, schema);
+    const { formattedCode, formattedSchema } = reformatAll(
+      indexingCode,
+      schema
+    );
     setIndexingCode(formattedCode);
     setSchema(formattedSchema);
   }
 
-  function handleEditorWillMount(monaco) {
+  function handleEditorWillMount(editor, monaco) {
+    if (!diffView) {
+      const decorations = editor.deltaDecorations([],
+        [
+          {
+            range: new monaco.Range(1, 1, 1, 1),
+            options: {},
+          },
+        ]
+      );
+      monacoEditorRef.current = editor;
+      setDecorations(decorations);
+    }
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
+    
     setMonacoMount(true);
   }
 
-
-  async function executeIndexerFunction(option = "latest", startingBlockHeight = null) {
-    setIsExecutingIndexerFunction(() => true)
-    const schemaName = indexerDetails.accountId.concat("_", indexerDetails.indexerName).replace(/[^a-zA-Z0-9]/g, '_');
+  async function executeIndexerFunction(
+    option = "latest",
+    startingBlockHeight = null
+  ) {
+    setIsExecutingIndexerFunction(() => true);
+    const schemaName = indexerDetails.accountId
+      .concat("_", indexerDetails.indexerName)
+      .replace(/[^a-zA-Z0-9]/g, "_");
 
     switch (option) {
       case "debugList":
-        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName, option)
-        break
+        await indexerRunner.executeIndexerFunctionOnHeights(
+          heights,
+          indexingCode,
+          schema,
+          schemaName,
+          option
+        );
+        break;
       case "specific":
         if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
-          console.log("Invalid Starting Block Height: starting block height is null or 0")
-          break
+          console.log(
+            "Invalid Starting Block Height: starting block height is null or 0"
+          );
+          break;
         }
 
-        await indexerRunner.start(startingBlockHeight, indexingCode, schema, schemaName, option)
-        break
+        await indexerRunner.start(
+          startingBlockHeight,
+          indexingCode,
+          schema,
+          schemaName,
+          option
+        );
+        break;
       case "latest":
         const latestHeight = await getLatestBlockHeight();
-        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, schema, schemaName, option)
+        if (latestHeight)
+          await indexerRunner.start(
+            latestHeight - 10,
+            indexingCode,
+            schema,
+            schemaName,
+            option
+          );
     }
-    setIsExecutingIndexerFunction(() => false)
+    setIsExecutingIndexerFunction(() => false);
   }
 
   function handleOnChangeSchema(_schema) {
@@ -378,83 +465,91 @@ const Editor = ({
       >
         {!indexerDetails.code && !isCreateNewIndexer && (
           <Alert className="px-3 pt-3" variant="danger">
-            Indexer Function could not be found. Are you sure this indexer exists?
+            Indexer Function could not be found. Are you sure this indexer
+            exists?
           </Alert>
         )}
-        {(indexerDetails.code || isCreateNewIndexer) && <>
-          <EditorButtons
-            handleFormating={handleFormating}
-            handleCodeGen={handleCodeGen}
-            error={error}
-            executeIndexerFunction={executeIndexerFunction}
-            heights={heights}
-            setHeights={setHeights}
-            isCreateNewIndexer={isCreateNewIndexer}
-            isExecuting={isExecutingIndexerFunction}
-            stopExecution={() => indexerRunner.stop()}
-            latestHeight={height}
-            isUserIndexer={indexerDetails.accountId === currentUserAccountId}
-            handleDeleteIndexer={handleDeleteIndexer}
-          />
-          <ResetChangesModal
-            handleReload={handleReload}
-          />
-          <PublishModal
-            registerFunction={registerFunction}
-            actionButtonText={getActionButtonText()}
-            blockHeightError={blockHeightError}
-          />
-          <ForkIndexerModal
-            forkIndexer={forkIndexer}
-          />
-
-          <div
-            className="px-3 pt-3"
-            style={{
-              flex: "display",
-              justifyContent: "space-around",
-              width: "100%",
-              height: "100%",
-            }}
-          >
-            {error && (
-              <Alert dismissible="true" onClose={() => setError()} className="px-3 pt-3" variant="danger">
-                {error}
-              </Alert>
-            )}
-            {debugMode && !debugModeInfoDisabled && (
-              <Alert
-                className="px-3 pt-3"
-                dismissible="true"
-                onClose={() => setDebugModeInfoDisabled(true)}
-                variant="info"
-              >
-                To debug, you will need to open your browser console window in
-                order to see the logs.
-              </Alert>
-            )}
-            <FileSwitcher
-              fileName={fileName}
-              setFileName={setFileName}
-              diffView={diffView}
-              setDiffView={setDiffView}
-            />
-            <ResizableLayoutEditor
-              fileName={fileName}
-              indexingCode={indexingCode}
-              blockView={blockView}
-              diffView={diffView}
-              onChangeCode={handleOnChangeCode}
-              onChangeSchema={handleOnChangeSchema}
-              block_details={block_details}
-              originalSQLCode={originalSQLCode}
-              originalIndexingCode={originalIndexingCode}
-              schema={schema}
+        {(indexerDetails.code || isCreateNewIndexer) && (
+          <>
+            <EditorButtons
+              handleFormating={handleFormating}
+              handleCodeGen={handleCodeGen}
+              error={error}
+              executeIndexerFunction={executeIndexerFunction}
+              heights={heights}
+              setHeights={setHeights}
               isCreateNewIndexer={isCreateNewIndexer}
-              handleEditorWillMount={handleEditorWillMount}
+              isExecuting={isExecutingIndexerFunction}
+              stopExecution={() => indexerRunner.stop()}
+              latestHeight={height}
+              isUserIndexer={indexerDetails.accountId === currentUserAccountId}
+              handleDeleteIndexer={handleDeleteIndexer}
             />
-          </div>
-        </>}
+            <ResetChangesModal handleReload={handleReload} />
+            <PublishModal
+              registerFunction={registerFunction}
+              actionButtonText={getActionButtonText()}
+              blockHeightError={blockHeightError}
+            />
+            <ForkIndexerModal forkIndexer={forkIndexer} />
+
+            <div
+              className="mt-2"
+              style={{
+                flex: "display",
+                justifyContent: "space-around",
+                width: "100%",
+                height: "100%",
+              }}
+            >
+              {error && (
+                <Alert
+                  dismissible="true"
+                  onClose={() => setError()}
+                  className="px-3 pt-3"
+                  variant="danger"
+                >
+                  {error}
+                </Alert>
+              )}
+              {debugMode && !debugModeInfoDisabled && (
+                <Alert
+                  className="px-3 pt-3"
+                  dismissible="true"
+                  onClose={() => setDebugModeInfoDisabled(true)}
+                  variant="info"
+                >
+                  To debug, you will need to open your browser console window in
+                  order to see the logs.
+                </Alert>
+              )}
+              <FileSwitcher
+                fileName={fileName}
+                setFileName={setFileName}
+                diffView={diffView}
+                setDiffView={setDiffView}
+              />
+              <GlyphContainer
+                style={{ height: "100%", width: "100%" }}
+              >
+                <ResizableLayoutEditor
+                  fileName={fileName}
+                  indexingCode={indexingCode}
+                  blockView={blockView}
+                  diffView={diffView}
+                  onChangeCode={handleOnChangeCode}
+                  onChangeSchema={handleOnChangeSchema}
+                  block_details={block_details}
+                  originalSQLCode={originalSQLCode}
+                  originalIndexingCode={originalIndexingCode}
+                  schema={schema}
+                  isCreateNewIndexer={isCreateNewIndexer}
+                  onMount={handleEditorWillMount}
+                />
+              </GlyphContainer>
+            </div>
+          </>
+        )}
       </div>
       <InfoModal
         open={openModal}
@@ -463,7 +558,8 @@ const Editor = ({
         okButtonText="Proceed"
         onOkButtonPressed={() => handleRegisterIndexerWithErrors(data)}
         onCancelButtonPressed={hideModal}
-        onClose={hideModal} />
+        onClose={hideModal}
+      />
     </>
   );
 };

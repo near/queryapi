@@ -15,11 +15,11 @@ if (props.tab && props.tab !== state.selectedTab) {
   });
 }
 
-Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_indexer_functions").then((data) => {
+Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
   const indexers = [];
   const total_indexers = 0;
-  Object.keys(data.All).forEach((accountId) => {
-    Object.keys(data.All[accountId]).forEach((functionName) => {
+  Object.keys(data).forEach((accountId) => {
+    Object.keys(data[accountId]).forEach((functionName) => {
       indexers.push({
         accountId: accountId,
         indexerName: functionName,

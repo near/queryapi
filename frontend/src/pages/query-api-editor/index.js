@@ -1,5 +1,4 @@
 import React, { useEffect, useContext } from "react";
-
 import Editor from "../../components/Editor";
 import { withRouter } from 'next/router'
 import { Alert } from 'react-bootstrap';
