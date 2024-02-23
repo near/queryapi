@@ -219,19 +219,14 @@ async fn process_delta_lake_blocks(
         blocks_from_index.len(),
     );
 
-    for block in &blocks_from_index {
-        let block = block.to_owned();
+    for block_height in &blocks_from_index {
+        let block_height = block_height.to_owned();
         redis_client
-            .xadd(redis_stream.clone(), &[("block_height".to_string(), block)])
-            .await
-            .context("Failed to add block to Redis Stream")?;
+            .publish_block(redis_stream.clone(), block_height)
+            .await?;
         redis_client
-            .set(
-                format!("{}:last_published_block", indexer.get_full_name()),
-                block,
-            )
-            .await
-            .context("Failed to set last_published_block")?;
+            .set_last_processed_block(indexer, block_height)
+            .await?;
     }
 
     let last_indexed_block =
@@ -275,12 +270,8 @@ async fn process_near_lake_blocks(
         last_indexed_block = block_height;
 
         redis_client
-            .set(
-                format!("{}:last_published_block", indexer.get_full_name()),
-                last_indexed_block,
-            )
-            .await
-            .context("Failed to set last_published_block")?;
+            .set_last_processed_block(indexer, block_height)
+            .await?;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.rule,
@@ -290,12 +281,8 @@ async fn process_near_lake_blocks(
 
         if !matches.is_empty() {
             redis_client
-                .xadd(
-                    redis_stream.clone(),
-                    &[("block_height".to_string(), block_height.to_owned())],
-                )
-                .await
-                .context("Failed to add block to Redis Stream")?;
+                .publish_block(redis_stream.clone(), block_height)
+                .await?;
         }
     }
 
