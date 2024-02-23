@@ -79,7 +79,16 @@ impl RedisClientImpl {
             .context("Failed to set last processed block")
     }
 
-    pub async fn publish_block(&self, stream: String, block_height: u64) -> anyhow::Result<()> {
+    pub async fn publish_block(
+        &self,
+        indexer: &IndexerConfig,
+        stream: String,
+        block_height: u64,
+    ) -> anyhow::Result<()> {
+        metrics::PUBLISHED_BLOCKS_COUNT
+            .with_label_values(&[&indexer.get_full_name()])
+            .inc();
+
         self.xadd(
             stream.clone(),
             &[(String::from("block_height"), block_height)],

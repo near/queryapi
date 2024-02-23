@@ -223,7 +223,7 @@ async fn process_delta_lake_blocks(
     for block_height in &blocks_from_index {
         let block_height = block_height.to_owned();
         redis_client
-            .publish_block(redis_stream.clone(), block_height)
+            .publish_block(indexer, redis_stream.clone(), block_height)
             .await?;
         redis_client
             .set_last_processed_block(indexer, block_height)
@@ -282,7 +282,7 @@ async fn process_near_lake_blocks(
 
         if !matches.is_empty() {
             redis_client
-                .publish_block(redis_stream.clone(), block_height)
+                .publish_block(indexer, redis_stream.clone(), block_height)
                 .await?;
         }
     }
