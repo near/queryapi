@@ -3,6 +3,7 @@ use tracing_subscriber::prelude::*;
 mod block_stream;
 mod delta_lake_client;
 mod indexer_config;
+mod metrics;
 mod redis;
 mod rules;
 mod s3_client;
@@ -20,9 +21,15 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
+    let metrics_port = std::env::var("METRICS_PORT")
+        .expect("METRICS_PORT is not set")
+        .parse()
+        .expect("METRICS_PORT is not a valid number");
+
     tracing::info!(
         redis_url,
         grpc_port,
+        metrics_port,
         "Starting Block Streamer"
     );
 
@@ -34,6 +41,8 @@ async fn main() -> anyhow::Result<()> {
 
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
+
+    tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 
     server::init(&grpc_port, redis_client, delta_lake_client, s3_config).await?;
 
