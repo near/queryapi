@@ -21,4 +21,9 @@ impl IndexerConfig {
         self.get_full_name().hash(&mut hasher);
         hasher.finish().to_string()
     }
+
+    pub fn last_processed_block_key(&self) -> String {
+        // TODO: rename to `last_processed_block`
+        format!("{}:last_published_block", self.get_full_name())
+    }
 }

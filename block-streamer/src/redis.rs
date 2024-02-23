@@ -2,7 +2,11 @@
 
 use std::fmt::Debug;
 
+use anyhow::Context;
 use redis::{aio::ConnectionManager, RedisError, ToRedisArgs};
+
+use crate::indexer_config::IndexerConfig;
+use crate::metrics;
 
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
@@ -55,5 +59,45 @@ impl RedisClientImpl {
         cmd.query_async(&mut self.connection.clone()).await?;
 
         Ok(())
+    }
+
+    pub async fn set_last_processed_block(
+        &self,
+        indexer_config: &IndexerConfig,
+        height: u64,
+    ) -> anyhow::Result<()> {
+        let indexer = indexer_config.get_full_name();
+        metrics::PROCESSED_BLOCKS_COUNT
+            .with_label_values(&[&indexer])
+            .inc();
+        metrics::LAST_PROCESSED_BLOCK
+            .with_label_values(&[&indexer])
+            .set(
+                height
+                    .try_into()
+                    .context("Failed to convert block height (u64) to metrics type (i64)")?,
+            );
+
+        self.set(indexer_config.last_processed_block_key(), height)
+            .await
+            .context("Failed to set last processed block")
+    }
+
+    pub async fn publish_block(
+        &self,
+        indexer: &IndexerConfig,
+        stream: String,
+        block_height: u64,
+    ) -> anyhow::Result<()> {
+        metrics::PUBLISHED_BLOCKS_COUNT
+            .with_label_values(&[&indexer.get_full_name()])
+            .inc();
+
+        self.xadd(
+            stream.clone(),
+            &[(String::from("block_height"), block_height)],
+        )
+        .await
+        .context("Failed to add block to Redis Stream")
     }
 }

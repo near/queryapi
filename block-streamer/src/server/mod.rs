@@ -12,7 +12,7 @@ pub async fn init(
 ) -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{}", port).parse()?;
 
-    tracing::info!("Starting RPC server at {}", addr);
+    tracing::info!("Starting gRPC server on {}", addr);
 
     let block_streamer_service = block_streamer_service::BlockStreamerService::new(
         redis_client,
