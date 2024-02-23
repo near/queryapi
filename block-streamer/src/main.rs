@@ -16,6 +16,7 @@ mod test_utils;
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::fmt::layer())
+        .with(metrics::LogCounter)
         .with(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 

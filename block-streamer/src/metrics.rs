@@ -3,6 +3,8 @@ use lazy_static::lazy_static;
 use prometheus::{
     register_int_counter_vec, register_int_gauge_vec, Encoder, IntCounterVec, IntGaugeVec,
 };
+use tracing_subscriber::layer::Context;
+use tracing_subscriber::Layer;
 
 lazy_static! {
     pub static ref LAST_PROCESSED_BLOCK: IntGaugeVec = register_int_gauge_vec!(
@@ -23,6 +25,25 @@ lazy_static! {
         &["indexer"]
     )
     .unwrap();
+    pub static ref LOGS_COUNT: IntCounterVec = register_int_counter_vec!(
+        "queryapi_block_streamer_logs_count",
+        "Number of messages logged",
+        &["level"]
+    )
+    .unwrap();
+}
+
+pub struct LogCounter;
+
+impl<S> Layer<S> for LogCounter
+where
+    S: tracing::Subscriber,
+{
+    fn on_event(&self, event: &tracing::Event, _ctx: Context<S>) {
+        LOGS_COUNT
+            .with_label_values(&[event.metadata().level().as_str()])
+            .inc();
+    }
 }
 
 #[get("/metrics")]
