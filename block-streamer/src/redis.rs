@@ -6,6 +6,7 @@ use anyhow::Context;
 use redis::{aio::ConnectionManager, RedisError, ToRedisArgs};
 
 use crate::indexer_config::IndexerConfig;
+use crate::metrics;
 
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
@@ -65,6 +66,14 @@ impl RedisClientImpl {
         indexer_config: &IndexerConfig,
         height: u64,
     ) -> anyhow::Result<()> {
+        metrics::LAST_PROCESSED_BLOCK
+            .with_label_values(&[&indexer])
+            .set(
+                height
+                    .try_into()
+                    .context("Failed to convert block height (u64) to metrics type (i64)")?,
+            );
+
         self.set(indexer_config.last_processed_block_key(), height)
             .await
             .context("Failed to set last processed block")

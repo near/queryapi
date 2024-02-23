@@ -4,6 +4,15 @@ use prometheus::{
     register_int_counter_vec, register_int_gauge_vec, Encoder, IntCounterVec, IntGaugeVec,
 };
 
+lazy_static! {
+    pub static ref LAST_PROCESSED_BLOCK: IntGaugeVec = register_int_gauge_vec!(
+        "queryapi_block_streamer_last_processed_block",
+        "Height of last block seen",
+        &["indexer"]
+    )
+    .unwrap();
+}
+
 #[get("/metrics")]
 async fn get_metrics() -> impl Responder {
     let mut buffer = Vec::<u8>::new();

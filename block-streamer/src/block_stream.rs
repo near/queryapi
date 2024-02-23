@@ -3,6 +3,7 @@ use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
+use crate::metrics;
 use crate::rules::types::ChainId;
 use registry_types::Rule;
 
