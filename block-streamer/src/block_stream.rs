@@ -136,6 +136,10 @@ pub(crate) async fn start_block_stream(
 ) -> anyhow::Result<()> {
     tracing::info!("Starting block stream",);
 
+    metrics::PUBLISHED_BLOCKS_COUNT
+        .with_label_values(&[&indexer.get_full_name()])
+        .reset();
+
     let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
         delta_lake_client,
