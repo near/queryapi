@@ -11,6 +11,12 @@ lazy_static! {
         &["indexer"]
     )
     .unwrap();
+    pub static ref PROCESSED_BLOCKS_COUNT: IntCounterVec = register_int_counter_vec!(
+        "queryapi_block_streamer_processed_blocks_count",
+        "Number of blocks processed by block stream",
+        &["indexer"]
+    )
+    .unwrap();
     pub static ref PUBLISHED_BLOCKS_COUNT: IntCounterVec = register_int_counter_vec!(
         "queryapi_block_streamer_published_blocks_count",
         "Number of blocks published to redis stream",

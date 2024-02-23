@@ -66,6 +66,10 @@ impl RedisClientImpl {
         indexer_config: &IndexerConfig,
         height: u64,
     ) -> anyhow::Result<()> {
+        let indexer = indexer_config.get_full_name();
+        metrics::PROCESSED_BLOCKS_COUNT
+            .with_label_values(&[&indexer])
+            .inc();
         metrics::LAST_PROCESSED_BLOCK
             .with_label_values(&[&indexer])
             .set(
