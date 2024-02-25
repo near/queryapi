@@ -6,22 +6,20 @@ With QueryApi you can
 * Retrieve that data through a GraphQL API.
 
 ## 🧩 Components
-1. [QueryApi Coordinator](./indexer)
-An Indexer that tracks changes to the QueryApi registry contract. It triggers the execution of those IndexerFunctions
-when they match new blocks by placing messages on a Redis Stream. Spawns historical processing threads when needed.
-   1.a.  Subfolders provide crates for the different components of the Indexer: indexer_rule_type (shared with registry contract), 
-indexer_rules_engine, storage.
-2. [Indexer Runner](.indexer-js-queue-handler)
-   Retrieves messages from the SQS queue, fetches the matching block and executes the IndexerFunction.
-3. [Runner](.runner)
+1. [Coordinator](./coordinator)
+   Continuously reads latest registry and attempts to synchronise that configuration across the system, i.e. starting relevant Block Streams and Executors.
+1. [Runner](./runner)
+   Manages "Executors" which, retrieves messages from Redis Streams, fetches matching blocks, and executes Indexer code against that block. 
    Retrieves messages from Redis Stream, fetching matching block and executes the IndexerFunction.
-3. [IndexerFunction Editor UI](./frontend)
+1. [Block Streamer](./block-streamer)
+   Manages "Block Streams" which, use the configured contract filter to fetch relevant blocks from S3 and publish those blocks to Redis Streams.
+1. [IndexerFunction Editor UI](./frontend)
    Serves the editor UI within the dashboard widget and mediates some communication with the GraphQL DB and block server.
-4. [Hasura Authentication Service](./hasura-authentication-service)
+1. [Hasura Authentication Service](./hasura-authentication-service)
    Provides authentication for the Hasura GraphQL server.
-5. [IndexerFunction Registry Contract](./registry)
+1. [IndexerFunction Registry Contract](./registry)
    Stores IndexerFunctions, their schemas and execution parameters like start block height.
-6. [Lake Block server](./block-server)
+1. [Lake Block server](./block-server)
    Serves blocks from the S3 lake for in browser testing of IndexerFunctions.
 
 ## 🚀 Getting Started
