@@ -3,6 +3,7 @@ use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
+use crate::metrics;
 use crate::rules::types::ChainId;
 use registry_types::Rule;
 
@@ -135,6 +136,10 @@ pub(crate) async fn start_block_stream(
 ) -> anyhow::Result<()> {
     tracing::info!("Starting block stream",);
 
+    metrics::PUBLISHED_BLOCKS_COUNT
+        .with_label_values(&[&indexer.get_full_name()])
+        .reset();
+
     let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
         delta_lake_client,
@@ -219,19 +224,14 @@ async fn process_delta_lake_blocks(
         blocks_from_index.len(),
     );
 
-    for block in &blocks_from_index {
-        let block = block.to_owned();
+    for block_height in &blocks_from_index {
+        let block_height = block_height.to_owned();
         redis_client
-            .xadd(redis_stream.clone(), &[("block_height".to_string(), block)])
-            .await
-            .context("Failed to add block to Redis Stream")?;
+            .publish_block(indexer, redis_stream.clone(), block_height)
+            .await?;
         redis_client
-            .set(
-                format!("{}:last_published_block", indexer.get_full_name()),
-                block,
-            )
-            .await
-            .context("Failed to set last_published_block")?;
+            .set_last_processed_block(indexer, block_height)
+            .await?;
     }
 
     let last_indexed_block =
@@ -275,12 +275,8 @@ async fn process_near_lake_blocks(
         last_indexed_block = block_height;
 
         redis_client
-            .set(
-                format!("{}:last_published_block", indexer.get_full_name()),
-                last_indexed_block,
-            )
-            .await
-            .context("Failed to set last_published_block")?;
+            .set_last_processed_block(indexer, block_height)
+            .await?;
 
         let matches = crate::rules::reduce_indexer_rule_matches(
             &indexer.rule,
@@ -290,12 +286,8 @@ async fn process_near_lake_blocks(
 
         if !matches.is_empty() {
             redis_client
-                .xadd(
-                    redis_stream.clone(),
-                    &[("block_height".to_string(), block_height.to_owned())],
-                )
-                .await
-                .context("Failed to add block to Redis Stream")?;
+                .publish_block(indexer, redis_stream.clone(), block_height)
+                .await?;
         }
     }
 
@@ -330,15 +322,20 @@ mod tests {
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
-            .expect_xadd::<String, u64>()
-            .with(predicate::eq("stream key".to_string()), predicate::always())
-            .returning(|_, fields| {
-                assert!(vec![107503702, 107503703, 107503705].contains(&fields[0].1));
-                Ok(())
-            })
+            .expect_publish_block()
+            .with(
+                predicate::always(),
+                predicate::eq("stream key".to_string()),
+                predicate::in_iter([107503702, 107503703, 107503705]),
+            )
+            .returning(|_, _, _| Ok(()))
             .times(3);
         mock_redis_client
-            .expect_set::<String, u64>()
+            .expect_set_last_processed_block()
+            .with(
+                predicate::always(),
+                predicate::in_iter([107503702, 107503703, 107503704, 107503705]),
+            )
             .returning(|_, _| Ok(()))
             .times(4);
 
@@ -388,24 +385,9 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mock_lake_s3_config =
-            crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
-
         let mut mock_redis_client = crate::redis::RedisClient::default();
-        mock_redis_client
-            .expect_set::<String, u64>()
-            .returning(|_, fields| {
-                assert!(vec![107503704, 107503705].contains(&fields));
-                Ok(())
-            })
-            .times(2);
-        mock_redis_client
-            .expect_xadd::<String, u64>()
-            .returning(|_, fields| {
-                assert!(vec![107503704, 107503705].contains(&fields[0].1));
-                Ok(())
-            })
-            .times(2);
+        mock_redis_client.expect_publish_block().never();
+        mock_redis_client.expect_set_last_processed_block().never();
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
@@ -419,14 +401,11 @@ mod tests {
             },
         };
 
-        start_block_stream(
+        process_delta_lake_blocks(
             107503704,
-            &indexer_config,
-            std::sync::Arc::new(mock_redis_client),
             std::sync::Arc::new(mock_delta_lake_client),
-            mock_lake_s3_config,
-            &ChainId::Mainnet,
-            1,
+            std::sync::Arc::new(mock_redis_client),
+            &indexer_config,
             "stream key".to_string(),
         )
         .await
@@ -451,24 +430,9 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mock_lake_s3_config =
-            crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
-
         let mut mock_redis_client = crate::redis::RedisClient::default();
-        mock_redis_client
-            .expect_set::<String, u64>()
-            .returning(|_, fields| {
-                assert!(vec![107503704, 107503705].contains(&fields));
-                Ok(())
-            })
-            .times(2);
-        mock_redis_client
-            .expect_xadd::<String, u64>()
-            .returning(|_, fields| {
-                assert!(vec![107503704, 107503705].contains(&fields[0].1));
-                Ok(())
-            })
-            .times(2);
+        mock_redis_client.expect_publish_block().never();
+        mock_redis_client.expect_set_last_processed_block().never();
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
@@ -482,14 +446,11 @@ mod tests {
             },
         };
 
-        start_block_stream(
+        process_delta_lake_blocks(
             107503704,
-            &indexer_config,
-            std::sync::Arc::new(mock_redis_client),
             std::sync::Arc::new(mock_delta_lake_client),
-            mock_lake_s3_config,
-            &ChainId::Mainnet,
-            1,
+            std::sync::Arc::new(mock_redis_client),
+            &indexer_config,
             "stream key".to_string(),
         )
         .await
@@ -514,24 +475,9 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mock_lake_s3_config =
-            crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
-
         let mut mock_redis_client = crate::redis::RedisClient::default();
-        mock_redis_client
-            .expect_set::<String, u64>()
-            .returning(|_, fields| {
-                assert!(vec![107503704, 107503705].contains(&fields));
-                Ok(())
-            })
-            .times(2);
-        mock_redis_client
-            .expect_xadd::<String, u64>()
-            .returning(|_, fields| {
-                assert!(vec![107503704, 107503705].contains(&fields[0].1));
-                Ok(())
-            })
-            .times(2);
+        mock_redis_client.expect_publish_block().never();
+        mock_redis_client.expect_set_last_processed_block().never();
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
@@ -545,14 +491,11 @@ mod tests {
             },
         };
 
-        start_block_stream(
+        process_delta_lake_blocks(
             107503704,
-            &indexer_config,
-            std::sync::Arc::new(mock_redis_client),
             std::sync::Arc::new(mock_delta_lake_client),
-            mock_lake_s3_config,
-            &ChainId::Mainnet,
-            1,
+            std::sync::Arc::new(mock_redis_client),
+            &indexer_config,
             "stream key".to_string(),
         )
         .await
