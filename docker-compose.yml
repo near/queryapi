@@ -19,24 +19,6 @@ services:
     ports:
       - "8002:8002"
 
-  coordinator-v1:
-    build:
-      context: ./indexer
-      args:
-        - CARGO_BUILD_MODE=debug
-    depends_on:
-      - redis
-    environment:
-      REDIS_CONNECTION_STRING: redis://redis
-      LAKE_AWS_ACCESS_KEY:
-      LAKE_AWS_SECRET_ACCESS_KEY:
-      PORT: 9180
-      REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
-      AWS_QUEUE_REGION: eu-central-1
-    command:
-      - mainnet
-      - from-interruption
-
   coordinator:
     build:
       context: .
