@@ -26,7 +26,6 @@
     "buffer": "^6.0.3",
     "graphiql": "3.0.6",
     "graphql": "^16.8.1",
-    "graphql-ws": "^5.15.0",
     "gridjs": "6.0.6",
     "monaco-editor": "^0.45.0",
     "near-api-js": "1.1.0",
