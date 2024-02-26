@@ -286,6 +286,10 @@ async fn process_near_lake_blocks(
 
         if !matches.is_empty() {
             redis_client
+                .cache_streamer_message(&streamer_message)
+                .await?;
+
+            redis_client
                 .publish_block(indexer, redis_stream.clone(), block_height)
                 .await?;
         }
@@ -338,6 +342,10 @@ mod tests {
             )
             .returning(|_, _| Ok(()))
             .times(4);
+        mock_redis_client
+            .expect_cache_streamer_message()
+            .with(predicate::always())
+            .returning(|_| Ok(()));
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
