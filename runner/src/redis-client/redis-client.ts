@@ -20,7 +20,7 @@ export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
   LARGEST_STREAM_ID = '+';
   STREAMS_SET_KEY = 'streams';
-  STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer:message:';
+  STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer_message:';
 
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })

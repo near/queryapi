@@ -106,6 +106,6 @@ describe('RedisClient', () => {
     const client = new RedisClient(mockClient);
     await client.getStreamerMessage(1000);
 
-    expect(mockClient.get).toHaveBeenCalledWith('streamer:message:1000');
+    expect(mockClient.get).toHaveBeenCalledWith('streamer_message:1000');
   });
 });
