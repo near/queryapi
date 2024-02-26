@@ -90,7 +90,7 @@ export default class Indexer {
         }
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
-        const vm = new VM({ timeout: 3000, allowAsync: true });
+        const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
