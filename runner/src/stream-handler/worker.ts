@@ -23,15 +23,13 @@ interface WorkerContext {
   queue: PrefetchQueue
   streamKey: string
   streamType: StreamType
+  indexerConfig: IndexerConfig
 }
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 
-let config: IndexerConfig | undefined;
-
 void (async function main () {
   const { streamKey, indexerConfig } = workerData;
-  config = indexerConfig;
   const redisClient = new RedisClient();
   const workerContext: WorkerContext = {
     redisClient,
@@ -39,6 +37,7 @@ void (async function main () {
     queue: [],
     streamKey,
     streamType: redisClient.getStreamType(streamKey),
+    indexerConfig,
   };
 
   console.log('Started processing stream: ', streamKey);
@@ -85,8 +84,17 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   const indexer = new Indexer();
   const isHistorical = workerContext.streamType === 'historical';
   let streamMessageId = '';
-  let indexerName = streamKey.split(':')[0];
   let currBlockHeight = 0;
+  let indexerName = `${workerContext.indexerConfig.account_id}/${workerContext.indexerConfig.function_name}`;
+      const functions = {
+        [indexerName]: {
+          account_id: workerContext.indexerConfig.account_id,
+          function_name: workerContext.indexerConfig.function_name,
+          code: workerContext.indexerConfig.code,
+          schema: workerContext.indexerConfig.schema,
+          provisioned: false,
+        },
+      };
 
   while (true) {
     try {
@@ -95,18 +103,6 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const startTime = performance.now();
-      // TODO: Remove redis storage call after full V2 migration
-      const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
-      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-      const functions = {
-        [indexerName]: {
-          account_id: indexerConfig.account_id,
-          function_name: indexerConfig.function_name,
-          code: indexerConfig.code,
-          schema: indexerConfig.schema,
-          provisioned: false,
-        },
-      };
       const blockStartTime = performance.now();
       const queueMessage = await workerContext.queue.at(0);
       if (queueMessage === undefined) {

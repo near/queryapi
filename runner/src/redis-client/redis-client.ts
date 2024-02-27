@@ -73,6 +73,7 @@ export default class RedisClient {
   };
 
   async getStreamStorage (streamKey: string): Promise<StreamStorage> {
+    console.log('Should never run 2');
     const storageKey = this.generateStorageKey(streamKey);
     const results = await this.client.get(storageKey);
 

@@ -147,4 +147,8 @@ export default class Provisioner {
       'Failed to provision endpoint'
     );
   }
+
+  async getDatabaseConnectionParameters (accountId: string): Promise<any> {
+    return await this.hasuraClient.getDbConnectionParameters(accountId);
+  }
 }
