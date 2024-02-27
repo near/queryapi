@@ -10,8 +10,9 @@ export default class DmlHandler {
 
   static create (
     database_connection_parameters: any,
+    pgClientInstance: PgClient | undefined = undefined
   ): DmlHandler {
-    const pgClient = new PgClient({
+    const pgClient = pgClientInstance ?? new PgClient({
       user: database_connection_parameters.username,
       password: database_connection_parameters.password,
       host: process.env.PGHOST,

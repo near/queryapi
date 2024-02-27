@@ -94,7 +94,7 @@ export default class Indexer {
         // Cache database credentials after provisioning
         try {
           this.database_connection_parameters = this.database_connection_parameters ?? 
-            await this.deps.provisioner.getDatabaseConnectionParameters(indexerFunction.account_id.replace(/[^a-zA-Z0-9]/g, '_'));
+            await this.deps.provisioner.getDatabaseConnectionParameters(functionName.split('/')[0].replace(/[.-]/g, '_'));
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Failed to get database connection parameters', error.message));
