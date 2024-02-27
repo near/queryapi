@@ -899,6 +899,7 @@ CREATE TABLE
       'test',
       SIMPLE_SCHEMA
     );
+    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.runFunctions() skips provisioning if the endpoint exists', async () => {
@@ -934,6 +935,45 @@ CREATE TABLE
     await indexer.runFunctions(mockBlock, functions, false, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
+    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+  });
+
+  test('Indexer.runFunctions() skips database credentials fetch second time onward', async () => {
+    const blockHeight = 82699904;
+    const mockFetch = jest.fn(() => ({
+      status: 200,
+      json: async () => ({
+        errors: null,
+      }),
+    }));
+    const mockBlock = Block.fromStreamerMessage({
+      block: {
+        chunks: [0],
+        header: {
+          height: blockHeight
+        }
+      },
+      shards: {}
+    } as unknown as StreamerMessage) as unknown as Block;
+    const provisioner: any = {
+      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      isUserApiProvisioned: jest.fn().mockReturnValue(true),
+      provisionUserApi: jest.fn(),
+    };
+    const indexer = new Indexer({ fetch: mockFetch as unknown as typeof fetch, provisioner, DmlHandler: genericMockDmlHandler });
+
+    const functions: Record<string, any> = {
+      'morgs.near/test': {
+        code: '',
+        schema: SIMPLE_SCHEMA,
+      }
+    };
+    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+
+    expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
+    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
@@ -972,6 +1012,7 @@ CREATE TABLE
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
+    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.runFunctions() logs provisioning failures', async () => {
@@ -1010,6 +1051,7 @@ CREATE TABLE
 
     await expect(indexer.runFunctions(mockBlock, functions, false, { provision: true })).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
+    expect(provisioner.getDatabaseConnectionParameters).not.toHaveBeenCalled();
   });
 
   test('does not attach the hasura admin secret header when no role specified', async () => {
