@@ -8,5 +8,3 @@ startRunnerServer(executors);
 startMetricsServer().catch((err) => {
   console.error('Failed to start metrics server', err);
 });
-
-void (async function main () {})();

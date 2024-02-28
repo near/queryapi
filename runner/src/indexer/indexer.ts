@@ -30,10 +30,18 @@ interface IndexerFunction {
   code: string
 }
 
+interface DatabaseConnectionParameters {
+  host: string
+  port: number
+  database: string
+  user: string
+  password: string
+}
+
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
-  database_connection_parameters: any | undefined = undefined;
+  database_connection_parameters: DatabaseConnectionParameters | undefined = undefined;
 
   private readonly deps: Dependencies;
 
@@ -94,7 +102,7 @@ export default class Indexer {
         // Cache database credentials after provisioning
         try {
           this.database_connection_parameters = this.database_connection_parameters ?? 
-            await this.deps.provisioner.getDatabaseConnectionParameters(functionName.split('/')[0].replace(/[.-]/g, '_'));
+            await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Failed to get database connection parameters', error.message));

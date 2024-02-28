@@ -38,7 +38,7 @@ export default class StreamHandler {
 
   constructor (
     public readonly streamKey: string,
-    public readonly indexerConfig: IndexerConfig | undefined = undefined
+    public readonly indexerConfig: IndexerConfig
   ) {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
@@ -49,7 +49,7 @@ export default class StreamHandler {
       });
       this.executorContext = {
         status: Status.RUNNING,
-        block_height: indexerConfig?.version ?? 0,
+        block_height: indexerConfig.version,
       };
 
       this.worker.on('message', this.handleMessage.bind(this));
@@ -67,11 +67,9 @@ export default class StreamHandler {
 
   private handleError (error: Error): void {
     console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
-    if (this.indexerConfig !== undefined) {
-      this.executorContext.status = Status.STOPPED;
-    }
+    this.executorContext.status = Status.STOPPED;
     const indexer = new Indexer();
-    const functionName = this.indexerConfig ? `${this.indexerConfig.account_id}/${this.indexerConfig.function_name}` : this.streamKey.split(':')[0];
+    const functionName = `${this.indexerConfig.account_id}/${this.indexerConfig.function_name}`;
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
       console.log(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
