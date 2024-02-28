@@ -5,7 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import { Status } from '../stream-handler/stream-handler';
+import { LogLevel, Status } from '../stream-handler/stream-handler';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -62,7 +62,7 @@ export default class Indexer {
     block: Block,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
-    options: { provision?: boolean } = { provision: false }
+    options: { provision?: boolean, log_level: LogLevel } = { provision: false, log_level: LogLevel.INFO }
   ): Promise<string[]> {
     const blockHeight = block.blockHeight;
 
@@ -76,7 +76,6 @@ export default class Indexer {
         const indexerFunction = functions[functionName];
 
         const runningMessage = `Running function ${functionName} on block ${blockHeight}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
-        console.log(runningMessage); // Print the running message to the console
 
         simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));
 

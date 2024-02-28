@@ -119,15 +119,13 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
-      await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+      await indexer.runFunctions(block, functions, isHistorical, { provision: true, log_level: workerContext.indexerConfig.log_level });
       await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 
       METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
-
-      console.log(`Success: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}}`);
     } catch (err) {
       await sleep(10000);
       console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);

@@ -9,12 +9,19 @@ export enum Status {
   FAILING = 'FAILING',
   STOPPED = 'STOPPED',
 }
+
+export enum LogLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  ERROR = 'ERROR',
+}
 export interface IndexerConfig {
   account_id: string
   function_name: string
   code: string
   schema: string
   version: number
+  log_level: LogLevel
 }
 
 export enum WorkerMessageType {
