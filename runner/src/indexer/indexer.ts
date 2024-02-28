@@ -30,8 +30,18 @@ interface IndexerFunction {
   code: string
 }
 
+interface DatabaseConnectionParameters {
+  host: string
+  port: number
+  database: string
+  user: string
+  password: string
+}
+
+
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
+  database_connection_parameters: DatabaseConnectionParameters | undefined = undefined;
 
   private readonly deps: Dependencies;
 
@@ -87,6 +97,16 @@ export default class Indexer {
             simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
             throw error;
           }
+        }
+
+        // Cache database credentials after provisioning
+        try {
+          this.database_connection_parameters = this.database_connection_parameters ?? 
+            await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
+        } catch (e) {
+          const error = e as Error;
+          simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Failed to get database connection parameters', error.message));
+          throw error;
         }
 
         await this.setStatus(functionName, blockHeight, 'RUNNING');
@@ -219,11 +239,10 @@ export default class Indexer {
     schema: string,
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
-    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler: DmlHandler = this.deps.DmlHandler.createLazy(account);
+      const dmlHandler: DmlHandler = this.deps.DmlHandler.create(this.database_connection_parameters);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {

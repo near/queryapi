@@ -7,13 +7,6 @@ interface StreamMessage {
   }
 }
 
-interface StreamStorage {
-  account_id: string
-  function_name: string
-  code: string
-  schema: string
-}
-
 export type StreamType = 'historical' | 'real-time';
 
 export default class RedisClient {
@@ -28,10 +21,6 @@ export default class RedisClient {
     client.on('error', (err) => { console.log('Redis Client Error', err); });
     client.connect().catch(console.error);
   }
-
-  private generateStorageKey (streamkey: string): string {
-    return `${streamkey}:storage`;
-  };
 
   getStreamType (streamKey: string): StreamType {
     if (streamKey.endsWith(':historical:stream')) {
@@ -70,17 +59,6 @@ export default class RedisClient {
     const results = await this.client.xLen(streamKey);
 
     return results;
-  };
-
-  async getStreamStorage (streamKey: string): Promise<StreamStorage> {
-    const storageKey = this.generateStorageKey(streamKey);
-    const results = await this.client.get(storageKey);
-
-    if (results === null) {
-      throw new Error(`${storageKey} does not have any data`);
-    }
-
-    return JSON.parse(results);
   };
 
   async getStreams (): Promise<string[]> {
