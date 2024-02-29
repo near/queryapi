@@ -75,6 +75,7 @@ export default class Indexer {
 
         const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
 
+        // TODO: Migrate Set Status to Stream Handler
         simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, runningMessage));
 
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
@@ -119,16 +120,12 @@ export default class Indexer {
           await vm.run(modifiedFunction);
         } catch (e) {
           const error = e as Error;
-          // NOTE: logging the exception would likely leak some information about the index runner.
-          // For now, we just log the message. In the future we could sanitize the stack trace
-          // and give the correct line number offsets within the indexer function
-          console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
           await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
-        console.error(`${functionName}: Failed to run function`, e);
+        // TODO: Migrate Set Status to Stream Handler
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {

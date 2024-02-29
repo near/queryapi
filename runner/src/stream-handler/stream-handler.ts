@@ -30,6 +30,7 @@ export interface IndexerBehavior {
 export enum WorkerMessageType {
   METRICS = 'METRICS',
   BLOCK_HEIGHT = 'BLOCK_HEIGHT',
+  STATUS = 'STATUS',
 }
 
 export interface WorkerMessage {
@@ -98,6 +99,9 @@ export default class StreamHandler {
 
   private handleMessage (message: WorkerMessage): void {
     switch (message.type) {
+      case WorkerMessageType.STATUS:
+        this.executorContext.status = message.data;
+        break;
       case WorkerMessageType.BLOCK_HEIGHT:
         this.executorContext.block_height = message.data;
         break;

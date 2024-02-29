@@ -6,7 +6,7 @@ import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
-import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior } from './stream-handler';
+import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior, Status } from './stream-handler';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -37,12 +37,13 @@ void (async function main () {
     lakeClient: new LakeClient(),
     queue: [],
     streamKey,
+    // TODO: Remove Stream Type from Worker and Metrics
     streamType: redisClient.getStreamType(streamKey),
     indexerConfig,
     indexerBehavior,
   };
 
-  console.log('Started processing stream: ', streamKey);
+  console.log('Started processing stream: ', indexerConfig, indexerBehavior);
 
   await handleStream(workerContext, streamKey);
 })();
@@ -122,6 +123,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
       await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+      parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
       await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
@@ -129,8 +131,9 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
 
       METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
     } catch (err) {
+      parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
+      console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
       await sleep(10000);
-      console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);
     } finally {
       const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
       METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
