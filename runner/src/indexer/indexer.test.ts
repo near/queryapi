@@ -1059,6 +1059,82 @@ CREATE TABLE
     expect(provisioner.getDatabaseConnectionParameters).not.toHaveBeenCalled();
   });
 
+  test('Indexer log level respected by writeLog', async () => {
+    const mockFetchDebug = jest.fn(() => ({
+      status: 200,
+      json: async () => ({
+        errors: null,
+      }),
+    }));
+    const mockFetchInfo = jest.fn(() => ({
+      status: 200,
+      json: async () => ({
+        errors: null,
+      }),
+    }));
+    const mockFetchError = jest.fn(() => ({
+      status: 200,
+      json: async () => ({
+        errors: null,
+      }),
+    }));
+    const blockHeight = 456;
+    const mockBlock = Block.fromStreamerMessage({
+      block: {
+        chunks: [],
+        header: {
+          height: blockHeight
+        }
+      },
+      shards: {}
+    } as unknown as StreamerMessage) as unknown as Block;
+    const functions: Record<string, any> = {};
+    functions['buildnear.testnet/test'] = {
+      code: `
+            console.debug('debug log');
+            console.log('info log');
+            console.error('error log');
+            await context.db.Posts.select({
+              account_id: 'morgs_near',
+              receipt_id: 'abc',
+            });
+        `,
+      schema: SIMPLE_SCHEMA
+    };
+    const mockDmlHandler: any = {
+      create: jest.fn().mockImplementation(() => {
+        return { select: jest.fn() };
+      })
+    };
+
+    const indexerDebug = new Indexer(
+      { log_level: LogLevel.DEBUG },
+      { fetch: mockFetchDebug as unknown as typeof fetch, provisioner: genericProvisioner, DmlHandler: mockDmlHandler }
+    );
+    const indexerInfo = new Indexer(
+      { log_level: LogLevel.INFO },
+      { fetch: mockFetchInfo as unknown as typeof fetch, provisioner: genericProvisioner, DmlHandler: mockDmlHandler }
+    );
+    const indexerError = new Indexer(
+      { log_level: LogLevel.ERROR },
+      { fetch: mockFetchError as unknown as typeof fetch, provisioner: genericProvisioner, DmlHandler: mockDmlHandler }
+    );
+
+    await indexerDebug.runFunctions(mockBlock, functions, false);
+    await indexerInfo.runFunctions(mockBlock, functions, false);
+    await indexerError.runFunctions(mockBlock, functions, false);
+
+    // There are 1 set status (no log level), 1 run function log (info level), and 1 set function state (no log level) made each run
+    expect(mockFetchDebug.mock.calls).toMatchSnapshot();
+    expect(mockFetchDebug).toHaveBeenCalledTimes(7); // 4 logs + 3 graphql calls
+
+    expect(mockFetchInfo.mock.calls).toMatchSnapshot();
+    expect(mockFetchInfo).toHaveBeenCalledTimes(5); // 2 logs + 2 graphql call
+
+    expect(mockFetchError.mock.calls).toMatchSnapshot();
+    expect(mockFetchError).toHaveBeenCalledTimes(3); // 1 log + 2 graphql call
+  });
+
   test('does not attach the hasura admin secret header when no role specified', async () => {
     const mockFetch = jest.fn()
       .mockResolvedValueOnce({

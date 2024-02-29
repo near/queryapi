@@ -78,7 +78,6 @@ export default class Indexer {
 
         const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
 
-        // TODO: Migrate Set Status to Stream Handler
         simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, runningMessage));
 
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
@@ -110,6 +109,7 @@ export default class Indexer {
           throw error;
         }
 
+        // TODO: Migrate Set Status to Stream Handler
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
         const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
