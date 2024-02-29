@@ -11,9 +11,9 @@ export enum Status {
 }
 
 export enum LogLevel {
-  DEBUG = 'DEBUG',
-  INFO = 'INFO',
-  ERROR = 'ERROR',
+  DEBUG = 2,
+  INFO = 5,
+  ERROR = 8,
 }
 export interface IndexerConfig {
   account_id: string
@@ -21,6 +21,9 @@ export interface IndexerConfig {
   code: string
   schema: string
   version: number
+}
+
+export interface IndexerBehavior {
   log_level: LogLevel
 }
 
@@ -45,13 +48,15 @@ export default class StreamHandler {
 
   constructor (
     public readonly streamKey: string,
-    public readonly indexerConfig: IndexerConfig
+    public readonly indexerConfig: IndexerConfig,
+    public readonly indexerBehavior: IndexerBehavior
   ) {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
           streamKey,
           indexerConfig,
+          indexerBehavior,
         },
       });
       this.executorContext = {
@@ -73,18 +78,21 @@ export default class StreamHandler {
   }
 
   private handleError (error: Error): void {
-    console.log(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
+    console.error(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
     this.executorContext.status = Status.STOPPED;
-    const indexer = new Indexer();
+    const indexer = new Indexer(this.indexerBehavior);
     const functionName = `${this.indexerConfig.account_id}/${this.indexerConfig.function_name}`;
+
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
-      console.log(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
+      console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
-    indexer.writeLog(functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`).catch((e) => {
-      console.log(`Failed to write log for stream: ${this.streamKey}`, e);
+    indexer.writeLog(LogLevel.ERROR, functionName, this.executorContext.block_height,
+      `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
+    ).catch((e) => {
+      console.error(`Failed to write log for stream: ${this.streamKey}`, e);
     });
     this.worker.terminate().catch(() => {
-      console.log(`Failed to terminate thread for stream: ${this.streamKey}`);
+      console.error(`Failed to terminate thread for stream: ${this.streamKey}`);
     });
   }
 

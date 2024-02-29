@@ -52,6 +52,8 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           version: Number(version),
           code,
           schema,
+        },
+        {
           log_level: LogLevel.INFO, // TODO: Pass this in from Coordinator
         });
         executors.set(executorId, streamHandler);
