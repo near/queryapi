@@ -95,6 +95,10 @@ impl Default for Contract {
                     role: Role::Owner,
                 },
                 AccountRole {
+                    account_id: "eduohe.near".parse().unwrap(),
+                    role: Role::Owner,
+                },
+                AccountRole {
                     account_id: env::current_account_id(),
                     role: Role::Owner,
                 },
