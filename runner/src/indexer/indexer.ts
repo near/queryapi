@@ -36,14 +36,16 @@ interface IndexerFunction {
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
-  database_connection_parameters: DatabaseConnectionParameters | undefined = undefined;
 
   private readonly indexer_behavior: IndexerBehavior;
   private readonly deps: Dependencies;
+  // TODO: After provisioning migrated out of Runner, fetch credentials before Indexer initialization
+  private database_connection_parameters: DatabaseConnectionParameters | undefined;
 
   constructor (
     indexerBehavior: IndexerBehavior,
-    deps?: Partial<Dependencies>
+    deps?: Partial<Dependencies>,
+    databaseConnectionParameters = undefined,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
     this.indexer_behavior = indexerBehavior;
@@ -54,6 +56,7 @@ export default class Indexer {
       parser: new Parser(),
       ...deps,
     };
+    this.database_connection_parameters = databaseConnectionParameters;
   }
 
   async runFunctions (

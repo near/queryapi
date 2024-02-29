@@ -1,5 +1,5 @@
 import type StreamHandler from '../stream-handler/stream-handler';
-import { Status } from '../stream-handler/stream-handler';
+import { LogLevel, Status } from '../stream-handler/stream-handler';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
 
@@ -24,6 +24,11 @@ const BASIC_EXECUTOR_CONTEXT = {
 
 describe('Runner gRPC Service', () => {
   let genericStreamHandlerType: typeof StreamHandler;
+
+  const genericIndexerBehavior = {
+    log_level: LogLevel.INFO
+  };
+
   beforeEach(() => {
     genericStreamHandlerType = jest.fn().mockImplementation((...args) => {
       return {
@@ -40,7 +45,7 @@ describe('Runner gRPC Service', () => {
 
     service.StartExecutor(request, mockCallback);
 
-    expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG);
+    expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG, genericIndexerBehavior);
     expect(mockCallback).toHaveBeenCalledWith(null, { executorId: BASIC_EXECUTOR_ID });
   });
 
@@ -103,7 +108,7 @@ describe('Runner gRPC Service', () => {
     service.StartExecutor(startRequest, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(1);
-    expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG);
+    expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG, genericIndexerBehavior);
     expect(mockCallback.mock.calls).toEqual([
       [null, { executorId: BASIC_EXECUTOR_ID }],
       [{
