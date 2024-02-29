@@ -43,7 +43,7 @@ void (async function main () {
     indexerBehavior,
   };
 
-  console.log('Started processing stream: ', indexerConfig, indexerBehavior);
+  console.log('Started processing stream: ', streamKey, indexerConfig.account_id, indexerConfig.function_name, indexerConfig.version, indexerBehavior);
 
   await handleStream(workerContext, streamKey);
 })();
