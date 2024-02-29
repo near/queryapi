@@ -84,6 +84,7 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 }
 
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
+  let previousError: string = '';
   const indexer = new Indexer(workerContext.indexerBehavior);
   const isHistorical = workerContext.streamType === 'historical';
   let streamMessageId = '';
@@ -132,7 +133,11 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
     } catch (err) {
       parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
-      console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
+      const error = err as Error;
+      if (previousError !== error.message) {
+        previousError = error.message;
+        console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
+      }
       await sleep(10000);
     } finally {
       const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
