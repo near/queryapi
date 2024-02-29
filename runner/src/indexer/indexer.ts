@@ -109,7 +109,7 @@ export default class Indexer {
           throw error;
         }
 
-        // TODO: Migrate Set Status to Stream Handler
+        // TODO: Prevent unnecesary reruns of set status
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
         const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
@@ -128,7 +128,7 @@ export default class Indexer {
         }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
-        // TODO: Migrate Set Status to Stream Handler
+        // TODO: Prevent unnecesary reruns of set status
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
