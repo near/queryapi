@@ -6,6 +6,8 @@ import { Parser } from 'node-sql-parser';
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
+import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
+import assert from 'assert';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -30,14 +32,6 @@ interface IndexerFunction {
   provisioned?: boolean
   schema: string
   code: string
-}
-
-interface DatabaseConnectionParameters {
-  host: string
-  port: number
-  database: string
-  user: string
-  password: string
 }
 
 export default class Indexer {
@@ -249,6 +243,7 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
+      assert(this.database_connection_parameters !== undefined, 'Database connection parameters are not set');
       const dmlHandler: DmlHandler = this.deps.DmlHandler.create(this.database_connection_parameters);
 
       // Generate and collect methods for each table name
