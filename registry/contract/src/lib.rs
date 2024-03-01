@@ -235,7 +235,7 @@ impl Contract {
         }
     }
 
-    pub fn add_user(&mut self, account_id: String, role: ) {
+    pub fn add_user(&mut self, account_id: String, role: String) {
         self.assert_roles(vec![Role::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
@@ -249,6 +249,12 @@ impl Contract {
         {
             env::panic_str(&format!("Account {} already exists", account_id));
         }
+
+        let role_to_set: Role = match role.as_str() {
+            "Owner" => Role::Owner,
+            "User" => Role::User,
+            _ => Role::User,
+        };
 
         self.account_roles.push(AccountRole {
             account_id,
