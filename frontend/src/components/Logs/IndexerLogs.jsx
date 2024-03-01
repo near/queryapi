@@ -116,7 +116,8 @@ const IndexerLogsComponent = () => {
     return mergedEntries;
   };
 
-  const initializeTable = () => {
+
+  useEffect(() => {
     const grid = new Grid({
       columns: [
         {
@@ -202,19 +203,16 @@ const IndexerLogsComponent = () => {
         },
       },
     });
+    indexerLogsRef.current = grid;
+    grid.render(document.getElementById('grid-logs-container'));
 
-    grid.render(indexerLogsRef.current);
-  };
-
-  useEffect(() => {
-    initializeTable();
+    return () => {
+      grid.destroy();
+    };
   }, []);
 
   const reloadData = () => {
-    indexerLogsRef.current.innerHTML = "";
-    setTimeout(() => {
-      initializeTable();
-    }, 500);
+    indexerLogsRef.current.forceRender();
   };
 
   return (
@@ -239,7 +237,7 @@ const IndexerLogsComponent = () => {
           functionName={functionName}
           latestHeight={latestHeight}
         />
-        <div ref={indexerLogsRef} />
+        <div id="grid-logs-container"></div>
       </div>
     </>
   );
