@@ -337,7 +337,6 @@ export default class Indexer {
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
-    // If log level is lower than configured log level, do not write log to database
     if (logLevel < this.indexer_behavior.log_level) {
       return;
     }
