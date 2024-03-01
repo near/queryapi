@@ -235,7 +235,7 @@ impl Contract {
         }
     }
 
-    pub fn add_user(&mut self, account_id: String, role: String) {
+    pub fn add_user(&mut self, account_id: String, role: Option<Role>) {
         self.assert_roles(vec![Role::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
@@ -250,15 +250,9 @@ impl Contract {
             env::panic_str(&format!("Account {} already exists", account_id));
         }
 
-        let role_to_set: Role = match role.as_str() {
-            "Owner" => Role::Owner,
-            "User" => Role::User,
-            _ => Role::User,
-        };
-
         self.account_roles.push(AccountRole {
             account_id,
-            role: role_to_set,
+            role: role.unwrap_or(Role::User),
         })
     }
 
@@ -653,7 +647,7 @@ mod tests {
                 role: Role::User,
             }],
         };
-        contract.add_user("alice.near".to_string(), "".to_string());
+        contract.add_user("alice.near".to_string(), None);
     }
 
     #[test]
@@ -667,7 +661,7 @@ mod tests {
             }],
         };
 
-        contract.add_user("bob.near".to_string(), "".to_string());
+        contract.add_user("bob.near".to_string(), None);
     }
 
     #[test]
@@ -680,7 +674,7 @@ mod tests {
             }],
         };
 
-        contract.add_user("alice.near".to_string(), "".to_string());
+        contract.add_user("alice.near".to_string(), None);
 
         assert!(contract
             .account_roles
@@ -699,7 +693,7 @@ mod tests {
             }],
         };
 
-        contract.add_user("0".to_string(), "".to_string());
+        contract.add_user("0".to_string(), None);
     }
 
     #[test]
@@ -712,7 +706,7 @@ mod tests {
             }],
         };
 
-        contract.add_user("alice.near".to_string(), "Owner".to_string());
+        contract.add_user("alice.near".to_string(), Some(Role::Owner));
 
         assert!(contract
             .account_roles
