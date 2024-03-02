@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 actix-web = "4.5.1"
 anyhow = "1.0.57"
+async-stream = "0.3.5"
 async-trait = "0.1.74"
 aws-config = { version = "1.0.0", features = ["behavior-version-latest"]}
 aws-sdk-s3 = "0.39.1"
@@ -30,6 +31,9 @@ wildmatch = "2.1.1"
 registry-types = { path = "../registry/types", features = ["near-primitives"] }
 
 near-lake-framework = "=0.7.4"
+odbc-api = "6.0.2"
+odbc = "0.17.0"
+reqwest = "0.11.24"
 
 [build-dependencies]
 tonic-build = "0.10"
