@@ -5,7 +5,7 @@ use tokio;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::new();
-    let token = "dapiedcf60e14259305a3c29b23bd1175e6b";
+    let token = "";
     let hostname = "4221960800361869.9.gcp.databricks.com";
     let http_path = "/sql/1.0/warehouses/1958603dd60ca0b0";
     let sql_query = "SELECT 
