@@ -1,5 +1,6 @@
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
+import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -9,15 +10,15 @@ export default class DmlHandler {
   ) {}
 
   static create (
-    database_connection_parameters: any,
+    databaseConnectionParameters: DatabaseConnectionParameters,
     pgClientInstance: PgClient | undefined = undefined
   ): DmlHandler {
     const pgClient = pgClientInstance ?? new PgClient({
-      user: database_connection_parameters.username,
-      password: database_connection_parameters.password,
+      user: databaseConnectionParameters.username,
+      password: databaseConnectionParameters.password,
       host: process.env.PGHOST,
-      port: Number(database_connection_parameters.port),
-      database: database_connection_parameters.database,
+      port: Number(databaseConnectionParameters.port),
+      database: databaseConnectionParameters.database,
     });
     return new DmlHandler(pgClient);
   }

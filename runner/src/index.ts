@@ -1,6 +1,6 @@
 import { startServer as startMetricsServer } from './metrics';
 import startRunnerServer from './server/runner-server';
-import StreamHandler from './stream-handler';
+import type StreamHandler from './stream-handler';
 
 const executors = new Map<string, StreamHandler>();
 startRunnerServer(executors);
