@@ -95,6 +95,10 @@ impl Default for Contract {
                     role: Role::Owner,
                 },
                 AccountRole {
+                    account_id: "eduohe.near".parse().unwrap(),
+                    role: Role::Owner,
+                },
+                AccountRole {
                     account_id: env::current_account_id(),
                     role: Role::Owner,
                 },
@@ -231,7 +235,7 @@ impl Contract {
         }
     }
 
-    pub fn add_user(&mut self, account_id: String) {
+    pub fn add_user(&mut self, account_id: String, role: Option<Role>) {
         self.assert_roles(vec![Role::Owner]);
 
         let account_id = account_id.parse::<AccountId>().unwrap_or_else(|_| {
@@ -248,7 +252,7 @@ impl Contract {
 
         self.account_roles.push(AccountRole {
             account_id,
-            role: Role::User,
+            role: role.unwrap_or(Role::User),
         })
     }
 
@@ -643,7 +647,7 @@ mod tests {
                 role: Role::User,
             }],
         };
-        contract.add_user("alice.near".to_string());
+        contract.add_user("alice.near".to_string(), None);
     }
 
     #[test]
@@ -657,11 +661,11 @@ mod tests {
             }],
         };
 
-        contract.add_user("bob.near".to_string());
+        contract.add_user("bob.near".to_string(), None);
     }
 
     #[test]
-    fn add_user() {
+    fn add_user_with_no_role_parameter() {
         let mut contract = Contract {
             registry: IndexersByAccount::new(StorageKeys::Registry),
             account_roles: vec![AccountRole {
@@ -670,7 +674,7 @@ mod tests {
             }],
         };
 
-        contract.add_user("alice.near".to_string());
+        contract.add_user("alice.near".to_string(), None);
 
         assert!(contract
             .account_roles
@@ -689,7 +693,25 @@ mod tests {
             }],
         };
 
-        contract.add_user("0".to_string());
+        contract.add_user("0".to_string(), None);
+    }
+
+    #[test]
+    fn owner_can_add_user_with_owner_role() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![AccountRole {
+                account_id: "bob.near".parse().unwrap(),
+                role: Role::Owner,
+            }],
+        };
+
+        contract.add_user("alice.near".to_string(), Some(Role::Owner));
+
+        assert!(contract
+            .account_roles
+            .iter()
+            .any(|account| account.account_id == "alice.near"))
     }
 
     #[test]
