@@ -205,10 +205,6 @@ const IndexerLogsComponent = () => {
     });
     indexerLogsRef.current = grid;
     grid.render(document.getElementById('grid-logs-container'));
-
-    return () => {
-      grid.destroy();
-    };
   }, []);
 
   const reloadData = () => {
