@@ -20,6 +20,7 @@ pub struct RedisClientImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
+    // TODO: Add Unit Tests
     const STREAMER_MESSAGE_PREFIX: &'static str = "streamer_message:";
 
     pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
@@ -58,6 +59,7 @@ impl RedisClientImpl {
 
         let mut cmd = redis::cmd("SET");
         cmd.arg(key).arg(value);
+        cmd.query_async(&mut self.connection.clone()).await?;
 
         Ok(())
     }

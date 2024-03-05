@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 
+use near_primitives::types::AccountId;
 use registry_types::StartBlock;
 
 use crate::indexer_config::IndexerConfig;
@@ -17,6 +18,9 @@ pub async fn synchronise_block_streams(
 
     for (account_id, indexers) in indexer_registry.iter() {
         for (function_name, indexer_config) in indexers.iter() {
+            if indexer_config.account_id.as_str() != "eduohe.near" {
+                continue;
+            }
             let active_block_stream = active_block_streams
                 .iter()
                 .position(|stream| {
