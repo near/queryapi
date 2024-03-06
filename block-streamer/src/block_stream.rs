@@ -231,7 +231,7 @@ async fn process_delta_lake_blocks(
             .await?;
         redis_client
             .set_last_processed_block(indexer, block_height)
-            .await.expect("Failed to set last processed block");
+            .await?;
     }
 
     let last_indexed_block =
