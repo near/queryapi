@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 
-use near_primitives::types::AccountId;
 use registry_types::StartBlock;
 
 use crate::indexer_config::IndexerConfig;
