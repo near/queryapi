@@ -19,9 +19,6 @@ pub async fn synchronise_executors(
 
     for (account_id, indexers) in indexer_registry.iter() {
         for (function_name, indexer_config) in indexers.iter() {
-            if indexer_config.account_id.as_str() != "eduohe.near" {
-                continue;
-            }
             let active_executor = active_executors
                 .iter()
                 .position(|stream| {
