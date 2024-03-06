@@ -58,6 +58,7 @@ impl RedisClientImpl {
 
         let mut cmd = redis::cmd("SET");
         cmd.arg(key).arg(value);
+        cmd.query_async(&mut self.connection.clone()).await?;
 
         Ok(())
     }
