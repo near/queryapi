@@ -10,6 +10,7 @@ use registry_types::Rule;
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
 /// we need this configurable for testing purposes.
 const LAKE_PREFETCH_SIZE: usize = 100;
+const MAX_STREAM_SIZE_WITH_CACHE: u64 = 100;
 const DELTA_LAKE_SKIP_ACCOUNTS: [&str; 4] = ["*", "*.near", "*.kaiching", "*.tg"];
 
 pub struct Task {
@@ -285,11 +286,13 @@ async fn process_near_lake_blocks(
         );
 
         if !matches.is_empty() {
-            if let Ok(Some(stream_length)) = redis_client.get_stream_length(redis_stream.clone()).await {
-                if stream_length < 100 {
+            if let Ok(Some(stream_length)) =
+                redis_client.get_stream_length(redis_stream.clone()).await
+            {
+                if stream_length <= MAX_STREAM_SIZE_WITH_CACHE {
                     redis_client
-                    .cache_streamer_message(&streamer_message)
-                    .await?;
+                        .cache_streamer_message(&streamer_message)
+                        .await?;
                 }
             }
 

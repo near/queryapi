@@ -3,9 +3,7 @@
 use std::fmt::Debug;
 
 use anyhow::Context;
-use redis::{
-    aio::ConnectionManager, AsyncCommands, FromRedisValue, ToRedisArgs,
-};
+use redis::{aio::ConnectionManager, AsyncCommands, FromRedisValue, ToRedisArgs};
 
 use crate::indexer_config::IndexerConfig;
 
@@ -21,7 +19,6 @@ pub struct RedisClientImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
-
     pub async fn connect(redis_url: &str) -> anyhow::Result<Self> {
         let connection = redis::Client::open(redis_url)?
             .get_connection_manager()
@@ -41,7 +38,8 @@ impl RedisClientImpl {
     {
         let mut cmd = redis::cmd("GET");
         cmd.arg(&key);
-        let value = cmd.query_async(&mut self.connection.clone())
+        let value = cmd
+            .query_async(&mut self.connection.clone())
             .await
             .context(format!("GET: {key:?}"))?;
 
@@ -69,13 +67,13 @@ impl RedisClientImpl {
         K: ToRedisArgs + Debug + Send + Sync + 'static,
     {
         tracing::debug!("DEL {key:?}");
-            
+
         let mut cmd = redis::cmd("DEL");
         cmd.arg(&key);
         cmd.query_async(&mut self.connection.clone())
             .await
             .context(format!("DEL {key:?}"))?;
-    
+
         Ok(())
     }
 

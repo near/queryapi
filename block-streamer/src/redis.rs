@@ -58,7 +58,8 @@ impl RedisClientImpl {
         let mut cmd = redis::cmd("XLEN");
         cmd.arg(&stream_key);
 
-        let stream_length = cmd.query_async(&mut self.connection.clone())
+        let stream_length = cmd
+            .query_async(&mut self.connection.clone())
             .await
             .context(format!("XLEN {stream_key:?}"))?;
 
@@ -113,12 +114,8 @@ impl RedisClientImpl {
             .context("Failed to set last processed block")
     }
 
-    pub async fn get_stream_length(
-        &self,
-        stream: String,
-    ) -> anyhow::Result<Option<u64>> {
-        self.xlen(stream)
-            .await
+    pub async fn get_stream_length(&self, stream: String) -> anyhow::Result<Option<u64>> {
+        self.xlen(stream).await
     }
 
     pub async fn cache_streamer_message(
