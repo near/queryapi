@@ -353,6 +353,10 @@ mod tests {
             .expect_cache_streamer_message()
             .with(predicate::always())
             .returning(|_| Ok(()));
+        mock_redis_client
+            .expect_get_stream_length()
+            .with(predicate::eq("stream key".to_string()))
+            .returning(|_| Ok(Some(10)));
 
         let indexer_config = crate::indexer_config::IndexerConfig {
             account_id: near_indexer_primitives::types::AccountId::try_from(
@@ -370,6 +374,76 @@ mod tests {
 
         start_block_stream(
             91940840,
+            &indexer_config,
+            std::sync::Arc::new(mock_redis_client),
+            std::sync::Arc::new(mock_delta_lake_client),
+            lake_s3_config,
+            &ChainId::Mainnet,
+            1,
+            "stream key".to_string(),
+        )
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn skips_caching_of_lake_block_over_stream_size_limit() {
+        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
+        mock_delta_lake_client
+            .expect_get_latest_block_metadata()
+            .returning(|| {
+                Ok(crate::delta_lake_client::LatestBlockMetadata {
+                    last_indexed_block: "107503700".to_string(),
+                    processed_at_utc: "".to_string(),
+                    first_indexed_block: "".to_string(),
+                    last_indexed_block_date: "".to_string(),
+                    first_indexed_block_date: "".to_string(),
+                })
+            });
+
+        let mut mock_redis_client = crate::redis::RedisClient::default();
+        mock_redis_client
+            .expect_publish_block()
+            .with(
+                predicate::always(),
+                predicate::eq("stream key".to_string()),
+                predicate::in_iter([107503705]),
+            )
+            .returning(|_, _, _| Ok(()))
+            .times(1);
+        mock_redis_client
+            .expect_set_last_processed_block()
+            .with(
+                predicate::always(),
+                predicate::in_iter([107503704, 107503705]),
+            )
+            .returning(|_, _| Ok(()))
+            .times(2);
+        mock_redis_client
+            .expect_cache_streamer_message()
+            .with(predicate::always())
+            .never();
+        mock_redis_client
+            .expect_get_stream_length()
+            .with(predicate::eq("stream key".to_string()))
+            .returning(|_| Ok(Some(200)));
+
+        let indexer_config = crate::indexer_config::IndexerConfig {
+            account_id: near_indexer_primitives::types::AccountId::try_from(
+                "morgs.near".to_string(),
+            )
+            .unwrap(),
+            function_name: "test".to_string(),
+            rule: registry_types::Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: registry_types::Status::Success,
+            },
+        };
+
+        let lake_s3_config = crate::test_utils::create_mock_lake_s3_config(&[107503704, 107503705]);
+
+        start_block_stream(
+            107503704,
             &indexer_config,
             std::sync::Arc::new(mock_redis_client),
             std::sync::Arc::new(mock_delta_lake_client),
