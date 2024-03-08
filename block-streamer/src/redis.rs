@@ -49,6 +49,22 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    pub async fn xlen<T>(&self, stream_key: T) -> anyhow::Result<Option<u64>>
+    where
+        T: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("XLEN: {:?}", stream_key);
+
+        let mut cmd = redis::cmd("XLEN");
+        cmd.arg(&stream_key);
+
+        let stream_length = cmd.query_async(&mut self.connection.clone())
+            .await
+            .context(format!("XLEN {stream_key:?}"))?;
+
+        Ok(stream_length)
+    }
+
     pub async fn set<T, U>(&self, key: T, value: U) -> Result<(), RedisError>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,
@@ -95,6 +111,14 @@ impl RedisClientImpl {
         self.set(indexer_config.last_processed_block_key(), height)
             .await
             .context("Failed to set last processed block")
+    }
+
+    pub async fn get_stream_length(
+        &self,
+        stream: String,
+    ) -> anyhow::Result<Option<u64>> {
+        self.xlen(stream)
+            .await
     }
 
     pub async fn cache_streamer_message(

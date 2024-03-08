@@ -285,9 +285,13 @@ async fn process_near_lake_blocks(
         );
 
         if !matches.is_empty() {
-            redis_client
-                .cache_streamer_message(&streamer_message)
-                .await?;
+            if let Ok(Some(stream_length)) = redis_client.get_stream_length(redis_stream.clone()).await {
+                if stream_length < 100 {
+                    redis_client
+                    .cache_streamer_message(&streamer_message)
+                    .await?;
+                }
+            }
 
             redis_client
                 .publish_block(indexer, redis_stream.clone(), block_height)
