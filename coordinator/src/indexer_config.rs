@@ -22,14 +22,6 @@ impl IndexerConfig {
         format!("{}:block_stream", self.get_full_name())
     }
 
-    pub fn get_historical_redis_stream_key(&self) -> String {
-        format!("{}:historical:stream", self.get_full_name())
-    }
-
-    pub fn get_real_time_redis_stream_key(&self) -> String {
-        format!("{}:real_time:stream", self.get_full_name())
-    }
-
     pub fn get_last_published_block_key(&self) -> String {
         format!("{}:last_published_block", self.get_full_name())
     }
