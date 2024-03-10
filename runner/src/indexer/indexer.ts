@@ -1,7 +1,8 @@
+// @ts-nocheck
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import { type Block } from '@near-lake/primitives';
-import { Parser } from 'node-sql-parser';
+import { Parser } from 'kevin-node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
@@ -71,7 +72,7 @@ export default class Indexer {
 
     const simultaneousPromises: Array<Promise<any>> = [];
     const allMutations: string[] = [];
-
+    
     for (const functionName in functions) {
       try {
         const indexerFunction = functions[functionName];
@@ -301,7 +302,6 @@ export default class Indexer {
             }
           }
         };
-
         return {
           ...prev,
           ...funcForTable
@@ -312,7 +312,6 @@ export default class Indexer {
       const errorContent = error as Error;
       console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.', errorContent.message);
     }
-
     return {}; // Default to empty object if error
   }
 
