@@ -66,21 +66,6 @@ describe('RedisClient', () => {
     expect(unprocessedMessageCount).toEqual(2);
   });
 
-  it('returns stream storage data', async () => {
-    const mockClient = {
-      on: jest.fn(),
-      connect: jest.fn().mockResolvedValue(null),
-      get: jest.fn().mockResolvedValue(JSON.stringify({ account_id: '123', function_name: 'testFunc' })),
-    } as any;
-
-    const client = new RedisClient(mockClient);
-
-    const storageData = await client.getStreamStorage('streamKey');
-
-    expect(mockClient.get).toHaveBeenCalledWith('streamKey:storage');
-    expect(storageData).toEqual({ account_id: '123', function_name: 'testFunc' });
-  });
-
   it('returns the list of streams', async () => {
     const mockClient = {
       on: jest.fn(),
@@ -106,6 +91,6 @@ describe('RedisClient', () => {
     const client = new RedisClient(mockClient);
     await client.getStreamerMessage(1000);
 
-    expect(mockClient.get).toHaveBeenCalledWith('streamer:message:1000');
+    expect(mockClient.get).toHaveBeenCalledWith('streamer_message:1000');
   });
 });

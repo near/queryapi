@@ -13,6 +13,14 @@ const sharedPgClient = new PgClient({
   port: Number(process.env.PGPORT),
 });
 
+export interface DatabaseConnectionParameters {
+  host: string
+  port: number
+  database: string
+  username: string
+  password: string
+}
+
 export default class Provisioner {
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -146,5 +154,9 @@ export default class Provisioner {
       },
       'Failed to provision endpoint'
     );
+  }
+
+  async getDatabaseConnectionParameters (accountId: string): Promise<any> {
+    return await this.hasuraClient.getDbConnectionParameters(accountId);
   }
 }

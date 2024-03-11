@@ -1,6 +1,6 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
-import { Status } from '../stream-handler/stream-handler';
+import { LogLevel, Status } from '../stream-handler/stream-handler';
 import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';
@@ -52,6 +52,9 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           version: Number(version),
           code,
           schema,
+        },
+        {
+          log_level: LogLevel.INFO, // TODO: Pass this in from Coordinator
         });
         executors.set(executorId, streamHandler);
         callback(null, { executorId });

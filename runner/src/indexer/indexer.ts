@@ -5,7 +5,9 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import { Status } from '../stream-handler/stream-handler';
+import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
+import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
+import assert from 'assert';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -17,7 +19,9 @@ interface Dependencies {
 interface Context {
   graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
+  debug: (...log: any[]) => Promise<void>
   log: (...log: any[]) => Promise<void>
+  error: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
   db: Record<string, Record<string, (...args: any[]) => any>>
 }
@@ -33,12 +37,18 @@ interface IndexerFunction {
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
 
+  private readonly indexer_behavior: IndexerBehavior;
   private readonly deps: Dependencies;
+  // TODO: After provisioning migrated out of Runner, fetch credentials before Indexer initialization
+  private database_connection_parameters: DatabaseConnectionParameters | undefined;
 
   constructor (
-    deps?: Partial<Dependencies>
+    indexerBehavior: IndexerBehavior,
+    deps?: Partial<Dependencies>,
+    databaseConnectionParameters = undefined,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
+    this.indexer_behavior = indexerBehavior;
     this.deps = {
       fetch,
       provisioner: new Provisioner(),
@@ -46,6 +56,7 @@ export default class Indexer {
       parser: new Parser(),
       ...deps,
     };
+    this.database_connection_parameters = databaseConnectionParameters;
   }
 
   async runFunctions (
@@ -65,10 +76,9 @@ export default class Indexer {
       try {
         const indexerFunction = functions[functionName];
 
-        const runningMessage = `Running function ${functionName} on block ${blockHeight}` + (isHistorical ? ' historical backfill' : `, lag is: ${lag?.toString()}ms from block timestamp`);
-        console.log(runningMessage); // Print the running message to the console
+        const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
 
-        simultaneousPromises.push(this.writeLog(functionName, blockHeight, runningMessage));
+        simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, runningMessage));
 
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
 
@@ -76,21 +86,32 @@ export default class Indexer {
           try {
             if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
               await this.setStatus(functionName, blockHeight, 'PROVISIONING');
-              simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: starting'));
+              simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
 
               await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
 
-              simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: successful'));
+              simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: successful'));
             }
           } catch (e) {
             const error = e as Error;
-            simultaneousPromises.push(this.writeLog(functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
+            simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
             throw error;
           }
         }
 
-        await this.setStatus(functionName, blockHeight, 'RUNNING');
-        const vm = new VM({ timeout: 3000, allowAsync: true });
+        // Cache database credentials after provisioning
+        try {
+          this.database_connection_parameters = this.database_connection_parameters ??
+            await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
+        } catch (e) {
+          const error = e as Error;
+          simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
+          throw error;
+        }
+
+        // TODO: Prevent unnecesary reruns of set status
+        simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
+        const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
@@ -102,16 +123,12 @@ export default class Indexer {
           await vm.run(modifiedFunction);
         } catch (e) {
           const error = e as Error;
-          // NOTE: logging the exception would likely leak some information about the index runner.
-          // For now, we just log the message. In the future we could sanitize the stack trace
-          // and give the correct line number offsets within the indexer function
-          console.error(`${functionName}: Error running IndexerFunction on block ${blockHeight}: ${error.message}`);
-          await this.writeLog(functionName, blockHeight, 'Error running IndexerFunction', error.message);
+          await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
           throw e;
         }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
-        console.error(`${functionName}: Failed to run function`, e);
+        // TODO: Prevent unnecesary reruns of set status
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
@@ -142,7 +159,6 @@ export default class Indexer {
 
     return {
       graphql: async (operation, variables) => {
-        console.log(`${functionName}: Running context graphql`, operation);
         return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
       },
       set: async (key, value) => {
@@ -155,11 +171,16 @@ export default class Indexer {
           key,
           value: value ? JSON.stringify(value) : null
         };
-        console.log(`${functionName}: Running set:`, mutation, variables);
         return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
       },
+      debug: async (...log) => {
+        return await this.writeLog(LogLevel.DEBUG, functionName, blockHeight, ...log);
+      },
       log: async (...log) => {
-        return await this.writeLog(functionName, blockHeight, ...log);
+        return await this.writeLog(LogLevel.INFO, functionName, blockHeight, ...log);
+      },
+      error: async (...log) => {
+        return await this.writeLog(LogLevel.ERROR, functionName, blockHeight, ...log);
       },
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
@@ -219,11 +240,11 @@ export default class Indexer {
     schema: string,
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
-    const account = functionName.split('/')[0].replace(/[.-]/g, '_');
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler: DmlHandler = this.deps.DmlHandler.createLazy(account);
+      assert(this.database_connection_parameters !== undefined, 'Database connection parameters are not set');
+      const dmlHandler: DmlHandler = this.deps.DmlHandler.create(this.database_connection_parameters);
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
@@ -240,7 +261,7 @@ export default class Indexer {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
               // Write log before calling insert
-              await this.writeLog(functionName, blockHeight,
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
                 `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
               // Call insert with parameters
@@ -248,7 +269,7 @@ export default class Indexer {
             },
             select: async (filterObj: any, limit = null) => {
               // Write log before calling select
-              await this.writeLog(functionName, blockHeight,
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
                 `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
               // Call select with parameters
@@ -256,7 +277,7 @@ export default class Indexer {
             },
             update: async (filterObj: any, updateObj: any) => {
               // Write log before calling update
-              await this.writeLog(functionName, blockHeight,
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
                 `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
               // Call update with parameters
@@ -264,7 +285,7 @@ export default class Indexer {
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               // Write log before calling upsert
-              await this.writeLog(functionName, blockHeight,
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
                 `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
               // Call upsert with parameters
@@ -272,7 +293,7 @@ export default class Indexer {
             },
             delete: async (filterObj: any) => {
               // Write log before calling delete
-              await this.writeLog(functionName, blockHeight,
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
                 `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
               // Call delete with parameters
@@ -315,7 +336,11 @@ export default class Indexer {
     );
   }
 
-  async writeLog (functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
+  async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
+    if (logLevel < this.indexer_behavior.log_level) {
+      return;
+    }
+
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');
@@ -393,8 +418,6 @@ export default class Indexer {
 
     if (response.status !== 200 || errors) {
       if (logError) {
-        console.log(`${functionName}: Error writing graphql `, errors); // temporary extra logging
-
         const message: string = errors ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
         const mutation: string =
                     `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){

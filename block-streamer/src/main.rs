@@ -8,6 +8,7 @@ mod redis;
 mod rules;
 mod s3_client;
 mod server;
+mod utils;
 
 #[cfg(test)]
 mod test_utils;

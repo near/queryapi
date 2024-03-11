@@ -6,7 +6,7 @@ import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
-import { WorkerMessageType, type IndexerConfig, type WorkerMessage } from './stream-handler';
+import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior, Status } from './stream-handler';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -23,25 +23,27 @@ interface WorkerContext {
   queue: PrefetchQueue
   streamKey: string
   streamType: StreamType
+  indexerConfig: IndexerConfig
+  indexerBehavior: IndexerBehavior
 }
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 
-let config: IndexerConfig | undefined;
-
 void (async function main () {
-  const { streamKey, indexerConfig } = workerData;
-  config = indexerConfig;
+  const { streamKey, indexerConfig, indexerBehavior } = workerData;
   const redisClient = new RedisClient();
   const workerContext: WorkerContext = {
     redisClient,
     lakeClient: new LakeClient(),
     queue: [],
     streamKey,
+    // TODO: Remove Stream Type from Worker and Metrics
     streamType: redisClient.getStreamType(streamKey),
+    indexerConfig,
+    indexerBehavior,
   };
 
-  console.log('Started processing stream: ', streamKey);
+  console.log('Started processing stream: ', streamKey, indexerConfig.account_id, indexerConfig.function_name, indexerConfig.version, indexerBehavior);
 
   await handleStream(workerContext, streamKey);
 })();
@@ -82,11 +84,21 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 }
 
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
-  const indexer = new Indexer();
+  let previousError: string = '';
+  const indexer = new Indexer(workerContext.indexerBehavior);
   const isHistorical = workerContext.streamType === 'historical';
   let streamMessageId = '';
-  let indexerName = streamKey.split(':')[0];
   let currBlockHeight = 0;
+  const indexerName = `${workerContext.indexerConfig.account_id}/${workerContext.indexerConfig.function_name}`;
+  const functions = {
+    [indexerName]: {
+      account_id: workerContext.indexerConfig.account_id,
+      function_name: workerContext.indexerConfig.function_name,
+      code: workerContext.indexerConfig.code,
+      schema: workerContext.indexerConfig.schema,
+      provisioned: false,
+    },
+  };
 
   while (true) {
     try {
@@ -95,18 +107,6 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         continue;
       }
       const startTime = performance.now();
-      // TODO: Remove redis storage call after full V2 migration
-      const indexerConfig = config ?? await workerContext.redisClient.getStreamStorage(streamKey);
-      indexerName = `${indexerConfig.account_id}/${indexerConfig.function_name}`;
-      const functions = {
-        [indexerName]: {
-          account_id: indexerConfig.account_id,
-          function_name: indexerConfig.function_name,
-          code: indexerConfig.code,
-          schema: indexerConfig.schema,
-          provisioned: false,
-        },
-      };
       const blockStartTime = performance.now();
       const queueMessage = await workerContext.queue.at(0);
       if (queueMessage === undefined) {
@@ -124,17 +124,21 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
       }
       METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
       await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+      parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
       await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
       await workerContext.queue.shift();
 
       METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
 
       METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
-
-      console.log(`Success: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}}`);
     } catch (err) {
+      parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
+      const error = err as Error;
+      if (previousError !== error.message) {
+        previousError = error.message;
+        console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
+      }
       await sleep(10000);
-      console.log(`Failed: ${indexerName} ${workerContext.streamType} on block ${currBlockHeight}`, err);
     } finally {
       const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
       METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);

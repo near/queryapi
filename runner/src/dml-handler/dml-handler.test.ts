@@ -1,28 +1,27 @@
 import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
+import PgClient from '../pg-client';
 
 describe('DML Handler tests', () => {
-  const hasuraClient: any = {
-    getDbConnectionParameters: jest.fn().mockReturnValue({
-      database: 'test_near',
-      host: 'postgres',
-      password: 'test_pass',
-      port: 5432,
-      username: 'test_near'
-    })
+  const getDbConnectionParameters = {
+    database: 'test_near',
+    host: 'postgres',
+    password: 'test_pass',
+    port: 5432,
+    username: 'test_near'
   };
-  let PgClient: any;
+  let pgClient: PgClient;
   let query: any;
 
-  const ACCOUNT = 'test_near';
   const SCHEMA = 'test_schema';
   const TABLE_NAME = 'test_table';
 
   beforeEach(() => {
     query = jest.fn().mockReturnValue({ rows: [] });
-    PgClient = jest.fn().mockImplementation(() => {
-      return { query, format: pgFormat };
-    });
+    pgClient = {
+      query: query, 
+      format: pgFormat
+    } as unknown as PgClient;
   });
 
   test('Test valid insert one with array', async () => {
@@ -35,7 +34,7 @@ describe('DML Handler tests', () => {
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, [inputObj]);
     expect(query.mock.calls).toEqual([
@@ -55,7 +54,7 @@ describe('DML Handler tests', () => {
       receipt_id: 'abc',
     }];
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
@@ -69,7 +68,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
@@ -83,7 +82,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj, 1);
     expect(query.mock.calls).toEqual([
@@ -102,7 +101,7 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
     };
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.update(SCHEMA, TABLE_NAME, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
@@ -125,7 +124,7 @@ describe('DML Handler tests', () => {
     const conflictCol = ['account_id', 'block_height'];
     const updateCol = ['receipt_id'];
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.upsert(SCHEMA, TABLE_NAME, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
@@ -139,7 +138,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = DmlHandler.createLazy(ACCOUNT, hasuraClient, PgClient);
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
