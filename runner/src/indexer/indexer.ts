@@ -1,4 +1,3 @@
-// @ts-nocheck
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import { type Block } from '@near-lake/primitives';

@@ -25,7 +25,6 @@ export class PgSchemaTypeGen {
 		return pascalCaseTableName;
 	}
 
-	//are we using this in the FE?
 	getTableNames(schema) {
 		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
 		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
@@ -54,13 +53,14 @@ export class PgSchemaTypeGen {
 	}
 
 	generateTypes(sqlSchema) {
+		console.log('are we in dev?')
 		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
+		console.log(schemaSyntaxTree)
 		const dbSchema = {};
 
 		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
 		// Process each statement in the schema
 		for (const statement of statements) {
-			// console.log(JSON.stringify(statement), 'statement')	
 			if (statement.type === "create" && statement.keyword === "table") {
 				// Process CREATE TABLE statements
 				const tableName = statement.table[0].table;
