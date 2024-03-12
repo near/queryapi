@@ -53,9 +53,7 @@ export class PgSchemaTypeGen {
 	}
 
 	generateTypes(sqlSchema) {
-		console.log('are we in dev?')
 		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
-		console.log(schemaSyntaxTree)
 		const dbSchema = {};
 
 		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
