@@ -6,8 +6,8 @@ import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior, Status } from './stream-handler';
-import getTracer from '../instrumentation/tracer';
-import { Span, context, createContextKey } from '@opentelemetry/api';
+import { trace, type Span, context } from '@opentelemetry/api';
+import setUpTracerExport from '../instrumentation';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -33,7 +33,8 @@ interface WorkerContext {
 }
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
-const tracer = getTracer();
+setUpTracerExport();
+const tracer = trace.getTracer('queryapi-runner-worker');
 
 void (async function main () {
   const { streamKey, indexerConfig, indexerBehavior } = workerData;
