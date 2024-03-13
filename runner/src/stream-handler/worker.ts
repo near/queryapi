@@ -1,21 +1,26 @@
 import { isMainThread, parentPort, workerData } from 'worker_threads';
 import promClient from 'prom-client';
-
 import Indexer from '../indexer';
 import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior, Status } from './stream-handler';
+import getTracer from '../instrumentation/tracer';
+import { Span, context, createContextKey } from '@opentelemetry/api';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
-interface QueueMessage {
+interface BlockPromise {
   block: Block
   streamMessageId: string
 }
-type PrefetchQueue = Array<Promise<QueueMessage>>;
+interface QueueMessage {
+  promise: Promise<BlockPromise>
+  block_height: number
+}
+type PrefetchQueue = QueueMessage[];
 
 interface WorkerContext {
   redisClient: RedisClient
@@ -28,6 +33,7 @@ interface WorkerContext {
 }
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
+const tracer = getTracer();
 
 void (async function main () {
   const { streamKey, indexerConfig, indexerBehavior } = workerData;
@@ -72,7 +78,10 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 
       for (const streamMessage of messages) {
         const { id, message } = streamMessage;
-        workerContext.queue.push(generateQueueMessage(workerContext, Number(message.block_height), id));
+        workerContext.queue.push({
+          promise: generateQueuePromise(workerContext, Number(message.block_height), id),
+          block_height: Number(message.block_height)
+        });
       }
 
       streamMessageStartId = messages[messages.length - 1].id;
@@ -101,59 +110,76 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   };
 
   while (true) {
-    try {
-      if (workerContext.queue.length === 0) {
-        await sleep(100);
-        continue;
-      }
-      const startTime = performance.now();
-      const blockStartTime = performance.now();
-      const queueMessage = await workerContext.queue.at(0);
-      if (queueMessage === undefined) {
-        continue;
-      }
-      const block = queueMessage.block;
-      currBlockHeight = block.blockHeight;
-      const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
-      parentPort?.postMessage(blockHeightMessage);
-      streamMessageId = queueMessage.streamMessageId;
-
-      if (block === undefined || block.blockHeight == null) {
-        console.error('Block failed to process or does not have block height', block);
-        continue;
-      }
-      METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
-      await indexer.runFunctions(block, functions, isHistorical, { provision: true });
-      parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
-      await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
-      await workerContext.queue.shift();
-
-      METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
-
-      METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
-    } catch (err) {
-      parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
-      const error = err as Error;
-      if (previousError !== error.message) {
-        previousError = error.message;
-        console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
-      }
-      await sleep(10000);
-    } finally {
-      const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
-      METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
-      const memoryUsage = process.memoryUsage();
-      METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapTotal / (1024 * 1024));
-      METRICS.HEAP_USED.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapUsed / (1024 * 1024));
-      METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerName, type: workerContext.streamType }).set(workerContext.queue.length);
-
-      const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
-      parentPort?.postMessage(metricsMessage);
+    if (workerContext.queue.length === 0 || workerContext.queue.at(0) === undefined) {
+      await sleep(100);
+      continue;
     }
+    const message = workerContext.queue.at(0) as QueueMessage;
+    await tracer.startActiveSpan(`${indexerName} on block ${message.block_height}`, async (parentSpan: Span) => {
+      try {
+        const startTime = performance.now();
+        const blockStartTime = performance.now();
+
+        const blockWaitSpan = tracer.startSpan('Wait for block to download', {}, context.active());
+        const blockPromise = await message.promise;
+        if (blockPromise === undefined) {
+          blockWaitSpan.end();
+          return;
+        }
+        const block = blockPromise.block;
+        currBlockHeight = block.blockHeight;
+        const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
+        parentPort?.postMessage(blockHeightMessage);
+        streamMessageId = blockPromise.streamMessageId;
+
+        if (block === undefined || block.blockHeight == null) {
+          console.error('Block failed to process or does not have block height', block);
+          blockWaitSpan.end();
+          return;
+        }
+        blockWaitSpan.end();
+        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
+
+        await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+
+        const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
+        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
+        // await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
+        workerContext.queue.shift();
+
+        METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
+        METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
+        postRunSpan.end();
+      } catch (err) {
+        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
+        const error = err as Error;
+        if (previousError !== error.message) {
+          previousError = error.message;
+          console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
+        }
+        await sleep(10000);
+      } finally {
+        const metricsSpan = tracer.startSpan('Record metrics', {}, context.active());
+
+        const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
+        METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
+
+        const memoryUsage = process.memoryUsage();
+        METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapTotal / (1024 * 1024));
+        METRICS.HEAP_USED.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapUsed / (1024 * 1024));
+        METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerName, type: workerContext.streamType }).set(workerContext.queue.length);
+
+        const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
+        parentPort?.postMessage(metricsMessage);
+
+        metricsSpan.end();
+        parentSpan.end();
+      }
+    });
   }
 }
 
-async function generateQueueMessage (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
+async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<BlockPromise> {
   const block = await workerContext.lakeClient.fetchBlock(blockHeight, workerContext.streamType === 'historical');
   return {
     block,

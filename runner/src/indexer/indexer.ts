@@ -65,7 +65,7 @@ export default class Indexer {
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockHeight = block.blockHeight;
+    const blockHeight: number = block.blockHeight;
 
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
 
