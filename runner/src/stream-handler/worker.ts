@@ -120,25 +120,28 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         const startTime = performance.now();
         const blockStartTime = performance.now();
 
-        const blockWaitSpan = tracer.startSpan('Wait for block to download', {}, context.active());
-        const blockPromise = await message.promise;
-        if (blockPromise === undefined) {
-          blockWaitSpan.end();
-          return;
-        }
-        const block = blockPromise.block;
-        currBlockHeight = block.blockHeight;
-        const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
-        parentPort?.postMessage(blockHeightMessage);
-        streamMessageId = blockPromise.streamMessageId;
+        const block = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
+          try {
+            const blockPromise = await message.promise;
+            if (blockPromise === undefined) {
+              throw new Error('Block promise is undefined');
+            }
+            const block = blockPromise.block;
+            currBlockHeight = block.blockHeight;
+            const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
+            parentPort?.postMessage(blockHeightMessage);
+            streamMessageId = blockPromise.streamMessageId;
 
-        if (block === undefined || block.blockHeight == null) {
-          console.error('Block failed to process or does not have block height', block);
-          blockWaitSpan.end();
-          return;
-        }
-        blockWaitSpan.end();
-        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
+            if (block === undefined || block.blockHeight == null) {
+              throw new Error(`Block ${currBlockHeight} failed to process or does not have block height`);
+            }
+
+            METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
+            return block;
+          } finally {
+            blockWaitSpan.end();
+          }
+        });
 
         await indexer.runFunctions(block, functions, isHistorical, { provision: true });
 
