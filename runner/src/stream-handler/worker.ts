@@ -117,6 +117,8 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
     }
     const message = workerContext.queue.at(0) as QueueMessage;
     await tracer.startActiveSpan(`${indexerName} on block ${message.block_height}`, async (parentSpan: Span) => {
+      parentSpan.setAttribute('block_height', message.block_height);
+      parentSpan.setAttribute('service', 'queryapi-runner');
       try {
         const startTime = performance.now();
         const blockStartTime = performance.now();

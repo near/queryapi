@@ -7,6 +7,8 @@ import {
   ConsoleMetricExporter,
 } from '@opentelemetry/sdk-metrics';
 import { ZipkinExporter } from '@opentelemetry/exporter-zipkin';
+import { TraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
+import { TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-node';
 
 export default function setUpTracerExport (): void {
   switch (process.env.TRACING_EXPORTER) {
@@ -27,17 +29,17 @@ export default function setUpTracerExport (): void {
 
 function setGCPExport (): void {
   console.debug('Using GCP Exporter. Traces exported to GCP Trace.');
-  // TODO: Actually implement GCP Export
   const sdk = new NodeSDK({
     resource: new Resource({
       [SEMRESATTRS_SERVICE_NAME]: 'queryapi-runner',
       [SEMRESATTRS_SERVICE_VERSION]: '1.0',
     }),
-    traceExporter: new ZipkinExporter(),
-    spanProcessors: [new BatchSpanProcessor(new ZipkinExporter())],
+    traceExporter: new TraceExporter(),
+    spanProcessors: [new BatchSpanProcessor(new TraceExporter())],
     metricReader: new PeriodicExportingMetricReader({
       exporter: new ConsoleMetricExporter(), // TODO: Replace with Prometheus
     }),
+    sampler: new TraceIdRatioBasedSampler(Math.min(parseFloat(process.env.TRACING_SAMPLE_RATE ?? '0.1'), 1.0)),
   });
 
   sdk.start();
@@ -55,6 +57,7 @@ function setZipkinExport (): void {
     metricReader: new PeriodicExportingMetricReader({
       exporter: new ConsoleMetricExporter(), // TODO: Replace with Prometheus
     }),
+    sampler: new TraceIdRatioBasedSampler(Math.min(parseFloat(process.env.TRACING_SAMPLE_RATE ?? '0.1'), 1.0)),
   });
 
   sdk.start();
@@ -71,6 +74,7 @@ function setConsoleExport (): void {
     metricReader: new PeriodicExportingMetricReader({
       exporter: new ConsoleMetricExporter(),
     }),
+    sampler: new TraceIdRatioBasedSampler(Math.min(parseFloat(process.env.TRACING_SAMPLE_RATE ?? '0.1'), 1.0)),
   });
 
   sdk.start();
