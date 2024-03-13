@@ -144,7 +144,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
           }
         });
 
-        await tracer.startActiveSpan('Run function', async (runFunctionsSpan: Span) => {
+        await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (runFunctionsSpan: Span) => {
           try {
             await indexer.runFunctions(block, functions, isHistorical, { provision: true });
           } finally {
@@ -169,7 +169,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         }
         await sleep(10000);
       } finally {
-        const metricsSpan = tracer.startSpan('Record metrics', {}, context.active());
+        const metricsSpan = tracer.startSpan('Record metrics after processing block', {}, context.active());
 
         const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
         METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);

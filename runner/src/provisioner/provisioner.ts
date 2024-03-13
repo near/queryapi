@@ -69,7 +69,7 @@ export default class Provisioner {
   }
 
   async isUserApiProvisioned (accountId: string, functionName: string): Promise<boolean> {
-    const checkProvisioningSpan = this.tracer.startSpan('check if provisioned');
+    const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
@@ -131,7 +131,7 @@ export default class Provisioner {
     const databaseName = sanitizedAccountId;
     const userName = sanitizedAccountId;
     const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
-    const provisioningSpan = this.tracer.startSpan('provision user resources');
+    const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
 
     try {
       await wrapError(

@@ -115,7 +115,7 @@ export default class Indexer {
         }
 
         // TODO: Prevent unnecesary reruns of set status
-        const resourceCreationSpan = this.tracer.startSpan('prepare vm and context');
+        const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
         const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
@@ -125,7 +125,7 @@ export default class Indexer {
         vm.freeze(context, 'console'); // provide console.log via context.log
         resourceCreationSpan.end();
 
-        await this.tracer.startActiveSpan('run user code', async (runIndexerFunctionSpan: Span) => {
+        await this.tracer.startActiveSpan('run indexer code', async (runIndexerFunctionSpan: Span) => {
           const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
           try {
             await vm.run(modifiedFunction);
@@ -178,7 +178,7 @@ export default class Indexer {
         }
       },
       set: async (key, value) => {
-        const setSpan = this.tracer.startSpan('set mutation');
+        const setSpan = this.tracer.startSpan('Call insert mutation through Hasura');
         const mutation = `
           mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
             insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
@@ -281,7 +281,7 @@ export default class Indexer {
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
-              return await this.tracer.startActiveSpan('context db insert', async (insertSpan: Span) => {
+              return await this.tracer.startActiveSpan('Call context db insert', async (insertSpan: Span) => {
                 try {
                   // Write log before calling insert
                   await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
@@ -295,7 +295,7 @@ export default class Indexer {
               });
             },
             select: async (filterObj: any, limit = null) => {
-              return await this.tracer.startActiveSpan('context db select', async (selectSpan: Span) => {
+              return await this.tracer.startActiveSpan('Call context db select', async (selectSpan: Span) => {
                 try {
                   // Write log before calling select
                   await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
@@ -309,7 +309,7 @@ export default class Indexer {
               });
             },
             update: async (filterObj: any, updateObj: any) => {
-              return await this.tracer.startActiveSpan('context db update', async (updateSpan: Span) => {
+              return await this.tracer.startActiveSpan('Call context db update', async (updateSpan: Span) => {
                 try {
                   // Write log before calling update
                   await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
@@ -323,7 +323,7 @@ export default class Indexer {
               });
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
-              return await this.tracer.startActiveSpan('context db upsert', async (upsertSpan: Span) => {
+              return await this.tracer.startActiveSpan('Call context db upsert', async (upsertSpan: Span) => {
                 try {
                   // Write log before calling upsert
                   await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
@@ -337,7 +337,7 @@ export default class Indexer {
               });
             },
             delete: async (filterObj: any) => {
-              return await this.tracer.startActiveSpan('context db delete', async (deleteSpan: Span) => {
+              return await this.tracer.startActiveSpan('Call context db delete', async (deleteSpan: Span) => {
                 try {
                   // Write log before calling delete
                   await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
@@ -375,7 +375,7 @@ export default class Indexer {
           status
         }
       }`;
-    return await this.tracer.startActiveSpan('set status', async (setStatusSpan: Span) => {
+    return await this.tracer.startActiveSpan(`set status of indexer to ${status}`, async (setStatusSpan: Span) => {
       try {
         return await this.runGraphQLQuery(
           setStatusMutation,
@@ -403,7 +403,7 @@ export default class Indexer {
           insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
       }`;
 
-    return await this.tracer.startActiveSpan('write log', async (writeLogSpan: Span) => {
+    return await this.tracer.startActiveSpan('Write log to log table through Hasura', async (writeLogSpan: Span) => {
       try {
         const parsedMessage: string = message
           .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
@@ -454,7 +454,7 @@ export default class Indexer {
       function_name: functionName,
       block_height: blockHeight,
     };
-    return await this.tracer.startActiveSpan('set last processed block height', async (setBlockHeight: Span) => {
+    return await this.tracer.startActiveSpan('set last processed block height through Hasura', async (setBlockHeight: Span) => {
       try {
         return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
           .catch((e: any) => {
