@@ -167,7 +167,9 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
           previousError = error.message;
           console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
         }
+        const sleepSpan = tracer.startSpan('Sleep for 10 seconds after failing', {}, context.active());
         await sleep(10000);
+        sleepSpan.end();
       } finally {
         const metricsSpan = tracer.startSpan('Record metrics after processing block', {}, context.active());
 
