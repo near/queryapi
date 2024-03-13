@@ -102,6 +102,7 @@ export default class Indexer {
         }
 
         // Cache database credentials after provisioning
+        const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
           this.database_connection_parameters = this.database_connection_parameters ??
             await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
@@ -109,9 +110,12 @@ export default class Indexer {
           const error = e as Error;
           simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
           throw error;
+        } finally {
+          credentialsFetchSpan.end();
         }
 
         // TODO: Prevent unnecesary reruns of set status
+        const resourceCreationSpan = this.tracer.startSpan('prepare vm and context');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
         const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
@@ -119,15 +123,20 @@ export default class Indexer {
         vm.freeze(block, 'block');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
+        resourceCreationSpan.end();
 
-        const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-        try {
-          await vm.run(modifiedFunction);
-        } catch (e) {
-          const error = e as Error;
-          await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
-          throw e;
-        }
+        await this.tracer.startActiveSpan('run user code', async (runIndexerFunctionSpan: Span) => {
+          const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
+          try {
+            await vm.run(modifiedFunction);
+          } catch (e) {
+            const error = e as Error;
+            await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
+            throw e;
+          } finally {
+            runIndexerFunctionSpan.end();
+          }
+        });
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
@@ -161,9 +170,15 @@ export default class Indexer {
 
     return {
       graphql: async (operation, variables) => {
-        return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
+        const graphqlSpan = this.tracer.startSpan('graphql query');
+        try {
+          return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
+        } finally {
+          graphqlSpan.end();
+        }
       },
       set: async (key, value) => {
+        const setSpan = this.tracer.startSpan('set mutation');
         const mutation =
                     `mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
                         insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
@@ -173,7 +188,11 @@ export default class Indexer {
           key,
           value: value ? JSON.stringify(value) : null
         };
-        return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
+        try {
+          return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
+        } finally {
+          setSpan.end();
+        }
       },
       debug: async (...log) => {
         return await this.writeLog(LogLevel.DEBUG, functionName, blockHeight, ...log);
@@ -262,44 +281,74 @@ export default class Indexer {
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
-              // Write log before calling insert
-              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
+              return await this.tracer.startActiveSpan('context db insert', async (insertSpan: Span) => {
+                try {
+                  // Write log before calling insert
+                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                    `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
-              // Call insert with parameters
-              return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+                  // Call insert with parameters
+                  return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+                } finally {
+                  insertSpan.end();
+                }
+              });
             },
             select: async (filterObj: any, limit = null) => {
-              // Write log before calling select
-              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
+              return await this.tracer.startActiveSpan('context db select', async (selectSpan: Span) => {
+                try {
+                  // Write log before calling select
+                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                    `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
-              // Call select with parameters
-              return await dmlHandler.select(schemaName, tableName, filterObj, limit);
+                  // Call select with parameters
+                  return await dmlHandler.select(schemaName, tableName, filterObj, limit);
+                } finally {
+                  selectSpan.end();
+                }
+              });
             },
             update: async (filterObj: any, updateObj: any) => {
-              // Write log before calling update
-              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
+              return await this.tracer.startActiveSpan('context db update', async (updateSpan: Span) => {
+                try {
+                  // Write log before calling update
+                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                    `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
-              // Call update with parameters
-              return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
+                  // Call update with parameters
+                  return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
+                } finally {
+                  updateSpan.end();
+                }
+              });
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
-              // Write log before calling upsert
-              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+              return await this.tracer.startActiveSpan('context db upsert', async (upsertSpan: Span) => {
+                try {
+                  // Write log before calling upsert
+                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                    `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
-              // Call upsert with parameters
-              return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+                  // Call upsert with parameters
+                  return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+                } finally {
+                  upsertSpan.end();
+                }
+              });
             },
             delete: async (filterObj: any) => {
-              // Write log before calling delete
-              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
+              return await this.tracer.startActiveSpan('context db delete', async (deleteSpan: Span) => {
+                try {
+                  // Write log before calling delete
+                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                    `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
-              // Call delete with parameters
-              return await dmlHandler.delete(schemaName, tableName, filterObj);
+                  // Call delete with parameters
+                  return await dmlHandler.delete(schemaName, tableName, filterObj);
+                } finally {
+                  deleteSpan.end();
+                }
+              });
             }
           }
         };
@@ -319,23 +368,29 @@ export default class Indexer {
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
-    return await this.runGraphQLQuery(
-            `
-                mutation SetStatus($function_name: String, $status: String) {
-                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                    function_name
-                    status
-                  }
-                }
-            `,
-            {
-              function_name: functionName,
-              status,
-            },
-            functionName,
-            blockHeight,
-            this.DEFAULT_HASURA_ROLE
-    );
+    return await this.tracer.startActiveSpan('set status', async (setStatusSpan: Span) => {
+      try {
+        return await this.runGraphQLQuery(
+                `
+                    mutation SetStatus($function_name: String, $status: String) {
+                      insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
+                        function_name
+                        status
+                      }
+                    }
+                `,
+                {
+                  function_name: functionName,
+                  status,
+                },
+                functionName,
+                blockHeight,
+                this.DEFAULT_HASURA_ROLE
+        );
+      } finally {
+        setStatusSpan.end();
+      }
+    });
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
@@ -343,7 +398,7 @@ export default class Indexer {
       return;
     }
 
-    await this.tracer.startActiveSpan('write log', async (writeLogSpan: Span) => {
+    return await this.tracer.startActiveSpan('write log', async (writeLogSpan: Span) => {
       try {
         const parsedMessage: string = message
           .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
@@ -399,10 +454,16 @@ export default class Indexer {
       function_name: functionName,
       block_height: blockHeight,
     };
-    return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
-      .catch((e: any) => {
-        console.error(`${functionName}: Error writing function state`, e);
-      });
+    return await this.tracer.startActiveSpan('set last processed block height', async (setBlockHeight: Span) => {
+      try {
+        return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+          .catch((e: any) => {
+            console.error(`${functionName}: Error writing function state`, e);
+          });
+      } finally {
+        setBlockHeight.end();
+      }
+    });
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
