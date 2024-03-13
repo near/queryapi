@@ -179,10 +179,10 @@ export default class Indexer {
       },
       set: async (key, value) => {
         const setSpan = this.tracer.startSpan('set mutation');
-        const mutation =
-                    `mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
-                        insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
-                     }`;
+        const mutation = `
+          mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
+            insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+          }`;
         const variables = {
           function_name: functionName,
           key,
@@ -368,24 +368,24 @@ export default class Indexer {
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
+    const setStatusMutation = `
+      mutation SetStatus($function_name: String, $status: String) {
+        insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
+          function_name
+          status
+        }
+      }`;
     return await this.tracer.startActiveSpan('set status', async (setStatusSpan: Span) => {
       try {
         return await this.runGraphQLQuery(
-                `
-                    mutation SetStatus($function_name: String, $status: String) {
-                      insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-                        function_name
-                        status
-                      }
-                    }
-                `,
-                {
-                  function_name: functionName,
-                  status,
-                },
-                functionName,
-                blockHeight,
-                this.DEFAULT_HASURA_ROLE
+          setStatusMutation,
+          {
+            function_name: functionName,
+            status,
+          },
+          functionName,
+          blockHeight,
+          this.DEFAULT_HASURA_ROLE
         );
       } finally {
         setStatusSpan.end();
@@ -398,18 +398,18 @@ export default class Indexer {
       return;
     }
 
+    const logMutation = `
+      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+          insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+      }`;
+
     return await this.tracer.startActiveSpan('write log', async (writeLogSpan: Span) => {
       try {
         const parsedMessage: string = message
           .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
           .join(':');
 
-        const mutation =
-              `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-                  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
-              }`;
-
-        return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
+        return await this.runGraphQLQuery(logMutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
           functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
           .then((result: any) => {
             return result?.insert_indexer_log_entries_one?.id;
@@ -424,32 +424,32 @@ export default class Indexer {
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
-    const realTimeMutation: string =
-            `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-                  insert_indexer_state(
-                    objects: {current_block_height: $block_height, function_name: $function_name}
-                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
-                  ) {
-                    returning {
-                      current_block_height
-                      function_name
-                    }
-                  }
-                }`;
+    const realTimeMutation: string = `
+      mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+        insert_indexer_state(
+          objects: {current_block_height: $block_height, function_name: $function_name}
+          on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+        ) {
+          returning {
+            current_block_height
+            function_name
+          }
+        }
+      }`;
     const historicalMutation: string = `
-            mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-              insert_indexer_state(
-                objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
-                on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
-              ) {
-                returning {
-                  current_block_height
-                  current_historical_block_height
-                  function_name
-                }
-              }
-            }
-        `;
+      mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+        insert_indexer_state(
+          objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
+          on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
+        ) {
+          returning {
+            current_block_height
+            current_historical_block_height
+            function_name
+          }
+        }
+      }
+    `;
     const variables: any = {
       function_name: functionName,
       block_height: blockHeight,
