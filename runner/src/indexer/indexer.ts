@@ -8,6 +8,7 @@ import DmlHandler from '../dml-handler/dml-handler';
 import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import assert from 'assert';
+import { trace, type Span } from '@opentelemetry/api';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -36,6 +37,7 @@ interface IndexerFunction {
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
+  tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly indexer_behavior: IndexerBehavior;
   private readonly deps: Dependencies;
@@ -341,23 +343,29 @@ export default class Indexer {
       return;
     }
 
-    const parsedMessage: string = message
-      .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
-      .join(':');
+    await this.tracer.startActiveSpan('write log', async (writeLogSpan: Span) => {
+      try {
+        const parsedMessage: string = message
+          .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
+          .join(':');
 
-    const mutation =
-            `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
-             }`;
+        const mutation =
+              `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                  insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+              }`;
 
-    return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
-      functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
-      .then((result: any) => {
-        return result?.insert_indexer_log_entries_one?.id;
-      })
-      .catch((e: any) => {
-        console.error(`${functionName}: Error writing log`, e);
-      });
+        return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
+          functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+          .then((result: any) => {
+            return result?.insert_indexer_log_entries_one?.id;
+          })
+          .catch((e: any) => {
+            console.error(`${functionName}: Error writing log`, e);
+          });
+      } finally {
+        writeLogSpan.end();
+      }
+    });
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {

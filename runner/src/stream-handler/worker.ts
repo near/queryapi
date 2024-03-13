@@ -144,7 +144,13 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
           }
         });
 
-        await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+        await tracer.startActiveSpan('Run function', async (runFunctionsSpan: Span) => {
+          try {
+            await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+          } finally {
+            runFunctionsSpan.end();
+          }
+        });
 
         const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
