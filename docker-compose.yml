@@ -58,7 +58,8 @@ services:
       GRPC_SERVER_PORT: 7001
       PREFETCH_QUEUE_LIMIT: 10
       TRACING_EXPORTER: ZIPKIN # CONSOLE, GCP, ZIPKIN, or NONE
-      GCP_PROJECT_ID: pagoda-data-stack-dev
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      GCP_PROJECT_ID: 
       TRACING_SAMPLE_RATE: 0.1
     ports:
       - "7001:7001"

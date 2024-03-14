@@ -56,7 +56,9 @@ function setZipkinExport (): void {
       [SEMRESATTRS_SERVICE_NAME]: 'queryapi-runner',
       [SEMRESATTRS_SERVICE_VERSION]: '1.0',
     }),
-    traceExporter: new ZipkinExporter(),
+    traceExporter: new ZipkinExporter({
+      url: process.env.ZIPKIN_ENDPOINT ?? 'http://localhost:9411/api/v2/spans',
+    }),
     spanProcessors: [new BatchSpanProcessor(new ZipkinExporter())],
     metricReader: new PeriodicExportingMetricReader({
       exporter: new ConsoleMetricExporter(), // TODO: Replace with Prometheus
