@@ -125,7 +125,7 @@ export default class Indexer {
         vm.freeze(context, 'console'); // provide console.log via context.log
         resourceCreationSpan.end();
 
-        await this.tracer.startActiveSpan('run indexer code', async (runIndexerFunctionSpan: Span) => {
+        await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
           const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
           try {
             await vm.run(modifiedFunction);
@@ -134,7 +134,7 @@ export default class Indexer {
             await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
             throw e;
           } finally {
-            runIndexerFunctionSpan.end();
+            runIndexerCodeSpan.end();
           }
         });
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
@@ -170,7 +170,7 @@ export default class Indexer {
 
     return {
       graphql: async (operation, variables) => {
-        const graphqlSpan = this.tracer.startSpan('graphql query');
+        const graphqlSpan = this.tracer.startSpan(`Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
         try {
           return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
         } finally {
@@ -200,6 +200,7 @@ export default class Indexer {
       log: async (...log) => {
         return await this.writeLog(LogLevel.INFO, functionName, blockHeight, ...log);
       },
+      // TODO: Add Warn Log
       error: async (...log) => {
         return await this.writeLog(LogLevel.ERROR, functionName, blockHeight, ...log);
       },
@@ -375,22 +376,21 @@ export default class Indexer {
           status
         }
       }`;
-    return await this.tracer.startActiveSpan(`set status of indexer to ${status}`, async (setStatusSpan: Span) => {
-      try {
-        return await this.runGraphQLQuery(
-          setStatusMutation,
-          {
-            function_name: functionName,
-            status,
-          },
-          functionName,
-          blockHeight,
-          this.DEFAULT_HASURA_ROLE
-        );
-      } finally {
-        setStatusSpan.end();
-      }
-    });
+    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status}`);
+    try {
+      return await this.runGraphQLQuery(
+        setStatusMutation,
+        {
+          function_name: functionName,
+          status,
+        },
+        functionName,
+        blockHeight,
+        this.DEFAULT_HASURA_ROLE
+      );
+    } finally {
+      setStatusSpan.end();
+    }
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
@@ -403,24 +403,22 @@ export default class Indexer {
           insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
       }`;
 
-    return await this.tracer.startActiveSpan('Write log to log table through Hasura', async (writeLogSpan: Span) => {
-      try {
-        const parsedMessage: string = message
-          .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
-          .join(':');
+    const writeLogSpan = this.tracer.startSpan('Write log to log table through Hasura');
+    const parsedMessage: string = message
+      .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
+      .join(':');
 
-        return await this.runGraphQLQuery(logMutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
-          functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
-          .then((result: any) => {
-            return result?.insert_indexer_log_entries_one?.id;
-          })
-          .catch((e: any) => {
-            console.error(`${functionName}: Error writing log`, e);
-          });
-      } finally {
+    return await this.runGraphQLQuery(logMutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
+      functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+      .then((result: any) => {
+        return result?.insert_indexer_log_entries_one?.id;
+      })
+      .catch((e: any) => {
+        console.error(`${functionName}: Error writing log`, e);
+      })
+      .finally(() => {
         writeLogSpan.end();
-      }
-    });
+      });
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
@@ -454,16 +452,15 @@ export default class Indexer {
       function_name: functionName,
       block_height: blockHeight,
     };
-    return await this.tracer.startActiveSpan('set last processed block height through Hasura', async (setBlockHeight: Span) => {
-      try {
-        return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
-          .catch((e: any) => {
-            console.error(`${functionName}: Error writing function state`, e);
-          });
-      } finally {
-        setBlockHeight.end();
-      }
-    });
+    const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
+    try {
+      return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+        .catch((e: any) => {
+          console.error(`${functionName}: Error writing function state`, e);
+        });
+    } finally {
+      setBlockHeightSpan.end();
+    }
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
