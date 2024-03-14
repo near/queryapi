@@ -110,6 +110,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
     }
     await tracer.startActiveSpan(`${indexerName}`, async (parentSpan: Span) => {
       parentSpan.setAttribute('indexer', indexerName);
+      parentSpan.setAttribute('account', workerContext.indexerConfig.account_id);
       parentSpan.setAttribute('service.name', 'queryapi-runner');
       try {
         const startTime = performance.now();
