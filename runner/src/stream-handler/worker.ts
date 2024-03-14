@@ -12,15 +12,11 @@ import setUpTracerExport from '../instrumentation';
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
-interface BlockPromise {
+interface QueueMessage {
   block: Block
   streamMessageId: string
 }
-interface QueueMessage {
-  promise: Promise<BlockPromise>
-  block_height: number
-}
-type PrefetchQueue = QueueMessage[];
+type PrefetchQueue = Array<Promise<QueueMessage>>;
 
 interface WorkerContext {
   redisClient: RedisClient
@@ -79,10 +75,7 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 
       for (const streamMessage of messages) {
         const { id, message } = streamMessage;
-        workerContext.queue.push({
-          promise: generateQueuePromise(workerContext, Number(message.block_height), id),
-          block_height: Number(message.block_height)
-        });
+        workerContext.queue.push(generateQueuePromise(workerContext, Number(message.block_height), id));
       }
 
       streamMessageStartId = messages[messages.length - 1].id;
@@ -111,41 +104,41 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   };
 
   while (true) {
-    if (workerContext.queue.length === 0 || workerContext.queue.at(0) === undefined) {
+    if (workerContext.queue.length === 0) {
       await sleep(100);
       continue;
     }
-    const message = workerContext.queue.at(0) as QueueMessage;
-    await tracer.startActiveSpan(`${indexerName} on block ${message.block_height}`, async (parentSpan: Span) => {
-      parentSpan.setAttribute('block_height', message.block_height);
+    await tracer.startActiveSpan(`${indexerName}`, async (parentSpan: Span) => {
       parentSpan.setAttribute('indexer', indexerName);
       parentSpan.setAttribute('service.name', 'queryapi-runner');
       try {
         const startTime = performance.now();
         const blockStartTime = performance.now();
 
-        const block = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
+        const blockPromise = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
           try {
-            const blockPromise = await message.promise;
-            if (blockPromise === undefined) {
-              throw new Error('Block promise is undefined');
-            }
-            const block = blockPromise.block;
-            currBlockHeight = block.blockHeight;
-            const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
-            parentPort?.postMessage(blockHeightMessage);
-            streamMessageId = blockPromise.streamMessageId;
-
-            if (block === undefined || block.blockHeight == null) {
-              throw new Error(`Block ${currBlockHeight} failed to process or does not have block height`);
-            }
-
-            METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
-            return block;
+            return await workerContext.queue.at(0);
           } finally {
             blockWaitSpan.end();
           }
         });
+        if (blockPromise === undefined) {
+          console.warn('Block promise is undefined');
+          return;
+        }
+
+        const block = blockPromise.block;
+        if (block === undefined || block.blockHeight == null) {
+          throw new Error(`Block ${currBlockHeight} failed to process or does not have block height`);
+        }
+
+        currBlockHeight = block.blockHeight;
+        parentSpan.setAttribute('block_height', currBlockHeight);
+        const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
+        parentPort?.postMessage(blockHeightMessage);
+        streamMessageId = blockPromise.streamMessageId;
+
+        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
 
         await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (runFunctionsSpan: Span) => {
           try {
@@ -158,7 +151,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
         await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
-        workerContext.queue.shift();
+        await workerContext.queue.shift();
 
         METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
         METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
@@ -195,7 +188,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
   }
 }
 
-async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<BlockPromise> {
+async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
   const block = await workerContext.lakeClient.fetchBlock(blockHeight, workerContext.streamType === 'historical');
   return {
     block,
