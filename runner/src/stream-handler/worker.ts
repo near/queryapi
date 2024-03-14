@@ -115,19 +115,19 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         const startTime = performance.now();
         const blockStartTime = performance.now();
 
-        const blockPromise = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
+        const queueMessage = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
           try {
             return await workerContext.queue.at(0);
           } finally {
             blockWaitSpan.end();
           }
         });
-        if (blockPromise === undefined) {
+        if (queueMessage === undefined) {
           console.warn('Block promise is undefined');
           return;
         }
 
-        const block = blockPromise.block;
+        const block = queueMessage.block;
         if (block === undefined || block.blockHeight == null) {
           throw new Error(`Block ${currBlockHeight} failed to process or does not have block height`);
         }
@@ -136,7 +136,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         parentSpan.setAttribute('block_height', currBlockHeight);
         const blockHeightMessage: WorkerMessage = { type: WorkerMessageType.BLOCK_HEIGHT, data: currBlockHeight };
         parentPort?.postMessage(blockHeightMessage);
-        streamMessageId = blockPromise.streamMessageId;
+        streamMessageId = queueMessage.streamMessageId;
 
         METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
 
