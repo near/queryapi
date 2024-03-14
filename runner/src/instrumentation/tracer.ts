@@ -35,7 +35,11 @@ function setGCPExport (): void {
       [SEMRESATTRS_SERVICE_VERSION]: '1.0',
     }),
     traceExporter: new TraceExporter(),
-    spanProcessors: [new BatchSpanProcessor(new TraceExporter())],
+    spanProcessors: [new BatchSpanProcessor(new TraceExporter(
+      {
+        projectId: process.env.GCP_PROJECT_ID ?? ''
+      }
+    ))],
     metricReader: new PeriodicExportingMetricReader({
       exporter: new ConsoleMetricExporter(), // TODO: Replace with Prometheus
     }),

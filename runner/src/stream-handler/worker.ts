@@ -118,7 +118,8 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
     const message = workerContext.queue.at(0) as QueueMessage;
     await tracer.startActiveSpan(`${indexerName} on block ${message.block_height}`, async (parentSpan: Span) => {
       parentSpan.setAttribute('block_height', message.block_height);
-      parentSpan.setAttribute('service', 'queryapi-runner');
+      parentSpan.setAttribute('indexer', indexerName);
+      parentSpan.setAttribute('service.name', 'queryapi-runner');
       try {
         const startTime = performance.now();
         const blockStartTime = performance.now();
@@ -163,6 +164,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
         postRunSpan.end();
       } catch (err) {
+        parentSpan.setAttribute('status', 'failed');
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
         const error = err as Error;
         if (previousError !== error.message) {
