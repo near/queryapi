@@ -2,6 +2,7 @@ import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
 import PgClient from '../pg-client';
+import { type Tracer, trace } from '@opentelemetry/api';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -22,6 +23,8 @@ export interface DatabaseConnectionParameters {
 }
 
 export default class Provisioner {
+  tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
+
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
     private readonly pgClient: PgClient = sharedPgClient,
@@ -66,6 +69,7 @@ export default class Provisioner {
   }
 
   async isUserApiProvisioned (accountId: string, functionName: string): Promise<boolean> {
+    const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
@@ -78,7 +82,7 @@ export default class Provisioner {
     }
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
-
+    checkProvisioningSpan.end();
     return schemaExists;
   }
 
@@ -127,33 +131,38 @@ export default class Provisioner {
     const databaseName = sanitizedAccountId;
     const userName = sanitizedAccountId;
     const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+    const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
 
-    await wrapError(
-      async () => {
-        if (!await this.hasuraClient.doesSourceExist(databaseName)) {
-          const password = this.generatePassword();
-          await this.createUserDb(userName, password, databaseName);
-          await this.addDatasource(userName, password, databaseName);
-        }
+    try {
+      await wrapError(
+        async () => {
+          if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+            const password = this.generatePassword();
+            await this.createUserDb(userName, password, databaseName);
+            await this.addDatasource(userName, password, databaseName);
+          }
 
-        // Untrack tables from old schema to prevent conflicts with new DB
-        if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
-          const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
-          await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
-        }
+          // Untrack tables from old schema to prevent conflicts with new DB
+          if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
+            const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
+            await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
+          }
 
-        await this.createSchema(databaseName, schemaName);
-        await this.runMigrations(databaseName, schemaName, databaseSchema);
+          await this.createSchema(databaseName, schemaName);
+          await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-        const tableNames = await this.getTableNames(schemaName, databaseName);
-        await this.trackTables(schemaName, tableNames, databaseName);
+          const tableNames = await this.getTableNames(schemaName, databaseName);
+          await this.trackTables(schemaName, tableNames, databaseName);
 
-        await this.trackForeignKeyRelationships(schemaName, databaseName);
+          await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-        await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
-      },
-      'Failed to provision endpoint'
-    );
+          await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+        },
+        'Failed to provision endpoint'
+      );
+    } finally {
+      provisioningSpan.end();
+    }
   }
 
   async getDatabaseConnectionParameters (accountId: string): Promise<any> {

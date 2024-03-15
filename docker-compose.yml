@@ -56,6 +56,11 @@ services:
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
       GRPC_SERVER_PORT: 7001
+      PREFETCH_QUEUE_LIMIT: 10
+      TRACING_EXPORTER: ZIPKIN # CONSOLE, GCP, ZIPKIN, or NONE
+      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      GCP_PROJECT_ID: 
+      TRACING_SAMPLE_RATE: 0.1
     ports:
       - "7001:7001"
 
@@ -104,6 +109,7 @@ services:
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
       HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
       HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:4000/auth
+
   grafana:
     image: grafana/grafana
     volumes:
@@ -112,13 +118,20 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=secret
-    
+
   prometheus:
     image: prom/prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
+
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    environment:
+      - STORAGE_TYPE=mem
       
 volumes:
   postgres:
