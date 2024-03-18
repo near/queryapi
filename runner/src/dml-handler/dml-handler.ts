@@ -40,16 +40,16 @@ export default class DmlHandler {
   async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
     const columns = Object.keys(object);
     const queryVars: Array<string | number> = [];
-    const whereClause = Array.from({ length: columns.length }, (_, colIdx) => {
-      const colCondition = Object.values(object)[colIdx];
+    const whereClause = columns.map((colName) => {
+      const colCondition = object[colName];
       if (colCondition instanceof Array) {
         const inVals: Array<string | number> = colCondition as Array<string | number>;
         const inStr = Array.from({ length: inVals.length }, (_, idx) => `$${queryVars.length + idx + 1}`).join(',');
         queryVars.push(...inVals);
-        return `${columns[colIdx]} IN (${inStr})`;
+        return `${colName} IN (${inStr})`;
       } else {
         queryVars.push(colCondition as (string | number));
-        return `${columns[colIdx]}=$${queryVars.length}`;
+        return `${colName}=$${queryVars.length}`;
       }
     }).join(' AND ');
     let query = `SELECT * FROM ${schemaName}."${tableName}" WHERE ${whereClause}`;
