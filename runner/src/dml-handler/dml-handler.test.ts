@@ -1,6 +1,6 @@
 import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
-import PgClient from '../pg-client';
+import type PgClient from '../pg-client';
 
 describe('DML Handler tests', () => {
   const getDbConnectionParameters = {
@@ -19,7 +19,7 @@ describe('DML Handler tests', () => {
   beforeEach(() => {
     query = jest.fn().mockReturnValue({ rows: [] });
     pgClient = {
-      query: query, 
+      query,
       format: pgFormat
     } as unknown as PgClient;
   });
@@ -73,6 +73,34 @@ describe('DML Handler tests', () => {
     await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
       ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2', Object.values(inputObj)]
+    ]);
+  });
+
+  test('Test valid select with a single column condition and multiple column conditions', async () => {
+    const inputObj = {
+      account_id: ['test_acc_near1', 'test_acc_near2'],
+      block_height: 999,
+    };
+
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+
+    await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
+    expect(query.mock.calls).toEqual([
+      ['SELECT * FROM test_schema."test_table" WHERE account_id IN ($1,$2) AND block_height=$3', [...inputObj.account_id, inputObj.block_height]]
+    ]);
+  });
+
+  test('Test valid select with two multiple column conditions', async () => {
+    const inputObj = {
+      account_id: ['test_acc_near1', 'test_acc_near2'],
+      block_height: [998, 999],
+    };
+
+    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+
+    await dmlHandler.select(SCHEMA, TABLE_NAME, inputObj);
+    expect(query.mock.calls).toEqual([
+      ['SELECT * FROM test_schema."test_table" WHERE account_id IN ($1,$2) AND block_height IN ($3,$4)', [...inputObj.account_id, ...inputObj.block_height]]
     ]);
   });
 
