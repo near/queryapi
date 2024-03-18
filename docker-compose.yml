@@ -33,6 +33,7 @@ services:
       RUNNER_URL: http://runner:7001
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       RUST_LOG: info
+      RPC_URL: https://archival-rpc.mainnet.near.org
 
   runner:
     build:
@@ -84,6 +85,25 @@ services:
       POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
+    command: ["postgres", "-c", "log_statement=all"]
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      LISTEN_PORT: 6432
+      DB_HOST: postgres
+      DB_USER: pgbouncer
+      DB_PASSWORD: pgbouncer
+      ADMIN_USERS: postgres
+      DB_NAME: postgres
+      AUTH_TYPE: md5
+      AUTH_FILE: /etc/pgbouncer/userlist.txt
+      AUTH_USER: pgbouncer
+      AUTH_QUERY: SELECT p_user, p_password FROM public.lookup($1)
+    ports:
+      - "6432:6432"
+    depends_on:
+      - postgres
 
   hasura-auth:
     build:
