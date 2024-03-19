@@ -86,6 +86,10 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
+  async createLogs (schemaName: string, databaseName: string): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.createLogs(schemaName, databaseName), 'Failed to create logs');
+  }
+
   async runMigrations (databaseName: string, schemaName: string, migration: any): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.runMigrations(databaseName, schemaName, migration), 'Failed to run migrations');
   }
@@ -106,6 +110,16 @@ export default class Provisioner {
       roleName,
       permissions
     ), 'Failed to add permissions to tables');
+  }
+  
+  async addPermissionsToLogsTable (schemaName: string, databaseName: string, tableNames: string[], roleName: string, permissions: string[]): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.addPermissionsToLogsTable(
+      schemaName,
+      databaseName,
+      tableNames,
+      roleName,
+      permissions
+    ), 'Failed to add permissions to logs table');
   }
 
   async trackForeignKeyRelationships (schemaName: string, databaseName: string): Promise<void> {
@@ -141,16 +155,19 @@ export default class Provisioner {
           const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
           await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
         }
-
+        
         await this.createSchema(databaseName, schemaName);
+        await this.createLogs(databaseName, schemaName);
         await this.runMigrations(databaseName, schemaName, databaseSchema);
 
         const tableNames = await this.getTableNames(schemaName, databaseName);
-        await this.trackTables(schemaName, tableNames, databaseName);
 
+        await this.trackTables(schemaName, tableNames, databaseName);
         await this.trackForeignKeyRelationships(schemaName, databaseName);
 
         await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+        //TODO: combine post migration permissions into one call add role append to userName
+        await this.addPermissionsToLogsTable(schemaName, databaseName, ['logs'], 'append', ['select', 'insert', 'update']);
       },
       'Failed to provision endpoint'
     );
