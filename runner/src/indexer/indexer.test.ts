@@ -882,7 +882,7 @@ CREATE TABLE
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      isUserApiProvisioned: jest.fn().mockReturnValue(false),
+      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, DmlHandler: genericMockDmlHandler });
@@ -897,7 +897,7 @@ CREATE TABLE
     };
     await indexer.runFunctions(mockBlock, functions, false, { provision: true });
 
-    expect(provisioner.isUserApiProvisioned).toHaveBeenCalledWith('morgs.near', 'test');
+    expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith('morgs.near', 'test');
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
       'morgs.near',
@@ -926,7 +926,7 @@ CREATE TABLE
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      isUserApiProvisioned: jest.fn().mockReturnValue(true),
+      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, DmlHandler: genericMockDmlHandler });
@@ -962,7 +962,7 @@ CREATE TABLE
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      isUserApiProvisioned: jest.fn().mockReturnValue(true),
+      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, DmlHandler: genericMockDmlHandler });
@@ -1000,7 +1000,7 @@ CREATE TABLE
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      isUserApiProvisioned: jest.fn().mockReturnValue(true),
+      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, DmlHandler: genericMockDmlHandler });
@@ -1040,7 +1040,7 @@ CREATE TABLE
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      isUserApiProvisioned: jest.fn().mockReturnValue(false),
+      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn().mockRejectedValue(error),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, DmlHandler: genericMockDmlHandler });
