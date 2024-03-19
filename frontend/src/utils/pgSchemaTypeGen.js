@@ -200,7 +200,6 @@ export class PgSchemaTypeGen {
 
 		contextObject += '\n  }\n};'
 		this.tableList = tableList;
-    console.log(tsDefinitions);
 
 		return tsDefinitions + contextObject;
 	}
