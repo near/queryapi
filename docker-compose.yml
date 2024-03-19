@@ -85,7 +85,6 @@ services:
       POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
-    command: ["postgres", "-c", "log_statement=all"]
 
   pgbouncer:
     image: edoburu/pgbouncer:latest
