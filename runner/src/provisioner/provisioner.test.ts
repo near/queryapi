@@ -54,7 +54,7 @@ describe('Provisioner', () => {
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
       await expect(provisioner.fetchUserApiProvisioningStatus(accountId, functionName)).resolves.toBe(false);
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(false);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(false);
     });
 
     it('returns false if datasource and schema dont exists', async () => {
@@ -64,7 +64,7 @@ describe('Provisioner', () => {
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
       await expect(provisioner.fetchUserApiProvisioningStatus(accountId, functionName)).resolves.toBe(false);
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(false);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(false);
     });
 
     it('returns true if datasource and schema exists', async () => {
@@ -74,7 +74,7 @@ describe('Provisioner', () => {
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
       await expect(provisioner.fetchUserApiProvisioningStatus(accountId, functionName)).resolves.toBe(true);
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
     });
   });
 
@@ -107,7 +107,7 @@ describe('Provisioner', () => {
           'delete'
         ]
       );
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
     });
 
     it('untracks tables from the previous schema if they exists', async () => {

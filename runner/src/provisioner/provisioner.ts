@@ -45,13 +45,13 @@ export default class Provisioner {
       .replace(/\//g, '0');
   }
 
-  isUserApiProvisioned(accountId: string, functionName: string): boolean {
+  isUserApiProvisioned (accountId: string, functionName: string): boolean {
     const accountIndexers = this.#hasBeenProvisioned[accountId];
     if (!accountIndexers) { return false; }
     return accountIndexers[functionName];
   }
 
-  private setProvisioned(accountId: string, functionName: string) {
+  private setProvisioned (accountId: string, functionName: string): void {
     const accountIndexers = this.#hasBeenProvisioned[accountId] ?? {};
     this.#hasBeenProvisioned = {
       ...this.#hasBeenProvisioned,
@@ -59,7 +59,7 @@ export default class Provisioner {
         ...accountIndexers,
         [functionName]: true
       }
-    }
+    };
   }
 
   async createDatabase (name: string): Promise<void> {
