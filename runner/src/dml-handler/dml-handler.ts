@@ -26,14 +26,14 @@ export default class DmlHandler {
     return new DmlHandler(pgClient);
   }
 
-  private getWhereClause(whereObject: WhereClauseMulti) {
+  private getWhereClause (whereObject: WhereClauseMulti): { queryVars: Array<string | number>, whereClause: string } {
     const columns = Object.keys(whereObject);
     const queryVars: Array<string | number> = [];
     const whereClause = columns.map((colName) => {
       const colCondition = whereObject[colName];
       if (colCondition instanceof Array) {
         const inVals: Array<string | number> = colCondition;
-        const inStr = Array.from({length: inVals.length}, (_, idx) => `$${queryVars.length + idx + 1}`).join(',');
+        const inStr = Array.from({ length: inVals.length }, (_, idx) => `$${queryVars.length + idx + 1}`).join(',');
         queryVars.push(...inVals);
         return `${colName} IN (${inStr})`;
       } else {
@@ -41,7 +41,7 @@ export default class DmlHandler {
         return `${colName}=$${queryVars.length}`;
       }
     }).join(' AND ');
-    return {queryVars, whereClause};
+    return { queryVars, whereClause };
   }
 
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
@@ -59,7 +59,7 @@ export default class DmlHandler {
   }
 
   async select (schemaName: string, tableName: string, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
-    const {queryVars, whereClause} = this.getWhereClause(whereObject);
+    const { queryVars, whereClause } = this.getWhereClause(whereObject);
     let query = `SELECT * FROM ${schemaName}."${tableName}" WHERE ${whereClause}`;
     if (limit !== null) {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
@@ -98,7 +98,7 @@ export default class DmlHandler {
   }
 
   async delete (schemaName: string, tableName: string, whereObject: WhereClauseMulti): Promise<any[]> {
-    const {queryVars, whereClause} = this.getWhereClause(whereObject);
+    const { queryVars, whereClause } = this.getWhereClause(whereObject);
     const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${whereClause} RETURNING *`;
 
     const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryVars), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
