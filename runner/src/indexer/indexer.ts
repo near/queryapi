@@ -362,7 +362,7 @@ export default class Indexer {
       return result;
     } catch (error) {
       const errorContent = error as Error;
-      console.debug('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.', errorContent.message);
+      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.`, errorContent.message);
     }
 
     return {}; // Default to empty object if error
