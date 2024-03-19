@@ -171,10 +171,10 @@ export class PgSchemaTypeGen {
 			itemDefinition += `declare interface ${sanitizedTableName}Item {\n`;
       filterDefinition += `declare interface ${sanitizedTableName}Filter {\n`;
 			for (const [colName, col] of Object.entries(columns)) {
-        partialDefinition += `  ${colName}?: ${col.type};\n`;
         const tsType = col.nullable ? `${col.type} | null` : `${col.type}`
+        partialDefinition += `  ${colName}?: ${tsType};\n`;
         const optional = col.required ? "" : "?";
-        itemDefinition += `  ${colName}${optional}: ${col.nullable ? `${col.type} | null` : col.type};\n`;
+        itemDefinition += `  ${colName}${optional}: ${tsType};\n`;
         const conditionType = `${tsType} | ${col.type}[]`;
         filterDefinition += `  ${colName}?: ${conditionType};\n`;
 			}
