@@ -160,17 +160,17 @@ describe('DML Handler tests', () => {
     ]);
   });
 
-  test('Test valid delete on two fields', async () => {
+  test('Test valid delete with a single column condition and multiple column conditions', async () => {
     const inputObj = {
       account_id: 'test_acc_near',
-      block_height: 999,
+      block_height: [998, 999],
     };
 
     const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
 
     await dmlHandler.delete(SCHEMA, TABLE_NAME, inputObj);
     expect(query.mock.calls).toEqual([
-      ['DELETE FROM test_schema."test_table" WHERE account_id=$1 AND block_height=$2 RETURNING *', Object.values(inputObj)]
+      ['DELETE FROM test_schema."test_table" WHERE account_id=$1 AND block_height IN ($2,$3) RETURNING *', [inputObj.account_id, ...inputObj.block_height]]
     ]);
   });
 });
