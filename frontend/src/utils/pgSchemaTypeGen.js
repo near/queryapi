@@ -70,7 +70,7 @@ export class PgSchemaTypeGen {
 						if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
 							// New Column
 							this.addColumn(columnSpec, columns);
-						} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
+						} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type === "primary key") {
 							// Constraint on existing column
 							for (const foreignKeyDef of columnSpec.definition) {
 								columns[foreignKeyDef.column].nullable = false;
@@ -90,7 +90,7 @@ export class PgSchemaTypeGen {
 										break;
 									case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
 										const newConstraint = alterSpec.create_definitions;
-										if (newConstraint.constraint_type == "primary key") {
+										if (newConstraint.constraint_type === "primary key") {
 											for (const foreignKeyDef of newConstraint.definition) {
 												dbSchema[tableName][foreignKeyDef.column].nullable = false;
 											}
@@ -130,10 +130,10 @@ export class PgSchemaTypeGen {
 	getNullableStatus(columnDef) {
 		const isPrimaryKey =
 			columnDef.hasOwnProperty("unique_or_primary") &&
-			columnDef.unique_or_primary == "primary key";
+			columnDef.unique_or_primary === "primary key";
 		const isNullable =
 			columnDef.hasOwnProperty("nullable") &&
-			columnDef.nullable.value == "not null";
+			columnDef.nullable.value === "not null";
 		return isPrimaryKey || isNullable ? false : true;
 	}
 
@@ -160,6 +160,7 @@ export class PgSchemaTypeGen {
 		for (const [tableName, columns] of Object.entries(schema)) {
 			let itemDefinition = "";
 			let inputDefinition = "";
+			let conditionDefinition = "";
 			const sanitizedTableName = this.sanitizeTableName(tableName);
 			if (tableList.has(sanitizedTableName)) {
 				throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
@@ -168,26 +169,29 @@ export class PgSchemaTypeGen {
 			// Create interfaces for strongly typed input and row item
 			itemDefinition += `declare interface ${sanitizedTableName}Item {\n`;
 			inputDefinition += `declare interface ${sanitizedTableName}Input {\n`;
-			for (const [columnName, columnDetails] of Object.entries(columns)) {
-				let tsType = columnDetails.nullable ? columnDetails.type + " | null" : columnDetails.type;
-				const optional = columnDetails.required ? "" : "?";
-				itemDefinition += `  ${columnName}?: ${tsType};\n`; // Item fields are always optional
-				inputDefinition += `  ${columnName}${optional}: ${tsType};\n`;
+      conditionDefinition += `declare interface ${sanitizedTableName}Condition {\n`;
+			for (const [colName, col] of Object.entries(columns)) {
+        const conditionType = col.nullable ? `${col.type} | ${col.type}[] | null` : `${col.type} | ${col.type}[]`;
+				const optional = col.required ? "" : "?";
+				itemDefinition += `  ${colName}?: ${col.type};\n`; // Item fields are always optional
+				inputDefinition += `  ${colName}${optional}: ${col.nullable ? `${col.type} | null` : col.type};\n`;
+        conditionDefinition += `  ${colName}?: ${conditionType};\n`;
 			}
 			itemDefinition += "}\n\n";
 			inputDefinition += "}\n\n";
+      conditionDefinition += "}\n\n";
 
 			// Create type containing column names to be used as a replacement for string[]. 
 			const columnNamesDef = `type ${sanitizedTableName}Columns = "${Object.keys(columns).join('" | "')}";\n\n`;
 
 			// Add generated types to definitions
-			tsDefinitions += itemDefinition + inputDefinition + columnNamesDef;
+			tsDefinitions += itemDefinition + inputDefinition + conditionDefinition + columnNamesDef;
 
 			// Create context object with correctly formatted methods. Name, input, and output should match actual implementation
 			contextObject += `
 		${sanitizedTableName}: {
 			insert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[]) => Promise<${sanitizedTableName}Item[]>;
-			select: (filterObj: ${sanitizedTableName}Item, limit = null) => Promise<${sanitizedTableName}Item[]>;
+			select: (filterObj: ${sanitizedTableName}Condition, limit = null) => Promise<${sanitizedTableName}Item[]>;
 			update: (filterObj: ${sanitizedTableName}Item, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
 			upsert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[], conflictColumns: ${sanitizedTableName}Columns[], updateColumns: ${sanitizedTableName}Columns[]) => Promise<${sanitizedTableName}Item[]>;
 			delete: (filterObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
@@ -196,6 +200,7 @@ export class PgSchemaTypeGen {
 
 		contextObject += '\n  }\n};'
 		this.tableList = tableList;
+    console.log(tsDefinitions);
 
 		return tsDefinitions + contextObject;
 	}
