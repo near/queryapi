@@ -37,18 +37,18 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
-    const columns = Object.keys(object);
+  async select (schemaName: string, tableName: string, whereObject: Record<string, (string | number | Array<string | number>)>, limit: number | null = null): Promise<any[]> {
+    const columns = Object.keys(whereObject);
     const queryVars: Array<string | number> = [];
     const whereClause = columns.map((colName) => {
-      const colCondition = object[colName];
+      const colCondition = whereObject[colName];
       if (colCondition instanceof Array) {
-        const inVals: Array<string | number> = colCondition as Array<string | number>;
+        const inVals: Array<string | number> = colCondition;
         const inStr = Array.from({ length: inVals.length }, (_, idx) => `$${queryVars.length + idx + 1}`).join(',');
         queryVars.push(...inVals);
         return `${colName} IN (${inStr})`;
       } else {
-        queryVars.push(colCondition as (string | number));
+        queryVars.push(colCondition);
         return `${colName}=$${queryVars.length}`;
       }
     }).join(' AND ');
