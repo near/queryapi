@@ -2,6 +2,9 @@ import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 
+type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
+type WhereClauseSingle = Record<string, (string | number)>;
+
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -23,6 +26,24 @@ export default class DmlHandler {
     return new DmlHandler(pgClient);
   }
 
+  private getWhereClause(whereObject: WhereClauseMulti) {
+    const columns = Object.keys(whereObject);
+    const queryVars: Array<string | number> = [];
+    const whereClause = columns.map((colName) => {
+      const colCondition = whereObject[colName];
+      if (colCondition instanceof Array) {
+        const inVals: Array<string | number> = colCondition;
+        const inStr = Array.from({length: inVals.length}, (_, idx) => `$${queryVars.length + idx + 1}`).join(',');
+        queryVars.push(...inVals);
+        return `${colName} IN (${inStr})`;
+      } else {
+        queryVars.push(colCondition);
+        return `${colName}=$${queryVars.length}`;
+      }
+    }).join(' AND ');
+    return {queryVars, whereClause};
+  }
+
   async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
     if (!objects?.length) {
       return [];
@@ -37,20 +58,18 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
-    const keys = Object.keys(object);
-    const values = Object.values(object);
-    const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
-    let query = `SELECT * FROM ${schemaName}."${tableName}" WHERE ${param}`;
+  async select (schemaName: string, tableName: string, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
+    const {queryVars, whereClause} = this.getWhereClause(whereObject);
+    let query = `SELECT * FROM ${schemaName}."${tableName}" WHERE ${whereClause}`;
     if (limit !== null) {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
     }
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryVars), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 
-  async update (schemaName: string, tableName: string, whereObject: any, updateObject: any): Promise<any[]> {
+  async update (schemaName: string, tableName: string, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
     const updateKeys = Object.keys(updateObject);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
     const whereKeys = Object.keys(whereObject);
@@ -78,13 +97,11 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async delete (schemaName: string, tableName: string, object: any): Promise<any[]> {
-    const keys = Object.keys(object);
-    const values = Object.values(object);
-    const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
-    const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${param} RETURNING *`;
+  async delete (schemaName: string, tableName: string, whereObject: WhereClauseMulti): Promise<any[]> {
+    const {queryVars, whereClause} = this.getWhereClause(whereObject);
+    const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${whereClause} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryVars), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 }
