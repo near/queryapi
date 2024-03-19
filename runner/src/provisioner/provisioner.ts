@@ -24,6 +24,7 @@ export interface DatabaseConnectionParameters {
 
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
+  #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -42,6 +43,23 @@ export default class Provisioner {
       .slice(0, length)
       .replace(/\+/g, '0')
       .replace(/\//g, '0');
+  }
+
+  isUserApiProvisioned(accountId: string, functionName: string): boolean {
+    const accountIndexers = this.#hasBeenProvisioned[accountId];
+    if (!accountIndexers) { return false; }
+    return accountIndexers[functionName];
+  }
+
+  private setProvisioned(accountId: string, functionName: string) {
+    const accountIndexers = this.#hasBeenProvisioned[accountId] ?? {};
+    this.#hasBeenProvisioned = {
+      ...this.#hasBeenProvisioned,
+      [accountId]: {
+        ...accountIndexers,
+        [functionName]: true
+      }
+    }
   }
 
   async createDatabase (name: string): Promise<void> {
@@ -68,8 +86,12 @@ export default class Provisioner {
     );
   }
 
-  async isUserApiProvisioned (accountId: string, functionName: string): Promise<boolean> {
+  async fetchUserApiProvisioningStatus (accountId: string, functionName: string): Promise<boolean> {
     const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
+    if (this.isUserApiProvisioned(accountId, functionName)) {
+      checkProvisioningSpan.end();
+      return true;
+    }
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
@@ -82,6 +104,9 @@ export default class Provisioner {
     }
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
+    if (schemaExists) {
+      this.setProvisioned(accountId, functionName);
+    }
     checkProvisioningSpan.end();
     return schemaExists;
   }
@@ -157,6 +182,8 @@ export default class Provisioner {
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
           await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+
+          this.setProvisioned(accountId, functionName);
         },
         'Failed to provision endpoint'
       );
