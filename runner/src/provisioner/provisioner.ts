@@ -52,14 +52,8 @@ export default class Provisioner {
   }
 
   private setProvisioned (accountId: string, functionName: string): void {
-    const accountIndexers = this.#hasBeenProvisioned[accountId] ?? {};
-    this.#hasBeenProvisioned = {
-      ...this.#hasBeenProvisioned,
-      [accountId]: {
-        ...accountIndexers,
-        [functionName]: true
-      }
-    };
+    this.#hasBeenProvisioned[accountId] ??= {};
+    this.#hasBeenProvisioned[accountId][functionName] = true;
   }
 
   async createDatabase (name: string): Promise<void> {
