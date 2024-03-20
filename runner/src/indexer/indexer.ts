@@ -1,6 +1,6 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import { type Block } from '@near-lake/primitives';
+import * as lakePrimitives from '@near-lake/primitives';
 import { Parser } from 'kevin-node-sql-parser';
 
 import Provisioner from '../provisioner';
@@ -62,7 +62,7 @@ export default class Indexer {
   }
 
   async runFunctions (
-    block: Block,
+    block: lakePrimitives.Block,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
@@ -121,6 +121,7 @@ export default class Indexer {
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
+        vm.freeze(lakePrimitives, 'primitives');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
         resourceCreationSpan.end();
