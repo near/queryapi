@@ -14,13 +14,27 @@ type MetadataRequestArgs = Record<string, any>;
 
 type MetadataRequests = Record<string, any>;
 
+interface Config {
+  adminSecret: string
+  endpoint: string
+  pgHost: string
+  pgPort: string
+}
+
+const defaultConfig: Config = {
+  adminSecret: process.env.HASURA_ADMIN_SECRET,
+  endpoint: process.env.HASURA_ENDPOINT,
+  pgHost: process.env.PGHOST_HASURA ?? process.env.PGHOST,
+  pgPort: process.env.PGPORT,
+};
+
 export default class HasuraClient {
   static DEFAULT_DATABASE = 'default';
   static DEFAULT_SCHEMA = 'public';
 
   private readonly deps: Dependencies;
 
-  constructor (deps?: Partial<Dependencies>) {
+  constructor (deps?: Partial<Dependencies>, private readonly config: Config = defaultConfig) {
     this.deps = {
       fetch,
       ...deps,
@@ -29,7 +43,7 @@ export default class HasuraClient {
 
   async executeSql (sql: string, opts: SqlOptions): Promise<any> {
     const response: Response = await this.deps.fetch(
-      `${process.env.HASURA_ENDPOINT}/v2/query`,
+      `${this.config.endpoint}/v2/query`,
       {
         method: 'POST',
         headers: {
@@ -61,7 +75,7 @@ export default class HasuraClient {
     version?: number
   ): Promise<any> {
     const response: Response = await this.deps.fetch(
-      `${process.env.HASURA_ENDPOINT}/v1/metadata`,
+      `${this.config.endpoint}/v1/metadata`,
       {
         method: 'POST',
         headers: {
@@ -337,8 +351,8 @@ export default class HasuraClient {
               password,
               database: databaseName,
               username: userName,
-              host: process.env.PGHOST_HASURA ?? process.env.PGHOST,
-              port: Number(process.env.PGPORT),
+              host: this.config.pgHost,
+              port: Number(this.config.pgPort),
             }
           },
         },
