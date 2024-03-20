@@ -132,10 +132,10 @@ export class PgSchemaTypeGen {
 	getNullableStatus(columnDef) {
 		const isPrimaryKey =
 			columnDef.hasOwnProperty("unique_or_primary") &&
-			columnDef.unique_or_primary === "primary key";
+			columnDef.unique_or_primary == "primary key";
 		const isNullable =
 			columnDef.hasOwnProperty("nullable") &&
-			columnDef.nullable.value === "not null";
+			columnDef.nullable.value == "not null";
 		return isPrimaryKey || isNullable ? false : true;
 	}
 
@@ -161,43 +161,38 @@ export class PgSchemaTypeGen {
 		// Process each table
 		for (const [tableName, columns] of Object.entries(schema)) {
 			let itemDefinition = "";
-			let partialDefinition = "";
-			let filterDefinition = "";
+			let inputDefinition = "";
 			const sanitizedTableName = this.sanitizeTableName(tableName);
 			if (tableList.has(sanitizedTableName)) {
 				throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
 			}
 			tableList.add(sanitizedTableName);
 			// Create interfaces for strongly typed input and row item
-      partialDefinition += `declare interface ${sanitizedTableName}Partial {\n`;
 			itemDefinition += `declare interface ${sanitizedTableName}Item {\n`;
-      filterDefinition += `declare interface ${sanitizedTableName}Filter {\n`;
-			for (const [colName, col] of Object.entries(columns)) {
-        const tsType = col.nullable ? `${col.type} | null` : `${col.type}`
-        partialDefinition += `  ${colName}?: ${tsType};\n`;
-        const optional = col.required ? "" : "?";
-        itemDefinition += `  ${colName}${optional}: ${tsType};\n`;
-        const conditionType = `${tsType} | ${col.type}[]`;
-        filterDefinition += `  ${colName}?: ${conditionType};\n`;
+			inputDefinition += `declare interface ${sanitizedTableName}Input {\n`;
+			for (const [columnName, columnDetails] of Object.entries(columns)) {
+				let tsType = columnDetails.nullable ? columnDetails.type + " | null" : columnDetails.type;
+				const optional = columnDetails.required ? "" : "?";
+				itemDefinition += `  ${columnName}?: ${tsType};\n`; // Item fields are always optional
+				inputDefinition += `  ${columnName}${optional}: ${tsType};\n`;
 			}
 			itemDefinition += "}\n\n";
-			partialDefinition += "}\n\n";
-      filterDefinition += "}\n\n";
+			inputDefinition += "}\n\n";
 
 			// Create type containing column names to be used as a replacement for string[]. 
 			const columnNamesDef = `type ${sanitizedTableName}Columns = "${Object.keys(columns).join('" | "')}";\n\n`;
 
 			// Add generated types to definitions
-			tsDefinitions += itemDefinition + partialDefinition + filterDefinition + columnNamesDef;
+			tsDefinitions += itemDefinition + inputDefinition + columnNamesDef;
 
 			// Create context object with correctly formatted methods. Name, input, and output should match actual implementation
 			contextObject += `
 		${sanitizedTableName}: {
-			insert: (values: ${sanitizedTableName}Item | ${sanitizedTableName}Item[]) => Promise<${sanitizedTableName}Item[]>;
-			select: (where: ${sanitizedTableName}Filter, limit = null) => Promise<${sanitizedTableName}Item[]>;
-			update: (where: ${sanitizedTableName}Partial, set: ${sanitizedTableName}Partial) => Promise<${sanitizedTableName}Item[]>;
-			upsert: (values: ${sanitizedTableName}Item | ${sanitizedTableName}Item[], conflictColumns: ${sanitizedTableName}Columns[], updateColumns: ${sanitizedTableName}Columns[]) => Promise<${sanitizedTableName}Item[]>;
-			delete: (where: ${sanitizedTableName}Filter) => Promise<${sanitizedTableName}Item[]>;
+			insert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[]) => Promise<${sanitizedTableName}Item[]>;
+			select: (filterObj: ${sanitizedTableName}Item, limit = null) => Promise<${sanitizedTableName}Item[]>;
+			update: (filterObj: ${sanitizedTableName}Item, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
+			upsert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[], conflictColumns: ${sanitizedTableName}Columns[], updateColumns: ${sanitizedTableName}Columns[]) => Promise<${sanitizedTableName}Item[]>;
+			delete: (filterObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
 		},`;
 		}
 
