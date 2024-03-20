@@ -7,7 +7,7 @@
     "node": "18.17"
   },
   "scripts": {
-    "build": "rm -rf ./dist && npm run codegen && tsc",
+    "build": "rm -rf ./dist && npm run codegen && tsc -p ./tsconfig.build.json",
     "codegen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated/ protos/runner.proto",
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
