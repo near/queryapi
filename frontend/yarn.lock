@@ -1541,10 +1541,13 @@
   resolved "https://registry.yarnpkg.com/@n1ru4l/push-pull-async-iterable-iterator/-/push-pull-async-iterable-iterator-3.2.0.tgz#c15791112db68dd9315d329d652b7e797f737655"
   integrity sha512-3fkKj25kEjsfObL6IlKPAlHYPq/oYwUkkQ03zsTTiDjD7vg/RxjdiLeCydqtxHZP0JgsXL3D/X5oAkMGzuUp/Q==
 
-"@near-lake/primitives@0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@near-lake/primitives/-/primitives-0.1.0.tgz#c9dc196cad82b668e773eab7f673edfc6a877cea"
-  integrity sha512-SvL6mA0SsqAz5AC2811I+cI9Mpayax8VsoRbY0Bizk5eYiGCT1u1iBBa8f1nikquDfJCEK+sBCt751Nz/xoZjw==
+"@near-lake/primitives@0.3.0":
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/@near-lake/primitives/-/primitives-0.3.0.tgz#4400131d629af135e059c10cac2ac96a7a3513f4"
+  integrity sha512-tk1ADPel6J38NRdU9RjvIeQ8s9M68keHvPBfmqGrTWGoO/gWn/8DrinEYS+XgC54JTRfhOige8xIYvNrTGxJDw==
+  dependencies:
+    borsh "^2.0.0"
+    borsher "^1.2.1"
 
 "@next/env@13.5.6":
   version "13.5.6"
@@ -2664,6 +2667,19 @@ borsh@^0.7.0:
     bn.js "^5.2.0"
     bs58 "^4.0.0"
     text-encoding-utf-8 "^1.0.2"
+
+borsh@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/borsh/-/borsh-2.0.0.tgz#042a9f109565caac3c6a21297cd8c0ae8db3149d"
+  integrity sha512-kc9+BgR3zz9+cjbwM8ODoUB4fs3X3I5A/HtX7LZKxCLaMrEeDFoBpnhZY//DTS1VZBSs6S5v46RZRbZjRFspEg==
+
+borsher@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/borsher/-/borsher-1.2.1.tgz#a40f371ef1755f16b056034e2d47951f08180583"
+  integrity sha512-vP5g3q2BWxqjgGuQeLKJr1ymr3yvFDSFAtN+UZa5L1BB82eFCYnrLCEj+6uiJnzhtJ7IXZfYUYu4EYBnI949Xg==
+  dependencies:
+    borsh "^2.0.0"
+    buffer "^6.0.3"
 
 brace-expansion@^1.1.7:
   version "1.1.11"
