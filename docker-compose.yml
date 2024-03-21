@@ -46,9 +46,9 @@ services:
       HASURA_ENDPOINT: http://hasura-graphql:8080
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
-      PGHOST: postgres
-      PGHOST_HASURA: postgres
-      PGPORT: 5432
+      PGHOST: pgbouncer
+      PGHOST_HASURA: pgbouncer
+      PGPORT: 6432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres
@@ -62,6 +62,7 @@ services:
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       GCP_PROJECT_ID: 
       TRACING_SAMPLE_RATE: 0.1
+      MAX_PG_POOL_SIZE: 10
     ports:
       - "7001:7001"
 
@@ -85,10 +86,9 @@ services:
       POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
-    command: ["postgres", "-c", "log_statement=all"]
 
   pgbouncer:
-    image: pgbouncer-fork:latest
+    image: darunrs/pgbouncer:auth_dbname # TODO: Replace with edoburu:pgbouncer image once it supports auth_dbname
     environment:
       LISTEN_PORT: 6432
       DB_HOST: postgres
@@ -101,6 +101,8 @@ services:
       AUTH_USER: pgbouncer
       AUTH_QUERY: SELECT uname, phash FROM public.user_lookup($1::text)
       AUTH_DBNAME: postgres
+      MAX_CLIENT_CONN: 4000 # Max Connections to PgBouncer
+      DEFAULT_POOL_SIZE: 100 # Max Connections to Postgres for User/DB Pair
     ports:
       - "6432:6432"
     depends_on:

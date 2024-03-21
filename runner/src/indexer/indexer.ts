@@ -7,7 +7,6 @@ import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import assert from 'assert';
 import { trace, type Span } from '@opentelemetry/api';
 
 interface Dependencies {
@@ -41,13 +40,15 @@ export default class Indexer {
 
   private readonly indexer_behavior: IndexerBehavior;
   private readonly deps: Dependencies;
-  // TODO: After provisioning migrated out of Runner, fetch credentials before Indexer initialization
+
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
+  private dml_handler: DmlHandler | undefined;
 
   constructor (
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
+    dmlHandler = undefined,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
     this.indexer_behavior = indexerBehavior;
@@ -59,6 +60,7 @@ export default class Indexer {
       ...deps,
     };
     this.database_connection_parameters = databaseConnectionParameters;
+    this.dml_handler = dmlHandler;
   }
 
   async runFunctions (
@@ -106,6 +108,7 @@ export default class Indexer {
         try {
           this.database_connection_parameters = this.database_connection_parameters ??
             await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
+          this.dml_handler = this.dml_handler ?? this.deps.DmlHandler.create(this.database_connection_parameters as DatabaseConnectionParameters);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
@@ -265,8 +268,7 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      assert(this.database_connection_parameters !== undefined, 'Database connection parameters are not set');
-      const dmlHandler: DmlHandler = this.deps.DmlHandler.create(this.database_connection_parameters);
+      const dmlHandler = this.dml_handler as DmlHandler;
 
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
