@@ -85,20 +85,22 @@ services:
       POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
+    command: ["postgres", "-c", "log_statement=all"]
 
   pgbouncer:
-    image: edoburu/pgbouncer:latest
+    image: pgbouncer-fork:latest
     environment:
       LISTEN_PORT: 6432
       DB_HOST: postgres
       DB_USER: pgbouncer
       DB_PASSWORD: pgbouncer
       ADMIN_USERS: postgres
-      DB_NAME: postgres
+      DB_NAME: "*"
       AUTH_TYPE: scram-sha-256
       AUTH_FILE: /etc/pgbouncer/userlist.txt
       AUTH_USER: pgbouncer
-      AUTH_QUERY: SELECT p_user, p_password FROM public.lookup($1)
+      AUTH_QUERY: SELECT uname, phash FROM public.user_lookup($1::text)
+      AUTH_DBNAME: postgres
     ports:
       - "6432:6432"
     depends_on:

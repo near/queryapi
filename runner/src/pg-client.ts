@@ -19,7 +19,6 @@ export default class PgClient {
     PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule
   ) {
-    console.log(connectionParams.user, connectionParams.password);
     this.pgPool = new PgPool({
       user: connectionParams.user,
       password: connectionParams.password,
