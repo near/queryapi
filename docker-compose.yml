@@ -102,7 +102,7 @@ services:
       AUTH_QUERY: SELECT uname, phash FROM public.user_lookup($1::text)
       AUTH_DBNAME: postgres
       MAX_CLIENT_CONN: 4000 # Max Connections to PgBouncer
-      DEFAULT_POOL_SIZE: 100 # Max Connections to Postgres for User/DB Pair
+      DEFAULT_POOL_SIZE: 10 # Standard connections open per user/db combo
     ports:
       - "6432:6432"
     depends_on:
