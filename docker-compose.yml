@@ -81,6 +81,7 @@ services:
     image: postgres:14
     restart: always
     volumes:
+    - ./init-scripts/postgres:/docker-entrypoint-initdb.d
     - postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: postgrespassword
@@ -158,5 +159,6 @@ services:
       
 volumes:
   postgres:
+  postgres-test:
   redis:
   grafana:
