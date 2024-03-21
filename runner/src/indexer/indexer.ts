@@ -75,7 +75,7 @@ export default class Indexer {
 
     const simultaneousPromises: Array<Promise<any>> = [];
     const allMutations: string[] = [];
-    
+
     for (const functionName in functions) {
       try {
         const indexerFunction = functions[functionName];
