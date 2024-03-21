@@ -159,6 +159,5 @@ services:
       
 volumes:
   postgres:
-  postgres-test:
   redis:
   grafana:
