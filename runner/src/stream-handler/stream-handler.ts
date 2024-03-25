@@ -13,8 +13,10 @@ export enum Status {
 export enum LogLevel {
   DEBUG = 2,
   INFO = 5,
+  WARN = 6,
   ERROR = 8,
 }
+
 export interface IndexerConfig {
   account_id: string
   function_name: string
@@ -87,7 +89,7 @@ export default class StreamHandler {
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
       console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
-    indexer.writeLog(LogLevel.ERROR, functionName, this.executorContext.block_height,
+    indexer.writeLogOld(LogLevel.ERROR, functionName, this.executorContext.block_height,
       `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
     ).catch((e) => {
       console.error(`Failed to write log for stream: ${this.streamKey}`, e);

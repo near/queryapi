@@ -36,6 +36,7 @@ describe('Provisioner', () => {
       addDatasource: jest.fn().mockReturnValueOnce(null),
       runMigrations: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
+      createLogsTable: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
       doesSchemaExist: jest.fn().mockReturnValueOnce(false),
       untrackTables: jest.fn().mockReturnValueOnce(null),
@@ -53,7 +54,8 @@ describe('Provisioner', () => {
 
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).resolves.toBe(false);
+      await expect(provisioner.fetchUserApiProvisioningStatus(accountId, functionName)).resolves.toBe(false);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(false);
     });
 
     it('returns false if datasource and schema dont exists', async () => {
@@ -62,7 +64,8 @@ describe('Provisioner', () => {
 
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).resolves.toBe(false);
+      await expect(provisioner.fetchUserApiProvisioningStatus(accountId, functionName)).resolves.toBe(false);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(false);
     });
 
     it('returns true if datasource and schema exists', async () => {
@@ -71,7 +74,8 @@ describe('Provisioner', () => {
 
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
-      await expect(provisioner.isUserApiProvisioned(accountId, functionName)).resolves.toBe(true);
+      await expect(provisioner.fetchUserApiProvisioningStatus(accountId, functionName)).resolves.toBe(true);
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
     });
   });
 
@@ -89,6 +93,7 @@ describe('Provisioner', () => {
       ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
+      expect(hasuraClient.createLogsTable).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
@@ -104,6 +109,7 @@ describe('Provisioner', () => {
           'delete'
         ]
       );
+      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
     });
 
     it('untracks tables from the previous schema if they exists', async () => {
@@ -128,6 +134,7 @@ describe('Provisioner', () => {
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
+      expect(hasuraClient.createLogsTable).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
@@ -207,6 +214,15 @@ describe('Provisioner', () => {
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
+    });
+
+    it('throws an error when it fails to create logs table', async () => {
+      console.log(error);
+      hasuraClient.createLogsTable = jest.fn().mockRejectedValue(error);
+
+      const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
+
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create logs: some error');
     });
   });
 });

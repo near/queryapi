@@ -130,27 +130,27 @@ export default class HasuraClient {
     });
   }
 
-  async createLogs (source: string, schemaName: string): Promise<any> {
+  async createLogsTable (source: string, schemaName: string): Promise<any> {
     return await this.executeSql(
       `
       set schema '${schemaName}';
     
-      CREATE TABLE logs (
+      CREATE TABLE __logs (
           id BIGSERIAL NOT NULL,
           block_height NUMERIC(20) NOT NULL,
           log_date DATE NOT NULL,
-          log_timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          log_timestamp TIMESTAMP NOT NULL,
           log_type TEXT NOT NULL,
           log_level TEXT NOT NULL,
           message TEXT NOT NULL,
           PRIMARY KEY (log_date, id)
       ) PARTITION BY RANGE (log_date);
      
-      CREATE INDEX logs_log_timestamp_idx ON logs USING btree (log_timestamp);
-      CREATE INDEX logs_log_type_idx ON logs USING btree (log_type);
-      CREATE INDEX logs_log_level_idx ON logs USING btree (log_level);
-      CREATE INDEX logs_block_height_idx ON logs USING btree (block_height);
-      CREATE INDEX logs_search_vector_idx ON logs USING GIN (to_tsvector('english', message));
+      CREATE INDEX logs_log_timestamp_idx ON __logs USING btree (log_timestamp);
+      CREATE INDEX logs_log_type_idx ON __logs USING btree (log_type);
+      CREATE INDEX logs_log_level_idx ON __logs USING btree (log_level);
+      CREATE INDEX logs_block_height_idx ON __logs USING btree (block_height);
+      CREATE INDEX logs_search_vector_idx ON __logs USING GIN (to_tsvector('english', message));
     
 
       CREATE OR REPLACE FUNCTION fn_create_partition(_tbl text, _date date, _interval_start text, _interval_end text)
@@ -170,8 +170,8 @@ export default class HasuraClient {
     END
     $func$;
     
-    SELECT fn_create_partition('${schemaName}.logs', CURRENT_DATE, '0 day', '1 day');
-    SELECT fn_create_partition('${schemaName}.logs', CURRENT_DATE, '1 day', '2 day');
+    SELECT fn_create_partition('${schemaName}.__logs', CURRENT_DATE, '0 day', '1 day');
+    SELECT fn_create_partition('${schemaName}.__logs', CURRENT_DATE, '1 day', '2 day');
 
     CREATE OR REPLACE FUNCTION fn_delete_partition(_tbl text, _date date, _interval_start text, _interval_end text)
     RETURNS void
@@ -190,10 +190,10 @@ export default class HasuraClient {
     EXECUTE 'DROP TABLE '  || _tbl || '_p' || _partition_name;
   END
   $func$;
-
-  --  GRANT CREATE, USAGE ON SCHEMA cron TO ${source};
-  --  SELECT cron.schedule('${schemaName}_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('${schemaName}.logs', CURRENT_DATE, '1 day', '2 day')$$);
-  --  SELECT cron.schedule('${schemaName}_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('${schemaName}.logs', CURRENT_DATE, '-15 day', '-14 day')$$);
+  
+  -- GRANT CREATE, USAGE ON SCHEMA cron TO ${source};
+  -- SELECT cron.schedule('${schemaName}___logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('${schemaName}.logs', CURRENT_DATE, '1 day', '2 day')$$);
+  -- SELECT cron.schedule('${schemaName}___logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('${schemaName}.logs', CURRENT_DATE, '-15 day', '-14 day')$$);
       `,
       { source, readOnly: false }
     );
@@ -369,33 +369,6 @@ export default class HasuraClient {
   }
 
   async addPermissionsToTables (schemaName: string, source: string, tableNames: string[], roleName: string, permissions: string[]): Promise<any> {
-    return await this.executeBulkMetadataRequest(
-      tableNames
-        .map((tableName) => (
-          permissions.map((permission) => ({
-            type: `pg_create_${permission}_permission`,
-            args: {
-              source,
-              table: {
-                name: tableName,
-                schema: schemaName,
-              },
-              role: roleName,
-              permission: {
-                columns: '*',
-                check: {},
-                computed_fields: [],
-                filter: {},
-                ...(permission === 'select' && { allow_aggregations: true })
-              },
-            },
-          }))
-        ))
-        .flat()
-    );
-  }
-
-  async addPermissionsToLogsTable (schemaName: string, source: string, tableNames: string[], roleName: string, permissions: string[]): Promise<any> {
     return await this.executeBulkMetadataRequest(
       tableNames
         .map((tableName) => (

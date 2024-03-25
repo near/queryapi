@@ -196,7 +196,7 @@ exports[`HasuraClient creates a schema 1`] = `
   [
     "mock-hasura-endpoint/v2/query",
     {
-      "body": "{"type":"run_sql","args":{"sql":"CREATE schema schemaName","read_only":false,"source":"dbName"}}",
+      "body": "{"type":"run_sql","args":{"sql":"DROP SCHEMA IF EXISTS schemaName CASCADE;CREATE schema schemaName","read_only":false,"source":"dbName"}}",
       "headers": {
         "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
       },
