@@ -109,6 +109,10 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
+  async createLogsTable (schemaName: string, databaseName: string): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.createLogsTable(schemaName, databaseName), 'Failed to create logs');
+  }
+
   async runMigrations (databaseName: string, schemaName: string, migration: any): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.runMigrations(databaseName, schemaName, migration), 'Failed to run migrations');
   }
@@ -130,6 +134,7 @@ export default class Provisioner {
       permissions
     ), 'Failed to add permissions to tables');
   }
+
 
   async trackForeignKeyRelationships (schemaName: string, databaseName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.trackForeignKeyRelationships(schemaName, databaseName), 'Failed to track foreign key relationships');
@@ -159,25 +164,29 @@ export default class Provisioner {
             const password = this.generatePassword();
             await this.createUserDb(userName, password, databaseName);
             await this.addDatasource(userName, password, databaseName);
-          }
+        }
 
-          // Untrack tables from old schema to prevent conflicts with new DB
-          if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
+        // Check if the schema and logs table exist
+        if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
             const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
             await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
-          }
+            if (!tableNames.includes('__logs')) {
+                await this.createLogsTable(databaseName, schemaName);
+            }
+        } else {
+            await this.createSchema(databaseName, schemaName);
+            await this.createLogsTable(databaseName, schemaName);
+        }
 
-          await this.createSchema(databaseName, schemaName);
-          await this.runMigrations(databaseName, schemaName, databaseSchema);
+        await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-          const tableNames = await this.getTableNames(schemaName, databaseName);
-          await this.trackTables(schemaName, tableNames, databaseName);
+        const tableNames = await this.getTableNames(schemaName, databaseName);
+        await this.trackTables(schemaName, tableNames, databaseName);
 
-          await this.trackForeignKeyRelationships(schemaName, databaseName);
+        await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-          await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
-
-          this.setProvisioned(accountId, functionName);
+        await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+        this.setProvisioned(accountId, functionName);
         },
         'Failed to provision endpoint'
       );
