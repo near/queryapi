@@ -15,7 +15,7 @@ export default class PgClient {
 
   constructor (
     connectionParams: ConnectionParams,
-    poolConfig: PoolConfig = { max: 10, idleTimeoutMillis: 30000 },
+    poolConfig: PoolConfig = { max: Number(process.env.MAX_PG_POOL_SIZE ?? 10), idleTimeoutMillis: 3000 },
     PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule
   ) {
@@ -23,7 +23,7 @@ export default class PgClient {
       user: connectionParams.user,
       password: connectionParams.password,
       host: connectionParams.host,
-      port: Number(connectionParams.port),
+      port: Number(process.env.PGPORT),
       database: connectionParams.database,
       ...poolConfig,
     });

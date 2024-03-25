@@ -33,6 +33,7 @@ services:
       RUNNER_URL: http://runner:7001
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       RUST_LOG: info
+      RPC_URL: https://archival-rpc.mainnet.near.org
 
   runner:
     build:
@@ -45,9 +46,9 @@ services:
       HASURA_ENDPOINT: http://hasura-graphql:8080
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
-      PGHOST: postgres
-      PGHOST_HASURA: postgres
-      PGPORT: 5432
+      PGHOST: pgbouncer
+      PGHOST_HASURA: pgbouncer
+      PGPORT: 6432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres
@@ -61,6 +62,7 @@ services:
       ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
       GCP_PROJECT_ID: 
       TRACING_SAMPLE_RATE: 0.1
+      MAX_PG_POOL_SIZE: 10
     ports:
       - "7001:7001"
 
@@ -76,14 +78,36 @@ services:
       - "6379:6379"
 
   postgres:
-    image: postgres:12
+    image: postgres:14
     restart: always
     volumes:
+    - ./init-scripts/postgres:/docker-entrypoint-initdb.d
     - postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
+
+  pgbouncer:
+    image: darunrs/pgbouncer:auth_dbname # TODO: Replace with edoburu:pgbouncer image once it supports auth_dbname
+    environment:
+      LISTEN_PORT: 6432
+      DB_HOST: postgres
+      DB_USER: pgbouncer
+      DB_PASSWORD: pgbouncer
+      ADMIN_USERS: postgres
+      DB_NAME: "*"
+      AUTH_TYPE: scram-sha-256
+      AUTH_FILE: /etc/pgbouncer/userlist.txt
+      AUTH_USER: pgbouncer
+      AUTH_QUERY: SELECT uname, phash FROM public.user_lookup($1::text)
+      AUTH_DBNAME: postgres
+      MAX_CLIENT_CONN: 4000 # Max Connections to PgBouncer
+      DEFAULT_POOL_SIZE: 10 # Standard connections open per user/db combo
+    ports:
+      - "6432:6432"
+    depends_on:
+      - postgres
 
   hasura-auth:
     build:
