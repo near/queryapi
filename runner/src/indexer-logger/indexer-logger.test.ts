@@ -81,6 +81,3 @@ describe('IndexerLogger', () => {
         });
     });
 });
-
-
-

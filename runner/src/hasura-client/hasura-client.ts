@@ -123,8 +123,7 @@ export default class HasuraClient {
   }
 
   async createSchema (source: string, schemaName: string): Promise<any> {
-    //toFix: change back and remove Drop Schema
-    return await this.executeSql(`DROP SCHEMA IF EXISTS ${schemaName} CASCADE;CREATE schema ${schemaName}`, {
+    return await this.executeSql(`CREATE schema ${schemaName}`, {
       source,
       readOnly: false,
     });
@@ -198,6 +197,7 @@ export default class HasuraClient {
       { source, readOnly: false }
     );
   }
+  
   async runMigrations (source: string, schemaName: string, migration: string): Promise<any> {
     return await this.executeSql(
       `
