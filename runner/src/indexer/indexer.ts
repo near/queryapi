@@ -152,6 +152,7 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
+        //do we want to trace this promise?
         await Promise.all([...simultaneousPromises, this.indexer_logger?.writeLogBatch(writeLogBatch) ?? Promise.resolve()]);
       }
     }
@@ -421,10 +422,13 @@ export default class Indexer {
     if (logLevel < this.indexer_behavior.log_level) {
       return;
     }
+    const writeLogSpan = this.tracer.startSpan('call writeLog function of IndexerLogger');
     try {
       await (this.indexer_logger as IndexerLogger).writeLog(blockHeight, functionName, logTimestamp, logType, logLevel, message);
     } catch (error) {
       console.log(`Error occurred while writing to logs table ${error}`);
+    } finally{
+      writeLogSpan.end();
     }
   }
 
