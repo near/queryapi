@@ -1541,10 +1541,10 @@
   resolved "https://registry.yarnpkg.com/@n1ru4l/push-pull-async-iterable-iterator/-/push-pull-async-iterable-iterator-3.2.0.tgz#c15791112db68dd9315d329d652b7e797f737655"
   integrity sha512-3fkKj25kEjsfObL6IlKPAlHYPq/oYwUkkQ03zsTTiDjD7vg/RxjdiLeCydqtxHZP0JgsXL3D/X5oAkMGzuUp/Q==
 
-"@near-lake/primitives@0.3.0":
-  version "0.3.0"
-  resolved "https://registry.yarnpkg.com/@near-lake/primitives/-/primitives-0.3.0.tgz#4400131d629af135e059c10cac2ac96a7a3513f4"
-  integrity sha512-tk1ADPel6J38NRdU9RjvIeQ8s9M68keHvPBfmqGrTWGoO/gWn/8DrinEYS+XgC54JTRfhOige8xIYvNrTGxJDw==
+"@near-lake/primitives@0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@near-lake/primitives/-/primitives-0.4.0.tgz#aa3790d9a977341db8e29d04e1f8131c85d71415"
+  integrity sha512-qpLFLjRvbcAzVG+ZSGwXBQ33UoMtBNPb7A6OPHGdSzoFDxEqkP+7waZ5VGGuBOYovwHVt5wt7N1MwP/D8YLgSw==
   dependencies:
     borsh "^2.0.0"
     borsher "^1.2.1"
