@@ -1,0 +1,147 @@
+{
+  "block": {
+    "author": "nfvalidator2.near",
+    "chunks": [
+      {
+        "balanceBurnt": "0",
+        "chunkHash": "CUc7UcYGcXwu5Y6UqEkkS6UbffHN4NNHhh5XLRHV8kLu",
+        "encodedLength": 8,
+        "encodedMerkleRoot": "3HH1fYqnCGMx2ZmL4sLcTuu2Yovg1r6KjNrPtgBATHgu",
+        "gasLimit": 1000000000000000,
+        "gasUsed": 0,
+        "heightCreated": 9820210,
+        "heightIncluded": 9820210,
+        "outcomeRoot": "11111111111111111111111111111111",
+        "outgoingReceiptsRoot": "11111111111111111111111111111111",
+        "prevBlockHash": "11111111111111111111111111111111",
+        "prevStateRoot": "8EhZRfDTYujfZoUZtZ3eSMB9gJyFo5zjscR12dEcaxGU",
+        "rentPaid": "0",
+        "shardId": 0,
+        "signature": "ed25519:1111111111111111111111111111111111111111111111111111111111111111",
+        "txRoot": "11111111111111111111111111111111",
+        "validatorProposals": [],
+        "validatorReward": "0"
+      }
+    ],
+    "header": {
+      "approvals": [
+        "ed25519:2rcCkY58mAZpA3o5rbSQuox9EKsuy6jvdnLrStebM9UraSwyiQ1v71NVMTHZWWZ3bQL6JXVg5ZXcSsceFrKXxHNM",
+        "ed25519:23iwu85pTFnSEqhXmWTR3FwLv5gtkUedbh5CCfDor9t1qhLeECmRsXjPJYqxvQ19q9dxumoGrqU6Loy41XhN8fDH",
+        null,
+        "ed25519:3NgXg3EdWqvJDTEN9J42pVNV6cKjAAUD1Nt8Np3yhfTTHZR6Ch2sC8p4bK22yu7ApmHFkiFA7uK3V5mw9XBcYPKH"
+      ],
+      "blockMerkleRoot": "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H",
+      "blockOrdinal": null,
+      "challengesResult": [],
+      "challengesRoot": "11111111111111111111111111111111",
+      "chunkHeadersRoot": "B721Q29qvCCbUc8cDa8ET9fjSPHPtrVw9HGFr3Q6jXxQ",
+      "chunkMask": [
+        false
+      ],
+      "chunkReceiptsRoot": "7tkzFg8RHBmMw1ncRJZCCZAizgq4rwCftTKYLce8RU8t",
+      "chunkTxRoot": "7tkzFg8RHBmMw1ncRJZCCZAizgq4rwCftTKYLce8RU8t",
+      "chunksIncluded": 0,
+      "epochId": "11111111111111111111111111111111",
+      "epochSyncDataHash": null,
+      "gasPrice": "1000000000",
+      "hash": "CFAAJTVsw5y4GmMKNmuTNybxFJtapKcrarsTh5TPUyQf",
+      "height": 9820214,
+      "lastDsFinalBlock": "11111111111111111111111111111111",
+      "lastFinalBlock": "11111111111111111111111111111111",
+      "latestProtocolVersion": 30,
+      "nextBpHash": "C4121SKfZh1MC38ukZaxHsEXNYrBbqAk77P7yLmQffs5",
+      "nextEpochId": "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H",
+      "outcomeRoot": "7tkzFg8RHBmMw1ncRJZCCZAizgq4rwCftTKYLce8RU8t",
+      "prevHash": "EPnLgE7iEq9s7yTkos96M3cWymH5avBAPm3qx3NXqR8H",
+      "prevHeight": null,
+      "prevStateRoot": "5o1trt9N9YgDL4xeY33z9adS5Ub3jMmuyQpWM7UHowrq",
+      "randomValue": "FLoczEZ3VvQCt8tUX4X4UpRvdnAr6h5BYk2RfeKDc8my",
+      "rentPaid": "0",
+      "signature": "ed25519:2cqTH9qg8CMeRsVURZj5LNUsPbHnH21gHaSF73jm64Zep9EhL4hsBsRd2WxBJTEDTcxiKvNNSTb4HzFm2z7HMQYk",
+      "timestamp": 1595368210762782700,
+      "timestampNanosec": "1595368210762782796",
+      "totalSupply": "999999999792372916156395166000000",
+      "validatorProposals": [],
+      "validatorReward": "0"
+    }
+  },
+  "shards": [
+    {
+      "chunk": null,
+      "receiptExecutionOutcomes": [],
+      "shardId": 0,
+      "stateChanges": [
+        {
+          "cause": {
+            "type": "validator_accounts_update"
+          },
+          "change": {
+            "accountId": "nfvalidator1.near",
+            "amount": "0",
+            "codeHash": "11111111111111111111111111111111",
+            "locked": "50000000000000000000000000000",
+            "storagePaidAt": 0,
+            "storageUsage": 182
+          },
+          "type": "account_update"
+        },
+        {
+          "cause": {
+            "type": "validator_accounts_update"
+          },
+          "change": {
+            "accountId": "nfvalidator2.near",
+            "amount": "0",
+            "codeHash": "11111111111111111111111111111111",
+            "locked": "50000000000000000000000000000",
+            "storagePaidAt": 0,
+            "storageUsage": 182
+          },
+          "type": "account_update"
+        },
+        {
+          "cause": {
+            "type": "validator_accounts_update"
+          },
+          "change": {
+            "accountId": "nfvalidator3.near",
+            "amount": "0",
+            "codeHash": "11111111111111111111111111111111",
+            "locked": "50000000000000000000000000000",
+            "storagePaidAt": 0,
+            "storageUsage": 182
+          },
+          "type": "account_update"
+        },
+        {
+          "cause": {
+            "type": "validator_accounts_update"
+          },
+          "change": {
+            "accountId": "nfvalidator4.near",
+            "amount": "0",
+            "codeHash": "11111111111111111111111111111111",
+            "locked": "50000000000000000000000000000",
+            "storagePaidAt": 0,
+            "storageUsage": 182
+          },
+          "type": "account_update"
+        },
+        {
+          "cause": {
+            "type": "validator_accounts_update"
+          },
+          "change": {
+            "accountId": "treasury.near",
+            "amount": "10000000000000000000000000",
+            "codeHash": "11111111111111111111111111111111",
+            "locked": "0",
+            "storagePaidAt": 0,
+            "storageUsage": 182
+          },
+          "type": "account_update"
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,16 @@ interface IndexerFunction {
   code: string
 }
 
+interface Config {
+  hasuraAdminSecret: string
+  hasuraEndpoint: string
+}
+
+const defaultConfig: Config = {
+  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET,
+  hasuraEndpoint: process.env.HASURA_ENDPOINT,
+};
+
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
   tracer = trace.getTracer('queryapi-runner-indexer');
@@ -48,6 +58,7 @@ export default class Indexer {
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
+    private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
     this.indexer_behavior = indexerBehavior;
@@ -464,14 +475,14 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
-    const response: Response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
+    const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Hasura-Use-Backend-Only-Permissions': 'true',
         ...(hasuraRoleName && {
           'X-Hasura-Role': hasuraRoleName,
-          'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
+          'X-Hasura-Admin-Secret': this.config.hasuraAdminSecret,
         }),
       },
       body: JSON.stringify({
