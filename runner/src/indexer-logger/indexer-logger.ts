@@ -9,6 +9,20 @@ export default class IndexerLogger {
     private readonly pgClient: PgClient
   ) {}
 
+  static create (
+    databaseConnectionParameters: DatabaseConnectionParameters,
+    pgClientInstance: PgClient | undefined = undefined
+  ): IndexerLogger {
+    const pgClient = pgClientInstance ?? new PgClient({
+      user: databaseConnectionParameters.username,
+      password: databaseConnectionParameters.password,
+      host: process.env.PGHOST,
+      port: Number(databaseConnectionParameters.port),
+      database: databaseConnectionParameters.database,
+    });
+    return new IndexerLogger(pgClient);
+  }
+
   private extractDateParts(date: Date): { year: number, month: number, day: number } {
     return {
         year: date.getFullYear(),
@@ -21,25 +35,10 @@ export default class IndexerLogger {
     const { year, month, day } = this.extractDateParts(date);
     return new Date(year, month, day);
   }
-
-    static create (
-        databaseConnectionParameters: DatabaseConnectionParameters,
-        pgClientInstance: PgClient | undefined = undefined
-      ): IndexerLogger {
-        const pgClient = pgClientInstance ?? new PgClient({
-          user: databaseConnectionParameters.username,
-          password: databaseConnectionParameters.password,
-          host: process.env.PGHOST,
-          port: Number(databaseConnectionParameters.port),
-          database: databaseConnectionParameters.database,
-        });
-        return new IndexerLogger(pgClient);
-      }
   
   async writeLog(
     blockHeight: number,
     functionName: string,
-    logDate: Date,
     logTimestamp: Date,
     logType: string,
     logLevel: LogLevel,
@@ -47,7 +46,7 @@ export default class IndexerLogger {
     ): Promise<void> {
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
     
-    const formattedLogDate = this.formatDate(logDate);
+    const formattedLogDate = this.formatDate(logTimestamp);
     const logLevelString = LogLevel[logLevel];
 
     const query = 

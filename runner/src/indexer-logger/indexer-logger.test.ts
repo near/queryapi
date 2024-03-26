@@ -43,7 +43,6 @@ describe('IndexerLogger', () => {
             const indexerLogger = IndexerLogger.create(mockDatabaseConnectionParameters, pgClient);
             const blockHeight = 123;
             const functionName = 'testFunction';
-            const logDate = new Date();
             const logTimestamp = new Date();
             const logType = 'system';
             const logLevel = LogLevel.INFO;
@@ -52,27 +51,18 @@ describe('IndexerLogger', () => {
             await indexerLogger.writeLog(
                 blockHeight,
                 functionName,
-                logDate,
                 logTimestamp,
                 logType,
                 logLevel,
                 message
             );
-            
-            expect(typeof blockHeight).toBe('number');
-            expect(typeof functionName).toBe('string');
-            expect(logDate).toBeInstanceOf(Date);
-            expect(logTimestamp).toBeInstanceOf(Date);
-            expect(typeof logType).toBe('string');
-            expect(typeof logLevel).toBe('number'); 
-            expect(typeof message).toBe('string');
 
-            expect(spyFormatDate).toHaveBeenCalledWith(logDate);
+            expect(spyFormatDate).toHaveBeenCalledWith(logTimestamp);
             expect(query.mock.calls.length).toBe(1);
             expect(query.mock.calls[0][0]).toEqual('INSERT INTO testFunction.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES ($1, $2, $3, $4, $5, $6)');
             expect(query.mock.calls[0][1]).toEqual([
                 blockHeight,
-                expect.any(Date), 
+                expect.any(String),  //toDo check if func name is correct
                 logTimestamp,
                 logType,
                 LogLevel[logLevel],

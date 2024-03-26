@@ -25,6 +25,7 @@ interface Context {
   set: (key: string, value: any) => Promise<any>
   debug: (...log: any[]) => Promise<void>
   log: (...log: any[]) => Promise<void>
+  warn: (...log: any[]) => Promise<void>
   error: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
   db: Record<string, Record<string, (...args: any[]) => any>>
@@ -133,8 +134,8 @@ export default class Indexer {
             await vm.run(modifiedFunction);
           } catch (e) {
             const error = e as Error;
-            await this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
-            await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.ERROR, 'Error running IndexerFunction', error.message)
+            simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message));
+            simultaneousPromises.push(this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.ERROR, `Error running IndexerFunction ${error.message}`));
             throw e;
           } finally {
             runIndexerCodeSpan.end();
@@ -146,7 +147,17 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
-        await Promise.all(simultaneousPromises);
+        await Promise.all(simultaneousPromises.map(promise =>
+          promise.catch(error => {
+              console.log('promise: ',promise, ' error: ' , error)
+              // if (promise === this.writeLog) {
+              //     console.error("Error occurred in new writeLog:", error);
+              // } else {
+              //     // Throw errors from old writeLog
+              //     throw error;
+              // }
+          })
+      ));
       }
     }
     return allMutations;
@@ -197,22 +208,33 @@ export default class Indexer {
         }
       },
       debug: async (...log) => {
-        await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.DEBUG,  ...log)
-        return await this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, ...log);
+        await Promise.all([
+          this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.DEBUG, ...log),
+          this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, ...log)
+        ]);
       },
       log: async (...log) => {
-        await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.INFO,  ...log)
-        return await this.writeLogOld(LogLevel.INFO, functionName, blockHeight, ...log);
+        await Promise.all([
+         this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.INFO,  ...log),
+         this.writeLogOld(LogLevel.INFO, functionName, blockHeight, ...log)
+        ]);
       },
-      // TODO: Add Warn Log
+      warn: async (...log) => {
+        await Promise.all([
+         this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.WARN,  ...log),
+         this.writeLogOld(LogLevel.WARN, functionName, blockHeight, ...log)
+        ]);
+      },
       error: async (...log) => {
-        await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.ERROR,  ...log)
-        return await this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, ...log);
+        await Promise.all([
+         this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.ERROR,  ...log),
+         this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, ...log)
+        ]);
       },
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(schemaName, functionName, schema, blockHeight)
+      db: this.buildDatabaseContext(functionName, schemaName, schema, blockHeight)
     };
   }
 
@@ -289,9 +311,10 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db insert', async (insertSpan: Span) => {
                 try {
                   // Write log before calling insert
-                  await this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight,`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
-                  await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.DEBUG, `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
-
+                  await Promise.all([
+                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight,`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`),
+                    this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.DEBUG, `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`)
+                  ]);
                   // Call insert with parameters
                   return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
                 } finally {
@@ -303,9 +326,10 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db select', async (selectSpan: Span) => {
                 try {
                   // Write log before calling select
-                  await this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
-                  await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.DEBUG, `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
-
+                  await Promise.all([
+                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`),
+                    this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.DEBUG, `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`)
+                  ]);
                   // Call select with parameters
                   return await dmlHandler.select(schemaName, tableName, filterObj, limit);
                 } finally {
@@ -317,9 +341,10 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db update', async (updateSpan: Span) => {
                 try {
                   // Write log before calling update
-                  await this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
-                  await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.DEBUG, `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
-
+                  await Promise.all([
+                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`),
+                    this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.DEBUG, `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`)
+                  ]);
                   // Call update with parameters
                   return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
                 } finally {
@@ -331,9 +356,10 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db upsert', async (upsertSpan: Span) => {
                 try {
                   // Write log before calling upsert
-                  await this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
-                  await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.DEBUG, `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
-
+                  await Promise.all([
+                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`),
+                    this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.DEBUG, `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`)
+                  ]);
                   // Call upsert with parameters
                   return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
                 } finally {
@@ -345,9 +371,10 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db delete', async (deleteSpan: Span) => {
                 try {
                   // Write log before calling delete
-                  await this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
-                  await this.writeLog(blockHeight, functionName, new Date(), new Date(), 'system', LogLevel.DEBUG, `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
-
+                  await Promise.all([
+                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`),
+                    this.writeLog(blockHeight, functionName, new Date(), 'system', LogLevel.DEBUG, `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`)
+                  ]);
                   // Call delete with parameters
                   return await dmlHandler.delete(schemaName, tableName, filterObj);
                 } finally {
@@ -395,12 +422,12 @@ export default class Indexer {
     }
   }
 
-  async writeLog (blockHeight: number, functionName:string, logDate: Date, logTimestamp: Date, logType: string, logLevel: number, ...message: any ): Promise<any> {
+  async writeLog (blockHeight: number, functionName:string, logTimestamp: Date, logType: string, logLevel: number, ...message: any ): Promise<any> {
     if (logLevel < this.indexer_behavior.log_level) {
       return;
     }
     if (this.indexer_logger instanceof IndexerLogger) {
-      await (this.indexer_logger as IndexerLogger).writeLog(blockHeight, functionName, logDate, logTimestamp, logType, logLevel, message);
+      await (this.indexer_logger as IndexerLogger).writeLog(blockHeight, functionName, logTimestamp, logType, logLevel, message);
     }
   }
 

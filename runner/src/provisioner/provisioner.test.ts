@@ -217,7 +217,6 @@ describe('Provisioner', () => {
     });
 
     it('throws an error when it fails to create logs table', async () => {
-      console.log(error);
       hasuraClient.createLogsTable = jest.fn().mockRejectedValue(error);
 
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);

@@ -135,7 +135,6 @@ export default class Provisioner {
     ), 'Failed to add permissions to tables');
   }
 
-
   async trackForeignKeyRelationships (schemaName: string, databaseName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.trackForeignKeyRelationships(schemaName, databaseName), 'Failed to track foreign key relationships');
   }
