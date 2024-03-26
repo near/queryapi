@@ -1,4 +1,4 @@
-import { Parser } from "kevin-node-sql-parser";
+import { Parser } from "node-sql-parser";
 //todo: remove this import and replace with a with default node-sql-parser on next release
 
 export class PgSchemaTypeGen {

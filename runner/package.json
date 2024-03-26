@@ -59,7 +59,7 @@
     "express": "^4.18.2",
     "long": "^5.2.3",
     "node-fetch": "^2.6.11",
-    "kevin-node-sql-parser": "^4.18.1",
+    "node-sql-parser": "^5.0.0",
     "pg": "^8.11.1",
     "pg-format": "^1.0.4",
     "pluralize": "^8.0.0",
