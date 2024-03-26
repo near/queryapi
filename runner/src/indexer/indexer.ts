@@ -1,7 +1,7 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import * as lakePrimitives from '@near-lake/primitives';
-import { Parser } from 'kevin-node-sql-parser';
+import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
