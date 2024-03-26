@@ -99,6 +99,10 @@ export default class Provisioner {
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
     if (schemaExists) {
+      const tableNames = await this.getTableNames(schemaName, sanitizedAccountId);
+      if (!tableNames.includes('__logs')) {
+        await this.createLogsTable(schemaName, databaseName);
+      }
       this.setProvisioned(accountId, functionName);
     }
     checkProvisioningSpan.end();

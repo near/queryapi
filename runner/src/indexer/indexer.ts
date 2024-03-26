@@ -147,17 +147,7 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
-        await Promise.all(simultaneousPromises.map(promise =>
-          promise.catch(error => {
-              console.log('promise: ',promise, ' error: ' , error)
-              // if (promise === this.writeLog) {
-              //     console.error("Error occurred in new writeLog:", error);
-              // } else {
-              //     // Throw errors from old writeLog
-              //     throw error;
-              // }
-          })
-      ));
+        await Promise.all(simultaneousPromises);
       }
     }
     return allMutations;
