@@ -21,19 +21,7 @@ const indexer = {
   redis_stream: 'test:stream', // Redis stream will need messages for indexer to run. This is just an example.
   function_name: 'sample_indexer', // Can be anything
   code,
-  start_block_height: 113448278, // Does not matter
   schema,
-  provisioned: true, // Does not matter
-  indexer_rule: { // Does not matter
-    indexer_rule_kind: 'Action',
-    matching_rule: {
-      rule: 'ACTION_ANY',
-      affected_account_id: 'token.sweat',
-      status: 'SUCCESS'
-    },
-    id: null,
-    name: null
-  }
 };
 
 void (async function main () {
