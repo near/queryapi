@@ -85,26 +85,4 @@ export default class IndexerLogger {
     await wrapError(async () => await this.pgClient.query(query, flattenedValues), `Failed to execute '${query}' on ${schemaName}`);
   }
 }
-    // const schemaNameToLogsMap = new Map<string, LogEntry[]>();
-
-    // for (const entry of logEntries) {
-    //   const schemaName = entry.functionName.replace(/[^a-zA-Z0-9]/g, '_');
-    //   schemaNameToLogsMap.has(schemaName) ? schemaNameToLogsMap.get(schemaName)?.push(entry) : schemaNameToLogsMap.set(schemaName, [entry]);
-    // }
-    // for (const [schemaName, logEntry] of schemaNameToLogsMap.entries()) {
-    //   const values = logEntry.map(entry => [
-    //     entry.blockHeight,
-    //     this.formatDate(entry.logTimestamp),
-    //     entry.logTimestamp,
-    //     entry.logType,
-    //     LogLevel[entry.logLevel],
-    //     entry.message
-    // ]);
-
-    //   const query =
-    //     `INSERT INTO ${schemaName}.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES ($1, $2, $3, $4, $5, $6)`;
-
-    //   await wrapError(async () => await this.pgClient.query(query, values), `Failed to execute batch insert on ${schemaName}`);
-    // }
-
-    //note: if the schema is always the same the grouping and iteration logic becomes useless so we can do one insert
+    

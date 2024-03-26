@@ -111,9 +111,8 @@ export default class Indexer {
         // Cache database credentials after provisioning
         const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
-          const userConnectionRole = this.database_connection_parameters = this.database_connection_parameters ??
-            await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
-            this.indexer_logger = this.indexer_logger ?? IndexerLogger.create(userConnectionRole);
+          this.database_connection_parameters = this.database_connection_parameters ?? await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
+          this.indexer_logger = this.indexer_logger ?? IndexerLogger.create(this.database_connection_parameters!);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
@@ -422,8 +421,10 @@ export default class Indexer {
     if (logLevel < this.indexer_behavior.log_level) {
       return;
     }
-    if (this.indexer_logger instanceof IndexerLogger) {
+    try {
       await (this.indexer_logger as IndexerLogger).writeLog(blockHeight, functionName, logTimestamp, logType, logLevel, message);
+    } catch (error) {
+      console.log(`Error occurred while writing to logs table ${error}`);
     }
   }
 
