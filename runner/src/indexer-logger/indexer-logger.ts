@@ -11,6 +11,12 @@ export interface LogEntry {
   logLevel: LogLevel;
   message: string;
 }
+
+export enum LogType {
+  SYSTEM = 'system',
+  USER = 'user',
+}
+
 export default class IndexerLogger {
 
   private constructor (
@@ -60,6 +66,25 @@ export default class IndexerLogger {
   async writeLogBatch(logEntries: LogEntry[]): Promise<void> {
     if(logEntries.length === 0) return;
 
+    const schemaName = logEntries[0].functionName.replace(/[^a-zA-Z0-9]/g, '_');
+
+    const values = logEntries.map(entry => [
+      entry.blockHeight,
+      this.formatDate(entry.logTimestamp),
+      entry.logTimestamp,
+      entry.logType,
+      LogLevel[entry.logLevel],
+      entry.message
+  ]);
+
+    const valuePlaceholders = logEntries.map((_, index) => `($${index * 6 + 1}, $${index * 6 + 2}, $${index * 6 + 3}, $${index * 6 + 4}, $${index * 6 + 5}, $${index * 6 + 6})`).join(', ');
+    const query =
+        `INSERT INTO ${schemaName}.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES ${valuePlaceholders}`;
+
+    const flattenedValues = values.flat();
+    await wrapError(async () => await this.pgClient.query(query, flattenedValues), `Failed to execute '${query}' on ${schemaName}`);
+  }
+}
     // const schemaNameToLogsMap = new Map<string, LogEntry[]>();
 
     // for (const entry of logEntries) {
@@ -83,18 +108,3 @@ export default class IndexerLogger {
     // }
 
     //note: if the schema is always the same the grouping and iteration logic becomes useless so we can do one insert
-    const values = logEntries.map(entry => [
-      entry.blockHeight,
-      this.formatDate(entry.logTimestamp),
-      entry.logTimestamp,
-      entry.logType,
-      LogLevel[entry.logLevel],
-      entry.message
-  ]);
-
-    const query =
-      `INSERT INTO schema_name.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES %L`;
-
-    await wrapError(async () => await this.pgClient.query(query, [values]), `Failed to execute batch insert`);
-  }
-}
