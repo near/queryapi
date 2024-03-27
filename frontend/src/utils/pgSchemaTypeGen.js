@@ -7,6 +7,62 @@ export class PgSchemaTypeGen {
 		this.tables = new Set();
 	}
 
+	getColumnDefinitionNames (columnDefs) {
+		const columnDefinitionNames = new Map();
+		for (const columnDef of columnDefs) {
+			if (columnDef.column?.type === 'column_ref') {
+				const columnNameDef = columnDef.column.column.expr;
+				const actualColumnName = columnNameDef.type === 'double_quote_string' ? `"${columnNameDef.value}"` : columnNameDef.value;
+				columnDefinitionNames.set(columnNameDef.value, actualColumnName);
+			}
+		}
+		return columnDefinitionNames;
+	}
+	
+	retainOriginalQuoting (schema, tableName) {
+		const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
+
+		if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
+			return `"${tableName}"`;
+		}
+
+		return tableName;
+	}
+	
+	getTableNameToDefinitionNamesMapping (schema) {
+		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
+		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
+		const tableNameToDefinitionNamesMap = new Map();
+
+		for (const statement of schemaSyntaxTree) {
+			if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
+				const tableName = statement.table[0].table;
+
+				if (tableNameToDefinitionNamesMap.has(tableName)) {
+					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
+				}
+
+				// Generate column lookup for table
+				const createDefs = statement.create_definitions ?? [];
+				for (const columnDef of createDefs) {
+					if (columnDef.column?.type === 'column_ref') {
+						const tableDefinitionNames = {
+							originalTableName: this.retainOriginalQuoting(schema, tableName),
+							originalColumnNames: this.getColumnDefinitionNames(createDefs)
+						};
+						tableNameToDefinitionNamesMap.set(tableName, tableDefinitionNames);
+					}
+				}
+			}
+		}
+
+		if (tableNameToDefinitionNamesMap.size === 0) {
+			throw new Error('Schema does not have any tables. There should be at least one table.');
+		}
+
+		return tableNameToDefinitionNamesMap;
+	}
+
 	sanitizeTableName(tableName) {
 		// Convert to PascalCase
 		let pascalCaseTableName = tableName
@@ -23,33 +79,6 @@ export class PgSchemaTypeGen {
 		}
 
 		return pascalCaseTableName;
-	}
-
-	getTableNames(schema) {
-		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
-		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-		const tableNames = new Set();
-
-		// Collect all table names from schema AST, throw error if duplicate table names exist
-		for (const statement of schemaSyntaxTree) {
-			if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
-				const tableName = statement.table[0].table;
-
-				if (tableNames.has(tableName)) {
-					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
-				}
-
-				tableNames.add(tableName);
-			}
-		}
-
-		// Ensure schema is not empty
-		if (tableNames.size === 0) {
-			throw new Error('Schema does not have any tables. There should be at least one table.');
-		}
-
-		const tableNamesArray = Array.from(tableNames);
-		return Array.from(tableNamesArray);
 	}
 
 	generateTypes(sqlSchema) {
