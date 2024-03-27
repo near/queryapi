@@ -161,12 +161,6 @@ export default class Provisioner {
             await this.addDatasource(userName, password, databaseName);
           }
 
-          // Untrack tables from old schema to prevent conflicts with new DB
-          if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
-            const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
-            await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
-          }
-
           await this.createSchema(databaseName, schemaName);
           await this.runMigrations(databaseName, schemaName, databaseSchema);
 

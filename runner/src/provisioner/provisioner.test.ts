@@ -13,7 +13,6 @@ describe('Provisioner', () => {
   const sanitizedFunctionName = 'test_function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   const error = new Error('some error');
-  const defaultDatabase = 'default';
   const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
 
   const password = 'password';
@@ -108,17 +107,6 @@ describe('Provisioner', () => {
         ]
       );
       expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
-    });
-
-    it('untracks tables from the previous schema if they exists', async () => {
-      hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
-
-      const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
-
-      await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
-
-      expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, defaultDatabase);
-      expect(hasuraClient.untrackTables).toBeCalledWith(defaultDatabase, schemaName, tableNames);
     });
 
     it('skips provisioning the datasource if it already exists', async () => {
