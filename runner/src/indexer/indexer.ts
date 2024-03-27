@@ -26,6 +26,11 @@ interface Context {
   db: Record<string, Record<string, (...args: any[]) => any>>
 }
 
+interface TableLookup {
+  originalTableName: string
+  columnLookup: Map<string, string>
+}
+
 interface IndexerFunction {
   account_id: string
   function_name: string
@@ -131,7 +136,7 @@ export default class Indexer {
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
-        const vm = new VM({ timeout: 20000, allowAsync: true });
+        const vm = new VM({ allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
@@ -226,31 +231,60 @@ export default class Indexer {
     };
   }
 
-  getTableNames (schema: string): string[] {
+  private generateColumnLookup (columnDefs: any[]): Map<string, string> {
+    const columnLookup = new Map<string, string>();
+    for (const columnDef of columnDefs) {
+      if (columnDef.column?.type === 'column_ref') {
+        const columnNameDef = columnDef.column.column.expr;
+        const actualColumnName = columnNameDef.type === 'double_quote_string' ? `"${columnNameDef.value as string}"` : columnNameDef.value;
+        columnLookup.set(columnNameDef.value, actualColumnName);
+      }
+    }
+    return columnLookup;
+  }
+
+  private retainOriginalSchemaQuoting (schema: string, tableName: string): string {
+    const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
+
+    if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
+      return `"${tableName}"`;
+    }
+
+    return tableName;
+  }
+
+  getSchemaLookup (schema: string): Map<string, TableLookup> {
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-    const tableNames = new Set<string>();
+    const schemaLookup = new Map<string, TableLookup>();
 
-    // Collect all table names from schema AST, throw error if duplicate table names exist
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
         const tableName: string = statement.table[0].table;
 
-        if (tableNames.has(tableName)) {
+        if (schemaLookup.has(tableName)) {
           throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
         }
 
-        tableNames.add(tableName);
+        // Generate column lookup for table
+        const createDefs = statement.create_definitions ?? [];
+        for (const columnDef of createDefs) {
+          if (columnDef.column?.type === 'column_ref') {
+            const tableLookup = {
+              originalTableName: this.retainOriginalSchemaQuoting(schema, tableName),
+              columnLookup: this.generateColumnLookup(createDefs)
+            };
+            schemaLookup.set(tableName, tableLookup);
+          }
+        }
       }
     }
 
-    // Ensure schema is not empty
-    if (tableNames.size === 0) {
+    if (schemaLookup.size === 0) {
       throw new Error('Schema does not have any tables. There should be at least one table.');
     }
 
-    const tableNamesArray = Array.from(tableNames);
-    return Array.from(tableNamesArray);
+    return schemaLookup;
   }
 
   sanitizeTableName (tableName: string): string {
@@ -278,12 +312,13 @@ export default class Indexer {
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
     try {
-      const tables = this.getTableNames(schema);
+      const schemaLookup = this.getSchemaLookup(schema);
+      const tableNames = Array.from(schemaLookup.keys());
       const sanitizedTableNames = new Set<string>();
       const dmlHandler = this.dml_handler as DmlHandler;
 
       // Generate and collect methods for each table name
-      const result = tables.reduce((prev, tableName) => {
+      const result = tableNames.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
         const sanitizedTableName = this.sanitizeTableName(tableName);
         if (sanitizedTableNames.has(sanitizedTableName)) {

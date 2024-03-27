@@ -44,17 +44,17 @@ export default class DmlHandler {
     return { queryVars, whereClause };
   }
 
-  async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
-    if (!objects?.length) {
+  async insert (schemaName: string, tableName: string, rowsToInsert: any[]): Promise<any[]> {
+    if (!rowsToInsert?.length) {
       return [];
     }
 
-    const keys = Object.keys(objects[0]);
+    const columnNames = Object.keys(rowsToInsert[0]);
     // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
-    const values = objects.map(obj => keys.map(key => obj[key]));
-    const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L RETURNING *`;
+    const flattenedValues = rowsToInsert.map(row => columnNames.map(columnName => row[columnName]));
+    const query = `INSERT INTO ${schemaName}."${tableName}" (${columnNames.join(', ')}) VALUES %L RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, flattenedValues), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 
