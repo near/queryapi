@@ -1,4 +1,4 @@
-// Run with 'npx ts-node create_executor.ts'
+// Run with 'npx ts-node src/test-client.ts'
 
 import runnerClient from '../src/server/runner-client';
 

@@ -155,7 +155,6 @@ export default class IndexerRunner {
   }
 
   buildDatabaseContext (blockHeight, schemaName, schema) {
-    console.log("I AM (NOT) HERE");
     try {
       const tableNameToDefinitionNamesMapping = this.pgSchemaTypeGen.getTableNameToDefinitionNamesMapping(schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
@@ -209,7 +208,6 @@ export default class IndexerRunner {
           ...funcForTable
         };
       }, {});
-      console.log(result);
       return result;
     } catch (error) {
       console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
