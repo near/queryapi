@@ -1,15 +1,25 @@
+import { type Tracer, trace } from '@opentelemetry/api';
+
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
 import PgClient from '../pg-client';
-import { type Tracer, trace } from '@opentelemetry/api';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
+const CRON_DATABASE = 'cron';
 
-const sharedPgClient = new PgClient({
+const _adminPgClient = new PgClient({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
+  host: process.env.PGHOST,
+  port: Number(process.env.PGPORT),
+});
+
+const _cronPgClient = new PgClient({
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: CRON_DATABASE,
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
@@ -28,13 +38,10 @@ export default class Provisioner {
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
-    private readonly pgClient: PgClient = sharedPgClient,
+    private readonly adminPgClient: PgClient = _adminPgClient,
+    private readonly cronPgClient: PgClient = _cronPgClient,
     private readonly crypto: typeof cryptoModule = cryptoModule,
-  ) {
-    this.hasuraClient = hasuraClient;
-    this.pgClient = pgClient;
-    this.crypto = crypto;
-  }
+  ) {}
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
     return this.crypto
@@ -57,16 +64,48 @@ export default class Provisioner {
   }
 
   async createDatabase (name: string): Promise<void> {
-    await this.pgClient.query(this.pgClient.format('CREATE DATABASE %I', name));
+    await this.adminPgClient.query(this.adminPgClient.format('CREATE DATABASE %I', name));
   }
 
   async createUser (name: string, password: string): Promise<void> {
-    await this.pgClient.query(this.pgClient.format('CREATE USER %I WITH PASSWORD %L', name, password));
+    await this.adminPgClient.query(this.adminPgClient.format('CREATE USER %I WITH PASSWORD %L', name, password));
   }
 
   async restrictUserToDatabase (databaseName: string, userName: string): Promise<void> {
-    await this.pgClient.query(this.pgClient.format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
-    await this.pgClient.query(this.pgClient.format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
+    await this.adminPgClient.query(this.adminPgClient.format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
+    await this.adminPgClient.query(this.adminPgClient.format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
+  }
+
+  async grantCronAccess (userName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        await this.cronPgClient.query(this.cronPgClient.format('GRANT USAGE ON SCHEMA cron TO %I', userName));
+        await this.cronPgClient.query(this.cronPgClient.format('GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO %I;', userName));
+      },
+      'Failed to grant cron access'
+    );
+  }
+
+  async scheduleLogPartitionJobs (databaseName: string, schemaName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        await this.cronPgClient.query(
+          this.cronPgClient.format(
+            "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$I);",
+            schemaName,
+            databaseName
+          )
+        );
+        await this.cronPgClient.query(
+          this.cronPgClient.format(
+            "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$I);",
+            schemaName,
+            databaseName
+          )
+        );
+      },
+      'Failed to schedule log partition jobs'
+    );
   }
 
   async createUserDb (userName: string, password: string, databaseName: string): Promise<void> {
@@ -163,6 +202,9 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
           await this.runMigrations(databaseName, schemaName, databaseSchema);
+
+          await this.grantCronAccess(userName);
+          await this.scheduleLogPartitionJobs(databaseName, schemaName);
 
           const tableNames = await this.getTableNames(schemaName, databaseName);
           await this.trackTables(schemaName, tableNames, databaseName);

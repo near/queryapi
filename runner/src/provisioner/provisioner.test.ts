@@ -3,7 +3,8 @@ import pgFormat from 'pg-format';
 import Provisioner from './provisioner';
 
 describe('Provisioner', () => {
-  let pgClient: any;
+  let adminPgClient: any;
+  let cronPgClient: any;
   let hasuraClient: any;
   let provisioner: Provisioner;
 
@@ -39,9 +40,16 @@ describe('Provisioner', () => {
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
       doesSchemaExist: jest.fn().mockReturnValueOnce(false),
       untrackTables: jest.fn().mockReturnValueOnce(null),
+      grantCronAccess: jest.fn().mockResolvedValueOnce(null),
+      scheduleLogPartitionJobs: jest.fn().mockResolvedValueOnce(null),
     };
 
-    pgClient = {
+    adminPgClient = {
+      query: jest.fn().mockReturnValue(null),
+      format: pgFormat,
+    };
+
+    cronPgClient = {
       query: jest.fn().mockReturnValue(null),
       format: pgFormat,
     };
@@ -78,11 +86,17 @@ describe('Provisioner', () => {
     it('provisions an API for the user', async () => {
       await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
 
-      expect(pgClient.query.mock.calls).toEqual([
+      expect(adminPgClient.query.mock.calls).toEqual([
         ['CREATE DATABASE morgs_near'],
         ['CREATE USER morgs_near WITH PASSWORD \'password\''],
         ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near'],
         ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC'],
+      ]);
+      expect(cronPgClient.query.mock.calls).toEqual([
+        ['GRANT USAGE ON SCHEMA cron TO morgs_near'],
+        ['GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO morgs_near;'],
+        ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('morgs_near_test_function.__logs', CURRENT_DATE, '1 day', '2 day')$$, morgs_near);"],
+        ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('morgs_near_test_function.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, morgs_near);"]
       ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
@@ -109,7 +123,7 @@ describe('Provisioner', () => {
 
       await provisioner.provisionUserApi(accountId, functionName, databaseSchema);
 
-      expect(pgClient.query).not.toBeCalled();
+      expect(adminPgClient.query).not.toBeCalled();
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
@@ -133,11 +147,11 @@ describe('Provisioner', () => {
     it('formats user input before executing the query', async () => {
       await provisioner.createUserDb('morgs_near', 'pass; DROP TABLE users;--', 'databaseName UNION SELECT * FROM users --');
 
-      expect(pgClient.query.mock.calls).toMatchSnapshot();
+      expect(adminPgClient.query.mock.calls).toMatchSnapshot();
     });
 
     it('throws an error when it fails to create a postgres db', async () => {
-      pgClient.query = jest.fn().mockRejectedValue(error);
+      adminPgClient.query = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create user db: some error');
     });
@@ -176,6 +190,18 @@ describe('Provisioner', () => {
       hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
+    });
+
+    it('throws when grant cron access fails', async () => {
+      cronPgClient.query = jest.fn().mockRejectedValue(error);
+
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to grant cron access: some error');
+    });
+
+    it('throws when scheduling cron jobs fails', async () => {
+      cronPgClient.query = jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockRejectedValueOnce(error);
+
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to schedule log partition jobs: some error');
     });
   });
 });
