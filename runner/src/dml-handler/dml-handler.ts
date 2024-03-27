@@ -1,7 +1,7 @@
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import { type TableDefinitionNames } from '../indexer/indexer';
+import { type TableDefinitionNames } from '../indexer';
 
 type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
 type WhereClauseSingle = Record<string, (string | number)>;

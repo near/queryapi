@@ -1,7 +1,7 @@
 import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
 import type PgClient from '../pg-client';
-import { type TableDefinitionNames } from '../indexer/indexer';
+import { type TableDefinitionNames } from '../indexer';
 
 describe('DML Handler tests', () => {
   const getDbConnectionParameters = {
