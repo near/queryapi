@@ -1,4 +1,5 @@
-import { Parser } from "node-sql-parser";
+import { Parser } from "kevin-node-sql-parser";
+//todo: remove this import and replace with a with default node-sql-parser on next release
 
 export class PgSchemaTypeGen {
 	constructor() {
@@ -52,67 +53,67 @@ export class PgSchemaTypeGen {
 	}
 
 	generateTypes(sqlSchema) {
-			const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
-			const dbSchema = {};
+		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
+		const dbSchema = {};
 
-			const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
-			// Process each statement in the schema
-			for (const statement of statements) {
-				if (statement.type === "create" && statement.keyword === "table") {
-					// Process CREATE TABLE statements
-					const tableName = statement.table[0].table;
-					if (dbSchema.hasOwnProperty(tableName)) {
-						throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
-					}
+		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
+		// Process each statement in the schema
+		for (const statement of statements) {
+			if (statement.type === "create" && statement.keyword === "table") {
+				// Process CREATE TABLE statements
+				const tableName = statement.table[0].table;
+				if (dbSchema.hasOwnProperty(tableName)) {
+					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
+				}
 
-					let columns = {};
-					for (const columnSpec of statement.create_definitions) {
-						if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
-							// New Column
-							this.addColumn(columnSpec, columns);
-						} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
-							// Constraint on existing column
-							for (const foreignKeyDef of columnSpec.definition) {
-								columns[foreignKeyDef.column].nullable = false;
-							}
-						}
-					}
-					dbSchema[tableName] = columns;
-				} else if (statement.type === "alter") {
-					// Process ALTER TABLE statements
-					const tableName = statement.table[0].table;
-					for (const alterSpec of statement.expr) {
-						switch (alterSpec.action) {
-							case "add":
-								switch (alterSpec.resource) {
-									case "column": // Add column to table
-										this.addColumn(alterSpec, dbSchema[tableName]);
-										break;
-									case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
-										const newConstraint = alterSpec.create_definitions;
-										if (newConstraint.constraint_type == "primary key") {
-											for (const foreignKeyDef of newConstraint.definition) {
-												dbSchema[tableName][foreignKeyDef.column].nullable = false;
-											}
-										}
-										break;
-								}
-								break;
-							case "drop": // Can only drop column for now
-								delete dbSchema[tableName][alterSpec.column.column];
-								break;
+				let columns = {};
+				for (const columnSpec of statement.create_definitions) {
+					if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
+						// New Column
+						this.addColumn(columnSpec, columns);
+					} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
+						// Constraint on existing column
+						for (const foreignKeyDef of columnSpec.definition) {
+							columns[foreignKeyDef.column.expr.value].nullable = false;
 						}
 					}
 				}
+				dbSchema[tableName] = columns;
+			} else if (statement.type === "alter") {
+				// Process ALTER TABLE statements
+				const tableName = statement.table[0].table;
+				for (const alterSpec of statement.expr) {
+					switch (alterSpec.action) {
+						case "add":
+							switch (alterSpec.resource) {
+								case "column": // Add column to table
+									this.addColumn(alterSpec, dbSchema[tableName]);
+									break;
+								case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
+									const newConstraint = alterSpec.create_definitions;
+									if (newConstraint.constraint_type == "primary key") {
+										for (const foreignKeyDef of newConstraint.definition) {
+											dbSchema[tableName][foreignKeyDef.column].nullable = false;
+										}
+									}
+									break;
+							}
+							break;
+						case "drop": // Can only drop column for now
+							delete dbSchema[tableName][alterSpec.column.column];
+							break;
+					}
+				}
 			}
+		}
 
-			const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
-			console.log(`Types successfully generated`);
-			return tsTypes;
+		const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
+		console.log(`Types successfully generated`);
+		return tsTypes;
 	}
 
 	addColumn(columnDef, columns) {
-		const columnName = columnDef.column.column;
+		const columnName = columnDef.column.column.expr.value;
 		const columnType = this.getTypescriptType(columnDef.definition.dataType);
 		const nullable = this.getNullableStatus(columnDef);
 		const required = this.getRequiredStatus(columnDef, nullable);
@@ -120,6 +121,7 @@ export class PgSchemaTypeGen {
 			console.warn(`Column ${columnName} already exists in table. Skipping.`);
 			return;
 		}
+
 		columns[columnName] = {
 			type: columnType,
 			nullable: nullable,
