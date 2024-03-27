@@ -266,7 +266,6 @@ export default class Indexer {
           throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
         }
 
-        // Generate column lookup for table
         const createDefs = statement.create_definitions ?? [];
         for (const columnDef of createDefs) {
           if (columnDef.column?.type === 'column_ref') {
