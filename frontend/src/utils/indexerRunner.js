@@ -155,14 +155,17 @@ export default class IndexerRunner {
   }
 
   buildDatabaseContext (blockHeight, schemaName, schema) {
+    console.log("I AM (NOT) HERE");
     try {
-      const tables = this.pgSchemaTypeGen.getTableNames(schema);
+      const tableNameToDefinitionNamesMapping = this.pgSchemaTypeGen.getTableNameToDefinitionNamesMapping(schema);
+      const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set();
 
       // Generate and collect methods for each table name
-      const result = tables.reduce((prev, tableName) => {
+      const result = tableNames.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
         const sanitizedTableName = this.pgSchemaTypeGen.sanitizeTableName(tableName);
+        const tableDefinitionNames = tableNameToDefinitionNamesMapping.get(tableName);
         if (sanitizedTableNames.has(sanitizedTableName)) {
           throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
         } else {
@@ -172,24 +175,32 @@ export default class IndexerRunner {
         // Generate context.db methods for table
         const funcForTable = {
           [`${sanitizedTableName}`]: {
-            insert: async (objects) => await this.dbOperationLog(blockHeight, 
-              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}`, 
-              objects),
+            insert: async (rowsToInsert) => await this.dbOperationLog(blockHeight, 
+              `Inserting the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`, 
+              rowsToInsert),
 
-            select: async (object, limit = null) => await this.dbOperationLog(blockHeight,
-              `Selecting objects with the following values from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
-              object),
+            select: async (whereObj, limit = null) => await this.dbOperationLog(blockHeight,
+              `Selecting objects with the following values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
+              whereObj),
               
             update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
-              `Updating objects that match the specified fields with the following values in table ${sanitizedTableName} on schema ${schemaName}`, 
-              {matchingFields: whereObj, fieldsToUpdate: updateObj}),
+              `Updating objects that match the specified fields with the following values in table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`, 
+              {
+                matchingFields: whereObj.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col),
+                fieldsToUpdate: updateObj.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col)
+              }),
 
-            upsert: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
-              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
-              {insertObjects: objects, conflictColumns: conflictColumns.join(', '), updateColumns: updateColumns.join(', ')}),
+            upsert: async (rowsToUpsert, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
+              `Inserting the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
+              {
+                insertObjects: rowsToUpsert,
+                conflictColumns: conflictColumns.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col).join(', '),
+                updateColumns: updateColumns.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col).join(', ')
+              }),
 
-            delete: async (object) => await this.dbOperationLog(blockHeight,
-              `Deleting objects which match the following object's values from table ${sanitizedTableName} on schema ${schemaName}`, object)
+            delete: async (whereObj) => await this.dbOperationLog(blockHeight,
+              `Deleting objects which match the following object's values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
+              whereObj)
           }
         };
 
@@ -198,6 +209,7 @@ export default class IndexerRunner {
           ...funcForTable
         };
       }, {});
+      console.log(result);
       return result;
     } catch (error) {
       console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\n', error);
