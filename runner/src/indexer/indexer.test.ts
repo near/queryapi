@@ -418,11 +418,11 @@ CREATE TABLE
     ]);
   });
 
-  test('GetSchemaLookup works for a variety of input schemas', async () => {
+  test('GetTableNameToDefinitionNamesMapping works for a variety of input schemas', async () => {
     const indexer = new Indexer(defaultIndexerBehavior);
 
-    const schemaLookup = indexer.getSchemaLookup(STRESS_TEST_SCHEMA);
-    expect([...schemaLookup.keys()]).toStrictEqual([
+    const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(STRESS_TEST_SCHEMA);
+    expect([...tableNameToDefinitionNamesMapping.keys()]).toStrictEqual([
       'creator_quest',
       'composer_quest',
       'contractor - quest',
@@ -443,31 +443,33 @@ CREATE TABLE
       "id" SERIAL NOT NULL
     );`;
     expect(() => {
-      indexer.getSchemaLookup(duplicateTableSchema);
+      indexer.getTableNameToDefinitionNamesMapping(duplicateTableSchema);
     }).toThrow('Table posts already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.');
 
     // Test that schema with no tables throws an error
     expect(() => {
-      indexer.getSchemaLookup('');
+      indexer.getTableNameToDefinitionNamesMapping('');
     }).toThrow('Schema does not have any tables. There should be at least one table.');
   });
 
-  test('GetSchemaLookup works for mixed quotes schema', async () => {
+  test('GetTableNameToDefinitionNamesMapping works for mixed quotes schema', async () => {
     const indexer = new Indexer(defaultIndexerBehavior);
 
-    const schemaLookup = indexer.getSchemaLookup(CASE_SENSITIVE_SCHEMA);
-    const tableNames = [...schemaLookup.keys()];
+    const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
+    const tableNames = [...tableNameToDefinitionNamesMapping.keys()];
     console.log('tablenames: ', tableNames);
-    const originalTableNames = tableNames.map((tableName) => schemaLookup.get(tableName)?.originalTableName);
+    const originalTableNames = tableNames.map((tableName) => tableNameToDefinitionNamesMapping.get(tableName)?.originalTableName);
     expect(tableNames).toStrictEqual(['Posts', 'CommentsTable']);
     expect(originalTableNames).toStrictEqual(['Posts', '"CommentsTable"']);
 
     // Spot check quoting for columnNames
-    expect(schemaLookup.get('Posts')?.columnLookup.get('id')).toStrictEqual('"id"');
-    expect(schemaLookup.get('Posts')?.columnLookup.get('AccountId')).toStrictEqual('"AccountId"');
-    expect(schemaLookup.get('Posts')?.columnLookup.get('BlockHeight')).toStrictEqual('BlockHeight');
-    expect(schemaLookup.get('CommentsTable')?.columnLookup.get('accountId')).toStrictEqual('"accountId"');
-    expect(schemaLookup.get('CommentsTable')?.columnLookup.get('blockHeight')).toStrictEqual('blockHeight');
+    const postsColumnNames = tableNameToDefinitionNamesMapping.get('Posts')?.originalColumnNames;
+    const commentsColumnNames = tableNameToDefinitionNamesMapping.get('CommentsTable')?.originalColumnNames;
+    expect(postsColumnNames?.get('id')).toStrictEqual('"id"');
+    expect(postsColumnNames?.get('AccountId')).toStrictEqual('"AccountId"');
+    expect(postsColumnNames?.get('BlockHeight')).toStrictEqual('BlockHeight');
+    expect(commentsColumnNames?.get('accountId')).toStrictEqual('"accountId"');
+    expect(commentsColumnNames?.get('blockHeight')).toStrictEqual('blockHeight');
   });
 
   test('GetSchemaLookup works for mixed quotes schema', async () => {

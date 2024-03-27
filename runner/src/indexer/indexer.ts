@@ -26,9 +26,9 @@ interface Context {
   db: Record<string, Record<string, (...args: any[]) => any>>
 }
 
-interface TableLookup {
+export interface TableDefinitionNames {
   originalTableName: string
-  columnLookup: Map<string, string>
+  originalColumnNames: Map<string, string>
 }
 
 interface IndexerFunction {
@@ -231,19 +231,19 @@ export default class Indexer {
     };
   }
 
-  private generateColumnLookup (columnDefs: any[]): Map<string, string> {
-    const columnLookup = new Map<string, string>();
+  private getColumnDefinitionNames (columnDefs: any[]): Map<string, string> {
+    const columnDefinitionNames = new Map<string, string>();
     for (const columnDef of columnDefs) {
       if (columnDef.column?.type === 'column_ref') {
         const columnNameDef = columnDef.column.column.expr;
         const actualColumnName = columnNameDef.type === 'double_quote_string' ? `"${columnNameDef.value as string}"` : columnNameDef.value;
-        columnLookup.set(columnNameDef.value, actualColumnName);
+        columnDefinitionNames.set(columnNameDef.value, actualColumnName);
       }
     }
-    return columnLookup;
+    return columnDefinitionNames;
   }
 
-  private retainOriginalSchemaQuoting (schema: string, tableName: string): string {
+  private retainOriginalQuoting (schema: string, tableName: string): string {
     const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
 
     if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
@@ -253,16 +253,16 @@ export default class Indexer {
     return tableName;
   }
 
-  getSchemaLookup (schema: string): Map<string, TableLookup> {
+  getTableNameToDefinitionNamesMapping (schema: string): Map<string, TableDefinitionNames> {
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-    const schemaLookup = new Map<string, TableLookup>();
+    const tableNameToDefinitionNamesMap = new Map<string, TableDefinitionNames>();
 
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
         const tableName: string = statement.table[0].table;
 
-        if (schemaLookup.has(tableName)) {
+        if (tableNameToDefinitionNamesMap.has(tableName)) {
           throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
         }
 
@@ -270,21 +270,21 @@ export default class Indexer {
         const createDefs = statement.create_definitions ?? [];
         for (const columnDef of createDefs) {
           if (columnDef.column?.type === 'column_ref') {
-            const tableLookup = {
-              originalTableName: this.retainOriginalSchemaQuoting(schema, tableName),
-              columnLookup: this.generateColumnLookup(createDefs)
+            const tableDefinitionNames: TableDefinitionNames = {
+              originalTableName: this.retainOriginalQuoting(schema, tableName),
+              originalColumnNames: this.getColumnDefinitionNames(createDefs)
             };
-            schemaLookup.set(tableName, tableLookup);
+            tableNameToDefinitionNamesMap.set(tableName, tableDefinitionNames);
           }
         }
       }
     }
 
-    if (schemaLookup.size === 0) {
+    if (tableNameToDefinitionNamesMap.size === 0) {
       throw new Error('Schema does not have any tables. There should be at least one table.');
     }
 
-    return schemaLookup;
+    return tableNameToDefinitionNamesMap;
   }
 
   sanitizeTableName (tableName: string): string {
@@ -312,8 +312,8 @@ export default class Indexer {
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
     try {
-      const schemaLookup = this.getSchemaLookup(schema);
-      const tableNames = Array.from(schemaLookup.keys());
+      const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(schema);
+      const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
       const dmlHandler = this.dml_handler as DmlHandler;
 
@@ -321,6 +321,7 @@ export default class Indexer {
       const result = tableNames.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
         const sanitizedTableName = this.sanitizeTableName(tableName);
+        const tableDefinitionNames: TableDefinitionNames = tableNameToDefinitionNamesMapping.get(tableName) as TableDefinitionNames;
         if (sanitizedTableNames.has(sanitizedTableName)) {
           throw new Error(`Table ${tableName} has the same sanitized name as another table. Special characters are removed to generate context.db methods. Please rename the table.`);
         } else {
@@ -338,7 +339,7 @@ export default class Indexer {
                     `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
                   // Call insert with parameters
-                  return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+                  return await dmlHandler.insert(schemaName, tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
                 } finally {
                   insertSpan.end();
                 }
@@ -352,7 +353,7 @@ export default class Indexer {
                     `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
                   // Call select with parameters
-                  return await dmlHandler.select(schemaName, tableName, filterObj, limit);
+                  return await dmlHandler.select(schemaName, tableDefinitionNames, filterObj, limit);
                 } finally {
                   selectSpan.end();
                 }
@@ -366,7 +367,7 @@ export default class Indexer {
                     `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
                   // Call update with parameters
-                  return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
+                  return await dmlHandler.update(schemaName, tableDefinitionNames, filterObj, updateObj);
                 } finally {
                   updateSpan.end();
                 }
@@ -380,7 +381,7 @@ export default class Indexer {
                     `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
                   // Call upsert with parameters
-                  return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+                  return await dmlHandler.upsert(schemaName, tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
                 } finally {
                   upsertSpan.end();
                 }
@@ -394,7 +395,7 @@ export default class Indexer {
                     `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
                   // Call delete with parameters
-                  return await dmlHandler.delete(schemaName, tableName, filterObj);
+                  return await dmlHandler.delete(schemaName, tableDefinitionNames, filterObj);
                 } finally {
                   deleteSpan.end();
                 }
