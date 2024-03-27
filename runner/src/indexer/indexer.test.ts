@@ -66,6 +66,29 @@ describe('Indexer unit tests', () => {
         CONSTRAINT "post_likes_pkey" PRIMARY KEY ("post_id", "account_id")
       );`;
 
+  const CASE_SENSITIVE_SCHEMA = `
+      CREATE TABLE
+        Posts (
+          "id" SERIAL NOT NULL,
+          "AccountId" VARCHAR NOT NULL,
+          BlockHeight DECIMAL(58, 0) NOT NULL,
+          "receiptId" VARCHAR NOT NULL,
+          content TEXT NOT NULL,
+          block_Timestamp DECIMAL(20, 0) NOT NULL,
+          "Accounts_Liked" JSONB NOT NULL DEFAULT '[]',
+          "LastCommentTimestamp" DECIMAL(20, 0),
+          CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
+        );
+  
+      CREATE TABLE
+        "CommentsTable" (
+          "id" SERIAL NOT NULL,
+          PostId SERIAL NOT NULL,
+          "accountId" VARCHAR NOT NULL,
+          blockHeight DECIMAL(58, 0) NOT NULL,
+          CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
+        );`;
+
   const STRESS_TEST_SCHEMA = `
 CREATE TABLE creator_quest (
     account_id VARCHAR PRIMARY KEY,
@@ -383,17 +406,11 @@ CREATE TABLE
     ]);
   });
 
-  test('GetTables works for a variety of input schemas', async () => {
+  test('GetTableNameToDefinitionNamesMapping works for a variety of input schemas', async () => {
     const indexer = new Indexer(defaultIndexerBehavior);
 
-    const simpleSchemaTables = indexer.getTableNames(SIMPLE_SCHEMA);
-    expect(simpleSchemaTables).toStrictEqual(['posts']);
-
-    const socialSchemaTables = indexer.getTableNames(SOCIAL_SCHEMA);
-    expect(socialSchemaTables).toStrictEqual(['posts', 'comments', 'post_likes']);
-
-    const stressTestSchemaTables = indexer.getTableNames(STRESS_TEST_SCHEMA);
-    expect(stressTestSchemaTables).toStrictEqual([
+    const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(STRESS_TEST_SCHEMA);
+    expect([...tableNameToDefinitionNamesMapping.keys()]).toStrictEqual([
       'creator_quest',
       'composer_quest',
       'contractor - quest',
@@ -414,13 +431,33 @@ CREATE TABLE
       "id" SERIAL NOT NULL
     );`;
     expect(() => {
-      indexer.getTableNames(duplicateTableSchema);
+      indexer.getTableNameToDefinitionNamesMapping(duplicateTableSchema);
     }).toThrow('Table posts already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.');
 
     // Test that schema with no tables throws an error
     expect(() => {
-      indexer.getTableNames('');
+      indexer.getTableNameToDefinitionNamesMapping('');
     }).toThrow('Schema does not have any tables. There should be at least one table.');
+  });
+
+  test('GetTableNameToDefinitionNamesMapping works for mixed quotes schema', async () => {
+    const indexer = new Indexer(defaultIndexerBehavior);
+
+    const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
+    const tableNames = [...tableNameToDefinitionNamesMapping.keys()];
+    console.log('tablenames: ', tableNames);
+    const originalTableNames = tableNames.map((tableName) => tableNameToDefinitionNamesMapping.get(tableName)?.originalTableName);
+    expect(tableNames).toStrictEqual(['Posts', 'CommentsTable']);
+    expect(originalTableNames).toStrictEqual(['Posts', '"CommentsTable"']);
+
+    // Spot check quoting for columnNames
+    const postsColumnNames = tableNameToDefinitionNamesMapping.get('Posts')?.originalColumnNames;
+    const commentsColumnNames = tableNameToDefinitionNamesMapping.get('CommentsTable')?.originalColumnNames;
+    expect(postsColumnNames?.get('id')).toStrictEqual('"id"');
+    expect(postsColumnNames?.get('AccountId')).toStrictEqual('"AccountId"');
+    expect(postsColumnNames?.get('BlockHeight')).toStrictEqual('BlockHeight');
+    expect(commentsColumnNames?.get('accountId')).toStrictEqual('"accountId"');
+    expect(commentsColumnNames?.get('blockHeight')).toStrictEqual('blockHeight');
   });
 
   test('SanitizeTableName works properly on many test cases', async () => {
