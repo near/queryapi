@@ -1,4 +1,5 @@
 import { type Tracer, trace } from '@opentelemetry/api';
+import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
@@ -8,7 +9,7 @@ import PgClient from '../pg-client';
 const DEFAULT_PASSWORD_LENGTH = 16;
 const CRON_DATABASE = 'cron';
 
-const _adminPgClient = new PgClient({
+const adminDefaultPgClientGlobal = new PgClient({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
@@ -16,7 +17,7 @@ const _adminPgClient = new PgClient({
   port: Number(process.env.PGPORT),
 });
 
-const _cronPgClient = new PgClient({
+const adminCronPgClientGlobal = new PgClient({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: CRON_DATABASE,
@@ -38,9 +39,10 @@ export default class Provisioner {
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
-    private readonly adminPgClient: PgClient = _adminPgClient,
-    private readonly cronPgClient: PgClient = _cronPgClient,
+    private readonly adminDefaultPgClient: PgClient = adminDefaultPgClientGlobal,
+    private readonly adminCronPgClient: PgClient = adminCronPgClientGlobal,
     private readonly crypto: typeof cryptoModule = cryptoModule,
+    private readonly pgFormat: typeof pgFormatLib = pgFormatLib
   ) {}
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
@@ -64,23 +66,23 @@ export default class Provisioner {
   }
 
   async createDatabase (name: string): Promise<void> {
-    await this.adminPgClient.query(this.adminPgClient.format('CREATE DATABASE %I', name));
+    await this.adminDefaultPgClient.query(this.pgFormat('CREATE DATABASE %I', name));
   }
 
   async createUser (name: string, password: string): Promise<void> {
-    await this.adminPgClient.query(this.adminPgClient.format('CREATE USER %I WITH PASSWORD %L', name, password));
+    await this.adminDefaultPgClient.query(this.pgFormat('CREATE USER %I WITH PASSWORD %L', name, password));
   }
 
   async restrictUserToDatabase (databaseName: string, userName: string): Promise<void> {
-    await this.adminPgClient.query(this.adminPgClient.format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
-    await this.adminPgClient.query(this.adminPgClient.format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
+    await this.adminDefaultPgClient.query(this.pgFormat('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
+    await this.adminDefaultPgClient.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
   }
 
   async grantCronAccess (userName: string): Promise<void> {
     await wrapError(
       async () => {
-        await this.cronPgClient.query(this.cronPgClient.format('GRANT USAGE ON SCHEMA cron TO %I', userName));
-        await this.cronPgClient.query(this.cronPgClient.format('GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO %I;', userName));
+        await this.adminCronPgClient.query(this.pgFormat('GRANT USAGE ON SCHEMA cron TO %I', userName));
+        await this.adminCronPgClient.query(this.pgFormat('GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO %I;', userName));
       },
       'Failed to grant cron access'
     );
@@ -89,15 +91,15 @@ export default class Provisioner {
   async scheduleLogPartitionJobs (databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        await this.cronPgClient.query(
-          this.cronPgClient.format(
+        await this.adminCronPgClient.query(
+          this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$I);",
             schemaName,
             databaseName
           )
         );
-        await this.cronPgClient.query(
-          this.cronPgClient.format(
+        await this.adminCronPgClient.query(
+          this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$I);",
             schemaName,
             databaseName
@@ -222,7 +224,7 @@ export default class Provisioner {
     }
   }
 
-  async getDatabaseConnectionParameters (accountId: string): Promise<any> {
-    return await this.hasuraClient.getDbConnectionParameters(accountId);
+  async getDatabaseConnectionParameters (userName: string): Promise<any> {
+    return await this.hasuraClient.getDbConnectionParameters(userName);
   }
 }

@@ -1,5 +1,3 @@
-import pgFormat from 'pg-format';
-
 import Provisioner from './provisioner';
 
 describe('Provisioner', () => {
@@ -46,12 +44,10 @@ describe('Provisioner', () => {
 
     adminPgClient = {
       query: jest.fn().mockReturnValue(null),
-      format: pgFormat,
     };
 
     cronPgClient = {
       query: jest.fn().mockReturnValue(null),
-      format: pgFormat,
     };
 
     provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, crypto);
