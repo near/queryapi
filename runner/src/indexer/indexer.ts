@@ -1,6 +1,7 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import * as lakePrimitives from '@near-lake/primitives';
+import ivm from 'isolated-vm';
 import { Parser } from 'kevin-node-sql-parser';
 
 import Provisioner from '../provisioner';
@@ -121,7 +122,15 @@ export default class Indexer {
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
         const vm = new VM({ timeout: 20000, allowAsync: true });
+        const isolateVM = new ivm.Isolate({ memoryLimit: 8 /* MB */ });
+        const isolateContext = isolateVM.createContextSync();
+
+
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
+        const jail = isolateContext.global;
+        jail.setSync('global', jail.derefInto());
+        jail.setSync('block', new ivm.ExternalCopy(block).copyInto());
+        jail.setSync('context', new ivm.Reference(context).copySync());
 
         vm.freeze(block, 'block');
         vm.freeze(lakePrimitives, 'primitives');
@@ -131,8 +140,12 @@ export default class Indexer {
 
         await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
           const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
+          const script = isolateVM.compileScriptSync(modifiedFunction);
+
+
           try {
-            await vm.run(modifiedFunction);
+            // await vm.run(modifiedFunction);
+            script.runSync(isolateContext);
           } catch (e) {
             const error = e as Error;
             await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
@@ -502,5 +515,9 @@ export default class Indexer {
     }
 
     return data;
+  }
+
+  private buildArchivalRpcContext() {
+
   }
 }
