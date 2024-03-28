@@ -1,5 +1,6 @@
-import Provisioner from './provisioner';
 import pgFormat from 'pg-format';
+
+import Provisioner from './provisioner';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
