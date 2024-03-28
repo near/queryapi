@@ -120,6 +120,17 @@ export default class Provisioner {
     );
   }
 
+  async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        // TODO: Create logs table
+        await this.grantCronAccess(userName);
+        await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
+      },
+      'Failed to setup partitioned logs table'
+    );
+  }
+
   async createUserDb (userName: string, password: string, databaseName: string): Promise<void> {
     await wrapError(
       async () => {
@@ -215,8 +226,7 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
           await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-          await this.grantCronAccess(userName);
-          await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const tableNames = await this.getTableNames(schemaName, databaseName);
           await this.trackTables(schemaName, tableNames, databaseName);

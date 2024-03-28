@@ -204,13 +204,13 @@ describe('Provisioner', () => {
     it('throws when grant cron access fails', async () => {
       cronPgClient.query = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to grant cron access: some error');
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to grant cron access: some error');
     });
 
     it('throws when scheduling cron jobs fails', async () => {
-      cronPgClient.query = jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockRejectedValueOnce(error);
+      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
 
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to schedule log partition jobs: some error');
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
   });
 });
