@@ -23,7 +23,7 @@ export default class PgClient {
       user: connectionParams.user,
       password: connectionParams.password,
       host: connectionParams.host,
-      port: Number(process.env.PGPORT),
+      port: Number(connectionParams.port),
       database: connectionParams.database,
       ...poolConfig,
     });
