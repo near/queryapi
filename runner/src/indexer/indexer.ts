@@ -409,8 +409,8 @@ export default class Indexer {
       }, {});
       return result;
     } catch (error) {
-      const errorContent = error as Error;
-      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.`, errorContent.message);
+      const errorContent = error as { message: string, location: Record<string, any> };
+      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
     }
     return {}; // Default to empty object if error
   }
