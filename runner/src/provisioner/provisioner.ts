@@ -4,12 +4,12 @@ import pgFormatLib from 'pg-format';
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
-import PgClient from '../pg-client';
+import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 const CRON_DATABASE = 'cron';
 
-const adminDefaultPgClientGlobal = new PgClient({
+const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
@@ -17,7 +17,7 @@ const adminDefaultPgClientGlobal = new PgClient({
   port: Number(process.env.PGPORT),
 });
 
-const adminCronPgClientGlobal = new PgClient({
+const adminCronPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: CRON_DATABASE,
@@ -39,10 +39,11 @@ export default class Provisioner {
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
-    private readonly adminDefaultPgClient: PgClient = adminDefaultPgClientGlobal,
-    private readonly adminCronPgClient: PgClient = adminCronPgClientGlobal,
+    private readonly adminDefaultPgClient: PgClientClass = adminDefaultPgClientGlobal,
+    private readonly adminCronPgClient: PgClientClass = adminCronPgClientGlobal,
     private readonly crypto: typeof cryptoModule = cryptoModule,
-    private readonly pgFormat: typeof pgFormatLib = pgFormatLib
+    private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
+    private readonly PgClient: typeof PgClientClass = PgClientClass
   ) {}
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
@@ -88,17 +89,26 @@ export default class Provisioner {
     );
   }
 
-  async scheduleLogPartitionJobs (databaseName: string, schemaName: string): Promise<void> {
+  async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        await this.adminCronPgClient.query(
+        const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+        const userCronPgClient = new this.PgClient({
+          user: userDbConnectionParameters.username,
+          password: userDbConnectionParameters.password,
+          database: CRON_DATABASE,
+          host: userDbConnectionParameters.host,
+          port: userDbConnectionParameters.port,
+        });
+
+        await userCronPgClient.query(
           this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$I);",
             schemaName,
             databaseName
           )
         );
-        await this.adminCronPgClient.query(
+        await userCronPgClient.query(
           this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$I);",
             schemaName,
@@ -206,7 +216,7 @@ export default class Provisioner {
           await this.runMigrations(databaseName, schemaName, databaseSchema);
 
           await this.grantCronAccess(userName);
-          await this.scheduleLogPartitionJobs(databaseName, schemaName);
+          await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
 
           const tableNames = await this.getTableNames(schemaName, databaseName);
           await this.trackTables(schemaName, tableNames, databaseName);

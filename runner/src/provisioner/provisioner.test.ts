@@ -1,3 +1,5 @@
+import pgFormat from 'pg-format';
+
 import Provisioner from './provisioner';
 
 describe('Provisioner', () => {
@@ -5,6 +7,7 @@ describe('Provisioner', () => {
   let cronPgClient: any;
   let hasuraClient: any;
   let provisioner: Provisioner;
+  let userPgClientQuery: any;
 
   const tableNames = ['blocks'];
   const accountId = 'morgs.near';
@@ -40,6 +43,7 @@ describe('Provisioner', () => {
       untrackTables: jest.fn().mockReturnValueOnce(null),
       grantCronAccess: jest.fn().mockResolvedValueOnce(null),
       scheduleLogPartitionJobs: jest.fn().mockResolvedValueOnce(null),
+      getDbConnectionParameters: jest.fn().mockReturnValueOnce({}),
     };
 
     adminPgClient = {
@@ -50,7 +54,14 @@ describe('Provisioner', () => {
       query: jest.fn().mockReturnValue(null),
     };
 
-    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, crypto);
+    userPgClientQuery = jest.fn().mockReturnValue(null);
+    const PgClient = jest.fn().mockImplementation(() => {
+      return {
+        query: userPgClientQuery,
+      };
+    });
+
+    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, crypto, pgFormat, PgClient as any);
   });
 
   describe('isUserApiProvisioned', () => {
@@ -91,6 +102,8 @@ describe('Provisioner', () => {
       expect(cronPgClient.query.mock.calls).toEqual([
         ['GRANT USAGE ON SCHEMA cron TO morgs_near'],
         ['GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO morgs_near;'],
+      ]);
+      expect(userPgClientQuery.mock.calls).toEqual([
         ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('morgs_near_test_function.__logs', CURRENT_DATE, '1 day', '2 day')$$, morgs_near);"],
         ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('morgs_near_test_function.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, morgs_near);"]
       ]);
