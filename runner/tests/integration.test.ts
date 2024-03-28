@@ -1,6 +1,5 @@
 import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Network, type StartedNetwork } from 'testcontainers';
-import { Readable } from 'stream';
 import fetch from 'node-fetch';
 
 import Indexer from '../src/indexer';
@@ -13,13 +12,6 @@ import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './te
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
 import block1 from './blocks/00115185108/streamer_message.json';
 
-const logConsumer = (stream: Readable): void => {
-  const readable = new Readable().wrap(stream);
-  readable.on('data', (chunk) => {
-    console.log(chunk.toString()); // Print the log output
-  });
-};
-
 describe('Indexer integration', () => {
   jest.setTimeout(600000);
 
@@ -31,12 +23,10 @@ describe('Indexer integration', () => {
     network = await new Network().start();
     postgresContainer = await new PostgreSqlContainer()
       .withNetwork(network)
-      .withLogConsumer(logConsumer)
       .start();
     hasuraContainer = await (await HasuraGraphQLContainer.build())
       .withNetwork(network)
       .withDatabaseUrl(postgresContainer.getConnectionUri(network.getName()))
-      .withLogConsumer(logConsumer)
       .start();
   });
 

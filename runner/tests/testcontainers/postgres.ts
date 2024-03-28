@@ -1,5 +1,7 @@
 import { AbstractStartedContainer, GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
 
+import { logConsumer } from './utils';
+
 export class PostgreSqlContainer extends GenericContainer {
   private database = 'test';
   private username = 'test';
@@ -12,6 +14,7 @@ export class PostgreSqlContainer extends GenericContainer {
 
     this.withExposedPorts(this.PORT)
       .withWaitStrategy(Wait.forLogMessage(/.*database system is ready to accept connections.*/, 2))
+      .withLogConsumer(logConsumer)
       .withStartupTimeout(120_000);
   }
 

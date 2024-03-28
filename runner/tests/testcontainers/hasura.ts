@@ -1,6 +1,8 @@
 import { type Readable } from 'stream';
 import { AbstractStartedContainer, GenericContainer, type StartedTestContainer, Wait, type StartedNetwork } from 'testcontainers';
 
+import { logConsumer } from './utils';
+
 export class HasuraGraphQLContainer {
   private databaseUrl?: string;
   private adminSecret = 'adminsecret';
@@ -10,6 +12,7 @@ export class HasuraGraphQLContainer {
   private constructor (private readonly container: GenericContainer) {
     container.withExposedPorts(this.PORT)
       .withWaitStrategy(Wait.forLogMessage(/.*starting API server*/, 2))
+      .withLogConsumer(logConsumer)
       .withStartupTimeout(120_000);
   }
 
