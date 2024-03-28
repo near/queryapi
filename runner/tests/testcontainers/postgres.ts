@@ -67,6 +67,10 @@ export class StartedPostgreSqlContainer extends AbstractStartedContainer {
     return this.password;
   }
 
+  public override getHost (): string {
+    return 'localhost';
+  }
+
   public getIpAddress (networkName?: string): string {
     return networkName ? super.getIpAddress(networkName) : this.getHost();
   }
