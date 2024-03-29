@@ -17,16 +17,20 @@ export default class PgClient {
     connectionParams: ConnectionParams,
     poolConfig: PoolConfig = { max: Number(process.env.MAX_PG_POOL_SIZE ?? 10), idleTimeoutMillis: 3000 },
     PgPool: typeof Pool = Pool,
-    pgFormat: typeof pgFormatModule = pgFormatModule
+    pgFormat: typeof pgFormatModule = pgFormatModule,
+    onError: (err: Error) => void = (err) => { console.error(err); }
   ) {
     this.pgPool = new PgPool({
       user: connectionParams.user,
       password: connectionParams.password,
       host: connectionParams.host,
-      port: Number(process.env.PGPORT),
+      port: Number(connectionParams.port),
       database: connectionParams.database,
       ...poolConfig,
     });
+
+    this.pgPool.on('error', onError);
+
     this.format = pgFormat;
   }
 

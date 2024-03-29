@@ -33,6 +33,17 @@ export interface DatabaseConnectionParameters {
   password: string
 }
 
+interface Config {
+  cronDatabase: string
+  // Allow overriding the default values for testing
+  postgresHost?: string
+  postgresPort?: number
+}
+
+const defaultConfig: Config = {
+  cronDatabase: process.env.CRON_DATABASE,
+};
+
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
@@ -41,6 +52,7 @@ export default class Provisioner {
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
     private readonly adminDefaultPgClient: PgClientClass = adminDefaultPgClientGlobal,
     private readonly adminCronPgClient: PgClientClass = adminCronPgClientGlobal,
+    private readonly config: Config = defaultConfig,
     private readonly crypto: typeof cryptoModule = cryptoModule,
     private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
     private readonly PgClient: typeof PgClientClass = PgClientClass
@@ -96,9 +108,9 @@ export default class Provisioner {
         const userCronPgClient = new this.PgClient({
           user: userDbConnectionParameters.username,
           password: userDbConnectionParameters.password,
-          database: CRON_DATABASE,
-          host: userDbConnectionParameters.host,
-          port: userDbConnectionParameters.port,
+          database: this.config.cronDatabase,
+          host: this.config.postgresHost ?? userDbConnectionParameters.host,
+          port: this.config.postgresPort ?? userDbConnectionParameters.port,
         });
 
         await userCronPgClient.query(

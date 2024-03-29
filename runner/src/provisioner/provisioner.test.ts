@@ -61,7 +61,7 @@ describe('Provisioner', () => {
       };
     });
 
-    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, crypto, pgFormat, PgClient as any);
+    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any);
   });
 
   describe('isUserApiProvisioned', () => {

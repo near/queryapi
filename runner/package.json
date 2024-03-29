@@ -7,12 +7,12 @@
     "node": "18.17"
   },
   "scripts": {
-    "build": "rm -rf ./dist && npm run codegen && tsc",
+    "build": "rm -rf ./dist && npm run codegen && tsc -p ./tsconfig.build.json",
     "codegen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated/ protos/runner.proto",
     "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
     "start:docker": "node dist/index.js",
-    "test": "npm run codegen && node --experimental-vm-modules ./node_modules/.bin/jest",
+    "test": "npm run codegen && node --experimental-vm-modules ./node_modules/.bin/jest --silent",
     "lint": "eslint -c .eslintrc.js"
   },
   "keywords": [],
@@ -38,6 +38,7 @@
     "eslint-plugin-promise": "^6.1.1",
     "jest": "^29.6.2",
     "prettier": "^3.0.0",
+    "testcontainers": "^10.7.2",
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
     "typescript": "^5.1.6"
