@@ -3,6 +3,7 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
+import { LogType } from '../indexer-logger/indexer-logger';
 
 export enum Status {
   RUNNING = 'RUNNING',
@@ -89,9 +90,10 @@ export default class StreamHandler {
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
       console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
-    indexer.writeLogOld(LogLevel.ERROR, functionName, this.executorContext.block_height,
-      `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
-    ).catch((e) => {
+    Promise.all([
+      indexer.writeLogOld(LogLevel.ERROR, functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`),
+      indexer.writeLog({blockHeight: this.executorContext.block_height, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`})
+    ]).catch((e) => {
       console.error(`Failed to write log for stream: ${this.streamKey}`, e);
     });
     this.worker.terminate().catch(() => {

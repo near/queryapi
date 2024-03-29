@@ -1,6 +1,6 @@
 import fetch, { type Response } from 'node-fetch';
 import pluralize from 'pluralize';
-import { logsTableDDL } from '../provisioner/schemas/logs-table';
+
 interface Dependencies {
   fetch: typeof fetch
 }
@@ -129,22 +129,11 @@ export default class HasuraClient {
     });
   }
 
-  async createLogsTable (source: string, schemaName: string): Promise<any> {
-    const ddl = logsTableDDL(source, schemaName);
+  async runSql (source: string, schemaName: string, sqlScript: string): Promise<any> {
     return await this.executeSql(
       `
       set schema '${schemaName}';
-      ${ddl}
-      `,
-      { source, readOnly: false }
-    );
-  }
-  
-  async runMigrations (source: string, schemaName: string, migration: string): Promise<any> {
-    return await this.executeSql(
-      `
-      set schema '${schemaName}';
-      ${migration}
+      ${sqlScript}
       `,
       { source, readOnly: false }
     );

@@ -1,3 +1,4 @@
+import format from 'pg-format';
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
@@ -5,7 +6,6 @@ import { LogLevel } from '../stream-handler/stream-handler';
 
 export interface LogEntry {
   blockHeight: number;
-  functionName: string;
   logTimestamp: Date;
   logType: string;
   logLevel: LogLevel;
@@ -19,14 +19,15 @@ export enum LogType {
 
 export default class IndexerLogger {
 
-  private constructor (
-    private readonly pgClient: PgClient
-  ) {}
+  private readonly pgClient: PgClient;
+  private readonly schemaName: string;
 
-  static create (
+  constructor (
+    functionName: string,
     databaseConnectionParameters: DatabaseConnectionParameters,
     pgClientInstance: PgClient | undefined = undefined
-  ): IndexerLogger {
+  ) {
+
     const pgClient = pgClientInstance ?? new PgClient({
       user: databaseConnectionParameters.username,
       password: databaseConnectionParameters.password,
@@ -34,55 +35,45 @@ export default class IndexerLogger {
       port: Number(databaseConnectionParameters.port),
       database: databaseConnectionParameters.database,
     });
-    return new IndexerLogger(pgClient);
-  }
-  //todo add or remove format date and update test based off if we want to use it for batch inserts
 
-  formatDate(date: Date): Date {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    this.pgClient = pgClient;
+    this.schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
   }
-  
+
   async writeLog(
-    blockHeight: number,
-    functionName: string,
-    logTimestamp: Date,
-    logType: string,
-    logLevel: LogLevel,
-    message: string,
-    ): Promise<void> {
-    const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
-    const logDate = new Date(logTimestamp.getFullYear(), logTimestamp.getMonth(), logTimestamp.getDate());
+    logEntry: LogEntry
+  ): Promise<void> {
+    const { blockHeight, logTimestamp, logType, logLevel, message } = logEntry;
     const logLevelString = LogLevel[logLevel];
 
-    const query = 
-      `INSERT INTO ${schemaName}.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES ($1, $2, $3, $4, $5, $6)`;
+    const values = [blockHeight, logTimestamp, logTimestamp, logType, logLevelString, message];
 
-    const values = [blockHeight, logDate, logTimestamp, logType, logLevelString, message];
-
-    await wrapError(async () => await this.pgClient.query(query, values), `Failed to execute '${query}' on ${schemaName}`);
+    const query = format(
+        `INSERT INTO %I.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES %L`,
+        this.schemaName,
+        [values] 
+    );
+    await wrapError(async () => await this.pgClient.query(query), `Failed to insert log into ${this.schemaName}.__logs table`);
   }
 
-  //todo: add batch insert inside runfunction
   async writeLogBatch(logEntries: LogEntry[]): Promise<void> {
     if(logEntries.length === 0) return;
 
-    const schemaName = logEntries[0].functionName.replace(/[^a-zA-Z0-9]/g, '_');
-
     const values = logEntries.map(entry => [
       entry.blockHeight,
-      this.formatDate(entry.logTimestamp),
+      entry.logTimestamp,
       entry.logTimestamp,
       entry.logType,
       LogLevel[entry.logLevel],
       entry.message
-  ]);
+    ]);
 
-    const valuePlaceholders = logEntries.map((_, index) => `($${index * 6 + 1}, $${index * 6 + 2}, $${index * 6 + 3}, $${index * 6 + 4}, $${index * 6 + 5}, $${index * 6 + 6})`).join(', ');
-    const query =
-        `INSERT INTO ${schemaName}.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES ${valuePlaceholders}`;
+    const query = format(
+      `INSERT INTO %I.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES %L`,
+      this.schemaName, 
+      values
+    );
 
-    const flattenedValues = values.flat();
-    await wrapError(async () => await this.pgClient.query(query, flattenedValues), `Failed to execute '${query}' on ${schemaName}`);
+    await wrapError(async () => await this.pgClient.query(query), `Failed to insert batch of logs into ${this.schemaName}.__logs table`);
   }
 }
-    

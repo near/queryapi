@@ -3,6 +3,7 @@ import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
 import PgClient from '../pg-client';
 import { type Tracer, trace } from '@opentelemetry/api';
+import { logsTableDDL } from './schemas/logs-table';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -99,10 +100,6 @@ export default class Provisioner {
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
     if (schemaExists) {
-      const tableNames = await this.getTableNames(schemaName, sanitizedAccountId);
-      if (!tableNames.includes('__logs')) {
-        await this.createLogsTable(schemaName, databaseName);
-      }
       this.setProvisioned(accountId, functionName);
     }
     checkProvisioningSpan.end();
@@ -113,12 +110,13 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
-  async createLogsTable (schemaName: string, databaseName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.createLogsTable(schemaName, databaseName), 'Failed to create logs');
+  async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
+    const logsDDL = logsTableDDL(schemaName);
+    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, logsDDL), 'Failed to run logs script');
   }
 
-  async runMigrations (databaseName: string, schemaName: string, migration: any): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.runMigrations(databaseName, schemaName, migration), 'Failed to run migrations');
+  async runDatabaseSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
   async getTableNames (schemaName: string, databaseName: string): Promise<string[]> {
@@ -159,7 +157,7 @@ export default class Provisioner {
     const userName = sanitizedAccountId;
     const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
     const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
-
+  
     try {
       await wrapError(
         async () => {
@@ -167,28 +165,19 @@ export default class Provisioner {
             const password = this.generatePassword();
             await this.createUserDb(userName, password, databaseName);
             await this.addDatasource(userName, password, databaseName);
-        }
+          }
 
-        // Check if the schema and logs table exist
-        if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
-            const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
-            await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
-            if (!tableNames.includes('__logs')) {
-                await this.createLogsTable(databaseName, schemaName);
-            }
-        } else {
-            await this.createSchema(databaseName, schemaName);
-            await this.createLogsTable(databaseName, schemaName);
-        }
+        await this.createSchema(databaseName, schemaName);
+        await this.runLogsSql(databaseName, schemaName);
+        await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
 
-        await this.runMigrations(databaseName, schemaName, databaseSchema);
+        const updatedTableNames = await this.getTableNames(schemaName, databaseName);
 
-        const tableNames = await this.getTableNames(schemaName, databaseName);
-        await this.trackTables(schemaName, tableNames, databaseName);
+        await this.trackTables(schemaName, updatedTableNames, databaseName);
 
         await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-        await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+        await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
         this.setProvisioned(accountId, functionName);
         },
         'Failed to provision endpoint'

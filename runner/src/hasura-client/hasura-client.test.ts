@@ -88,7 +88,7 @@ describe('HasuraClient', () => {
       });
     const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
-    await client.runMigrations('dbName', 'schemaName', 'CREATE TABLE blocks (height numeric)');
+    await client.runSql('dbName', 'schemaName', 'CREATE TABLE blocks (height numeric)');
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });

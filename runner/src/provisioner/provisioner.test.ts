@@ -34,7 +34,7 @@ describe('Provisioner', () => {
       trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(null),
       addPermissionsToTables: jest.fn().mockReturnValueOnce(null),
       addDatasource: jest.fn().mockReturnValueOnce(null),
-      runMigrations: jest.fn().mockReturnValueOnce(null),
+      runSql: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
       createLogsTable: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
@@ -94,7 +94,7 @@ describe('Provisioner', () => {
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.createLogsTable).toBeCalledWith(sanitizedAccountId, schemaName);
-      expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -135,7 +135,7 @@ describe('Provisioner', () => {
 
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.createLogsTable).toBeCalledWith(sanitizedAccountId, schemaName);
-      expect(hasuraClient.runMigrations).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -177,7 +177,7 @@ describe('Provisioner', () => {
     });
 
     it('throws an error when it fails to run migrations', async () => {
-      hasuraClient.runMigrations = jest.fn().mockRejectedValue(error);
+      hasuraClient.runSql = jest.fn().mockRejectedValue(error);
 
       const provisioner = new Provisioner(hasuraClient, pgClient, crypto);
 
