@@ -9,5 +9,6 @@ declare namespace NodeJS {
     PGPASSWORD: string
     PGDATABASE: string
     PORT: string
+    CRON_DATABASE: string
   }
 }
