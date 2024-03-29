@@ -1,15 +1,26 @@
+import { type Tracer, trace } from '@opentelemetry/api';
+import pgFormatLib from 'pg-format';
+
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
-import PgClient from '../pg-client';
-import { type Tracer, trace } from '@opentelemetry/api';
+import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
+const CRON_DATABASE = 'cron';
 
-const sharedPgClient = new PgClient({
+const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
+  host: process.env.PGHOST,
+  port: Number(process.env.PGPORT),
+});
+
+const adminCronPgClientGlobal = new PgClientClass({
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: CRON_DATABASE,
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
@@ -28,13 +39,12 @@ export default class Provisioner {
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
-    private readonly pgClient: PgClient = sharedPgClient,
+    private readonly adminDefaultPgClient: PgClientClass = adminDefaultPgClientGlobal,
+    private readonly adminCronPgClient: PgClientClass = adminCronPgClientGlobal,
     private readonly crypto: typeof cryptoModule = cryptoModule,
-  ) {
-    this.hasuraClient = hasuraClient;
-    this.pgClient = pgClient;
-    this.crypto = crypto;
-  }
+    private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
+    private readonly PgClient: typeof PgClientClass = PgClientClass
+  ) {}
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
     return this.crypto
@@ -57,16 +67,68 @@ export default class Provisioner {
   }
 
   async createDatabase (name: string): Promise<void> {
-    await this.pgClient.query(this.pgClient.format('CREATE DATABASE %I', name));
+    await this.adminDefaultPgClient.query(this.pgFormat('CREATE DATABASE %I', name));
   }
 
   async createUser (name: string, password: string): Promise<void> {
-    await this.pgClient.query(this.pgClient.format('CREATE USER %I WITH PASSWORD %L', name, password));
+    await this.adminDefaultPgClient.query(this.pgFormat('CREATE USER %I WITH PASSWORD %L', name, password));
   }
 
   async restrictUserToDatabase (databaseName: string, userName: string): Promise<void> {
-    await this.pgClient.query(this.pgClient.format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
-    await this.pgClient.query(this.pgClient.format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
+    await this.adminDefaultPgClient.query(this.pgFormat('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
+    await this.adminDefaultPgClient.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
+  }
+
+  async grantCronAccess (userName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        await this.adminCronPgClient.query(this.pgFormat('GRANT USAGE ON SCHEMA cron TO %I', userName));
+        await this.adminCronPgClient.query(this.pgFormat('GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO %I;', userName));
+      },
+      'Failed to grant cron access'
+    );
+  }
+
+  async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+        const userCronPgClient = new this.PgClient({
+          user: userDbConnectionParameters.username,
+          password: userDbConnectionParameters.password,
+          database: CRON_DATABASE,
+          host: userDbConnectionParameters.host,
+          port: userDbConnectionParameters.port,
+        });
+
+        await userCronPgClient.query(
+          this.pgFormat(
+            "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
+            schemaName,
+            databaseName
+          )
+        );
+        await userCronPgClient.query(
+          this.pgFormat(
+            "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$L);",
+            schemaName,
+            databaseName
+          )
+        );
+      },
+      'Failed to schedule log partition jobs'
+    );
+  }
+
+  async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        // TODO: Create logs table
+        await this.grantCronAccess(userName);
+        await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
+      },
+      'Failed to setup partitioned logs table'
+    );
   }
 
   async createUserDb (userName: string, password: string, databaseName: string): Promise<void> {
@@ -161,14 +223,10 @@ export default class Provisioner {
             await this.addDatasource(userName, password, databaseName);
           }
 
-          // Untrack tables from old schema to prevent conflicts with new DB
-          if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
-            const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
-            await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
-          }
-
           await this.createSchema(databaseName, schemaName);
           await this.runMigrations(databaseName, schemaName, databaseSchema);
+
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const tableNames = await this.getTableNames(schemaName, databaseName);
           await this.trackTables(schemaName, tableNames, databaseName);
@@ -186,7 +244,7 @@ export default class Provisioner {
     }
   }
 
-  async getDatabaseConnectionParameters (accountId: string): Promise<any> {
-    return await this.hasuraClient.getDbConnectionParameters(accountId);
+  async getDatabaseConnectionParameters (userName: string): Promise<any> {
+    return await this.hasuraClient.getDbConnectionParameters(userName);
   }
 }
