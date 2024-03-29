@@ -1,21 +1,30 @@
-import { AbstractStartedContainer, GenericContainer, type StartedTestContainer, Wait } from 'testcontainers';
+import { AbstractStartedContainer, GenericContainer, type StartedTestContainer, Wait, type StartedNetwork } from 'testcontainers';
 
 import { logConsumer } from './utils';
 
-export class PostgreSqlContainer extends GenericContainer {
-  private database = 'test';
-  private username = 'test';
-  private password = 'test';
+export class PostgreSqlContainer {
+  private database = 'postgres';
+  private username = 'postgres';
+  private password = 'postgres';
 
   private readonly PORT = 5432;
 
-  constructor (image = 'postgres:14') {
-    super(image);
-
-    this.withExposedPorts(this.PORT)
+  private constructor (private readonly container: GenericContainer) {
+    container.withExposedPorts(this.PORT)
       .withWaitStrategy(Wait.forLogMessage(/.*database system is ready to accept connections.*/, 2))
       .withLogConsumer(logConsumer)
       .withStartupTimeout(120_000);
+  }
+
+  public static async build (): Promise<PostgreSqlContainer> {
+    const container = await GenericContainer.fromDockerfile('../', 'postgres.Dockerfile').build();
+
+    return new PostgreSqlContainer(container);
+  }
+
+  public withNetwork (network: StartedNetwork): this {
+    this.container.withNetwork(network);
+    return this;
   }
 
   public withDatabase (database: string): this {
@@ -33,13 +42,13 @@ export class PostgreSqlContainer extends GenericContainer {
     return this;
   }
 
-  public override async start (): Promise<StartedPostgreSqlContainer> {
-    this.withEnvironment({
+  public async start (): Promise<StartedPostgreSqlContainer> {
+    this.container.withEnvironment({
       POSTGRES_DB: this.database,
       POSTGRES_USER: this.username,
       POSTGRES_PASSWORD: this.password,
     });
-    return new StartedPostgreSqlContainer(await super.start(), this.database, this.username, this.password, this.PORT);
+    return new StartedPostgreSqlContainer(await this.container.start(), this.database, this.username, this.password, this.PORT);
   }
 }
 

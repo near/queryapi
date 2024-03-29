@@ -13,7 +13,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcont
 import block1 from './blocks/00115185108/streamer_message.json';
 
 describe('Indexer integration', () => {
-  jest.setTimeout(600000);
+  jest.setTimeout(300_000);
 
   let network: StartedNetwork;
   let postgresContainer: StartedPostgreSqlContainer;
@@ -21,7 +21,7 @@ describe('Indexer integration', () => {
 
   beforeAll(async () => {
     network = await new Network().start();
-    postgresContainer = await new PostgreSqlContainer()
+    postgresContainer = await (await PostgreSqlContainer.build())
       .withNetwork(network)
       .start();
     hasuraContainer = await (await HasuraGraphQLContainer.build())
@@ -54,7 +54,16 @@ describe('Indexer integration', () => {
       database: postgresContainer.getDatabase(),
     });
 
-    const provisioner = new Provisioner(hasuraClient, pgClient, pgClient);
+    const provisioner = new Provisioner(
+      hasuraClient,
+      pgClient,
+      pgClient,
+      {
+        cronDatabase: postgresContainer.getDatabase(),
+        postgresHost: postgresContainer.getIpAddress(),
+        postgresPort: Number(postgresContainer.getPort()),
+      }
+    );
 
     const indexer = new Indexer(
       {
