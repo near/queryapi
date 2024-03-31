@@ -20,7 +20,7 @@ const BASIC_INDEXER_CONFIG = {
   version: BASIC_VERSION,
 };
 const BASIC_EXECUTOR_CONTEXT = {
-  status: Status.RUNNING,
+  status: IndexerStatus.RUNNING,
 };
 
 describe('Runner gRPC Service', () => {
@@ -246,7 +246,7 @@ describe('Runner gRPC Service', () => {
             executorId: BASIC_EXECUTOR_ID,
             accountId: BASIC_INDEXER_CONFIG.account_id,
             functionName: BASIC_INDEXER_CONFIG.function_name,
-            status: Status.RUNNING,
+            status: IndexerStatus.RUNNING,
             version: '1'
           }]
         });

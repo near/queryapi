@@ -2,6 +2,7 @@ import format from 'pg-format';
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
+import { type IndexerStatus } from '../stream-handler/stream-handler';
 import { trace } from '@opentelemetry/api';
 
 export interface LogEntry {
@@ -23,9 +24,11 @@ export enum LogType {
   SYSTEM = 'system',
   USER = 'user',
 }
+
+const PUBLIC_SCHEMA = 'public';
+const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (function_name, attribute, value) VALUES %L ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
-
   private readonly pgClient: PgClient;
   private readonly schemaName: string;
   private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';

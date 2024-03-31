@@ -111,7 +111,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
               schema: '',
             };
             context = {
-              status: Status.RUNNING,
+              status: IndexerStatus.RUNNING,
               block_height: context.block_height,
             };
           }
