@@ -1,6 +1,6 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import { type Block } from '@near-lake/primitives';
+import * as lakePrimitives from '@near-lake/primitives';
 import { Parser } from 'kevin-node-sql-parser';
 
 import Provisioner from '../provisioner';
@@ -10,7 +10,6 @@ import IndexerLogger from '../indexer-logger/indexer-logger';
 import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
 import { type LogEntry, LogType } from '../indexer-logger/indexer-logger';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import assert from 'assert';
 import { trace, type Span } from '@opentelemetry/api';
 
 interface Dependencies {
@@ -40,6 +39,16 @@ interface IndexerFunction {
   code: string
 }
 
+interface Config {
+  hasuraAdminSecret: string
+  hasuraEndpoint: string
+}
+
+const defaultConfig: Config = {
+  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET,
+  hasuraEndpoint: process.env.HASURA_ENDPOINT,
+};
+
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
   tracer = trace.getTracer('queryapi-runner-indexer');
@@ -49,11 +58,14 @@ export default class Indexer {
 
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
   private indexer_logger: IndexerLogger | undefined;
+  private dml_handler: DmlHandler | undefined;
 
   constructor (
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
+    dmlHandler = undefined,
+    private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
     this.indexer_behavior = indexerBehavior;
@@ -66,10 +78,11 @@ export default class Indexer {
       ...deps,
     };
     this.database_connection_parameters = databaseConnectionParameters;
+    this.dml_handler = dmlHandler;
   }
 
   async runFunctions (
-    block: Block,
+    block: lakePrimitives.Block,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
@@ -81,7 +94,7 @@ export default class Indexer {
     const simultaneousPromises: Array<Promise<any>> = [];
     const writeLogBatch: LogEntry[] = [];
     const allMutations: string[] = [];
-    
+
     for (const functionName in functions) {
       try {
         const indexerFunction = functions[functionName];
@@ -129,6 +142,7 @@ export default class Indexer {
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
+        vm.freeze(lakePrimitives, 'primitives');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
         resourceCreationSpan.end();
@@ -287,8 +301,8 @@ export default class Indexer {
     try {
       const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      assert(this.database_connection_parameters !== undefined, 'Database connection parameters are not set');
-      const dmlHandler: DmlHandler = this.deps.DmlHandler.create(this.database_connection_parameters);
+      const dmlHandler = this.dml_handler as DmlHandler;
+
       // Generate and collect methods for each table name
       const result = tables.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
@@ -503,14 +517,14 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
-    const response: Response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
+    const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Hasura-Use-Backend-Only-Permissions': 'true',
         ...(hasuraRoleName && {
           'X-Hasura-Role': hasuraRoleName,
-          'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
+          'X-Hasura-Admin-Secret': this.config.hasuraAdminSecret,
         }),
       },
       body: JSON.stringify({
