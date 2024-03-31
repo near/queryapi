@@ -54,8 +54,4 @@ EXECUTE 'ALTER TABLE ' || _tbl || ' DETACH PARTITION ' || _tbl || '_p' || _parti
 EXECUTE 'DROP TABLE '  || _tbl || '_p' || _partition_name;
 END
 $func$;
-
--- GRANT CREATE, USAGE ON SCHEMA cron TO PUBLIC;
--- SELECT cron.schedule('${schemaName}___logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('${schemaName}.logs', CURRENT_DATE, '1 day', '2 day')$$);
--- SELECT cron.schedule('${schemaName}___logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('${schemaName}.logs', CURRENT_DATE, '-15 day', '-14 day')$$);
 `;
