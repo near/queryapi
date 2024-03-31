@@ -2,17 +2,17 @@ export const logsTableDDL = (schemaName: string) => `
 CREATE TABLE __logs (
     id BIGSERIAL NOT NULL,
     block_height NUMERIC(20) NOT NULL,
-    log_date DATE NOT NULL,
-    log_timestamp TIMESTAMP NOT NULL,
-    log_type TEXT NOT NULL,
-    log_level TEXT NOT NULL,
+    date DATE NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    type TEXT NOT NULL,
+    level TEXT NOT NULL,
     message TEXT NOT NULL,
-    PRIMARY KEY (log_date, id)
-) PARTITION BY RANGE (log_date);
+    PRIMARY KEY (date, id)
+) PARTITION BY RANGE (date);
 
-CREATE INDEX logs_log_timestamp_idx ON __logs USING btree (log_timestamp);
-CREATE INDEX logs_log_type_idx ON __logs USING btree (log_type);
-CREATE INDEX logs_log_level_idx ON __logs USING btree (log_level);
+CREATE INDEX logs_timestamp_idx ON __logs USING btree (timestamp);
+CREATE INDEX logs_type_idx ON __logs USING btree (type);
+CREATE INDEX logs_level_idx ON __logs USING btree (level);
 CREATE INDEX logs_block_height_idx ON __logs USING btree (block_height);
 CREATE INDEX logs_search_vector_idx ON __logs USING GIN (to_tsvector('english', message));
 
