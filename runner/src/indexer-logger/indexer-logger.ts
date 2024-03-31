@@ -70,7 +70,7 @@ export default class IndexerLogger {
 
     const query = format(
       `INSERT INTO %I.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES %L`,
-      this.schemaName, 
+      this.schemaName,
       values
     );
 
