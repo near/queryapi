@@ -5,9 +5,12 @@ import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
 // import { logsTableDDL } from './schemas/logs-table';
+import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
+const PUBLIC_SCHEMA = 'public';
+const CRON_DATABASE = 'cron';
 
 const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
@@ -181,6 +184,14 @@ export default class Provisioner {
     return schemaExists;
   }
 
+  async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${schemaName} schema`);
+  }
+
+  async trackMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, ['__metadata'], databaseName), `Failed to track metadata table in ${schemaName} schema`);
+  }
+
   async createSchema (databaseName: string, schemaName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
@@ -240,6 +251,8 @@ export default class Provisioner {
             const password = this.generatePassword();
             await this.createUserDb(userName, password, databaseName);
             await this.addDatasource(userName, password, databaseName);
+            await this.createMetadataTable(databaseName, PUBLIC_SCHEMA);
+            await this.trackMetadataTable(databaseName, PUBLIC_SCHEMA);
           }
 
           await this.createSchema(databaseName, schemaName);
