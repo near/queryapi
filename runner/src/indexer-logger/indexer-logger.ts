@@ -5,11 +5,11 @@ import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { LogLevel } from '../stream-handler/stream-handler';
 
 export interface LogEntry {
-  blockHeight: number;
-  logTimestamp: Date;
-  logType: string;
-  logLevel: LogLevel;
-  message: string;
+  blockHeight: number
+  logTimestamp: Date
+  logType: string
+  logLevel: LogLevel
+  message: string
 }
 
 export enum LogType {
@@ -18,16 +18,15 @@ export enum LogType {
 }
 
 export default class IndexerLogger {
-
   private readonly pgClient: PgClient;
   private readonly schemaName: string;
+  private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';
 
   constructor (
     functionName: string,
     databaseConnectionParameters: DatabaseConnectionParameters,
     pgClientInstance: PgClient | undefined = undefined
   ) {
-
     const pgClient = pgClientInstance ?? new PgClient({
       user: databaseConnectionParameters.username,
       password: databaseConnectionParameters.password,
@@ -40,26 +39,14 @@ export default class IndexerLogger {
     this.schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
   }
 
-  async writeLog(
-    logEntry: LogEntry
+  async writeLog (
+    logEntries: LogEntry | LogEntry[]
   ): Promise<void> {
-    const { blockHeight, logTimestamp, logType, logLevel, message } = logEntry;
-    const logLevelString = LogLevel[logLevel];
-
-    const values = [blockHeight, logTimestamp, logTimestamp, logType, logLevelString, message];
-
-    const query = format(
-        `INSERT INTO %I.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES %L`,
-        this.schemaName,
-        [values] 
-    );
-    await wrapError(async () => await this.pgClient.query(query), `Failed to insert log into ${this.schemaName}.__logs table`);
-  }
-
-  async writeLogBatch(logEntries: LogEntry[]): Promise<void> {
-    if(logEntries.length === 0) return;
-
-    const values = logEntries.map(entry => [
+    const entriesArray = Array.isArray(logEntries) ? logEntries : [logEntries];
+    
+    if (entriesArray.length === 0) return;
+  
+    const values = entriesArray.map(entry => [
       entry.blockHeight,
       entry.logTimestamp,
       entry.logTimestamp,
@@ -67,13 +54,13 @@ export default class IndexerLogger {
       LogLevel[entry.logLevel],
       entry.message
     ]);
-
+  
     const query = format(
-      `INSERT INTO %I.__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES %L`,
+      this.logInsertQueryTemplate,
       this.schemaName,
       values
     );
-
-    await wrapError(async () => await this.pgClient.query(query), `Failed to insert batch of logs into ${this.schemaName}.__logs table`);
+  
+    await wrapError(async () => await this.pgClient.query(query), `Failed to insert log${entriesArray.length > 1 ? 's' : ''} into ${this.schemaName}.__logs table`);
   }
 }

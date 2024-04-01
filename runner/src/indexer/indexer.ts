@@ -92,7 +92,7 @@ export default class Indexer {
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
 
     const simultaneousPromises: Array<Promise<any>> = [];
-    const writeLogBatch: LogEntry[] = [];
+    const logEntries: LogEntry[] = [];
     const allMutations: string[] = [];
 
     for (const functionName in functions) {
@@ -105,31 +105,32 @@ export default class Indexer {
             if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(indexerFunction.account_id, indexerFunction.function_name)) {
               await this.setStatus(functionName, blockHeight, 'PROVISIONING');
               simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
-              writeLogBatch.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
+              logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
               await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
               simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: successful'));
-              writeLogBatch.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
+              logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
             }
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
-            writeLogBatch.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}`});
+            logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}`});
             throw error;
           }
         }
 
         const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
         simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, functionName, blockHeight, runningMessage));
-        writeLogBatch.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: runningMessage });
+        logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: runningMessage });
         // Cache database credentials after provisioning
         const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
-          this.database_connection_parameters = this.database_connection_parameters ?? await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
+          this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
           this.indexer_logger ??= new IndexerLogger(functionName, this.database_connection_parameters);
+          this.dml_handler ??= this.deps.DmlHandler.create(this.database_connection_parameters as DatabaseConnectionParameters);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
-          writeLogBatch.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Failed to get database connection parameters ${error.message}` });
+          logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Failed to get database connection parameters ${error.message}` });
           throw error;
         } finally {
           credentialsFetchSpan.end();
@@ -154,7 +155,7 @@ export default class Indexer {
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message));
-            writeLogBatch.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Error running IndexerFunction ${error.message}` });
+            logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Error running IndexerFunction ${error.message}` });
             throw e;
           } finally {
             runIndexerCodeSpan.end();
@@ -166,7 +167,7 @@ export default class Indexer {
         await this.setStatus(functionName, blockHeight, Status.FAILING);
         throw e;
       } finally {
-        await Promise.all([...simultaneousPromises, this.indexer_logger?.writeLogBatch(writeLogBatch)]);
+        await Promise.all([...simultaneousPromises, this.indexer_logger?.writeLog(logEntries)]);
       }
     }
     return allMutations;
@@ -539,7 +540,7 @@ export default class Indexer {
       if (logError) {
         const message: string = errors ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
         const mutation: string =
-                    `mutation writeLogOld($function_name: String!, $block_height: numeric!, $message: String!){
+                    `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
                     insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
                     id
                   }

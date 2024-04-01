@@ -39,7 +39,7 @@ describe('IndexerLogger', () => {
         
             await indexerLogger.writeLog(logEntry);
         
-            const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES`;
+            const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES`;
             expect(query.mock.calls[0][0]).toContain(expectedQueryStructure);
         });
 
@@ -57,10 +57,7 @@ describe('IndexerLogger', () => {
 
             await expect(indexerLogger.writeLog(logEntry)).rejects.toThrow('Failed to insert log');
         });
-    });
-
-    describe('writeLogBatch', () => {
-
+        
         it('should insert a batch of log entries into the database', async () => {
             const indexerLogger = new IndexerLogger(functionName, mockDatabaseConnectionParameters, pgClient);
             const logEntries: LogEntry[] = [
@@ -80,9 +77,9 @@ describe('IndexerLogger', () => {
                 }
             ];
         
-            await indexerLogger.writeLogBatch(logEntries);
+            await indexerLogger.writeLog(logEntries);
         
-            const expectedQuery = `INSERT INTO "${functionName}".__logs (block_height, log_date, log_timestamp, log_type, log_level, message) VALUES`;
+            const expectedQuery = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES`;
             expect(query.mock.calls[0][0]).toContain(expectedQuery);
         });
 
@@ -107,15 +104,16 @@ describe('IndexerLogger', () => {
                 }
             ];
 
-            await expect(indexerLogger.writeLogBatch(logEntries)).rejects.toThrow('Failed to insert batch of logs');
+            await expect(indexerLogger.writeLog(logEntries)).rejects.toThrow('Failed to insert batch of logs');
         });
 
-        it('should handle empty log entry batch', async () => {
+        it('should handle empty log entry', async () => {
             const indexerLogger = new IndexerLogger(functionName, mockDatabaseConnectionParameters, pgClient);
             const logEntries: LogEntry[] = [];
-            await indexerLogger.writeLogBatch(logEntries);
+            await indexerLogger.writeLog(logEntries);
             expect(query).not.toHaveBeenCalled();
         });
 
     });
+
 });

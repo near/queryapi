@@ -1,4 +1,4 @@
-export const logsTableDDL = (schemaName: string) => `
+export const logsTableDDL = (schemaName: string): string => `
 CREATE TABLE __logs (
     id BIGSERIAL NOT NULL,
     block_height NUMERIC(20) NOT NULL,
