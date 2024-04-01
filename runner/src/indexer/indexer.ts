@@ -5,7 +5,7 @@ import { Parser } from 'kevin-node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import IndexerLogger from '../indexer-logger/indexer-logger'; 
+import IndexerLogger from '../indexer-logger/indexer-logger';
 
 import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
 import { type LogEntry, LogType } from '../indexer-logger/indexer-logger';
@@ -16,7 +16,7 @@ interface Dependencies {
   fetch: typeof fetch
   provisioner: Provisioner
   DmlHandler: typeof DmlHandler
-  parser: Parser,
+  parser: Parser
   IndexerLogger: typeof IndexerLogger
 };
 
@@ -113,7 +113,7 @@ export default class Indexer {
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
-            logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}`});
+            logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}` });
             throw error;
           }
         }
@@ -126,7 +126,7 @@ export default class Indexer {
         try {
           this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
           this.indexer_logger ??= new IndexerLogger(functionName, this.database_connection_parameters);
-          this.dml_handler ??= this.deps.DmlHandler.create(this.database_connection_parameters as DatabaseConnectionParameters);
+          this.dml_handler ??= this.deps.DmlHandler.create(this.database_connection_parameters);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
@@ -219,26 +219,26 @@ export default class Indexer {
       },
       debug: async (...log) => {
         await Promise.all([
-          this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: log.join(" ")}),
+          this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: log.join(' ') }),
           this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, ...log)
         ]);
       },
       log: async (...log) => {
         await Promise.all([
-         this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: log.join(" ")}),
-         this.writeLogOld(LogLevel.INFO, functionName, blockHeight, ...log)
+          this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: log.join(' ') }),
+          this.writeLogOld(LogLevel.INFO, functionName, blockHeight, ...log)
         ]);
       },
       warn: async (...log) => {
         await Promise.all([
-         this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.WARN, message: log.join(" ")}),
-         this.writeLogOld(LogLevel.WARN, functionName, blockHeight, ...log)
+          this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.WARN, message: log.join(' ') }),
+          this.writeLogOld(LogLevel.WARN, functionName, blockHeight, ...log)
         ]);
       },
       error: async (...log) => {
         await Promise.all([
-          this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: log.join(" ")}),
-         this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, ...log)
+          this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: log.join(' ') }),
+          this.writeLogOld(LogLevel.ERROR, functionName, blockHeight, ...log)
         ]);
       },
       fetchFromSocialApi: async (path, options) => {
@@ -322,8 +322,8 @@ export default class Indexer {
                 try {
                   // Write log before calling insert
                   await Promise.all([
-                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight,`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`),
-                    this.writeLog({blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message:`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`})
+                    this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`),
+                    this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}` })
                   ]);
                   // Call insert with parameters
                   return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
@@ -338,7 +338,7 @@ export default class Indexer {
                   // Write log before calling select
                   await Promise.all([
                     this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`),
-                    this.writeLog({blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message:`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`})
+                    this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit` })
                   ]);
                   // Call select with parameters
                   return await dmlHandler.select(schemaName, tableName, filterObj, limit);
@@ -353,7 +353,7 @@ export default class Indexer {
                   // Write log before calling update
                   await Promise.all([
                     this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`),
-                    this.writeLog({blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`})
+                    this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}` })
                   ]);
                   // Call update with parameters
                   return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
@@ -368,7 +368,7 @@ export default class Indexer {
                   // Write log before calling upsert
                   await Promise.all([
                     this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`),
-                    this.writeLog({blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`})
+                    this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}` })
                   ]);
                   // Call upsert with parameters
                   return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
@@ -383,7 +383,7 @@ export default class Indexer {
                   // Write log before calling delete
                   await Promise.all([
                     this.writeLogOld(LogLevel.DEBUG, functionName, blockHeight, `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`),
-                    this.writeLog({blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`})
+                    this.writeLog({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.DEBUG, message: `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}` })
                   ]);
                   // Call delete with parameters
                   return await dmlHandler.delete(schemaName, tableName, filterObj);
@@ -441,8 +441,8 @@ export default class Indexer {
     try {
       await (this.indexer_logger as IndexerLogger).writeLog(logEntry);
     } catch (error) {
-      console.log(`Error occurred while writing to logs table ${error}`);
-    } finally{
+      console.log(`Error occurred while writing to logs table ${(error as Error).toString()}`);
+    } finally {
       writeLogSpan.end();
     }
   }
@@ -507,10 +507,10 @@ export default class Indexer {
     return await this.runGraphQLQuery(logMutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
       functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
       .then((result: any) => {
-        return result?.[`insert_indexer_log_entries_one`]?.returning?.[0]?.id;
+        return result?.insert_indexer_log_entries_one?.returning?.[0]?.id;
       })
       .catch((e: any) => {
-        console.error(`Error writing log to in writeLogOld Function`, e);
+        console.error('Error writing log to in writeLogOld Function', e);
       })
       .finally(() => {
         writeLogSpan.end();
@@ -557,4 +557,3 @@ export default class Indexer {
     return data;
   }
 }
-
