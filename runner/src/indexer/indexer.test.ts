@@ -252,7 +252,7 @@ CREATE TABLE
       });
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, DmlHandler: genericMockDmlHandler }, undefined, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
 
     const query = `
             query {
@@ -304,7 +304,7 @@ CREATE TABLE
     const mockFetch = jest.fn();
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, DmlHandler: genericMockDmlHandler }, undefined, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
 
     await context.fetchFromSocialApi('/index', {
       method: 'POST',
@@ -333,7 +333,7 @@ CREATE TABLE
       });
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, DmlHandler: genericMockDmlHandler }, undefined, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, INVALID_HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, INVALID_HASURA_ROLE, []);
 
     await expect(async () => await context.graphql('query { hello }')).rejects.toThrow('boom');
   });
@@ -348,7 +348,7 @@ CREATE TABLE
       });
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, DmlHandler: genericMockDmlHandler }, undefined, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
 
     const query = 'query($name: String) { hello(name: $name) }';
     const variables = { name: 'morgan' };
@@ -439,7 +439,7 @@ CREATE TABLE
     );`;
 
     // Does not outright throw an error but instead returns an empty object
-    expect(indexer.buildDatabaseContext('test_account', 'test_schema_name', schemaWithDuplicateSanitizedTableNames, 1))
+    expect(indexer.buildDatabaseContext('test_account', 'test_schema_name', schemaWithDuplicateSanitizedTableNames, 1, []))
       .toStrictEqual({});
   });
 
@@ -455,7 +455,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, mockDmlHandlerInstance, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
 
     const objToInsert = [{
       account_id: 'morgs_near',
@@ -492,7 +492,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, dmlHandlerInstance, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
     const promises = [];
 
     for (let i = 1; i <= 100; i++) {
@@ -532,7 +532,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, mockDmlHandlerInstance, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
 
     const objToSelect = {
       account_id: 'morgs_near',
@@ -563,7 +563,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, mockDmlHandlerInstance, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
 
     const whereObj = {
       account_id: 'morgs_near',
@@ -598,7 +598,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, mockDmlHandlerInstance, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
 
     const objToInsert = [{
       account_id: 'morgs_near',
@@ -635,7 +635,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, mockDmlHandlerInstance, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
 
     const deleteFilter = {
       account_id: 'morgs_near',
@@ -654,7 +654,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, undefined, config);
-    const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
 
     expect(Object.keys(context.db)).toStrictEqual([
       'CreatorQuest',
@@ -696,7 +696,7 @@ CREATE TABLE
       fetch: genericMockFetch as unknown as typeof fetch,
       DmlHandler: mockDmlHandler
     }, genericDbCredentials, undefined, config);
-    const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres');
+    const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres', []);
 
     expect(Object.keys(context.db)).toStrictEqual([]);
   });
@@ -1183,7 +1183,7 @@ CREATE TABLE
       });
     const role = 'morgs_near';
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, DmlHandler: genericMockDmlHandler }, undefined, undefined, config);
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE);
+    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
 
     const mutation = `
             mutation {

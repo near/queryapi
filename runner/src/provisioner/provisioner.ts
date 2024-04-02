@@ -231,7 +231,7 @@ export default class Provisioner {
     const userName = sanitizedAccountId;
     const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
     const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
-  
+
     try {
       await wrapError(
         async () => {
@@ -241,19 +241,19 @@ export default class Provisioner {
             await this.addDatasource(userName, password, databaseName);
           }
 
-        await this.createSchema(databaseName, schemaName);
-        await this.runLogsSql(databaseName, schemaName);
-        await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
-        await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
-        
-        const updatedTableNames = await this.getTableNames(schemaName, databaseName);
+          await this.createSchema(databaseName, schemaName);
+          await this.runLogsSql(databaseName, schemaName);
+          await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
-        await this.trackTables(schemaName, updatedTableNames, databaseName);
+          const updatedTableNames = await this.getTableNames(schemaName, databaseName);
 
-        await this.trackForeignKeyRelationships(schemaName, databaseName);
+          await this.trackTables(schemaName, updatedTableNames, databaseName);
 
-        await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
-        this.setProvisioned(accountId, functionName);
+          await this.trackForeignKeyRelationships(schemaName, databaseName);
+
+          await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
+          this.setProvisioned(accountId, functionName);
         },
         'Failed to provision endpoint'
       );

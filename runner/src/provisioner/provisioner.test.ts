@@ -177,7 +177,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to run migrations', async () => {
       hasuraClient.runSql = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run migrations: some error');
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run logs script: some error');
     });
 
     it('throws an error when it fails to fetch table names', async () => {
@@ -205,9 +205,9 @@ describe('Provisioner', () => {
     });
 
     it('throws an error when it fails to create logs table', async () => {
-      hasuraClient.createLogsTable = jest.fn().mockRejectedValue(error);
+      hasuraClient.runSql = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create logs: some error');
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run user script: some error');
     });
 
     it('throws when grant cron access fails', async () => {
