@@ -85,29 +85,6 @@ describe('Indexer unit tests', () => {
           CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
         );`;
 
-  const CASE_SENSITIVE_SCHEMA = `
-      CREATE TABLE
-        Posts (
-          "id" SERIAL NOT NULL,
-          "AccountId" VARCHAR NOT NULL,
-          BlockHeight DECIMAL(58, 0) NOT NULL,
-          "receiptId" VARCHAR NOT NULL,
-          content TEXT NOT NULL,
-          block_Timestamp DECIMAL(20, 0) NOT NULL,
-          "Accounts_Liked" JSONB NOT NULL DEFAULT '[]',
-          "LastCommentTimestamp" DECIMAL(20, 0),
-          CONSTRAINT "posts_pkey" PRIMARY KEY ("id")
-        );
-  
-      CREATE TABLE
-        "CommentsTable" (
-          "id" SERIAL NOT NULL,
-          PostId SERIAL NOT NULL,
-          "accountId" VARCHAR NOT NULL,
-          blockHeight DECIMAL(58, 0) NOT NULL,
-          CONSTRAINT "comments_pkey" PRIMARY KEY ("id")
-        );`;
-
   const STRESS_TEST_SCHEMA = `
 CREATE TABLE creator_quest (
     account_id VARCHAR PRIMARY KEY,
@@ -457,7 +434,6 @@ CREATE TABLE
 
     const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
     const tableNames = [...tableNameToDefinitionNamesMapping.keys()];
-    console.log('tablenames: ', tableNames);
     const originalTableNames = tableNames.map((tableName) => tableNameToDefinitionNamesMapping.get(tableName)?.originalTableName);
     expect(tableNames).toStrictEqual(['Posts', 'CommentsTable']);
     expect(originalTableNames).toStrictEqual(['Posts', '"CommentsTable"']);
@@ -475,19 +451,18 @@ CREATE TABLE
   test('GetSchemaLookup works for mixed quotes schema', async () => {
     const indexer = new Indexer(defaultIndexerBehavior);
 
-    const schemaLookup = indexer.getSchemaLookup(CASE_SENSITIVE_SCHEMA);
+    const schemaLookup = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
     const tableNames = [...schemaLookup.keys()];
-    console.log('tablenames: ', tableNames);
     const originalTableNames = tableNames.map((tableName) => schemaLookup.get(tableName)?.originalTableName);
     expect(tableNames).toStrictEqual(['Posts', 'CommentsTable']);
     expect(originalTableNames).toStrictEqual(['Posts', '"CommentsTable"']);
 
     // Spot check quoting for columnNames
-    expect(schemaLookup.get('Posts')?.columnLookup.get('id')).toStrictEqual('"id"');
-    expect(schemaLookup.get('Posts')?.columnLookup.get('AccountId')).toStrictEqual('"AccountId"');
-    expect(schemaLookup.get('Posts')?.columnLookup.get('BlockHeight')).toStrictEqual('BlockHeight');
-    expect(schemaLookup.get('CommentsTable')?.columnLookup.get('accountId')).toStrictEqual('"accountId"');
-    expect(schemaLookup.get('CommentsTable')?.columnLookup.get('blockHeight')).toStrictEqual('blockHeight');
+    expect(schemaLookup.get('Posts')?.originalColumnNames.get('id')).toStrictEqual('"id"');
+    expect(schemaLookup.get('Posts')?.originalColumnNames.get('AccountId')).toStrictEqual('"AccountId"');
+    expect(schemaLookup.get('Posts')?.originalColumnNames.get('BlockHeight')).toStrictEqual('BlockHeight');
+    expect(schemaLookup.get('CommentsTable')?.originalColumnNames.get('accountId')).toStrictEqual('"accountId"');
+    expect(schemaLookup.get('CommentsTable')?.originalColumnNames.get('blockHeight')).toStrictEqual('blockHeight');
   });
 
   test('SanitizeTableName works properly on many test cases', async () => {
