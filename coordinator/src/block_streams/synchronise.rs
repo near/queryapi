@@ -170,9 +170,9 @@ async fn determine_start_block_height(
     }
 
     match indexer_config.start_block {
-        StartBlock::Latest => Ok(indexer_config.get_registry_version()),
-        StartBlock::Height(height) => Ok(height),
-        StartBlock::Continue => get_continuation_block_height(indexer_config, redis_client).await,
+        StartBlock::Latest => Ok(115963303),
+        StartBlock::Height(height) => Ok(115963303),
+        StartBlock::Continue => Ok(115963303),
     }
 }
 
