@@ -54,7 +54,7 @@ export default class IndexerLogger {
     const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.logLevel)); ;
     if (entriesArray.length === 0) return;
 
-    const spanMessage = `call writeLog function of IndexerLogger for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`}`;
+    const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
     const writeLogSpan = this.tracer.startSpan(spanMessage);
 
     await wrapError(async () => {

@@ -38,7 +38,6 @@ describe('Provisioner', () => {
       addDatasource: jest.fn().mockReturnValueOnce(null),
       runSql: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
-      createLogsTable: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
       doesSchemaExist: jest.fn().mockReturnValueOnce(false),
       untrackTables: jest.fn().mockReturnValueOnce(null),
@@ -110,7 +109,6 @@ describe('Provisioner', () => {
       ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
-      expect(hasuraClient.createLogsTable).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
@@ -138,7 +136,6 @@ describe('Provisioner', () => {
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
-      expect(hasuraClient.createLogsTable).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
@@ -174,7 +171,7 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add datasource: some error');
     });
 
-    it('throws an error when it fails to run migrations', async () => {
+    it('throws an error when it fails to run sql', async () => {
       hasuraClient.runSql = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run logs script: some error');
@@ -202,12 +199,6 @@ describe('Provisioner', () => {
       hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
-    });
-
-    it('throws an error when it fails to create logs table', async () => {
-      hasuraClient.runSql = jest.fn().mockRejectedValue(error);
-
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run user script: some error');
     });
 
     it('throws when grant cron access fails', async () => {

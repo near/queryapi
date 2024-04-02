@@ -27,7 +27,7 @@ describe('IndexerLogger', () => {
 
   describe('writeLog', () => {
     it('should insert a single log entry into the database', async () => {
-      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const logEntry: LogEntry = {
         blockHeight: 123,
         logTimestamp: new Date(),
@@ -45,7 +45,7 @@ describe('IndexerLogger', () => {
     it('should handle errors when inserting a single log entry', async () => {
       query.mockRejectedValueOnce(new Error('Failed to insert log'));
 
-      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const logEntry: LogEntry = {
         blockHeight: 123,
         logTimestamp: new Date(),
@@ -58,7 +58,7 @@ describe('IndexerLogger', () => {
     });
 
     it('should insert a batch of log entries into the database', async () => {
-      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const logEntries: LogEntry[] = [
         {
           blockHeight: 123,
@@ -85,7 +85,7 @@ describe('IndexerLogger', () => {
     it('should handle errors when inserting a batch of log entries', async () => {
       query.mockRejectedValueOnce(new Error('Failed to insert batch of logs'));
 
-      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const logEntries: LogEntry[] = [
         {
           blockHeight: 123,
@@ -107,9 +107,25 @@ describe('IndexerLogger', () => {
     });
 
     it('should handle empty log entry', async () => {
-      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const logEntries: LogEntry[] = [];
       await indexerLogger.writeLogs(logEntries);
+
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it('should skip log entries with levels lower than the logging level specified in the constructor', async () => {
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.ERROR, mockDatabaseConnectionParameters, pgClient);
+      const logEntry: LogEntry = {
+        blockHeight: 123,
+        logTimestamp: new Date(),
+        logType: LogType.SYSTEM,
+        logLevel: LogLevel.INFO,
+        message: 'Test log message'
+      };
+
+      await indexerLogger.writeLogs(logEntry);
+
       expect(query).not.toHaveBeenCalled();
     });
   });
