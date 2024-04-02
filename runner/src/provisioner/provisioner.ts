@@ -34,13 +34,15 @@ export interface DatabaseConnectionParameters {
 
 interface Config {
   cronDatabase: string
-  // Allow overriding the default values for testing
-  postgresHost?: string
-  postgresPort?: number
+  // Override the host/port values returned by Hasura during testing/local development
+  hasuraHostOverride?: string
+  hasuraPortOverride?: number
 }
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
+  hasuraHostOverride: process.env.HASURA_HOST_OVERRIDE,
+  hasuraPortOverride: process.env.HASURA_PORT_OVERRIDE ? Number(process.env.HASURA_PORT_OVERRIDE) : undefined
 };
 
 export default class Provisioner {
@@ -108,8 +110,8 @@ export default class Provisioner {
           user: userDbConnectionParameters.username,
           password: userDbConnectionParameters.password,
           database: this.config.cronDatabase,
-          host: this.config.postgresHost ?? userDbConnectionParameters.host,
-          port: this.config.postgresPort ?? userDbConnectionParameters.port,
+          host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
+          port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
         });
 
         await userCronPgClient.query(
