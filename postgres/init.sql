@@ -1,3 +1,4 @@
+-- pgbouncer
 CREATE ROLE pgbouncer LOGIN;
 ALTER ROLE pgbouncer WITH PASSWORD 'pgbouncer';
 CREATE OR REPLACE FUNCTION public.user_lookup(in i_username text, out uname text, out phash text)
@@ -10,3 +11,6 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 REVOKE ALL ON FUNCTION public.user_lookup(text) FROM public;
 GRANT EXECUTE ON FUNCTION public.user_lookup(text) TO pgbouncer;
+
+-- pg_cron
+CREATE EXTENSION pg_cron;
