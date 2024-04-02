@@ -155,7 +155,7 @@ export default class HasuraClient {
     });
   }
 
-  async runSql (source: string, schemaName: string, sqlScript: string): Promise<any> {
+  async executeSqlOnSchema (source: string, schemaName: string, sqlScript: string): Promise<any> {
     return await this.executeSql(
       `
       set schema '${schemaName}';

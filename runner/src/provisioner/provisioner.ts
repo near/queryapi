@@ -186,11 +186,11 @@ export default class Provisioner {
 
   async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
     const logsDDL = logsTableDDL(schemaName);
-    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, logsDDL), 'Failed to run logs script');
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
   }
 
   async runDatabaseSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, sqlScript), 'Failed to run user script');
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
   async getTableNames (schemaName: string, databaseName: string): Promise<string[]> {
