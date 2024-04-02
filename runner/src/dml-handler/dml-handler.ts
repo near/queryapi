@@ -21,7 +21,7 @@ export default class DmlHandler {
       user: databaseConnectionParameters.username,
       password: databaseConnectionParameters.password,
       host: process.env.PGHOST,
-      port: Number(databaseConnectionParameters.port),
+      port: Number(process.env.PGPORT ?? databaseConnectionParameters.port),
       database: databaseConnectionParameters.database,
     });
     return new DmlHandler(pgClient);
