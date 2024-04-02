@@ -26,10 +26,11 @@ export enum LogType {
 }
 
 const PUBLIC_SCHEMA = 'public';
-const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (function_name, attribute, value) VALUES %L ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+const METADATA_TABLE_UPSERT = 'INSERT INTO %I._%I_metadata (function_name, attribute, value) VALUES %L ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
   private readonly pgClient: PgClient;
+  private readonly dbName: string;
   private readonly schemaName: string;
   private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';
   private readonly loggingLevel: number;
@@ -49,6 +50,7 @@ export default class IndexerLogger {
     });
 
     this.pgClient = pgClient;
+    this.dbName = databaseConnectionParameters.database;
     this.schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
     this.loggingLevel = loggingLevel;
   }
@@ -86,14 +88,14 @@ export default class IndexerLogger {
 
   async updateIndexerStatus (status: IndexerStatus): Promise<void> {
     const values = [[this.schemaName, 'STATUS', status]];
-    const query = format(METADATA_TABLE_UPSERT, PUBLIC_SCHEMA, values);
+    const query = format(METADATA_TABLE_UPSERT, PUBLIC_SCHEMA, this.dbName, values);
 
     await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName} in ${PUBLIC_SCHEMA}`);
   }
 
   async updateIndexerBlockheight (blockHeight: number): Promise<void> {
     const values = [[this.schemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', blockHeight.toString()]];
-    const query = format(METADATA_TABLE_UPSERT, PUBLIC_SCHEMA, values);
+    const query = format(METADATA_TABLE_UPSERT, PUBLIC_SCHEMA, this.dbName, values);
 
     await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName} in ${PUBLIC_SCHEMA}`);
   }

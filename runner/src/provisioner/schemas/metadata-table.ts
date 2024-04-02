@@ -1,5 +1,5 @@
-export const metadataTableDDL = (): string => `
-CREATE TABLE IF NOT EXISTS __metadata (
+export const metadataTableDDL = (dbName: string): string => `
+CREATE TABLE IF NOT EXISTS __${dbName}_metadata (
     function_name TEXT NOT NULL,
     attribute TEXT NOT NULL,
     value TEXT NOT NULL,

@@ -185,11 +185,11 @@ export default class Provisioner {
   }
 
   async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${schemaName} schema`);
+    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, metadataTableDDL(databaseName)), `Failed to create metadata table in in ${databaseName}.${schemaName}`);
   }
 
   async trackMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, ['__metadata'], databaseName), `Failed to track metadata table in ${schemaName} schema`);
+    return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, [`__${databaseName}_metadata`], databaseName), `Failed to track metadata table in ${databaseName}.${schemaName}`);
   }
 
   async createSchema (databaseName: string, schemaName: string): Promise<void> {
