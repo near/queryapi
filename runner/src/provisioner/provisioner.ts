@@ -7,7 +7,6 @@ import HasuraClient from '../hasura-client';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
-const CRON_DATABASE = 'cron';
 
 const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
@@ -20,7 +19,7 @@ const adminDefaultPgClientGlobal = new PgClientClass({
 const adminCronPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
-  database: CRON_DATABASE,
+  database: process.env.CRON_DATABASE,
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
