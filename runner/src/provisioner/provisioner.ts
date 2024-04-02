@@ -239,7 +239,8 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
           await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+          // TODO re-enable once logs table is created
+          // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const tableNames = await this.getTableNames(schemaName, databaseName);
           await this.trackTables(schemaName, tableNames, databaseName);
