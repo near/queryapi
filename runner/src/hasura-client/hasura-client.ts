@@ -35,7 +35,7 @@ const defaultConfig: Config = {
   adminSecret: process.env.HASURA_ADMIN_SECRET,
   endpoint: process.env.HASURA_ENDPOINT,
   pgHost: process.env.PGHOST,
-  pgHostHasura: process.env.PGHOST_HASURA,
+  pgHostHasura: process.env.PGHOST_HASURA ?? process.env.PGHOST,
   pgPortHasura: process.env.PGPORT_HASURA,
   pgPort: process.env.PGPORT,
 };

@@ -26,7 +26,7 @@ export enum LogType {
 }
 
 const PUBLIC_SCHEMA = 'public';
-const METADATA_TABLE_UPSERT = 'INSERT INTO %I._%I_metadata (function_name, attribute, value) VALUES %L ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__%I_metadata (function_name, attribute, value) VALUES %L ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
   private readonly pgClient: PgClient;
