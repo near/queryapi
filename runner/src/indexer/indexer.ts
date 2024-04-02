@@ -1,7 +1,7 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import * as lakePrimitives from '@near-lake/primitives';
-import { Parser } from 'kevin-node-sql-parser';
+import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
@@ -24,6 +24,11 @@ interface Context {
   error: (...log: any[]) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
   db: Record<string, Record<string, (...args: any[]) => any>>
+}
+
+export interface TableDefinitionNames {
+  originalTableName: string
+  originalColumnNames: Map<string, string>
 }
 
 interface IndexerFunction {
@@ -131,7 +136,7 @@ export default class Indexer {
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
-        const vm = new VM({ timeout: 20000, allowAsync: true });
+        const vm = new VM({ allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
@@ -226,31 +231,59 @@ export default class Indexer {
     };
   }
 
-  getTableNames (schema: string): string[] {
+  private getColumnDefinitionNames (columnDefs: any[]): Map<string, string> {
+    const columnDefinitionNames = new Map<string, string>();
+    for (const columnDef of columnDefs) {
+      if (columnDef.column?.type === 'column_ref') {
+        const columnNameDef = columnDef.column.column.expr;
+        const actualColumnName = columnNameDef.type === 'double_quote_string' ? `"${columnNameDef.value as string}"` : columnNameDef.value;
+        columnDefinitionNames.set(columnNameDef.value, actualColumnName);
+      }
+    }
+    return columnDefinitionNames;
+  }
+
+  private retainOriginalQuoting (schema: string, tableName: string): string {
+    const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
+
+    if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
+      return `"${tableName}"`;
+    }
+
+    return tableName;
+  }
+
+  getTableNameToDefinitionNamesMapping (schema: string): Map<string, TableDefinitionNames> {
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-    const tableNames = new Set<string>();
+    const tableNameToDefinitionNamesMap = new Map<string, TableDefinitionNames>();
 
-    // Collect all table names from schema AST, throw error if duplicate table names exist
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
         const tableName: string = statement.table[0].table;
 
-        if (tableNames.has(tableName)) {
+        if (tableNameToDefinitionNamesMap.has(tableName)) {
           throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
         }
 
-        tableNames.add(tableName);
+        const createDefs = statement.create_definitions ?? [];
+        for (const columnDef of createDefs) {
+          if (columnDef.column?.type === 'column_ref') {
+            const tableDefinitionNames: TableDefinitionNames = {
+              originalTableName: this.retainOriginalQuoting(schema, tableName),
+              originalColumnNames: this.getColumnDefinitionNames(createDefs)
+            };
+            tableNameToDefinitionNamesMap.set(tableName, tableDefinitionNames);
+          }
+        }
       }
     }
 
-    // Ensure schema is not empty
-    if (tableNames.size === 0) {
+    if (tableNameToDefinitionNamesMap.size === 0) {
       throw new Error('Schema does not have any tables. There should be at least one table.');
     }
 
-    const tableNamesArray = Array.from(tableNames);
-    return Array.from(tableNamesArray);
+    return tableNameToDefinitionNamesMap;
   }
 
   sanitizeTableName (tableName: string): string {
@@ -278,14 +311,16 @@ export default class Indexer {
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
     try {
-      const tables = this.getTableNames(schema);
+      const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(schema);
+      const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
       const dmlHandler = this.dml_handler as DmlHandler;
 
       // Generate and collect methods for each table name
-      const result = tables.reduce((prev, tableName) => {
+      const result = tableNames.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
         const sanitizedTableName = this.sanitizeTableName(tableName);
+        const tableDefinitionNames: TableDefinitionNames = tableNameToDefinitionNamesMapping.get(tableName) as TableDefinitionNames;
         if (sanitizedTableNames.has(sanitizedTableName)) {
           throw new Error(`Table ${tableName} has the same sanitized name as another table. Special characters are removed to generate context.db methods. Please rename the table.`);
         } else {
@@ -303,7 +338,7 @@ export default class Indexer {
                     `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
                   // Call insert with parameters
-                  return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+                  return await dmlHandler.insert(schemaName, tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
                 } finally {
                   insertSpan.end();
                 }
@@ -317,7 +352,7 @@ export default class Indexer {
                     `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
                   // Call select with parameters
-                  return await dmlHandler.select(schemaName, tableName, filterObj, limit);
+                  return await dmlHandler.select(schemaName, tableDefinitionNames, filterObj, limit);
                 } finally {
                   selectSpan.end();
                 }
@@ -331,7 +366,7 @@ export default class Indexer {
                     `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
                   // Call update with parameters
-                  return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
+                  return await dmlHandler.update(schemaName, tableDefinitionNames, filterObj, updateObj);
                 } finally {
                   updateSpan.end();
                 }
@@ -345,7 +380,7 @@ export default class Indexer {
                     `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
                   // Call upsert with parameters
-                  return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+                  return await dmlHandler.upsert(schemaName, tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
                 } finally {
                   upsertSpan.end();
                 }
@@ -359,7 +394,7 @@ export default class Indexer {
                     `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
                   // Call delete with parameters
-                  return await dmlHandler.delete(schemaName, tableName, filterObj);
+                  return await dmlHandler.delete(schemaName, tableDefinitionNames, filterObj);
                 } finally {
                   deleteSpan.end();
                 }
@@ -374,8 +409,8 @@ export default class Indexer {
       }, {});
       return result;
     } catch (error) {
-      const errorContent = error as Error;
-      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.`, errorContent.message);
+      const errorContent = error as { message: string, location: Record<string, any> };
+      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
     }
     return {}; // Default to empty object if error
   }
