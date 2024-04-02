@@ -146,8 +146,9 @@ export default class Indexer {
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
-        const vm = new VM({ allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName /*, logEntries */);
+        simultaneousPromises.push(this.indexer_logger.updateIndexerStatus(IndexerStatus.RUNNING));
+        const vm = new VM({ timeout: 20000, allowAsync: true });
+        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName, logEntries);
 
         vm.freeze(block, 'block');
         vm.freeze(lakePrimitives, 'primitives');
@@ -169,6 +170,7 @@ export default class Indexer {
           }
         });
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
+        simultaneousPromises.push(this.indexer_logger.updateIndexerBlockheight(blockHeight));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
         await this.setStatus(functionName, blockHeight, IndexerStatus.FAILING);
