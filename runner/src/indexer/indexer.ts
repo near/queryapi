@@ -173,7 +173,7 @@ export default class Indexer {
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
-        await this.setStatus(functionName, blockHeight, Status.FAILING);
+        await this.setStatus(functionName, blockHeight, IndexerStatus.FAILING);
         throw e;
       } finally {
         await Promise.all([...simultaneousPromises]);

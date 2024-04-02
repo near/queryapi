@@ -83,4 +83,18 @@ export default class IndexerLogger {
         writeLogSpan.end();
       });
   }
+
+  async updateIndexerStatus (status: IndexerStatus): Promise<void> {
+    const values = [[this.schemaName, 'STATUS', status]];
+    const query = format(METADATA_TABLE_UPSERT, PUBLIC_SCHEMA, values);
+
+    await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName} in ${PUBLIC_SCHEMA}`);
+  }
+
+  async updateIndexerBlockheight (blockHeight: number): Promise<void> {
+    const values = [[this.schemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', blockHeight.toString()]];
+    const query = format(METADATA_TABLE_UPSERT, PUBLIC_SCHEMA, values);
+
+    await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName} in ${PUBLIC_SCHEMA}`);
+  }
 }
