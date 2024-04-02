@@ -79,10 +79,10 @@ services:
       - "6379:6379"
 
   postgres:
-    image: postgres:14
+    build:
+      context: ./postgres
     restart: always
     volumes:
-    - ./init-scripts/postgres:/docker-entrypoint-initdb.d
     - postgres:/var/lib/postgresql/data
     environment:
       POSTGRES_PASSWORD: postgrespassword

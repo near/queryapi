@@ -17,7 +17,7 @@ export class PostgreSqlContainer {
   }
 
   public static async build (): Promise<PostgreSqlContainer> {
-    const container = await GenericContainer.fromDockerfile('../', 'postgres.Dockerfile').build();
+    const container = await GenericContainer.fromDockerfile('../postgres').build();
 
     return new PostgreSqlContainer(container);
   }
