@@ -52,6 +52,7 @@ services:
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres
+      CRON_DATABASE: postgres
       PORT: 9180
       AWS_REGION: eu-central-1
       AWS_ACCESS_KEY_ID:

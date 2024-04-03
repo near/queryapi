@@ -99,14 +99,15 @@ describe('Provisioner', () => {
         ['GRANT ALL PRIVILEGES ON DATABASE morgs_near TO morgs_near'],
         ['REVOKE CONNECT ON DATABASE morgs_near FROM PUBLIC'],
       ]);
-      expect(cronPgClient.query.mock.calls).toEqual([
-        ['GRANT USAGE ON SCHEMA cron TO morgs_near'],
-        ['GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO morgs_near;'],
-      ]);
-      expect(userPgClientQuery.mock.calls).toEqual([
-        ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('morgs_near_test_function.__logs', CURRENT_DATE, '1 day', '2 day')$$, 'morgs_near');"],
-        ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('morgs_near_test_function.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, 'morgs_near');"]
-      ]);
+      // TODO re-enable once logs table is created
+      // expect(cronPgClient.query.mock.calls).toEqual([
+      //   ['GRANT USAGE ON SCHEMA cron TO morgs_near'],
+      //   ['GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO morgs_near;'],
+      // ]);
+      // expect(userPgClientQuery.mock.calls).toEqual([
+      //   ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('morgs_near_test_function.__logs', CURRENT_DATE, '1 day', '2 day')$$, 'morgs_near');"],
+      //   ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('morgs_near_test_function.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, 'morgs_near');"]
+      // ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
       expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
@@ -201,13 +202,14 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
     });
 
-    it('throws when grant cron access fails', async () => {
+    // TODO re-enable once logs table is created
+    it.skip('throws when grant cron access fails', async () => {
       cronPgClient.query = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to grant cron access: some error');
     });
 
-    it('throws when scheduling cron jobs fails', async () => {
+    it.skip('throws when scheduling cron jobs fails', async () => {
       userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');

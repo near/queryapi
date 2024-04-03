@@ -8,7 +8,6 @@ import { logsTableDDL } from './schemas/logs-table';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
-const CRON_DATABASE = 'cron';
 
 const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
@@ -21,7 +20,7 @@ const adminDefaultPgClientGlobal = new PgClientClass({
 const adminCronPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
-  database: CRON_DATABASE,
+  database: process.env.CRON_DATABASE,
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
@@ -36,13 +35,15 @@ export interface DatabaseConnectionParameters {
 
 interface Config {
   cronDatabase: string
-  // Allow overriding the default values for testing
-  postgresHost?: string
-  postgresPort?: number
+  // Override the host/port values returned by Hasura during testing/local development
+  hasuraHostOverride?: string
+  hasuraPortOverride?: number
 }
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
+  hasuraHostOverride: process.env.HASURA_HOST_OVERRIDE,
+  hasuraPortOverride: process.env.HASURA_PORT_OVERRIDE ? Number(process.env.HASURA_PORT_OVERRIDE) : undefined
 };
 
 export default class Provisioner {
@@ -110,8 +111,8 @@ export default class Provisioner {
           user: userDbConnectionParameters.username,
           password: userDbConnectionParameters.password,
           database: this.config.cronDatabase,
-          host: this.config.postgresHost ?? userDbConnectionParameters.host,
-          port: this.config.postgresPort ?? userDbConnectionParameters.port,
+          host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
+          port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
         });
 
         await userCronPgClient.query(
@@ -242,9 +243,12 @@ export default class Provisioner {
           }
 
           await this.createSchema(databaseName, schemaName);
+
           await this.runLogsSql(databaseName, schemaName);
           await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
-          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+
+          // TODO re-enable once logs table is created
+          // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
 

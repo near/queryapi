@@ -60,8 +60,8 @@ describe('Indexer integration', () => {
       pgClient,
       {
         cronDatabase: postgresContainer.getDatabase(),
-        postgresHost: postgresContainer.getIpAddress(),
-        postgresPort: Number(postgresContainer.getPort()),
+        hasuraHostOverride: postgresContainer.getIpAddress(),
+        hasuraPortOverride: Number(postgresContainer.getPort()),
       }
     );
 
