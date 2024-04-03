@@ -148,7 +148,6 @@ export default class Indexer {
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
-        simultaneousPromises.push(this.indexer_logger.updateIndexerStatus(IndexerStatus.RUNNING));
         const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName, logEntries);
 
@@ -172,7 +171,6 @@ export default class Indexer {
           }
         });
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
-        simultaneousPromises.push(this.indexer_logger.updateIndexerBlockheight(blockHeight));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
         await this.setStatus(functionName, blockHeight, IndexerStatus.FAILING);
@@ -443,6 +441,8 @@ export default class Indexer {
 
     this.currentStatus = status;
 
+    await this.indexer_logger?.updateIndexerStatus(IndexerStatus.RUNNING);
+
     const setStatusMutation = `
       mutation SetStatus($function_name: String, $status: String) {
         insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
@@ -450,7 +450,7 @@ export default class Indexer {
           status
         }
       }`;
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status}`);
+    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through hasura`);
     try {
       return await this.runGraphQLQuery(
         setStatusMutation,
@@ -479,6 +479,7 @@ export default class Indexer {
   // }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
+    await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
