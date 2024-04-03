@@ -7,8 +7,8 @@ import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import IndexerLogger from '../indexer-logger/indexer-logger';
 
-import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
-import { type LogEntry, LogType } from '../indexer-logger/indexer-logger';
+import { type IndexerBehavior, Status } from '../stream-handler/stream-handler';
+import { type LogEntry, LogType, LogLevel } from '../indexer-logger/indexer-logger';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 
@@ -65,6 +65,7 @@ export default class Indexer {
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
     dmlHandler = undefined,
+    indexerLogger = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
@@ -79,6 +80,7 @@ export default class Indexer {
     };
     this.database_connection_parameters = databaseConnectionParameters;
     this.dml_handler = dmlHandler;
+    this.indexer_logger = indexerLogger;
   }
 
   async runFunctions (

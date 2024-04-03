@@ -3,19 +3,12 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
-import { LogType } from '../indexer-logger/indexer-logger';
+import { LogType, LogLevel } from '../indexer-logger/indexer-logger';
 
 export enum Status {
   RUNNING = 'RUNNING',
   FAILING = 'FAILING',
   STOPPED = 'STOPPED',
-}
-
-export enum LogLevel {
-  DEBUG = 2,
-  INFO = 5,
-  WARN = 6,
-  ERROR = 8,
 }
 
 export interface IndexerConfig {

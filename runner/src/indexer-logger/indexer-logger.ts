@@ -2,7 +2,6 @@ import format from 'pg-format';
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import { LogLevel } from '../stream-handler/stream-handler';
 import { trace } from '@opentelemetry/api';
 
 export interface LogEntry {
@@ -11,6 +10,13 @@ export interface LogEntry {
   logType: string
   logLevel: LogLevel
   message: string
+}
+
+export enum LogLevel {
+  DEBUG = 2,
+  INFO = 5,
+  WARN = 6,
+  ERROR = 8,
 }
 
 export enum LogType {
