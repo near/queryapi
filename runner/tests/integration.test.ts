@@ -6,7 +6,7 @@ import Indexer from '../src/indexer';
 import HasuraClient from '../src/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
-import { LogLevel } from '../src/indexer-logger/indexer-logger';
+import IndexerLogger, { LogLevel } from '../src/indexer-logger/indexer-logger';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
@@ -54,6 +54,32 @@ describe('Indexer integration', () => {
       database: postgresContainer.getDatabase(),
     });
 
+    const mockPgClient = { //mock for indexerLogger to prevent attempt of hitting db
+      query: jest.fn().mockReturnValue({ rows: [] }),
+      format: jest.fn().mockReturnValue('mock')
+    } as unknown as PgClient;
+
+    const genericMockIndexerLogger = jest.fn(() => ({
+      writeLogs: jest.fn().mockResolvedValue(undefined),
+    })) as unknown as typeof IndexerLogger;
+  
+    const genericDbCredentials: any = {
+      database: 'test_near',
+      host: 'postgres',
+      password: 'test_pass',
+      port: 5432,
+      username: 'test_near'
+    };
+
+    const INDEXER_NAME = 'morgs.near/test_fn';
+
+    const indexerLogger: any = new IndexerLogger(
+      INDEXER_NAME,
+      LogLevel.INFO,
+      genericDbCredentials,
+      mockPgClient
+    );
+
     const provisioner = new Provisioner(
       hasuraClient,
       pgClient,
@@ -70,11 +96,12 @@ describe('Indexer integration', () => {
         log_level: LogLevel.INFO,
       },
       {
-        provisioner
+        provisioner,
+        IndexerLogger: genericMockIndexerLogger 
       },
       undefined,
       undefined,
-      undefined,
+      indexerLogger,
       {
         hasuraAdminSecret: hasuraContainer.getAdminSecret(),
         hasuraEndpoint: hasuraContainer.getEndpoint(),
@@ -107,7 +134,7 @@ describe('Indexer integration', () => {
       },
       false,
       {
-        provision: true
+        provision: true,
       }
     );
 
