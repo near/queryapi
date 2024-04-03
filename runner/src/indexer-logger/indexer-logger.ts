@@ -86,16 +86,26 @@ export default class IndexerLogger {
   }
 
   async updateIndexerStatus (status: IndexerStatus): Promise<void> {
+    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
     const values = [[this.schemaName, STATUS_ATTRIBUTE, status]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
 
-    await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName}`);
+    try {
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName}`);
+    } finally {
+      setStatusSpan.end();
+    }
   }
 
   async updateIndexerBlockheight (blockHeight: number): Promise<void> {
+    const setLastProcessedBlockSpan = this.tracer.startSpan(`set status of indexer to ${blockHeight} through postgres`);
     const values = [[this.schemaName, LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
 
-    await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName}`);
+    try {
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName}`);
+    } finally {
+      setLastProcessedBlockSpan.end();
+    }
   }
 }
