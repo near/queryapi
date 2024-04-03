@@ -23,10 +23,10 @@ interface Dependencies {
 interface Context {
   graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
-  debug: (...log: any[]) => Promise<void>
-  log: (...log: any[]) => Promise<void>
-  warn: (...log: any[]) => Promise<void>
-  error: (...log: any[]) => Promise<void>
+  debug: (message: string) => Promise<void>
+  log: (message: string) => Promise<void>
+  warn: (message: string) => Promise<void>
+  error: (message: string) => Promise<void>
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
   db: Record<string, Record<string, (...args: any[]) => any>>
 }

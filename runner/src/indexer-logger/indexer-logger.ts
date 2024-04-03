@@ -7,7 +7,7 @@ import { trace } from '@opentelemetry/api';
 export interface LogEntry {
   blockHeight: number
   logTimestamp: Date
-  logType: string
+  logType: LogType,
   logLevel: LogLevel
   message: string
 }
