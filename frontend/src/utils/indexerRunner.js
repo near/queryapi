@@ -156,15 +156,13 @@ export default class IndexerRunner {
 
   buildDatabaseContext (blockHeight, schemaName, schema) {
     try {
-      const tableNameToDefinitionNamesMapping = this.pgSchemaTypeGen.getTableNameToDefinitionNamesMapping(schema);
-      const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
+      const tables = this.pgSchemaTypeGen.getTableNames(schema);
       const sanitizedTableNames = new Set();
 
       // Generate and collect methods for each table name
-      const result = tableNames.reduce((prev, tableName) => {
+      const result = tables.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
         const sanitizedTableName = this.pgSchemaTypeGen.sanitizeTableName(tableName);
-        const tableDefinitionNames = tableNameToDefinitionNamesMapping.get(tableName);
         if (sanitizedTableNames.has(sanitizedTableName)) {
           throw new Error(`Table '${tableName}' has the same name as another table in the generated types. Special characters are removed to generate context.db methods. Please rename the table.`);
         } else {
@@ -174,32 +172,24 @@ export default class IndexerRunner {
         // Generate context.db methods for table
         const funcForTable = {
           [`${sanitizedTableName}`]: {
-            insert: async (rowsToInsert) => await this.dbOperationLog(blockHeight, 
-              `Inserting the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`, 
-              rowsToInsert),
+            insert: async (objects) => await this.dbOperationLog(blockHeight, 
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}`, 
+              objects),
 
-            select: async (whereObj, limit = null) => await this.dbOperationLog(blockHeight,
-              `Selecting objects with the following values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
-              whereObj),
+            select: async (object, limit = null) => await this.dbOperationLog(blockHeight,
+              `Selecting objects with the following values from table ${sanitizedTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
+              object),
               
             update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
-              `Updating objects that match the specified fields with the following values in table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`, 
-              {
-                matchingFields: whereObj.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col),
-                fieldsToUpdate: updateObj.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col)
-              }),
+              `Updating objects that match the specified fields with the following values in table ${sanitizedTableName} on schema ${schemaName}`, 
+              {matchingFields: whereObj, fieldsToUpdate: updateObj}),
 
-            upsert: async (rowsToUpsert, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
-              `Inserting the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
-              {
-                insertObjects: rowsToUpsert,
-                conflictColumns: conflictColumns.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col).join(', '),
-                updateColumns: updateColumns.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col).join(', ')
-              }),
+            upsert: async (objects, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
+              `Inserting the following objects into table ${sanitizedTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
+              {insertObjects: objects, conflictColumns: conflictColumns.join(', '), updateColumns: updateColumns.join(', ')}),
 
-            delete: async (whereObj) => await this.dbOperationLog(blockHeight,
-              `Deleting objects which match the following object's values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
-              whereObj)
+            delete: async (object) => await this.dbOperationLog(blockHeight,
+              `Deleting objects which match the following object's values from table ${sanitizedTableName} on schema ${schemaName}`, object)
           }
         };
 

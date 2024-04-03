@@ -1,25 +1,14 @@
-import { type Tracer, trace } from '@opentelemetry/api';
-import pgFormatLib from 'pg-format';
-
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
-import PgClientClass from '../pg-client';
+import PgClient from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
-const adminDefaultPgClientGlobal = new PgClientClass({
+const sharedPgClient = new PgClient({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE,
-  host: process.env.PGHOST,
-  port: Number(process.env.PGPORT),
-});
-
-const adminCronPgClientGlobal = new PgClientClass({
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD,
-  database: process.env.CRON_DATABASE,
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
@@ -32,32 +21,16 @@ export interface DatabaseConnectionParameters {
   password: string
 }
 
-interface Config {
-  cronDatabase: string
-  // Override the host/port values returned by Hasura during testing/local development
-  hasuraHostOverride?: string
-  hasuraPortOverride?: number
-}
-
-const defaultConfig: Config = {
-  cronDatabase: process.env.CRON_DATABASE,
-  hasuraHostOverride: process.env.HASURA_HOST_OVERRIDE,
-  hasuraPortOverride: process.env.HASURA_PORT_OVERRIDE ? Number(process.env.HASURA_PORT_OVERRIDE) : undefined
-};
-
 export default class Provisioner {
-  tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
-  #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
-
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
-    private readonly adminDefaultPgClient: PgClientClass = adminDefaultPgClientGlobal,
-    private readonly adminCronPgClient: PgClientClass = adminCronPgClientGlobal,
-    private readonly config: Config = defaultConfig,
+    private readonly pgClient: PgClient = sharedPgClient,
     private readonly crypto: typeof cryptoModule = cryptoModule,
-    private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
-    private readonly PgClient: typeof PgClientClass = PgClientClass
-  ) {}
+  ) {
+    this.hasuraClient = hasuraClient;
+    this.pgClient = pgClient;
+    this.crypto = crypto;
+  }
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
     return this.crypto
@@ -68,80 +41,17 @@ export default class Provisioner {
       .replace(/\//g, '0');
   }
 
-  isUserApiProvisioned (accountId: string, functionName: string): boolean {
-    const accountIndexers = this.#hasBeenProvisioned[accountId];
-    if (!accountIndexers) { return false; }
-    return accountIndexers[functionName];
-  }
-
-  private setProvisioned (accountId: string, functionName: string): void {
-    this.#hasBeenProvisioned[accountId] ??= {};
-    this.#hasBeenProvisioned[accountId][functionName] = true;
-  }
-
   async createDatabase (name: string): Promise<void> {
-    await this.adminDefaultPgClient.query(this.pgFormat('CREATE DATABASE %I', name));
+    await this.pgClient.query(this.pgClient.format('CREATE DATABASE %I', name));
   }
 
   async createUser (name: string, password: string): Promise<void> {
-    await this.adminDefaultPgClient.query(this.pgFormat('CREATE USER %I WITH PASSWORD %L', name, password));
+    await this.pgClient.query(this.pgClient.format('CREATE USER %I WITH PASSWORD %L', name, password));
   }
 
   async restrictUserToDatabase (databaseName: string, userName: string): Promise<void> {
-    await this.adminDefaultPgClient.query(this.pgFormat('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
-    await this.adminDefaultPgClient.query(this.pgFormat('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
-  }
-
-  async grantCronAccess (userName: string): Promise<void> {
-    await wrapError(
-      async () => {
-        await this.adminCronPgClient.query(this.pgFormat('GRANT USAGE ON SCHEMA cron TO %I', userName));
-        await this.adminCronPgClient.query(this.pgFormat('GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO %I;', userName));
-      },
-      'Failed to grant cron access'
-    );
-  }
-
-  async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
-    await wrapError(
-      async () => {
-        const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
-        const userCronPgClient = new this.PgClient({
-          user: userDbConnectionParameters.username,
-          password: userDbConnectionParameters.password,
-          database: this.config.cronDatabase,
-          host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
-          port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
-        });
-
-        await userCronPgClient.query(
-          this.pgFormat(
-            "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
-            schemaName,
-            databaseName
-          )
-        );
-        await userCronPgClient.query(
-          this.pgFormat(
-            "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$L);",
-            schemaName,
-            databaseName
-          )
-        );
-      },
-      'Failed to schedule log partition jobs'
-    );
-  }
-
-  async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
-    await wrapError(
-      async () => {
-        // TODO: Create logs table
-        await this.grantCronAccess(userName);
-        await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
-      },
-      'Failed to setup partitioned logs table'
-    );
+    await this.pgClient.query(this.pgClient.format('GRANT ALL PRIVILEGES ON DATABASE %I TO %I', databaseName, userName));
+    await this.pgClient.query(this.pgClient.format('REVOKE CONNECT ON DATABASE %I FROM PUBLIC', databaseName));
   }
 
   async createUserDb (userName: string, password: string, databaseName: string): Promise<void> {
@@ -155,12 +65,7 @@ export default class Provisioner {
     );
   }
 
-  async fetchUserApiProvisioningStatus (accountId: string, functionName: string): Promise<boolean> {
-    const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
-    if (this.isUserApiProvisioned(accountId, functionName)) {
-      checkProvisioningSpan.end();
-      return true;
-    }
+  async isUserApiProvisioned (accountId: string, functionName: string): Promise<boolean> {
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
@@ -173,10 +78,7 @@ export default class Provisioner {
     }
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
-    if (schemaExists) {
-      this.setProvisioned(accountId, functionName);
-    }
-    checkProvisioningSpan.end();
+
     return schemaExists;
   }
 
@@ -225,40 +127,36 @@ export default class Provisioner {
     const databaseName = sanitizedAccountId;
     const userName = sanitizedAccountId;
     const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
-    const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
 
-    try {
-      await wrapError(
-        async () => {
-          if (!await this.hasuraClient.doesSourceExist(databaseName)) {
-            const password = this.generatePassword();
-            await this.createUserDb(userName, password, databaseName);
-            await this.addDatasource(userName, password, databaseName);
-          }
+    await wrapError(
+      async () => {
+        if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+          const password = this.generatePassword();
+          await this.createUserDb(userName, password, databaseName);
+          await this.addDatasource(userName, password, databaseName);
+        }
 
-          await this.createSchema(databaseName, schemaName);
-          await this.runMigrations(databaseName, schemaName, databaseSchema);
+        // Untrack tables from old schema to prevent conflicts with new DB
+        if (await this.hasuraClient.doesSchemaExist(HasuraClient.DEFAULT_DATABASE, schemaName)) {
+          const tableNames = await this.getTableNames(schemaName, HasuraClient.DEFAULT_DATABASE);
+          await this.hasuraClient.untrackTables(HasuraClient.DEFAULT_DATABASE, schemaName, tableNames);
+        }
 
-          // TODO re-enable once logs table is created
-          // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+        await this.createSchema(databaseName, schemaName);
+        await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-          const tableNames = await this.getTableNames(schemaName, databaseName);
-          await this.trackTables(schemaName, tableNames, databaseName);
+        const tableNames = await this.getTableNames(schemaName, databaseName);
+        await this.trackTables(schemaName, tableNames, databaseName);
 
-          await this.trackForeignKeyRelationships(schemaName, databaseName);
+        await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-          await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
-
-          this.setProvisioned(accountId, functionName);
-        },
-        'Failed to provision endpoint'
-      );
-    } finally {
-      provisioningSpan.end();
-    }
+        await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
+      },
+      'Failed to provision endpoint'
+    );
   }
 
-  async getDatabaseConnectionParameters (userName: string): Promise<any> {
-    return await this.hasuraClient.getDbConnectionParameters(userName);
+  async getDatabaseConnectionParameters (accountId: string): Promise<any> {
+    return await this.hasuraClient.getDbConnectionParameters(accountId);
   }
 }

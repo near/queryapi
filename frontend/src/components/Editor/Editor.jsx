@@ -386,6 +386,7 @@ const Editor = ({ actionButtonText }) => {
       `${primitives}}`,
       "file:///node_modules/@near-lake/primitives/index.d.ts"
     );
+    
     setMonacoMount(true);
   }
 

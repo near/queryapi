@@ -15,7 +15,7 @@ module.exports = {
       },
     },
     {
-      files: ['./src/**/*', './tests/**/*'],
+      files: ['./src/**/*'],
       parserOptions: {
         project: './tsconfig.json',
       },

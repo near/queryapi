@@ -1,65 +1,9 @@
 import { Parser } from "node-sql-parser";
-//todo: remove this import and replace with a with default node-sql-parser on next release
 
 export class PgSchemaTypeGen {
 	constructor() {
 		this.parser = new Parser();
 		this.tables = new Set();
-	}
-
-	getColumnDefinitionNames (columnDefs) {
-		const columnDefinitionNames = new Map();
-		for (const columnDef of columnDefs) {
-			if (columnDef.column?.type === 'column_ref') {
-				const columnNameDef = columnDef.column.column.expr;
-				const actualColumnName = columnNameDef.type === 'double_quote_string' ? `"${columnNameDef.value}"` : columnNameDef.value;
-				columnDefinitionNames.set(columnNameDef.value, actualColumnName);
-			}
-		}
-		return columnDefinitionNames;
-	}
-	
-	retainOriginalQuoting (schema, tableName) {
-		const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
-
-		if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
-			return `"${tableName}"`;
-		}
-
-		return tableName;
-	}
-	
-	getTableNameToDefinitionNamesMapping (schema) {
-		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
-		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-		const tableNameToDefinitionNamesMap = new Map();
-
-		for (const statement of schemaSyntaxTree) {
-			if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
-				const tableName = statement.table[0].table;
-
-				if (tableNameToDefinitionNamesMap.has(tableName)) {
-					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
-				}
-
-				const createDefs = statement.create_definitions ?? [];
-				for (const columnDef of createDefs) {
-					if (columnDef.column?.type === 'column_ref') {
-						const tableDefinitionNames = {
-							originalTableName: this.retainOriginalQuoting(schema, tableName),
-							originalColumnNames: this.getColumnDefinitionNames(createDefs)
-						};
-						tableNameToDefinitionNamesMap.set(tableName, tableDefinitionNames);
-					}
-				}
-			}
-		}
-
-		if (tableNameToDefinitionNamesMap.size === 0) {
-			throw new Error('Schema does not have any tables. There should be at least one table.');
-		}
-
-		return tableNameToDefinitionNamesMap;
 	}
 
 	sanitizeTableName(tableName) {
@@ -80,68 +24,95 @@ export class PgSchemaTypeGen {
 		return pascalCaseTableName;
 	}
 
-	generateTypes(sqlSchema) {
-		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
-		const dbSchema = {};
+	getTableNames(schema) {
+		let schemaSyntaxTree = this.parser.astify(schema, { database: 'Postgresql' });
+		schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
+		const tableNames = new Set();
 
-		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
-		// Process each statement in the schema
-		for (const statement of statements) {
-			if (statement.type === "create" && statement.keyword === "table") {
-				// Process CREATE TABLE statements
+		// Collect all table names from schema AST, throw error if duplicate table names exist
+		for (const statement of schemaSyntaxTree) {
+			if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
 				const tableName = statement.table[0].table;
-				if (dbSchema.hasOwnProperty(tableName)) {
+
+				if (tableNames.has(tableName)) {
 					throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
 				}
 
-				let columns = {};
-				for (const columnSpec of statement.create_definitions) {
-					if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
-						// New Column
-						this.addColumn(columnSpec, columns);
-					} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
-						// Constraint on existing column
-						for (const foreignKeyDef of columnSpec.definition) {
-							columns[foreignKeyDef.column.expr.value].nullable = false;
-						}
-					}
-				}
-				dbSchema[tableName] = columns;
-			} else if (statement.type === "alter") {
-				// Process ALTER TABLE statements
-				const tableName = statement.table[0].table;
-				for (const alterSpec of statement.expr) {
-					switch (alterSpec.action) {
-						case "add":
-							switch (alterSpec.resource) {
-								case "column": // Add column to table
-									this.addColumn(alterSpec, dbSchema[tableName]);
-									break;
-								case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
-									const newConstraint = alterSpec.create_definitions;
-									if (newConstraint.constraint_type == "primary key") {
-										for (const foreignKeyDef of newConstraint.definition) {
-											dbSchema[tableName][foreignKeyDef.column].nullable = false;
-										}
-									}
-									break;
-							}
-							break;
-						case "drop": // Can only drop column for now
-							delete dbSchema[tableName][alterSpec.column.column];
-							break;
-					}
-				}
+				tableNames.add(tableName);
 			}
 		}
 
-		const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
-		console.log(`Types successfully generated`);
-		return tsTypes;
+		// Ensure schema is not empty
+		if (tableNames.size === 0) {
+			throw new Error('Schema does not have any tables. There should be at least one table.');
+		}
+
+		const tableNamesArray = Array.from(tableNames);
+		return Array.from(tableNamesArray);
+	}
+
+	generateTypes(sqlSchema) {
+			const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
+			const dbSchema = {};
+
+			const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
+			// Process each statement in the schema
+			for (const statement of statements) {
+				if (statement.type === "create" && statement.keyword === "table") {
+					// Process CREATE TABLE statements
+					const tableName = statement.table[0].table;
+					if (dbSchema.hasOwnProperty(tableName)) {
+						throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
+					}
+
+					let columns = {};
+					for (const columnSpec of statement.create_definitions) {
+						if (columnSpec.hasOwnProperty("column") && columnSpec.hasOwnProperty("definition")) {
+							// New Column
+							this.addColumn(columnSpec, columns);
+						} else if (columnSpec.hasOwnProperty("constraint") && columnSpec.constraint_type == "primary key") {
+							// Constraint on existing column
+							for (const foreignKeyDef of columnSpec.definition) {
+								columns[foreignKeyDef.column].nullable = false;
+							}
+						}
+					}
+					dbSchema[tableName] = columns;
+				} else if (statement.type === "alter") {
+					// Process ALTER TABLE statements
+					const tableName = statement.table[0].table;
+					for (const alterSpec of statement.expr) {
+						switch (alterSpec.action) {
+							case "add":
+								switch (alterSpec.resource) {
+									case "column": // Add column to table
+										this.addColumn(alterSpec, dbSchema[tableName]);
+										break;
+									case "constraint": // Add constraint to column(s) (Only PRIMARY KEY constraint impacts output types)
+										const newConstraint = alterSpec.create_definitions;
+										if (newConstraint.constraint_type == "primary key") {
+											for (const foreignKeyDef of newConstraint.definition) {
+												dbSchema[tableName][foreignKeyDef.column].nullable = false;
+											}
+										}
+										break;
+								}
+								break;
+							case "drop": // Can only drop column for now
+								delete dbSchema[tableName][alterSpec.column.column];
+								break;
+						}
+					}
+				}
+			}
+
+			const tsTypes = this.generateTypeScriptDefinitions(dbSchema);
+			console.log(`Types successfully generated`);
+			return tsTypes;
 	}
 
 	addColumn(columnDef, columns) {
-		const columnName = columnDef.column.column.expr.value;
+		const columnName = columnDef.column.column;
 		const columnType = this.getTypescriptType(columnDef.definition.dataType);
 		const nullable = this.getNullableStatus(columnDef);
 		const required = this.getRequiredStatus(columnDef, nullable);
@@ -149,7 +120,6 @@ export class PgSchemaTypeGen {
 			console.warn(`Column ${columnName} already exists in table. Skipping.`);
 			return;
 		}
-
 		columns[columnName] = {
 			type: columnType,
 			nullable: nullable,

@@ -50,7 +50,6 @@ export function validateSQLSchema(schema) {
       pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
       return { data: formattedSchema, error: null }
     } catch (error) {
-      console.log(error)
       return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location };
     }
   }

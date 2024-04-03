@@ -3,12 +3,28 @@ import type fetch from 'node-fetch';
 import HasuraClient from './hasura-client';
 
 describe('HasuraClient', () => {
-  const config = {
-    adminSecret: 'mock-hasura-admin-secret',
-    endpoint: 'mock-hasura-endpoint',
-    pgHost: 'localhost',
-    pgPort: '5432',
-  };
+  const oldEnv = process.env;
+
+  const HASURA_ENDPOINT = 'mock-hasura-endpoint';
+  const HASURA_ADMIN_SECRET = 'mock-hasura-admin-secret';
+  const PGHOST = 'localhost';
+  const PGHOST_HASURA = 'localhost';
+  const PGPORT = '5432';
+
+  beforeAll(() => {
+    process.env = {
+      ...oldEnv,
+      HASURA_ENDPOINT,
+      HASURA_ADMIN_SECRET,
+      PGHOST,
+      PGHOST_HASURA,
+      PGPORT,
+    };
+  });
+
+  afterAll(() => {
+    process.env = oldEnv;
+  });
 
   it('creates a schema', async () => {
     const mockFetch = jest
@@ -17,7 +33,7 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({})
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.createSchema('dbName', 'schemaName');
 
@@ -33,7 +49,7 @@ describe('HasuraClient', () => {
           result: [['schema_name'], ['name']]
         })
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     const result = await client.doesSchemaExist('source', 'schema');
 
@@ -56,10 +72,10 @@ describe('HasuraClient', () => {
           },
         }),
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await expect(client.doesSourceExist('name')).resolves.toBe(true);
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
@@ -70,7 +86,7 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({})
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.runMigrations('dbName', 'schemaName', 'CREATE TABLE blocks (height numeric)');
 
@@ -88,12 +104,12 @@ describe('HasuraClient', () => {
           { name: 'width', schema: 'schema' }
         ])
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     const names = await client.getTableNames('schema', 'source');
 
     expect(names).toEqual(['height', 'width']);
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
@@ -104,11 +120,11 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({})
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.trackTables('schema', ['height', 'width'], 'source');
 
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
@@ -119,7 +135,7 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({})
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.untrackTables('default', 'schema', ['height', 'width']);
 
@@ -133,11 +149,11 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({})
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.addPermissionsToTables('schema', 'default', ['height', 'width'], 'role', ['select', 'insert', 'update', 'delete']);
 
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
@@ -148,11 +164,11 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({})
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.addDatasource('morgs_near', 'password', 'morgs_near');
 
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
@@ -197,14 +213,14 @@ describe('HasuraClient', () => {
           ]
         }),
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.trackForeignKeyRelationships('public', 'source');
 
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
 
-    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(mockFetch.mock.calls[1][1].headers['X-Hasura-Admin-Secret']).toBe(HASURA_ADMIN_SECRET);
     expect(JSON.parse(mockFetch.mock.calls[1][1].body)).toMatchSnapshot();
   });
 
@@ -224,7 +240,7 @@ describe('HasuraClient', () => {
           ]
         }),
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
 
     await client.trackForeignKeyRelationships('public', 'source');
 
@@ -244,7 +260,7 @@ describe('HasuraClient', () => {
         status: 200,
         text: () => JSON.stringify({ metadata: TEST_METADATA })
       });
-    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch });
     const result = await client.getDbConnectionParameters('testB_near');
     expect(result).toEqual(generateConnectionParameter('testB_near', 'passB'));
     await expect(client.getDbConnectionParameters('fake_near')).rejects.toThrow('Could not find connection parameters for user fake_near on respective database.');
