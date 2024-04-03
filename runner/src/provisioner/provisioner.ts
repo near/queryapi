@@ -244,8 +244,8 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
           await this.runLogsSql(databaseName, schemaName);
           await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
-          // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
-          console.log(this.setupPartitionedLogsTable)
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
 
           await this.trackTables(schemaName, updatedTableNames, databaseName);
