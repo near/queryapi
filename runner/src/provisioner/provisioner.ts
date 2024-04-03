@@ -251,11 +251,6 @@ export default class Provisioner {
             const password = this.generatePassword();
             await this.createUserDb(userName, password, databaseName);
             await this.addDatasource(userName, password, databaseName);
-
-            await this.createMetadataTable(databaseName, PUBLIC_SCHEMA);
-            await this.trackMetadataTable(databaseName, PUBLIC_SCHEMA);
-            const publicTableNames = await this.getTableNames(PUBLIC_SCHEMA, databaseName);
-            await this.addPermissionsToTables(PUBLIC_SCHEMA, databaseName, publicTableNames, userName, ['select', 'insert', 'update', 'delete']);
           }
 
           await this.createSchema(databaseName, schemaName);
