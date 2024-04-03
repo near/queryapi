@@ -112,9 +112,9 @@ export default class Indexer {
         if (options.provision && !indexerFunction.provisioned) {
           try {
             if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(indexerFunction.account_id, indexerFunction.function_name)) {
-              await this.setStatus(functionName, blockHeight, 'PROVISIONING');
-              simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
-              // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
+              await this.setStatus(functionName, blockHeight, IndexerStatus.PROVISIONING);
+              simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
+              logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
               await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
               simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: successful'));
               // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
@@ -145,7 +145,7 @@ export default class Indexer {
 
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
-        simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
+        simultaneousPromises.push(this.setStatus(functionName, blockHeight, IndexerStatus.RUNNING));
         const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName, logEntries);
 
@@ -432,8 +432,8 @@ export default class Indexer {
     return {}; // Default to empty object if error
   }
 
-  async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
-    await this.indexer_logger?.updateIndexerStatus(IndexerStatus.RUNNING);
+  async setStatus (functionName: string, blockHeight: number, status: IndexerStatus): Promise<any> {
+    await this.indexer_logger?.updateIndexerStatus(status);
 
     const setStatusMutation = `
       mutation SetStatus($function_name: String, $status: String) {
