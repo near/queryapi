@@ -4,12 +4,12 @@ import type PgClient from '../pg-client';
 import { LogType, LogLevel, type LogEntry } from './indexer-logger';
 
 describe('IndexerLogger', () => {
-  let pgClient: PgClient;
+  let genericMockPgClient: PgClient;
   let query: jest.Mock;
 
   beforeEach(() => {
     query = jest.fn().mockReturnValue({ rows: [] });
-    pgClient = {
+    genericMockPgClient = {
       query,
       format: pgFormat
     } as unknown as PgClient;
@@ -22,7 +22,8 @@ describe('IndexerLogger', () => {
     port: 5432,
     database: 'test_database'
   };
-  const functionName = 'testFunction';
+  const functionName = 'some_account/some_indexer';
+  const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
 
   describe('writeLog', () => {
     it('should insert a single log entry into the database', async () => {
@@ -37,7 +38,7 @@ describe('IndexerLogger', () => {
 
       await indexerLogger.writeLogs(logEntry);
 
-      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES`;
+      const expectedQueryStructure = `INSERT INTO ${schemaName}.__logs (block_height, date, timestamp, type, level, message) VALUES`;
       expect(query.mock.calls[0][0]).toContain(expectedQueryStructure);
     });
 
@@ -77,7 +78,7 @@ describe('IndexerLogger', () => {
 
       await indexerLogger.writeLogs(logEntries);
 
-      const expectedQuery = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES`;
+      const expectedQuery = `INSERT INTO ${schemaName}.__logs (block_height, date, timestamp, type, level, message) VALUES`;
       expect(query.mock.calls[0][0]).toContain(expectedQuery);
     });
 
@@ -126,6 +127,22 @@ describe('IndexerLogger', () => {
       await indexerLogger.writeLogs(logEntry);
 
       expect(query).not.toHaveBeenCalled();
+    });
+
+    it('log status for indexer', async () => {
+      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
+      await indexerLogger.updateIndexerStatus(IndexerStatus.RUNNING);
+      expect(query.mock.calls[0][0]).toEqual(
+        `INSERT INTO ${schemaName}.__metadata (function_name, attribute, value) VALUES ('${schemaName}', 'STATUS', 'RUNNING') ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+      );
+    });
+
+    it('log last processed block height for indexer', async () => {
+      const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
+      await indexerLogger.updateIndexerBlockheight(123);
+      expect(query.mock.calls[0][0]).toEqual(
+        `INSERT INTO ${schemaName}.__metadata (function_name, attribute, value) VALUES ('${schemaName}', 'LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+      );
     });
   });
 });
