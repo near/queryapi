@@ -1,13 +1,13 @@
 import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
-import * as lakePrimitives from '@near-lake/primitives';
+import { type Block } from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import { type IndexerBehavior, LogLevel, Status } from '../stream-handler/stream-handler';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import { trace, type Span } from '@opentelemetry/api';
+import assert from 'assert';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -26,11 +26,6 @@ interface Context {
   db: Record<string, Record<string, (...args: any[]) => any>>
 }
 
-export interface TableDefinitionNames {
-  originalTableName: string
-  originalColumnNames: Map<string, string>
-}
-
 interface IndexerFunction {
   account_id: string
   function_name: string
@@ -39,32 +34,18 @@ interface IndexerFunction {
   code: string
 }
 
-interface Config {
-  hasuraAdminSecret: string
-  hasuraEndpoint: string
-}
-
-const defaultConfig: Config = {
-  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET,
-  hasuraEndpoint: process.env.HASURA_ENDPOINT,
-};
-
 export default class Indexer {
   DEFAULT_HASURA_ROLE;
-  tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly indexer_behavior: IndexerBehavior;
   private readonly deps: Dependencies;
-
+  // TODO: After provisioning migrated out of Runner, fetch credentials before Indexer initialization
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
-  private dml_handler: DmlHandler | undefined;
 
   constructor (
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
-    dmlHandler = undefined,
-    private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
     this.indexer_behavior = indexerBehavior;
@@ -76,16 +57,15 @@ export default class Indexer {
       ...deps,
     };
     this.database_connection_parameters = databaseConnectionParameters;
-    this.dml_handler = dmlHandler;
   }
 
   async runFunctions (
-    block: lakePrimitives.Block,
+    block: Block,
     functions: Record<string, IndexerFunction>,
     isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
-    const blockHeight: number = block.blockHeight;
+    const blockHeight = block.blockHeight;
 
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
 
@@ -104,7 +84,7 @@ export default class Indexer {
 
         if (options.provision && !indexerFunction.provisioned) {
           try {
-            if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(indexerFunction.account_id, indexerFunction.function_name)) {
+            if (!await this.deps.provisioner.isUserApiProvisioned(indexerFunction.account_id, indexerFunction.function_name)) {
               await this.setStatus(functionName, blockHeight, 'PROVISIONING');
               simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
 
@@ -120,43 +100,32 @@ export default class Indexer {
         }
 
         // Cache database credentials after provisioning
-        const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
           this.database_connection_parameters = this.database_connection_parameters ??
             await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName);
-          this.dml_handler = this.dml_handler ?? this.deps.DmlHandler.create(this.database_connection_parameters as DatabaseConnectionParameters);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message));
           throw error;
-        } finally {
-          credentialsFetchSpan.end();
         }
 
         // TODO: Prevent unnecesary reruns of set status
-        const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
-        const vm = new VM({ allowAsync: true });
+        const vm = new VM({ timeout: 20000, allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName);
 
         vm.freeze(block, 'block');
-        vm.freeze(lakePrimitives, 'primitives');
         vm.freeze(context, 'context');
         vm.freeze(context, 'console'); // provide console.log via context.log
-        resourceCreationSpan.end();
 
-        await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
-          const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-          try {
-            await vm.run(modifiedFunction);
-          } catch (e) {
-            const error = e as Error;
-            await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
-            throw e;
-          } finally {
-            runIndexerCodeSpan.end();
-          }
-        });
+        const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
+        try {
+          await vm.run(modifiedFunction);
+        } catch (e) {
+          const error = e as Error;
+          await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message);
+          throw e;
+        }
         simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
@@ -190,29 +159,19 @@ export default class Indexer {
 
     return {
       graphql: async (operation, variables) => {
-        const graphqlSpan = this.tracer.startSpan(`Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
-        try {
-          return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
-        } finally {
-          graphqlSpan.end();
-        }
+        return await this.runGraphQLQuery(operation, variables, functionName, blockHeight, hasuraRoleName);
       },
       set: async (key, value) => {
-        const setSpan = this.tracer.startSpan('Call insert mutation through Hasura');
-        const mutation = `
-          mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
-            insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
-          }`;
+        const mutation =
+                    `mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
+                        insert_${hasuraRoleName}_${functionNameWithoutAccount}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+                     }`;
         const variables = {
           function_name: functionName,
           key,
           value: value ? JSON.stringify(value) : null
         };
-        try {
-          return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
-        } finally {
-          setSpan.end();
-        }
+        return await this.runGraphQLQuery(mutation, variables, functionName, blockHeight, hasuraRoleName);
       },
       debug: async (...log) => {
         return await this.writeLog(LogLevel.DEBUG, functionName, blockHeight, ...log);
@@ -220,7 +179,6 @@ export default class Indexer {
       log: async (...log) => {
         return await this.writeLog(LogLevel.INFO, functionName, blockHeight, ...log);
       },
-      // TODO: Add Warn Log
       error: async (...log) => {
         return await this.writeLog(LogLevel.ERROR, functionName, blockHeight, ...log);
       },
@@ -231,59 +189,31 @@ export default class Indexer {
     };
   }
 
-  private getColumnDefinitionNames (columnDefs: any[]): Map<string, string> {
-    const columnDefinitionNames = new Map<string, string>();
-    for (const columnDef of columnDefs) {
-      if (columnDef.column?.type === 'column_ref') {
-        const columnNameDef = columnDef.column.column.expr;
-        const actualColumnName = columnNameDef.type === 'double_quote_string' ? `"${columnNameDef.value as string}"` : columnNameDef.value;
-        columnDefinitionNames.set(columnNameDef.value, actualColumnName);
-      }
-    }
-    return columnDefinitionNames;
-  }
-
-  private retainOriginalQuoting (schema: string, tableName: string): string {
-    const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
-
-    if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
-      return `"${tableName}"`;
-    }
-
-    return tableName;
-  }
-
-  getTableNameToDefinitionNamesMapping (schema: string): Map<string, TableDefinitionNames> {
+  getTableNames (schema: string): string[] {
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
-    const tableNameToDefinitionNamesMap = new Map<string, TableDefinitionNames>();
+    const tableNames = new Set<string>();
 
+    // Collect all table names from schema AST, throw error if duplicate table names exist
     for (const statement of schemaSyntaxTree) {
       if (statement.type === 'create' && statement.keyword === 'table' && statement.table !== undefined) {
         const tableName: string = statement.table[0].table;
 
-        if (tableNameToDefinitionNamesMap.has(tableName)) {
+        if (tableNames.has(tableName)) {
           throw new Error(`Table ${tableName} already exists in schema. Table names must be unique. Quotes are not allowed as a differentiator between table names.`);
         }
 
-        const createDefs = statement.create_definitions ?? [];
-        for (const columnDef of createDefs) {
-          if (columnDef.column?.type === 'column_ref') {
-            const tableDefinitionNames: TableDefinitionNames = {
-              originalTableName: this.retainOriginalQuoting(schema, tableName),
-              originalColumnNames: this.getColumnDefinitionNames(createDefs)
-            };
-            tableNameToDefinitionNamesMap.set(tableName, tableDefinitionNames);
-          }
-        }
+        tableNames.add(tableName);
       }
     }
 
-    if (tableNameToDefinitionNamesMap.size === 0) {
+    // Ensure schema is not empty
+    if (tableNames.size === 0) {
       throw new Error('Schema does not have any tables. There should be at least one table.');
     }
 
-    return tableNameToDefinitionNamesMap;
+    const tableNamesArray = Array.from(tableNames);
+    return Array.from(tableNamesArray);
   }
 
   sanitizeTableName (tableName: string): string {
@@ -311,16 +241,15 @@ export default class Indexer {
     blockHeight: number,
   ): Record<string, Record<string, (...args: any[]) => any>> {
     try {
-      const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(schema);
-      const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
+      const tables = this.getTableNames(schema);
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler = this.dml_handler as DmlHandler;
+      assert(this.database_connection_parameters !== undefined, 'Database connection parameters are not set');
+      const dmlHandler: DmlHandler = this.deps.DmlHandler.create(this.database_connection_parameters);
 
       // Generate and collect methods for each table name
-      const result = tableNames.reduce((prev, tableName) => {
+      const result = tables.reduce((prev, tableName) => {
         // Generate sanitized table name and ensure no conflict
         const sanitizedTableName = this.sanitizeTableName(tableName);
-        const tableDefinitionNames: TableDefinitionNames = tableNameToDefinitionNamesMapping.get(tableName) as TableDefinitionNames;
         if (sanitizedTableNames.has(sanitizedTableName)) {
           throw new Error(`Table ${tableName} has the same sanitized name as another table. Special characters are removed to generate context.db methods. Please rename the table.`);
         } else {
@@ -331,77 +260,48 @@ export default class Indexer {
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
-              return await this.tracer.startActiveSpan('Call context db insert', async (insertSpan: Span) => {
-                try {
-                  // Write log before calling insert
-                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                    `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
+              // Write log before calling insert
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
 
-                  // Call insert with parameters
-                  return await dmlHandler.insert(schemaName, tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
-                } finally {
-                  insertSpan.end();
-                }
-              });
+              // Call insert with parameters
+              return await dmlHandler.insert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
             },
             select: async (filterObj: any, limit = null) => {
-              return await this.tracer.startActiveSpan('Call context db select', async (selectSpan: Span) => {
-                try {
-                  // Write log before calling select
-                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                    `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
+              // Write log before calling select
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
 
-                  // Call select with parameters
-                  return await dmlHandler.select(schemaName, tableDefinitionNames, filterObj, limit);
-                } finally {
-                  selectSpan.end();
-                }
-              });
+              // Call select with parameters
+              return await dmlHandler.select(schemaName, tableName, filterObj, limit);
             },
             update: async (filterObj: any, updateObj: any) => {
-              return await this.tracer.startActiveSpan('Call context db update', async (updateSpan: Span) => {
-                try {
-                  // Write log before calling update
-                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                    `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
+              // Write log before calling update
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
 
-                  // Call update with parameters
-                  return await dmlHandler.update(schemaName, tableDefinitionNames, filterObj, updateObj);
-                } finally {
-                  updateSpan.end();
-                }
-              });
+              // Call update with parameters
+              return await dmlHandler.update(schemaName, tableName, filterObj, updateObj);
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
-              return await this.tracer.startActiveSpan('Call context db upsert', async (upsertSpan: Span) => {
-                try {
-                  // Write log before calling upsert
-                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                    `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
+              // Write log before calling upsert
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
 
-                  // Call upsert with parameters
-                  return await dmlHandler.upsert(schemaName, tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
-                } finally {
-                  upsertSpan.end();
-                }
-              });
+              // Call upsert with parameters
+              return await dmlHandler.upsert(schemaName, tableName, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
             },
             delete: async (filterObj: any) => {
-              return await this.tracer.startActiveSpan('Call context db delete', async (deleteSpan: Span) => {
-                try {
-                  // Write log before calling delete
-                  await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
-                    `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
+              // Write log before calling delete
+              await this.writeLog(LogLevel.DEBUG, functionName, blockHeight,
+                `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
 
-                  // Call delete with parameters
-                  return await dmlHandler.delete(schemaName, tableDefinitionNames, filterObj);
-                } finally {
-                  deleteSpan.end();
-                }
-              });
+              // Call delete with parameters
+              return await dmlHandler.delete(schemaName, tableName, filterObj);
             }
           }
         };
+
         return {
           ...prev,
           ...funcForTable
@@ -409,35 +309,31 @@ export default class Indexer {
       }, {});
       return result;
     } catch (error) {
-      const errorContent = error as { message: string, location: Record<string, any> };
-      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
+      const errorContent = error as Error;
+      console.warn('Caught error when generating context.db methods. Building no functions. You can still use other context object methods.', errorContent.message);
     }
+
     return {}; // Default to empty object if error
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
-    const setStatusMutation = `
-      mutation SetStatus($function_name: String, $status: String) {
-        insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
-          function_name
-          status
-        }
-      }`;
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status}`);
-    try {
-      return await this.runGraphQLQuery(
-        setStatusMutation,
-        {
-          function_name: functionName,
-          status,
-        },
-        functionName,
-        blockHeight,
-        this.DEFAULT_HASURA_ROLE
-      );
-    } finally {
-      setStatusSpan.end();
-    }
+    return await this.runGraphQLQuery(
+            `
+                mutation SetStatus($function_name: String, $status: String) {
+                  insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
+                    function_name
+                    status
+                  }
+                }
+            `,
+            {
+              function_name: functionName,
+              status,
+            },
+            functionName,
+            blockHeight,
+            this.DEFAULT_HASURA_ROLE
+    );
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
@@ -445,80 +341,71 @@ export default class Indexer {
       return;
     }
 
-    const logMutation = `
-      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
-          insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
-      }`;
-
-    const writeLogSpan = this.tracer.startSpan('Write log to log table through Hasura');
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');
 
-    return await this.runGraphQLQuery(logMutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
+    const mutation =
+            `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+                insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
+             }`;
+
+    return await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message: parsedMessage },
       functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
       .then((result: any) => {
         return result?.insert_indexer_log_entries_one?.id;
       })
       .catch((e: any) => {
         console.error(`${functionName}: Error writing log`, e);
-      })
-      .finally(() => {
-        writeLogSpan.end();
       });
   }
 
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
-    const realTimeMutation: string = `
-      mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-        insert_indexer_state(
-          objects: {current_block_height: $block_height, function_name: $function_name}
-          on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
-        ) {
-          returning {
-            current_block_height
-            function_name
-          }
-        }
-      }`;
+    const realTimeMutation: string =
+            `mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+                  insert_indexer_state(
+                    objects: {current_block_height: $block_height, function_name: $function_name}
+                    on_conflict: {constraint: indexer_state_pkey, update_columns: current_block_height}
+                  ) {
+                    returning {
+                      current_block_height
+                      function_name
+                    }
+                  }
+                }`;
     const historicalMutation: string = `
-      mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-        insert_indexer_state(
-          objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
-          on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
-        ) {
-          returning {
-            current_block_height
-            current_historical_block_height
-            function_name
-          }
-        }
-      }
-    `;
+            mutation WriteBlock($function_name: String!, $block_height: numeric!) {
+              insert_indexer_state(
+                objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
+                on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
+              ) {
+                returning {
+                  current_block_height
+                  current_historical_block_height
+                  function_name
+                }
+              }
+            }
+        `;
     const variables: any = {
       function_name: functionName,
       block_height: blockHeight,
     };
-    const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
-    try {
-      return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
-        .catch((e: any) => {
-          console.error(`${functionName}: Error writing function state`, e);
-        });
-    } finally {
-      setBlockHeightSpan.end();
-    }
+    return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+      .catch((e: any) => {
+        console.error(`${functionName}: Error writing function state`, e);
+      });
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
-    const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
+    const response: Response = await this.deps.fetch(`${process.env.HASURA_ENDPOINT}/v1/graphql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Hasura-Use-Backend-Only-Permissions': 'true',
         ...(hasuraRoleName && {
           'X-Hasura-Role': hasuraRoleName,
-          'X-Hasura-Admin-Secret': this.config.hasuraAdminSecret,
+          'X-Hasura-Admin-Secret': process.env.HASURA_ADMIN_SECRET
         }),
       },
       body: JSON.stringify({

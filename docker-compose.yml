@@ -33,7 +33,6 @@ services:
       RUNNER_URL: http://runner:7001
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       RUST_LOG: info
-      RPC_URL: https://archival-rpc.mainnet.near.org
 
   runner:
     build:
@@ -46,24 +45,17 @@ services:
       HASURA_ENDPOINT: http://hasura-graphql:8080
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
-      PGHOST: pgbouncer
-      PGHOST_HASURA: pgbouncer
-      PGPORT: 6432
+      PGHOST: postgres
+      PGHOST_HASURA: postgres
+      PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres
-      CRON_DATABASE: postgres
       PORT: 9180
       AWS_REGION: eu-central-1
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
       GRPC_SERVER_PORT: 7001
-      PREFETCH_QUEUE_LIMIT: 10
-      TRACING_EXPORTER: ZIPKIN # CONSOLE, GCP, ZIPKIN, or NONE
-      ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
-      GCP_PROJECT_ID: 
-      TRACING_SAMPLE_RATE: 0.1
-      MAX_PG_POOL_SIZE: 10
     ports:
       - "7001:7001"
 
@@ -79,8 +71,7 @@ services:
       - "6379:6379"
 
   postgres:
-    build:
-      context: ./postgres
+    image: postgres:12
     restart: always
     volumes:
     - postgres:/var/lib/postgresql/data
@@ -88,27 +79,6 @@ services:
       POSTGRES_PASSWORD: postgrespassword
     ports:
       - "5432:5432"
-
-  pgbouncer:
-    image: darunrs/pgbouncer:auth_dbname # TODO: Replace with edoburu:pgbouncer image once it supports auth_dbname
-    environment:
-      LISTEN_PORT: 6432
-      DB_HOST: postgres
-      DB_USER: pgbouncer
-      DB_PASSWORD: pgbouncer
-      ADMIN_USERS: postgres
-      DB_NAME: "*"
-      AUTH_TYPE: scram-sha-256
-      AUTH_FILE: /etc/pgbouncer/userlist.txt
-      AUTH_USER: pgbouncer
-      AUTH_QUERY: SELECT uname, phash FROM public.user_lookup($1::text)
-      AUTH_DBNAME: postgres
-      MAX_CLIENT_CONN: 4000 # Max Connections to PgBouncer
-      DEFAULT_POOL_SIZE: 10 # Standard connections open per user/db combo
-    ports:
-      - "6432:6432"
-    depends_on:
-      - postgres
 
   hasura-auth:
     build:
@@ -134,7 +104,6 @@ services:
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
       HASURA_GRAPHQL_ADMIN_SECRET: myadminsecretkey
       HASURA_GRAPHQL_AUTH_HOOK: http://hasura-auth:4000/auth
-
   grafana:
     image: grafana/grafana
     volumes:
@@ -143,20 +112,13 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=secret
-
+    
   prometheus:
     image: prom/prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
-
-  zipkin:
-    image: openzipkin/zipkin
-    ports:
-      - "9411:9411"
-    environment:
-      - STORAGE_TYPE=mem
       
 volumes:
   postgres:

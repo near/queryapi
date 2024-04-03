@@ -2,7 +2,7 @@ import prettier from "prettier";
 import SqlPlugin from "prettier-plugin-sql";
 import parserBabel from "prettier/parser-babel";
 
-let wrap_code = (code) => `import * as primitives from "@near-lake/primitives"
+let wrap_code = (code) => `import {Block} from "@near-lake/primitives"
 /** 
  * Note: We only support javascript at the moment. We will support Rust, Typescript in a further release. 
  */
@@ -17,7 +17,7 @@ let wrap_code = (code) => `import * as primitives from "@near-lake/primitives"
  * 
  * @param {block} Block - A Near Protocol Block
  */
-async function getBlock(block: primitives.Block) {
+async function getBlock(block: Block) {
   ${code}
 }`;
 

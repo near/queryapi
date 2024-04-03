@@ -1,10 +1,6 @@
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import { type TableDefinitionNames } from '../indexer';
-
-type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
-type WhereClauseSingle = Record<string, (string | number)>;
 
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -21,91 +17,74 @@ export default class DmlHandler {
       user: databaseConnectionParameters.username,
       password: databaseConnectionParameters.password,
       host: process.env.PGHOST,
-      port: Number(process.env.PGPORT ?? databaseConnectionParameters.port),
+      port: Number(databaseConnectionParameters.port),
       database: databaseConnectionParameters.database,
     });
     return new DmlHandler(pgClient);
   }
 
-  private getWhereClause (whereObject: WhereClauseMulti, columnLookup: Map<string, string>): { queryVars: Array<string | number>, whereClause: string } {
-    const columns = Object.keys(whereObject);
-    const queryVars: Array<string | number> = [];
-    const whereClause = columns.map((colName) => {
-      const originalColName = columnLookup.get(colName) ?? colName;
-      const colCondition = whereObject[colName];
-      if (colCondition instanceof Array) {
-        const inVals: Array<string | number> = colCondition;
-        const inStr = Array.from({ length: inVals.length }, (_, idx) => `$${queryVars.length + idx + 1}`).join(',');
-        queryVars.push(...inVals);
-        return `${originalColName} IN (${inStr})`;
-      } else {
-        queryVars.push(colCondition);
-        return `${originalColName}=$${queryVars.length}`;
-      }
-    }).join(' AND ');
-    return { queryVars, whereClause };
-  }
-
-  async insert (schemaName: string, tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
-    if (!rowsToInsert?.length) {
+  async insert (schemaName: string, tableName: string, objects: any[]): Promise<any[]> {
+    if (!objects?.length) {
       return [];
     }
 
-    const columnNames = Object.keys(rowsToInsert[0]);
-    const originalColumnNames = columnNames.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
-    const rowValues = rowsToInsert.map(row => columnNames.map(col => row[col]));
-    const query = `INSERT INTO ${schemaName}.${tableDefinitionNames.originalTableName} (${originalColumnNames.join(', ')}) VALUES %L RETURNING *`;
+    const keys = Object.keys(objects[0]);
+    // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
+    const values = objects.map(obj => keys.map(key => obj[key]));
+    const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, rowValues), []), `Failed to execute '${query}' on ${schemaName}.${tableDefinitionNames.originalTableName}.`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 
-  async select (schemaName: string, tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
-    const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
-    let query = `SELECT * FROM ${schemaName}.${tableDefinitionNames.originalTableName} WHERE ${whereClause}`;
+  async select (schemaName: string, tableName: string, object: any, limit: number | null = null): Promise<any[]> {
+    const keys = Object.keys(object);
+    const values = Object.values(object);
+    const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
+    let query = `SELECT * FROM ${schemaName}."${tableName}" WHERE ${param}`;
     if (limit !== null) {
       query = query.concat(' LIMIT ', Math.round(limit).toString());
     }
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryVars), `Failed to execute '${query}' on ${schemaName}.${tableDefinitionNames.originalTableName}.`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 
-  async update (schemaName: string, tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
-    const updateKeys = Object.keys(updateObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
+  async update (schemaName: string, tableName: string, whereObject: any, updateObject: any): Promise<any[]> {
+    const updateKeys = Object.keys(updateObject);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
-    const whereKeys = Object.keys(whereObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
+    const whereKeys = Object.keys(whereObject);
     const whereParam = Array.from({ length: whereKeys.length }, (_, index) => `${whereKeys[index]}=$${index + 1 + updateKeys.length}`).join(' AND ');
 
     const queryValues = [...Object.values(updateObject), ...Object.values(whereObject)];
-    const query = `UPDATE ${schemaName}.${tableDefinitionNames.originalTableName} SET ${updateParam} WHERE ${whereParam} RETURNING *`;
+    const query = `UPDATE ${schemaName}."${tableName}" SET ${updateParam} WHERE ${whereParam} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}.${tableDefinitionNames.originalTableName}.`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryValues), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 
-  async upsert (schemaName: string, tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
-    if (!rowsToUpsert?.length) {
+  async upsert (schemaName: string, tableName: string, objects: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
+    if (!objects?.length) {
       return [];
     }
-    conflictColumns = conflictColumns.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
-    updateColumns = updateColumns.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
 
-    const columns = Object.keys(rowsToUpsert[0]);
-    const originalColumns = columns.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
-    const rowValues = rowsToUpsert.map(row => columns.map(col => row[col]));
+    const keys = Object.keys(objects[0]);
+    // Get array of values from each object, and return array of arrays as result. Expects all objects to have the same number of items in same order
+    const values = objects.map(obj => keys.map(key => obj[key]));
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
-    const query = `INSERT INTO ${schemaName}.${tableDefinitionNames.originalTableName} (${originalColumns.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
+    const query = `INSERT INTO ${schemaName}."${tableName}" (${keys.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, rowValues), []), `Failed to execute '${query}' on ${schemaName}.${tableDefinitionNames.originalTableName}.`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query, values), []), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 
-  async delete (schemaName: string, tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
-    const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
-    const query = `DELETE FROM ${schemaName}.${tableDefinitionNames.originalTableName} WHERE ${whereClause} RETURNING *`;
+  async delete (schemaName: string, tableName: string, object: any): Promise<any[]> {
+    const keys = Object.keys(object);
+    const values = Object.values(object);
+    const param = Array.from({ length: keys.length }, (_, index) => `${keys[index]}=$${index + 1}`).join(' AND ');
+    const query = `DELETE FROM ${schemaName}."${tableName}" WHERE ${param} RETURNING *`;
 
-    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), queryVars), `Failed to execute '${query}' on ${schemaName}.${tableDefinitionNames.originalTableName}.`);
+    const result = await wrapError(async () => await this.pgClient.query(this.pgClient.format(query), values), `Failed to execute '${query}' on ${schemaName}."${tableName}".`);
     return result.rows;
   }
 }
