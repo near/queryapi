@@ -1,6 +1,8 @@
 import pgFormat from 'pg-format';
 
 import Provisioner from './provisioner';
+import { logsTableDDL } from './schemas/logs-table';
+import { metadataTableDDL } from './schemas/metadata-table';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -110,7 +112,9 @@ describe('Provisioner', () => {
       // ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, logsTableDDL(schemaName));
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -137,7 +141,7 @@ describe('Provisioner', () => {
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -175,7 +179,7 @@ describe('Provisioner', () => {
     it.skip('throws an error when it fails to run sql', async () => {
       hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run logs script: some error');
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run user script: some error');
     });
 
     it('throws an error when it fails to fetch table names', async () => {
@@ -202,8 +206,19 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
     });
 
-    // TODO re-enable once logs table is created
-    it.skip('throws when grant cron access fails', async () => {
+    it('throws an error when it fails to create metadata table', async () => {
+      hasuraClient.runSql = jest.fn().mockRejectedValue(error);
+
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to create metadata table in morgs_near.morgs_near_test_function: some error');
+    });
+
+    it('throws an error when it fails to create logs table', async () => {
+      hasuraClient.runSql = jest.fn().mockReturnValueOnce(null).mockRejectedValue(error);
+
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create and prepare logs table: some error');
+    });
+
+    it('throws when grant cron access fails', async () => {
       cronPgClient.query = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to grant cron access: some error');
