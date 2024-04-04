@@ -141,6 +141,8 @@ describe('Provisioner', () => {
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, logsTableDDL(schemaName));
+      expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
       expect(hasuraClient.runSql).toBeCalledWith(sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
       expect(hasuraClient.trackTables).toBeCalledWith(schemaName, tableNames, sanitizedAccountId);
@@ -209,7 +211,7 @@ describe('Provisioner', () => {
     it('throws an error when it fails to create metadata table', async () => {
       hasuraClient.runSql = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to create metadata table in morgs_near.morgs_near_test_function: some error');
+      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create metadata table in morgs_near.morgs_near_test_function: some error');
     });
 
     it('throws an error when it fails to create logs table', async () => {
