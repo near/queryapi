@@ -761,7 +761,7 @@ CREATE TABLE
     const commentId = 2;
     const blockHeight = 82699904;
     const mockFetch = jest.fn()
-      .mockReturnValueOnce({ // starting log
+      .mockReturnValueOnce({ // "running function on ..." log
         status: 200,
         json: async () => ({
           data: {
@@ -773,7 +773,7 @@ CREATE TABLE
           },
         }),
       })
-      .mockReturnValueOnce({
+      .mockReturnValueOnce({ // set status
         status: 200,
         json: async () => ({
           errors: null,
