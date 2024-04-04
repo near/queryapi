@@ -105,6 +105,9 @@ export default class Indexer {
       try {
         const indexerFunction = functions[functionName];
 
+        const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
+        simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, runningMessage));
+
         const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
         if (options.provision && !indexerFunction.provisioned) {
           try {
@@ -124,8 +127,6 @@ export default class Indexer {
           }
         }
 
-        const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
-        simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, runningMessage));
         // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: runningMessage });
         // Cache database credentials after provisioning
         const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
