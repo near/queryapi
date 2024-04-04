@@ -313,7 +313,7 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n          insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n      }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Error running IndexerFunction:boom"}}",
+      "body": "{"query":"\\n      mutation SetStatus($function_name: String, $status: String) {\\n        insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n          function_name\\n          status\\n        }\\n      }","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",
@@ -326,7 +326,7 @@ exports[`Indexer unit tests Indexer.runFunctions() catches errors 1`] = `
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n      mutation SetStatus($function_name: String, $status: String) {\\n        insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {\\n          function_name\\n          status\\n        }\\n      }","variables":{"function_name":"buildnear.testnet/test","status":"RUNNING"}}",
+      "body": "{"query":"\\n      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n          insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n      }","variables":{"function_name":"buildnear.testnet/test","block_height":456,"message":"Error running IndexerFunction:boom"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",
