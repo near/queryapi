@@ -450,6 +450,10 @@ export default class Indexer {
     return await this.writeLogOld(logLevel, functionName, blockHeight, message);
   }
 
+  async callWriteLog (logEntry: LogEntry): Promise<any> {
+    await (this.indexer_logger as IndexerLogger).writeLogs(logEntry);
+  }
+
   async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {

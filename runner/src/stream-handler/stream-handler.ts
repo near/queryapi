@@ -83,14 +83,14 @@ export default class StreamHandler {
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
       console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
-
-    indexer.writeLog({
+    
+    indexer.callWriteLog({
       blockHeight: this.executorContext.block_height,
       logTimestamp: new Date(),
       logType: LogType.SYSTEM,
       logLevel: LogLevel.ERROR,
       message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
-    }, [], functionName).catch((e) => {
+    }).catch((e) => {
       console.error(`Failed to write log for stream: ${this.streamKey}`, e);
     });
 

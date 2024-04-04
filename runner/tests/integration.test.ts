@@ -54,7 +54,7 @@ describe('Indexer integration', () => {
       database: postgresContainer.getDatabase(),
     });
 
-    const mockPgClient = { //mock for indexerLogger to prevent attempt of hitting db
+    const mockPgClient = {
       query: jest.fn().mockReturnValue({ rows: [] }),
       format: jest.fn().mockReturnValue('mock')
     } as unknown as PgClient;
