@@ -190,7 +190,7 @@ export default class Provisioner {
   //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
   // }
 
-  async runDatabaseSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
+  async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
@@ -245,7 +245,7 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
 
           // await this.runLogsSql(databaseName, schemaName);
-          await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
+          await this.runIndexerSql(databaseName, schemaName, databaseSchema);
 
           // TODO re-enable once logs table is created
           // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
