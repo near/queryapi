@@ -498,7 +498,7 @@ export default class Indexer {
     }
 
     const logMutation = `
-      mutation writeLogOld($function_name: String!, $block_height: numeric!, $message: String!){
+      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
           insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
       }`;
 
