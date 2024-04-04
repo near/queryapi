@@ -10,7 +10,8 @@ import { LogLevel } from '../src/stream-handler/stream-handler';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
-import block1 from './blocks/00115185108/streamer_message.json';
+import block115185108 from './blocks/00115185108/streamer_message.json';
+import block115185109 from './blocks/00115185109/streamer_message.json';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -81,7 +82,37 @@ describe('Indexer integration', () => {
     );
 
     await indexer.runFunctions(
-      Block.fromStreamerMessage(block1 as any as StreamerMessage),
+      Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
+      {
+        'morgs.near/test': {
+          account_id: 'morgs.near',
+          function_name: 'test',
+          provisioned: false,
+          schema: 'CREATE TABLE blocks (height numeric)',
+          code: `
+            await context.graphql(
+              \`
+                mutation ($height:numeric){
+                  insert_morgs_near_test_blocks_one(object:{height:$height}) {
+                    height
+                  }
+                }
+              \`,
+              {
+                height: block.blockHeight
+              }
+            );
+          `,
+        }
+      },
+      false,
+      {
+        provision: true
+      }
+    );
+
+    await indexer.runFunctions(
+      Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
       {
         'morgs.near/test': {
           account_id: 'morgs.near',
@@ -131,6 +162,6 @@ describe('Indexer integration', () => {
 
     const { data } = await resp.json();
 
-    expect(data.morgs_near_test_blocks[0].height).toEqual(115185108);
+    expect(data.morgs_near_test_blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
   });
 });

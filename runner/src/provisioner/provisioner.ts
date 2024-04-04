@@ -136,7 +136,7 @@ export default class Provisioner {
   async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        // TODO: Create logs table
+        await this.runMigrations(databaseName, schemaName, 'CREATE TABLE __logs()'); // TODO replace with real schema
         await this.grantCronAccess(userName);
         await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
       },
@@ -218,6 +218,34 @@ export default class Provisioner {
     return str.replaceAll(/[.-]/g, '_');
   }
 
+  /**
+    * Provision logs table for existing Indexers which have already had all
+    * other resources provisioned.
+    *
+    * */
+  async provisionLogsIfNeeded (accountId: string, functionName: string): Promise<void> {
+    const sanitizedAccountId = this.replaceSpecialChars(accountId);
+    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
+
+    const databaseName = sanitizedAccountId;
+    const userName = sanitizedAccountId;
+    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+    const logsTable = '__logs';
+
+    await wrapError(
+      async () => {
+        const tableNames = await this.getTableNames(schemaName, databaseName);
+
+        if (!tableNames.includes(logsTable)) {
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+          await this.trackTables(schemaName, [logsTable], databaseName);
+          await this.addPermissionsToTables(schemaName, databaseName, [logsTable], userName, ['select', 'insert', 'update', 'delete']);
+        }
+      },
+      'Failed standalone logs provisioning'
+    );
+  }
+
   async provisionUserApi (accountId: string, functionName: string, databaseSchema: any): Promise<void> { // replace any with actual type
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
@@ -239,7 +267,7 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
           await this.runMigrations(databaseName, schemaName, databaseSchema);
 
-          // TODO re-enable once logs table is created
+          // TODO enable once new logs implementation is ready
           // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const tableNames = await this.getTableNames(schemaName, databaseName);
