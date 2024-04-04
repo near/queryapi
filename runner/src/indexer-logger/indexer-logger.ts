@@ -28,6 +28,7 @@ export enum LogType {
 const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (function_name, attribute, value) VALUES %L ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 const STATUS_ATTRIBUTE = 'STATUS';
 const LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE = 'LAST_PROCESSED_BLOCK_HEIGHT';
+
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
   private readonly pgClient: PgClient;
@@ -98,7 +99,7 @@ export default class IndexerLogger {
   }
 
   async updateIndexerBlockheight (blockHeight: number): Promise<void> {
-    const setLastProcessedBlockSpan = this.tracer.startSpan(`set status of indexer to ${blockHeight} through postgres`);
+    const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
     const values = [[this.schemaName, LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
 
