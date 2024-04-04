@@ -4,7 +4,7 @@ import pgFormatLib from 'pg-format';
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
-import { logsTableDDL } from './schemas/logs-table';
+// import { logsTableDDL } from './schemas/logs-table';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
@@ -185,10 +185,10 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
-  async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
-    const logsDDL = logsTableDDL(schemaName);
-    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
-  }
+  // async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
+  //   const logsDDL = logsTableDDL(schemaName);
+  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
+  // }
 
   async runDatabaseSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
@@ -244,7 +244,7 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
 
-          await this.runLogsSql(databaseName, schemaName);
+          // await this.runLogsSql(databaseName, schemaName);
           await this.runDatabaseSql(databaseName, schemaName, databaseSchema);
 
           // TODO re-enable once logs table is created

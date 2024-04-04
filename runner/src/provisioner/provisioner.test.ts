@@ -172,7 +172,7 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add datasource: some error');
     });
 
-    it('throws an error when it fails to run sql', async () => {
+    it.skip('throws an error when it fails to run sql', async () => {
       hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run logs script: some error');
