@@ -85,7 +85,7 @@ export default class StreamHandler {
     });
 
     Promise.all([
-      indexer.writeLogOld(LogLevel.ERROR, functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`),
+      indexer.writeLog(LogLevel.ERROR, functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`),
       // indexer.callWriteLog({
       //   blockHeight: this.executorContext.block_height,
       //   logTimestamp: new Date(),
