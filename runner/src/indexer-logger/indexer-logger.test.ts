@@ -2,6 +2,7 @@ import pgFormat from 'pg-format';
 import IndexerLogger from './indexer-logger';
 import type PgClient from '../pg-client';
 import { LogType, LogLevel, type LogEntry } from './indexer-logger';
+import { IndexerStatus } from '../stream-handler/stream-handler';
 
 describe('IndexerLogger', () => {
   let genericMockPgClient: PgClient;
@@ -27,7 +28,7 @@ describe('IndexerLogger', () => {
 
   describe('writeLog', () => {
     it('should insert a single log entry into the database', async () => {
-      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntry: LogEntry = {
         blockHeight: 123,
         logTimestamp: new Date(),
@@ -45,7 +46,7 @@ describe('IndexerLogger', () => {
     it('should handle errors when inserting a single log entry', async () => {
       query.mockRejectedValueOnce(new Error('Failed to insert log'));
 
-      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntry: LogEntry = {
         blockHeight: 123,
         logTimestamp: new Date(),
@@ -58,7 +59,7 @@ describe('IndexerLogger', () => {
     });
 
     it('should insert a batch of log entries into the database', async () => {
-      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntries: LogEntry[] = [
         {
           blockHeight: 123,
@@ -85,7 +86,7 @@ describe('IndexerLogger', () => {
     it('should handle errors when inserting a batch of log entries', async () => {
       query.mockRejectedValueOnce(new Error('Failed to insert batch of logs'));
 
-      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntries: LogEntry[] = [
         {
           blockHeight: 123,
@@ -107,7 +108,7 @@ describe('IndexerLogger', () => {
     });
 
     it('should handle empty log entry', async () => {
-      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntries: LogEntry[] = [];
       await indexerLogger.writeLogs(logEntries);
 
@@ -115,7 +116,7 @@ describe('IndexerLogger', () => {
     });
 
     it('should skip log entries with levels lower than the logging level specified in the constructor', async () => {
-      const indexerLogger = new IndexerLogger(functionName, LogLevel.ERROR, mockDatabaseConnectionParameters, pgClient);
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.ERROR, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntry: LogEntry = {
         blockHeight: 123,
         logTimestamp: new Date(),
