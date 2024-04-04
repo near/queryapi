@@ -5,7 +5,8 @@ import Indexer from './indexer';
 import { VM } from 'vm2';
 import DmlHandler from '../dml-handler/dml-handler';
 import type PgClient from '../pg-client';
-import { type IndexerBehavior, LogLevel } from '../stream-handler/stream-handler';
+import { type IndexerBehavior } from '../stream-handler/stream-handler';
+import { LogLevel } from '../indexer-logger/indexer-logger';
 
 describe('Indexer unit tests', () => {
   const HASURA_ROLE = 'morgs_near';
