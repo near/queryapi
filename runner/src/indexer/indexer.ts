@@ -59,6 +59,8 @@ export default class Indexer {
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
   private dml_handler: DmlHandler | undefined;
 
+  private currentStatus?: string;
+
   constructor (
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
@@ -416,6 +418,12 @@ export default class Indexer {
   }
 
   async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
+    if (this.currentStatus === status) {
+      return;
+    }
+
+    this.currentStatus = status;
+
     const setStatusMutation = `
       mutation SetStatus($function_name: String, $status: String) {
         insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
