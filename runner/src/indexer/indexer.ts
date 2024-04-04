@@ -488,6 +488,8 @@ export default class Indexer {
     } finally {
       setStatusSpan.end();
     }
+
+    await this.indexer_logger?.updateIndexerStatus(status);
   }
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
@@ -540,6 +542,8 @@ export default class Indexer {
     } finally {
       setBlockHeightSpan.end();
     }
+
+    await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
   }
 
   // todo rename to writeLogOld
@@ -572,6 +576,7 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
+    console.log('runGraphQLQuery', operation, variables, functionName, blockHeight, hasuraRoleName, logError);
     const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
