@@ -10,11 +10,11 @@ CREATE TABLE __logs (
     PRIMARY KEY (date, id)
 ) PARTITION BY RANGE (date);
 
-CREATE INDEX logs_timestamp_idx ON __logs USING btree (timestamp);
-CREATE INDEX logs_type_idx ON __logs USING btree (type);
-CREATE INDEX logs_level_idx ON __logs USING btree (level);
-CREATE INDEX logs_block_height_idx ON __logs USING btree (block_height);
-CREATE INDEX logs_search_vector_idx ON __logs USING GIN (to_tsvector('english', message));
+CREATE INDEX __logs_timestamp_idx ON __logs USING btree (timestamp);
+CREATE INDEX __logs_type_idx ON __logs USING btree (type);
+CREATE INDEX __logs_level_idx ON __logs USING btree (level);
+CREATE INDEX __logs_block_height_idx ON __logs USING btree (block_height);
+CREATE INDEX __logs_search_vector_idx ON __logs USING GIN (to_tsvector('english', message));
 
 
 CREATE OR REPLACE FUNCTION fn_create_partition(_tbl text, _date date, _interval_start text, _interval_end text)
