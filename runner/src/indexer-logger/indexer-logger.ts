@@ -31,6 +31,7 @@ const LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE = 'LAST_PROCESSED_BLOCK_HEIGHT';
 
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
+
   private readonly pgClient: PgClient;
   private readonly schemaName: string;
   private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';

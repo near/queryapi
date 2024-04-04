@@ -23,7 +23,6 @@ const adminCronPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.CRON_DATABASE,
-  database: process.env.CRON_DATABASE,
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
