@@ -432,9 +432,7 @@ export default class Indexer {
     return {}; // Default to empty object if error
   }
 
-  async setStatus (functionName: string, blockHeight: number, status: IndexerStatus): Promise<any> {
-    await this.indexer_logger?.updateIndexerStatus(status);
-
+  async setStatus (functionName: string, blockHeight: number, status: IndexerStatus): Promise<void> {
     const setStatusMutation = `
       mutation SetStatus($function_name: String, $status: String) {
         insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
@@ -444,7 +442,7 @@ export default class Indexer {
       }`;
     const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through hasura`);
     try {
-      return await this.runGraphQLQuery(
+      await this.runGraphQLQuery(
         setStatusMutation,
         {
           function_name: functionName,
@@ -457,6 +455,8 @@ export default class Indexer {
     } finally {
       setStatusSpan.end();
     }
+
+    await this.indexer_logger?.updateIndexerStatus(status);
   }
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
@@ -470,8 +470,7 @@ export default class Indexer {
   //   await (this.indexer_logger as IndexerLogger).writeLogs(logEntry);
   // }
 
-  async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
-    await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
+  async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
@@ -504,13 +503,15 @@ export default class Indexer {
     };
     const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
     try {
-      return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+      await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
           console.error(`${functionName}: Error writing function state`, e);
         });
     } finally {
       setBlockHeightSpan.end();
     }
+
+    await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
@@ -542,6 +543,7 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
+    console.log('runGraphQLQuery', operation, variables, functionName, blockHeight, hasuraRoleName, logError);
     const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
