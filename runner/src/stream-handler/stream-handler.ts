@@ -83,17 +83,21 @@ export default class StreamHandler {
     indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
       console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
-    
-    indexer.callWriteLog({
-      blockHeight: this.executorContext.block_height,
-      logTimestamp: new Date(),
-      logType: LogType.SYSTEM,
-      logLevel: LogLevel.ERROR,
-      message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
-    }).catch((e) => {
+
+    Promise.all([
+      indexer.writeLogOld(LogLevel.ERROR, functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`),
+      indexer.callWriteLog({
+        blockHeight: this.executorContext.block_height,
+        logTimestamp: new Date(),
+        logType: LogType.SYSTEM,
+        logLevel: LogLevel.ERROR,
+        message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
+      })
+    ])
+    .catch((e) => {
       console.error(`Failed to write log for stream: ${this.streamKey}`, e);
     });
-
+    
     this.worker.terminate().catch(() => {
       console.error(`Failed to terminate thread for stream: ${this.streamKey}`);
     });
