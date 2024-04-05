@@ -148,7 +148,7 @@ export default class Indexer {
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, IndexerStatus.RUNNING));
-        const vm = new VM({ timeout: 20000, allowAsync: true });
+        const vm = new VM({ allowAsync: true });
         const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName, logEntries);
 
         vm.freeze(block, 'block');
@@ -553,7 +553,6 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
-    console.log('runGraphQLQuery', operation, variables, functionName, blockHeight, hasuraRoleName, logError);
     const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
