@@ -1,6 +1,5 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
-import { Status } from '../stream-handler/stream-handler';
 import { LogLevel } from '../indexer-logger/indexer-logger';
 import crypto from 'crypto';
 
@@ -13,6 +12,7 @@ import { type ListExecutorsRequest__Output } from '../generated/runner/ListExecu
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
 import StreamHandler from '../stream-handler';
+import { IndexerStatus } from '../stream-handler/stream-handler';
 
 const hashString = (input: string): string => {
   const hash = crypto.createHash('sha256');
