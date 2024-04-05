@@ -5,9 +5,10 @@ import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
-import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior, IndexerStatus } from './stream-handler';
+import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior } from './stream-handler';
 import { trace, type Span, context } from '@opentelemetry/api';
 import setUpTracerExport from '../instrumentation';
+import { IndexerStatus } from '../indexer-logger/indexer-logger';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
