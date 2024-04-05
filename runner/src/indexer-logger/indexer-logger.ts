@@ -105,7 +105,7 @@ export default class IndexerLogger {
     }
   }
 
-  async updateIndexerBlockheight (blockHeight: number): Promise<void> {
+  async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
     const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
     const values = [[this.schemaName, LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);

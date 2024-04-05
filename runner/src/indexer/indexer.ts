@@ -5,10 +5,9 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-// import IndexerLogger from '../indexer-logger/indexer-logger';
 
 import { type IndexerBehavior } from '../stream-handler/stream-handler';
-import { /* type LogEntry, LogType, */ IndexerStatus, LogLevel } from '../indexer-logger/indexer-logger';
+import IndexerLogger, { /* type LogEntry, LogType, */ IndexerStatus, LogLevel } from '../indexer-logger/indexer-logger';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 
@@ -16,6 +15,7 @@ interface Dependencies {
   fetch: typeof fetch
   provisioner: Provisioner
   dmlHandler?: DmlHandler
+  indexerLogger?: IndexerLogger
   parser: Parser
 };
 
@@ -124,7 +124,7 @@ export default class Indexer {
         const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
           this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
-          // this.indexer_logger ??= new IndexerLogger(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
+          this.deps.indexerLogger ??= new IndexerLogger(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
           this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
         } catch (e) {
           const error = e as Error;
