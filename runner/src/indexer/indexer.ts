@@ -7,8 +7,8 @@ import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 // import IndexerLogger from '../indexer-logger/indexer-logger';
 
-import { IndexerStatus, type IndexerBehavior } from '../stream-handler/stream-handler';
-import { /*type LogEntry, LogType,*/ LogLevel } from '../indexer-logger/indexer-logger';
+import { type IndexerBehavior } from '../stream-handler/stream-handler';
+import { /* type LogEntry, LogType, */ IndexerStatus, LogLevel } from '../indexer-logger/indexer-logger';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 
@@ -113,8 +113,8 @@ export default class Indexer {
           try {
             if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(indexerFunction.account_id, indexerFunction.function_name)) {
               await this.setStatus(functionName, blockHeight, IndexerStatus.PROVISIONING);
-              simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
-              logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
+              simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
+              // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
               await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
               simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: successful'));
               // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
@@ -147,7 +147,7 @@ export default class Indexer {
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, IndexerStatus.RUNNING));
         const vm = new VM({ allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName, logEntries);
+        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName/* , logEntries */);
 
         vm.freeze(block, 'block');
         vm.freeze(lakePrimitives, 'primitives');
@@ -456,7 +456,7 @@ export default class Indexer {
       setStatusSpan.end();
     }
 
-    await this.indexer_logger?.updateIndexerStatus(status);
+    // await this.indexer_logger?.updateIndexerStatus(status);
   }
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
@@ -511,7 +511,7 @@ export default class Indexer {
       setBlockHeightSpan.end();
     }
 
-    await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
+    // await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {

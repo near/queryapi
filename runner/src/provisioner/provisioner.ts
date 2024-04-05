@@ -4,7 +4,7 @@ import pgFormatLib from 'pg-format';
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
-// import { logsTableDDL } from './schemas/logs-table';
+import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass from '../pg-client';
 
@@ -182,24 +182,23 @@ export default class Provisioner {
     return schemaExists;
   }
 
-  async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL(databaseName)), `Failed to create metadata table in in ${databaseName}.${schemaName}`);
-  }
-
-  async trackMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, [`__${databaseName}_metadata`], databaseName), `Failed to track metadata table in ${databaseName}.${schemaName}`);
-  }
-
   async createSchema (databaseName: string, schemaName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
-  // async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
-  //   const logsDDL = logsTableDDL(schemaName);
-  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
-  // }
+  async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
+    console.log('Running logs sql');
+    const logsDDL = logsTableDDL(schemaName);
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
+  }
+
+  async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+    console.log('Creating metadata table');
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${databaseName}.${schemaName}`);
+  }
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
+    console.log('Running indexer sql');
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
@@ -253,11 +252,11 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
 
-          // await this.runLogsSql(databaseName, schemaName);
+          await this.runLogsSql(databaseName, schemaName);
+          await this.createMetadataTable(databaseName, schemaName);
           await this.runIndexerSql(databaseName, schemaName, databaseSchema);
 
-          // TODO re-enable once logs table is created
-          // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
 

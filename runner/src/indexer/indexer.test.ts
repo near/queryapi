@@ -6,7 +6,6 @@ import { VM } from 'vm2';
 import DmlHandler from '../dml-handler/dml-handler';
 import type PgClient from '../pg-client';
 import { type IndexerBehavior } from '../stream-handler/stream-handler';
-import type IndexerLogger from '../indexer-logger/indexer-logger';
 import { LogLevel } from '../indexer-logger/indexer-logger';
 
 describe('Indexer unit tests', () => {

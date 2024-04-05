@@ -2,8 +2,14 @@ import format from 'pg-format';
 import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
-import { type IndexerStatus } from '../stream-handler/stream-handler';
 import { trace } from '@opentelemetry/api';
+
+export enum IndexerStatus {
+  PROVISIONING = 'PROVISIONING',
+  RUNNING = 'RUNNING',
+  FAILING = 'FAILING',
+  STOPPED = 'STOPPED',
+}
 
 export interface LogEntry {
   blockHeight: number
