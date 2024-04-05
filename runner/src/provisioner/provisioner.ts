@@ -10,7 +10,6 @@ import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 const PUBLIC_SCHEMA = 'public';
-const CRON_DATABASE = 'cron';
 
 const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
@@ -185,7 +184,7 @@ export default class Provisioner {
   }
 
   async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.runSql(databaseName, schemaName, metadataTableDDL(databaseName)), `Failed to create metadata table in in ${databaseName}.${schemaName}`);
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL(databaseName)), `Failed to create metadata table in in ${databaseName}.${schemaName}`);
   }
 
   async trackMetadataTable (databaseName: string, schemaName: string): Promise<void> {

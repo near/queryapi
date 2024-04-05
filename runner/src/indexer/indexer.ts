@@ -7,7 +7,7 @@ import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 // import IndexerLogger from '../indexer-logger/indexer-logger';
 
-import { type IndexerBehavior, Status } from '../stream-handler/stream-handler';
+import { IndexerStatus, type IndexerBehavior } from '../stream-handler/stream-handler';
 import { /*type LogEntry, LogType,*/ LogLevel } from '../indexer-logger/indexer-logger';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
@@ -136,7 +136,7 @@ export default class Indexer {
           this.dml_handler ??= this.deps.DmlHandler.create(this.database_connection_parameters);
         } catch (e) {
           const error = e as Error;
-          this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message);
+          await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message);
           // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Failed to get database connection parameters ${error.message}` });
           throw error;
         } finally {
@@ -147,7 +147,7 @@ export default class Indexer {
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
         simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
         const vm = new VM({ allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName, /*logEntries*/);
+        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName /*, logEntries */);
 
         vm.freeze(block, 'block');
         vm.freeze(lakePrimitives, 'primitives');
@@ -195,7 +195,7 @@ export default class Indexer {
     ].reduce((acc, val) => val(acc), indexerFunction);
   }
 
-  buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string/*, logEntries: LogEntry[]*/): Context {
+  buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string/*, logEntries: LogEntry[] */): Context {
     const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
     const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
     return {
@@ -243,7 +243,7 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(functionName, schemaName, schema, blockHeight/*, logEntries*/)
+      db: this.buildDatabaseContext(functionName, schemaName, schema, blockHeight/*, logEntries */)
     };
   }
 

@@ -5,12 +5,6 @@ import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
 import { /*LogType,*/ LogLevel } from '../indexer-logger/indexer-logger';
 
-export enum IndexerStatus {
-  RUNNING = 'RUNNING',
-  FAILING = 'FAILING',
-  STOPPED = 'STOPPED',
-}
-
 export interface IndexerConfig {
   account_id: string
   function_name: string
