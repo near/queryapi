@@ -16,7 +16,7 @@ describe('LogEntry', () => {
   });
 
   test('userInfo static method should create a LogEntry instance with predefined parameters', () => {
-    const systemLogEntry = LogEntry.userLogs('successful run of indexer', LogLevel.INFO, 67890);
-    expect(systemLogEntry.type).toBe(LogType.USER);
+    const userLogEntry = LogEntry.userLogs('successful run of indexer', LogLevel.INFO, 67890);
+    expect(userLogEntry.type).toBe(LogType.USER);
   });
 });
