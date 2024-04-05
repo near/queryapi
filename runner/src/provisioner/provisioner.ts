@@ -9,7 +9,6 @@ import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
-const PUBLIC_SCHEMA = 'public';
 
 const adminDefaultPgClientGlobal = new PgClientClass({
   user: process.env.PGUSER,
