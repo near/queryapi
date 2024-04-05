@@ -1,8 +1,7 @@
 import pgFormat from 'pg-format';
-import IndexerLogger from './indexer-logger';
+import IndexerLogger, { IndexerStatus } from './indexer-logger';
 import type PgClient from '../pg-client';
 import { LogType, LogLevel, type LogEntry } from './indexer-logger';
-import { IndexerStatus } from '../stream-handler/stream-handler';
 
 describe('IndexerLogger', () => {
   let genericMockPgClient: PgClient;
