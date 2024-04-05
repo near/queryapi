@@ -79,7 +79,6 @@ describe('Indexer integration', () => {
         provisioner
       },
       undefined,
-      undefined,
       {
         hasuraAdminSecret: hasuraContainer.getAdminSecret(),
         hasuraEndpoint: hasuraContainer.getEndpoint(),

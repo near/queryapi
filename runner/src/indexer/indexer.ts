@@ -15,7 +15,7 @@ import { trace, type Span } from '@opentelemetry/api';
 interface Dependencies {
   fetch: typeof fetch
   provisioner: Provisioner
-  DmlHandler: typeof DmlHandler
+  dmlHandler?: DmlHandler
   parser: Parser
 };
 
@@ -61,8 +61,6 @@ export default class Indexer {
   private readonly deps: Dependencies;
 
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
-  // private indexer_logger: IndexerLogger | undefined;
-  private dml_handler: DmlHandler | undefined;
 
   private currentStatus?: string;
 
@@ -70,8 +68,7 @@ export default class Indexer {
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
-    dmlHandler = undefined,
-    // indexerLogger = undefined,
+    // indexerLogger: IndexerLogger | undefined = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
@@ -79,13 +76,10 @@ export default class Indexer {
     this.deps = {
       fetch,
       provisioner: new Provisioner(),
-      DmlHandler,
       parser: new Parser(),
-      // IndexerLogger,
       ...deps,
     };
     this.database_connection_parameters = databaseConnectionParameters;
-    this.dml_handler = dmlHandler;
     // this.indexer_logger = indexerLogger;
   }
 
@@ -135,7 +129,7 @@ export default class Indexer {
         try {
           this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
           // this.indexer_logger ??= new IndexerLogger(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
-          this.dml_handler ??= this.deps.DmlHandler.create(this.database_connection_parameters);
+          this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
         } catch (e) {
           const error = e as Error;
           await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message);
@@ -333,7 +327,7 @@ export default class Indexer {
       const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler = this.dml_handler as DmlHandler;
+      const dmlHandler: DmlHandler = this.deps.dmlHandler as DmlHandler;
 
       // Generate and collect methods for each table name
       const result = tableNames.reduce((prev, tableName) => {
