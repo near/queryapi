@@ -68,7 +68,6 @@ export default class Indexer {
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
-    // indexerLogger: IndexerLogger | undefined = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
@@ -80,7 +79,6 @@ export default class Indexer {
       ...deps,
     };
     this.database_connection_parameters = databaseConnectionParameters;
-    // this.indexer_logger = indexerLogger;
   }
 
   async runFunctions (
@@ -164,7 +162,7 @@ export default class Indexer {
             runIndexerCodeSpan.end();
           }
         });
-        simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
+        simultaneousPromises.push(this.updateIndexerBlockHeight(functionName, blockHeight, isHistorical));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
         await this.setStatus(functionName, blockHeight, IndexerStatus.FAILING);
@@ -460,7 +458,7 @@ export default class Indexer {
       setStatusSpan.end();
     }
 
-    // await this.indexer_logger?.updateIndexerStatus(status);
+    // await this.deps.indexerLogger?.setIndexerStatus(status);
   }
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
@@ -474,7 +472,7 @@ export default class Indexer {
   //   await (this.indexer_logger as IndexerLogger).writeLogs(logEntry);
   // }
 
-  async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
+  async updateIndexerBlockHeight (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
@@ -515,7 +513,7 @@ export default class Indexer {
       setBlockHeightSpan.end();
     }
 
-    // await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
+    // await this.deps.indexerLogger?.updateIndexerBlockHeight(blockHeight);
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {

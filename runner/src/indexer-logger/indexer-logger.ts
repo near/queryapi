@@ -93,7 +93,7 @@ export default class IndexerLogger {
       });
   }
 
-  async updateIndexerStatus (status: IndexerStatus): Promise<void> {
+  async setIndexerStatus (status: IndexerStatus): Promise<void> {
     const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
     const values = [[this.schemaName, STATUS_ATTRIBUTE, status]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);

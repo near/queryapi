@@ -131,7 +131,7 @@ describe('IndexerLogger', () => {
 
     it('log status for indexer', async () => {
       const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
-      await indexerLogger.updateIndexerStatus(IndexerStatus.RUNNING);
+      await indexerLogger.setIndexerStatus(IndexerStatus.RUNNING);
       expect(query.mock.calls[0][0]).toEqual(
         `INSERT INTO ${schemaName}.__metadata (function_name, attribute, value) VALUES ('${schemaName}', 'STATUS', 'RUNNING') ON CONFLICT (function_name, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
