@@ -253,7 +253,7 @@ CREATE TABLE
         `,
       schema: SIMPLE_SCHEMA
     };
-    await indexer.runFunctions(mockBlock, functions, false);
+    await indexer.runFunctions(mockBlock, functions);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -842,7 +842,7 @@ CREATE TABLE
       schema: SIMPLE_SCHEMA
     };
 
-    await indexer.runFunctions(mockBlock, functions, false);
+    await indexer.runFunctions(mockBlock, functions);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -895,7 +895,7 @@ CREATE TABLE
       schema: SIMPLE_SCHEMA
     };
 
-    await expect(indexer.runFunctions(mockBlock, functions, false)).rejects.toThrow(new Error('boom'));
+    await expect(indexer.runFunctions(mockBlock, functions)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
@@ -932,7 +932,7 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, { provision: true });
 
     expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith('morgs.near', 'test');
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
@@ -975,7 +975,7 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
@@ -1012,9 +1012,9 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
@@ -1053,7 +1053,7 @@ CREATE TABLE
         schema: SIMPLE_SCHEMA,
       }
     };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.runFunctions(mockBlock, functions, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
@@ -1094,7 +1094,7 @@ CREATE TABLE
       }
     };
 
-    await expect(indexer.runFunctions(mockBlock, functions, false, { provision: true })).rejects.toThrow(error);
+    await expect(indexer.runFunctions(mockBlock, functions, { provision: true })).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getDatabaseConnectionParameters).not.toHaveBeenCalled();
   });
@@ -1162,9 +1162,9 @@ CREATE TABLE
       config
     );
 
-    await indexerDebug.runFunctions(mockBlock, functions, false);
-    await indexerInfo.runFunctions(mockBlock, functions, false);
-    await indexerError.runFunctions(mockBlock, functions, false);
+    await indexerDebug.runFunctions(mockBlock, functions);
+    await indexerInfo.runFunctions(mockBlock, functions);
+    await indexerError.runFunctions(mockBlock, functions);
 
     // There are 1 set status (no log level), 1 run function log (info level), and 1 set function state (no log level) made each run
     expect(mockFetchDebug.mock.calls).toMatchSnapshot();

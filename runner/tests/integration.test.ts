@@ -153,7 +153,6 @@ describe('Indexer integration', () => {
           `,
         }
       },
-      false,
       {
         provision: true
       }

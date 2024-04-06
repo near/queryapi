@@ -4,25 +4,25 @@ import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 const HEAP_TOTAL_ALLOCATION = new Gauge({
   name: 'queryapi_runner_heap_total_allocation_megabytes',
   help: 'Size of heap allocation for indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const HEAP_USED = new Gauge({
   name: 'queryapi_runner_heap_used_megabytes',
   help: 'Size of used heap space for indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const PREFETCH_QUEUE_COUNT = new Gauge({
   name: 'queryapi_runner_prefetch_queue_count',
   help: 'Count of items in prefetch queue for indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const BLOCK_WAIT_DURATION = new Histogram({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
   buckets: [1, 10, 100, 300, 500, 1000, 3000, 5000, 10000, 30000],
 });
 
@@ -39,19 +39,19 @@ const CACHE_MISS = new Counter({
 const UNPROCESSED_STREAM_MESSAGES = new Gauge({
   name: 'queryapi_runner_unprocessed_stream_messages',
   help: 'Number of Redis Stream messages not yet processed',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const LAST_PROCESSED_BLOCK_HEIGHT = new Gauge({
   name: 'queryapi_runner_last_processed_block_height',
   help: 'Previous block height processed by an indexer',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const EXECUTION_DURATION = new Histogram({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 export const METRICS = {

@@ -1,7 +1,7 @@
 import { isMainThread, parentPort, workerData } from 'worker_threads';
 import promClient from 'prom-client';
 import Indexer from '../indexer';
-import RedisClient, { type StreamType } from '../redis-client';
+import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
@@ -24,7 +24,6 @@ interface WorkerContext {
   lakeClient: LakeClient
   queue: PrefetchQueue
   streamKey: string
-  streamType: StreamType
   indexerConfig: IndexerConfig
   indexerBehavior: IndexerBehavior
 }
@@ -41,8 +40,6 @@ void (async function main () {
     lakeClient: new LakeClient(),
     queue: [],
     streamKey,
-    // TODO: Remove Stream Type from Worker and Metrics
-    streamType: redisClient.getStreamType(streamKey),
     indexerConfig,
     indexerBehavior,
   };
@@ -90,7 +87,6 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
 async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
   let previousError: string = '';
   const indexer = new Indexer(workerContext.indexerBehavior);
-  const isHistorical = workerContext.streamType === 'historical';
   let streamMessageId = '';
   let currBlockHeight = 0;
   const indexerName = `${workerContext.indexerConfig.account_id}/${workerContext.indexerConfig.function_name}`;
@@ -140,11 +136,11 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         parentPort?.postMessage(blockHeightMessage);
         streamMessageId = queueMessage.streamMessageId;
 
-        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - blockStartTime);
+        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName }).observe(performance.now() - blockStartTime);
 
         await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (runFunctionsSpan: Span) => {
           try {
-            await indexer.runFunctions(block, functions, isHistorical, { provision: true });
+            await indexer.runFunctions(block, functions, { provision: true });
           } finally {
             runFunctionsSpan.end();
           }
@@ -191,7 +187,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
 }
 
 async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
-  const block = await workerContext.lakeClient.fetchBlock(blockHeight, workerContext.streamType === 'historical');
+  const block = await workerContext.lakeClient.fetchBlock(blockHeight);
   return {
     block,
     streamMessageId

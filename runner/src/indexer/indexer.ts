@@ -87,7 +87,6 @@ export default class Indexer {
   async runFunctions (
     block: lakePrimitives.Block,
     functions: Record<string, IndexerFunction>,
-    isHistorical: boolean,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
     const blockHeight: number = block.blockHeight;
@@ -503,6 +502,7 @@ export default class Indexer {
   // }
 
   async updateIndexerBlockHeight (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
+  async writeFunctionState (functionName: string, blockHeight: number): Promise<any> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
@@ -515,20 +515,6 @@ export default class Indexer {
           }
         }
       }`;
-    const historicalMutation: string = `
-      mutation WriteBlock($function_name: String!, $block_height: numeric!) {
-        insert_indexer_state(
-          objects: {current_historical_block_height: $block_height, current_block_height: 0, function_name: $function_name}
-          on_conflict: {constraint: indexer_state_pkey, update_columns: current_historical_block_height}
-        ) {
-          returning {
-            current_block_height
-            current_historical_block_height
-            function_name
-          }
-        }
-      }
-    `;
     const variables: any = {
       function_name: functionName,
       block_height: blockHeight,
