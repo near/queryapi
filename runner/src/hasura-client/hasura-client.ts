@@ -155,11 +155,11 @@ export default class HasuraClient {
     });
   }
 
-  async runMigrations (source: string, schemaName: string, migration: string): Promise<any> {
+  async executeSqlOnSchema (source: string, schemaName: string, sqlScript: string): Promise<any> {
     return await this.executeSql(
       `
       set schema '${schemaName}';
-      ${migration}
+      ${sqlScript}
       `,
       { source, readOnly: false }
     );
@@ -172,7 +172,6 @@ export default class HasuraClient {
         source,
       }
     );
-
     return tablesInSource
       .filter(({ schema }: { schema: string }) => schema === schemaName)
       .map(({ name }: { name: string }) => name);
