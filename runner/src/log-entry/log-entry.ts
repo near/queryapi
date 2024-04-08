@@ -32,8 +32,8 @@ export default class LogEntry {
     return LogEntry.createLog(message, LogLevel.ERROR, LogType.SYSTEM, blockHeight);
   }
 
-  static userLog (message: string, level: LogLevel, blockHeight?: number): LogEntry {
-    return LogEntry.createLog(message, level, LogType.USER, blockHeight);
+  static userDebug (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.DEBUG, LogType.USER, blockHeight);
   }
 
   static userInfo (message: string, blockHeight?: number): LogEntry {
