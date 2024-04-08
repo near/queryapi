@@ -5,7 +5,7 @@ PG_SUPERUSER="postgres"
 PG_SUPERUSER_PASSWORD="postgrespassword"
 
 # Exclude these databases and users
-EXCLUDED_DATABASES="'postgres', 'template0', 'template1'"
+EXCLUDED_DATABASES="'postgres', 'template0', 'template1', 'cron'"
 EXCLUDED_USERS="'postgres', 'pgbouncer'"
 
 # Get a list of databases, excluding the defaults
