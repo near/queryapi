@@ -178,8 +178,10 @@ const Editor = ({ actionButtonText }) => {
   }, [schema, indexingCode]);
 
   useEffect(() => {
+
     localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
     attachTypesToMonaco();
+    handleCodeGen();
   }, [schemaTypes, monacoMount]);
 
   useEffect(() => {
@@ -194,13 +196,12 @@ const Editor = ({ actionButtonText }) => {
     }
 
     if (window.monaco) {
-      // Check if monaco is loaded
       // Add generated types to monaco and store disposable to clear them later
-      const newDisposable =
-        monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
+      const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
       if (newDisposable != null) {
         console.log("Types successfully imported to Editor");
       }
+      
       disposableRef.current = newDisposable;
     }
   };
