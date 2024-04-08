@@ -42,6 +42,16 @@ describe('LogEntry', () => {
     expect(logEntry.blockHeight).toBe(blockHeight);
   });
 
+  test('create a user debug log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.userDebug('Debug message', blockHeight);
+    expect(logEntry.message).toBe('Debug message');
+    expect(logEntry.level).toBe(LogLevel.DEBUG);
+    expect(logEntry.type).toBe(LogType.USER);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
+  });
+
   test('create a user info log entry', () => {
     const blockHeight = 100;
     const logEntry = LogEntry.userInfo('User info message', blockHeight);
