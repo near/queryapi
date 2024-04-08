@@ -8,7 +8,7 @@ import LakeClient from '../lake-client';
 import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior } from './stream-handler';
 import { trace, type Span, context } from '@opentelemetry/api';
 import setUpTracerExport from '../instrumentation';
-import { IndexerStatus } from '../indexer-logger/indexer-logger';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');

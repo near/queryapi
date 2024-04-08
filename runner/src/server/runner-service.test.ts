@@ -1,5 +1,5 @@
 import type StreamHandler from '../stream-handler/stream-handler';
-import { IndexerStatus, LogLevel } from '../indexer-logger/indexer-logger';
+import { IndexerStatus, LogLevel } from '../indexer-meta/indexer-meta';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
 

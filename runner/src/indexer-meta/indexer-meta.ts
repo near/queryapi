@@ -35,7 +35,7 @@ const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (instance, attribute, v
 const STATUS_ATTRIBUTE = 'STATUS';
 const LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE = 'LAST_PROCESSED_BLOCK_HEIGHT';
 
-export default class IndexerLogger {
+export default class IndexerMeta {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
   private readonly pgClient: PgClient;

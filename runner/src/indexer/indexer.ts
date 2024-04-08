@@ -5,10 +5,10 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-// import IndexerLogger from '../indexer-logger/indexer-logger';
+// import IndexerMeta from '../indexer-meta/indexer-meta';
 
 import { type IndexerBehavior } from '../stream-handler/stream-handler';
-import { /* type LogEntry, LogType, */ IndexerStatus, LogLevel } from '../indexer-logger/indexer-logger';
+import { /* type LogEntry, LogType, */ IndexerStatus, LogLevel } from '../indexer-meta/indexer-meta';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 
