@@ -12,11 +12,39 @@ export default class LogEntry {
     this.timestamp = new Date();
   }
 
-  static systemInfo (message: string, blockHeight?: number): LogEntry {
-    return new LogEntry(message, LogLevel.INFO, LogType.SYSTEM, blockHeight);
+  static createLog (message: string, level: LogLevel, type: LogType, blockHeight?: number): LogEntry {
+    return new LogEntry(message, level, type, blockHeight);
   }
 
-  static userLogs (message: string, level: LogLevel, blockHeight?: number): LogEntry {
-    return new LogEntry(message, level, LogType.USER, blockHeight);
+  static systemDebug (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.DEBUG, LogType.SYSTEM, blockHeight);
+  }
+
+  static systemInfo (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.INFO, LogType.SYSTEM, blockHeight);
+  }
+
+  static systemWarn (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.WARN, LogType.SYSTEM, blockHeight);
+  }
+
+  static systemError (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.ERROR, LogType.SYSTEM, blockHeight);
+  }
+
+  static userLog (message: string, level: LogLevel, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, level, LogType.USER, blockHeight);
+  }
+
+  static userInfo (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.INFO, LogType.USER, blockHeight);
+  }
+
+  static userWarn (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.WARN, LogType.USER, blockHeight);
+  }
+
+  static userError (message: string, blockHeight?: number): LogEntry {
+    return LogEntry.createLog(message, LogLevel.ERROR, LogType.USER, blockHeight);
   }
 }
