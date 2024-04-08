@@ -132,7 +132,7 @@ describe('IndexerMeta', () => {
     it('writes status for indexer', async () => {
       const indexerMeta = new IndexerMeta(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.setStatus(IndexerStatus.RUNNING);
-      expect(query.mock).toBeCalledWith(
+      expect(query).toBeCalledWith(
         `INSERT INTO ${schemaName}.__metadata (instance, attribute, value) VALUES ('0', 'STATUS', 'RUNNING') ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
@@ -140,7 +140,7 @@ describe('IndexerMeta', () => {
     it('writes last processed block height for indexer', async () => {
       const indexerMeta = new IndexerMeta(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.updateBlockheight(123);
-      expect(query.mock).toBeCalledWith(
+      expect(query).toBeCalledWith(
         `INSERT INTO ${schemaName}.__metadata (instance, attribute, value) VALUES ('0', 'LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
