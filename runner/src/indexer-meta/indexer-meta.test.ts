@@ -133,7 +133,7 @@ describe('IndexerMeta', () => {
       const indexerMeta = new IndexerMeta(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.setStatus(IndexerStatus.RUNNING);
       expect(query).toBeCalledWith(
-        `INSERT INTO ${schemaName}.__metadata (instance, attribute, value) VALUES ('0', 'STATUS', 'RUNNING') ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+        `INSERT INTO ${schemaName}.__metadata (attribute, value) VALUES ('STATUS', 'RUNNING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
 
@@ -141,7 +141,7 @@ describe('IndexerMeta', () => {
       const indexerMeta = new IndexerMeta(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.updateBlockheight(123);
       expect(query).toBeCalledWith(
-        `INSERT INTO ${schemaName}.__metadata (instance, attribute, value) VALUES ('0', 'LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+        `INSERT INTO ${schemaName}.__metadata (attribute, value) VALUES ('LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
   });

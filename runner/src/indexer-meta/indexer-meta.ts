@@ -31,7 +31,7 @@ export enum LogType {
   USER = 'user',
 }
 
-const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (instance, attribute, value) VALUES %L ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 const STATUS_ATTRIBUTE = 'STATUS';
 const LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE = 'LAST_PROCESSED_BLOCK_HEIGHT';
 
@@ -95,7 +95,7 @@ export default class IndexerMeta {
 
   async setStatus (status: IndexerStatus): Promise<void> {
     const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
-    const values = [[0, STATUS_ATTRIBUTE, status]];
+    const values = [[STATUS_ATTRIBUTE, status]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
 
     try {
@@ -107,7 +107,7 @@ export default class IndexerMeta {
 
   async updateBlockheight (blockHeight: number): Promise<void> {
     const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
-    const values = [[0, LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
+    const values = [[LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
 
     try {
