@@ -6,13 +6,7 @@ import Indexer from '../indexer';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import { /* LogType, */ LogLevel } from '../indexer-meta/log-entry';
 
-export interface IndexerConfig {
-  account_id: string
-  function_name: string
-  code: string
-  schema: string
-  version: number
-}
+import type IndexerConfig from '../indexer-config';
 
 export enum Status {
   RUNNING = 'RUNNING',

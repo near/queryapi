@@ -99,7 +99,7 @@ export default class Indexer {
       if (options.provision) {
         try {
           if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
-            await this.setStatus(this.indexerConfig.fullName(), blockHeight, IndexerStatus.PROVISIONING);
+            await this.setStatus(blockHeight, IndexerStatus.PROVISIONING);
             simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
             // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
             await this.deps.provisioner.provisionUserApi(this.indexerConfig);
@@ -135,7 +135,7 @@ export default class Indexer {
 
       // TODO: Prevent unnecesary reruns of set status
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
-      simultaneousPromises.push(this.setStatus(this.indexerConfig.fullName(), blockHeight, IndexerStatus.RUNNING));
+      simultaneousPromises.push(this.setStatus(blockHeight, IndexerStatus.RUNNING));
       const vm = new VM({ allowAsync: true });
       const context = this.buildContext(blockHeight /* ,logEntries */);
 
@@ -157,7 +157,7 @@ export default class Indexer {
           runIndexerCodeSpan.end();
         }
       });
-      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight, isHistorical));
+      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight));
     } catch (e) {
       // TODO: Prevent unnecesary reruns of set status
       await this.setStatus(blockHeight, IndexerStatus.FAILING);
@@ -462,7 +462,7 @@ export default class Indexer {
   //   await (this.deps.indexerMeta as IndexerMeta).writeLogs([logEntry]);
   // }
 
-  async updateIndexerBlockHeight (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
+  async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
