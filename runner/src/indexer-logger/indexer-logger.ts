@@ -3,19 +3,8 @@ import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace } from '@opentelemetry/api';
-import type LogEntry from '../log-entry/log-entry';
+import LogEntry, { LogLevel } from '../log-entry/log-entry';
 
-export enum LogLevel {
-  DEBUG = 2,
-  INFO = 5,
-  WARN = 6,
-  ERROR = 8,
-}
-
-export enum LogType {
-  SYSTEM = 'system',
-  USER = 'user',
-}
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
@@ -50,7 +39,6 @@ export default class IndexerLogger {
   async writeLogs (
     logEntries: LogEntry | LogEntry[],
   ): Promise<void> {
-    
     const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.level)); ;
     if (entriesArray.length === 0) return;
 

@@ -3,7 +3,7 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
-import { /*LogType,*/ LogLevel } from '../indexer-logger/indexer-logger';
+import { /* LogType, */ LogLevel } from '../log-entry/log-entry';
 
 export enum Status {
   RUNNING = 'RUNNING',
@@ -94,10 +94,10 @@ export default class StreamHandler {
       //   message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
       // })
     ])
-    .catch((e) => {
-      console.error(`Failed to write log for stream: ${this.streamKey}`, e);
-    });
-    
+      .catch((e) => {
+        console.error(`Failed to write log for stream: ${this.streamKey}`, e);
+      });
+
     this.worker.terminate().catch(() => {
       console.error(`Failed to terminate thread for stream: ${this.streamKey}`);
     });

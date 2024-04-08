@@ -1,5 +1,14 @@
-import { LogType, LogLevel } from '../indexer-logger/indexer-logger';
+export enum LogLevel {
+  DEBUG = 2,
+  INFO = 5,
+  WARN = 6,
+  ERROR = 8,
+}
 
+export enum LogType {
+  SYSTEM = 'system',
+  USER = 'user',
+}
 export default class LogEntry {
   public readonly timestamp: Date;
 

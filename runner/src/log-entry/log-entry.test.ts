@@ -1,5 +1,4 @@
-import LogEntry from './log-entry';
-import { LogType, LogLevel } from '../indexer-logger/indexer-logger';
+import LogEntry, { LogType, LogLevel } from './log-entry';
 
 describe('LogEntry', () => {
   test('create a system debug log entry', () => {

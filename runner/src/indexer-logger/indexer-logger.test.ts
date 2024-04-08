@@ -1,7 +1,7 @@
 import pgFormat from 'pg-format';
-import IndexerLogger, { LogLevel } from './indexer-logger';
+import IndexerLogger from './indexer-logger';
 import type PgClient from '../pg-client';
-import LogEntry from '../log-entry/log-entry';
+import LogEntry, { LogLevel } from '../log-entry/log-entry';
 
 describe('IndexerLogger', () => {
   let pgClient: PgClient;
