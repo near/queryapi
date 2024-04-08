@@ -3,14 +3,7 @@ import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace } from '@opentelemetry/api';
-
-export interface LogEntry {
-  blockHeight: number
-  logTimestamp: Date
-  logType: LogType
-  logLevel: LogLevel
-  message: string
-}
+import type LogEntry from '../log-entry/log-entry';
 
 export enum LogLevel {
   DEBUG = 2,
@@ -57,7 +50,8 @@ export default class IndexerLogger {
   async writeLogs (
     logEntries: LogEntry | LogEntry[],
   ): Promise<void> {
-    const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.logLevel)); ;
+    console.log(logEntries);
+    const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.level)); ;
     if (entriesArray.length === 0) return;
 
     const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
@@ -66,10 +60,10 @@ export default class IndexerLogger {
     await wrapError(async () => {
       const values = entriesArray.map(entry => [
         entry.blockHeight,
-        entry.logTimestamp,
-        entry.logTimestamp,
-        entry.logType,
-        LogLevel[entry.logLevel],
+        entry.timestamp,
+        entry.timestamp,
+        entry.type,
+        LogLevel[entry.level],
         entry.message
       ]);
 
