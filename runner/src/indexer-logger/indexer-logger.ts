@@ -50,7 +50,7 @@ export default class IndexerLogger {
   async writeLogs (
     logEntries: LogEntry | LogEntry[],
   ): Promise<void> {
-    console.log(logEntries);
+    
     const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.level)); ;
     if (entriesArray.length === 0) return;
 
