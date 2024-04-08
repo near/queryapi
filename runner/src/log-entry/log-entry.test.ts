@@ -80,4 +80,14 @@ describe('LogEntry', () => {
     expect(logEntry.timestamp).toBeInstanceOf(Date);
     expect(logEntry.blockHeight).toBe(blockHeight);
   });
+
+  test('create a system info log entry without blockheight', () => {
+    const logEntry = LogEntry.systemInfo('Info message');
+    expect(logEntry.message).toBe('Info message');
+    expect(logEntry.level).toBe(LogLevel.INFO);
+    expect(logEntry.type).toBe(LogType.SYSTEM);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBeUndefined();
+  });
 });
+
