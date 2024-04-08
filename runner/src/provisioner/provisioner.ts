@@ -7,6 +7,7 @@ import HasuraClient from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 // import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass from '../pg-client';
+import type IndexerConfig from '../indexer-config/indexer-config';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -157,17 +158,15 @@ export default class Provisioner {
     );
   }
 
-  async fetchUserApiProvisioningStatus (accountId: string, functionName: string): Promise<boolean> {
+  async fetchUserApiProvisioningStatus (indexerConfig: IndexerConfig): Promise<boolean> {
     const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
-    if (this.isUserApiProvisioned(accountId, functionName)) {
+    if (this.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)) {
       checkProvisioningSpan.end();
       return true;
     }
-    const sanitizedAccountId = this.replaceSpecialChars(accountId);
-    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
-    const databaseName = sanitizedAccountId;
-    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+    const databaseName = indexerConfig.postgresDatabaseName();
+    const schemaName = indexerConfig.postgresSchemaName();
 
     const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
     if (!sourceExists) {
@@ -176,7 +175,7 @@ export default class Provisioner {
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
     if (schemaExists) {
-      this.setProvisioned(accountId, functionName);
+      this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
     }
     checkProvisioningSpan.end();
     return schemaExists;
@@ -264,14 +263,11 @@ export default class Provisioner {
     this.#hasLogsBeenProvisioned[accountId][functionName] = true;
   }
 
-  async provisionUserApi (accountId: string, functionName: string, databaseSchema: any): Promise<void> { // replace any with actual type
-    const sanitizedAccountId = this.replaceSpecialChars(accountId);
-    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
-
-    const databaseName = sanitizedAccountId;
-    const userName = sanitizedAccountId;
-    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+  async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
     const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
+    const userName = indexerConfig.postgresUserName();
+    const databaseName = indexerConfig.postgresDatabaseName();
+    const schemaName = indexerConfig.postgresSchemaName();
 
     try {
       await wrapError(
@@ -285,7 +281,7 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
 
           // await this.createMetadataTable(databaseName, schemaName);
-          await this.runIndexerSql(databaseName, schemaName, databaseSchema);
+          await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
           await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
@@ -295,7 +291,7 @@ export default class Provisioner {
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
           await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
-          this.setProvisioned(accountId, functionName);
+          this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
         },
         'Failed to provision endpoint'
       );

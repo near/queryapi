@@ -23,9 +23,7 @@ interface WorkerContext {
   redisClient: RedisClient
   lakeClient: LakeClient
   queue: PrefetchQueue
-  streamKey: string
   indexerConfig: IndexerConfig
-  indexerBehavior: IndexerBehavior
 }
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
@@ -33,28 +31,26 @@ setUpTracerExport();
 const tracer = trace.getTracer('queryapi-runner-worker');
 
 void (async function main () {
-  const { streamKey, indexerConfig, indexerBehavior } = workerData;
+  const { indexerConfig } = workerData;
   const redisClient = new RedisClient();
   const workerContext: WorkerContext = {
     redisClient,
     lakeClient: new LakeClient(),
     queue: [],
-    streamKey,
-    indexerConfig,
-    indexerBehavior,
+    indexerConfig
   };
 
-  console.log('Started processing stream: ', streamKey, indexerConfig.account_id, indexerConfig.function_name, indexerConfig.version, indexerBehavior);
+  console.log('Started processing stream: ', indexerConfig.account_id, indexerConfig.function_name, indexerConfig.version);
 
-  await handleStream(workerContext, streamKey);
+  await handleStream(workerContext);
 })();
 
-async function handleStream (workerContext: WorkerContext, streamKey: string): Promise<void> {
-  void blockQueueProducer(workerContext, streamKey);
-  void blockQueueConsumer(workerContext, streamKey);
+async function handleStream (workerContext: WorkerContext): Promise<void> {
+  void blockQueueProducer(workerContext);
+  void blockQueueConsumer(workerContext);
 }
 
-async function blockQueueProducer (workerContext: WorkerContext, streamKey: string): Promise<void> {
+async function blockQueueProducer (workerContext: WorkerContext): Promise<void> {
   const HISTORICAL_BATCH_SIZE = parseInt(process.env.PREFETCH_QUEUE_LIMIT ?? '10');
   let streamMessageStartId = '0';
 
@@ -65,7 +61,7 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
         await sleep(100);
         continue;
       }
-      const messages = await workerContext.redisClient.getStreamMessages(streamKey, streamMessageStartId, preFetchCount);
+      const messages = await workerContext.redisClient.getStreamMessages(workerContext.indexerConfig.redisStreamKey, streamMessageStartId, preFetchCount);
       if (messages == null) {
         await sleep(100);
         continue;
@@ -84,30 +80,21 @@ async function blockQueueProducer (workerContext: WorkerContext, streamKey: stri
   }
 }
 
-async function blockQueueConsumer (workerContext: WorkerContext, streamKey: string): Promise<void> {
+async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
   let previousError: string = '';
-  const indexer = new Indexer(workerContext.indexerBehavior);
+  const indexerConfig = workerContext.indexerConfig;
+  const indexer = new Indexer(indexerConfig);
   let streamMessageId = '';
   let currBlockHeight = 0;
-  const indexerName = `${workerContext.indexerConfig.account_id}/${workerContext.indexerConfig.function_name}`;
-  const functions = {
-    [indexerName]: {
-      account_id: workerContext.indexerConfig.account_id,
-      function_name: workerContext.indexerConfig.function_name,
-      code: workerContext.indexerConfig.code,
-      schema: workerContext.indexerConfig.schema,
-      provisioned: false,
-    },
-  };
 
   while (true) {
     if (workerContext.queue.length === 0) {
       await sleep(100);
       continue;
     }
-    await tracer.startActiveSpan(`${indexerName}`, async (parentSpan: Span) => {
-      parentSpan.setAttribute('indexer', indexerName);
-      parentSpan.setAttribute('account', workerContext.indexerConfig.account_id);
+    await tracer.startActiveSpan(`${indexerConfig.fullName()}`, async (parentSpan: Span) => {
+      parentSpan.setAttribute('indexer', indexerConfig.fullName());
+      parentSpan.setAttribute('account', indexerConfig.accountId);
       parentSpan.setAttribute('service.name', 'queryapi-runner');
       try {
         const startTime = performance.now();
@@ -136,11 +123,11 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         parentPort?.postMessage(blockHeightMessage);
         streamMessageId = queueMessage.streamMessageId;
 
-        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerName }).observe(performance.now() - blockStartTime);
+        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerConfig.fullName() }).observe(performance.now() - blockStartTime);
 
         await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (runFunctionsSpan: Span) => {
           try {
-            await indexer.runFunctions(block, functions, { provision: true });
+            await indexer.runFunctions(block, { provision: true });
           } finally {
             runFunctionsSpan.end();
           }
@@ -160,7 +147,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         const error = err as Error;
         if (previousError !== error.message) {
           previousError = error.message;
-          console.log(`Failed: ${indexerName} on block ${currBlockHeight}`, err);
+          console.log(`Failed: ${indexerConfig.fullName()} on block ${currBlockHeight}`, err);
         }
         const sleepSpan = tracer.startSpan('Sleep for 10 seconds after failing', {}, context.active());
         await sleep(10000);

@@ -36,14 +36,6 @@ export interface TableDefinitionNames {
   originalColumnNames: Map<string, string>
 }
 
-interface IndexerFunction {
-  account_id: string
-  function_name: string
-  provisioned?: boolean
-  schema: string
-  code: string
-}
-
 interface Config {
   hasuraAdminSecret: string
   hasuraEndpoint: string
@@ -60,7 +52,6 @@ export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
-  private readonly indexer_behavior: IndexerBehavior;
   private readonly deps: Dependencies;
 
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
@@ -68,13 +59,12 @@ export default class Indexer {
   private currentStatus?: string;
 
   constructor (
-    indexerBehavior: IndexerBehavior,
+    private readonly indexerConfig: IndexerConfig,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
-    this.indexer_behavior = indexerBehavior;
     this.deps = {
       fetch,
       provisioner: new Provisioner(),
@@ -86,7 +76,6 @@ export default class Indexer {
 
   async runFunctions (
     block: lakePrimitives.Block,
-    functions: Record<string, IndexerFunction>,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {
     const blockHeight: number = block.blockHeight;
@@ -103,31 +92,27 @@ export default class Indexer {
 
         const runningMessage = `Running function ${functionName} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
         simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, runningMessage));
+    try {
+      const runningMessage = `Running function ${this.indexerConfig.fullName()} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
+      simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, runningMessage));
 
-        const hasuraRoleName = functionName.split('/')[0].replace(/[.-]/g, '_');
-        if (options.provision && !indexerFunction.provisioned) {
-          try {
-            if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(indexerFunction.account_id, indexerFunction.function_name)) {
-              await this.setStatus(functionName, blockHeight, IndexerStatus.PROVISIONING);
-              simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
-              // const provisionStartLogEntry = LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight);
-              // logEntries.push(provisionStartLogEntry);
-              await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
-              simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: successful'));
-              // const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight);
-              // logEntries.push(provisionSuccessLogEntry);
-            }
-
-            // TODO enable when new logs implementation is ready
-            await this.deps.provisioner.provisionLogsIfNeeded(indexerFunction.account_id, indexerFunction.function_name);
-          } catch (e) {
-            const error = e as Error;
-            simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
-            // const provisionFailureLogEntry = LogEntry.systemError('Provisioning endpoint: starting', blockHeight);
-            // logEntries.push(provisionFailureLogEntry);
-            throw error;
+      if (options.provision) {
+        try {
+          if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
+            await this.setStatus(this.indexerConfig.fullName(), blockHeight, IndexerStatus.PROVISIONING);
+            simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
+            // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
+            await this.deps.provisioner.provisionUserApi(this.indexerConfig);
+            simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: successful'));
+            // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
           }
+        } catch (e) {
+          const error = e as Error;
+          simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Provisioning endpoint: failure', error.message));
+          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}` });
+          throw error;
         }
+      }
 
         // const runningLogEntry = LogEntry.systemInfo(runningMessage, blockHeight);
         // logEntries.push(runningLogEntry);
@@ -148,40 +133,37 @@ export default class Indexer {
           credentialsFetchSpan.end();
         }
 
-        // TODO: Prevent unnecesary reruns of set status
-        const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
-        simultaneousPromises.push(this.setStatus(functionName, blockHeight, IndexerStatus.RUNNING));
-        const vm = new VM({ allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName /* ,logEntries */);
+      // TODO: Prevent unnecesary reruns of set status
+      const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
+      simultaneousPromises.push(this.setStatus(this.indexerConfig.fullName(), blockHeight, IndexerStatus.RUNNING));
+      const vm = new VM({ allowAsync: true });
+      const context = this.buildContext(blockHeight /* ,logEntries */);
 
-        vm.freeze(block, 'block');
-        vm.freeze(lakePrimitives, 'primitives');
-        vm.freeze(context, 'context');
-        vm.freeze(context, 'console'); // provide console.log via context.log
-        resourceCreationSpan.end();
+      vm.freeze(block, 'block');
+      vm.freeze(lakePrimitives, 'primitives');
+      vm.freeze(context, 'context');
+      vm.freeze(context, 'console'); // provide console.log via context.log
+      resourceCreationSpan.end();
 
-        await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
-          const modifiedFunction = this.transformIndexerFunction(indexerFunction.code);
-          try {
-            await vm.run(modifiedFunction);
-          } catch (e) {
-            const error = e as Error;
-            simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message));
-            // const indexerErrorLogEntry = LogEntry.systemError('Error running IndexerFunction', blockHeight);
-            // logEntries.push(indexerErrorLogEntry);
-            throw e;
-          } finally {
-            runIndexerCodeSpan.end();
-          }
-        });
-        simultaneousPromises.push(this.updateIndexerBlockHeight(functionName, blockHeight, isHistorical));
-      } catch (e) {
-        // TODO: Prevent unnecesary reruns of set status
-        await this.setStatus(functionName, blockHeight, IndexerStatus.FAILING);
-        throw e;
-      } finally {
-        await Promise.all([...simultaneousPromises/** , (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries) */]);
-      }
+      await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
+        try {
+          await vm.run(this.indexerConfig.transformedCode());
+        } catch (e) {
+          const error = e as Error;
+          simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Error running IndexerFunction', error.message));
+          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Error running IndexerFunction ${error.message}` });
+          throw e;
+        } finally {
+          runIndexerCodeSpan.end();
+        }
+      });
+      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight, isHistorical));
+    } catch (e) {
+      // TODO: Prevent unnecesary reruns of set status
+      await this.setStatus(blockHeight, IndexerStatus.FAILING);
+      throw e;
+    } finally {
+      await Promise.all([...simultaneousPromises]);
     }
     return allMutations;
   }
@@ -197,24 +179,7 @@ export default class Indexer {
   //   }
   // }
 
-  enableAwaitTransform (indexerFunction: string): string {
-    return `
-            async function f(){
-                ${indexerFunction}
-            };
-            f();
-    `;
-  }
-
-  transformIndexerFunction (indexerFunction: string): string {
-    return [
-      this.enableAwaitTransform,
-    ].reduce((acc, val) => val(acc), indexerFunction);
-  }
-
-  buildContext (schema: string, functionName: string, blockHeight: number, hasuraRoleName: string /** logEntries: LogEntry[] */): Context {
-    const functionNameWithoutAccount = functionName.split('/')[1].replace(/[.-]/g, '_');
-    const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
+  buildContext (blockHeight: number /** logEntries: LogEntry[] */): Context {
     return {
       graphql: async (operation, variables) => {
         const graphqlSpan = this.tracer.startSpan(`Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
@@ -242,29 +207,29 @@ export default class Indexer {
         }
       },
       debug: async (...log) => {
-        return await this.writeLog(LogLevel.DEBUG, functionName, blockHeight, ...log);
+        return await this.writeLog(LogLevel.DEBUG, blockHeight, ...log);
         // const debugLogEntry = LogEntry.systemDebug(log.join(' '), blockHeight);
         // return await this.writeLog(debugLogEntry, logEntries as LogEntry[], functionName);
       },
       log: async (...log) => {
-        return await this.writeLog(LogLevel.INFO, functionName, blockHeight, ...log);
+        return await this.writeLog(LogLevel.INFO, blockHeight, ...log);
         // const infoLogEntry = LogEntry.systemInfo(log.join(' '), blockHeight);
         // return await this.writeLog(infoLogEntry, logEntries as LogEntry[], functionName);
       },
       warn: async (...log) => {
-        return await this.writeLog(LogLevel.WARN, functionName, blockHeight, ...log);
+        return await this.writeLog(LogLevel.WARN, blockHeight, ...log);
         // const warnLogEntry = LogEntry.systemWarn(log.join(' '), blockHeight);
         // return await this.writeLog(warnLogEntry, logEntries as LogEntry[], functionName);
       },
       error: async (...log) => {
-        return await this.writeLog(LogLevel.ERROR, functionName, blockHeight, ...log);
+        return await this.writeLog(LogLevel.ERROR, blockHeight, ...log);
         // const errorLogEntry = LogEntry.systemError(log.join(' '), blockHeight);
         // return await this.writeLog(errorLogEntry, logEntries as LogEntry[], functionName);
       },
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(functionName, schemaName, schema, blockHeight /** , logEntries as LogEntry[] */)
+      db: this.buildDatabaseContext(blockHeight /** , logEntries as LogEntry[] */)
     };
   }
 
@@ -342,14 +307,11 @@ export default class Indexer {
   }
 
   buildDatabaseContext (
-    functionName: string,
-    schemaName: string,
-    schema: string,
     blockHeight: number,
     // logEntries: LogEntry[],
   ): Record<string, Record<string, (...args: any[]) => any>> {
     try {
-      const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(schema);
+      const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(this.indexerConfig.schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
       const dmlHandler: DmlHandler = this.deps.dmlHandler as DmlHandler;
@@ -453,7 +415,7 @@ export default class Indexer {
       return result;
     } catch (error) {
       const errorContent = error as { message: string, location: Record<string, any> };
-      console.warn(`${functionName}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
+      console.warn(`${this.indexerConfig.fullName()}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
     }
     return {}; // Default to empty object if error
   }
@@ -477,10 +439,9 @@ export default class Indexer {
       await this.runGraphQLQuery(
         setStatusMutation,
         {
-          function_name: functionName,
+          function_name: this.indexerConfig.fullName(),
           status,
         },
-        functionName,
         blockHeight,
         this.DEFAULT_HASURA_ROLE
       );
@@ -502,7 +463,6 @@ export default class Indexer {
   // }
 
   async updateIndexerBlockHeight (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
-  async writeFunctionState (functionName: string, blockHeight: number): Promise<any> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
@@ -516,14 +476,14 @@ export default class Indexer {
         }
       }`;
     const variables: any = {
-      function_name: functionName,
+      function_name: this.indexerConfig.fullName(),
       block_height: blockHeight,
     };
     const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
     try {
       await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
-          console.error(`${functionName}: Error writing function state`, e);
+          console.error(`${this.indexerConfig.fullName()}: Error writing function state`, e);
         });
     } finally {
       setBlockHeightSpan.end();
@@ -533,8 +493,8 @@ export default class Indexer {
   }
 
   // todo rename to writeLogOld
-  async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
-    if (logLevel < this.indexer_behavior.log_level) {
+  async writeLog (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
+    if (logLevel < this.indexerConfig.logLevel) {
       return;
     }
 
@@ -561,8 +521,7 @@ export default class Indexer {
       });
   }
 
-  async runGraphQLQuery (operation: string, variables: any, functionName: string, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
-    console.log('runGraphQLQuery', operation, variables, functionName, blockHeight, hasuraRoleName, logError);
+  async runGraphQLQuery (operation: string, variables: any, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
     const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
@@ -591,9 +550,9 @@ export default class Indexer {
                   }
                 }`;
         try {
-          await this.runGraphQLQuery(mutation, { function_name: functionName, block_height: blockHeight, message }, functionName, blockHeight, this.DEFAULT_HASURA_ROLE, false);
+          await this.runGraphQLQuery(mutation, { function_name: this.indexerConfig.fullName(), block_height: blockHeight, message }, blockHeight, this.DEFAULT_HASURA_ROLE, false);
         } catch (e) {
-          console.error(`${functionName}: Error writing log of graphql error`, e);
+          console.error(`${this.indexerConfig.fullName()}: Error writing log of graphql error`, e);
         }
       }
       throw new Error(`Failed to write graphql, http status: ${response.status}, errors: ${JSON.stringify(errors, null, 2)}`);
