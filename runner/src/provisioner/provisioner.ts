@@ -114,7 +114,6 @@ export default class Provisioner {
           host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
           port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
         });
-        console.log(userCronPgClient)
         await userCronPgClient.query(
           this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
