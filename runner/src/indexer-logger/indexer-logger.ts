@@ -93,7 +93,7 @@ export default class IndexerLogger {
       });
   }
 
-  async setIndexerStatus (status: IndexerStatus): Promise<void> {
+  async setStatus (status: IndexerStatus): Promise<void> {
     const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
     const values = [[0, STATUS_ATTRIBUTE, status]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
@@ -105,7 +105,7 @@ export default class IndexerLogger {
     }
   }
 
-  async updateIndexerBlockheight (blockHeight: number): Promise<void> {
+  async updateBlockheight (blockHeight: number): Promise<void> {
     const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
     const values = [[0, LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
     const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);

@@ -131,7 +131,7 @@ describe('IndexerLogger', () => {
 
     it('log status for indexer', async () => {
       const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
-      await indexerLogger.setIndexerStatus(IndexerStatus.RUNNING);
+      await indexerLogger.setStatus(IndexerStatus.RUNNING);
       expect(query.mock.calls[0][0]).toEqual(
         `INSERT INTO ${schemaName}.__metadata (instance, attribute, value) VALUES ('0', 'STATUS', 'RUNNING') ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
@@ -139,7 +139,7 @@ describe('IndexerLogger', () => {
 
     it('log last processed block height for indexer', async () => {
       const indexerLogger = new IndexerLogger(functionName, 5, mockDatabaseConnectionParameters, genericMockPgClient);
-      await indexerLogger.updateIndexerBlockheight(123);
+      await indexerLogger.updateBlockheight(123);
       expect(query.mock.calls[0][0]).toEqual(
         `INSERT INTO ${schemaName}.__metadata (instance, attribute, value) VALUES ('0', 'LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (instance, attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );

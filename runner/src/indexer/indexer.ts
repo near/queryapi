@@ -458,7 +458,7 @@ export default class Indexer {
       setStatusSpan.end();
     }
 
-    // await this.deps.indexerLogger?.setIndexerStatus(status);
+    // await this.deps.indexerLogger?.setStatus(status);
   }
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
@@ -513,7 +513,7 @@ export default class Indexer {
       setBlockHeightSpan.end();
     }
 
-    // await this.deps.indexerLogger?.updateIndexerBlockHeight(blockHeight);
+    // await this.deps.indexerLogger?.updateBlockHeight(blockHeight);
   }
 
   async writeLog (logLevel: LogLevel, functionName: string, blockHeight: number, ...message: any[]): Promise<any> {
