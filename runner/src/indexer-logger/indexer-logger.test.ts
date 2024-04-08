@@ -1,7 +1,7 @@
 import pgFormat from 'pg-format';
 import IndexerLogger from './indexer-logger';
 import type PgClient from '../pg-client';
-import { LogType, LogLevel, type LogEntry } from './indexer-logger';
+import LogEntry, { LogLevel } from '../log-entry/log-entry';
 
 describe('IndexerLogger', () => {
   let pgClient: PgClient;
@@ -27,52 +27,44 @@ describe('IndexerLogger', () => {
   describe('writeLog', () => {
     it('should insert a single log entry into the database', async () => {
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
-      const logEntry: LogEntry = {
-        blockHeight: 123,
-        logTimestamp: new Date(),
-        logType: LogType.SYSTEM,
-        logLevel: LogLevel.INFO,
-        message: 'Test log message'
-      };
+      const infoEntry = LogEntry.systemInfo('Info message');
+      await indexerLogger.writeLogs(infoEntry);
 
-      await indexerLogger.writeLogs(logEntry);
+      const timestampPattern = '\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}';
+      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs \\(block_height, date, timestamp, type, level, message\\) VALUES \\(NULL, '${timestampPattern}', '${timestampPattern}', 'system', 'INFO', 'Info message'\\)`;
 
-      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES`;
-      expect(query.mock.calls[0][0]).toContain(expectedQueryStructure);
+      const queryRegex = new RegExp(expectedQueryStructure);
+      expect(query.mock.calls[0][0]).toMatch(queryRegex);
+    });
+
+    it('should insert a single log entry into the database when logEntry has a blockheight', async () => {
+      const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const errorEntry = LogEntry.systemError('Error message', 12345);
+      await indexerLogger.writeLogs(errorEntry);
+
+      const timestampPattern = '\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}';
+      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs \\(block_height, date, timestamp, type, level, message\\) VALUES \\('12345', '${timestampPattern}', '${timestampPattern}', 'system', 'ERROR', 'Error message'\\)`;
+
+      const queryRegex = new RegExp(expectedQueryStructure);
+      expect(query.mock.calls[0][0]).toMatch(queryRegex);
     });
 
     it('should handle errors when inserting a single log entry', async () => {
       query.mockRejectedValueOnce(new Error('Failed to insert log'));
 
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
-      const logEntry: LogEntry = {
-        blockHeight: 123,
-        logTimestamp: new Date(),
-        logType: LogType.SYSTEM,
-        logLevel: LogLevel.INFO,
-        message: 'Test log message'
-      };
+      const infoEntry = LogEntry.systemInfo('Information message');
 
-      await expect(indexerLogger.writeLogs(logEntry)).rejects.toThrow('Failed to insert log');
+      await expect(indexerLogger.writeLogs(infoEntry)).rejects.toThrow('Failed to insert log');
     });
 
     it('should insert a batch of log entries into the database', async () => {
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const debugEntry = LogEntry.systemDebug('Debug message');
+      const infoEntry = LogEntry.systemInfo('Information message');
       const logEntries: LogEntry[] = [
-        {
-          blockHeight: 123,
-          logTimestamp: new Date(),
-          logType: LogType.SYSTEM,
-          logLevel: LogLevel.INFO,
-          message: 'Test log message 1'
-        },
-        {
-          blockHeight: 124,
-          logTimestamp: new Date(),
-          logType: LogType.SYSTEM,
-          logLevel: LogLevel.INFO,
-          message: 'Test log message 2'
-        }
+        debugEntry,
+        infoEntry
       ];
 
       await indexerLogger.writeLogs(logEntries);
@@ -85,21 +77,11 @@ describe('IndexerLogger', () => {
       query.mockRejectedValueOnce(new Error('Failed to insert batch of logs'));
 
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
+      const debugEntry = LogEntry.systemDebug('Debug message');
+      const infoEntry = LogEntry.systemInfo('Information message');
       const logEntries: LogEntry[] = [
-        {
-          blockHeight: 123,
-          logTimestamp: new Date(),
-          logType: LogType.SYSTEM,
-          logLevel: LogLevel.INFO,
-          message: 'Test log message 1'
-        },
-        {
-          blockHeight: 124,
-          logTimestamp: new Date(),
-          logType: LogType.SYSTEM,
-          logLevel: LogLevel.INFO,
-          message: 'Test log message 2'
-        }
+        debugEntry,
+        infoEntry
       ];
 
       await expect(indexerLogger.writeLogs(logEntries)).rejects.toThrow('Failed to insert batch of logs');
@@ -115,15 +97,9 @@ describe('IndexerLogger', () => {
 
     it('should skip log entries with levels lower than the logging level specified in the constructor', async () => {
       const indexerLogger = new IndexerLogger(functionName, LogLevel.ERROR, mockDatabaseConnectionParameters, pgClient);
-      const logEntry: LogEntry = {
-        blockHeight: 123,
-        logTimestamp: new Date(),
-        logType: LogType.SYSTEM,
-        logLevel: LogLevel.INFO,
-        message: 'Test log message'
-      };
+      const debugEntry = LogEntry.systemDebug('Debug message');
 
-      await indexerLogger.writeLogs(logEntry);
+      await indexerLogger.writeLogs(debugEntry);
 
       expect(query).not.toHaveBeenCalled();
     });

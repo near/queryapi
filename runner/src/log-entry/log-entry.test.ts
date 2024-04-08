@@ -1,22 +1,83 @@
-import LogEntry from './log-entry';
-import { LogType, LogLevel } from '../indexer-logger/indexer-logger';
+import LogEntry, { LogType, LogLevel } from './log-entry';
 
 describe('LogEntry', () => {
-  test('should create a LogEntry instance with current timestamp', () => {
-    const currentTime = new Date();
-    const logEntry = new LogEntry('Test message', LogLevel.INFO, LogType.SYSTEM);
+  test('create a system debug log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.systemDebug('Debug message', blockHeight);
+    expect(logEntry.message).toBe('Debug message');
+    expect(logEntry.level).toBe(LogLevel.DEBUG);
+    expect(logEntry.type).toBe(LogType.SYSTEM);
     expect(logEntry.timestamp).toBeInstanceOf(Date);
-    const timestampDifference = Math.abs(currentTime.getTime() - logEntry.timestamp.getTime());
-    expect(timestampDifference).toBeLessThanOrEqual(1000);
+    expect(logEntry.blockHeight).toBe(blockHeight);
   });
 
-  test('systemInfo static method should create a LogEntry instance with predefined parameters', () => {
-    const systemLogEntry = LogEntry.systemInfo('System info message', 67890);
-    expect(systemLogEntry.type).toBe(LogType.SYSTEM);
+  test('create a system info log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.systemInfo('Info message', blockHeight);
+    expect(logEntry.message).toBe('Info message');
+    expect(logEntry.level).toBe(LogLevel.INFO);
+    expect(logEntry.type).toBe(LogType.SYSTEM);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
   });
 
-  test('userInfo static method should create a LogEntry instance with predefined parameters', () => {
-    const userLogEntry = LogEntry.userLogs('successful run of indexer', LogLevel.INFO, 67890);
-    expect(userLogEntry.type).toBe(LogType.USER);
+  test('create a system warn log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.systemWarn('Warn message', blockHeight);
+    expect(logEntry.message).toBe('Warn message');
+    expect(logEntry.level).toBe(LogLevel.WARN);
+    expect(logEntry.type).toBe(LogType.SYSTEM);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
+  });
+
+  test('create a system error log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.systemError('Error message', blockHeight);
+    expect(logEntry.message).toBe('Error message');
+    expect(logEntry.level).toBe(LogLevel.ERROR);
+    expect(logEntry.type).toBe(LogType.SYSTEM);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
+  });
+
+  test('create a user debug log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.userDebug('Debug message', blockHeight);
+    expect(logEntry.message).toBe('Debug message');
+    expect(logEntry.level).toBe(LogLevel.DEBUG);
+    expect(logEntry.type).toBe(LogType.USER);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
+  });
+
+  test('create a user info log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.userInfo('User info message', blockHeight);
+    expect(logEntry.message).toBe('User info message');
+    expect(logEntry.level).toBe(LogLevel.INFO);
+    expect(logEntry.type).toBe(LogType.USER);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
+  });
+
+  test('create a user warn log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.userWarn('User warn message', blockHeight);
+    expect(logEntry.message).toBe('User warn message');
+    expect(logEntry.level).toBe(LogLevel.WARN);
+    expect(logEntry.type).toBe(LogType.USER);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
+  });
+
+  test('create a user error log entry', () => {
+    const blockHeight = 100;
+    const logEntry = LogEntry.userError('User error message', blockHeight);
+    expect(logEntry.message).toBe('User error message');
+    expect(logEntry.level).toBe(LogLevel.ERROR);
+    expect(logEntry.type).toBe(LogType.USER);
+    expect(logEntry.timestamp).toBeInstanceOf(Date);
+    expect(logEntry.blockHeight).toBe(blockHeight);
   });
 });
