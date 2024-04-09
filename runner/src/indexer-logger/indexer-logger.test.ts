@@ -32,7 +32,7 @@ describe('IndexerLogger', () => {
 
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const infoEntry = LogEntry.systemInfo('Info message');
-      await indexerLogger.writeLogs(infoEntry);
+      await indexerLogger.writeLogs([infoEntry]);
 
       const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES (NULL, '${formattedDate}', '${formattedDate}', 'system', 'INFO', 'Info message')`;
       expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
@@ -45,7 +45,7 @@ describe('IndexerLogger', () => {
 
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const errorEntry = LogEntry.systemError('Error message', 12345);
-      await indexerLogger.writeLogs(errorEntry);
+      await indexerLogger.writeLogs([errorEntry]);
 
       const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES ('12345', '${formattedDate}', '${formattedDate}', 'system', 'ERROR', 'Error message')`;
       expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
@@ -57,7 +57,7 @@ describe('IndexerLogger', () => {
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const infoEntry = LogEntry.systemInfo('Information message');
 
-      await expect(indexerLogger.writeLogs(infoEntry)).rejects.toThrow('Failed to insert log');
+      await expect(indexerLogger.writeLogs([infoEntry])).rejects.toThrow('Failed to insert log');
     });
 
     it('should insert a batch of log entries into the database', async () => {
@@ -101,7 +101,7 @@ describe('IndexerLogger', () => {
       const indexerLogger = new IndexerLogger(functionName, LogLevel.ERROR, mockDatabaseConnectionParameters, pgClient);
       const debugEntry = LogEntry.systemDebug('Debug message');
 
-      await indexerLogger.writeLogs(debugEntry);
+      await indexerLogger.writeLogs([debugEntry]);
 
       expect(query).not.toHaveBeenCalled();
     });

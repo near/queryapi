@@ -38,9 +38,9 @@ export default class IndexerLogger {
   }
 
   async writeLogs (
-    logEntries: LogEntry | LogEntry[],
+    logEntries: LogEntry[],
   ): Promise<void> {
-    const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.level)); ;
+    const entriesArray = logEntries.filter(entry => this.shouldLog(entry.level));
     if (entriesArray.length === 0) return;
 
     const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
