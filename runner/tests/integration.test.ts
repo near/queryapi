@@ -74,27 +74,31 @@ describe('Indexer integration', () => {
       }
     );
 
+    const code = `
+      await context.graphql(
+        \`
+          mutation ($height:numeric){
+            insert_morgs_near_test_blocks_one(object:{height:$height}) {
+              height
+            }
+          }
+        \`,
+        {
+          height: block.blockHeight
+        }
+      );
+    `;
+    const schema = 'CREATE TABLE blocks (height numeric)';
+
     const indexerConfig = new IndexerConfig(
       'test:stream',
       'morgs.near',
       'test',
       0,
-      'CREATE TABLE blocks (height numeric)',
-      `
-        await context.graphql(
-          \`
-            mutation ($height:numeric){
-              insert_morgs_near_test_blocks_one(object:{height:$height}) {
-                height
-              }
-            }
-          \`,
-          {
-            height: block.blockHeight
-          }
-        );
-      `,
-      LogLevel.INFO);
+      code,
+      schema,
+      LogLevel.INFO
+    );
 
     const indexer = new Indexer(
       indexerConfig,
@@ -146,6 +150,9 @@ describe('Indexer integration', () => {
 
     await indexer.runFunctions(
       Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
+      {
+        provision: true
+      }
     );
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
