@@ -26,27 +26,29 @@ describe('IndexerLogger', () => {
 
   describe('writeLog', () => {
     it('should insert a single log entry into the database', async () => {
+      const date = new Date();
+      jest.useFakeTimers({ now: date.getTime() });
+      const formattedDate = date.toISOString().replace('T', ' ').replace('Z', '+00');
+
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const infoEntry = LogEntry.systemInfo('Info message');
       await indexerLogger.writeLogs(infoEntry);
 
-      const timestampPattern = '\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}';
-      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs \\(block_height, date, timestamp, type, level, message\\) VALUES \\(NULL, '${timestampPattern}', '${timestampPattern}', 'system', 'INFO', 'Info message'\\)`;
-
-      const queryRegex = new RegExp(expectedQueryStructure);
-      expect(query.mock.calls[0][0]).toMatch(queryRegex);
+      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES (NULL, '${formattedDate}', '${formattedDate}', 'system', 'INFO', 'Info message')`;
+      expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
     });
 
     it('should insert a single log entry into the database when logEntry has a blockheight', async () => {
+      const date = new Date();
+      jest.useFakeTimers({ now: date.getTime() });
+      const formattedDate = date.toISOString().replace('T', ' ').replace('Z', '+00');
+
       const indexerLogger = new IndexerLogger(functionName, LogLevel.INFO, mockDatabaseConnectionParameters, pgClient);
       const errorEntry = LogEntry.systemError('Error message', 12345);
       await indexerLogger.writeLogs(errorEntry);
 
-      const timestampPattern = '\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}\\.\\d+\\+\\d{2}';
-      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs \\(block_height, date, timestamp, type, level, message\\) VALUES \\('12345', '${timestampPattern}', '${timestampPattern}', 'system', 'ERROR', 'Error message'\\)`;
-
-      const queryRegex = new RegExp(expectedQueryStructure);
-      expect(query.mock.calls[0][0]).toMatch(queryRegex);
+      const expectedQueryStructure = `INSERT INTO "${functionName}".__logs (block_height, date, timestamp, type, level, message) VALUES ('12345', '${formattedDate}', '${formattedDate}', 'system', 'ERROR', 'Error message')`;
+      expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
     });
 
     it('should handle errors when inserting a single log entry', async () => {
