@@ -33,10 +33,10 @@ export default class IndexerConfig {
 
   private enableAwaitTransform (code: string): string {
     return `
-            async function f(){
-                ${code}
-            };
-            f();
+      async function f(){
+        ${code}
+      };
+      f();
     `;
   }
 
