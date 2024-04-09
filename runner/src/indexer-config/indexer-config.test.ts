@@ -1,4 +1,4 @@
-import { LogLevel } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 import IndexerConfig from './indexer-config';
 
 describe('IndexerConfig unit tests', () => {

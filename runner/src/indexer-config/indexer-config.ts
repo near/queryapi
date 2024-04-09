@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { type StartExecutorRequest__Output } from '../generated/runner/StartExecutorRequest';
-import { LogLevel } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 
 export default class IndexerConfig {
   public readonly executorId: string;

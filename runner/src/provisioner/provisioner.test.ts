@@ -2,7 +2,7 @@ import pgFormat from 'pg-format';
 
 import Provisioner from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
-import { LogLevel } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 // import { logsTableDDL } from './schemas/logs-table';
 // import { metadataTableDDL } from './schemas/metadata-table';
 
