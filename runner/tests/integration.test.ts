@@ -13,6 +13,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcont
 import block115185108 from './blocks/00115185108/streamer_message.json';
 import block115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
+import IndexerConfig from '../src/indexer-config';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -72,17 +73,31 @@ describe('Indexer integration', () => {
         hasuraPortOverride: Number(postgresContainer.getPort()),
       }
     );
-    // const userDB = await provisioner.getDatabaseConnectionParameters('morgs_near');
-    
-    // const indexerMeta = new IndexerMeta('morgs_near', LogLevel.INFO, {
-    //   host: postgresContainer.getIpAddress(),
-    //   port: Number(postgresContainer.getPort()),
-    //   database: userDB.database,
-    //   username: userDB.username,
-    //   password: userDB.password
-    // }, pgClient);
+
+    const indexerConfig = new IndexerConfig(
+      'test:stream',
+      'morgs.near',
+      'test',
+      0,
+      'CREATE TABLE blocks (height numeric)',
+      `
+        await context.graphql(
+          \`
+            mutation ($height:numeric){
+              insert_morgs_near_test_blocks_one(object:{height:$height}) {
+                height
+              }
+            }
+          \`,
+          {
+            height: block.blockHeight
+          }
+        );
+      `,
+      LogLevel.INFO);
 
     const indexer = new Indexer(
+      indexerConfig,
       {
         log_level: LogLevel.INFO,
       },
@@ -131,31 +146,6 @@ describe('Indexer integration', () => {
 
     await indexer.runFunctions(
       Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
-      {
-        'morgs.near/test': {
-          account_id: 'morgs.near',
-          function_name: 'test',
-          provisioned: false,
-          schema: 'CREATE TABLE blocks (height numeric)',
-          code: `
-            await context.graphql(
-              \`
-                mutation ($height:numeric){
-                  insert_morgs_near_test_blocks_one(object:{height:$height}) {
-                    height
-                  }
-                }
-              \`,
-              {
-                height: block.blockHeight
-              }
-            );
-          `,
-        }
-      },
-      {
-        provision: true
-      }
     );
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`

@@ -162,18 +162,7 @@ export default class Indexer {
     return allMutations;
   }
 
-  // async getDatabaseConnectionParams(hasuraRoleName: string): Promise<DatabaseConnectionParameters>  {
-  //   const { username, password, database, host, port } = await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
-  //   return {
-  //     username,
-  //     password,
-  //     database,
-  //     host: this.config.hasuraHostOverride ?? host,
-  //     port: this.config.hasuraPortOverride ?? port
-  //   }
-  // }
-
-  buildContext (blockHeight: number /** logEntries: LogEntry[] */): Context {
+  buildContext (blockHeight: number /*, logEntries: LogEntry[] */): Context {
     return {
       graphql: async (operation, variables) => {
         const graphqlSpan = this.tracer.startSpan(`Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
@@ -187,7 +176,7 @@ export default class Indexer {
         const setSpan = this.tracer.startSpan('Call insert mutation through Hasura');
         const mutation = `
           mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
-            insert_${this.indexerConfig.hasuraRoleName()}_${this.indexerConfig.hasuraFunctionName()}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
+            insert_${this.indexerConfig.hasuraRoleName()}_${this.indexerConfig.hasuraRoleName()}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
           }`;
         const variables = {
           function_name: this.indexerConfig.fullName(),
