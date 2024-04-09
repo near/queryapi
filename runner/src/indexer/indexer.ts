@@ -8,7 +8,8 @@ import DmlHandler from '../dml-handler/dml-handler';
 // import IndexerMeta from '../indexer-meta/indexer-meta';
 
 import { type IndexerBehavior } from '../stream-handler/stream-handler';
-import { /* type LogEntry, LogType, */ IndexerStatus, LogLevel } from '../indexer-meta/indexer-meta';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 

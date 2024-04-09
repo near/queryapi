@@ -3,7 +3,8 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
-import { /* LogType, */ IndexerStatus, LogLevel } from '../indexer-meta/indexer-meta';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import { /* LogType, */ LogLevel } from '../indexer-meta/log-entry';
 
 export interface IndexerConfig {
   account_id: string

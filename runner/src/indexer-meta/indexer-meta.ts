@@ -3,32 +3,14 @@ import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace } from '@opentelemetry/api';
+import type LogEntry from './log-entry';
+import { LogLevel } from './log-entry';
 
 export enum IndexerStatus {
   PROVISIONING = 'PROVISIONING',
   RUNNING = 'RUNNING',
   FAILING = 'FAILING',
   STOPPED = 'STOPPED',
-}
-
-export interface LogEntry {
-  blockHeight: number
-  logTimestamp: Date
-  logType: LogType
-  logLevel: LogLevel
-  message: string
-}
-
-export enum LogLevel {
-  DEBUG = 2,
-  INFO = 5,
-  WARN = 6,
-  ERROR = 8,
-}
-
-export enum LogType {
-  SYSTEM = 'system',
-  USER = 'user',
 }
 
 const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
@@ -67,9 +49,9 @@ export default class IndexerMeta {
   }
 
   async writeLogs (
-    logEntries: LogEntry | LogEntry[],
+    logEntries: LogEntry[],
   ): Promise<void> {
-    const entriesArray = (Array.isArray(logEntries) ? logEntries : [logEntries]).filter(entry => this.shouldLog(entry.logLevel)); ;
+    const entriesArray = logEntries.filter(entry => this.shouldLog(entry.level));
     if (entriesArray.length === 0) return;
 
     const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
@@ -78,10 +60,10 @@ export default class IndexerMeta {
     await wrapError(async () => {
       const values = entriesArray.map(entry => [
         entry.blockHeight,
-        entry.logTimestamp,
-        entry.logTimestamp,
-        entry.logType,
-        LogLevel[entry.logLevel],
+        entry.timestamp,
+        entry.timestamp,
+        entry.type,
+        LogLevel[entry.level],
         entry.message
       ]);
 

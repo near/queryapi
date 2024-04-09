@@ -10,7 +10,7 @@ import PgClient from '../src/pg-client';
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
 import block1 from './blocks/00115185108/streamer_message.json';
-import { LogLevel } from '../src/indexer-meta/indexer-meta';
+import { LogLevel } from '../src/indexer-meta/log-entry';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);

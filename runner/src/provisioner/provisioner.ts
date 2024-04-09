@@ -138,7 +138,7 @@ export default class Provisioner {
   async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        // TODO: Create logs table
+        // await this.runLogsSql(databaseName, schemaName);
         await this.grantCronAccess(userName);
         await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
       },
@@ -249,7 +249,6 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
 
-          // await this.runLogsSql(databaseName, schemaName);
           // await this.createMetadataTable(databaseName, schemaName);
           await this.runIndexerSql(databaseName, schemaName, databaseSchema);
 
