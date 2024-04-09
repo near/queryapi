@@ -3,13 +3,7 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
-import { /*LogType,*/ LogLevel } from '../indexer-logger/indexer-logger';
-
-export enum Status {
-  RUNNING = 'RUNNING',
-  FAILING = 'FAILING',
-  STOPPED = 'STOPPED',
-}
+import { /* LogType, */ IndexerStatus, LogLevel } from '../indexer-meta/indexer-meta';
 
 export interface IndexerConfig {
   account_id: string
@@ -35,7 +29,7 @@ export interface WorkerMessage {
 }
 
 interface ExecutorContext {
-  status: Status
+  status: IndexerStatus
   block_height: number
 }
 
@@ -57,7 +51,7 @@ export default class StreamHandler {
         },
       });
       this.executorContext = {
-        status: Status.RUNNING,
+        status: IndexerStatus.RUNNING,
         block_height: indexerConfig.version,
       };
 
@@ -76,11 +70,11 @@ export default class StreamHandler {
 
   private handleError (error: Error): void {
     console.error(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
-    this.executorContext.status = Status.STOPPED;
+    this.executorContext.status = IndexerStatus.STOPPED;
     const indexer = new Indexer(this.indexerBehavior);
     const functionName = `${this.indexerConfig.account_id}/${this.indexerConfig.function_name}`;
 
-    indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
+    indexer.setStatus(functionName, 0, IndexerStatus.STOPPED).catch((e) => {
       console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
 
@@ -93,11 +87,10 @@ export default class StreamHandler {
       //   logLevel: LogLevel.ERROR,
       //   message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
       // })
-    ])
-    .catch((e) => {
+    ]).catch((e) => {
       console.error(`Failed to write log for stream: ${this.streamKey}`, e);
     });
-    
+
     this.worker.terminate().catch(() => {
       console.error(`Failed to terminate thread for stream: ${this.streamKey}`);
     });

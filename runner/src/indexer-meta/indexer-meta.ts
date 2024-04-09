@@ -4,6 +4,13 @@ import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace } from '@opentelemetry/api';
 
+export enum IndexerStatus {
+  PROVISIONING = 'PROVISIONING',
+  RUNNING = 'RUNNING',
+  FAILING = 'FAILING',
+  STOPPED = 'STOPPED',
+}
+
 export interface LogEntry {
   blockHeight: number
   logTimestamp: Date
@@ -23,7 +30,12 @@ export enum LogType {
   SYSTEM = 'system',
   USER = 'user',
 }
-export default class IndexerLogger {
+
+const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+const STATUS_ATTRIBUTE = 'STATUS';
+const LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE = 'LAST_PROCESSED_BLOCK_HEIGHT';
+
+export default class IndexerMeta {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
   private readonly pgClient: PgClient;
@@ -79,5 +91,29 @@ export default class IndexerLogger {
       .finally(() => {
         writeLogSpan.end();
       });
+  }
+
+  async setStatus (status: IndexerStatus): Promise<void> {
+    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
+    const values = [[STATUS_ATTRIBUTE, status]];
+    const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
+
+    try {
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName}`);
+    } finally {
+      setStatusSpan.end();
+    }
+  }
+
+  async updateBlockheight (blockHeight: number): Promise<void> {
+    const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
+    const values = [[LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
+    const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
+
+    try {
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName}`);
+    } finally {
+      setLastProcessedBlockSpan.end();
+    }
   }
 }

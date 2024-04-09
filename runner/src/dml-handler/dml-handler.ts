@@ -8,23 +8,19 @@ type WhereClauseSingle = Record<string, (string | number)>;
 
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+  pgClient: PgClient;
 
-  private constructor (
-    private readonly pgClient: PgClient
-  ) {}
-
-  static create (
+  constructor (
     databaseConnectionParameters: DatabaseConnectionParameters,
-    pgClientInstance: PgClient | undefined = undefined
-  ): DmlHandler {
-    const pgClient = pgClientInstance ?? new PgClient({
+    pgClientInstance: PgClient | undefined = undefined,
+  ) {
+    this.pgClient = pgClientInstance ?? new PgClient({
       user: databaseConnectionParameters.username,
       password: databaseConnectionParameters.password,
       host: process.env.PGHOST,
       port: Number(process.env.PGPORT ?? databaseConnectionParameters.port),
       database: databaseConnectionParameters.database,
     });
-    return new DmlHandler(pgClient);
   }
 
   private getWhereClause (whereObject: WhereClauseMulti, columnLookup: Map<string, string>): { queryVars: Array<string | number>, whereClause: string } {
