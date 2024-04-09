@@ -196,7 +196,6 @@ export default class Provisioner {
   // }
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
-    console.log('Running indexer sql');
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
