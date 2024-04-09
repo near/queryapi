@@ -403,7 +403,7 @@ export default class Indexer {
     return {}; // Default to empty object if error
   }
 
-  async setStatus (functionName: string, blockHeight: number, status: IndexerStatus): Promise<any> {
+  async setStatus (blockHeight: number, status: IndexerStatus): Promise<any> {
     if (this.currentStatus === status) {
       return;
     }
@@ -431,8 +431,6 @@ export default class Indexer {
     } finally {
       setStatusSpan.end();
     }
-
-    await this.indexer_logger?.updateIndexerStatus(status);
   }
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
@@ -471,8 +469,6 @@ export default class Indexer {
     } finally {
       setBlockHeightSpan.end();
     }
-
-    await this.indexer_logger?.updateIndexerBlockheight(blockHeight);
   }
 
   // todo rename to writeLogOld
