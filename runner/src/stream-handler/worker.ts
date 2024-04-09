@@ -5,10 +5,11 @@ import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
-import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior } from './stream-handler';
+import { WorkerMessageType, type WorkerMessage } from './stream-handler';
 import { trace, type Span, context } from '@opentelemetry/api';
 import setUpTracerExport from '../instrumentation';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import type IndexerConfig from '../indexer-config';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -135,11 +136,11 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.RUNNING } });
-        await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
+        await workerContext.redisClient.deleteStreamMessage(indexerConfig.redisStreamKey, streamMessageId);
         await workerContext.queue.shift();
 
-        METRICS.EXECUTION_DURATION.labels({ indexer: indexerName, type: workerContext.streamType }).observe(performance.now() - startTime);
-        METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerName, type: workerContext.streamType }).set(currBlockHeight);
+        METRICS.EXECUTION_DURATION.labels({ indexer: indexerConfig.fullName() }).observe(performance.now() - startTime);
+        METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerConfig.fullName() }).set(currBlockHeight);
         postRunSpan.end();
       } catch (err) {
         parentSpan.setAttribute('status', 'failed');
@@ -155,13 +156,13 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
       } finally {
         const metricsSpan = tracer.startSpan('Record metrics after processing block', {}, context.active());
 
-        const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(streamKey);
-        METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerName, type: workerContext.streamType }).set(unprocessedMessageCount);
+        const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(indexerConfig.redisStreamKey);
+        METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerConfig.fullName() }).set(unprocessedMessageCount);
 
         const memoryUsage = process.memoryUsage();
-        METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapTotal / (1024 * 1024));
-        METRICS.HEAP_USED.labels({ indexer: indexerName, type: workerContext.streamType }).set(memoryUsage.heapUsed / (1024 * 1024));
-        METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerName, type: workerContext.streamType }).set(workerContext.queue.length);
+        METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerConfig.fullName() }).set(memoryUsage.heapTotal / (1024 * 1024));
+        METRICS.HEAP_USED.labels({ indexer: indexerConfig.fullName() }).set(memoryUsage.heapUsed / (1024 * 1024));
+        METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerConfig.fullName() }).set(workerContext.queue.length);
 
         const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
         parentPort?.postMessage(metricsMessage);
