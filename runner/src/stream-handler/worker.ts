@@ -9,7 +9,7 @@ import { WorkerMessageType, type WorkerMessage } from './stream-handler';
 import { trace, type Span, context } from '@opentelemetry/api';
 import setUpTracerExport from '../instrumentation';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
-import type IndexerConfig from '../indexer-config';
+import IndexerConfig from '../indexer-config';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -32,7 +32,7 @@ setUpTracerExport();
 const tracer = trace.getTracer('queryapi-runner-worker');
 
 void (async function main () {
-  const { indexerConfig } = workerData;
+  const indexerConfig: IndexerConfig = IndexerConfig.fromObject(workerData.indexerConfigData);
   const redisClient = new RedisClient();
   const workerContext: WorkerContext = {
     redisClient,
@@ -41,7 +41,7 @@ void (async function main () {
     indexerConfig
   };
 
-  console.log('Started processing stream: ', indexerConfig.account_id, indexerConfig.function_name, indexerConfig.version);
+  console.log('Started processing stream: ', workerContext.indexerConfig.fullName(), workerContext.indexerConfig.version);
 
   await handleStream(workerContext);
 })();
@@ -83,7 +83,7 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
 
 async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
   let previousError: string = '';
-  const indexerConfig = workerContext.indexerConfig;
+  const indexerConfig: IndexerConfig = workerContext.indexerConfig;
   const indexer = new Indexer(indexerConfig);
   let streamMessageId = '';
   let currBlockHeight = 0;

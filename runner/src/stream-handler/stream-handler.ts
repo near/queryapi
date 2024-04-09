@@ -34,7 +34,7 @@ export default class StreamHandler {
     if (isMainThread) {
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
-          indexerConfig,
+          indexerConfigData: indexerConfig.toObject(),
         },
       });
       this.executorContext = {
@@ -56,7 +56,7 @@ export default class StreamHandler {
   }
 
   private handleError (error: Error): void {
-    console.error(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread`, error);
+    console.error(`Encountered error processing stream: ${this.indexerConfig.fullName()}, terminating thread`, error);
     this.executorContext.status = IndexerStatus.STOPPED;
     const indexer = new Indexer(this.indexerConfig);
 
@@ -68,7 +68,7 @@ export default class StreamHandler {
       indexer.writeLog(
         LogLevel.ERROR,
         this.executorContext.block_height,
-        `Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${error.toString()}`
+        `Encountered error processing stream: ${this.indexerConfig.fullName()}, terminating thread\n${error.toString()}`
       ),
       // indexer.callWriteLog({
       //   blockHeight: this.executorContext.block_height,

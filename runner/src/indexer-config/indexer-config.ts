@@ -2,6 +2,16 @@ import crypto from 'crypto';
 import { type StartExecutorRequest__Output } from '../generated/runner/StartExecutorRequest';
 import { LogLevel } from '../indexer-meta/log-entry';
 
+interface IndexerConfigData {
+  redisStreamKey: string
+  accountId: string
+  functionName: string
+  version: number
+  code: string
+  schema: string
+  logLevel: LogLevel
+}
+
 export default class IndexerConfig {
   public readonly executorId: string;
 
@@ -29,6 +39,30 @@ export default class IndexerConfig {
       startExecutorRequest.schema,
       LogLevel.INFO
     );
+  }
+
+  static fromObject (data: IndexerConfigData): IndexerConfig {
+    return new IndexerConfig(
+      data.redisStreamKey,
+      data.accountId,
+      data.functionName,
+      data.version,
+      data.code,
+      data.schema,
+      data.logLevel
+    );
+  }
+
+  toObject (): IndexerConfigData {
+    return {
+      redisStreamKey: this.redisStreamKey,
+      accountId: this.accountId,
+      functionName: this.functionName,
+      version: this.version,
+      code: this.code,
+      schema: this.schema,
+      logLevel: this.logLevel
+    };
   }
 
   private enableAwaitTransform (code: string): string {
