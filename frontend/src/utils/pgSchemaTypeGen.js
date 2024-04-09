@@ -83,7 +83,6 @@ export class PgSchemaTypeGen {
 	generateTypes(sqlSchema) {
 		const schemaSyntaxTree = this.parser.astify(sqlSchema, { database: "Postgresql" });
 		const dbSchema = {};
-		console.log(schemaSyntaxTree)
 		const statements = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree];
 		// Process each statement in the schema
 		for (const statement of statements) {
@@ -144,7 +143,6 @@ export class PgSchemaTypeGen {
 
 	addColumn(columnDef, columns) {
 		const columnName = columnDef.column.column;
-		console.log('found the issue ', columnName)
 		const columnType = this.getTypescriptType(columnDef.definition.dataType);
 		const nullable = this.getNullableStatus(columnDef);
 		const required = this.getRequiredStatus(columnDef, nullable);
@@ -166,8 +164,8 @@ export class PgSchemaTypeGen {
 			columnDef.unique_or_primary &&
 			columnDef.unique_or_primary === "primary key";
 		const isNullable =
-			Object.prototype.hasOwnProperty.call(columnDef, "nullable")
-		columnDef.nullable &&
+			Object.prototype.hasOwnProperty.call(columnDef, "nullable") &&
+		    columnDef.nullable &&
 			columnDef.nullable.value === "not null";
 		return isPrimaryKey || isNullable ? false : true;
 	}
