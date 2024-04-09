@@ -114,18 +114,18 @@ describe('Provisioner', () => {
         ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('morgs_near_test_function.__logs', CURRENT_DATE, '1 day', '2 day')$$, 'morgs_near');"],
         ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT fn_delete_partition('morgs_near_test_function.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, 'morgs_near');"]
       ]);
-      expect(hasuraClient.addDatasource).toBeCalledWith(indexerConfig.postgresUserName(), password, indexerConfig.postgresDatabaseName());
-      expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.postgresUserName(), indexerConfig.postgresSchemaName());
+      expect(hasuraClient.addDatasource).toBeCalledWith(indexerConfig.userName(), password, indexerConfig.databaseName());
+      expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
       // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.postgresUserName(), indexerConfig.postgresSchemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, sanitizedAccountId, schemaName, logsDDL);
-      expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.postgresSchemaName(), indexerConfig.postgresDatabaseName());
-      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.postgresSchemaName(), tableNames, indexerConfig.postgresDatabaseName());
+      expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
-        indexerConfig.postgresSchemaName(),
-        indexerConfig.postgresDatabaseName(),
+        indexerConfig.schemaName(),
+        indexerConfig.databaseName(),
         tableNames,
-        indexerConfig.postgresUserName(),
+        indexerConfig.userName(),
         [
           'select',
           'insert',
@@ -144,17 +144,17 @@ describe('Provisioner', () => {
       expect(adminPgClient.query).not.toBeCalled();
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
-      expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.postgresUserName(), indexerConfig.postgresSchemaName());
+      expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
       // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, logsTableDDL(schemaName));
       // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(indexerConfig.postgresDatabaseName(), indexerConfig.postgresSchemaName(), databaseSchema);
-      expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.postgresSchemaName(), indexerConfig.postgresDatabaseName());
-      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.postgresSchemaName(), tableNames, indexerConfig.postgresDatabaseName());
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
-        indexerConfig.postgresSchemaName(),
-        indexerConfig.postgresDatabaseName(),
+        indexerConfig.schemaName(),
+        indexerConfig.databaseName(),
         tableNames,
-        indexerConfig.postgresUserName(),
+        indexerConfig.userName(),
         [
           'select',
           'insert',

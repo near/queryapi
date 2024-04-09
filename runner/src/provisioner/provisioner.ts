@@ -165,8 +165,8 @@ export default class Provisioner {
       return true;
     }
 
-    const databaseName = indexerConfig.postgresDatabaseName();
-    const schemaName = indexerConfig.postgresSchemaName();
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
 
     const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
     if (!sourceExists) {
@@ -265,9 +265,9 @@ export default class Provisioner {
 
   async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
     const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
-    const userName = indexerConfig.postgresUserName();
-    const databaseName = indexerConfig.postgresDatabaseName();
-    const schemaName = indexerConfig.postgresSchemaName();
+    const userName = indexerConfig.userName();
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
 
     try {
       await wrapError(

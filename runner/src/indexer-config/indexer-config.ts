@@ -63,15 +63,15 @@ export default class IndexerConfig {
     return this.sanitizeNameForDatabase(this.functionName);
   }
 
-  postgresUserName (): string {
+  userName (): string {
     return this.sanitizeNameForDatabase(this.accountId);
   }
 
-  postgresDatabaseName (): string {
+  databaseName (): string {
     return this.sanitizeNameForDatabase(this.accountId);
   }
 
-  postgresSchemaName (): string {
+  schemaName (): string {
     return this.sanitizeNameForDatabase(this.fullName());
   }
 

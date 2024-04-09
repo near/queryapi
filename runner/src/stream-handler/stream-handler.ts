@@ -8,12 +8,6 @@ import { /* LogType, */ LogLevel } from '../indexer-meta/log-entry';
 
 import type IndexerConfig from '../indexer-config';
 
-export enum Status {
-  RUNNING = 'RUNNING',
-  FAILING = 'FAILING',
-  STOPPED = 'STOPPED',
-}
-
 export enum WorkerMessageType {
   METRICS = 'METRICS',
   BLOCK_HEIGHT = 'BLOCK_HEIGHT',

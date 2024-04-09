@@ -322,7 +322,7 @@ export default class Indexer {
                   // const insertLogEntry = LogEntry.systemDebug(`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`, blockHeight);
                   // await this.writeLog(insertLogEntry, logEntries, functionName);
                   // Call insert with parameters
-                  return await dmlHandler.insert(this.indexerConfig.postgresSchemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+                  return await dmlHandler.insert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
                 } finally {
                   insertSpan.end();
                 }
@@ -337,7 +337,7 @@ export default class Indexer {
                   // const selectLogEntry = LogEntry.systemDebug(`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`, blockHeight);
                   // await this.writeLog(selectLogEntry, logEntries, functionName);
                   // Call select with parameters
-                  return await dmlHandler.select(this.indexerConfig.postgresSchemaName(), tableDefinitionNames, filterObj, limit);
+                  return await dmlHandler.select(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, limit);
                 } finally {
                   selectSpan.end();
                 }
@@ -352,7 +352,7 @@ export default class Indexer {
                   // const updateLogEntry = LogEntry.systemDebug(`Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`, blockHeight);
                   // await this.writeLog(updateLogEntry, logEntries, functionName);
                   // Call update with parameters
-                  return await dmlHandler.update(this.indexerConfig.postgresSchemaName(), tableDefinitionNames, filterObj, updateObj);
+                  return await dmlHandler.update(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, updateObj);
                 } finally {
                   updateSpan.end();
                 }
@@ -367,7 +367,7 @@ export default class Indexer {
                   // const upsertLogEntry = LogEntry.systemDebug(`Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`, blockHeight);
                   // await this.writeLog(upsertLogEntry, logEntries, functionName);
                   // Call upsert with parameters
-                  return await dmlHandler.upsert(this.indexerConfig.postgresSchemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+                  return await dmlHandler.upsert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
                 } finally {
                   upsertSpan.end();
                 }
@@ -382,7 +382,7 @@ export default class Indexer {
                   // const deleteLogEntry = LogEntry.systemDebug(`Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`, blockHeight);
                   // await this.writeLog(deleteLogEntry, logEntries, functionName);
                   // Call delete with parameters
-                  return await dmlHandler.delete(this.indexerConfig.postgresSchemaName(), tableDefinitionNames, filterObj);
+                  return await dmlHandler.delete(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj);
                 } finally {
                   deleteSpan.end();
                 }
