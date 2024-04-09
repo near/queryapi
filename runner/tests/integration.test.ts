@@ -6,7 +6,7 @@ import Indexer from '../src/indexer';
 import HasuraClient from '../src/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
-import { LogLevel } from '../src/log-entry/log-entry';
+import { LogLevel } from '../src/indexer-logger/log-entry';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';

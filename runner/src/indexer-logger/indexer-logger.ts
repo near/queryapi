@@ -3,8 +3,8 @@ import { wrapError } from '../utility';
 import PgClient from '../pg-client';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace } from '@opentelemetry/api';
-import type LogEntry from '../log-entry/log-entry';
-import { LogLevel } from '../log-entry/log-entry';
+import type LogEntry from './log-entry';
+import { LogLevel } from './log-entry';
 
 export default class IndexerLogger {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');

@@ -3,7 +3,7 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
-import { /* LogType, */ LogLevel } from '../log-entry/log-entry';
+import { /* LogType, */ LogLevel } from '../indexer-logger/log-entry';
 
 export enum Status {
   RUNNING = 'RUNNING',

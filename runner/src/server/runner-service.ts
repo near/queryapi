@@ -1,7 +1,7 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
 import { Status } from '../stream-handler/stream-handler';
-import { LogLevel } from '../log-entry/log-entry';
+import { LogLevel } from '../indexer-logger/log-entry';
 import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';

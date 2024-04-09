@@ -9,6 +9,7 @@ export enum LogType {
   SYSTEM = 'system',
   USER = 'user',
 }
+
 export default class LogEntry {
   public readonly timestamp: Date;
 
