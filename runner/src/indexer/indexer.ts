@@ -5,17 +5,18 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-// import IndexerLogger from '../indexer-logger/indexer-logger';
+// import IndexerMeta from '../indexer-meta/indexer-meta';
 
-import { type IndexerBehavior, Status } from '../stream-handler/stream-handler';
-import /** LogEntry, LogType, */{ LogLevel } from '../log-entry/log-entry';
+import { type IndexerBehavior } from '../stream-handler/stream-handler';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 
 interface Dependencies {
   fetch: typeof fetch
   provisioner: Provisioner
-  DmlHandler: typeof DmlHandler
+  dmlHandler?: DmlHandler
   parser: Parser
 };
 
@@ -61,15 +62,13 @@ export default class Indexer {
   private readonly deps: Dependencies;
 
   private database_connection_parameters: DatabaseConnectionParameters | undefined;
-  // private indexer_logger: IndexerLogger | undefined;
-  private dml_handler: DmlHandler | undefined;
+
+  private currentStatus?: string;
 
   constructor (
     indexerBehavior: IndexerBehavior,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters = undefined,
-    dmlHandler = undefined,
-    // indexerLogger = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
@@ -77,14 +76,10 @@ export default class Indexer {
     this.deps = {
       fetch,
       provisioner: new Provisioner(),
-      DmlHandler,
       parser: new Parser(),
-      // IndexerLogger,
       ...deps,
     };
     this.database_connection_parameters = databaseConnectionParameters;
-    this.dml_handler = dmlHandler;
-    // this.indexer_logger = indexerLogger;
   }
 
   async runFunctions (
@@ -112,7 +107,7 @@ export default class Indexer {
         if (options.provision && !indexerFunction.provisioned) {
           try {
             if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(indexerFunction.account_id, indexerFunction.function_name)) {
-              await this.setStatus(functionName, blockHeight, 'PROVISIONING');
+              await this.setStatus(functionName, blockHeight, IndexerStatus.PROVISIONING);
               simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: starting'));
               // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
               await this.deps.provisioner.provisionUserApi(indexerFunction.account_id, indexerFunction.function_name, indexerFunction.schema);
@@ -133,10 +128,10 @@ export default class Indexer {
         try {
           this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
           // this.indexer_logger ??= new IndexerLogger(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
-          this.dml_handler ??= this.deps.DmlHandler.create(this.database_connection_parameters);
+          this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
         } catch (e) {
           const error = e as Error;
-          this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message);
+          await this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Failed to get database connection parameters', error.message);
           // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Failed to get database connection parameters ${error.message}` });
           throw error;
         } finally {
@@ -145,9 +140,9 @@ export default class Indexer {
 
         // TODO: Prevent unnecesary reruns of set status
         const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
-        simultaneousPromises.push(this.setStatus(functionName, blockHeight, 'RUNNING'));
+        simultaneousPromises.push(this.setStatus(functionName, blockHeight, IndexerStatus.RUNNING));
         const vm = new VM({ allowAsync: true });
-        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName /* logEntries */);
+        const context = this.buildContext(indexerFunction.schema, functionName, blockHeight, hasuraRoleName/* , logEntries */);
 
         vm.freeze(block, 'block');
         vm.freeze(lakePrimitives, 'primitives');
@@ -168,10 +163,10 @@ export default class Indexer {
             runIndexerCodeSpan.end();
           }
         });
-        simultaneousPromises.push(this.writeFunctionState(functionName, blockHeight, isHistorical));
+        simultaneousPromises.push(this.updateIndexerBlockHeight(functionName, blockHeight, isHistorical));
       } catch (e) {
         // TODO: Prevent unnecesary reruns of set status
-        await this.setStatus(functionName, blockHeight, Status.FAILING);
+        await this.setStatus(functionName, blockHeight, IndexerStatus.FAILING);
         throw e;
       } finally {
         await Promise.all([...simultaneousPromises]);
@@ -331,7 +326,7 @@ export default class Indexer {
       const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler = this.dml_handler as DmlHandler;
+      const dmlHandler: DmlHandler = this.deps.dmlHandler as DmlHandler;
 
       // Generate and collect methods for each table name
       const result = tableNames.reduce((prev, tableName) => {
@@ -432,7 +427,13 @@ export default class Indexer {
     return {}; // Default to empty object if error
   }
 
-  async setStatus (functionName: string, blockHeight: number, status: string): Promise<any> {
+  async setStatus (functionName: string, blockHeight: number, status: IndexerStatus): Promise<any> {
+    if (this.currentStatus === status) {
+      return;
+    }
+
+    this.currentStatus = status;
+
     const setStatusMutation = `
       mutation SetStatus($function_name: String, $status: String) {
         insert_indexer_state_one(object: {function_name: $function_name, status: $status, current_block_height: 0 }, on_conflict: { constraint: indexer_state_pkey, update_columns: status }) {
@@ -440,9 +441,9 @@ export default class Indexer {
           status
         }
       }`;
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status}`);
+    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through hasura`);
     try {
-      return await this.runGraphQLQuery(
+      await this.runGraphQLQuery(
         setStatusMutation,
         {
           function_name: functionName,
@@ -468,7 +469,7 @@ export default class Indexer {
   //   await (this.indexer_logger as IndexerLogger).writeLogs(logEntry);
   // }
 
-  async writeFunctionState (functionName: string, blockHeight: number, isHistorical: boolean): Promise<any> {
+  async updateIndexerBlockHeight (functionName: string, blockHeight: number, isHistorical: boolean): Promise<void> {
     const realTimeMutation: string = `
       mutation WriteBlock($function_name: String!, $block_height: numeric!) {
         insert_indexer_state(
@@ -501,7 +502,7 @@ export default class Indexer {
     };
     const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
     try {
-      return await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
+      await this.runGraphQLQuery(isHistorical ? historicalMutation : realTimeMutation, variables, functionName, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
           console.error(`${functionName}: Error writing function state`, e);
         });

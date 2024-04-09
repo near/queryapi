@@ -52,7 +52,7 @@ await console.error('error log');
 //   );
 `;
 const indexer = {
-  account_id: 'kevin3.near',
+  account_id: 'kevin10.near',
   redis_stream: 'test:block_stream',
   function_name: 'component_01',
   code,
@@ -82,8 +82,8 @@ void (async function main () {
     if (err) {
     } else {
       console.log('start: ', response);
-      console.log('running...')
+      console.log('running...');
     }
   });
-  console.log('done')
+  console.log('done');
 })();

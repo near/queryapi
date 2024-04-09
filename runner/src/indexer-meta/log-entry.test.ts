@@ -90,4 +90,3 @@ describe('LogEntry', () => {
     expect(logEntry.blockHeight).toBeUndefined();
   });
 });
-
