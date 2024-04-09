@@ -6,7 +6,18 @@ import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
 import { LogLevel } from './log-entry';
 
-export default class IndexerLogger {
+export enum IndexerStatus {
+  PROVISIONING = 'PROVISIONING',
+  RUNNING = 'RUNNING',
+  FAILING = 'FAILING',
+  STOPPED = 'STOPPED',
+}
+
+const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+const STATUS_ATTRIBUTE = 'STATUS';
+const LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE = 'LAST_PROCESSED_BLOCK_HEIGHT';
+
+export default class IndexerMeta {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
   private readonly pgClient: PgClient;
@@ -62,5 +73,29 @@ export default class IndexerLogger {
       .finally(() => {
         writeLogSpan.end();
       });
+  }
+
+  async setStatus (status: IndexerStatus): Promise<void> {
+    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
+    const values = [[STATUS_ATTRIBUTE, status]];
+    const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
+
+    try {
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName}`);
+    } finally {
+      setStatusSpan.end();
+    }
+  }
+
+  async updateBlockheight (blockHeight: number): Promise<void> {
+    const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
+    const values = [[LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
+    const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
+
+    try {
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName}`);
+    } finally {
+      setLastProcessedBlockSpan.end();
+    }
   }
 }

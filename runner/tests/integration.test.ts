@@ -1,16 +1,16 @@
 import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Network, type StartedNetwork } from 'testcontainers';
-import fetch from 'node-fetch';
+import { gql, GraphQLClient } from 'graphql-request';
 
 import Indexer from '../src/indexer';
 import HasuraClient from '../src/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
-import { LogLevel } from '../src/indexer-logger/log-entry';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
 import block1 from './blocks/00115185108/streamer_message.json';
+import { LogLevel } from '../src/indexer-meta/log-entry';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -18,6 +18,7 @@ describe('Indexer integration', () => {
   let network: StartedNetwork;
   let postgresContainer: StartedPostgreSqlContainer;
   let hasuraContainer: StartedHasuraGraphQLContainer;
+  let graphqlClient: GraphQLClient;
 
   beforeAll(async () => {
     network = await new Network().start();
@@ -28,6 +29,11 @@ describe('Indexer integration', () => {
       .withNetwork(network)
       .withDatabaseUrl(postgresContainer.getConnectionUri(network.getName()))
       .start();
+    graphqlClient = new GraphQLClient(`${hasuraContainer.getEndpoint()}/v1/graphql`, {
+      headers: {
+        'X-Hasura-Admin-Secret': hasuraContainer.getAdminSecret(),
+      }
+    });
   });
 
   afterAll(async () => {
@@ -73,7 +79,6 @@ describe('Indexer integration', () => {
         provisioner
       },
       undefined,
-      undefined,
       {
         hasuraAdminSecret: hasuraContainer.getAdminSecret(),
         hasuraEndpoint: hasuraContainer.getEndpoint(),
@@ -110,27 +115,36 @@ describe('Indexer integration', () => {
       }
     );
 
-    const e = hasuraContainer.getEndpoint();
-    const resp = await fetch(`${e}/v1/graphql`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Hasura-Role': 'morgs_near',
-        'X-Hasura-Admin-Secret': hasuraContainer.getAdminSecret() // required as there is no configured auth hook
-      },
-      body: JSON.stringify({
-        query: `
-          query {
-            morgs_near_test_blocks {
-              height
-            }
-          }
-        `
-      })
-    });
+    const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test_blocks {
+          height
+        }
+      }
+    `);
 
-    const { data } = await resp.json();
+    expect(blocks[0].height).toEqual(115185108);
 
-    expect(data.morgs_near_test_blocks[0].height).toEqual(115185108);
+    const { indexer_state: [state] }: any = await graphqlClient.request(gql`
+      query {
+        indexer_state(where: { function_name: { _eq: "morgs.near/test" } }) {
+          current_block_height
+          status
+        }
+      }
+    `);
+
+    expect(state.current_block_height).toEqual(115185108);
+    expect(state.status).toEqual('RUNNING');
+
+    const { indexer_log_entries: logs }: any = await graphqlClient.request(gql`
+      query {
+        indexer_log_entries(where: { function_name: { _eq:"morgs.near/test" } }) {
+          message
+        }
+      }
+    `);
+
+    expect(logs.length).toEqual(3);
   });
 });
