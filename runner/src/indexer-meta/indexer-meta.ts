@@ -56,7 +56,7 @@ export default class IndexerMeta {
 
     const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
     const writeLogSpan = this.tracer.startSpan(spanMessage);
-    // todo: change to try catch rather than callback for code consistency
+    
     await wrapError(async () => {
       const values = entriesArray.map(entry => [
         entry.blockHeight,
