@@ -48,6 +48,7 @@ const defaultConfig: Config = {
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasLogsBeenProvisioned: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -224,6 +225,10 @@ export default class Provisioner {
     *
     * */
   async provisionLogsIfNeeded (accountId: string, functionName: string): Promise<void> {
+    if (this.#hasLogsBeenProvisioned[accountId]?.[functionName]) {
+      return;
+    }
+
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
@@ -244,6 +249,9 @@ export default class Provisioner {
       },
       'Failed standalone logs provisioning'
     );
+
+    this.#hasLogsBeenProvisioned[accountId] ??= {};
+    this.#hasLogsBeenProvisioned[accountId][functionName] = true;
   }
 
   async provisionUserApi (accountId: string, functionName: string, databaseSchema: any): Promise<void> { // replace any with actual type
