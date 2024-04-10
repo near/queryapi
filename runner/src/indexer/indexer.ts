@@ -5,7 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
+import /**LogEntry,*/ { LogLevel } from '../indexer-meta/log-entry';
 
 import { type IndexerBehavior } from '../stream-handler/stream-handler';
 import /** IndexerMeta, */ { IndexerStatus } from '../indexer-meta/indexer-meta';
@@ -96,7 +96,7 @@ export default class Indexer {
 
     const simultaneousPromises: Array<Promise<any>> = [];
     const allMutations: string[] = [];
-    const logEntries: LogEntry[] = [];
+    // const logEntries: LogEntry[] = [];
 
     for (const functionName in functions) {
       try {
@@ -130,8 +130,8 @@ export default class Indexer {
           }
         }
 
-        const runningLogEntry = LogEntry.systemInfo(runningMessage, blockHeight);
-        logEntries.push(runningLogEntry);
+        // const runningLogEntry = LogEntry.systemInfo(runningMessage, blockHeight);
+        // logEntries.push(runningLogEntry);
         // Cache database credentials after provisioning
         const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
@@ -168,8 +168,8 @@ export default class Indexer {
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Error running IndexerFunction', error.message));
-            const indexerErrorLogEntry = LogEntry.systemError('Error running IndexerFunction', blockHeight);
-            logEntries.push(indexerErrorLogEntry);
+            // const indexerErrorLogEntry = LogEntry.systemError('Error running IndexerFunction', blockHeight);
+            // logEntries.push(indexerErrorLogEntry);
             throw e;
           } finally {
             runIndexerCodeSpan.end();
