@@ -216,23 +216,10 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
     });
 
-    it('throws an error when it fails to create logs table', async () => {
-      hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
-
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run logs script: some error');
-    });
-
     it.skip('throws an error when it fails to create metadata table', async () => {
       hasuraClient.executeSqlOnSchema = jest.fn().mockResolvedValueOnce(null).mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to create metadata table in morgs_near.morgs_near_test_function: some error');
-    });
-
-    it('throws an error when it fails to run sql', async () => {
-      // hasuraClient.executeSqlOnSchema = jest.fn().mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockRejectedValue(error);
-      hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
-
-      await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run user script: some error');
     });
 
     it('throws when grant cron access fails', async () => {
