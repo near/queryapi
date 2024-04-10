@@ -194,6 +194,7 @@ impl DeltaLakeClientImpl {
                     .await
             }
         }
+        .context("Failed to list matching index files")
     }
 
     fn date_from_s3_path(&self, path: &str) -> Option<chrono::NaiveDate> {
