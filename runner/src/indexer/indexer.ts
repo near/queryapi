@@ -114,6 +114,9 @@ export default class Indexer {
               simultaneousPromises.push(this.writeLog(LogLevel.INFO, functionName, blockHeight, 'Provisioning endpoint: successful'));
               // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
             }
+
+            // TODO enable when new logs implementation is ready
+            // await this.deps.provisioner.provisionLogsIfNeeded(indexerFunction.account_id, indexerFunction.function_name);
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));

@@ -9,7 +9,8 @@ import PgClient from '../src/pg-client';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
-import block1 from './blocks/00115185108/streamer_message.json';
+import block115185108 from './blocks/00115185108/streamer_message.json';
+import block115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 
 describe('Indexer integration', () => {
@@ -86,7 +87,37 @@ describe('Indexer integration', () => {
     );
 
     await indexer.runFunctions(
-      Block.fromStreamerMessage(block1 as any as StreamerMessage),
+      Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
+      {
+        'morgs.near/test': {
+          account_id: 'morgs.near',
+          function_name: 'test',
+          provisioned: false,
+          schema: 'CREATE TABLE blocks (height numeric)',
+          code: `
+            await context.graphql(
+              \`
+                mutation ($height:numeric){
+                  insert_morgs_near_test_blocks_one(object:{height:$height}) {
+                    height
+                  }
+                }
+              \`,
+              {
+                height: block.blockHeight
+              }
+            );
+          `,
+        }
+      },
+      false,
+      {
+        provision: true
+      }
+    );
+
+    await indexer.runFunctions(
+      Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
       {
         'morgs.near/test': {
           account_id: 'morgs.near',
@@ -123,7 +154,7 @@ describe('Indexer integration', () => {
       }
     `);
 
-    expect(blocks[0].height).toEqual(115185108);
+    expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
 
     const { indexer_state: [state] }: any = await graphqlClient.request(gql`
       query {
@@ -134,7 +165,7 @@ describe('Indexer integration', () => {
       }
     `);
 
-    expect(state.current_block_height).toEqual(115185108);
+    expect(state.current_block_height).toEqual(115185109);
     expect(state.status).toEqual('RUNNING');
 
     const { indexer_log_entries: logs }: any = await graphqlClient.request(gql`
@@ -145,6 +176,6 @@ describe('Indexer integration', () => {
       }
     `);
 
-    expect(logs.length).toEqual(3);
+    expect(logs.length).toEqual(4);
   });
 });
