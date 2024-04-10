@@ -1,5 +1,6 @@
 import type StreamHandler from '../stream-handler/stream-handler';
-import { LogLevel, Status } from '../stream-handler/stream-handler';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
 
@@ -19,7 +20,7 @@ const BASIC_INDEXER_CONFIG = {
   version: BASIC_VERSION,
 };
 const BASIC_EXECUTOR_CONTEXT = {
-  status: Status.RUNNING,
+  status: IndexerStatus.RUNNING,
 };
 
 describe('Runner gRPC Service', () => {
@@ -245,7 +246,7 @@ describe('Runner gRPC Service', () => {
             executorId: BASIC_EXECUTOR_ID,
             accountId: BASIC_INDEXER_CONFIG.account_id,
             functionName: BASIC_INDEXER_CONFIG.function_name,
-            status: Status.RUNNING,
+            status: IndexerStatus.RUNNING,
             version: '1'
           }]
         });

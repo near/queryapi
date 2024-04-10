@@ -5,9 +5,10 @@ import RedisClient, { type StreamType } from '../redis-client';
 import { METRICS } from '../metrics';
 import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
-import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior, Status } from './stream-handler';
+import { WorkerMessageType, type IndexerConfig, type WorkerMessage, type IndexerBehavior } from './stream-handler';
 import { trace, type Span, context } from '@opentelemetry/api';
 import setUpTracerExport from '../instrumentation';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -150,7 +151,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         });
 
         const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
-        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.RUNNING } });
+        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.RUNNING } });
         await workerContext.redisClient.deleteStreamMessage(streamKey, streamMessageId);
         await workerContext.queue.shift();
 
@@ -159,7 +160,7 @@ async function blockQueueConsumer (workerContext: WorkerContext, streamKey: stri
         postRunSpan.end();
       } catch (err) {
         parentSpan.setAttribute('status', 'failed');
-        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: Status.FAILING } });
+        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.FAILING } });
         const error = err as Error;
         if (previousError !== error.message) {
           previousError = error.message;

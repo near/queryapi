@@ -4,6 +4,8 @@ import pgFormatLib from 'pg-format';
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
+// import { logsTableDDL } from './schemas/logs-table';
+// import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
@@ -137,7 +139,7 @@ export default class Provisioner {
   async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        await this.runMigrations(databaseName, schemaName, 'CREATE TABLE __logs()'); // TODO replace with real schema
+        // await this.runLogsSql(databaseName, schemaName);
         await this.grantCronAccess(userName);
         await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
       },
@@ -185,8 +187,17 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
-  async runMigrations (databaseName: string, schemaName: string, migration: any): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.runMigrations(databaseName, schemaName, migration), 'Failed to run migrations');
+  // async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
+  //   const logsDDL = logsTableDDL(schemaName);
+  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
+  // }
+
+  // async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${databaseName}.${schemaName}`);
+  // }
+
+  async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
   async getTableNames (schemaName: string, databaseName: string): Promise<string[]> {
@@ -273,18 +284,20 @@ export default class Provisioner {
           }
 
           await this.createSchema(databaseName, schemaName);
-          await this.runMigrations(databaseName, schemaName, databaseSchema);
+
+          // await this.createMetadataTable(databaseName, schemaName);
+          await this.runIndexerSql(databaseName, schemaName, databaseSchema);
 
           // TODO enable once new logs implementation is ready
           // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
-          const tableNames = await this.getTableNames(schemaName, databaseName);
-          await this.trackTables(schemaName, tableNames, databaseName);
+          const updatedTableNames = await this.getTableNames(schemaName, databaseName);
+
+          await this.trackTables(schemaName, updatedTableNames, databaseName);
 
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-          await this.addPermissionsToTables(schemaName, databaseName, tableNames, userName, ['select', 'insert', 'update', 'delete']);
-
+          await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
           this.setProvisioned(accountId, functionName);
         },
         'Failed to provision endpoint'
