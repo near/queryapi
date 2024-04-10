@@ -4,7 +4,8 @@ import pgFormatLib from 'pg-format';
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient from '../hasura-client';
-// import { logsTableDDL } from './schemas/logs-table';
+import { logsTableDDL } from './schemas/logs-table';
+// import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass from '../pg-client';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
@@ -49,6 +50,7 @@ const defaultConfig: Config = {
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasLogsBeenProvisioned: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -114,7 +116,6 @@ export default class Provisioner {
           host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
           port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
         });
-
         await userCronPgClient.query(
           this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
@@ -137,7 +138,7 @@ export default class Provisioner {
   async setupPartitionedLogsTable (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        // TODO: Create logs table
+        await this.runLogsSql(databaseName, schemaName);
         await this.grantCronAccess(userName);
         await this.scheduleLogPartitionJobs(userName, databaseName, schemaName);
       },
@@ -185,9 +186,13 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
 
-  // async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
-  //   const logsDDL = logsTableDDL(schemaName);
-  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
+  async runLogsSql (databaseName: string, schemaName: string): Promise<void> {
+    const logsDDL = logsTableDDL(schemaName);
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
+  }
+
+  // async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${databaseName}.${schemaName}`);
   // }
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
@@ -224,6 +229,41 @@ export default class Provisioner {
     return str.replaceAll(/[.-]/g, '_');
   }
 
+  /**
+    * Provision logs table for existing Indexers which have already had all
+    * other resources provisioned.
+    *
+    * */
+  async provisionLogsIfNeeded (accountId: string, functionName: string): Promise<void> {
+    if (this.#hasLogsBeenProvisioned[accountId]?.[functionName]) {
+      return;
+    }
+
+    const sanitizedAccountId = this.replaceSpecialChars(accountId);
+    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
+
+    const databaseName = sanitizedAccountId;
+    const userName = sanitizedAccountId;
+    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+    const logsTable = '__logs';
+
+    await wrapError(
+      async () => {
+        const tableNames = await this.getTableNames(schemaName, databaseName);
+
+        if (!tableNames.includes(logsTable)) {
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+          await this.trackTables(schemaName, [logsTable], databaseName);
+          await this.addPermissionsToTables(schemaName, databaseName, [logsTable], userName, ['select', 'insert', 'update', 'delete']);
+        }
+      },
+      'Failed standalone logs provisioning'
+    );
+
+    this.#hasLogsBeenProvisioned[accountId] ??= {};
+    this.#hasLogsBeenProvisioned[accountId][functionName] = true;
+  }
+
   async provisionUserApi (accountId: string, functionName: string, databaseSchema: any): Promise<void> { // replace any with actual type
     const sanitizedAccountId = this.replaceSpecialChars(accountId);
     const sanitizedFunctionName = this.replaceSpecialChars(functionName);
@@ -244,11 +284,9 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
 
-          // await this.runLogsSql(databaseName, schemaName);
+          // await this.createMetadataTable(databaseName, schemaName);
           await this.runIndexerSql(databaseName, schemaName, databaseSchema);
-
-          // TODO re-enable once logs table is created
-          // await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
 

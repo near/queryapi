@@ -15,11 +15,17 @@ mod test_utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+    let subscriber = tracing_subscriber::registry()
         .with(metrics::LogCounter)
-        .with(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+        .with(tracing_subscriber::EnvFilter::from_default_env());
+
+    if std::env::var("GCP_LOGGING_ENABLED").is_ok() {
+        subscriber.with(tracing_stackdriver::layer()).init();
+    } else {
+        subscriber
+            .with(tracing_subscriber::fmt::layer().compact())
+            .init();
+    }
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
