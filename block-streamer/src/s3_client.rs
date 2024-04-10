@@ -1,5 +1,7 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use anyhow::Context;
+
 const MAX_S3_LIST_REQUESTS: usize = 1000;
 
 #[cfg(test)]
@@ -60,7 +62,10 @@ impl S3ClientImpl {
     }
 
     pub async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String> {
-        let object = self.get_object(bucket, prefix).await?;
+        let object = self
+            .get_object(bucket, prefix)
+            .await
+            .context(format!("Failed to fetch {bucket}/{prefix}"))?;
 
         let bytes = object.body.collect().await?;
 
@@ -83,7 +88,8 @@ impl S3ClientImpl {
 
             let list = self
                 .list_objects(bucket, prefix, continuation_token)
-                .await?;
+                .await
+                .context(format!("Failed to list {bucket}/{prefix}"))?;
 
             if let Some(common_prefixes) = list.common_prefixes {
                 let keys: Vec<String> = common_prefixes
