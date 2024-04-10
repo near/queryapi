@@ -6,7 +6,6 @@ import Indexer from '../src/indexer';
 import HasuraClient from '../src/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
-// import IndexerMeta from '../src/indexer-meta/indexer-meta';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
@@ -72,22 +71,12 @@ describe('Indexer integration', () => {
         hasuraPortOverride: Number(postgresContainer.getPort()),
       }
     );
-    // const userDB = await provisioner.getDatabaseConnectionParameters('morgs_near');
-    
-    // const indexerMeta = new IndexerMeta('morgs_near', LogLevel.INFO, {
-    //   host: postgresContainer.getIpAddress(),
-    //   port: Number(postgresContainer.getPort()),
-    //   database: userDB.database,
-    //   username: userDB.username,
-    //   password: userDB.password
-    // }, pgClient);
 
     const indexer = new Indexer(
       {
         log_level: LogLevel.INFO,
       },
       {
-        // indexerMeta,
         provisioner
       },
       undefined,

@@ -4,7 +4,7 @@ import { Worker, isMainThread } from 'worker_threads';
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
-import { /* LogType, */ LogLevel } from '../indexer-meta/log-entry';
+import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
 
 export interface IndexerConfig {
   account_id: string
@@ -79,15 +79,11 @@ export default class StreamHandler {
       console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
     });
 
+    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`, this.executorContext.block_height);
+
     Promise.all([
-      indexer.writeLog(LogLevel.ERROR, functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`),
-      // indexer.callWriteLog({
-      //   blockHeight: this.executorContext.block_height,
-      //   logTimestamp: new Date(),
-      //   logType: LogType.SYSTEM,
-      //   logLevel: LogLevel.ERROR,
-      //   message: `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
-      // })
+      indexer.writeLogOld(LogLevel.ERROR, functionName, this.executorContext.block_height, `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`),
+      indexer.callWriteLog(streamErrorLogEntry),
     ]).catch((e) => {
       console.error(`Failed to write log for stream: ${this.streamKey}`, e);
     });
