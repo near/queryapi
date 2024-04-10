@@ -118,6 +118,9 @@ export default class Indexer {
               // const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight);
               // logEntries.push(provisionSuccessLogEntry);
             }
+
+            // TODO enable when new logs implementation is ready
+            // await this.deps.provisioner.provisionLogsIfNeeded(indexerFunction.account_id, indexerFunction.function_name);
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
