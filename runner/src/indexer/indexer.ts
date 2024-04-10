@@ -141,7 +141,8 @@ export default class Indexer {
 
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
-          await vm.run(this.indexerConfig.transformedCode());
+          const transformedCode = this.transformIndexerFunction();
+          await vm.run(transformedCode);
         } catch (e) {
           const error = e as Error;
           simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Error running IndexerFunction', error.message));
@@ -538,5 +539,20 @@ export default class Indexer {
     }
 
     return data;
+  }
+
+  private enableAwaitTransform (code: string): string {
+    return `
+      async function f(){
+        ${code}
+      };
+      f();
+    `;
+  }
+
+  transformIndexerFunction (): string {
+    return [
+      this.enableAwaitTransform,
+    ].reduce((acc, val) => val(acc), this.indexerConfig.code);
   }
 }

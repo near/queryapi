@@ -65,21 +65,6 @@ export default class IndexerConfig {
     };
   }
 
-  private enableAwaitTransform (code: string): string {
-    return `
-      async function f(){
-        ${code}
-      };
-      f();
-    `;
-  }
-
-  private transformIndexerFunction (code: string): string {
-    return [
-      this.enableAwaitTransform,
-    ].reduce((acc, val) => val(acc), code);
-  }
-
   private sanitizeNameForDatabase (name: string): string {
     // TODO: Add underscore for accounts with invalid starting character
     return name.replace(/[^a-zA-Z0-9]/g, '_');
@@ -107,9 +92,5 @@ export default class IndexerConfig {
 
   schemaName (): string {
     return this.sanitizeNameForDatabase(this.fullName());
-  }
-
-  transformedCode (): string {
-    return this.transformIndexerFunction(this.code);
   }
 }

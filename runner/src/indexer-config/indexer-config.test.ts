@@ -33,17 +33,4 @@ describe('IndexerConfig unit tests', () => {
     expect(indexerConfig.databaseName()).toEqual('test_account_near');
     expect(indexerConfig.schemaName()).toEqual('test_account_near_test_indexer');
   });
-
-  test('transformedCode applies the correct transformations', () => {
-    const indexerConfig = new IndexerConfig(REDIS_STREAM, ACCOUNT_ID, FUNCTION_NAME, 0, 'console.log(\'hello\')', SCHEMA, LogLevel.INFO);
-
-    const transformedFunction = indexerConfig.transformedCode();
-
-    expect(transformedFunction).toEqual(`
-      async function f(){
-        console.log('hello')
-      };
-      f();
-    `);
-  });
 });

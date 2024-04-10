@@ -1212,4 +1212,17 @@ CREATE TABLE
             }
     ]);
   });
+
+  test('transformedCode applies the correct transformations', () => {
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'console.log(\'hello\')', SIMPLE_SCHEMA, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler }, undefined, config);
+    const transformedFunction = indexer.transformIndexerFunction();
+
+    expect(transformedFunction).toEqual(`
+      async function f(){
+        console.log('hello')
+      };
+      f();
+    `);
+  });
 });
