@@ -492,7 +492,6 @@ export default class Indexer {
 
   // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
   //   logEntries.push(logEntry);
-  //   console.log(functionName);
   //   const { logLevel, blockHeight, message } = logEntry;
   //   return await this.writeLogOld(logLevel, functionName, blockHeight, message);
   // }

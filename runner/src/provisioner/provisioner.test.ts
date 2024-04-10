@@ -114,6 +114,7 @@ describe('Provisioner', () => {
       ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(sanitizedAccountId, password, sanitizedAccountId);
       expect(hasuraClient.createSchema).toBeCalledWith(sanitizedAccountId, schemaName);
+      // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, sanitizedAccountId, schemaName, databaseSchema);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, sanitizedAccountId, schemaName, logsDDL);
       expect(hasuraClient.getTableNames).toBeCalledWith(schemaName, sanitizedAccountId);
