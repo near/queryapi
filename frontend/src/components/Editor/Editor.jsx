@@ -179,7 +179,6 @@ const Editor = ({ actionButtonText }) => {
 
   useEffect(() => {
     localStorage.setItem(SCHEMA_TYPES_STORAGE_KEY, schemaTypes);
-    attachTypesToMonaco();
     handleCodeGen();
   }, [schemaTypes, monacoMount]);
 
