@@ -920,6 +920,7 @@ CREATE TABLE
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
+      provisionLogsIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler /** , indexerMeta: genericMockIndexerMeta */ }, undefined, config);
 
@@ -964,6 +965,7 @@ CREATE TABLE
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
+      provisionLogsIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler /** , indexerMeta: genericMockIndexerMeta */ }, undefined, config);
 
@@ -1000,6 +1002,7 @@ CREATE TABLE
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
+      provisionLogsIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler /** , indexerMeta: genericMockIndexerMeta */ }, undefined, config);
 
@@ -1038,6 +1041,7 @@ CREATE TABLE
       getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
+      provisionLogsIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler /** , indexerMeta: genericMockIndexerMeta */ }, undefined, config);
 

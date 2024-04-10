@@ -120,7 +120,7 @@ export default class Indexer {
             }
 
             // TODO enable when new logs implementation is ready
-            // await this.deps.provisioner.provisionLogsIfNeeded(indexerFunction.account_id, indexerFunction.function_name);
+            await this.deps.provisioner.provisionLogsIfNeeded(indexerFunction.account_id, indexerFunction.function_name);
           } catch (e) {
             const error = e as Error;
             simultaneousPromises.push(this.writeLog(LogLevel.ERROR, functionName, blockHeight, 'Provisioning endpoint: failure', error.message));
