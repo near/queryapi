@@ -148,7 +148,8 @@ pub(crate) async fn start_block_stream(
         indexer,
         redis_stream.clone(),
     )
-    .await?;
+    .await
+    .context("Failed during Delta Lake processing")?;
 
     let last_indexed_near_lake_block = process_near_lake_blocks(
         last_indexed_delta_lake_block,
@@ -159,7 +160,8 @@ pub(crate) async fn start_block_stream(
         redis_stream,
         chain_id,
     )
-    .await?;
+    .await
+    .context("Failed during Near Lake processing")?;
 
     tracing::debug!(
         last_indexed_block = last_indexed_near_lake_block,
@@ -192,7 +194,7 @@ async fn process_delta_lake_blocks(
             ..
         } => {
             if affected_account_id
-                .split(",")
+                .split(',')
                 .any(|account_id| DELTA_LAKE_SKIP_ACCOUNTS.contains(&account_id.trim()))
             {
                 tracing::debug!(
