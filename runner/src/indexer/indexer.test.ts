@@ -1017,7 +1017,7 @@ CREATE TABLE
     await indexer.runFunctions(mockBlock, functions, false, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(3); // todo: temporary fix for the test to ensure new logging works
+    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
