@@ -215,8 +215,7 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
     });
 
-    // TODO re-enable once logs table is created
-    it.skip('throws an error when it fails to create logs table', async () => {
+    it('throws an error when it fails to create logs table', async () => {
       hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run logs script: some error');
@@ -235,7 +234,7 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to run user script: some error');
     });
 
-    it.skip('throws when grant cron access fails', async () => {
+    it('throws when grant cron access fails', async () => {
       cronPgClient.query = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(accountId, functionName, databaseSchema)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to grant cron access: some error');
