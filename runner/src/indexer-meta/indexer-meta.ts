@@ -4,7 +4,7 @@ import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
 import { LogLevel } from './log-entry';
-import type IndexerConfig from '../indexer-config/indexer-config';
+import type IndexerConfig from '../indexer-config';
 
 export enum IndexerStatus {
   PROVISIONING = 'PROVISIONING',
@@ -78,7 +78,7 @@ export default class IndexerMeta {
     }
   }
 
-  async updateBlockheight (blockHeight: number): Promise<void> {
+  async updateBlockHeight (blockHeight: number): Promise<void> {
     const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
     const values = [[LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
     const query = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);

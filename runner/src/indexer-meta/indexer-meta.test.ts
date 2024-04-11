@@ -119,7 +119,7 @@ describe('IndexerMeta', () => {
 
     it('writes last processed block height for indexer', async () => {
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
-      await indexerMeta.updateBlockheight(123);
+      await indexerMeta.updateBlockHeight(123);
       expect(query).toBeCalledWith(
         `INSERT INTO ${schemaName}.__metadata (attribute, value) VALUES ('LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );

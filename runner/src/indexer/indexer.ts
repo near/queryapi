@@ -7,10 +7,10 @@ import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
 
-import IndexerMeta, { IndexerStatus } from '../indexer-meta/indexer-meta';
 import { trace, type Span } from '@opentelemetry/api';
 import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
+import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -422,6 +422,8 @@ export default class Indexer {
     } finally {
       setStatusSpan.end();
     }
+
+    await (this.deps.indexerMeta as IndexerMeta).setStatus(status);
   }
 
   async writeLog (logEntry: LogEntry, logEntries: LogEntry[]): Promise<any> {
@@ -463,6 +465,8 @@ export default class Indexer {
     } finally {
       setBlockHeightSpan.end();
     }
+
+    await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
   // todo rename to writeLogOld
