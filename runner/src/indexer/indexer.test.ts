@@ -915,6 +915,7 @@ CREATE TABLE
     expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
@@ -947,6 +948,7 @@ CREATE TABLE
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
   });
 
   test('Indexer.execute() skips database credentials fetch second time onward', async () => {
