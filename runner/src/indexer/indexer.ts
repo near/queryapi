@@ -5,7 +5,7 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import /**LogEntry,*/ { LogLevel } from '../indexer-meta/log-entry';
+import /** LogEntry, */ { LogLevel } from '../indexer-meta/log-entry';
 
 import /** IndexerMeta, */ { IndexerStatus } from '../indexer-meta/indexer-meta';
 import { trace, type Span } from '@opentelemetry/api';
@@ -113,7 +113,7 @@ export default class Indexer {
       // Cache database credentials after provisioning
       const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
       try {
-        this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(this.indexerConfig.hasuraRoleName()) as PostgresConnectionParams;
+        this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(this.indexerConfig.hasuraRoleName());
         // this.database_connection_parameters = await this.getDatabaseConnectionParams(hasuraRoleName);
         // this.deps.indexerMeta ??= new IndexerMeta(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
         this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
@@ -196,6 +196,7 @@ export default class Indexer {
         // return await this.writeLog(debugLogEntry, logEntries as LogEntry[], functionName);
       },
       log: async (...log) => {
+        console.log('log', log);
         return await this.writeLog(LogLevel.INFO, blockHeight, ...log);
         // const infoLogEntry = LogEntry.systemInfo(log.join(' '), blockHeight);
         // return await this.writeLog(infoLogEntry, logEntries as LogEntry[], functionName);

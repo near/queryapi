@@ -113,7 +113,7 @@ describe('Indexer integration', () => {
   //   );
 
   //   await indexer.runFunctions(
-  //     Block.fromStreamerMessage(block1 as any as StreamerMessage),
+  //     Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
   //     {
   //       provision: true
   //     }
@@ -207,22 +207,22 @@ describe('Indexer integration', () => {
         key_name: "del_key",
         value: "del_value"
       });
-      await console.log(context.db.IndexerStorage.select({
+      const result = await context.db.IndexerStorage.select({
         function_name: "sample_indexer",
         key_name: "del_key",
-      }));
+      });
       await context.db.IndexerStorage.update(
         {
-          function_name: "sample_indexer",
-          key_name: "del_key",
+          function_name: result[0].function_name,
+          key_name: result[0].key_name,
         },
         {
           value: "updated_value"
         }
       );
       await context.db.IndexerStorage.delete({
-        function_name: "sample_indexer",
-        key_name: "del_key",
+        function_name: result[0].function_name,
+        key_name: result[0].key_name,
         value: "updated_value"
       });
     `;
@@ -230,23 +230,16 @@ describe('Indexer integration', () => {
     const indexerConfig = new IndexerConfig(
       'test:stream',
       'morgs.near',
-      'test',
+      'test-context-db',
       0,
       code,
       schema,
       LogLevel.INFO
     );
 
-    // process.env.PGHOST = postgresContainer.getIpAddress(network.getName());
-    // process.env.PGPORT = postgresContainer.getPort(network.getName());
-
     const indexer = new Indexer(
       indexerConfig,
       {
-        log_level: LogLevel.INFO,
-      },
-      {
-        // indexerMeta,
         provisioner
       },
       undefined,
@@ -261,49 +254,19 @@ describe('Indexer integration', () => {
     await indexer.runFunctions(
       Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
       {
-        'morgs.near/test': {
-          account_id: 'morgs.near',
-          function_name: 'test',
-          provisioned: false,
-          schema: 'CREATE TABLE blocks (height numeric)',
-          code: `
-            await context.graphql(
-              \`
-                mutation ($height:numeric){
-                  insert_morgs_near_test_blocks_one(object:{height:$height}) {
-                    height
-                  }
-                }
-              \`,
-              {
-                height: block.blockHeight
-              }
-            );
-          `,
-        }
-      },
-      false,
-      {
         provision: true
       }
     );
-
     await indexer.runFunctions(
       Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
       {
         provision: true
       }
     );
-    await indexer.runFunctions(
-      Block.fromStreamerMessage(block1 as any as StreamerMessage),
-      {
-        provision: true
-      }
-    );
 
-    const { morgs_near_test_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
+    const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
       query MyQuery {
-        morgs_near_test_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
+        morgs_near_test_context_db_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
           function_name
           key_name
           value
@@ -312,9 +275,9 @@ describe('Indexer integration', () => {
     `);
     expect(sampleRows[0].value).toEqual('testing_value');
 
-    const { morgs_near_test_indexer_storage: totalRows }: any = await graphqlClient.request(gql`
+    const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(gql`
       query MyQuery {
-        morgs_near_test_indexer_storage {
+        morgs_near_test_context_db_indexer_storage {
           function_name
           key_name
           value
