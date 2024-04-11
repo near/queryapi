@@ -30,14 +30,18 @@ const adminCronPgClientGlobal = new PgClientClass({
 interface Config {
   cronDatabase: string
   // Override the host/port values returned by Hasura during testing/local development
-  hasuraHostOverride?: string
-  hasuraPortOverride?: number
+  pgBouncerHost: string
+  pgBouncerPort: number
+  postgresHost: string
+  postgresPort: number
 }
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
-  hasuraHostOverride: process.env.PGHOST,
-  hasuraPortOverride: process.env.PGPORT ? Number(process.env.PGPORT) : undefined
+  pgBouncerHost: process.env.PGBOUNCER_HOST ?? process.env.PGHOST,
+  pgBouncerPort: Number(process.env.PGBOUNCER_PORT ?? process.env.PGPORT),
+  postgresHost: process.env.PGHOST,
+  postgresPort: Number(process.env.PGPORT)
 };
 
 export default class Provisioner {
@@ -101,8 +105,9 @@ export default class Provisioner {
   async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        const userDbConnectionParameters = await this.getDatabaseConnectionParameters(userName);
+        const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
         userDbConnectionParameters.database = this.config.cronDatabase;
+
         const userCronPgClient = new this.PgClient(userDbConnectionParameters);
         await userCronPgClient.query(
           this.pgFormat(
@@ -287,14 +292,25 @@ export default class Provisioner {
     }
   }
 
-  async getDatabaseConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
+  async getPostgresConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
     const userDbConnectionParameters: DatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
     return {
       user: userDbConnectionParameters.username,
       password: userDbConnectionParameters.password,
       database: userDbConnectionParameters.database,
-      host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
-      port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
+      host: this.config.postgresHost,
+      port: this.config.postgresPort,
+    };
+  }
+
+  async getPgBouncerConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
+    const userDbConnectionParameters: DatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+    return {
+      user: userDbConnectionParameters.username,
+      password: userDbConnectionParameters.password,
+      database: userDbConnectionParameters.database,
+      host: this.config.pgBouncerHost,
+      port: this.config.pgBouncerPort,
     };
   }
 }

@@ -213,7 +213,7 @@ CREATE TABLE
   };
 
   const genericProvisioner: any = {
-    getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials)
+    getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials)
   };
 
   const config = {
@@ -903,7 +903,7 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
@@ -915,7 +915,7 @@ CREATE TABLE
     expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.execute() skips provisioning if the endpoint exists', async () => {
@@ -936,7 +936,7 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
@@ -946,7 +946,7 @@ CREATE TABLE
     await indexer.execute(mockBlock, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.execute() skips database credentials fetch second time onward', async () => {
@@ -967,7 +967,7 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
@@ -979,7 +979,7 @@ CREATE TABLE
     await indexer.execute(mockBlock, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.execute() supplies the required role to the GraphQL endpoint', async () => {
@@ -1000,7 +1000,7 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
@@ -1015,7 +1015,7 @@ CREATE TABLE
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.execute() logs provisioning failures', async () => {
@@ -1037,7 +1037,7 @@ CREATE TABLE
     } as unknown as StreamerMessage) as unknown as Block;
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn().mockRejectedValue(error),
     };
@@ -1049,7 +1049,7 @@ CREATE TABLE
 
     await expect(indexer.execute(mockBlock, { provision: true })).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
-    expect(provisioner.getDatabaseConnectionParameters).not.toHaveBeenCalled();
+    expect(provisioner.getPgBouncerConnectionParameters).not.toHaveBeenCalled();
   });
 
   test('Indexer log level respected by writeLog', async () => {

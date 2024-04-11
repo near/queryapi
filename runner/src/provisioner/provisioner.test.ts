@@ -247,5 +247,67 @@ describe('Provisioner', () => {
 
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
+
+    it('throws when scheduling cron jobs fails', async () => {
+      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
+
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
+    });
+
+    it('get credentials for postgres', async () => {
+      const getDbConnectionParameters = jest.fn().mockReturnValue({
+        username: 'username',
+        password: 'password',
+        database: 'database',
+        host: 'hasura_host',
+        port: 'hasura_port',
+      });
+      hasuraClient.getDbConnectionParameters = getDbConnectionParameters;
+
+      const mockProvisioner = new Provisioner(hasuraClient, {} as any, {} as any, {
+        cronDatabase: 'cron_database',
+        postgresHost: 'postgres_host',
+        postgresPort: 1,
+        pgBouncerHost: 'pgbouncer_host',
+        pgBouncerPort: 2,
+      });
+
+      const params = await mockProvisioner.getPostgresConnectionParameters(indexerConfig);
+      expect(params).toEqual({
+        user: 'username',
+        password: 'password',
+        database: 'database',
+        host: 'postgres_host',
+        port: 1,
+      });
+    });
+
+    it('get credentials for pgbouncer', async () => {
+      const getDbConnectionParameters = jest.fn().mockReturnValue({
+        username: 'username',
+        password: 'password',
+        database: 'database',
+        host: 'hasura_host',
+        port: 'hasura_port',
+      });
+      hasuraClient.getDbConnectionParameters = getDbConnectionParameters;
+
+      const mockProvisioner = new Provisioner(hasuraClient, {} as any, {} as any, {
+        cronDatabase: 'cron_database',
+        postgresHost: 'postgres_host',
+        postgresPort: 1,
+        pgBouncerHost: 'pgbouncer_host',
+        pgBouncerPort: 2,
+      });
+
+      const params = await mockProvisioner.getPgBouncerConnectionParameters(indexerConfig);
+      expect(params).toEqual({
+        user: 'username',
+        password: 'password',
+        database: 'database',
+        host: 'pgbouncer_host',
+        port: 2,
+      });
+    });
   });
 });
