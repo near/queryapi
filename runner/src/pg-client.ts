@@ -1,7 +1,7 @@
 import { Pool, type PoolConfig, type QueryResult, type QueryResultRow } from 'pg';
 import pgFormatModule from 'pg-format';
 
-interface ConnectionParams {
+export interface PostgresConnectionParams {
   user: string
   password: string
   host: string
@@ -14,7 +14,7 @@ export default class PgClient {
   public format: typeof pgFormatModule;
 
   constructor (
-    connectionParams: ConnectionParams,
+    connectionParams: PostgresConnectionParams,
     poolConfig: PoolConfig = { max: Number(process.env.MAX_PG_POOL_SIZE ?? 10), idleTimeoutMillis: 3000 },
     PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule,

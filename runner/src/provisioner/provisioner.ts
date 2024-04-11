@@ -3,10 +3,10 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient from '../hasura-client';
+import HasuraClient, { type DatabaseConnectionParameters } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 // import { metadataTableDDL } from './schemas/metadata-table';
-import PgClientClass from '../pg-client';
+import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
@@ -26,14 +26,6 @@ const adminCronPgClientGlobal = new PgClientClass({
   host: process.env.PGHOST,
   port: Number(process.env.PGPORT),
 });
-
-export interface DatabaseConnectionParameters {
-  host: string
-  port: number
-  database: string
-  username: string
-  password: string
-}
 
 interface Config {
   cronDatabase: string
@@ -109,14 +101,9 @@ export default class Provisioner {
   async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
-        const userCronPgClient = new this.PgClient({
-          user: userDbConnectionParameters.username,
-          password: userDbConnectionParameters.password,
-          database: this.config.cronDatabase,
-          host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
-          port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
-        });
+        const userDbConnectionParameters = await this.getDatabaseConnectionParameters(userName);
+        userDbConnectionParameters.database = this.config.cronDatabase;
+        const userCronPgClient = new this.PgClient(userDbConnectionParameters);
         await userCronPgClient.query(
           this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
@@ -300,10 +287,10 @@ export default class Provisioner {
     }
   }
 
-  async getDatabaseConnectionParameters (userName: string): Promise<any> {
-    const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+  async getDatabaseConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
+    const userDbConnectionParameters: DatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
     return {
-      username: userDbConnectionParameters.username,
+      user: userDbConnectionParameters.username,
       password: userDbConnectionParameters.password,
       database: userDbConnectionParameters.database,
       host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,

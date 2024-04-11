@@ -8,9 +8,9 @@ import DmlHandler from '../dml-handler/dml-handler';
 import /**LogEntry,*/ { LogLevel } from '../indexer-meta/log-entry';
 
 import /** IndexerMeta, */ { IndexerStatus } from '../indexer-meta/indexer-meta';
-import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
 import { trace, type Span } from '@opentelemetry/api';
 import type IndexerConfig from '../indexer-config';
+import { type PostgresConnectionParams } from '../pg-client';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -54,7 +54,7 @@ export default class Indexer {
 
   private readonly deps: Dependencies;
 
-  private database_connection_parameters: DatabaseConnectionParameters | undefined;
+  private database_connection_parameters: PostgresConnectionParams | undefined;
 
   private currentStatus?: string;
 
@@ -113,7 +113,7 @@ export default class Indexer {
       // Cache database credentials after provisioning
       const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
       try {
-        this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(this.indexerConfig.hasuraRoleName()) as DatabaseConnectionParameters;
+        this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(this.indexerConfig.hasuraRoleName()) as PostgresConnectionParams;
         // this.database_connection_parameters = await this.getDatabaseConnectionParams(hasuraRoleName);
         // this.deps.indexerMeta ??= new IndexerMeta(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
         this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);

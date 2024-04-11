@@ -10,7 +10,7 @@ interface SqlOptions {
   source?: string
 }
 
-interface DatabaseConnectionParameters {
+export interface DatabaseConnectionParameters {
   password: string
   database: string
   username: string
