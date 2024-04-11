@@ -48,6 +48,7 @@ const defaultConfig: Config = {
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
+  LOGGGED_CONTEXT_DB_WARNING: boolean = false;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly deps: Dependencies;
@@ -396,7 +397,10 @@ export default class Indexer {
       return result;
     } catch (error) {
       const errorContent = error as { message: string, location: Record<string, any> };
-      console.warn(`${this.indexerConfig.fullName()}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
+      if (!this.LOGGGED_CONTEXT_DB_WARNING) {
+        console.warn(`${this.indexerConfig.fullName()}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
+        this.LOGGGED_CONTEXT_DB_WARNING = true;
+      }
     }
     return {}; // Default to empty object if error
   }
