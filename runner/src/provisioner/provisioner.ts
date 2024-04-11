@@ -38,8 +38,8 @@ interface Config {
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
-  pgBouncerHost: process.env.PGBOUNCER_HOST ?? process.env.PGHOST,
-  pgBouncerPort: Number(process.env.PGBOUNCER_PORT ?? process.env.PGPORT),
+  pgBouncerHost: process.env.PGHOST_PGBOUNCER ?? process.env.PGHOST,
+  pgBouncerPort: Number(process.env.PGPORT_PGBOUNCER ?? process.env.PGPORT),
   postgresHost: process.env.PGHOST,
   postgresPort: Number(process.env.PGPORT)
 };
