@@ -216,6 +216,7 @@ CREATE TABLE
     getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
     fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true),
     provisionLogsIfNeeded: jest.fn(),
+    provisionMetadataIfNeeded: jest.fn(),
   };
 
   const config = {
