@@ -14,11 +14,19 @@ export default class DmlHandler {
     databaseConnectionParameters: DatabaseConnectionParameters,
     pgClientInstance: PgClient | undefined = undefined,
   ) {
+    // console.log('ENV', process.env.PGHOST, process.env.PGPORT);
+    console.log('DBCONN', {
+      user: databaseConnectionParameters.username,
+      password: databaseConnectionParameters.password,
+      host: databaseConnectionParameters.host,
+      port: databaseConnectionParameters.port,
+      database: databaseConnectionParameters.database,
+    });
     this.pgClient = pgClientInstance ?? new PgClient({
       user: databaseConnectionParameters.username,
       password: databaseConnectionParameters.password,
-      host: process.env.PGHOST,
-      port: Number(process.env.PGPORT ?? databaseConnectionParameters.port),
+      host: databaseConnectionParameters.host,
+      port: databaseConnectionParameters.port,
       database: databaseConnectionParameters.database,
     });
   }

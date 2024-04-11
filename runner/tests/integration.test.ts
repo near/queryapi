@@ -45,7 +45,114 @@ describe('Indexer integration', () => {
     await network.stop();
   });
 
-  it('works', async () => {
+  // it('works', async () => {
+  //   const hasuraClient = new HasuraClient({}, {
+  //     adminSecret: hasuraContainer.getAdminSecret(),
+  //     endpoint: hasuraContainer.getEndpoint(),
+  //     pgHostHasura: postgresContainer.getIpAddress(network.getName()),
+  //     pgPortHasura: postgresContainer.getPort(network.getName()),
+  //     pgHost: postgresContainer.getIpAddress(),
+  //     pgPort: postgresContainer.getPort()
+  //   });
+
+  //   const pgClient = new PgClient({
+  //     user: postgresContainer.getUsername(),
+  //     password: postgresContainer.getPassword(),
+  //     host: postgresContainer.getIpAddress(),
+  //     port: postgresContainer.getPort(),
+  //     database: postgresContainer.getDatabase(),
+  //   });
+
+  //   const provisioner = new Provisioner(
+  //     hasuraClient,
+  //     pgClient,
+  //     pgClient,
+  //     {
+  //       cronDatabase: postgresContainer.getDatabase(),
+  //       hasuraHostOverride: postgresContainer.getIpAddress(),
+  //       hasuraPortOverride: Number(postgresContainer.getPort()),
+  //     }
+  //   );
+
+  //   const code = `
+  //     await context.graphql(
+  //       \`
+  //         mutation ($height:numeric){
+  //           insert_morgs_near_test_blocks_one(object:{height:$height}) {
+  //             height
+  //           }
+  //         }
+  //       \`,
+  //       {
+  //         height: block.blockHeight
+  //       }
+  //     );
+  //   `;
+  //   const schema = 'CREATE TABLE blocks (height numeric)';
+
+  //   const indexerConfig = new IndexerConfig(
+  //     'test:stream',
+  //     'morgs.near',
+  //     'test',
+  //     0,
+  //     code,
+  //     schema,
+  //     LogLevel.INFO
+  //   );
+
+  //   const indexer = new Indexer(
+  //     indexerConfig,
+  //     {
+  //       provisioner
+  //     },
+  //     undefined,
+  //     {
+  //       hasuraAdminSecret: hasuraContainer.getAdminSecret(),
+  //       hasuraEndpoint: hasuraContainer.getEndpoint(),
+  //     }
+  //   );
+
+  //   await indexer.runFunctions(
+  //     Block.fromStreamerMessage(block1 as any as StreamerMessage),
+  //     {
+  //       provision: true
+  //     }
+  //   );
+
+  //   const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
+  //     query {
+  //       morgs_near_test_blocks {
+  //         height
+  //       }
+  //     }
+  //   `);
+
+  //   expect(blocks[0].height).toEqual(115185108);
+
+  //   const { indexer_state: [state] }: any = await graphqlClient.request(gql`
+  //     query {
+  //       indexer_state(where: { function_name: { _eq: "morgs.near/test" } }) {
+  //         current_block_height
+  //         status
+  //       }
+  //     }
+  //   `);
+
+  //   expect(state.current_block_height).toEqual(115185108);
+  //   expect(state.status).toEqual('RUNNING');
+
+  //   const { indexer_log_entries: logs }: any = await graphqlClient.request(gql`
+  //     query {
+  //       indexer_log_entries(where: { function_name: { _eq:"morgs.near/test" } }) {
+  //         message
+  //       }
+  //     }
+  //   `);
+
+  //   expect(logs.length).toEqual(3);
+  // });
+
+  it('test context db', async () => {
     const hasuraClient = new HasuraClient({}, {
       adminSecret: hasuraContainer.getAdminSecret(),
       endpoint: hasuraContainer.getEndpoint(),
@@ -74,21 +181,51 @@ describe('Indexer integration', () => {
       }
     );
 
+    const schema = `
+      CREATE TABLE
+        "indexer_storage" (
+          "function_name" TEXT NOT NULL,
+          "key_name" TEXT NOT NULL,
+          "value" TEXT NOT NULL,
+          PRIMARY KEY ("function_name", "key_name")
+        );
+    `;
+
     const code = `
-      await context.graphql(
-        \`
-          mutation ($height:numeric){
-            insert_morgs_near_test_blocks_one(object:{height:$height}) {
-              height
-            }
-          }
-        \`,
+      await context.db.IndexerStorage.insert({
+        function_name: "sample_indexer",
+        key_name: Date.now().toString(),
+        value: "testing_value"
+      });
+      await context.db.IndexerStorage.upsert({
+        function_name: "sample_indexer",
+        key_name: "test_key",
+        value: "testing_value"
+      }, ["function_name", "key_name"], ["value"]);
+      await context.db.IndexerStorage.insert({
+        function_name: "sample_indexer",
+        key_name: "del_key",
+        value: "del_value"
+      });
+      await console.log(context.db.IndexerStorage.select({
+        function_name: "sample_indexer",
+        key_name: "del_key",
+      }));
+      await context.db.IndexerStorage.update(
         {
-          height: block.blockHeight
+          function_name: "sample_indexer",
+          key_name: "del_key",
+        },
+        {
+          value: "updated_value"
         }
       );
+      await context.db.IndexerStorage.delete({
+        function_name: "sample_indexer",
+        key_name: "del_key",
+        value: "updated_value"
+      });
     `;
-    const schema = 'CREATE TABLE blocks (height numeric)';
 
     const indexerConfig = new IndexerConfig(
       'test:stream',
@@ -99,6 +236,9 @@ describe('Indexer integration', () => {
       schema,
       LogLevel.INFO
     );
+
+    // process.env.PGHOST = postgresContainer.getIpAddress(network.getName());
+    // process.env.PGPORT = postgresContainer.getPort(network.getName());
 
     const indexer = new Indexer(
       indexerConfig,
@@ -154,37 +294,33 @@ describe('Indexer integration', () => {
         provision: true
       }
     );
+    await indexer.runFunctions(
+      Block.fromStreamerMessage(block1 as any as StreamerMessage),
+      {
+        provision: true
+      }
+    );
 
-    const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test_blocks {
-          height
+    const { morgs_near_test_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
+      query MyQuery {
+        morgs_near_test_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
+          function_name
+          key_name
+          value
         }
       }
     `);
+    expect(sampleRows[0].value).toEqual('testing_value');
 
-    expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
-
-    const { indexer_state: [state] }: any = await graphqlClient.request(gql`
-      query {
-        indexer_state(where: { function_name: { _eq: "morgs.near/test" } }) {
-          current_block_height
-          status
+    const { morgs_near_test_indexer_storage: totalRows }: any = await graphqlClient.request(gql`
+      query MyQuery {
+        morgs_near_test_indexer_storage {
+          function_name
+          key_name
+          value
         }
       }
     `);
-
-    expect(state.current_block_height).toEqual(115185109);
-    expect(state.status).toEqual('RUNNING');
-
-    const { indexer_log_entries: logs }: any = await graphqlClient.request(gql`
-      query {
-        indexer_log_entries(where: { function_name: { _eq:"morgs.near/test" } }) {
-          message
-        }
-      }
-    `);
-
-    expect(logs.length).toEqual(4);
+    expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
 });

@@ -301,6 +301,13 @@ export default class Provisioner {
   }
 
   async getDatabaseConnectionParameters (userName: string): Promise<any> {
-    return await this.hasuraClient.getDbConnectionParameters(userName);
+    const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+    return {
+      username: userDbConnectionParameters.username,
+      password: userDbConnectionParameters.password,
+      database: userDbConnectionParameters.database,
+      host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
+      port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
+    };
   }
 }
