@@ -126,11 +126,11 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerConfig.fullName() }).observe(performance.now() - blockStartTime);
 
-        await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (runFunctionsSpan: Span) => {
+        await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (executeSpan: Span) => {
           try {
-            await indexer.runFunctions(block, { provision: true });
+            await indexer.execute(block, { provision: true });
           } finally {
-            runFunctionsSpan.end();
+            executeSpan.end();
           }
         });
 

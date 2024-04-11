@@ -112,7 +112,7 @@ describe('Indexer integration', () => {
   //     }
   //   );
 
-  //   await indexer.runFunctions(
+  //   await indexer.execute(
   //     Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
   //     {
   //       provision: true
@@ -251,13 +251,13 @@ describe('Indexer integration', () => {
       }
     );
 
-    await indexer.runFunctions(
+    await indexer.execute(
       Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
       {
         provision: true
       }
     );
-    await indexer.runFunctions(
+    await indexer.execute(
       Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
       {
         provision: true

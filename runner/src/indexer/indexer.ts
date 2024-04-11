@@ -74,7 +74,7 @@ export default class Indexer {
     this.database_connection_parameters = databaseConnectionParameters;
   }
 
-  async runFunctions (
+  async execute (
     block: lakePrimitives.Block,
     options: { provision?: boolean } = { provision: false }
   ): Promise<string[]> {

@@ -221,7 +221,7 @@ CREATE TABLE
     hasuraAdminSecret: 'mock-hasura-secret',
   };
 
-  test('Indexer.runFunctions() should execute all functions against the current block', async () => {
+  test('Indexer.execute() should execute all functions against the current block', async () => {
     const mockFetch = jest.fn(() => ({
       status: 200,
       json: async () => ({
@@ -251,7 +251,7 @@ CREATE TABLE
       // indexerMeta: genericMockIndexerMeta ,
     }, undefined, config);
 
-    await indexer.runFunctions(mockBlock);
+    await indexer.execute(mockBlock);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
@@ -728,7 +728,7 @@ CREATE TABLE
     expect(Object.keys(context.db)).toStrictEqual([]);
   });
 
-  test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {
+  test('Indexer.execute() allows imperative execution of GraphQL operations', async () => {
     const postId = 1;
     const commentId = 2;
     const blockHeight = 82699904;
@@ -824,12 +824,12 @@ CREATE TABLE
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.runFunctions(mockBlock);
+    await indexer.execute(mockBlock);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.runFunctions() console.logs', async () => {
+  test('Indexer.execute() console.logs', async () => {
     const logs: string[] = [];
     const context = {
       log: (...m: string[]) => {
@@ -850,7 +850,7 @@ CREATE TABLE
     }).toThrow('boom');
   });
 
-  test('Indexer.runFunctions() catches errors', async () => {
+  test('Indexer.execute() catches errors', async () => {
     const mockFetch = jest.fn(() => ({
       status: 200,
       json: async () => ({
@@ -881,11 +881,11 @@ CREATE TABLE
       schema: SIMPLE_SCHEMA
     };
 
-    await expect(indexer.runFunctions(mockBlock)).rejects.toThrow(new Error('boom'));
+    await expect(indexer.execute(mockBlock)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.runFunctions() provisions a GraphQL endpoint with the specified schema', async () => {
+  test('Indexer.execute() provisions a GraphQL endpoint with the specified schema', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -910,7 +910,7 @@ CREATE TABLE
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.runFunctions(mockBlock, { provision: true });
+    await indexer.execute(mockBlock, { provision: true });
 
     expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
@@ -918,7 +918,7 @@ CREATE TABLE
     expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
-  test('Indexer.runFunctions() skips provisioning if the endpoint exists', async () => {
+  test('Indexer.execute() skips provisioning if the endpoint exists', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -943,13 +943,13 @@ CREATE TABLE
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.runFunctions(mockBlock, { provision: true });
+    await indexer.execute(mockBlock, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
-  test('Indexer.runFunctions() skips database credentials fetch second time onward', async () => {
+  test('Indexer.execute() skips database credentials fetch second time onward', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -974,15 +974,15 @@ CREATE TABLE
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.runFunctions(mockBlock, { provision: true });
-    await indexer.runFunctions(mockBlock, { provision: true });
-    await indexer.runFunctions(mockBlock, { provision: true });
+    await indexer.execute(mockBlock, { provision: true });
+    await indexer.execute(mockBlock, { provision: true });
+    await indexer.execute(mockBlock, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
-  test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
+  test('Indexer.execute() supplies the required role to the GraphQL endpoint', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -1011,14 +1011,14 @@ CREATE TABLE
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.runFunctions(mockBlock, { provision: true });
+    await indexer.execute(mockBlock, { provision: true });
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
-  test('Indexer.runFunctions() logs provisioning failures', async () => {
+  test('Indexer.execute() logs provisioning failures', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -1047,7 +1047,7 @@ CREATE TABLE
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, 'schema', LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await expect(indexer.runFunctions(mockBlock, { provision: true })).rejects.toThrow(error);
+    await expect(indexer.execute(mockBlock, { provision: true })).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getDatabaseConnectionParameters).not.toHaveBeenCalled();
   });
@@ -1115,9 +1115,9 @@ CREATE TABLE
       config
     );
 
-    await indexerDebug.runFunctions(mockBlock);
-    await indexerInfo.runFunctions(mockBlock);
-    await indexerError.runFunctions(mockBlock);
+    await indexerDebug.execute(mockBlock);
+    await indexerInfo.execute(mockBlock);
+    await indexerError.execute(mockBlock);
 
     // There are 1 set status (no log level), 1 run function log (info level), and 1 set function state (no log level) made each run
     expect(mockFetchDebug.mock.calls).toMatchSnapshot();
