@@ -128,7 +128,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (executeSpan: Span) => {
           try {
-            await indexer.execute(block, { provision: true });
+            await indexer.execute(block);
           } finally {
             executeSpan.end();
           }

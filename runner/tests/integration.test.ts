@@ -114,12 +114,9 @@ describe('Indexer integration', () => {
       }
     );
 
-    await indexer.execute(
-      Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
-      {
-        provision: true
-      }
-    );
+    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
+
+    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
       query {
@@ -129,7 +126,7 @@ describe('Indexer integration', () => {
       }
     `);
 
-    expect(blocks[0].height).toEqual(115185108);
+    expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
 
     const { indexer_state: [state] }: any = await graphqlClient.request(gql`
       query {
@@ -140,7 +137,7 @@ describe('Indexer integration', () => {
       }
     `);
 
-    expect(state.current_block_height).toEqual(115185108);
+    expect(state.current_block_height).toEqual(115185109);
     expect(state.status).toEqual('RUNNING');
 
     const { indexer_log_entries: logs }: any = await graphqlClient.request(gql`
@@ -151,7 +148,7 @@ describe('Indexer integration', () => {
       }
     `);
 
-    expect(logs.length).toEqual(3);
+    expect(logs.length).toEqual(4);
   });
 
   it('test context db', async () => {
@@ -250,23 +247,11 @@ describe('Indexer integration', () => {
       {
         hasuraAdminSecret: hasuraContainer.getAdminSecret(),
         hasuraEndpoint: hasuraContainer.getEndpoint(),
-        hasuraHostOverride: postgresContainer.getIpAddress(),
-        hasuraPortOverride: Number(postgresContainer.getPort())
       }
     );
 
-    await indexer.execute(
-      Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
-      {
-        provision: true
-      }
-    );
-    await indexer.execute(
-      Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
-      {
-        provision: true
-      }
-    );
+    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
 
     const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
       query MyQuery {

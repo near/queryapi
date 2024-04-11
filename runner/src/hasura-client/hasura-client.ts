@@ -10,7 +10,7 @@ interface SqlOptions {
   source?: string
 }
 
-export interface DatabaseConnectionParameters {
+export interface HasuraDatabaseConnectionParameters {
   password: string
   database: string
   username: string
@@ -125,7 +125,7 @@ export default class HasuraClient {
     return metadata;
   }
 
-  async getDbConnectionParameters (account: string): Promise<DatabaseConnectionParameters> {
+  async getDbConnectionParameters (account: string): Promise<HasuraDatabaseConnectionParameters> {
     const metadata = await this.exportMetadata();
     const source = metadata.sources.find((source: { name: any, configuration: any }) => source.name === account);
     if (source === undefined) {

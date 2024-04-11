@@ -213,7 +213,9 @@ CREATE TABLE
   };
 
   const genericProvisioner: any = {
-    getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials)
+    getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+    fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true),
+    provisionLogsIfNeeded: jest.fn(),
   };
 
   const config = {
@@ -910,7 +912,7 @@ CREATE TABLE
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.execute(mockBlock, { provision: true });
+    await indexer.execute(mockBlock);
 
     expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
@@ -944,7 +946,7 @@ CREATE TABLE
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.execute(mockBlock, { provision: true });
+    await indexer.execute(mockBlock);
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
@@ -976,9 +978,9 @@ CREATE TABLE
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.execute(mockBlock, { provision: true });
-    await indexer.execute(mockBlock, { provision: true });
-    await indexer.execute(mockBlock, { provision: true });
+    await indexer.execute(mockBlock);
+    await indexer.execute(mockBlock);
+    await indexer.execute(mockBlock);
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
@@ -1013,7 +1015,7 @@ CREATE TABLE
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await indexer.execute(mockBlock, { provision: true });
+    await indexer.execute(mockBlock);
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
@@ -1049,7 +1051,7 @@ CREATE TABLE
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, 'schema', LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    await expect(indexer.execute(mockBlock, { provision: true })).rejects.toThrow(error);
+    await expect(indexer.execute(mockBlock)).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getPgBouncerConnectionParameters).not.toHaveBeenCalled();
   });

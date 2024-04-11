@@ -3,7 +3,7 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient, { type DatabaseConnectionParameters } from '../hasura-client';
+import HasuraClient, { type HasuraDatabaseConnectionParameters } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 // import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
@@ -105,8 +105,10 @@ export default class Provisioner {
   async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
-        userDbConnectionParameters.database = this.config.cronDatabase;
+        const userDbConnectionParameters = {
+          ...(await this.getPostgresConnectionParameters(userName)),
+          database: this.config.cronDatabase
+        };
 
         const userCronPgClient = new this.PgClient(userDbConnectionParameters);
         await userCronPgClient.query(
@@ -293,7 +295,7 @@ export default class Provisioner {
   }
 
   async getPostgresConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
-    const userDbConnectionParameters: DatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+    const userDbConnectionParameters: HasuraDatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
     return {
       user: userDbConnectionParameters.username,
       password: userDbConnectionParameters.password,
@@ -304,7 +306,7 @@ export default class Provisioner {
   }
 
   async getPgBouncerConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
-    const userDbConnectionParameters: DatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+    const userDbConnectionParameters: HasuraDatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
     return {
       user: userDbConnectionParameters.username,
       password: userDbConnectionParameters.password,

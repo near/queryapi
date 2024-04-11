@@ -39,8 +39,6 @@ export interface TableDefinitionNames {
 interface Config {
   hasuraAdminSecret: string
   hasuraEndpoint: string
-  hasuraHostOverride?: string
-  hasuraPortOverride?: number
 }
 
 const defaultConfig: Config = {
@@ -75,8 +73,7 @@ export default class Indexer {
   }
 
   async execute (
-    block: lakePrimitives.Block,
-    options: { provision?: boolean } = { provision: false }
+    block: lakePrimitives.Block
   ): Promise<string[]> {
     const blockHeight: number = block.blockHeight;
 
@@ -90,23 +87,21 @@ export default class Indexer {
       const runningMessage = `Running function ${this.indexerConfig.fullName()} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
       simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, runningMessage));
 
-      if (options.provision) {
-        try {
-          if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
-            await this.setStatus(blockHeight, IndexerStatus.PROVISIONING);
-            simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
-            // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
-            await this.deps.provisioner.provisionUserApi(this.indexerConfig);
-            simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: successful'));
-            // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
-          }
-          await this.deps.provisioner.provisionLogsIfNeeded(this.indexerConfig.accountId, this.indexerConfig.functionName);
-        } catch (e) {
-          const error = e as Error;
-          simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Provisioning endpoint: failure', error.message));
-          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}` });
-          throw error;
+      try {
+        if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
+          await this.setStatus(blockHeight, IndexerStatus.PROVISIONING);
+          simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
+          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
+          await this.deps.provisioner.provisionUserApi(this.indexerConfig);
+          simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: successful'));
+          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
         }
+        await this.deps.provisioner.provisionLogsIfNeeded(this.indexerConfig.accountId, this.indexerConfig.functionName);
+      } catch (e) {
+        const error = e as Error;
+        simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Provisioning endpoint: failure', error.message));
+        // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}` });
+        throw error;
       }
 
       // const runningLogEntry = LogEntry.systemInfo(runningMessage, blockHeight);
