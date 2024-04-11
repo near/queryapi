@@ -1212,6 +1212,38 @@ CREATE TABLE
             }
     ]);
   });
+  test('does not attach the hasura admin secret header when no role specified', async () => {
+    const mockFetch = jest.fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          data: {}
+        })
+      });
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+
+    const mutation = `
+            mutation {
+                newGreeting(greeting: "howdy") {
+                    success
+                }
+            }
+        `;
+
+    await indexer.runGraphQLQuery(mutation, null, 0, null);
+
+    expect(mockFetch.mock.calls[0]).toEqual([
+            `${config.hasuraEndpoint}/v1/graphql`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Hasura-Use-Backend-Only-Permissions': 'true',
+              },
+              body: JSON.stringify({ query: mutation })
+            }
+    ]);
+  });
 
   test('transformedCode applies the correct transformations', () => {
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'console.log(\'hello\')', SIMPLE_SCHEMA, LogLevel.INFO);
