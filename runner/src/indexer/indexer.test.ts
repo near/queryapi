@@ -909,6 +909,7 @@ CREATE TABLE
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
@@ -918,6 +919,7 @@ CREATE TABLE
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
@@ -943,6 +945,7 @@ CREATE TABLE
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
@@ -951,6 +954,7 @@ CREATE TABLE
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
   });
 
   test('Indexer.execute() skips database credentials fetch second time onward', async () => {
@@ -975,6 +979,7 @@ CREATE TABLE
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
     const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler }, undefined, config);
 
@@ -984,6 +989,8 @@ CREATE TABLE
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
   });
 
   test('Indexer.execute() supplies the required role to the GraphQL endpoint', async () => {
@@ -1008,6 +1015,7 @@ CREATE TABLE
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
     const code = `
       context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
@@ -1020,6 +1028,8 @@ CREATE TABLE
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
   });
 
   test('Indexer.execute() logs provisioning failures', async () => {
