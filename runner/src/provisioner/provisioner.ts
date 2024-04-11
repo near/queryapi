@@ -5,7 +5,7 @@ import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient, { type HasuraDatabaseConnectionParameters } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
-// import { metadataTableDDL } from './schemas/metadata-table';
+import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
 
@@ -48,6 +48,7 @@ export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
   #hasLogsBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -184,9 +185,9 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, logsDDL), 'Failed to run logs script');
   }
 
-  // async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-  //   return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${databaseName}.${schemaName}`);
-  // }
+  async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${databaseName}.${schemaName}`);
+  }
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
@@ -227,34 +228,55 @@ export default class Provisioner {
     * other resources provisioned.
     *
     * */
-  async provisionLogsIfNeeded (accountId: string, functionName: string): Promise<void> {
-    if (this.#hasLogsBeenProvisioned[accountId]?.[functionName]) {
+  async provisionLogsIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
+    if (this.#hasLogsBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
       return;
     }
-
-    const sanitizedAccountId = this.replaceSpecialChars(accountId);
-    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
-
-    const databaseName = sanitizedAccountId;
-    const userName = sanitizedAccountId;
-    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
     const logsTable = '__logs';
 
     await wrapError(
       async () => {
-        const tableNames = await this.getTableNames(schemaName, databaseName);
+        const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
 
         if (!tableNames.includes(logsTable)) {
-          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
-          await this.trackTables(schemaName, [logsTable], databaseName);
-          await this.addPermissionsToTables(schemaName, databaseName, [logsTable], userName, ['select', 'insert', 'update', 'delete']);
+          await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
+          await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
+          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
       },
       'Failed standalone logs provisioning'
     );
 
-    this.#hasLogsBeenProvisioned[accountId] ??= {};
-    this.#hasLogsBeenProvisioned[accountId][functionName] = true;
+    this.#hasLogsBeenProvisioned[indexerConfig.accountId] ??= {};
+    this.#hasLogsBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+  }
+
+  /**
+    * Provision metadata table for existing Indexers which have already had all
+    * other resources provisioned.
+    *
+    * */
+  async provisionMetadataIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
+    if (this.#hasMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
+      return;
+    }
+    const metadataTable = '__metadata';
+
+    await wrapError(
+      async () => {
+        const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+
+        if (!tableNames.includes(metadataTable)) {
+          await this.createMetadataTable(indexerConfig.databaseName(), indexerConfig.schemaName());
+          await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
+          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
+        }
+      },
+      'Failed standalone metadata provisioning'
+    );
+
+    this.#hasMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
+    this.#hasMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
   }
 
   async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
@@ -274,7 +296,7 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
 
-          // await this.createMetadataTable(databaseName, schemaName);
+          await this.createMetadataTable(databaseName, schemaName);
           await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
           await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
