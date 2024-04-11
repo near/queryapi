@@ -1,7 +1,6 @@
 import format from 'pg-format';
 import { wrapError } from '../utility';
-import PgClient from '../pg-client';
-import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
+import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
 import { LogLevel } from './log-entry';
@@ -28,16 +27,10 @@ export default class IndexerMeta {
   constructor (
     functionName: string,
     loggingLevel: number,
-    databaseConnectionParameters: DatabaseConnectionParameters,
+    databaseConnectionParameters: PostgresConnectionParams,
     pgClientInstance: PgClient | undefined = undefined
   ) {
-    const pgClient = pgClientInstance ?? new PgClient({
-      user: databaseConnectionParameters.username,
-      password: databaseConnectionParameters.password,
-      host: process.env.PGHOST,
-      port: Number(databaseConnectionParameters.port),
-      database: databaseConnectionParameters.database,
-    });
+    const pgClient = pgClientInstance ?? new PgClient(databaseConnectionParameters);
 
     this.pgClient = pgClient;
     this.schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');

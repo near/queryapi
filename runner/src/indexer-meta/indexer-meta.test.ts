@@ -2,6 +2,7 @@ import pgFormat from 'pg-format';
 import IndexerMeta, { IndexerStatus } from './indexer-meta';
 import type PgClient from '../pg-client';
 import LogEntry, { LogLevel } from './log-entry';
+import { type PostgresConnectionParams } from '../pg-client';
 
 describe('IndexerMeta', () => {
   let genericMockPgClient: PgClient;
@@ -15,8 +16,8 @@ describe('IndexerMeta', () => {
     } as unknown as PgClient;
   });
 
-  const mockDatabaseConnectionParameters = {
-    username: 'test_user',
+  const mockDatabaseConnectionParameters: PostgresConnectionParams = {
+    user: 'test_user',
     password: 'test_password',
     host: 'test_host',
     port: 5432,

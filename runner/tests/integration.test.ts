@@ -13,6 +13,7 @@ import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcont
 import block115185108 from './blocks/00115185108/streamer_message.json';
 import block115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
+import IndexerConfig from '../src/indexer-config';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -68,96 +69,54 @@ describe('Indexer integration', () => {
       pgClient,
       {
         cronDatabase: postgresContainer.getDatabase(),
-        hasuraHostOverride: postgresContainer.getIpAddress(),
-        hasuraPortOverride: Number(postgresContainer.getPort()),
+        postgresHost: postgresContainer.getIpAddress(),
+        postgresPort: Number(postgresContainer.getPort()),
+        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
+        pgBouncerPort: Number(postgresContainer.getPort()),
       }
     );
-    // const userDB = await provisioner.getDatabaseConnectionParameters('morgs_near');
-    
-    // const indexerMeta = new IndexerMeta('morgs_near', LogLevel.INFO, {
-    //   host: postgresContainer.getIpAddress(),
-    //   port: Number(postgresContainer.getPort()),
-    //   database: userDB.database,
-    //   username: userDB.username,
-    //   password: userDB.password
-    // }, pgClient);
+
+    const code = `
+      await context.graphql(
+        \`
+          mutation ($height:numeric){
+            insert_morgs_near_test_blocks_one(object:{height:$height}) {
+              height
+            }
+          }
+        \`,
+        {
+          height: block.blockHeight
+        }
+      );
+    `;
+    const schema = 'CREATE TABLE blocks (height numeric)';
+
+    const indexerConfig = new IndexerConfig(
+      'test:stream',
+      'morgs.near',
+      'test',
+      0,
+      code,
+      schema,
+      LogLevel.INFO
+    );
 
     const indexer = new Indexer(
+      indexerConfig,
       {
-        log_level: LogLevel.INFO,
-      },
-      {
-        // indexerMeta,
         provisioner
       },
       undefined,
       {
         hasuraAdminSecret: hasuraContainer.getAdminSecret(),
         hasuraEndpoint: hasuraContainer.getEndpoint(),
-        hasuraHostOverride: postgresContainer.getIpAddress(),
-        hasuraPortOverride: Number(postgresContainer.getPort())
       }
     );
 
-    await indexer.runFunctions(
-      Block.fromStreamerMessage(block115185108 as any as StreamerMessage),
-      {
-        'morgs.near/test': {
-          account_id: 'morgs.near',
-          function_name: 'test',
-          provisioned: false,
-          schema: 'CREATE TABLE blocks (height numeric)',
-          code: `
-            await context.graphql(
-              \`
-                mutation ($height:numeric){
-                  insert_morgs_near_test_blocks_one(object:{height:$height}) {
-                    height
-                  }
-                }
-              \`,
-              {
-                height: block.blockHeight
-              }
-            );
-          `,
-        }
-      },
-      false,
-      {
-        provision: true
-      }
-    );
+    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
 
-    await indexer.runFunctions(
-      Block.fromStreamerMessage(block115185109 as any as StreamerMessage),
-      {
-        'morgs.near/test': {
-          account_id: 'morgs.near',
-          function_name: 'test',
-          provisioned: false,
-          schema: 'CREATE TABLE blocks (height numeric)',
-          code: `
-            await context.graphql(
-              \`
-                mutation ($height:numeric){
-                  insert_morgs_near_test_blocks_one(object:{height:$height}) {
-                    height
-                  }
-                }
-              \`,
-              {
-                height: block.blockHeight
-              }
-            );
-          `,
-        }
-      },
-      false,
-      {
-        provision: true
-      }
-    );
+    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
       query {
@@ -190,5 +149,130 @@ describe('Indexer integration', () => {
     `);
 
     expect(logs.length).toEqual(4);
+  });
+
+  it('test context db', async () => {
+    const hasuraClient = new HasuraClient({}, {
+      adminSecret: hasuraContainer.getAdminSecret(),
+      endpoint: hasuraContainer.getEndpoint(),
+      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
+      pgPortHasura: postgresContainer.getPort(network.getName()),
+      pgHost: postgresContainer.getIpAddress(),
+      pgPort: postgresContainer.getPort()
+    });
+
+    const pgClient = new PgClient({
+      user: postgresContainer.getUsername(),
+      password: postgresContainer.getPassword(),
+      host: postgresContainer.getIpAddress(),
+      port: postgresContainer.getPort(),
+      database: postgresContainer.getDatabase(),
+    });
+
+    const provisioner = new Provisioner(
+      hasuraClient,
+      pgClient,
+      pgClient,
+      {
+        cronDatabase: postgresContainer.getDatabase(),
+        postgresHost: postgresContainer.getIpAddress(),
+        postgresPort: Number(postgresContainer.getPort()),
+        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
+        pgBouncerPort: Number(postgresContainer.getPort()),
+      }
+    );
+
+    const schema = `
+      CREATE TABLE
+        "indexer_storage" (
+          "function_name" TEXT NOT NULL,
+          "key_name" TEXT NOT NULL,
+          "value" TEXT NOT NULL,
+          PRIMARY KEY ("function_name", "key_name")
+        );
+    `;
+
+    const code = `
+      await context.db.IndexerStorage.insert({
+        function_name: "sample_indexer",
+        key_name: Date.now().toString(),
+        value: "testing_value"
+      });
+      await context.db.IndexerStorage.upsert({
+        function_name: "sample_indexer",
+        key_name: "test_key",
+        value: "testing_value"
+      }, ["function_name", "key_name"], ["value"]);
+      await context.db.IndexerStorage.insert({
+        function_name: "sample_indexer",
+        key_name: "del_key",
+        value: "del_value"
+      });
+      const result = await context.db.IndexerStorage.select({
+        function_name: "sample_indexer",
+        key_name: "del_key",
+      });
+      await context.db.IndexerStorage.update(
+        {
+          function_name: result[0].function_name,
+          key_name: result[0].key_name,
+        },
+        {
+          value: "updated_value"
+        }
+      );
+      await context.db.IndexerStorage.delete({
+        function_name: result[0].function_name,
+        key_name: result[0].key_name,
+        value: "updated_value"
+      });
+    `;
+
+    const indexerConfig = new IndexerConfig(
+      'test:stream',
+      'morgs.near',
+      'test-context-db',
+      0,
+      code,
+      schema,
+      LogLevel.INFO
+    );
+
+    const indexer = new Indexer(
+      indexerConfig,
+      {
+        provisioner
+      },
+      undefined,
+      {
+        hasuraAdminSecret: hasuraContainer.getAdminSecret(),
+        hasuraEndpoint: hasuraContainer.getEndpoint(),
+      }
+    );
+
+    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
+
+    const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
+      query MyQuery {
+        morgs_near_test_context_db_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
+          function_name
+          key_name
+          value
+        }
+      }
+    `);
+    expect(sampleRows[0].value).toEqual('testing_value');
+
+    const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(gql`
+      query MyQuery {
+        morgs_near_test_context_db_indexer_storage {
+          function_name
+          key_name
+          value
+        }
+      }
+    `);
+    expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
 });

@@ -7,8 +7,6 @@ interface StreamMessage {
   }
 }
 
-export type StreamType = 'historical' | 'real-time';
-
 export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
   LARGEST_STREAM_ID = '+';
@@ -20,13 +18,6 @@ export default class RedisClient {
   ) {
     client.on('error', (err) => { console.log('Redis Client Error', err); });
     client.connect().catch(console.error);
-  }
-
-  getStreamType (streamKey: string): StreamType {
-    if (streamKey.endsWith(':historical:stream')) {
-      return 'historical';
-    }
-    return 'real-time';
   }
 
   async disconnect (): Promise<void> {

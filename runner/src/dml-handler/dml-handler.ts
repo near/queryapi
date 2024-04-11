@@ -1,6 +1,5 @@
 import { wrapError } from '../utility';
-import PgClient from '../pg-client';
-import { type DatabaseConnectionParameters } from '../provisioner/provisioner';
+import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { type TableDefinitionNames } from '../indexer';
 
 type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
@@ -11,16 +10,10 @@ export default class DmlHandler {
   pgClient: PgClient;
 
   constructor (
-    databaseConnectionParameters: DatabaseConnectionParameters,
+    databaseConnectionParameters: PostgresConnectionParams,
     pgClientInstance: PgClient | undefined = undefined,
   ) {
-    this.pgClient = pgClientInstance ?? new PgClient({
-      user: databaseConnectionParameters.username,
-      password: databaseConnectionParameters.password,
-      host: process.env.PGHOST,
-      port: Number(process.env.PGPORT ?? databaseConnectionParameters.port),
-      database: databaseConnectionParameters.database,
-    });
+    this.pgClient = pgClientInstance ?? new PgClient(databaseConnectionParameters);
   }
 
   private getWhereClause (whereObject: WhereClauseMulti, columnLookup: Map<string, string>): { queryVars: Array<string | number>, whereClause: string } {

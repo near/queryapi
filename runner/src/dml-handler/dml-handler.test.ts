@@ -2,14 +2,15 @@ import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
 import type PgClient from '../pg-client';
 import { type TableDefinitionNames } from '../indexer';
+import { type PostgresConnectionParams } from '../pg-client';
 
 describe('DML Handler tests', () => {
-  const getDbConnectionParameters = {
+  const getDbConnectionParameters: PostgresConnectionParams = {
     database: 'test_near',
     host: 'postgres',
     password: 'test_pass',
     port: 5432,
-    username: 'test_near'
+    user: 'test_near'
   };
   let pgClient: PgClient;
   let query: any;

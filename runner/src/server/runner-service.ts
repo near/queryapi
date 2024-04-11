@@ -1,8 +1,5 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
-import { IndexerStatus } from '../indexer-meta/indexer-meta';
-import { LogLevel } from '../indexer-meta/log-entry';
-import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';
 import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../generated/runner/StartExecutorResponse';
@@ -13,12 +10,7 @@ import { type ListExecutorsRequest__Output } from '../generated/runner/ListExecu
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
 import StreamHandler from '../stream-handler';
-
-const hashString = (input: string): string => {
-  const hash = crypto.createHash('sha256');
-  hash.update(input);
-  return hash.digest('hex');
-};
+import IndexerConfig from '../indexer-config';
 
 function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
@@ -30,35 +22,25 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      const { accountId, functionName, code, schema, redisStream, version } = call.request;
-      const executorId = hashString(`${accountId}/${functionName}`);
+      const indexerConfig: IndexerConfig = IndexerConfig.fromStartRequest(call.request);
 
-      if (executors.has(executorId)) {
+      if (executors.has(indexerConfig.executorId)) {
         const alreadyExistsError = {
           code: grpc.status.ALREADY_EXISTS,
-          message: `Executor ${executorId} can't be started as it already exists.`
+          message: `Executor ${indexerConfig.executorId} can't be started as it already exists.`
         };
         callback(alreadyExistsError, null);
 
         return;
       }
 
-      console.log('Starting executor: ', { accountId, functionName, executorId, version });
+      console.log('Starting executor: ', indexerConfig);
 
       // Handle request
       try {
-        const streamHandler = new StreamHandlerType(redisStream, {
-          account_id: accountId,
-          function_name: functionName,
-          version: Number(version),
-          code,
-          schema,
-        },
-        {
-          log_level: LogLevel.INFO, // TODO: Pass this in from Coordinator
-        });
-        executors.set(executorId, streamHandler);
-        callback(null, { executorId });
+        const streamHandler = new StreamHandlerType(indexerConfig);
+        executors.set(indexerConfig.executorId, streamHandler);
+        callback(null, { executorId: indexerConfig.executorId });
       } catch (error) {
         callback(handleInternalError(error), null);
       }
@@ -98,29 +80,14 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
       const response: ExecutorInfo__Output[] = [];
       try {
         executors.forEach((handler, executorId) => {
-          let config = handler.indexerConfig;
-          let context = handler.executorContext;
-          if (config === undefined) {
-            // TODO: Throw error instead when V1 is deprecated
-            const [accountId, functionName] = executorId.substring(0, executorId.indexOf(':')).split('/', 2);
-            config = {
-              account_id: accountId,
-              function_name: functionName,
-              version: 0, // Ensure Coordinator V2 sees version mismatch
-              code: '',
-              schema: '',
-            };
-            context = {
-              status: IndexerStatus.RUNNING,
-              block_height: context.block_height,
-            };
-          }
+          const indexerConfig = handler.indexerConfig;
+          const indexerContext = handler.executorContext;
           response.push({
             executorId,
-            accountId: config.account_id,
-            functionName: config.function_name,
-            version: config.version.toString(),
-            status: context.status
+            accountId: indexerConfig.accountId,
+            functionName: indexerConfig.functionName,
+            version: indexerConfig.version.toString(),
+            status: indexerContext.status
           });
         });
         callback(null, {

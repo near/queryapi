@@ -3,10 +3,11 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient from '../hasura-client';
+import HasuraClient, { type HasuraDatabaseConnectionParameters } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 // import { metadataTableDDL } from './schemas/metadata-table';
-import PgClientClass from '../pg-client';
+import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
+import type IndexerConfig from '../indexer-config/indexer-config';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -26,25 +27,21 @@ const adminCronPgClientGlobal = new PgClientClass({
   port: Number(process.env.PGPORT),
 });
 
-export interface DatabaseConnectionParameters {
-  host: string
-  port: number
-  database: string
-  username: string
-  password: string
-}
-
 interface Config {
   cronDatabase: string
   // Override the host/port values returned by Hasura during testing/local development
-  hasuraHostOverride?: string
-  hasuraPortOverride?: number
+  pgBouncerHost: string
+  pgBouncerPort: number
+  postgresHost: string
+  postgresPort: number
 }
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
-  hasuraHostOverride: process.env.HASURA_HOST_OVERRIDE,
-  hasuraPortOverride: process.env.HASURA_PORT_OVERRIDE ? Number(process.env.HASURA_PORT_OVERRIDE) : undefined
+  pgBouncerHost: process.env.PGHOST_PGBOUNCER ?? process.env.PGHOST,
+  pgBouncerPort: Number(process.env.PGPORT_PGBOUNCER ?? process.env.PGPORT),
+  postgresHost: process.env.PGHOST,
+  postgresPort: Number(process.env.PGPORT)
 };
 
 export default class Provisioner {
@@ -108,14 +105,12 @@ export default class Provisioner {
   async scheduleLogPartitionJobs (userName: string, databaseName: string, schemaName: string): Promise<void> {
     await wrapError(
       async () => {
-        const userDbConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
-        const userCronPgClient = new this.PgClient({
-          user: userDbConnectionParameters.username,
-          password: userDbConnectionParameters.password,
-          database: this.config.cronDatabase,
-          host: this.config.hasuraHostOverride ?? userDbConnectionParameters.host,
-          port: this.config.hasuraPortOverride ?? userDbConnectionParameters.port,
-        });
+        const userDbConnectionParameters = {
+          ...(await this.getPostgresConnectionParameters(userName)),
+          database: this.config.cronDatabase
+        };
+
+        const userCronPgClient = new this.PgClient(userDbConnectionParameters);
         await userCronPgClient.query(
           this.pgFormat(
             "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
@@ -157,17 +152,15 @@ export default class Provisioner {
     );
   }
 
-  async fetchUserApiProvisioningStatus (accountId: string, functionName: string): Promise<boolean> {
+  async fetchUserApiProvisioningStatus (indexerConfig: IndexerConfig): Promise<boolean> {
     const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
-    if (this.isUserApiProvisioned(accountId, functionName)) {
+    if (this.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)) {
       checkProvisioningSpan.end();
       return true;
     }
-    const sanitizedAccountId = this.replaceSpecialChars(accountId);
-    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
 
-    const databaseName = sanitizedAccountId;
-    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
 
     const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
     if (!sourceExists) {
@@ -176,7 +169,7 @@ export default class Provisioner {
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
     if (schemaExists) {
-      this.setProvisioned(accountId, functionName);
+      this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
     }
     checkProvisioningSpan.end();
     return schemaExists;
@@ -264,14 +257,11 @@ export default class Provisioner {
     this.#hasLogsBeenProvisioned[accountId][functionName] = true;
   }
 
-  async provisionUserApi (accountId: string, functionName: string, databaseSchema: any): Promise<void> { // replace any with actual type
-    const sanitizedAccountId = this.replaceSpecialChars(accountId);
-    const sanitizedFunctionName = this.replaceSpecialChars(functionName);
-
-    const databaseName = sanitizedAccountId;
-    const userName = sanitizedAccountId;
-    const schemaName = `${sanitizedAccountId}_${sanitizedFunctionName}`;
+  async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
     const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
+    const userName = indexerConfig.userName();
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
 
     try {
       await wrapError(
@@ -285,7 +275,7 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
 
           // await this.createMetadataTable(databaseName, schemaName);
-          await this.runIndexerSql(databaseName, schemaName, databaseSchema);
+          await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
           await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
@@ -295,7 +285,7 @@ export default class Provisioner {
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
           await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
-          this.setProvisioned(accountId, functionName);
+          this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
         },
         'Failed to provision endpoint'
       );
@@ -304,7 +294,25 @@ export default class Provisioner {
     }
   }
 
-  async getDatabaseConnectionParameters (userName: string): Promise<any> {
-    return await this.hasuraClient.getDbConnectionParameters(userName);
+  async getPostgresConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
+    const userDbConnectionParameters: HasuraDatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+    return {
+      user: userDbConnectionParameters.username,
+      password: userDbConnectionParameters.password,
+      database: userDbConnectionParameters.database,
+      host: this.config.postgresHost,
+      port: this.config.postgresPort,
+    };
+  }
+
+  async getPgBouncerConnectionParameters (userName: string): Promise<PostgresConnectionParams> {
+    const userDbConnectionParameters: HasuraDatabaseConnectionParameters = await this.hasuraClient.getDbConnectionParameters(userName);
+    return {
+      user: userDbConnectionParameters.username,
+      password: userDbConnectionParameters.password,
+      database: userDbConnectionParameters.database,
+      host: this.config.pgBouncerHost,
+      port: this.config.pgBouncerPort,
+    };
   }
 }
