@@ -19,6 +19,7 @@ describe('Provisioner', () => {
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   const logsDDL = expect.any(String);
+  const metadataDDL = expect.any(String);
   const error = new Error('some error');
 
   const password = 'password';
@@ -119,6 +120,7 @@ describe('Provisioner', () => {
       // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), metadataDDL);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
       expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -145,9 +147,9 @@ describe('Provisioner', () => {
       expect(hasuraClient.addDatasource).not.toBeCalled();
 
       expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
-      // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, logsTableDDL(schemaName));
-      // expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(sanitizedAccountId, schemaName, metadataTableDDL());
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledWith(indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), metadataDDL);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
       expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -230,12 +232,6 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
     });
 
-    it.skip('throws an error when it fails to create metadata table', async () => {
-      hasuraClient.executeSqlOnSchema = jest.fn().mockResolvedValueOnce(null).mockRejectedValue(error);
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to create metadata table in morgs_near.morgs_near_test_function: some error');
-    });
-
     it('throws when grant cron access fails', async () => {
       cronPgClient.query = jest.fn().mockRejectedValue(error);
 
@@ -252,6 +248,27 @@ describe('Provisioner', () => {
       userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
 
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
+    });
+
+    it('throws when scheduling cron jobs fails', async () => {
+      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
+
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
+    });
+
+    it('provisions logs table once', async () => {
+      await provisioner.provisionLogsIfNeeded(indexerConfig);
+      await provisioner.provisionLogsIfNeeded(indexerConfig);
+
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(1);
+      expect(cronPgClient.query).toBeCalledTimes(2);
+    });
+
+    it('provisions metadata table once', async () => {
+      await provisioner.provisionMetadataIfNeeded(indexerConfig);
+      await provisioner.provisionMetadataIfNeeded(indexerConfig);
+
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(1);
     });
 
     it('get credentials for postgres', async () => {
