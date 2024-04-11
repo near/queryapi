@@ -36,8 +36,8 @@ interface Config {
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
-  hasuraHostOverride: process.env.HASURA_HOST_OVERRIDE,
-  hasuraPortOverride: process.env.HASURA_PORT_OVERRIDE ? Number(process.env.HASURA_PORT_OVERRIDE) : undefined
+  hasuraHostOverride: process.env.PGHOST,
+  hasuraPortOverride: process.env.PGPORT ? Number(process.env.PGPORT) : undefined
 };
 
 export default class Provisioner {

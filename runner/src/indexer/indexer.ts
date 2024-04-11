@@ -196,7 +196,6 @@ export default class Indexer {
         // return await this.writeLog(debugLogEntry, logEntries as LogEntry[], functionName);
       },
       log: async (...log) => {
-        console.log('log', log);
         return await this.writeLog(LogLevel.INFO, blockHeight, ...log);
         // const infoLogEntry = LogEntry.systemInfo(log.join(' '), blockHeight);
         // return await this.writeLog(infoLogEntry, logEntries as LogEntry[], functionName);
