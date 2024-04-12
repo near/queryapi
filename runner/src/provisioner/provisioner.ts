@@ -250,9 +250,9 @@ export default class Provisioner {
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
+          await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
+          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
-        await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
-        await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
       },
       'Failed standalone logs provisioning'
     );
@@ -271,6 +271,7 @@ export default class Provisioner {
       return;
     }
     const metadataTable = '__metadata';
+    let provisioningComplete = false;
 
     await wrapError(
       async () => {
@@ -288,8 +289,34 @@ export default class Provisioner {
       'Failed standalone metadata provisioning'
     );
 
-    this.#hasMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
-    this.#hasMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+    if (provisioningComplete) {
+      this.#hasMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
+      this.#hasMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+    }
+  }
+
+  async getTableMetadata (indexerConfig: IndexerConfig): Promise<Map<string, any>> {
+    console.log('getting metadata');
+    return await this.hasuraClient.getTableMetadata(indexerConfig.databaseName(), indexerConfig.schemaName());
+  }
+
+  private getTablesMissingTracking (shouldBeTrackedTables: string[], tableMetadata: Map<string, any>): string[] {
+    return shouldBeTrackedTables.filter((tableName: string) => !tableMetadata.has(tableName));
+  }
+
+  private getTablesMissingPermissions (userName: string, shouldHavePermissionsTables: string[], tableMetadata: Map<string, any>): string[] {
+    // TODO: Allow configuring of permissions checking
+    const permissionsToCheck = ['insert_permissions', 'select_permissions', 'update_permissions', 'delete_permissions'];
+    return shouldHavePermissionsTables.filter((tableName: string) => {
+      const table = tableMetadata.get(tableName);
+      if (table) {
+        return permissionsToCheck.some((permission: string) => {
+          // Returns true if the table does not have the permission or the user is not in the role
+          return !table[permission]?.some((role: { role: string }) => role.role === userName);
+        });
+      }
+      return true;
+    });
   }
 
   async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type

@@ -172,10 +172,31 @@ export default class HasuraClient {
         source,
       }
     );
-    console.log(tablesInSource);
     return tablesInSource
       .filter(({ schema }: { schema: string }) => schema === schemaName)
       .map(({ name }: { name: string }) => name);
+  }
+
+  async getTableMetadata (
+    source: string,
+    schemaName: string,
+  ): Promise<any> {
+    console.log(schemaName);
+    const metadata = await this.executeMetadataRequest(
+      'export_metadata',
+      {},
+    );
+    const filteredTables = metadata.sources
+      .find((database: { name: string }) => database.name === source)
+      .tables
+      .filter((table: { table: { schema: string } }) => table.table.schema === schemaName);
+
+    const tableMetadata = new Map<string, any>();
+    for (const table of filteredTables) {
+      tableMetadata.set(table.table.name, table);
+    }
+
+    return tableMetadata;
   }
 
   async trackTables (
