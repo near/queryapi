@@ -250,9 +250,9 @@ export default class Provisioner {
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
-          await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
-          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
+        await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
+        await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
       },
       'Failed standalone logs provisioning'
     );
@@ -282,6 +282,8 @@ export default class Provisioner {
           await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
           await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
+        await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
+        await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
       },
       'Failed standalone metadata provisioning'
     );

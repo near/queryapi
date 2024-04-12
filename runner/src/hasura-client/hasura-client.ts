@@ -172,6 +172,7 @@ export default class HasuraClient {
         source,
       }
     );
+    console.log(tablesInSource);
     return tablesInSource
       .filter(({ schema }: { schema: string }) => schema === schemaName)
       .map(({ name }: { name: string }) => name);
