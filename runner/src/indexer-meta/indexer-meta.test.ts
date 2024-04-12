@@ -21,7 +21,6 @@ describe('IndexerMeta', () => {
   const accountId = 'some_account';
   const functionName = 'some_indexer';
 
-  // const debugIndexerConfig: IndexerConfig = new IndexerConfig('stream', accountId, functionName, 0, '', '', LogLevel.DEBUG);
   const infoIndexerConfig: IndexerConfig = new IndexerConfig('stream', accountId, functionName, 0, '', '', LogLevel.INFO);
   const errorIndexerConfig: IndexerConfig = new IndexerConfig('stream', accountId, functionName, 0, '', '', LogLevel.ERROR);
 

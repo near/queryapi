@@ -73,7 +73,7 @@ export default class StreamHandler {
       indexer.writeLogOld(LogLevel.ERROR, this.executorContext.block_height, `Encountered error processing stream: ${this.indexerConfig.fullName()}, terminating thread\n${error.toString()}`),
       indexer.callWriteLog(streamErrorLogEntry),
     ]).catch((e) => {
-      console.error(`Failed to set status or write failure log for stream: ${this.indexerConfig.redisStreamKey}`, e);
+      console.error(`Failed to write failure log for stream: ${this.indexerConfig.redisStreamKey}`, e);
     });
 
     this.worker.terminate().catch(() => {
@@ -87,7 +87,7 @@ export default class StreamHandler {
         this.executorContext.status = message.data;
         break;
       case WorkerMessageType.BLOCK_HEIGHT:
-        this.executorContext.block_height = Number(message.data);
+        this.executorContext.block_height = message.data;
         break;
       case WorkerMessageType.METRICS:
         registerWorkerMetrics(this.worker.threadId, message.data);
