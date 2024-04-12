@@ -90,6 +90,7 @@ export default class Indexer {
 
       try {
         if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
+          // TODO: Remove call as setting PROVISIONING status is impossible with new table
           await this.setStatus(blockHeight, IndexerStatus.PROVISIONING);
           simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
           const provisionStartLogEntry = LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight);
@@ -127,7 +128,6 @@ export default class Indexer {
         credentialsFetchSpan.end();
       }
 
-      // TODO: Prevent unnecesary reruns of set status
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
       simultaneousPromises.push(this.setStatus(blockHeight, IndexerStatus.RUNNING));
       const vm = new VM({ allowAsync: true });
@@ -423,7 +423,22 @@ export default class Indexer {
       setStatusSpan.end();
     }
 
-    await (this.deps.indexerMeta as IndexerMeta).setStatus(status);
+    // Metadata table possibly unprovisioned when called, so I am not validating indexerMeta yet
+    await this.deps.indexerMeta?.setStatus(status);
+  }
+
+  async setStoppedStatus (): Promise<void> {
+    if (!this.deps.indexerMeta) {
+      try {
+        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+        this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+      } catch (e) {
+        const error = e as Error;
+        console.error(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`, e);
+        throw error;
+      }
+    }
+    await this.deps.indexerMeta.setStatus(IndexerStatus.STOPPED);
   }
 
   async writeLog (logEntry: LogEntry, logEntries: LogEntry[]): Promise<any> {

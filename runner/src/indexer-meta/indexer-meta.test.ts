@@ -4,6 +4,7 @@ import type PgClient from '../pg-client';
 import LogEntry, { LogLevel } from './log-entry';
 import { type PostgresConnectionParams } from '../pg-client';
 import IndexerConfig from '../indexer-config/indexer-config';
+import IndexerConfig from '../indexer-config';
 
 describe('IndexerMeta', () => {
   let genericMockPgClient: PgClient;
@@ -16,6 +17,13 @@ describe('IndexerMeta', () => {
       format: pgFormat
     } as unknown as PgClient;
   });
+
+  const accountId = 'some_account';
+  const functionName = 'some_indexer';
+
+  // const debugIndexerConfig: IndexerConfig = new IndexerConfig('stream', accountId, functionName, 0, '', '', LogLevel.DEBUG);
+  const infoIndexerConfig: IndexerConfig = new IndexerConfig('stream', accountId, functionName, 0, '', '', LogLevel.INFO);
+  const errorIndexerConfig: IndexerConfig = new IndexerConfig('stream', accountId, functionName, 0, '', '', LogLevel.ERROR);
 
   const mockDatabaseConnectionParameters: PostgresConnectionParams = {
     user: 'test_user',
@@ -35,10 +43,11 @@ describe('IndexerMeta', () => {
       const formattedDate = date.toISOString().replace('T', ' ').replace('Z', '+00');
 
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const infoEntry = LogEntry.systemInfo('Info message');
       await indexerMeta.writeLogs([infoEntry]);
 
-      const expectedQueryStructure = `INSERT INTO ${schemaName}.__logs (block_height, date, timestamp, type, level, message) VALUES (NULL, '${formattedDate}', '${formattedDate}', 'system', 'INFO', 'Info message')`;
+      const expectedQueryStructure = `INSERT INTO ${infoIndexerConfig.schemaName()}.__logs (block_height, date, timestamp, type, level, message) VALUES (NULL, '${formattedDate}', '${formattedDate}', 'system', 'INFO', 'Info message')`;
       expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
     });
 
@@ -48,10 +57,11 @@ describe('IndexerMeta', () => {
       const formattedDate = date.toISOString().replace('T', ' ').replace('Z', '+00');
 
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const errorEntry = LogEntry.systemError('Error message', 12345);
       await indexerMeta.writeLogs([errorEntry]);
 
-      const expectedQueryStructure = `INSERT INTO ${schemaName}.__logs (block_height, date, timestamp, type, level, message) VALUES ('12345', '${formattedDate}', '${formattedDate}', 'system', 'ERROR', 'Error message')`;
+      const expectedQueryStructure = `INSERT INTO ${infoIndexerConfig.schemaName()}.__logs (block_height, date, timestamp, type, level, message) VALUES ('12345', '${formattedDate}', '${formattedDate}', 'system', 'ERROR', 'Error message')`;
       expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
     });
 
@@ -59,12 +69,14 @@ describe('IndexerMeta', () => {
       query.mockRejectedValueOnce(new Error('Failed to insert log'));
 
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const errorEntry = LogEntry.systemError('Error message', 12345);
       await expect(indexerMeta.writeLogs([errorEntry])).rejects.toThrow('Failed to insert log');
     });
 
     it('should insert a batch of log entries into the database', async () => {
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const debugEntry = LogEntry.systemDebug('Debug message');
       const infoEntry = LogEntry.systemInfo('Information message');
       const logEntries: LogEntry[] = [
@@ -74,7 +86,7 @@ describe('IndexerMeta', () => {
 
       await indexerMeta.writeLogs(logEntries);
 
-      const expectedQuery = `INSERT INTO ${schemaName}.__logs (block_height, date, timestamp, type, level, message) VALUES`;
+      const expectedQuery = `INSERT INTO ${infoIndexerConfig.schemaName()}.__logs (block_height, date, timestamp, type, level, message) VALUES`;
       expect(query.mock.calls[0][0]).toContain(expectedQuery);
     });
 
@@ -82,6 +94,7 @@ describe('IndexerMeta', () => {
       query.mockRejectedValueOnce(new Error('Failed to insert batch of logs'));
 
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const debugEntry = LogEntry.systemDebug('Debug message');
       const infoEntry = LogEntry.systemInfo('Information message');
       const logEntries: LogEntry[] = [
@@ -94,6 +107,7 @@ describe('IndexerMeta', () => {
 
     it('should handle empty log entry', async () => {
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const logEntries: LogEntry[] = [];
       await indexerMeta.writeLogs(logEntries);
 
@@ -102,6 +116,7 @@ describe('IndexerMeta', () => {
 
     it('should skip log entries with levels lower than the logging level specified in the constructor', async () => {
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(errorIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       const debugEntry = LogEntry.systemDebug('Debug message');
 
       await indexerMeta.writeLogs([debugEntry]);
@@ -111,17 +126,19 @@ describe('IndexerMeta', () => {
 
     it('writes status for indexer', async () => {
       const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.setStatus(IndexerStatus.RUNNING);
       expect(query).toBeCalledWith(
-        `INSERT INTO ${schemaName}.__metadata (attribute, value) VALUES ('STATUS', 'RUNNING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+        `INSERT INTO ${infoIndexerConfig.schemaName()}.__metadata (attribute, value) VALUES ('STATUS', 'RUNNING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
 
     it('writes last processed block height for indexer', async () => {
-      const indexerMeta = new IndexerMeta(indexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
+      const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.updateBlockHeight(123);
+>>>>>>> bdf4cf9 (ENable status and blockheight writes)
       expect(query).toBeCalledWith(
-        `INSERT INTO ${schemaName}.__metadata (attribute, value) VALUES ('LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+        `INSERT INTO ${infoIndexerConfig.schemaName()}.__metadata (attribute, value) VALUES ('LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
   });

@@ -17,10 +17,46 @@ import IndexerConfig from '../src/indexer-config';
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
 
+  let hasuraClient: HasuraClient;
+  let pgClient: PgClient;
+  let provisioner: Provisioner;
+
   let network: StartedNetwork;
   let postgresContainer: StartedPostgreSqlContainer;
   let hasuraContainer: StartedHasuraGraphQLContainer;
   let graphqlClient: GraphQLClient;
+
+  beforeEach(async () => {
+    hasuraClient = new HasuraClient({}, {
+      adminSecret: hasuraContainer.getAdminSecret(),
+      endpoint: hasuraContainer.getEndpoint(),
+      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
+      pgPortHasura: postgresContainer.getPort(network.getName()),
+      pgHost: postgresContainer.getIpAddress(),
+      pgPort: postgresContainer.getPort()
+    });
+
+    pgClient = new PgClient({
+      user: postgresContainer.getUsername(),
+      password: postgresContainer.getPassword(),
+      host: postgresContainer.getIpAddress(),
+      port: postgresContainer.getPort(),
+      database: postgresContainer.getDatabase(),
+    });
+
+    provisioner = new Provisioner(
+      hasuraClient,
+      pgClient,
+      pgClient,
+      {
+        cronDatabase: postgresContainer.getDatabase(),
+        postgresHost: postgresContainer.getIpAddress(),
+        postgresPort: Number(postgresContainer.getPort()),
+        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
+        pgBouncerPort: Number(postgresContainer.getPort()),
+      }
+    );
+  });
 
   beforeAll(async () => {
     network = await new Network().start();
@@ -45,36 +81,6 @@ describe('Indexer integration', () => {
   });
 
   it('works', async () => {
-    const hasuraClient = new HasuraClient({}, {
-      adminSecret: hasuraContainer.getAdminSecret(),
-      endpoint: hasuraContainer.getEndpoint(),
-      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
-      pgPortHasura: postgresContainer.getPort(network.getName()),
-      pgHost: postgresContainer.getIpAddress(),
-      pgPort: postgresContainer.getPort()
-    });
-
-    const pgClient = new PgClient({
-      user: postgresContainer.getUsername(),
-      password: postgresContainer.getPassword(),
-      host: postgresContainer.getIpAddress(),
-      port: postgresContainer.getPort(),
-      database: postgresContainer.getDatabase(),
-    });
-
-    const provisioner = new Provisioner(
-      hasuraClient,
-      pgClient,
-      pgClient,
-      {
-        cronDatabase: postgresContainer.getDatabase(),
-        postgresHost: postgresContainer.getIpAddress(),
-        postgresPort: Number(postgresContainer.getPort()),
-        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
-        pgBouncerPort: Number(postgresContainer.getPort()),
-      }
-    );
-
     const code = `
       await context.graphql(
         \`
@@ -181,37 +187,67 @@ describe('Indexer integration', () => {
 
   });
 
-  it('test context db', async () => {
-    const hasuraClient = new HasuraClient({}, {
-      adminSecret: hasuraContainer.getAdminSecret(),
-      endpoint: hasuraContainer.getEndpoint(),
-      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
-      pgPortHasura: postgresContainer.getPort(network.getName()),
-      pgHost: postgresContainer.getIpAddress(),
-      pgPort: postgresContainer.getPort()
-    });
+  it('test setting status and blockheight', async () => {
+    const code = `
+      const a = 1;
+    `;
+    const schema = 'CREATE TABLE blocks (height numeric)';
 
-    const pgClient = new PgClient({
-      user: postgresContainer.getUsername(),
-      password: postgresContainer.getPassword(),
-      host: postgresContainer.getIpAddress(),
-      port: postgresContainer.getPort(),
-      database: postgresContainer.getDatabase(),
-    });
+    const indexerConfig = new IndexerConfig(
+      'test:stream',
+      'morgs.near',
+      'test',
+      0,
+      code,
+      schema,
+      LogLevel.INFO
+    );
 
-    const provisioner = new Provisioner(
-      hasuraClient,
-      pgClient,
-      pgClient,
+    const indexer = new Indexer(
+      indexerConfig,
       {
-        cronDatabase: postgresContainer.getDatabase(),
-        postgresHost: postgresContainer.getIpAddress(),
-        postgresPort: Number(postgresContainer.getPort()),
-        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
-        pgBouncerPort: Number(postgresContainer.getPort()),
+        provisioner
+      },
+      undefined,
+      {
+        hasuraAdminSecret: hasuraContainer.getAdminSecret(),
+        hasuraEndpoint: hasuraContainer.getEndpoint(),
       }
     );
 
+    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
+    const { morgs_near_test___metadata: heightFirst }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___metadata(where: {attribute: {_eq: "LAST_PROCESSED_BLOCK_HEIGHT"}}) {
+          attribute
+          value
+        }
+      }
+    `);
+    expect(heightFirst[0].value).toEqual('115185108');
+
+    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
+    const { morgs_near_test___metadata: statusSecond }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___metadata(where: {attribute: {_eq: "STATUS"}}) {
+          attribute
+          value
+        }
+      }
+    `);
+    expect(statusSecond[0].value).toEqual('RUNNING');
+    const { morgs_near_test___metadata: heightSecond }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___metadata(where: {attribute: {_eq: "LAST_PROCESSED_BLOCK_HEIGHT"}}) {
+          attribute
+          value
+        }
+      }
+    `);
+    expect(heightSecond[0].value).toEqual('115185109');
+  });
+
+  it('test context db', async () => {
     const schema = `
       CREATE TABLE
         "indexer_storage" (
