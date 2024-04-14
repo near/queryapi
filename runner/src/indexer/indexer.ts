@@ -134,7 +134,6 @@ export default class Indexer {
         // Cache database credentials after provisioning
         const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
         try {
-          // this.database_connection_parameters ??= await this.deps.provisioner.getDatabaseConnectionParameters(hasuraRoleName) as DatabaseConnectionParameters;
           this.database_connection_parameters ??= await this.getDatabaseConnectionParams(hasuraRoleName);
           this.deps.indexerMeta ??= new IndexerMeta(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
           this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);

@@ -1248,4 +1248,53 @@ CREATE TABLE
             }
     ]);
   });
+
+  it('call writeLogs method at the end of execution with correct and all logs are present', async () => {
+    const mockFetchDebug = jest.fn(() => ({
+      status: 200,
+      json: async () => ({
+        errors: null,
+      }),
+    }));
+
+    const blockHeight = 456;
+    const mockBlock = Block.fromStreamerMessage({
+      block: {
+        chunks: [],
+        header: {
+          height: blockHeight
+        }
+      },
+      shards: {}
+    } as unknown as StreamerMessage) as unknown as Block;
+
+    const indexerMeta: any = {
+      writeLogs: jest.fn(),
+    };
+
+    const functions: Record<string, any> = {};
+    functions['buildnear.testnet/test'] = {
+      code: `
+        console.debug('debug log');
+        console.log('info log');
+        console.error('error log');
+        await context.db.Posts.select({
+          account_id: 'morgs_near',
+          receipt_id: 'abc',
+        });
+      `,
+      schema: SIMPLE_SCHEMA
+    };
+
+    const indexerDebug = new Indexer(
+      { log_level: LogLevel.DEBUG },
+      { fetch: mockFetchDebug as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler, indexerMeta },
+      undefined,
+      config
+    );
+
+    await indexerDebug.runFunctions(mockBlock, functions, false);
+    expect(indexerMeta.writeLogs).toHaveBeenCalledTimes(1);
+    expect(indexerMeta.writeLogs.mock.calls[0][0]).toHaveLength(5);
+  });
 });
