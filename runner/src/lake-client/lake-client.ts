@@ -64,16 +64,14 @@ export default class LakeClient {
     return value;
   }
 
-  async fetchBlock (blockHeight: number, isHistorical: boolean): Promise<Block> {
-    if (!isHistorical) {
-      const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
-      if (cachedMessage) {
-        METRICS.CACHE_HIT.inc();
-        const parsedMessage = JSON.parse(cachedMessage);
-        return Block.fromStreamerMessage(parsedMessage);
-      } else {
-        METRICS.CACHE_MISS.inc();
-      }
+  async fetchBlock (blockHeight: number): Promise<Block> {
+    const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
+    if (cachedMessage) {
+      METRICS.CACHE_HIT.inc();
+      const parsedMessage = JSON.parse(cachedMessage);
+      return Block.fromStreamerMessage(parsedMessage);
+    } else {
+      METRICS.CACHE_MISS.inc();
     }
 
     const block = await this.fetchBlockPromise(blockHeight);

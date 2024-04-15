@@ -46,9 +46,12 @@ services:
       HASURA_ENDPOINT: http://hasura-graphql:8080
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
-      PGHOST: pgbouncer
-      PGHOST_HASURA: pgbouncer
-      PGPORT: 6432
+      PGHOST: postgres
+      PGPORT: 5432
+      PGHOST_HASURA: postgres
+      PGPORT_HASURA: 5432
+      PGHOST_PGBOUNCER: pgbouncer
+      PGPORT_PGBOUNCER: 6432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres

@@ -6,15 +6,10 @@ import { VM } from 'vm2';
 import DmlHandler from '../dml-handler/dml-handler';
 import type IndexerMeta from '../indexer-meta/indexer-meta';
 import type PgClient from '../pg-client';
-import { type IndexerBehavior } from '../stream-handler/stream-handler';
 import { LogLevel } from '../indexer-meta/log-entry';
+import IndexerConfig from '../indexer-config/indexer-config';
 
 describe('Indexer unit tests', () => {
-  const HASURA_ROLE = 'morgs_near';
-  const INVALID_HASURA_ROLE = 'other_near';
-
-  const INDEXER_NAME = 'morgs.near/test_fn';
-
   const SIMPLE_SCHEMA = `CREATE TABLE
     "posts" (
       "id" SERIAL NOT NULL,
@@ -177,9 +172,15 @@ IF NOT EXISTS
 CREATE TABLE
   yet_another_table (id serial PRIMARY KEY);
 `;
-  const defaultIndexerBehavior: IndexerBehavior = {
-    log_level: LogLevel.INFO,
-  };
+  const SIMPLE_REDIS_STREAM = 'test:stream';
+  const SIMPLE_ACCOUNT_ID = 'morgs.near';
+  const SIMPLE_FUNCTION_NAME = 'test_indexer';
+  const SIMPLE_CODE = '';
+
+  const simpleSchemaConfig: IndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, SIMPLE_CODE, SIMPLE_SCHEMA, LogLevel.INFO);
+  const socialSchemaConfig: IndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, SIMPLE_CODE, SOCIAL_SCHEMA, LogLevel.INFO);
+  const caseSensitiveConfig: IndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, SIMPLE_CODE, CASE_SENSITIVE_SCHEMA, LogLevel.INFO);
+  const stressTestConfig: IndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, SIMPLE_CODE, STRESS_TEST_SCHEMA, LogLevel.INFO);
 
   const genericMockFetch = jest.fn()
     .mockResolvedValue({
@@ -212,7 +213,10 @@ CREATE TABLE
   };
 
   const genericProvisioner: any = {
-    getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials)
+    getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+    fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true),
+    provisionLogsIfNeeded: jest.fn(),
+    provisionMetadataIfNeeded: jest.fn(),
   };
 
   const config = {
@@ -220,7 +224,7 @@ CREATE TABLE
     hasuraAdminSecret: 'mock-hasura-secret',
   };
 
-  test('Indexer.runFunctions() should execute all functions against the current block', async () => {
+  test('Indexer.execute() should execute all functions against the current block', async () => {
     const mockFetch = jest.fn(() => ({
       status: 200,
       json: async () => ({
@@ -238,37 +242,21 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
 
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const code = `
+      const foo = 3;
+      block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
+    `;
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, {
       fetch: mockFetch as unknown as typeof fetch,
       provisioner: genericProvisioner,
       dmlHandler: genericMockDmlHandler,
       indexerMeta: genericMockIndexerMeta,
     }, undefined, config);
 
-    const functions: Record<string, any> = {};
-    functions['buildnear.testnet/test'] = {
-      code: `
-            const foo = 3;
-            block.result = context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
-        `,
-      schema: SIMPLE_SCHEMA
-    };
-    await indexer.runFunctions(mockBlock, functions, false);
+    await indexer.execute(mockBlock);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
-  });
-
-  test('Indexer.transformIndexerFunction() applies the necessary transformations', () => {
-    const indexer = new Indexer(defaultIndexerBehavior, undefined, undefined, config);
-
-    const transformedFunction = indexer.transformIndexerFunction('console.log(\'hello\')');
-
-    expect(transformedFunction).toEqual(`
-            async function f(){
-                console.log('hello')
-            };
-            f();
-    `);
   });
 
   test('Indexer.buildContext() allows execution of arbitrary GraphQL operations', async () => {
@@ -291,12 +279,12 @@ CREATE TABLE
           }
         })
       });
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(simpleSchemaConfig, {
       fetch: mockFetch as unknown as typeof fetch,
       dmlHandler: genericMockDmlHandler
     }, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
+    const context = indexer.buildContext(1, []);
 
     const query = `
             query {
@@ -346,12 +334,12 @@ CREATE TABLE
 
   test('Indexer.buildContext() can fetch from the near social api', async () => {
     const mockFetch = jest.fn();
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(simpleSchemaConfig, {
       fetch: mockFetch as unknown as typeof fetch,
       dmlHandler: genericMockDmlHandler
     }, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
+    const context = indexer.buildContext(1, []);
 
     await context.fetchFromSocialApi('/index', {
       method: 'POST',
@@ -378,9 +366,9 @@ CREATE TABLE
           errors: ['boom']
         })
       });
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, INVALID_HASURA_ROLE, []);
+    const context = indexer.buildContext(1, []);
 
     await expect(async () => await context.graphql('query { hello }')).rejects.toThrow('boom');
   });
@@ -393,9 +381,9 @@ CREATE TABLE
           data: 'mock',
         }),
       });
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
 
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
+    const context = indexer.buildContext(1, []);
 
     const query = 'query($name: String) { hello(name: $name) }';
     const variables = { name: 'morgan' };
@@ -420,7 +408,7 @@ CREATE TABLE
   });
 
   test('GetTableNameToDefinitionNamesMapping works for a variety of input schemas', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior);
+    const indexer = new Indexer(stressTestConfig);
 
     const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(STRESS_TEST_SCHEMA);
     expect([...tableNameToDefinitionNamesMapping.keys()]).toStrictEqual([
@@ -454,7 +442,7 @@ CREATE TABLE
   });
 
   test('GetTableNameToDefinitionNamesMapping works for mixed quotes schema', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior);
+    const indexer = new Indexer(caseSensitiveConfig);
 
     const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
     const tableNames = [...tableNameToDefinitionNamesMapping.keys()];
@@ -473,7 +461,7 @@ CREATE TABLE
   });
 
   test('GetSchemaLookup works for mixed quotes schema', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior);
+    const indexer = new Indexer(caseSensitiveConfig);
 
     const schemaLookup = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
     const tableNames = [...schemaLookup.keys()];
@@ -490,7 +478,7 @@ CREATE TABLE
   });
 
   test('SanitizeTableName works properly on many test cases', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior, undefined, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, undefined, undefined, config);
 
     expect(indexer.sanitizeTableName('table_name')).toStrictEqual('TableName');
     expect(indexer.sanitizeTableName('tablename')).toStrictEqual('Tablename'); // name is not capitalized
@@ -505,8 +493,6 @@ CREATE TABLE
   });
 
   test('indexer fails to build context.db due to collision on sanitized table names', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior, { dmlHandler: genericMockDmlHandler }, undefined, config);
-
     const schemaWithDuplicateSanitizedTableNames = `CREATE TABLE
     "test table" (
       "id" SERIAL NOT NULL
@@ -514,21 +500,22 @@ CREATE TABLE
     CREATE TABLE "test!table" (
       "id" SERIAL NOT NULL
     );`;
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'code', schemaWithDuplicateSanitizedTableNames, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler }, undefined, config);
 
     // Does not outright throw an error but instead returns an empty object
-    expect(indexer.buildDatabaseContext('test_account', 'test_schema_name', schemaWithDuplicateSanitizedTableNames, 1, []))
+    expect(indexer.buildDatabaseContext(1, []))
       .toStrictEqual({});
   });
 
   test('indexer builds context and inserts an objects into existing table', async () => {
     const mockDmlHandler: any = { insert: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
 
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: mockDmlHandler
     }, genericDbCredentials, config);
-
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     const objToInsert = [{
       account_id: 'morgs_near',
@@ -558,11 +545,11 @@ CREATE TABLE
     } as unknown as PgClient;
     const mockDmlHandler: any = new DmlHandler(genericDbCredentials, mockPgClient);
     const upsertSpy = jest.spyOn(mockDmlHandler, 'upsert');
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: mockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
     const promises = [];
 
     for (let i = 1; i <= 100; i++) {
@@ -593,11 +580,11 @@ CREATE TABLE
     });
     const mockDmlHandler: any = { select: selectFn };
 
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: mockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     const objToSelect = {
       account_id: 'morgs_near',
@@ -619,11 +606,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: mockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     const whereObj = {
       account_id: 'morgs_near',
@@ -649,11 +636,11 @@ CREATE TABLE
       })
     };
 
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: mockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     const objToInsert = [{
       account_id: 'morgs_near',
@@ -681,11 +668,11 @@ CREATE TABLE
   test('indexer builds context and deletes objects from existing table', async () => {
     const mockDmlHandler: any = { delete: jest.fn().mockReturnValue([{ colA: 'valA' }, { colA: 'valA' }]) };
 
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: mockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext(SOCIAL_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     const deleteFilter = {
       account_id: 'morgs_near',
@@ -696,11 +683,11 @@ CREATE TABLE
   });
 
   test('indexer builds context and verifies all methods generated', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexer = new Indexer(stressTestConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: genericMockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext(STRESS_TEST_SCHEMA, 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     expect(Object.keys(context.db)).toStrictEqual([
       'CreatorQuest',
@@ -734,16 +721,17 @@ CREATE TABLE
   });
 
   test('indexer builds context and returns empty array if failed to generate db methods', async () => {
-    const indexer = new Indexer(defaultIndexerBehavior, {
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'code', '', LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
       dmlHandler: genericMockDmlHandler
     }, genericDbCredentials, config);
-    const context = indexer.buildContext('', 'morgs.near/social_feed1', 1, 'postgres', []);
+    const context = indexer.buildContext(1, []);
 
     expect(Object.keys(context.db)).toStrictEqual([]);
   });
 
-  test('Indexer.runFunctions() allows imperative execution of GraphQL operations', async () => {
+  test('Indexer.execute() allows imperative execution of GraphQL operations', async () => {
     const postId = 1;
     const commentId = 2;
     const blockHeight = 82699904;
@@ -806,12 +794,9 @@ CREATE TABLE
       },
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    const functions: Record<string, any> = {};
-    functions['buildnear.testnet/test'] = {
-      code: `
-            const { posts } = await context.graphql(\`
+    const code = `
+      const { posts } = await context.graphql(\`
                 query {
                     posts(where: { id: { _eq: 1 } }) {
                         id
@@ -819,13 +804,13 @@ CREATE TABLE
                 }
             \`);
 
-            if (!posts || posts.length === 0) {
-                return;
-            }
+      if (!posts || posts.length === 0) {
+          return;
+      }
 
-            const [post] = posts;
+      const [post] = posts;
 
-            const { insert_comments: { returning: { id } } } = await context.graphql(\`
+      const { insert_comments: { returning: { id } } } = await context.graphql(\`
                 mutation {
                     insert_comments(
                         objects: {account_id: "morgs.near", block_height: \${block.blockHeight}, content: "cool post", post_id: \${post.id}}
@@ -837,17 +822,17 @@ CREATE TABLE
                 }
             \`);
 
-            return (\`Created comment \${id} on post \${post.id}\`)
-        `,
-      schema: SIMPLE_SCHEMA
-    };
+      return (\`Created comment \${id} on post \${post.id}\`)
+    `;
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    await indexer.runFunctions(mockBlock, functions, false);
+    await indexer.execute(mockBlock);
 
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.runFunctions() console.logs', async () => {
+  test('Indexer.execute() console.logs', async () => {
     const logs: string[] = [];
     const context = {
       log: (...m: string[]) => {
@@ -868,7 +853,7 @@ CREATE TABLE
     }).toThrow('boom');
   });
 
-  test('Indexer.runFunctions() catches errors', async () => {
+  test('Indexer.execute() catches errors', async () => {
     const mockFetch = jest.fn(() => ({
       status: 200,
       json: async () => ({
@@ -885,7 +870,11 @@ CREATE TABLE
       },
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
+    const code = `
+        throw new Error('boom');
+    `;
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
     const functions: Record<string, any> = {};
     functions['buildnear.testnet/test'] = {
@@ -895,11 +884,11 @@ CREATE TABLE
       schema: SIMPLE_SCHEMA
     };
 
-    await expect(indexer.runFunctions(mockBlock, functions, false)).rejects.toThrow(new Error('boom'));
+    await expect(indexer.execute(mockBlock)).rejects.toThrow(new Error('boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
-  test('Indexer.runFunctions() provisions a GraphQL endpoint with the specified schema', async () => {
+  test('Indexer.execute() provisions a GraphQL endpoint with the specified schema', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -917,34 +906,25 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    const functions = {
-      'morgs.near/test': {
-        account_id: 'morgs.near',
-        function_name: 'test',
-        code: '',
-        schema: SIMPLE_SCHEMA,
-      }
-    };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.execute(mockBlock);
 
-    expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith('morgs.near', 'test');
+    expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
-    expect(provisioner.provisionUserApi).toHaveBeenCalledWith(
-      'morgs.near',
-      'test',
-      SIMPLE_SCHEMA
-    );
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
-  test('Indexer.runFunctions() skips provisioning if the endpoint exists', async () => {
+  test('Indexer.execute() skips provisioning if the endpoint exists', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -962,26 +942,23 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    const functions: Record<string, any> = {
-      'morgs.near/test': {
-        code: '',
-        schema: SIMPLE_SCHEMA,
-      }
-    };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.execute(mockBlock);
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
   });
 
-  test('Indexer.runFunctions() skips database credentials fetch second time onward', async () => {
+  test('Indexer.execute() skips database credentials fetch second time onward', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -999,28 +976,25 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    const functions: Record<string, any> = {
-      'morgs.near/test': {
-        code: '',
-        schema: SIMPLE_SCHEMA,
-      }
-    };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.execute(mockBlock);
+    await indexer.execute(mockBlock);
+    await indexer.execute(mockBlock);
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
   });
 
-  test('Indexer.runFunctions() supplies the required role to the GraphQL endpoint', async () => {
+  test('Indexer.execute() supplies the required role to the GraphQL endpoint', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -1038,29 +1012,28 @@ CREATE TABLE
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsIfNeeded: jest.fn(),
+      provisionMetadataIfNeeded: jest.fn(),
     };
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
+    const code = `
+      context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
+    `;
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    const functions: Record<string, any> = {
-      'morgs.near/test': {
-        code: `
-                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
-                `,
-        schema: SIMPLE_SCHEMA,
-      }
-    };
-    await indexer.runFunctions(mockBlock, functions, false, { provision: true });
+    await indexer.execute(mockBlock);
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(mockFetch.mock.calls).toMatchSnapshot();
-    expect(provisioner.getDatabaseConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
+    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
   });
 
-  test('Indexer.runFunctions() logs provisioning failures', async () => {
+  test('Indexer.execute() logs provisioning failures', async () => {
     const blockHeight = 82699904;
     const mockFetch = jest.fn(() => ({
       status: 200,
@@ -1079,24 +1052,19 @@ CREATE TABLE
     } as unknown as StreamerMessage) as unknown as Block;
     const error = new Error('something went wrong with provisioning');
     const provisioner: any = {
-      getDatabaseConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
+      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn().mockRejectedValue(error),
     };
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
+    const code = `
+      context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
+    `;
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, 'schema', LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { fetch: mockFetch as unknown as typeof fetch, provisioner, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, undefined, config);
 
-    const functions: Record<string, any> = {
-      'morgs.near/test': {
-        code: `
-                    context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
-                `,
-        schema: 'schema',
-      }
-    };
-
-    await expect(indexer.runFunctions(mockBlock, functions, false, { provision: true })).rejects.toThrow(error);
+    await expect(indexer.execute(mockBlock)).rejects.toThrow(error);
     expect(mockFetch.mock.calls).toMatchSnapshot();
-    expect(provisioner.getDatabaseConnectionParameters).not.toHaveBeenCalled();
+    expect(provisioner.getPgBouncerConnectionParameters).not.toHaveBeenCalled();
   });
 
   test('Indexer log level respected by writeLog', async () => {
@@ -1128,43 +1096,43 @@ CREATE TABLE
       },
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
-    const functions: Record<string, any> = {};
-    functions['buildnear.testnet/test'] = {
-      code: `
-            console.debug('debug log');
-            console.log('info log');
-            console.error('error log');
-            await context.db.Posts.select({
-              account_id: 'morgs_near',
-              receipt_id: 'abc',
-            });
-        `,
-      schema: SIMPLE_SCHEMA
-    };
+
+    const code = `
+      console.debug('debug log');
+      console.log('info log');
+      console.error('error log');
+      await context.db.Posts.select({
+        account_id: 'morgs_near',
+        receipt_id: 'abc',
+      });
+    `;
+    const debugIndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.DEBUG);
+    const infoIndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
+    const errorIndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.ERROR);
     const mockDmlHandler: DmlHandler = { select: jest.fn() } as unknown as DmlHandler;
 
     const indexerDebug = new Indexer(
-      { log_level: LogLevel.DEBUG },
+      debugIndexerConfig,
       { fetch: mockFetchDebug as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: mockDmlHandler, indexerMeta: genericMockIndexerMeta },
       undefined,
       config
     );
     const indexerInfo = new Indexer(
-      { log_level: LogLevel.INFO },
+      infoIndexerConfig,
       { fetch: mockFetchInfo as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: mockDmlHandler, indexerMeta: genericMockIndexerMeta },
       undefined,
       config
     );
     const indexerError = new Indexer(
-      { log_level: LogLevel.ERROR },
+      errorIndexerConfig,
       { fetch: mockFetchError as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: mockDmlHandler, indexerMeta: genericMockIndexerMeta },
       undefined,
       config
     );
 
-    await indexerDebug.runFunctions(mockBlock, functions, false);
-    await indexerInfo.runFunctions(mockBlock, functions, false);
-    await indexerError.runFunctions(mockBlock, functions, false);
+    await indexerDebug.execute(mockBlock);
+    await indexerInfo.execute(mockBlock);
+    await indexerError.execute(mockBlock);
 
     // There are 1 set status (no log level), 1 run function log (info level), and 1 set function state (no log level) made each run
     expect(mockFetchDebug.mock.calls).toMatchSnapshot();
@@ -1177,41 +1145,6 @@ CREATE TABLE
     expect(mockFetchError).toHaveBeenCalledTimes(3); // 1 log + 2 graphql call
   });
 
-  test('does not attach the hasura admin secret header when no role specified', async () => {
-    const mockFetch = jest.fn()
-      .mockResolvedValueOnce({
-        status: 200,
-        json: async () => ({
-          data: {}
-        })
-      });
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
-    // @ts-expect-error legacy test
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, null);
-
-    const mutation = `
-            mutation {
-                newGreeting(greeting: "howdy") {
-                    success
-                }
-            }
-        `;
-
-    await context.graphql(mutation);
-
-    expect(mockFetch.mock.calls[0]).toEqual([
-            `${config.hasuraEndpoint}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-              },
-              body: JSON.stringify({ query: mutation })
-            }
-    ]);
-  });
-
   test('attaches the backend only header to requests to hasura', async () => {
     const mockFetch = jest.fn()
       .mockResolvedValueOnce({
@@ -1220,9 +1153,8 @@ CREATE TABLE
           data: {}
         })
       });
-    const role = 'morgs_near';
-    const indexer = new Indexer(defaultIndexerBehavior, { fetch: mockFetch as unknown as typeof fetch }, undefined, config);
-    const context = indexer.buildContext(SIMPLE_SCHEMA, INDEXER_NAME, 1, HASURA_ROLE, []);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch }, undefined, config);
+    const context = indexer.buildContext(1, []);
 
     const mutation = `
             mutation {
@@ -1241,7 +1173,7 @@ CREATE TABLE
               headers: {
                 'Content-Type': 'application/json',
                 'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': role,
+                'X-Hasura-Role': simpleSchemaConfig.hasuraRoleName(),
                 'X-Hasura-Admin-Secret': config.hasuraAdminSecret
               },
               body: JSON.stringify({ query: mutation })
@@ -1256,7 +1188,6 @@ CREATE TABLE
         errors: null,
       }),
     }));
-
     const blockHeight = 456;
     const mockBlock = Block.fromStreamerMessage({
       block: {
@@ -1272,29 +1203,72 @@ CREATE TABLE
       writeLogs: jest.fn(),
     };
 
-    const functions: Record<string, any> = {};
-    functions['buildnear.testnet/test'] = {
-      code: `
-        console.debug('debug log');
-        console.log('info log');
-        console.error('error log');
-        await context.db.Posts.select({
-          account_id: 'morgs_near',
-          receipt_id: 'abc',
-        });
-      `,
-      schema: SIMPLE_SCHEMA
-    };
+    const code = `
+      console.debug('debug log');
+      console.log('info log');
+      console.error('error log');
+      await context.db.Posts.select({
+        account_id: 'morgs_near',
+        receipt_id: 'abc',
+      });
+    `;
 
+    const debugIndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.DEBUG);
+    const mockDmlHandler: DmlHandler = { select: jest.fn() } as unknown as DmlHandler;
     const indexerDebug = new Indexer(
-      { log_level: LogLevel.DEBUG },
-      { fetch: mockFetchDebug as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: genericMockDmlHandler, indexerMeta },
+      debugIndexerConfig,
+      { fetch: mockFetchDebug as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: mockDmlHandler, indexerMeta },
       undefined,
       config
     );
 
-    await indexerDebug.runFunctions(mockBlock, functions, false);
+    await indexerDebug.execute(mockBlock);
     expect(indexerMeta.writeLogs).toHaveBeenCalledTimes(1);
     expect(indexerMeta.writeLogs.mock.calls[0][0]).toHaveLength(5);
+  });
+  test('does not attach the hasura admin secret header when no role specified', async () => {
+    const mockFetch = jest.fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        json: async () => ({
+          data: {}
+        })
+      });
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+
+    const mutation = `
+            mutation {
+                newGreeting(greeting: "howdy") {
+                    success
+                }
+            }
+        `;
+
+    await indexer.runGraphQLQuery(mutation, null, 0, null);
+
+    expect(mockFetch.mock.calls[0]).toEqual([
+            `${config.hasuraEndpoint}/v1/graphql`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Hasura-Use-Backend-Only-Permissions': 'true',
+              },
+              body: JSON.stringify({ query: mutation })
+            }
+    ]);
+  });
+
+  test('transformedCode applies the correct transformations', () => {
+    const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'console.log(\'hello\')', SIMPLE_SCHEMA, LogLevel.INFO);
+    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler }, undefined, config);
+    const transformedFunction = indexer.transformIndexerFunction();
+
+    expect(transformedFunction).toEqual(`
+      async function f(){
+        console.log('hello')
+      };
+      f();
+    `);
   });
 });

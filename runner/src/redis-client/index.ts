@@ -1,1 +1,1 @@
-export { default, type StreamType } from './redis-client';
+export { default } from './redis-client';
