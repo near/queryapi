@@ -160,7 +160,7 @@ describe('Indexer integration', () => {
     expect(_logs.length).toEqual(4);
     
     const { morgs_near_test___logs: provisioning_endpoints }: any = await graphqlClient.request(gql`
-      query MyQuery($searchString: [String!]) {
+      query {
         morgs_near_test___logs(where: {message: {_ilike: "%Provisioning endpoint%"}}) {
           message
         }
@@ -168,6 +168,16 @@ describe('Indexer integration', () => {
     `);
     
     expect(provisioning_endpoints.length).toEqual(2);
+
+    const { morgs_near_test___logs: running_function_enpoint }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___logs(where: {message: {_ilike: "%Running function%"}}) {
+          message
+        }
+      }
+    `);
+    
+    expect(running_function_enpoint.length).toEqual(2);
 
   });
 
