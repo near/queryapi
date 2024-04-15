@@ -116,7 +116,7 @@ export default class Indexer {
       try {
         this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
 
-        this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig.schemaName(), this.indexerConfig.logLevel, this.database_connection_parameters);
+        this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
         this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
       } catch (e) {
         const error = e as Error;
