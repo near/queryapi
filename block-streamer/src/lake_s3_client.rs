@@ -64,6 +64,7 @@ impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
 #[derive(Debug)]
 pub struct LakeS3Client {
     s3_client: crate::s3_client::S3Client,
+    // TODO use a more efficient cache
     futures_cache: RwLock<HashMap<String, SharedGetObjectBytesFuture>>,
 }
 
@@ -100,17 +101,17 @@ impl LakeS3Client {
 
     async fn get_object_bytes_cached(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
         let existing_future = {
-            let read_lock = self.futures_cache.read().await;
+            let futures_cache = self.futures_cache.read().await;
 
-            read_lock.get(prefix).cloned()
+            futures_cache.get(prefix).cloned()
         };
 
         let get_object_bytes_future = if let Some(future) = existing_future {
             future
         } else {
-            let mut write_lock = self.futures_cache.write().await;
+            let mut futures_cache = self.futures_cache.write().await;
 
-            write_lock
+            futures_cache
                 .entry(prefix.to_string())
                 .or_insert_with(|| self.get_object_bytes(bucket, prefix).shared())
                 .clone()
@@ -119,9 +120,9 @@ impl LakeS3Client {
         let get_object_bytes_result = get_object_bytes_future.await;
 
         if get_object_bytes_result.is_err() {
-            let mut write_lock = self.futures_cache.write().await;
+            let mut futures_cache = self.futures_cache.write().await;
 
-            write_lock.remove(prefix);
+            futures_cache.remove(prefix);
         }
 
         get_object_bytes_result
@@ -184,21 +185,109 @@ mockall::mock! {
 mod tests {
     use super::*;
 
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Barrier;
+
+    use aws_sdk_s3::error::SdkError;
+    use aws_sdk_s3::operation::get_object::GetObjectError;
     use aws_sdk_s3::operation::get_object::GetObjectOutput;
+    use aws_sdk_s3::types::error::NoSuchKey;
     use near_lake_framework::s3_client::S3Client;
 
     #[tokio::test]
-    async fn calls_get_object() {
+    async fn deduplicates_parallel_requests() {
+        let s3_get_call_count = Arc::new(AtomicUsize::new(0));
+
+        let call_count_clone = s3_get_call_count.clone();
+
         let mut mock_s3_client = crate::s3_client::S3Client::default();
-        mock_s3_client
-            .expect_get_object()
-            .returning(|_, _| Ok(GetObjectOutput::builder().build()))
-            .once();
+        mock_s3_client.expect_clone().returning(move || {
+            let call_count_clone = call_count_clone.clone();
+
+            let mut mock_s3_client = crate::s3_client::S3Client::default();
+            mock_s3_client.expect_get_object().returning(move |_, _| {
+                call_count_clone.fetch_add(1, Ordering::SeqCst);
+
+                Ok(GetObjectOutput::builder().build())
+            });
+
+            mock_s3_client
+        });
+
+        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
+
+        let barrier = Arc::new(Barrier::new(10));
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let client = shared_lake_s3_client.clone();
+                let barrier_clone = barrier.clone();
+
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+
+                    rt.block_on(async {
+                        barrier_clone.wait();
+                        client.get_object_bytes("bucket", "prefix").await
+                    })
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            let _ = handle.join();
+        }
+
+        assert_eq!(s3_get_call_count.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn caches_requests() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client.expect_clone().returning(|| {
+            let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+            mock_s3_client
+                .expect_get_object()
+                .returning(|_, _| Ok(GetObjectOutput::builder().build()));
+
+            mock_s3_client
+        });
 
         let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
 
         let _ = shared_lake_s3_client
             .get_object_bytes("bucket", "prefix")
             .await;
+
+        let futures_cache = shared_lake_s3_client.inner.futures_cache.read().await;
+        assert!(futures_cache.get("prefix").is_some());
+    }
+
+    #[tokio::test]
+    async fn removes_cache_on_error() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client.expect_clone().returning(|| {
+            let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+            mock_s3_client.expect_get_object().returning(|_, _| {
+                Err(SdkError::construction_failure(GetObjectError::NoSuchKey(
+                    NoSuchKey::builder().build(),
+                )))
+            });
+
+            mock_s3_client
+        });
+
+        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
+
+        let _ = shared_lake_s3_client
+            .get_object_bytes("bucket", "prefix")
+            .await;
+
+        let futures_cache = shared_lake_s3_client.inner.futures_cache.read().await;
+
+        assert!(futures_cache.get("prefix").is_none());
     }
 }
