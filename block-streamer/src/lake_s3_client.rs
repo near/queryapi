@@ -1,9 +1,14 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::future::Shared;
+use futures::{Future, FutureExt};
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
+use tokio::sync::RwLock;
 
 use crate::metrics;
 
@@ -11,6 +16,14 @@ use crate::metrics;
 pub use MockSharedLakeS3ClientImpl as SharedLakeS3Client;
 #[cfg(not(test))]
 pub use SharedLakeS3ClientImpl as SharedLakeS3Client;
+
+type GetObjectBytesResult = Result<Vec<u8>, GetObjectBytesError>;
+
+type GetObjectBytesFuture = Pin<Box<dyn Future<Output = GetObjectBytesResult> + Send>>;
+
+type SharedGetObjectBytesFuture = Shared<GetObjectBytesFuture>;
+
+type ListCommonPrefixesResult = Result<Vec<String>, ListCommonPrefixesError>;
 
 #[derive(Clone)]
 pub struct SharedLakeS3ClientImpl {
@@ -33,19 +46,15 @@ impl SharedLakeS3ClientImpl {
 
 #[async_trait]
 impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
-    async fn get_object_bytes(
-        &self,
-        bucket: &str,
-        prefix: &str,
-    ) -> Result<Vec<u8>, GetObjectBytesError> {
-        self.inner.get_object_bytes(bucket, prefix).await
+    async fn get_object_bytes(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
+        self.inner.get_object_bytes_cached(bucket, prefix).await
     }
 
     async fn list_common_prefixes(
         &self,
         bucket: &str,
         start_after_prefix: &str,
-    ) -> Result<Vec<String>, ListCommonPrefixesError> {
+    ) -> ListCommonPrefixesResult {
         self.inner
             .list_common_prefixes(bucket, start_after_prefix)
             .await
@@ -55,11 +64,15 @@ impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
 #[derive(Debug)]
 pub struct LakeS3Client {
     s3_client: crate::s3_client::S3Client,
+    futures_cache: RwLock<HashMap<String, SharedGetObjectBytesFuture>>,
 }
 
 impl LakeS3Client {
     pub fn new(s3_client: crate::s3_client::S3Client) -> Self {
-        Self { s3_client }
+        Self {
+            s3_client,
+            futures_cache: RwLock::new(HashMap::new()),
+        }
     }
 
     pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self {
@@ -68,25 +81,57 @@ impl LakeS3Client {
         Self::new(s3_client)
     }
 
-    async fn get_object_bytes(
-        &self,
-        bucket: &str,
-        prefix: &str,
-    ) -> Result<Vec<u8>, GetObjectBytesError> {
-        metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
+    fn get_object_bytes(&self, bucket: &str, prefix: &str) -> GetObjectBytesFuture {
+        let s3_client = self.s3_client.clone();
+        let bucket = bucket.to_owned();
+        let prefix = prefix.to_owned();
 
-        let object = self.s3_client.get_object(bucket, prefix).await?;
+        async move {
+            metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
 
-        let bytes = object.body.collect().await?.into_bytes().to_vec();
+            let object = s3_client.get_object(&bucket, &prefix).await?;
 
-        Ok(bytes)
+            let bytes = object.body.collect().await?.into_bytes().to_vec();
+
+            Ok(bytes)
+        }
+        .boxed()
+    }
+
+    async fn get_object_bytes_cached(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
+        let existing_future = {
+            let read_lock = self.futures_cache.read().await;
+
+            read_lock.get(prefix).cloned()
+        };
+
+        let get_object_bytes_future = if let Some(future) = existing_future {
+            future
+        } else {
+            let mut write_lock = self.futures_cache.write().await;
+
+            write_lock
+                .entry(prefix.to_string())
+                .or_insert_with(|| self.get_object_bytes(bucket, prefix).shared())
+                .clone()
+        };
+
+        let get_object_bytes_result = get_object_bytes_future.await;
+
+        if get_object_bytes_result.is_err() {
+            let mut write_lock = self.futures_cache.write().await;
+
+            write_lock.remove(prefix);
+        }
+
+        get_object_bytes_result
     }
 
     async fn list_common_prefixes(
         &self,
         bucket: &str,
         start_after_prefix: &str,
-    ) -> Result<Vec<String>, ListCommonPrefixesError> {
+    ) -> ListCommonPrefixesResult {
         let response = self
             .s3_client
             .list_objects(bucket, start_after_prefix, None)
@@ -121,13 +166,13 @@ mockall::mock! {
             &self,
             bucket: &str,
             prefix: &str,
-        ) -> Result<Vec<u8>, GetObjectBytesError>;
+        ) -> GetObjectBytesResult;
 
         async fn list_common_prefixes(
             &self,
             bucket: &str,
             start_after_prefix: &str,
-        ) -> Result<Vec<String>, ListCommonPrefixesError>;
+        ) -> ListCommonPrefixesResult;
     }
 
     impl Clone for SharedLakeS3ClientImpl {
