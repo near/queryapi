@@ -58,7 +58,6 @@ export default class IndexerMeta {
         LogLevel[entry.level],
         entry.message
       ]);
-
       const query = format(this.logInsertQueryTemplate, this.schemaName, values);
       await this.pgClient.query(query);
     }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.schemaName}.__logs table`)
