@@ -40,7 +40,7 @@ impl S3ClientImpl {
     pub async fn list_objects(
         &self,
         bucket: &str,
-        prefix: &str,
+        start_after: &str,
         continuation_token: Option<String>,
     ) -> Result<
         aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
@@ -51,7 +51,7 @@ impl S3ClientImpl {
             .list_objects_v2()
             .delimiter("/")
             .bucket(bucket)
-            .prefix(prefix);
+            .start_after(start_after);
 
         if let Some(token) = continuation_token {
             builder = builder.continuation_token(token);
