@@ -15,7 +15,7 @@ use blockstreamer::*;
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    lake_s3_config: aws_sdk_s3::Config,
+    lake_s3_client: crate::lake_s3_client::LakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
@@ -24,12 +24,12 @@ impl BlockStreamerService {
     pub fn new(
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-        lake_s3_config: aws_sdk_s3::Config,
+        lake_s3_client: crate::lake_s3_client::LakeS3Client,
     ) -> Self {
         Self {
             redis_client,
             delta_lake_client,
-            lake_s3_config,
+            lake_s3_client,
             chain_id: ChainId::Mainnet,
             block_streams: Mutex::new(HashMap::new()),
         }
@@ -115,7 +115,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 request.start_block_height,
                 self.redis_client.clone(),
                 self.delta_lake_client.clone(),
-                self.lake_s3_config.clone(),
+                self.lake_s3_client.clone(),
             )
             .map_err(|_| Status::internal("Failed to start block stream"))?;
 
@@ -211,12 +211,15 @@ mod tests {
             .expect_xadd::<String, u64>()
             .returning(|_, _| Ok(()));
 
-        let lake_s3_config = crate::test_utils::create_mock_lake_s3_config(&[107503704]);
+        let mut mock_lake_s3_client = crate::lake_s3_client::LakeS3Client::default();
+        mock_lake_s3_client
+            .expect_clone()
+            .returning(crate::lake_s3_client::LakeS3Client::default);
 
         BlockStreamerService::new(
             std::sync::Arc::new(mock_redis_client),
             std::sync::Arc::new(mock_delta_lake_client),
-            lake_s3_config,
+            mock_lake_s3_client,
         )
     }
 

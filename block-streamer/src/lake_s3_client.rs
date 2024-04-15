@@ -1,27 +1,30 @@
 use async_trait::async_trait;
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
 
+#[cfg(not(test))]
+pub use LakeS3ClientImpl as LakeS3Client;
+#[cfg(test)]
+pub use MockLakeS3Client as LakeS3Client;
+
 #[derive(Clone, Debug)]
-pub struct LakeS3Client {
+pub struct LakeS3ClientImpl {
     s3_client: aws_sdk_s3::Client,
 }
 
-impl LakeS3Client {
+impl LakeS3ClientImpl {
     pub fn new(s3_client: aws_sdk_s3::Client) -> Self {
         Self { s3_client }
     }
-}
 
-impl LakeS3Client {
     pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self {
         let s3_client = aws_sdk_s3::Client::from_conf(config);
 
-        Self { s3_client }
+        Self::new(s3_client)
     }
 }
 
 #[async_trait]
-impl near_lake_framework::s3_client::S3Client for LakeS3Client {
+impl near_lake_framework::s3_client::S3Client for LakeS3ClientImpl {
     async fn get_object_bytes(
         &self,
         bucket: &str,
@@ -69,5 +72,31 @@ impl near_lake_framework::s3_client::S3Client for LakeS3Client {
         };
 
         Ok(prefixes)
+    }
+}
+
+#[cfg(test)]
+mockall::mock! {
+    pub LakeS3Client {
+        pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self;
+    }
+
+    #[async_trait]
+    impl near_lake_framework::s3_client::S3Client for LakeS3Client {
+        async fn get_object_bytes(
+            &self,
+            bucket: &str,
+            prefix: &str,
+        ) -> Result<Vec<u8>, GetObjectBytesError>;
+
+        async fn list_common_prefixes(
+            &self,
+            bucket: &str,
+            start_after_prefix: &str,
+        ) -> Result<Vec<String>, ListCommonPrefixesError>;
+    }
+
+    impl Clone for LakeS3Client {
+        fn clone(&self) -> Self;
     }
 }
