@@ -116,6 +116,7 @@ impl BlockStream {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 #[tracing::instrument(
     skip_all,
     fields(

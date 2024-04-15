@@ -1,5 +1,9 @@
+#![cfg_attr(test, allow(dead_code))]
+
 use async_trait::async_trait;
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
+
+use crate::metrics;
 
 #[cfg(not(test))]
 pub use LakeS3ClientImpl as LakeS3Client;
@@ -30,6 +34,8 @@ impl near_lake_framework::s3_client::S3Client for LakeS3ClientImpl {
         bucket: &str,
         prefix: &str,
     ) -> Result<Vec<u8>, GetObjectBytesError> {
+        metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
+
         let object = self
             .s3_client
             .get_object()
