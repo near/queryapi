@@ -18,6 +18,12 @@ pub struct SharedLakeS3ClientImpl {
 }
 
 impl SharedLakeS3ClientImpl {
+    pub fn new(inner: LakeS3Client) -> Self {
+        Self {
+            inner: Arc::new(inner),
+        }
+    }
+
     pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self {
         Self {
             inner: Arc::new(LakeS3Client::from_conf(config)),
@@ -48,16 +54,16 @@ impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
 
 #[derive(Debug)]
 pub struct LakeS3Client {
-    s3_client: aws_sdk_s3::Client,
+    s3_client: crate::s3_client::S3Client,
 }
 
 impl LakeS3Client {
-    pub fn new(s3_client: aws_sdk_s3::Client) -> Self {
+    pub fn new(s3_client: crate::s3_client::S3Client) -> Self {
         Self { s3_client }
     }
 
     pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self {
-        let s3_client = aws_sdk_s3::Client::from_conf(config);
+        let s3_client = crate::s3_client::S3Client::new(config);
 
         Self::new(s3_client)
     }
@@ -69,14 +75,7 @@ impl LakeS3Client {
     ) -> Result<Vec<u8>, GetObjectBytesError> {
         metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
 
-        let object = self
-            .s3_client
-            .get_object()
-            .bucket(bucket)
-            .key(prefix)
-            .request_payer(aws_sdk_s3::types::RequestPayer::Requester)
-            .send()
-            .await?;
+        let object = self.s3_client.get_object(bucket, prefix).await?;
 
         let bytes = object.body.collect().await?.into_bytes().to_vec();
 
@@ -90,13 +89,7 @@ impl LakeS3Client {
     ) -> Result<Vec<String>, ListCommonPrefixesError> {
         let response = self
             .s3_client
-            .list_objects_v2()
-            .max_keys(1000)
-            .delimiter("/".to_string())
-            .start_after(start_after_prefix)
-            .request_payer(aws_sdk_s3::types::RequestPayer::Requester)
-            .bucket(bucket)
-            .send()
+            .list_objects(bucket, start_after_prefix, None)
             .await?;
 
         let prefixes = match response.common_prefixes {
@@ -117,6 +110,8 @@ impl LakeS3Client {
 #[cfg(test)]
 mockall::mock! {
     pub SharedLakeS3ClientImpl {
+        pub fn new(inner: LakeS3Client) -> Self;
+
         pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self;
     }
 
@@ -137,5 +132,28 @@ mockall::mock! {
 
     impl Clone for SharedLakeS3ClientImpl {
         fn clone(&self) -> Self;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use aws_sdk_s3::operation::get_object::GetObjectOutput;
+    use near_lake_framework::s3_client::S3Client;
+
+    #[tokio::test]
+    async fn calls_get_object() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+        mock_s3_client
+            .expect_get_object()
+            .returning(|_, _| Ok(GetObjectOutput::builder().build()))
+            .once();
+
+        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
+
+        let _ = shared_lake_s3_client
+            .get_object_bytes("bucket", "prefix")
+            .await;
     }
 }
