@@ -150,14 +150,25 @@ describe('Indexer integration', () => {
     expect(logs.length).toEqual(4);
 
     const { morgs_near_test___logs: _logs }: any = await graphqlClient.request(gql`
-    query {
-      morgs_near_test___logs {
-        message
+      query {
+        morgs_near_test___logs {
+          message
+        }
       }
-    }
-  `);
+    `);
 
-expect(_logs.length).toEqual(4);
+    expect(_logs.length).toEqual(4);
+    
+    const { morgs_near_test___logs: provisioning_endpoints }: any = await graphqlClient.request(gql`
+      query MyQuery($searchString: [String!]) {
+        morgs_near_test___logs(where: {message: {_ilike: "%Provisioning endpoint%"}}) {
+          message
+        }
+      }
+    `);
+    
+    expect(provisioning_endpoints.length).toEqual(2);
+
   });
 
   it('test context db', async () => {
