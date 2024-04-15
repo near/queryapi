@@ -99,8 +99,7 @@ export default class Indexer {
           const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight);
           logEntries.push(provisionSuccessLogEntry);
         }
-        await this.deps.provisioner.provisionLogsIfNeeded(this.indexerConfig);
-        await this.deps.provisioner.provisionMetadataIfNeeded(this.indexerConfig);
+        await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
         simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint: failure:${error.message}`));

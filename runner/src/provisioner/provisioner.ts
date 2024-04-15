@@ -37,6 +37,24 @@ interface Config {
   postgresPort: number
 }
 
+type TableName = string;
+type TrackedTablePermissions = Map<TableName, HasuraTableMetadata>;
+
+interface TableDefinition {
+  name: string
+  columns: string
+}
+
+type Permission = 'select' | 'insert' | 'update' | 'delete';
+type HasuraPermissions = Array<{ role: string }>;
+interface HasuraTableMetadata {
+  table: TableDefinition
+  insert_permissions?: HasuraPermissions
+  select_permissions?: HasuraPermissions
+  update_permissions?: HasuraPermissions
+  delete_permissions?: HasuraPermissions
+}
+
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
   pgBouncerHost: process.env.PGHOST_PGBOUNCER ?? process.env.PGHOST,
@@ -48,8 +66,7 @@ const defaultConfig: Config = {
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
-  #hasLogsBeenProvisioned: Record<string, Record<string, boolean>> = {};
-  #hasMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasLogsMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -211,12 +228,12 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, tableNames, databaseName), 'Failed to track tables');
   }
 
-  async addPermissionsToTables (schemaName: string, databaseName: string, tableNames: string[], roleName: string, permissions: string[]): Promise<void> {
+  async addPermissionsToTables (indexerSchema: IndexerConfig, tableNames: string[], permissions: string[]): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.addPermissionsToTables(
-      schemaName,
-      databaseName,
+      indexerSchema.schemaName(),
+      indexerSchema.databaseName(),
       tableNames,
-      roleName,
+      indexerSchema.hasuraRoleName(),
       permissions
     ), 'Failed to add permissions to tables');
   }
@@ -234,15 +251,18 @@ export default class Provisioner {
   }
 
   /**
-    * Provision logs table for existing Indexers which have already had all
+    * Provision logs and metadata table for existing Indexers which have already had all
     * other resources provisioned.
     *
     * */
-  async provisionLogsIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
-    if (this.#hasLogsBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
+  async provisionLogsAndMetadataIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
+    if (this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
       return;
     }
     const logsTable = '__logs';
+    const metadataTable = '__metadata';
+    const permissionsToAdd: Permission[] = ['select', 'insert', 'update', 'delete'];
+    let provisioningComplete = false;
 
     await wrapError(
       async () => {
@@ -250,69 +270,70 @@ export default class Provisioner {
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
-          await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
-          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
+          tableNames.push(logsTable);
         }
-      },
-      'Failed standalone logs provisioning'
-    );
-
-    this.#hasLogsBeenProvisioned[indexerConfig.accountId] ??= {};
-    this.#hasLogsBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
-  }
-
-  /**
-    * Provision metadata table for existing Indexers which have already had all
-    * other resources provisioned.
-    *
-    * */
-  async provisionMetadataIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
-    if (this.#hasMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
-      return;
-    }
-    const metadataTable = '__metadata';
-    let provisioningComplete = false;
-
-    await wrapError(
-      async () => {
-        const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
-
         if (!tableNames.includes(metadataTable)) {
           await this.createMetadataTable(indexerConfig.databaseName(), indexerConfig.schemaName());
           await this.setProvisioningStatus(indexerConfig.userName(), indexerConfig.schemaName());
-          await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
-          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
+          tableNames.push(metadataTable);
         }
-        await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
-        await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
+
+        const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
+        const needsTrackingTables = this.getTablesMissingTracking(tableNames, hasuraTablesMetadata);
+        const needsPermissionsTables = this.getTablesMissingPermissions(
+          indexerConfig.hasuraRoleName(),
+          tableNames,
+          hasuraTablesMetadata,
+          permissionsToAdd
+        );
+        console.log('needsTrackingTables', needsTrackingTables);
+        console.log('needsPermissionsTables', needsPermissionsTables);
+
+        if (needsTrackingTables.length === 0 && needsPermissionsTables.length === 0) {
+          provisioningComplete = true;
+        } else {
+          await this.trackTables(indexerConfig.schemaName(), needsTrackingTables, indexerConfig.databaseName());
+          await this.addPermissionsToTables(indexerConfig, needsPermissionsTables, permissionsToAdd);
+        }
       },
-      'Failed standalone metadata provisioning'
+      'Failed logs and metadata provisioning'
     );
 
     if (provisioningComplete) {
-      this.#hasMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
-      this.#hasMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+      this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
+      this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
     }
   }
 
-  async getTableMetadata (indexerConfig: IndexerConfig): Promise<Map<string, any>> {
-    console.log('getting metadata');
-    return await this.hasuraClient.getTableMetadata(indexerConfig.databaseName(), indexerConfig.schemaName());
+  async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {
+    const trackedTables = await this.hasuraClient.getTrackedTablesWithPermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
+    const trackedTablePermissions: TrackedTablePermissions = new Map();
+
+    trackedTables.forEach((tableMetadata: HasuraTableMetadata) => {
+      trackedTablePermissions.set(tableMetadata.table.name, tableMetadata);
+    });
+
+    return trackedTablePermissions;
   }
 
   private getTablesMissingTracking (shouldBeTrackedTables: string[], tableMetadata: Map<string, any>): string[] {
     return shouldBeTrackedTables.filter((tableName: string) => !tableMetadata.has(tableName));
   }
 
-  private getTablesMissingPermissions (userName: string, shouldHavePermissionsTables: string[], tableMetadata: Map<string, any>): string[] {
-    // TODO: Allow configuring of permissions checking
-    const permissionsToCheck = ['insert_permissions', 'select_permissions', 'update_permissions', 'delete_permissions'];
+  private getTablesMissingPermissions (
+    userName: string,
+    shouldHavePermissionsTables: string[],
+    tableMetadata: Map<string, HasuraTableMetadata>,
+    permissionsToCheck: Permission[]
+  ): string[] {
     return shouldHavePermissionsTables.filter((tableName: string) => {
-      const table = tableMetadata.get(tableName);
-      if (table) {
+      const tablePermissions = tableMetadata.get(tableName);
+      if (tablePermissions) {
         return permissionsToCheck.some((permission: string) => {
+          const permisionAttribute = `${permission}_permissions` as keyof HasuraTableMetadata;
+          const usersWithPermission = tablePermissions[permisionAttribute] as (HasuraPermissions | undefined);
           // Returns true if the table does not have the permission or the user is not in the role
-          return !table[permission]?.some((role: { role: string }) => role.role === userName);
+          return !usersWithPermission?.some((role: { role: string }) => role.role === userName);
         });
       }
       return true;
@@ -347,7 +368,7 @@ export default class Provisioner {
 
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-          await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
+          await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
           this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
         },
         'Failed to provision endpoint'
