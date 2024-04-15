@@ -15,7 +15,7 @@ use blockstreamer::*;
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    lake_s3_client: crate::lake_s3_client::LakeS3Client,
+    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
@@ -24,7 +24,7 @@ impl BlockStreamerService {
     pub fn new(
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-        lake_s3_client: crate::lake_s3_client::LakeS3Client,
+        lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
         Self {
             redis_client,
@@ -211,10 +211,10 @@ mod tests {
             .expect_xadd::<String, u64>()
             .returning(|_, _| Ok(()));
 
-        let mut mock_lake_s3_client = crate::lake_s3_client::LakeS3Client::default();
+        let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
         mock_lake_s3_client
             .expect_clone()
-            .returning(crate::lake_s3_client::LakeS3Client::default);
+            .returning(crate::lake_s3_client::SharedLakeS3Client::default);
 
         BlockStreamerService::new(
             std::sync::Arc::new(mock_redis_client),

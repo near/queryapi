@@ -1,21 +1,57 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use std::sync::Arc;
+
 use async_trait::async_trait;
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
 
 use crate::metrics;
 
-#[cfg(not(test))]
-pub use LakeS3ClientImpl as LakeS3Client;
 #[cfg(test)]
-pub use MockLakeS3Client as LakeS3Client;
+pub use MockSharedLakeS3ClientImpl as SharedLakeS3Client;
+#[cfg(not(test))]
+pub use SharedLakeS3ClientImpl as SharedLakeS3Client;
 
-#[derive(Clone, Debug)]
-pub struct LakeS3ClientImpl {
+#[derive(Clone)]
+pub struct SharedLakeS3ClientImpl {
+    inner: Arc<LakeS3Client>,
+}
+
+impl SharedLakeS3ClientImpl {
+    pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self {
+        Self {
+            inner: Arc::new(LakeS3Client::from_conf(config)),
+        }
+    }
+}
+
+#[async_trait]
+impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
+    async fn get_object_bytes(
+        &self,
+        bucket: &str,
+        prefix: &str,
+    ) -> Result<Vec<u8>, GetObjectBytesError> {
+        self.inner.get_object_bytes(bucket, prefix).await
+    }
+
+    async fn list_common_prefixes(
+        &self,
+        bucket: &str,
+        start_after_prefix: &str,
+    ) -> Result<Vec<String>, ListCommonPrefixesError> {
+        self.inner
+            .list_common_prefixes(bucket, start_after_prefix)
+            .await
+    }
+}
+
+#[derive(Debug)]
+pub struct LakeS3Client {
     s3_client: aws_sdk_s3::Client,
 }
 
-impl LakeS3ClientImpl {
+impl LakeS3Client {
     pub fn new(s3_client: aws_sdk_s3::Client) -> Self {
         Self { s3_client }
     }
@@ -25,10 +61,7 @@ impl LakeS3ClientImpl {
 
         Self::new(s3_client)
     }
-}
 
-#[async_trait]
-impl near_lake_framework::s3_client::S3Client for LakeS3ClientImpl {
     async fn get_object_bytes(
         &self,
         bucket: &str,
@@ -83,12 +116,12 @@ impl near_lake_framework::s3_client::S3Client for LakeS3ClientImpl {
 
 #[cfg(test)]
 mockall::mock! {
-    pub LakeS3Client {
+    pub SharedLakeS3ClientImpl {
         pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self;
     }
 
     #[async_trait]
-    impl near_lake_framework::s3_client::S3Client for LakeS3Client {
+    impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
         async fn get_object_bytes(
             &self,
             bucket: &str,
@@ -102,7 +135,7 @@ mockall::mock! {
         ) -> Result<Vec<String>, ListCommonPrefixesError>;
     }
 
-    impl Clone for LakeS3Client {
+    impl Clone for SharedLakeS3ClientImpl {
         fn clone(&self) -> Self;
     }
 }
