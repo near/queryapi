@@ -290,8 +290,12 @@ export default class Provisioner {
         if (needsTrackingTables.length === 0 && needsPermissionsTables.length === 0) {
           provisioningComplete = true;
         } else {
-          await this.trackTables(indexerConfig.schemaName(), needsTrackingTables, indexerConfig.databaseName());
-          await this.addPermissionsToTables(indexerConfig, needsPermissionsTables, permissionsToAdd);
+          if (needsTrackingTables.length > 0) {
+            await this.trackTables(indexerConfig.schemaName(), needsTrackingTables, indexerConfig.databaseName());
+          }
+          if (needsPermissionsTables.length > 0) {
+            await this.addPermissionsToTables(indexerConfig, needsPermissionsTables, permissionsToAdd);
+          }
         }
       },
       'Failed logs and metadata provisioning'

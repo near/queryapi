@@ -241,19 +241,63 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
 
-    it('provisions logs table once', async () => {
-      await provisioner.provisionLogsIfNeeded(indexerConfig);
-      await provisioner.provisionLogsIfNeeded(indexerConfig);
+    it('throws when scheduling cron jobs fails', async () => {
+      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
 
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(1);
-      expect(cronPgClient.query).toBeCalledTimes(2);
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
 
-    it('provisions metadata table once', async () => {
-      await provisioner.provisionMetadataIfNeeded(indexerConfig);
-      await provisioner.provisionMetadataIfNeeded(indexerConfig);
+    it('throws when scheduling cron jobs fails', async () => {
+      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
 
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(1);
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
+    });
+
+    it('provisions and tracks logs and metadata table once, adds permissions twice', async () => {
+      hasuraClient.getTrackedTablesWithPermissions = jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([
+        {
+          table: {
+            name: 'blocks',
+            schema: 'morgs_near_test_function',
+          },
+        },
+        {
+          table: {
+            name: '__logs',
+            schema: 'morgs_near_test_function',
+          },
+        },
+        {
+          table: {
+            name: '__metadata',
+            schema: 'morgs_near_test_function',
+          },
+        }
+      ]);
+      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValueOnce(['blocks', '__logs', '__metadata']);
+      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
+      expect(cronPgClient.query).toBeCalledTimes(2);
+      expect(hasuraClient.trackTables).toBeCalledTimes(1);
+      expect(hasuraClient.addPermissionsToTables).toBeCalledTimes(2);
+    });
+
+    it('provision logs and metadata table function caches result', async () => {
+      hasuraClient.getTrackedTablesWithPermissions = jest.fn().mockReturnValue([
+        generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near'),
+        generateTableConfig('morgs_near_test_function', '__logs', 'morgs_near'),
+        generateTableConfig('morgs_near_test_function', '__metadata', 'morgs_near'),
+      ]);
+      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', '__logs', '__metadata']);
+      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+
+      expect(hasuraClient.executeSqlOnSchema).not.toBeCalled();
+      expect(cronPgClient.query).not.toBeCalled();
+      expect(hasuraClient.trackTables).not.toBeCalled();
+      expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
       expect(userPgClientQuery.mock.calls).toEqual([
         [setProvisioningStatusQuery],
       ]);
@@ -316,3 +360,24 @@ describe('Provisioner', () => {
     });
   });
 });
+
+function generateTableConfig (schemaName: string, tableName: string, role: string): any {
+  return {
+    table: {
+      name: tableName,
+      schema: schemaName
+    },
+    insert_permissions: [
+      { role }
+    ],
+    select_permissions: [
+      { role }
+    ],
+    update_permissions: [
+      { role }
+    ],
+    delete_permissions: [
+      { role }
+    ],
+  };
+}
