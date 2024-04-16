@@ -983,7 +983,7 @@ describe('Indexer unit tests', () => {
       fetch: mockFetch as unknown as typeof fetch,
       provisioner,
       dmlHandler: genericMockDmlHandler,
-      genericMockIndexerMeta,
+      indexerMeta: genericMockIndexerMeta,
     }, undefined, config);
 
     await indexer.execute(mockBlock);
