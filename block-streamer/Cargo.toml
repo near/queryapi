@@ -30,7 +30,7 @@ wildmatch = "2.1.1"
 
 registry-types = { path = "../registry/types", features = ["near-primitives"] }
 
-near-lake-framework = { git = "https://github.com/near/near-lake-framework-rs", branch = "feat/custom-s3-client" }
+near-lake-framework = "0.7.8"
 
 [build-dependencies]
 tonic-build = "0.10"
