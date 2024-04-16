@@ -4,6 +4,7 @@ import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
 import { LogLevel } from './log-entry';
+import type IndexerConfig from '../indexer-config/indexer-config';
 
 export enum IndexerStatus {
   PROVISIONING = 'PROVISIONING',
@@ -25,16 +26,15 @@ export default class IndexerMeta {
   private readonly loggingLevel: number;
 
   constructor (
-    functionName: string,
-    loggingLevel: number,
+    indexerConfig: IndexerConfig,
     databaseConnectionParameters: PostgresConnectionParams,
     pgClientInstance: PgClient | undefined = undefined
   ) {
     const pgClient = pgClientInstance ?? new PgClient(databaseConnectionParameters);
 
     this.pgClient = pgClient;
-    this.schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
-    this.loggingLevel = loggingLevel;
+    this.schemaName = indexerConfig.schemaName();
+    this.loggingLevel = indexerConfig.logLevel;
   }
 
   private shouldLog (logLevel: LogLevel): boolean {
@@ -58,7 +58,6 @@ export default class IndexerMeta {
         LogLevel[entry.level],
         entry.message
       ]);
-
       const query = format(this.logInsertQueryTemplate, this.schemaName, values);
       await this.pgClient.query(query);
     }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.schemaName}.__logs table`)

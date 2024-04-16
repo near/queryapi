@@ -5,9 +5,9 @@ import { Parser } from 'node-sql-parser';
 
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
-import /** LogEntry, */ { LogLevel } from '../indexer-meta/log-entry';
+import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
 
-import /** IndexerMeta, */ { IndexerStatus } from '../indexer-meta/indexer-meta';
+import IndexerMeta, { IndexerStatus } from '../indexer-meta/indexer-meta';
 import { trace, type Span } from '@opentelemetry/api';
 import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
@@ -16,7 +16,7 @@ interface Dependencies {
   fetch: typeof fetch
   provisioner: Provisioner
   dmlHandler?: DmlHandler
-  // indexerMeta?: IndexerMeta
+  indexerMeta?: IndexerMeta
   parser: Parser
 };
 
@@ -82,44 +82,46 @@ export default class Indexer {
 
     const simultaneousPromises: Array<Promise<any>> = [];
     const allMutations: string[] = [];
-    // const logEntries: LogEntry[] = [];
+    const logEntries: LogEntry[] = [];
 
     try {
       const runningMessage = `Running function ${this.indexerConfig.fullName()} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
-      simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, runningMessage));
+      simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, blockHeight, runningMessage));
 
       try {
         if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
           await this.setStatus(blockHeight, IndexerStatus.PROVISIONING);
-          simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
-          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: starting' });
+          simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
+          const provisionStartLogEntry = LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight);
+          logEntries.push(provisionStartLogEntry);
           await this.deps.provisioner.provisionUserApi(this.indexerConfig);
-          simultaneousPromises.push(this.writeLog(LogLevel.INFO, blockHeight, 'Provisioning endpoint: successful'));
-          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: 'Provisioning endpoint: successful' });
+          simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, blockHeight, 'Provisioning endpoint: successful'));
+          const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight);
+          logEntries.push(provisionSuccessLogEntry);
         }
         await this.deps.provisioner.provisionLogsIfNeeded(this.indexerConfig);
         await this.deps.provisioner.provisionMetadataIfNeeded(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
-        simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Provisioning endpoint: failure', error.message));
-        // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.INFO, message: `Provisioning endpoint: failure ${error.message}` });
+        simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint: failure:${error.message}`));
+        const provisionFailureLogEntry = LogEntry.systemError('Provisioning endpoint: failure', blockHeight);
+        logEntries.push(provisionFailureLogEntry);
         throw error;
       }
 
-      // const runningLogEntry = LogEntry.systemInfo(runningMessage, blockHeight);
-      // logEntries.push(runningLogEntry);
+      const runningLogEntry = LogEntry.systemInfo(runningMessage, blockHeight);
+      logEntries.push(runningLogEntry);
       // Cache database credentials after provisioning
       const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
       try {
         this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-        // this.database_connection_parameters = await this.getDatabaseConnectionParams(hasuraRoleName);
-        // this.deps.indexerMeta ??= new IndexerMeta(functionName, this.indexer_behavior.log_level, this.database_connection_parameters);
+        this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
         this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
       } catch (e) {
         const error = e as Error;
-        await this.writeLog(LogLevel.ERROR, blockHeight, 'Failed to get database connection parameters', error.message);
-        // const databaseErrorLogEntry = LogEntry.systemError('Failed to get database connection parameters', blockHeight);
-        // logEntries.push(databaseErrorLogEntry);
+        await this.writeLogOld(LogLevel.ERROR, blockHeight, 'Failed to get database connection parameters', error.message);
+        const databaseErrorLogEntry = LogEntry.systemError('Failed to get database connection parameters', blockHeight);
+        logEntries.push(databaseErrorLogEntry);
         throw error;
       } finally {
         credentialsFetchSpan.end();
@@ -129,7 +131,7 @@ export default class Indexer {
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
       simultaneousPromises.push(this.setStatus(blockHeight, IndexerStatus.RUNNING));
       const vm = new VM({ allowAsync: true });
-      const context = this.buildContext(blockHeight /* ,logEntries */);
+      const context = this.buildContext(blockHeight, logEntries);
 
       vm.freeze(block, 'block');
       vm.freeze(lakePrimitives, 'primitives');
@@ -143,8 +145,9 @@ export default class Indexer {
           await vm.run(transformedCode);
         } catch (e) {
           const error = e as Error;
-          simultaneousPromises.push(this.writeLog(LogLevel.ERROR, blockHeight, 'Error running IndexerFunction', error.message));
-          // logEntries.push({ blockHeight, logTimestamp: new Date(), logType: LogType.SYSTEM, logLevel: LogLevel.ERROR, message: `Error running IndexerFunction ${error.message}` });
+          simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, 'Error running IndexerFunction', error.message));
+          const indexerErrorLogEntry = LogEntry.systemError('Error running IndexerFunction', blockHeight);
+          logEntries.push(indexerErrorLogEntry);
           throw e;
         } finally {
           runIndexerCodeSpan.end();
@@ -156,12 +159,12 @@ export default class Indexer {
       await this.setStatus(blockHeight, IndexerStatus.FAILING);
       throw e;
     } finally {
-      await Promise.all([...simultaneousPromises]);
+      await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
     }
     return allMutations;
   }
 
-  buildContext (blockHeight: number /*, logEntries: LogEntry[] */): Context {
+  buildContext (blockHeight: number, logEntries: LogEntry[]): Context {
     return {
       graphql: async (operation, variables) => {
         const graphqlSpan = this.tracer.startSpan(`Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
@@ -189,29 +192,25 @@ export default class Indexer {
         }
       },
       debug: async (...log) => {
-        return await this.writeLog(LogLevel.DEBUG, blockHeight, ...log);
-        // const debugLogEntry = LogEntry.systemDebug(log.join(' '), blockHeight);
-        // return await this.writeLog(debugLogEntry, logEntries as LogEntry[], functionName);
+        const debugLogEntry = LogEntry.systemDebug(log.join(' '), blockHeight);
+        return await this.writeLog(debugLogEntry, logEntries);
       },
       log: async (...log) => {
-        return await this.writeLog(LogLevel.INFO, blockHeight, ...log);
-        // const infoLogEntry = LogEntry.systemInfo(log.join(' '), blockHeight);
-        // return await this.writeLog(infoLogEntry, logEntries as LogEntry[], functionName);
+        const infoLogEntry = LogEntry.systemInfo(log.join(' '), blockHeight);
+        return await this.writeLog(infoLogEntry, logEntries);
       },
       warn: async (...log) => {
-        return await this.writeLog(LogLevel.WARN, blockHeight, ...log);
-        // const warnLogEntry = LogEntry.systemWarn(log.join(' '), blockHeight);
-        // return await this.writeLog(warnLogEntry, logEntries as LogEntry[], functionName);
+        const warnLogEntry = LogEntry.systemWarn(log.join(' '), blockHeight);
+        return await this.writeLog(warnLogEntry, logEntries);
       },
       error: async (...log) => {
-        return await this.writeLog(LogLevel.ERROR, blockHeight, ...log);
-        // const errorLogEntry = LogEntry.systemError(log.join(' '), blockHeight);
-        // return await this.writeLog(errorLogEntry, logEntries as LogEntry[], functionName);
+        const errorLogEntry = LogEntry.systemError(log.join(' '), blockHeight);
+        return await this.writeLog(errorLogEntry, logEntries);
       },
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(blockHeight /** , logEntries as LogEntry[] */)
+      db: this.buildDatabaseContext(blockHeight, logEntries)
     };
   }
 
@@ -290,7 +289,7 @@ export default class Indexer {
 
   buildDatabaseContext (
     blockHeight: number,
-    // logEntries: LogEntry[],
+    logEntries: LogEntry[],
   ): Record<string, Record<string, (...args: any[]) => any>> {
     try {
       const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(this.indexerConfig.schema);
@@ -316,10 +315,8 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db insert', async (insertSpan: Span) => {
                 try {
                   // Write log before calling insert
-                  await this.writeLog(LogLevel.DEBUG, blockHeight,
-                    `Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`);
-                  // const insertLogEntry = LogEntry.systemDebug(`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`, blockHeight);
-                  // await this.writeLog(insertLogEntry, logEntries, functionName);
+                  const insertLogEntry = LogEntry.systemDebug(`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`, blockHeight);
+                  await this.writeLog(insertLogEntry, logEntries);
                   // Call insert with parameters
                   return await dmlHandler.insert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
                 } finally {
@@ -331,10 +328,8 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db select', async (selectSpan: Span) => {
                 try {
                   // Write log before calling select
-                  await this.writeLog(LogLevel.DEBUG, blockHeight,
-                    `Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`);
-                  // const selectLogEntry = LogEntry.systemDebug(`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`, blockHeight);
-                  // await this.writeLog(selectLogEntry, logEntries, functionName);
+                  const selectLogEntry = LogEntry.systemDebug(`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`, blockHeight);
+                  await this.writeLog(selectLogEntry, logEntries);
                   // Call select with parameters
                   return await dmlHandler.select(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, limit);
                 } finally {
@@ -346,10 +341,8 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db update', async (updateSpan: Span) => {
                 try {
                   // Write log before calling update
-                  await this.writeLog(LogLevel.DEBUG, blockHeight,
-                    `Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`);
-                  // const updateLogEntry = LogEntry.systemDebug(`Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`, blockHeight);
-                  // await this.writeLog(updateLogEntry, logEntries, functionName);
+                  const updateLogEntry = LogEntry.systemDebug(`Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`, blockHeight);
+                  await this.writeLog(updateLogEntry, logEntries);
                   // Call update with parameters
                   return await dmlHandler.update(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, updateObj);
                 } finally {
@@ -361,10 +354,8 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db upsert', async (upsertSpan: Span) => {
                 try {
                   // Write log before calling upsert
-                  await this.writeLog(LogLevel.DEBUG, blockHeight,
-                    `Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`);
-                  // const upsertLogEntry = LogEntry.systemDebug(`Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`, blockHeight);
-                  // await this.writeLog(upsertLogEntry, logEntries, functionName);
+                  const upsertLogEntry = LogEntry.systemDebug(`Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`, blockHeight);
+                  await this.writeLog(upsertLogEntry, logEntries);
                   // Call upsert with parameters
                   return await dmlHandler.upsert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
                 } finally {
@@ -376,10 +367,8 @@ export default class Indexer {
               return await this.tracer.startActiveSpan('Call context db delete', async (deleteSpan: Span) => {
                 try {
                   // Write log before calling delete
-                  await this.writeLog(LogLevel.DEBUG, blockHeight,
-                    `Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`);
-                  // const deleteLogEntry = LogEntry.systemDebug(`Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`, blockHeight);
-                  // await this.writeLog(deleteLogEntry, logEntries, functionName);
+                  const deleteLogEntry = LogEntry.systemDebug(`Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`, blockHeight);
+                  await this.writeLog(deleteLogEntry, logEntries);
                   // Call delete with parameters
                   return await dmlHandler.delete(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj);
                 } finally {
@@ -435,15 +424,18 @@ export default class Indexer {
     }
   }
 
-  // async writeLog (logEntry: LogEntry, logEntries: LogEntry[], functionName: string): Promise<any> {
-  //   logEntries.push(logEntry);
-  //   const { logLevel, blockHeight, message } = logEntry;
-  //   return await this.writeLogOld(logLevel, functionName, blockHeight, message);
-  // }
+  async writeLog (logEntry: LogEntry, logEntries: LogEntry[]): Promise<any> {
+    logEntries.push(logEntry);
+    const { level, blockHeight, message } = logEntry;
+    if (blockHeight) {
+      return await this.writeLogOld(level, blockHeight, message);
+    }
+  }
 
-  // async callWriteLog (logEntry: LogEntry): Promise<any> {
-  //   await (this.deps.indexerMeta as IndexerMeta).writeLogs([logEntry]);
-  // }
+  // onetime use method to allow stream-handler to writeLog into new log table in case of failure
+  async callWriteLog (logEntry: LogEntry): Promise<any> {
+    await (this.deps.indexerMeta as IndexerMeta).writeLogs([logEntry]);
+  }
 
   async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
     const realTimeMutation: string = `
@@ -474,7 +466,7 @@ export default class Indexer {
   }
 
   // todo rename to writeLogOld
-  async writeLog (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
+  async writeLogOld (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
     if (logLevel < this.indexerConfig.logLevel) {
       return;
     }
