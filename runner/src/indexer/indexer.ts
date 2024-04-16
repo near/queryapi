@@ -115,7 +115,6 @@ export default class Indexer {
       const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
       try {
         this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-
         this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
         this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
       } catch (e) {
