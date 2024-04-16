@@ -3,6 +3,7 @@ import pgFormat from 'pg-format';
 import Provisioner from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
+import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -16,6 +17,8 @@ describe('Provisioner', () => {
   const accountId = 'morgs.near';
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
+  indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
+  const setProvisioningStatusQuery = IndexerMeta.createSetStatusQuery(IndexerStatus.PROVISIONING, indexerConfig.schemaName());
   const logsDDL = expect.any(String);
   const metadataDDL = expect.any(String);
   const error = new Error('some error');
@@ -117,7 +120,8 @@ describe('Provisioner', () => {
       expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), metadataDDL);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), setProvisioningStatusQuery);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(4, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
       expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -146,7 +150,8 @@ describe('Provisioner', () => {
       expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), metadataDDL);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), setProvisioningStatusQuery);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(4, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
       expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -265,7 +270,7 @@ describe('Provisioner', () => {
       await provisioner.provisionMetadataIfNeeded(indexerConfig);
       await provisioner.provisionMetadataIfNeeded(indexerConfig);
 
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(1);
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2); // Create table and set provisioning status
     });
 
     it('get credentials for postgres', async () => {

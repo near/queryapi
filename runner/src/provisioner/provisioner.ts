@@ -8,6 +8,7 @@ import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
+import IndexerMeta, { IndexerStatus } from '../indexer-meta/indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -186,7 +187,11 @@ export default class Provisioner {
   }
 
   async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
-    return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()), `Failed to create metadata table in ${databaseName}.${schemaName}`);
+    await wrapError(async () => {
+      await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL());
+      const setProvisioningStatusQuery = IndexerMeta.createSetStatusQuery(IndexerStatus.PROVISIONING, schemaName);
+      await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, setProvisioningStatusQuery);
+    }, `Failed to create metadata table in ${databaseName}.${schemaName}`);
   }
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {

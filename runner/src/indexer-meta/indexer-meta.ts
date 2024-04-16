@@ -66,13 +66,18 @@ export default class IndexerMeta {
       });
   }
 
+  static createSetStatusQuery (status: IndexerStatus, schemaName: string): string {
+    const values = [[STATUS_ATTRIBUTE, status]];
+    const query = format(METADATA_TABLE_UPSERT, schemaName, values);
+    return query;
+  }
+
   async setStatus (status: IndexerStatus): Promise<void> {
     const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
-    const values = [[STATUS_ATTRIBUTE, status]];
-    const query = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 
     try {
-      await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.indexerConfig.schemaName()}`);
+      const setStatusQuery = IndexerMeta.createSetStatusQuery(status, this.indexerConfig.schemaName());
+      await wrapError(async () => await this.pgClient.query(setStatusQuery), `Failed to update status for ${this.indexerConfig.schemaName()}`);
     } finally {
       setStatusSpan.end();
     }
