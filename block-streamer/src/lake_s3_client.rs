@@ -76,10 +76,21 @@ impl FuturesCache {
         }
     }
 
+    async fn lock(
+        &self,
+    ) -> tokio::sync::MutexGuard<'_, SizedCache<String, SharedGetObjectBytesFuture>> {
+        let timer = metrics::LAKE_CACHE_LOCK_WAIT_SECONDS.start_timer();
+
+        let lock = self.cache.lock().await;
+
+        timer.observe_duration();
+
+        lock
+    }
+
     #[cfg(test)]
     pub async fn get(&self, key: &str) -> Option<SharedGetObjectBytesFuture> {
-        let mut cache = self.cache.lock().await;
-        cache.cache_get(key).cloned()
+        self.lock().await.cache_get(key).cloned()
     }
 
     pub async fn get_or_set_with(
@@ -87,13 +98,11 @@ impl FuturesCache {
         key: String,
         f: impl FnOnce() -> SharedGetObjectBytesFuture,
     ) -> SharedGetObjectBytesFuture {
-        let mut cache = self.cache.lock().await;
-        cache.cache_get_or_set_with(key, f).clone()
+        self.lock().await.cache_get_or_set_with(key, f).clone()
     }
 
     pub async fn remove(&self, key: &str) {
-        let mut cache = self.cache.lock().await;
-        cache.cache_remove(key);
+        self.lock().await.cache_remove(key);
     }
 }
 
