@@ -1,16 +1,19 @@
 #![cfg_attr(test, allow(dead_code))]
 
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use cached::{Cached, SizedCache};
 use futures::future::Shared;
 use futures::{Future, FutureExt};
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 
 use crate::metrics;
+
+/// Number of files added to Near Lake S3 per hour
+const CACHE_SIZE: usize = 18_000;
 
 #[cfg(test)]
 pub use MockSharedLakeS3ClientImpl as SharedLakeS3Client;
@@ -62,17 +65,49 @@ impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
 }
 
 #[derive(Debug)]
+struct FuturesCache {
+    cache: Mutex<SizedCache<String, SharedGetObjectBytesFuture>>,
+}
+
+impl FuturesCache {
+    pub fn with_size(size: usize) -> Self {
+        Self {
+            cache: Mutex::new(SizedCache::with_size(size)),
+        }
+    }
+
+    #[cfg(test)]
+    pub async fn get(&self, key: &str) -> Option<SharedGetObjectBytesFuture> {
+        let mut cache = self.cache.lock().await;
+        cache.cache_get(key).cloned()
+    }
+
+    pub async fn get_or_set_with(
+        &self,
+        key: String,
+        f: impl FnOnce() -> SharedGetObjectBytesFuture,
+    ) -> SharedGetObjectBytesFuture {
+        let mut cache = self.cache.lock().await;
+        cache.cache_get_or_set_with(key, f).clone()
+    }
+
+    pub async fn remove(&self, key: &str) {
+        let mut cache = self.cache.lock().await;
+        cache.cache_remove(key);
+    }
+}
+
+#[derive(Debug)]
 pub struct LakeS3Client {
     s3_client: crate::s3_client::S3Client,
-    // TODO use a more efficient cache
-    futures_cache: RwLock<HashMap<String, SharedGetObjectBytesFuture>>,
+    futures_cache: FuturesCache,
 }
 
 impl LakeS3Client {
     pub fn new(s3_client: crate::s3_client::S3Client) -> Self {
         Self {
             s3_client,
-            futures_cache: RwLock::new(HashMap::new()),
+            futures_cache: FuturesCache::with_size(CACHE_SIZE),
         }
     }
 
@@ -82,7 +117,7 @@ impl LakeS3Client {
         Self::new(s3_client)
     }
 
-    fn get_object_bytes(&self, bucket: &str, prefix: &str) -> GetObjectBytesFuture {
+    fn get_object_bytes_shared(&self, bucket: &str, prefix: &str) -> SharedGetObjectBytesFuture {
         let s3_client = self.s3_client.clone();
         let bucket = bucket.to_owned();
         let prefix = prefix.to_owned();
@@ -97,32 +132,21 @@ impl LakeS3Client {
             Ok(bytes)
         }
         .boxed()
+        .shared()
     }
 
     async fn get_object_bytes_cached(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
-        let existing_future = {
-            let futures_cache = self.futures_cache.read().await;
-
-            futures_cache.get(prefix).cloned()
-        };
-
-        let get_object_bytes_future = if let Some(future) = existing_future {
-            future
-        } else {
-            let mut futures_cache = self.futures_cache.write().await;
-
-            futures_cache
-                .entry(prefix.to_string())
-                .or_insert_with(|| self.get_object_bytes(bucket, prefix).shared())
-                .clone()
-        };
+        let get_object_bytes_future = self
+            .futures_cache
+            .get_or_set_with(prefix.to_string(), || {
+                self.get_object_bytes_shared(bucket, prefix)
+            })
+            .await;
 
         let get_object_bytes_result = get_object_bytes_future.await;
 
         if get_object_bytes_result.is_err() {
-            let mut futures_cache = self.futures_cache.write().await;
-
-            futures_cache.remove(prefix);
+            self.futures_cache.remove(prefix).await;
         }
 
         get_object_bytes_result
@@ -260,8 +284,12 @@ mod tests {
             .get_object_bytes("bucket", "prefix")
             .await;
 
-        let futures_cache = shared_lake_s3_client.inner.futures_cache.read().await;
-        assert!(futures_cache.get("prefix").is_some());
+        assert!(shared_lake_s3_client
+            .inner
+            .futures_cache
+            .get("prefix")
+            .await
+            .is_some());
     }
 
     #[tokio::test]
@@ -286,8 +314,11 @@ mod tests {
             .get_object_bytes("bucket", "prefix")
             .await;
 
-        let futures_cache = shared_lake_s3_client.inner.futures_cache.read().await;
-
-        assert!(futures_cache.get("prefix").is_none());
+        assert!(shared_lake_s3_client
+            .inner
+            .futures_cache
+            .get("prefix")
+            .await
+            .is_none());
     }
 }
