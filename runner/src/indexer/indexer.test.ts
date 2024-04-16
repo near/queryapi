@@ -1294,6 +1294,8 @@ describe('Indexer unit tests', () => {
 
     const indexerMeta: any = {
       writeLogs: jest.fn(),
+      setStatus: jest.fn(),
+      updateBlockHeight: jest.fn(),
     };
 
     const code = `
