@@ -181,10 +181,7 @@ export default class HasuraClient {
     source: string,
     schemaName: string,
   ): Promise<any> {
-    const metadata = await this.executeMetadataRequest(
-      'export_metadata',
-      {},
-    );
+    const metadata = await this.exportMetadata();
     const tablesForSchema = metadata.sources
       .find((database: { name: string }) => database.name === source)
       .tables

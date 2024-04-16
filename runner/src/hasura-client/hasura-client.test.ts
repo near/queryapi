@@ -97,6 +97,20 @@ describe('HasuraClient', () => {
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
+  it('gets tracked tables and their permissions in a schema', async () => {
+    const TEST_METADATA = generateTableMetadata(['schemaA', 'schemaB'], ['tableA', 'tableB'], 'role');
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValue({
+        status: 200,
+        text: () => JSON.stringify({ metadata: TEST_METADATA })
+      });
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+    const trackedTablePermissions = await client.getTrackedTablesWithPermissions('role', 'schemaB');
+    expect(trackedTablePermissions).toMatchSnapshot();
+    expect(trackedTablePermissions[0].table).toEqual({ name: 'tableA', schema: 'schemaB' });
+  });
+
   it('tracks the specified tables for a specified schema', async () => {
     const mockFetch = jest
       .fn()
@@ -237,7 +251,7 @@ describe('HasuraClient', () => {
       testB_near: 'passB',
       testC_near: 'passC'
     };
-    const TEST_METADATA = generateMetadata(testUsers);
+    const TEST_METADATA = generateConnectionMetadata(testUsers);
     const mockFetch = jest
       .fn()
       .mockResolvedValue({
@@ -251,7 +265,58 @@ describe('HasuraClient', () => {
   });
 });
 
-function generateMetadata (testUsers: any): any {
+function generateTableMetadata (schemaNames: string[], tableNames: string[], role: string): any {
+  const sources = [];
+  // Insert default source which has different format than the rest
+  sources.push({
+    name: 'default',
+    kind: 'postgres',
+    tables: [],
+    configuration: {}
+  });
+
+  const tables: any[] = [];
+  schemaNames.forEach((schemaName) => {
+    tableNames.forEach((tableName) => {
+      tables.push(generateTableConfig(schemaName, tableName, role));
+    });
+  });
+
+  sources.push({
+    name: role,
+    kind: 'postgres',
+    tables,
+    configuration: {}
+  });
+
+  return {
+    version: 3,
+    sources
+  };
+}
+
+function generateTableConfig (schemaName: string, tableName: string, role: string): any {
+  return {
+    table: {
+      name: tableName,
+      schema: schemaName
+    },
+    insert_permissions: [
+      { role }
+    ],
+    select_permissions: [
+      { role }
+    ],
+    update_permissions: [
+      { role }
+    ],
+    delete_permissions: [
+      { role }
+    ],
+  };
+}
+
+function generateConnectionMetadata (testUsers: any): any {
   const sources = [];
   // Insert default source which has different format than the rest
   sources.push({

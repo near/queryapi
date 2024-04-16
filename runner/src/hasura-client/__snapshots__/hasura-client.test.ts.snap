@@ -215,6 +215,63 @@ exports[`HasuraClient gets table names within a schema 1`] = `
 }
 `;
 
+exports[`HasuraClient gets tracked tables and their permissions in a schema 1`] = `
+[
+  {
+    "delete_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+    "insert_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+    "select_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+    "table": {
+      "name": "tableA",
+      "schema": "schemaB",
+    },
+    "update_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+  },
+  {
+    "delete_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+    "insert_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+    "select_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+    "table": {
+      "name": "tableB",
+      "schema": "schemaB",
+    },
+    "update_permissions": [
+      {
+        "role": "role",
+      },
+    ],
+  },
+]
+`;
+
 exports[`HasuraClient runs migrations for the specified schema 1`] = `
 [
   [

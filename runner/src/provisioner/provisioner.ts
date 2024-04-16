@@ -286,8 +286,6 @@ export default class Provisioner {
           hasuraTablesMetadata,
           permissionsToAdd
         );
-        console.log('needsTrackingTables', needsTrackingTables);
-        console.log('needsPermissionsTables', needsPermissionsTables);
 
         if (needsTrackingTables.length === 0 && needsPermissionsTables.length === 0) {
           provisioningComplete = true;
@@ -332,8 +330,9 @@ export default class Provisioner {
         return permissionsToCheck.some((permission: string) => {
           const permisionAttribute = `${permission}_permissions` as keyof HasuraTableMetadata;
           const usersWithPermission = tablePermissions[permisionAttribute] as (HasuraPermissions | undefined);
-          // Returns true if the table does not have the permission or the user is not in the role
-          return !usersWithPermission?.some((role: { role: string }) => role.role === userName);
+          // Returns true if the table does not have the permission or the user doesn't have the permission
+          const userLackingPermission = !usersWithPermission?.some((role: { role: string }) => role.role === userName);
+          return userLackingPermission;
         });
       }
       return true;
