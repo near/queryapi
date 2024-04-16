@@ -4,6 +4,7 @@ import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
 import { LogLevel } from './log-entry';
+import type IndexerConfig from '../indexer-config/indexer-config';
 
 export enum IndexerStatus {
   PROVISIONING = 'PROVISIONING',
@@ -20,25 +21,22 @@ export default class IndexerMeta {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
   private readonly pgClient: PgClient;
-  private readonly schemaName: string;
+  private readonly indexerConfig: IndexerConfig;
   private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';
-  private readonly loggingLevel: number;
 
   constructor (
-    functionName: string,
-    loggingLevel: number,
+    indexerConfig: IndexerConfig,
     databaseConnectionParameters: PostgresConnectionParams,
     pgClientInstance: PgClient | undefined = undefined
   ) {
     const pgClient = pgClientInstance ?? new PgClient(databaseConnectionParameters);
 
     this.pgClient = pgClient;
-    this.schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_');
-    this.loggingLevel = loggingLevel;
+    this.indexerConfig = indexerConfig;
   }
 
   private shouldLog (logLevel: LogLevel): boolean {
-    return logLevel >= this.loggingLevel;
+    return logLevel >= this.indexerConfig.logLevel;
   }
 
   async writeLogs (
@@ -49,6 +47,7 @@ export default class IndexerMeta {
 
     const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
     const writeLogSpan = this.tracer.startSpan(spanMessage);
+
     await wrapError(async () => {
       const values = entriesArray.map(entry => [
         entry.blockHeight,
@@ -59,9 +58,9 @@ export default class IndexerMeta {
         entry.message
       ]);
 
-      const query = format(this.logInsertQueryTemplate, this.schemaName, values);
+      const query = format(this.logInsertQueryTemplate, this.indexerConfig.schemaName(), values);
       await this.pgClient.query(query);
-    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.schemaName}.__logs table`)
+    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.__logs table`)
       .finally(() => {
         writeLogSpan.end();
       });
@@ -70,10 +69,10 @@ export default class IndexerMeta {
   async setStatus (status: IndexerStatus): Promise<void> {
     const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
     const values = [[STATUS_ATTRIBUTE, status]];
-    const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
+    const query = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 
     try {
-      await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.schemaName}`);
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update status for ${this.indexerConfig.schemaName()}`);
     } finally {
       setStatusSpan.end();
     }
@@ -82,10 +81,10 @@ export default class IndexerMeta {
   async updateBlockheight (blockHeight: number): Promise<void> {
     const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
     const values = [[LAST_PROCESSED_BLOCK_HEIGHT_ATTRIBUTE, blockHeight.toString()]];
-    const query = format(METADATA_TABLE_UPSERT, this.schemaName, values);
+    const query = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 
     try {
-      await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.schemaName}`);
+      await wrapError(async () => await this.pgClient.query(query), `Failed to update last processed block height for ${this.indexerConfig.schemaName()}`);
     } finally {
       setLastProcessedBlockSpan.end();
     }

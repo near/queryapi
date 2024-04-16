@@ -6,7 +6,6 @@ import Indexer from '../src/indexer';
 import HasuraClient from '../src/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
-// import IndexerMeta from '../src/indexer-meta/indexer-meta';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
@@ -140,7 +139,7 @@ describe('Indexer integration', () => {
     expect(state.current_block_height).toEqual(115185109);
     expect(state.status).toEqual('RUNNING');
 
-    const { indexer_log_entries: logs }: any = await graphqlClient.request(gql`
+    const { indexer_log_entries: old_logs }: any = await graphqlClient.request(gql`
       query {
         indexer_log_entries(where: { function_name: { _eq:"morgs.near/test" } }) {
           message
@@ -148,7 +147,38 @@ describe('Indexer integration', () => {
       }
     `);
 
+    expect(old_logs.length).toEqual(4);
+
+    const { morgs_near_test___logs: logs }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___logs {
+          message
+        }
+      }
+    `);
+
     expect(logs.length).toEqual(4);
+    
+    const { morgs_near_test___logs: provisioning_endpoints }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___logs(where: {message: {_ilike: "%Provisioning endpoint%"}}) {
+          message
+        }
+      }
+    `);
+    
+    expect(provisioning_endpoints.length).toEqual(2);
+
+    const { morgs_near_test___logs: running_function_enpoint }: any = await graphqlClient.request(gql`
+      query {
+        morgs_near_test___logs(where: {message: {_ilike: "%Running function%"}}) {
+          message
+        }
+      }
+    `);
+    
+    expect(running_function_enpoint.length).toEqual(2);
+
   });
 
   it('test context db', async () => {
