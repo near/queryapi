@@ -25,7 +25,7 @@ describe('IndexerMeta', () => {
     database: 'test_database'
   };
 
-  const indexerConfig = new IndexerConfig('', '', 'some_account/some_indexer', 0, '', '', LogLevel.INFO);
+  const indexerConfig = new IndexerConfig('', 'some-account', 'some-indexer', 0, '', '', LogLevel.INFO);
   const schemaName = indexerConfig.schemaName();
 
   describe('writeLog', () => {
