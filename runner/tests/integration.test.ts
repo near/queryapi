@@ -9,8 +9,8 @@ import PgClient from '../src/pg-client';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
-import block115185108 from './blocks/00115185108/streamer_message.json';
-import block115185109 from './blocks/00115185109/streamer_message.json';
+import block_115185108 from './blocks/00115185108/streamer_message.json';
+import block_115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
 
@@ -81,7 +81,7 @@ describe('Indexer integration', () => {
   });
 
   it('works', async () => {
-    const code = `
+    const indexerCode = `
       await context.graphql(
         \`
           mutation ($height:numeric){
@@ -95,35 +95,7 @@ describe('Indexer integration', () => {
         }
       );
     `;
-    const schema = 'CREATE TABLE blocks (height numeric)';
-
-    const indexerConfig = new IndexerConfig(
-      'test:stream',
-      'morgs.near',
-      'test',
-      0,
-      code,
-      schema,
-      LogLevel.INFO
-    );
-
-    const indexer = new Indexer(
-      indexerConfig,
-      {
-        provisioner
-      },
-      undefined,
-      {
-        hasuraAdminSecret: hasuraContainer.getAdminSecret(),
-        hasuraEndpoint: hasuraContainer.getEndpoint(),
-      }
-    );
-
-    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
-
-    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
-
-    const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
+    const blocksIndexerQuery = gql`
       query {
         morgs_near_test_blocks {
           height
@@ -198,7 +170,7 @@ describe('Indexer integration', () => {
       'morgs.near',
       'test',
       0,
-      code,
+      indexerCode,
       schema,
       LogLevel.INFO
     );
@@ -215,36 +187,28 @@ describe('Indexer integration', () => {
       }
     );
 
-    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
-    const { morgs_near_test___metadata: heightFirst }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test___metadata(where: {attribute: {_eq: "LAST_PROCESSED_BLOCK_HEIGHT"}}) {
-          attribute
-          value
-        }
-      }
-    `);
+    await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
+    const { morgs_near_test___metadata: heightFirst }: any = await graphqlClient.request(indexerBlockHeightQuery('morgs_near_test'));
     expect(heightFirst[0].value).toEqual('115185108');
 
-    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
-    const { morgs_near_test___metadata: statusSecond }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test___metadata(where: {attribute: {_eq: "STATUS"}}) {
-          attribute
-          value
-        }
-      }
-    `);
+    await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
+    const { morgs_near_test___metadata: statusSecond }: any = await graphqlClient.request(indexerStatusQuery('morgs_near_test'));
     expect(statusSecond[0].value).toEqual('RUNNING');
-    const { morgs_near_test___metadata: heightSecond }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test___metadata(where: {attribute: {_eq: "LAST_PROCESSED_BLOCK_HEIGHT"}}) {
-          attribute
-          value
-        }
-      }
-    `);
+    const { morgs_near_test___metadata: heightSecond }: any = await graphqlClient.request(indexerBlockHeightQuery('morgs_near_test'));
     expect(heightSecond[0].value).toEqual('115185109');
+
+    const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(blocksIndexerQuery);
+
+    expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
+
+    const { indexer_state: [state] }: any = await graphqlClient.request(indexerStateQuery('morgs.near/test'));
+
+    expect(state.current_block_height).toEqual(115185109);
+    expect(state.status).toEqual('RUNNING');
+
+    const { indexer_log_entries: logs }: any = await graphqlClient.request(indexerLogsQuery('morgs.near/test'));
+
+    expect(logs.length).toEqual(4);
   });
 
   it('test context db', async () => {
@@ -293,6 +257,24 @@ describe('Indexer integration', () => {
         value: "updated_value"
       });
     `;
+    const queryAllRows = gql`
+      query MyQuery {
+        morgs_near_test_context_db_indexer_storage {
+          function_name
+          key_name
+          value
+        }
+      }
+    `;
+    const queryTestKeyRows = gql`
+      query MyQuery {
+        morgs_near_test_context_db_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
+          function_name
+          key_name
+          value
+        }
+      }
+    `;
 
     const indexerConfig = new IndexerConfig(
       'test:stream',
@@ -316,29 +298,53 @@ describe('Indexer integration', () => {
       }
     );
 
-    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
-    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
 
-    const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
-      query MyQuery {
-        morgs_near_test_context_db_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
-          function_name
-          key_name
-          value
-        }
-      }
-    `);
+    const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(queryTestKeyRows);
     expect(sampleRows[0].value).toEqual('testing_value');
 
-    const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(gql`
-      query MyQuery {
-        morgs_near_test_context_db_indexer_storage {
-          function_name
-          key_name
-          value
-        }
-      }
-    `);
+    const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(queryAllRows);
     expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
 });
+
+function indexerStateQuery (indexerSchemaName: string): string {
+  return gql`
+    query {
+      indexer_state(where: { function_name: { _eq: "${indexerSchemaName}" } }) {
+        current_block_height
+        status
+      }
+    }
+  `;
+}
+
+function indexerLogsQuery (indexerSchemaName: string): string {
+  return gql`
+    query {
+      indexer_log_entries(where: { function_name: { _eq:"${indexerSchemaName}" } }) {
+        message
+      }
+    }
+  `;
+}
+
+function indexerStatusQuery (indexerSchemaName: string): string {
+  return indexerMetadataQuery(indexerSchemaName, 'STATUS');
+}
+
+function indexerBlockHeightQuery (indexerSchemaName: string): string {
+  return indexerMetadataQuery(indexerSchemaName, 'LAST_PROCESSED_BLOCK_HEIGHT');
+}
+
+function indexerMetadataQuery (indexerSchemaName: string, attribute: string): string {
+  return gql`
+    query {
+      ${indexerSchemaName}___metadata(where: {attribute: {_eq: "${attribute}"}}) {
+        attribute
+        value
+      }
+    }
+  `;
+}
