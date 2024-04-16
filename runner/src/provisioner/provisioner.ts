@@ -8,7 +8,6 @@ import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
-import { IndexerStatus, METADATA_TABLE_UPSERT, MetadataFields } from '../indexer-meta/indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -335,8 +334,8 @@ export default class Provisioner {
           const permisionAttribute = `${permission}_permissions` as keyof HasuraTableMetadata;
           const usersWithPermission = tablePermissions[permisionAttribute] as (HasuraPermissions | undefined);
           // Returns true if the table does not have the permission or the user doesn't have the permission
-          const userLackingPermission = !usersWithPermission?.some((role: { role: string }) => role.role === userName);
-          return userLackingPermission;
+          const userIsLackingPermission = !usersWithPermission?.some((role: { role: string }) => role.role === userName);
+          return userIsLackingPermission;
         });
       }
       return true;

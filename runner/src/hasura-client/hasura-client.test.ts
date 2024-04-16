@@ -97,7 +97,7 @@ describe('HasuraClient', () => {
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
-  it('gets tracked tables and their permissions in a schema', async () => {
+  it('gets tracked tables and their permissions for a schema', async () => {
     const TEST_METADATA = generateTableMetadata(['schemaA', 'schemaB'], ['tableA', 'tableB'], 'role');
     const mockFetch = jest
       .fn()
