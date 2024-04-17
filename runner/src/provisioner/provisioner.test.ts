@@ -3,6 +3,7 @@ import pgFormat from 'pg-format';
 import Provisioner from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
+import { type HasuraTableMetadata } from '../hasura-client';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -236,19 +237,7 @@ describe('Provisioner', () => {
     });
 
     it('throws when scheduling cron jobs fails', async () => {
-      userPgClientQuery = jest.fn().mockReturnValueOnce({}).mockRejectedValueOnce(error); // Succeed setting provisioning status first
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
-    });
-
-    it('throws when scheduling cron jobs fails', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
-    });
-
-    it('throws when scheduling cron jobs fails', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
+      userPgClientQuery = jest.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(error); // Succeed setting provisioning status first
 
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
@@ -258,10 +247,10 @@ describe('Provisioner', () => {
       await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
       expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
       expect(cronPgClient.query).toBeCalledTimes(2);
-      expect(userPgClientQuery).toBeCalledTimes(2);
+      expect(userPgClientQuery).toBeCalledTimes(3); // Set provisioning status, schedule today and tomorrow partitions
     });
 
-    it('tracks logs and metadata table once, adds permissions twice', async () => {
+    it('ensuring consistent state tracks logs and metadata table once, adds permissions twice', async () => {
       hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([
         {
           table: {
@@ -302,9 +291,7 @@ describe('Provisioner', () => {
 
       expect(hasuraClient.trackTables).not.toBeCalled();
       expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
-      expect(userPgClientQuery.mock.calls).toEqual([
-        [setProvisioningStatusQuery],
-      ]);
+      expect(userPgClientQuery).not.toBeCalled();
     });
 
     it('get credentials for postgres', async () => {
@@ -365,23 +352,15 @@ describe('Provisioner', () => {
   });
 });
 
-function generateTableConfig (schemaName: string, tableName: string, role: string): any {
+function generateTableConfig (schemaName: string, tableName: string, role: string): HasuraTableMetadata {
   return {
     table: {
       name: tableName,
-      schema: schemaName
+      schema: schemaName,
     },
-    insert_permissions: [
-      { role }
-    ],
-    select_permissions: [
-      { role }
-    ],
-    update_permissions: [
-      { role }
-    ],
-    delete_permissions: [
-      { role }
-    ],
+    insert_permissions: [{ role, permission: {} }],
+    select_permissions: [{ role, permission: {} }],
+    update_permissions: [{ role, permission: {} }],
+    delete_permissions: [{ role, permission: {} }],
   };
 }

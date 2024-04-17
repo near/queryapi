@@ -8,6 +8,7 @@ import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
+import { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus } from '../indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
