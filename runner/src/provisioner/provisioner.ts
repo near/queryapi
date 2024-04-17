@@ -301,8 +301,8 @@ export default class Provisioner {
 
           await this.createSchema(databaseName, schemaName);
 
-          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
           await this.createMetadataTable(databaseName, schemaName);
+          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
           await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
 
           const updatedTableNames = await this.getTableNames(schemaName, databaseName);
