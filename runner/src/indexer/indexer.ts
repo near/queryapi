@@ -426,20 +426,6 @@ export default class Indexer {
     await this.deps.indexerMeta?.setStatus(status);
   }
 
-  async setStoppedStatus (): Promise<void> {
-    if (!this.deps.indexerMeta) {
-      try {
-        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-        this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
-      } catch (e) {
-        const error = e as Error;
-        console.error(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`, e);
-        throw error;
-      }
-    }
-    await this.deps.indexerMeta.setStatus(IndexerStatus.STOPPED);
-  }
-
   async writeLog (logEntry: LogEntry, logEntries: LogEntry[]): Promise<any> {
     logEntries.push(logEntry);
     const { level, blockHeight, message } = logEntry;
@@ -448,9 +434,30 @@ export default class Indexer {
     }
   }
 
+  private async createIndexerMetaIfNotExists (failureMessage: string): Promise<void> {
+    if (!this.deps.indexerMeta) {
+      try {
+        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+        this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+      } catch (e) {
+        const error = e as Error;
+        console.error(failureMessage, e);
+        throw error;
+      }
+    }
+  }
+
+  async setStoppedStatus (): Promise<void> {
+    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`);
+    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
+    await indexerMeta.setStatus(IndexerStatus.STOPPED);
+  }
+
   // onetime use method to allow stream-handler to writeLog into new log table in case of failure
-  async callWriteLog (logEntry: LogEntry): Promise<any> {
-    await (this.deps.indexerMeta as IndexerMeta).writeLogs([logEntry]);
+  async callWriteLog (logEntry: LogEntry): Promise<void> {
+    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to write crashed worker error log for stream`);
+    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
+    await indexerMeta.writeLogs([logEntry]);
   }
 
   async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
