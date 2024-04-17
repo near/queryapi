@@ -51,6 +51,7 @@ export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
   #hasLogsMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasuraConsistentState: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -80,6 +81,11 @@ export default class Provisioner {
   private setProvisioned (accountId: string, functionName: string): void {
     this.#hasBeenProvisioned[accountId] ??= {};
     this.#hasBeenProvisioned[accountId][functionName] = true;
+  }
+
+  private setConsistentState (accountId: string, functionName: string): void {
+    this.#hasuraConsistentState[accountId] ??= {};
+    this.#hasuraConsistentState[accountId][functionName] = true;
   }
 
   async createDatabase (name: string): Promise<void> {
@@ -245,8 +251,6 @@ export default class Provisioner {
     }
     const logsTable = '__logs';
     const metadataTable = '__metadata';
-    const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
-    let provisioningComplete = false;
 
     await wrapError(
       async () => {
@@ -261,18 +265,38 @@ export default class Provisioner {
           await this.setProvisioningStatus(indexerConfig.userName(), indexerConfig.schemaName());
           tableNames.push(metadataTable);
         }
+      },
+      'Failed logs and metadata provisioning'
+    );
+
+    this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
+    this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+  }
+
+  /**
+    * Tracks and adds permissions to any Postgres tables successfully created in schema and which lack tracking and/or permissions.
+    *
+    * */
+  async ensureConsistentHasuraState (indexerConfig: IndexerConfig): Promise<void> {
+    if (this.#hasuraConsistentState[indexerConfig.accountId]?.[indexerConfig.functionName]) {
+      return;
+    }
+    await wrapError(
+      async () => {
+        const tableNamesToCheck = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
 
         const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
-        const untrackedTables = this.getUntrackedTables(tableNames, hasuraTablesMetadata);
+        const untrackedTables = this.getUntrackedTables(tableNamesToCheck, hasuraTablesMetadata);
         const tablesWithoutPermissions = this.getTablesWithoutPermissions(
           indexerConfig.hasuraRoleName(),
-          tableNames,
+          tableNamesToCheck,
           hasuraTablesMetadata,
           permissionsToAdd
         );
 
         if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
-          provisioningComplete = true;
+          this.setConsistentState(indexerConfig.accountId, indexerConfig.functionName);
         } else {
           if (untrackedTables.length > 0) {
             await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
@@ -281,14 +305,7 @@ export default class Provisioner {
             await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
           }
         }
-      },
-      'Failed logs and metadata provisioning'
-    );
-
-    if (provisioningComplete) {
-      this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
-      this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
-    }
+      }, 'Failed to ensure consistent Hasura state');
   }
 
   async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {

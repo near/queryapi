@@ -253,7 +253,15 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
 
-    it('provisions and tracks logs and metadata table once, adds permissions twice', async () => {
+    it('provisions logs and metadata tables once', async () => {
+      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValue(['blocks', '__logs', '__metadata']);
+      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
+      expect(cronPgClient.query).toBeCalledTimes(2);
+      expect(userPgClientQuery).toBeCalledTimes(2);
+    });
+
+    it('tracks logs and metadata table once, adds permissions twice', async () => {
       hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([
         {
           table: {
@@ -275,27 +283,23 @@ describe('Provisioner', () => {
         }
       ]);
       hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValueOnce(['blocks', '__logs', '__metadata']);
-      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
-      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+      await provisioner.ensureConsistentHasuraState(indexerConfig);
+      await provisioner.ensureConsistentHasuraState(indexerConfig);
 
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
-      expect(cronPgClient.query).toBeCalledTimes(2);
       expect(hasuraClient.trackTables).toBeCalledTimes(1);
       expect(hasuraClient.addPermissionsToTables).toBeCalledTimes(2);
     });
 
-    it('provision logs and metadata table function caches result', async () => {
+    it('ensuring consistent state caches result', async () => {
       hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
         generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near'),
         generateTableConfig('morgs_near_test_function', '__logs', 'morgs_near'),
         generateTableConfig('morgs_near_test_function', '__metadata', 'morgs_near'),
       ]);
       hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', '__logs', '__metadata']);
-      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
-      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
+      await provisioner.ensureConsistentHasuraState(indexerConfig);
+      await provisioner.ensureConsistentHasuraState(indexerConfig);
 
-      expect(hasuraClient.executeSqlOnSchema).not.toBeCalled();
-      expect(cronPgClient.query).not.toBeCalled();
       expect(hasuraClient.trackTables).not.toBeCalled();
       expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
       expect(userPgClientQuery.mock.calls).toEqual([
