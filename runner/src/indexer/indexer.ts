@@ -7,10 +7,10 @@ import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
 
-import IndexerMeta, { IndexerStatus } from '../indexer-meta/indexer-meta';
 import { trace, type Span } from '@opentelemetry/api';
 import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
+import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -48,7 +48,7 @@ const defaultConfig: Config = {
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
-  LOGGGED_CONTEXT_DB_WARNING: boolean = false;
+  IS_FIRST_EXECUTION: boolean = false;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly deps: Dependencies;
@@ -60,7 +60,7 @@ export default class Indexer {
   constructor (
     private readonly indexerConfig: IndexerConfig,
     deps?: Partial<Dependencies>,
-    databaseConnectionParameters = undefined,
+    databaseConnectionParameters: PostgresConnectionParams | undefined = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
@@ -127,7 +127,6 @@ export default class Indexer {
         credentialsFetchSpan.end();
       }
 
-      // TODO: Prevent unnecesary reruns of set status
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
       simultaneousPromises.push(this.setStatus(blockHeight, IndexerStatus.RUNNING));
       const vm = new VM({ allowAsync: true });
@@ -386,9 +385,9 @@ export default class Indexer {
       return result;
     } catch (error) {
       const errorContent = error as { message: string, location: Record<string, any> };
-      if (!this.LOGGGED_CONTEXT_DB_WARNING) {
+      if (!this.IS_FIRST_EXECUTION) {
         console.warn(`${this.indexerConfig.fullName()}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
-        this.LOGGGED_CONTEXT_DB_WARNING = true;
+        this.IS_FIRST_EXECUTION = true;
       }
     }
     return {}; // Default to empty object if error
@@ -422,6 +421,9 @@ export default class Indexer {
     } finally {
       setStatusSpan.end();
     }
+
+    // Metadata table possibly unprovisioned when called, so I am not validating indexerMeta yet
+    await this.deps.indexerMeta?.setStatus(status);
   }
 
   async writeLog (logEntry: LogEntry, logEntries: LogEntry[]): Promise<any> {
@@ -432,9 +434,30 @@ export default class Indexer {
     }
   }
 
+  private async createIndexerMetaIfNotExists (failureMessage: string): Promise<void> {
+    if (!this.deps.indexerMeta) {
+      try {
+        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+        this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+      } catch (e) {
+        const error = e as Error;
+        console.error(failureMessage, e);
+        throw error;
+      }
+    }
+  }
+
+  async setStoppedStatus (): Promise<void> {
+    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`);
+    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
+    await indexerMeta.setStatus(IndexerStatus.STOPPED);
+  }
+
   // onetime use method to allow stream-handler to writeLog into new log table in case of failure
-  async callWriteLog (logEntry: LogEntry): Promise<any> {
-    await (this.deps.indexerMeta as IndexerMeta).writeLogs([logEntry]);
+  async callWriteLog (logEntry: LogEntry): Promise<void> {
+    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to write crashed worker error log for stream`);
+    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
+    await indexerMeta.writeLogs([logEntry]);
   }
 
   async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
@@ -463,6 +486,8 @@ export default class Indexer {
     } finally {
       setBlockHeightSpan.end();
     }
+
+    await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
   // todo rename to writeLogOld

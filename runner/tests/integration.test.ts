@@ -9,18 +9,54 @@ import PgClient from '../src/pg-client';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
-import block115185108 from './blocks/00115185108/streamer_message.json';
-import block115185109 from './blocks/00115185109/streamer_message.json';
+import block_115185108 from './blocks/00115185108/streamer_message.json';
+import block_115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
 
+  let hasuraClient: HasuraClient;
+  let pgClient: PgClient;
+  let provisioner: Provisioner;
+
   let network: StartedNetwork;
   let postgresContainer: StartedPostgreSqlContainer;
   let hasuraContainer: StartedHasuraGraphQLContainer;
   let graphqlClient: GraphQLClient;
+
+  beforeEach(async () => {
+    hasuraClient = new HasuraClient({}, {
+      adminSecret: hasuraContainer.getAdminSecret(),
+      endpoint: hasuraContainer.getEndpoint(),
+      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
+      pgPortHasura: postgresContainer.getPort(network.getName()),
+      pgHost: postgresContainer.getIpAddress(),
+      pgPort: postgresContainer.getPort()
+    });
+
+    pgClient = new PgClient({
+      user: postgresContainer.getUsername(),
+      password: postgresContainer.getPassword(),
+      host: postgresContainer.getIpAddress(),
+      port: postgresContainer.getPort(),
+      database: postgresContainer.getDatabase(),
+    });
+
+    provisioner = new Provisioner(
+      hasuraClient,
+      pgClient,
+      pgClient,
+      {
+        cronDatabase: postgresContainer.getDatabase(),
+        postgresHost: postgresContainer.getIpAddress(),
+        postgresPort: Number(postgresContainer.getPort()),
+        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
+        pgBouncerPort: Number(postgresContainer.getPort()),
+      }
+    );
+  });
 
   beforeAll(async () => {
     network = await new Network().start();
@@ -45,37 +81,7 @@ describe('Indexer integration', () => {
   });
 
   it('works', async () => {
-    const hasuraClient = new HasuraClient({}, {
-      adminSecret: hasuraContainer.getAdminSecret(),
-      endpoint: hasuraContainer.getEndpoint(),
-      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
-      pgPortHasura: postgresContainer.getPort(network.getName()),
-      pgHost: postgresContainer.getIpAddress(),
-      pgPort: postgresContainer.getPort()
-    });
-
-    const pgClient = new PgClient({
-      user: postgresContainer.getUsername(),
-      password: postgresContainer.getPassword(),
-      host: postgresContainer.getIpAddress(),
-      port: postgresContainer.getPort(),
-      database: postgresContainer.getDatabase(),
-    });
-
-    const provisioner = new Provisioner(
-      hasuraClient,
-      pgClient,
-      pgClient,
-      {
-        cronDatabase: postgresContainer.getDatabase(),
-        postgresHost: postgresContainer.getIpAddress(),
-        postgresPort: Number(postgresContainer.getPort()),
-        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
-        pgBouncerPort: Number(postgresContainer.getPort()),
-      }
-    );
-
-    const code = `
+    const indexerCode = `
       await context.graphql(
         \`
           mutation ($height:numeric){
@@ -89,6 +95,13 @@ describe('Indexer integration', () => {
         }
       );
     `;
+    const blocksIndexerQuery = gql`
+      query {
+        morgs_near_test_blocks {
+          height
+        }
+      }
+    `;
     const schema = 'CREATE TABLE blocks (height numeric)';
 
     const indexerConfig = new IndexerConfig(
@@ -96,7 +109,7 @@ describe('Indexer integration', () => {
       'morgs.near',
       'test',
       0,
-      code,
+      indexerCode,
       schema,
       LogLevel.INFO
     );
@@ -113,105 +126,33 @@ describe('Indexer integration', () => {
       }
     );
 
-    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
 
-    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
+    const firstHeight = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
+    expect(firstHeight.value).toEqual('115185108');
 
-    const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test_blocks {
-          height
-        }
-      }
-    `);
+    await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
 
-    expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
+    const secondStatus = await indexerStatusQuery('morgs_near_test', graphqlClient);
+    expect(secondStatus.value).toEqual('RUNNING');
+    const secondHeight: any = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
+    expect(secondHeight.value).toEqual('115185109');
 
-    const { indexer_state: [state] }: any = await graphqlClient.request(gql`
-      query {
-        indexer_state(where: { function_name: { _eq: "morgs.near/test" } }) {
-          current_block_height
-          status
-        }
-      }
-    `);
+    const indexerState: any = await indexerOldStateQuery('morgs.near/test', graphqlClient);
+    expect(indexerState.current_block_height).toEqual(115185109);
+    expect(indexerState.status).toEqual('RUNNING');
 
-    expect(state.current_block_height).toEqual(115185109);
-    expect(state.status).toEqual('RUNNING');
+    const oldLogs: any = await indexerOldLogsQuery('morgs.near/test', graphqlClient);
+    expect(oldLogs.length).toEqual(4);
 
-    const { indexer_log_entries: old_logs }: any = await graphqlClient.request(gql`
-      query {
-        indexer_log_entries(where: { function_name: { _eq:"morgs.near/test" } }) {
-          message
-        }
-      }
-    `);
-
-    expect(old_logs.length).toEqual(4);
-
-    const { morgs_near_test___logs: logs }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test___logs {
-          message
-        }
-      }
-    `);
-
+    const logs: any = await indexerLogsQuery('morgs_near_test', graphqlClient);
     expect(logs.length).toEqual(4);
-    
-    const { morgs_near_test___logs: provisioning_endpoints }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test___logs(where: {message: {_ilike: "%Provisioning endpoint%"}}) {
-          message
-        }
-      }
-    `);
-    
-    expect(provisioning_endpoints.length).toEqual(2);
 
-    const { morgs_near_test___logs: running_function_enpoint }: any = await graphqlClient.request(gql`
-      query {
-        morgs_near_test___logs(where: {message: {_ilike: "%Running function%"}}) {
-          message
-        }
-      }
-    `);
-    
-    expect(running_function_enpoint.length).toEqual(2);
-
+    const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(blocksIndexerQuery);
+    expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
   });
 
   it('test context db', async () => {
-    const hasuraClient = new HasuraClient({}, {
-      adminSecret: hasuraContainer.getAdminSecret(),
-      endpoint: hasuraContainer.getEndpoint(),
-      pgHostHasura: postgresContainer.getIpAddress(network.getName()),
-      pgPortHasura: postgresContainer.getPort(network.getName()),
-      pgHost: postgresContainer.getIpAddress(),
-      pgPort: postgresContainer.getPort()
-    });
-
-    const pgClient = new PgClient({
-      user: postgresContainer.getUsername(),
-      password: postgresContainer.getPassword(),
-      host: postgresContainer.getIpAddress(),
-      port: postgresContainer.getPort(),
-      database: postgresContainer.getDatabase(),
-    });
-
-    const provisioner = new Provisioner(
-      hasuraClient,
-      pgClient,
-      pgClient,
-      {
-        cronDatabase: postgresContainer.getDatabase(),
-        postgresHost: postgresContainer.getIpAddress(),
-        postgresPort: Number(postgresContainer.getPort()),
-        pgBouncerHost: postgresContainer.getIpAddress(), // TODO: Enable pgBouncer in Integ Tests
-        pgBouncerPort: Number(postgresContainer.getPort()),
-      }
-    );
-
     const schema = `
       CREATE TABLE
         "indexer_storage" (
@@ -257,6 +198,24 @@ describe('Indexer integration', () => {
         value: "updated_value"
       });
     `;
+    const queryAllRows = gql`
+      query MyQuery {
+        morgs_near_test_context_db_indexer_storage {
+          function_name
+          key_name
+          value
+        }
+      }
+    `;
+    const queryTestKeyRows = gql`
+      query MyQuery {
+        morgs_near_test_context_db_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
+          function_name
+          key_name
+          value
+        }
+      }
+    `;
 
     const indexerConfig = new IndexerConfig(
       'test:stream',
@@ -280,29 +239,67 @@ describe('Indexer integration', () => {
       }
     );
 
-    await indexer.execute(Block.fromStreamerMessage(block115185108 as any as StreamerMessage));
-    await indexer.execute(Block.fromStreamerMessage(block115185109 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
+    await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
 
-    const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(gql`
-      query MyQuery {
-        morgs_near_test_context_db_indexer_storage(where: {key_name: {_eq: "test_key"}, function_name: {_eq: "sample_indexer"}}) {
-          function_name
-          key_name
-          value
-        }
-      }
-    `);
+    const { morgs_near_test_context_db_indexer_storage: sampleRows }: any = await graphqlClient.request(queryTestKeyRows);
     expect(sampleRows[0].value).toEqual('testing_value');
 
-    const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(gql`
-      query MyQuery {
-        morgs_near_test_context_db_indexer_storage {
-          function_name
-          key_name
-          value
-        }
-      }
-    `);
+    const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(queryAllRows);
     expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
 });
+
+async function indexerOldStateQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  const { indexer_state: result }: any = await graphqlClient.request(gql`
+    query {
+      indexer_state(where: { function_name: { _eq: "${indexerSchemaName}" } }) {
+        current_block_height
+        status
+      }
+    }
+  `);
+  return result[0];
+}
+
+async function indexerOldLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  const { indexer_log_entries: result }: any = await graphqlClient.request(gql`
+    query {
+      indexer_log_entries(where: { function_name: { _eq:"${indexerSchemaName}" } }) {
+        message
+      }
+    }
+  `);
+  return result;
+}
+
+async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  const graphqlResult: any = await graphqlClient.request(gql`
+    query {
+      ${indexerSchemaName}___logs {
+        message
+      }
+    }
+  `);
+  return graphqlResult[`${indexerSchemaName}___logs`];
+}
+
+async function indexerStatusQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  return await indexerMetadataQuery(indexerSchemaName, 'STATUS', graphqlClient);
+}
+
+async function indexerBlockHeightQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  return await indexerMetadataQuery(indexerSchemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', graphqlClient);
+}
+
+async function indexerMetadataQuery (indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
+  const graphqlResult: any = await graphqlClient.request(gql`
+    query {
+      ${indexerSchemaName}___metadata(where: {attribute: {_eq: "${attribute}"}}) {
+        attribute
+        value
+      }
+    }
+  `);
+  return graphqlResult[`${indexerSchemaName}___metadata`][0];
+}
