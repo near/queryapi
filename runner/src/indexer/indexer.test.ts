@@ -220,6 +220,7 @@ describe('Indexer unit tests', () => {
     getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
     fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true),
     provisionLogsAndMetadataIfNeeded: jest.fn(),
+    ensureConsistentHasuraState: jest.fn(),
   } as unknown as Provisioner;
 
   const config = {
@@ -930,6 +931,7 @@ describe('Indexer unit tests', () => {
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
       provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
@@ -975,6 +977,7 @@ describe('Indexer unit tests', () => {
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexer = new Indexer(simpleSchemaConfig, {
       fetch: mockFetch as unknown as typeof fetch,
@@ -1012,6 +1015,7 @@ describe('Indexer unit tests', () => {
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
@@ -1060,6 +1064,7 @@ describe('Indexer unit tests', () => {
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
       provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
@@ -1111,6 +1116,7 @@ describe('Indexer unit tests', () => {
       provisionUserApi: jest.fn().mockRejectedValue(error),
       provisionLogsIfNeeded: jest.fn(),
       provisionMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),

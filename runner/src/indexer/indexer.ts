@@ -100,6 +100,7 @@ export default class Indexer {
           logEntries.push(provisionSuccessLogEntry);
         }
         await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
+        await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
         simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint: failure:${error.message}`));
