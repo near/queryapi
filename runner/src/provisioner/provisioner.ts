@@ -263,22 +263,22 @@ export default class Provisioner {
         }
 
         const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
-        const needsTrackingTables = this.getTablesMissingTracking(tableNames, hasuraTablesMetadata);
-        const needsPermissionsTables = this.getTablesMissingPermissions(
+        const untrackedTables = this.getUntrackedTables(tableNames, hasuraTablesMetadata);
+        const tablesWithoutPermissions = this.getTablesWithoutPermissions(
           indexerConfig.hasuraRoleName(),
           tableNames,
           hasuraTablesMetadata,
           permissionsToAdd
         );
 
-        if (needsTrackingTables.length === 0 && needsPermissionsTables.length === 0) {
+        if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
           provisioningComplete = true;
         } else {
-          if (needsTrackingTables.length > 0) {
-            await this.trackTables(indexerConfig.schemaName(), needsTrackingTables, indexerConfig.databaseName());
+          if (untrackedTables.length > 0) {
+            await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
           }
-          if (needsPermissionsTables.length > 0) {
-            await this.addPermissionsToTables(indexerConfig, needsPermissionsTables, permissionsToAdd);
+          if (tablesWithoutPermissions.length > 0) {
+            await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
           }
         }
       },
@@ -302,11 +302,11 @@ export default class Provisioner {
     return trackedTablePermissions;
   }
 
-  private getTablesMissingTracking (shouldBeTrackedTables: string[], tableMetadata: Map<string, any>): string[] {
+  private getUntrackedTables (shouldBeTrackedTables: string[], tableMetadata: Map<string, any>): string[] {
     return shouldBeTrackedTables.filter((tableName: string) => !tableMetadata.has(tableName));
   }
 
-  private getTablesMissingPermissions (
+  private getTablesWithoutPermissions (
     userName: string,
     shouldHavePermissionsTables: string[],
     tableMetadata: Map<string, HasuraTableMetadata>,
