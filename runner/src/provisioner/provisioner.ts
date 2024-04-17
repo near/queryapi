@@ -8,7 +8,7 @@ import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
-import IndexerMeta, { IndexerStatus } from '../indexer-meta/indexer-meta';
+import { IndexerStatus, METADATA_TABLE_UPSERT, MetadataFields } from '../indexer-meta/indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -187,11 +187,16 @@ export default class Provisioner {
   }
 
   async createMetadataTable (databaseName: string, schemaName: string): Promise<void> {
+    await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL()),
+      `Failed to create metadata table in ${databaseName}.${schemaName}`);
+  }
+
+  async setProvisioningStatus (userName: string, schemaName: string): Promise<void> {
     await wrapError(async () => {
-      await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, metadataTableDDL());
-      const setProvisioningStatusQuery = IndexerMeta.createSetStatusQuery(IndexerStatus.PROVISIONING, schemaName);
-      await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, setProvisioningStatusQuery);
-    }, `Failed to create metadata table in ${databaseName}.${schemaName}`);
+      const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
+      const userPgClient = new this.PgClient(userDbConnectionParameters);
+      await userPgClient.query(pgFormatLib(METADATA_TABLE_UPSERT, schemaName, [[MetadataFields.STATUS, IndexerStatus.PROVISIONING]]));
+    }, 'Failed to set provisioning status on metadata table');
   }
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
@@ -273,6 +278,7 @@ export default class Provisioner {
 
         if (!tableNames.includes(metadataTable)) {
           await this.createMetadataTable(indexerConfig.databaseName(), indexerConfig.schemaName());
+          await this.setProvisioningStatus(indexerConfig.userName(), indexerConfig.schemaName());
           await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
           await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
@@ -302,6 +308,7 @@ export default class Provisioner {
           await this.createSchema(databaseName, schemaName);
 
           await this.createMetadataTable(databaseName, schemaName);
+          await this.setProvisioningStatus(userName, schemaName);
           await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
           await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
 

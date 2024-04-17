@@ -90,7 +90,6 @@ export default class Indexer {
 
       try {
         if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
-          // TODO: Remove call as setting PROVISIONING status is impossible with new table
           await this.setStatus(blockHeight, IndexerStatus.PROVISIONING);
           simultaneousPromises.push(this.writeLogOld(LogLevel.INFO, blockHeight, 'Provisioning endpoint: starting'));
           const provisionStartLogEntry = LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight);

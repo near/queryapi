@@ -3,7 +3,6 @@ import pgFormat from 'pg-format';
 import Provisioner from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
-import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -11,14 +10,14 @@ describe('Provisioner', () => {
   let hasuraClient: any;
   let provisioner: Provisioner;
   let userPgClientQuery: any;
-  let indexerConfig: any;
+  let indexerConfig: IndexerConfig;
 
   const tableNames = ['blocks'];
   const accountId = 'morgs.near';
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
-  const setProvisioningStatusQuery = IndexerMeta.createSetStatusQuery(IndexerStatus.PROVISIONING, indexerConfig.schemaName());
+  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.__metadata (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
   const logsDDL = expect.any(String);
   const metadataDDL = expect.any(String);
   const error = new Error('some error');
@@ -43,13 +42,10 @@ describe('Provisioner', () => {
       addDatasource: jest.fn().mockReturnValueOnce(null),
       executeSqlOnSchema: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
-      setupPartitionedLogsTable: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
       doesSchemaExist: jest.fn().mockReturnValueOnce(false),
       untrackTables: jest.fn().mockReturnValueOnce(null),
-      grantCronAccess: jest.fn().mockResolvedValueOnce(null),
-      scheduleLogPartitionJobs: jest.fn().mockResolvedValueOnce(null),
-      getDbConnectionParameters: jest.fn().mockReturnValueOnce({}),
+      getDbConnectionParameters: jest.fn().mockReturnValue({}),
     };
 
     adminPgClient = {
@@ -113,15 +109,15 @@ describe('Provisioner', () => {
         ['GRANT EXECUTE ON FUNCTION cron.schedule_in_database TO morgs_near;'],
       ]);
       expect(userPgClientQuery.mock.calls).toEqual([
+        [setProvisioningStatusQuery],
         ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT morgs_near_test_function.fn_create_partition('morgs_near_test_function.__logs', CURRENT_DATE, '1 day', '2 day')$$, 'morgs_near');"],
         ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT morgs_near_test_function.fn_delete_partition('morgs_near_test_function.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, 'morgs_near');"]
       ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(indexerConfig.userName(), password, indexerConfig.databaseName());
       expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.userName(), indexerConfig.schemaName(), metadataDDL);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), setProvisioningStatusQuery);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(4, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
       expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -149,9 +145,8 @@ describe('Provisioner', () => {
 
       expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(1, indexerConfig.userName(), indexerConfig.schemaName(), metadataDDL);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), setProvisioningStatusQuery);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
-      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(4, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
+      expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
       expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
@@ -241,19 +236,7 @@ describe('Provisioner', () => {
     });
 
     it('throws when scheduling cron jobs fails', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
-    });
-
-    it('throws when scheduling cron jobs fails', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
-    });
-
-    it('throws when scheduling cron jobs fails', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValueOnce(error);
+      userPgClientQuery = jest.fn().mockReturnValueOnce({}).mockRejectedValueOnce(error); // Succeed setting provisioning status first
 
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
@@ -270,7 +253,10 @@ describe('Provisioner', () => {
       await provisioner.provisionMetadataIfNeeded(indexerConfig);
       await provisioner.provisionMetadataIfNeeded(indexerConfig);
 
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2); // Create table and set provisioning status
+      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(1);
+      expect(userPgClientQuery.mock.calls).toEqual([
+        [setProvisioningStatusQuery],
+      ]);
     });
 
     it('get credentials for postgres', async () => {
@@ -291,7 +277,7 @@ describe('Provisioner', () => {
         pgBouncerPort: 2,
       });
 
-      const params = await mockProvisioner.getPostgresConnectionParameters(indexerConfig);
+      const params = await mockProvisioner.getPostgresConnectionParameters(indexerConfig.userName());
       expect(params).toEqual({
         user: 'username',
         password: 'password',
@@ -319,7 +305,7 @@ describe('Provisioner', () => {
         pgBouncerPort: 2,
       });
 
-      const params = await mockProvisioner.getPgBouncerConnectionParameters(indexerConfig);
+      const params = await mockProvisioner.getPgBouncerConnectionParameters(indexerConfig.userName());
       expect(params).toEqual({
         user: 'username',
         password: 'password',
