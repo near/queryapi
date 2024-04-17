@@ -16,7 +16,7 @@ interface TableDefinition {
   name: string
   schema: string
 }
-interface HasuraRolePermission {
+export interface HasuraRolePermission {
   role: string
   permission: {
     check?: Record<string, any>
@@ -26,13 +26,12 @@ interface HasuraRolePermission {
     allow_aggregations?: boolean
   }
 }
-type HasuraPermissions = HasuraRolePermission[];
 export interface HasuraTableMetadata {
   table: TableDefinition
-  insert_permissions?: HasuraPermissions
-  select_permissions?: HasuraPermissions
-  update_permissions?: HasuraPermissions
-  delete_permissions?: HasuraPermissions
+  insert_permissions?: HasuraRolePermission[]
+  select_permissions?: HasuraRolePermission[]
+  update_permissions?: HasuraRolePermission[]
+  delete_permissions?: HasuraRolePermission[]
 }
 
 export interface HasuraDatabaseConnectionParameters {

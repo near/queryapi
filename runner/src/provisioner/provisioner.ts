@@ -3,7 +3,7 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient, { type HasuraDatabaseConnectionParameters, type HasuraPermission, type HasuraTableMetadata } from '../hasura-client';
+import HasuraClient, { HasuraPermissionMetadata, type HasuraDatabaseConnectionParameters, type HasuraPermission, type HasuraTableMetadata } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
@@ -320,28 +320,39 @@ export default class Provisioner {
     return trackedTablePermissions;
   }
 
-  private getUntrackedTables (shouldBeTrackedTables: string[], tableMetadata: Map<string, any>): string[] {
-    return shouldBeTrackedTables.filter((tableName: string) => !tableMetadata.has(tableName));
+  private getUntrackedTables (allTables: string[], tableMetadata: Map<string, any>): string[] {
+    return allTables.filter((tableName: string) => !tableMetadata.has(tableName));
   }
 
-  private getTablesWithoutPermissions (
-    userName: string,
-    shouldHavePermissionsTables: string[],
+  private getTablesWithoutRole (
+    roleName: string,
+    allTables: string[],
     tableMetadata: Map<string, HasuraTableMetadata>,
     permissionsToCheck: HasuraPermission[]
   ): string[] {
-    return shouldHavePermissionsTables.filter((tableName: string) => {
-      const tablePermissions = tableMetadata.get(tableName);
-      if (tablePermissions) {
-        return permissionsToCheck.some((permission: string) => {
-          const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
-          // Returns true if the table does not have the permission or the role doesn't have the permission
-          const roleIsLackingPermission = !tablePermissions[permissionAttribute]?.some((role: { role: string }) => role.role === userName);
-          return roleIsLackingPermission;
-        });
+    return allTables.filter((tableName: string) => {
+      const tablePermissionsMetadata = tableMetadata.get(tableName);
+      if (!tablePermissionsMetadata) {
+        return false;
       }
-      return true;
+
+      return permissionsToCheck.some((permission: string) => {
+        const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
+        return this.roleLacksPermissionInTable(roleName, tablePermissionsMetadata[permissionAttribute]);
+      });
     });
+  }
+
+  private roleLacksPermissionsInTable (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
+    return permissionsToCheck.some((permission: string) => {
+      const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
+      return this.roleLacksPermission(roleName, tablePermissionsMetadata[permissionAttribute]);
+    });
+  }
+
+  private roleLacksPermission (roleName: string, tablePermission: HasuraPermissionMetadata | undefined): boolean {
+    // Returns true if the table does not have the permission or the specified role lacks the permission
+    return !tablePermission?.some((roleWithPermission: { role: string }) => roleWithPermission.role === roleName);
   }
 
   async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
