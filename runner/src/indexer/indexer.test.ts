@@ -10,6 +10,7 @@ import IndexerConfig from '../indexer-config/indexer-config';
 import type IndexerMeta from '../indexer-meta';
 import { IndexerStatus } from '../indexer-meta';
 import type Provisioner from '../provisioner';
+import { type PostgresConnectionParams } from '../pg-client';
 
 describe('Indexer unit tests', () => {
   const SIMPLE_SCHEMA = `CREATE TABLE
@@ -185,12 +186,12 @@ describe('Indexer unit tests', () => {
   const caseSensitiveConfig: IndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, SIMPLE_CODE, CASE_SENSITIVE_SCHEMA, LogLevel.INFO);
   const stressTestConfig: IndexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, SIMPLE_CODE, STRESS_TEST_SCHEMA, LogLevel.INFO);
 
-  const genericDbCredentials: any = {
+  const genericDbCredentials: PostgresConnectionParams = {
     database: 'test_near',
     host: 'postgres',
     password: 'test_pass',
     port: 5432,
-    username: 'test_near'
+    user: 'test_near'
   };
 
   const genericMockFetch = jest.fn()

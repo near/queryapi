@@ -60,7 +60,7 @@ export default class Indexer {
   constructor (
     private readonly indexerConfig: IndexerConfig,
     deps?: Partial<Dependencies>,
-    databaseConnectionParameters = undefined,
+    databaseConnectionParameters: PostgresConnectionParams | undefined = undefined,
     private readonly config: Config = defaultConfig,
   ) {
     this.DEFAULT_HASURA_ROLE = 'append';
