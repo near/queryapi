@@ -317,9 +317,9 @@ export default class Provisioner {
       if (tablePermissions) {
         return permissionsToCheck.some((permission: string) => {
           const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
-          // Returns true if the table does not have the permission or the user doesn't have the permission
-          const userIsLackingPermission = !tablePermissions[permissionAttribute]?.some((role: { role: string }) => role.role === userName);
-          return userIsLackingPermission;
+          // Returns true if the table does not have the permission or the role doesn't have the permission
+          const roleIsLackingPermission = !tablePermissions[permissionAttribute]?.some((role: { role: string }) => role.role === userName);
+          return roleIsLackingPermission;
         });
       }
       return true;
