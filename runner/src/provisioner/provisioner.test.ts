@@ -254,7 +254,7 @@ describe('Provisioner', () => {
     });
 
     it('provisions and tracks logs and metadata table once, adds permissions twice', async () => {
-      hasuraClient.getTrackedTablesWithPermissions = jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([
+      hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([
         {
           table: {
             name: 'blocks',
@@ -285,7 +285,7 @@ describe('Provisioner', () => {
     });
 
     it('provision logs and metadata table function caches result', async () => {
-      hasuraClient.getTrackedTablesWithPermissions = jest.fn().mockReturnValue([
+      hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
         generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near'),
         generateTableConfig('morgs_near_test_function', '__logs', 'morgs_near'),
         generateTableConfig('morgs_near_test_function', '__metadata', 'morgs_near'),

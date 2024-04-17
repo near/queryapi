@@ -1,6 +1,23 @@
 import type fetch from 'node-fetch';
 
-import HasuraClient from './hasura-client';
+import HasuraClient, {
+  type HasuraConfiguration,
+  type HasuraDatabaseConnectionParameters,
+  type HasuraMetadata,
+  type HasuraSource,
+  type HasuraTableMetadata
+} from './hasura-client';
+
+const DEFAULT_HASURA_SOURCE: HasuraSource = {
+  name: 'default',
+  kind: 'postgres',
+  tables: [],
+  configuration: {
+    connection_info: {
+      database_url: { from_env: 'HASURA_GRAPHQL_DATABASE_URL' },
+    }
+  }
+};
 
 describe('HasuraClient', () => {
   const config = {
@@ -106,7 +123,7 @@ describe('HasuraClient', () => {
         text: () => JSON.stringify({ metadata: TEST_METADATA })
       });
     const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
-    const trackedTablePermissions = await client.getTrackedTablesWithPermissions('role', 'schemaB');
+    const trackedTablePermissions = await client.getTrackedTablePermissions('role', 'schemaB');
     expect(trackedTablePermissions).toMatchSnapshot();
     expect(trackedTablePermissions[0].table).toEqual({ name: 'tableA', schema: 'schemaB' });
   });
@@ -266,16 +283,11 @@ describe('HasuraClient', () => {
 });
 
 function generateTableMetadata (schemaNames: string[], tableNames: string[], role: string): any {
-  const sources = [];
+  const sources: HasuraSource[] = [];
   // Insert default source which has different format than the rest
-  sources.push({
-    name: 'default',
-    kind: 'postgres',
-    tables: [],
-    configuration: {}
-  });
+  sources.push(DEFAULT_HASURA_SOURCE);
 
-  const tables: any[] = [];
+  const tables: HasuraTableMetadata[] = [];
   schemaNames.forEach((schemaName) => {
     tableNames.forEach((tableName) => {
       tables.push(generateTableConfig(schemaName, tableName, role));
@@ -286,7 +298,7 @@ function generateTableMetadata (schemaNames: string[], tableNames: string[], rol
     name: role,
     kind: 'postgres',
     tables,
-    configuration: {}
+    configuration: generateHasuraConfiguration(role, 'password'),
   });
 
   return {
@@ -295,29 +307,21 @@ function generateTableMetadata (schemaNames: string[], tableNames: string[], rol
   };
 }
 
-function generateTableConfig (schemaName: string, tableName: string, role: string): any {
+function generateTableConfig (schemaName: string, tableName: string, role: string): HasuraTableMetadata {
   return {
     table: {
       name: tableName,
-      schema: schemaName
+      schema: schemaName,
     },
-    insert_permissions: [
-      { role }
-    ],
-    select_permissions: [
-      { role }
-    ],
-    update_permissions: [
-      { role }
-    ],
-    delete_permissions: [
-      { role }
-    ],
+    insert_permissions: [{ role, permission: {} }],
+    select_permissions: [{ role, permission: {} }],
+    update_permissions: [{ role, permission: {} }],
+    delete_permissions: [{ role, permission: {} }],
   };
 }
 
-function generateConnectionMetadata (testUsers: any): any {
-  const sources = [];
+function generateConnectionMetadata (testUsers: any): HasuraMetadata {
+  const sources: HasuraSource[] = [];
   // Insert default source which has different format than the rest
   sources.push({
     name: 'default',
@@ -348,22 +352,26 @@ function generateConnectionMetadata (testUsers: any): any {
   };
 }
 
-function generateSource (user: string, password: string): any {
+function generateSource (user: string, password: string): HasuraSource {
   return {
     name: user,
     kind: 'postgres',
     tables: [],
-    configuration: {
-      connection_info: {
-        database_url: { connection_parameters: generateConnectionParameter(user, password) },
-        isolation_level: 'read-committed',
-        use_prepared_statements: false
-      }
+    configuration: generateHasuraConfiguration(user, password),
+  };
+}
+
+function generateHasuraConfiguration (user: string, password: string): HasuraConfiguration {
+  return {
+    connection_info: {
+      database_url: { connection_parameters: generateConnectionParameter(user, password) },
+      isolation_level: 'read-committed',
+      use_prepared_statements: false
     }
   };
 }
 
-function generateConnectionParameter (user: string, password: string): any {
+function generateConnectionParameter (user: string, password: string): HasuraDatabaseConnectionParameters {
   return {
     database: user,
     host: 'postgres',

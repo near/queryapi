@@ -220,16 +220,19 @@ exports[`HasuraClient gets tracked tables and their permissions for a schema 1`]
   {
     "delete_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
     "insert_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
     "select_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
@@ -239,6 +242,7 @@ exports[`HasuraClient gets tracked tables and their permissions for a schema 1`]
     },
     "update_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
@@ -246,16 +250,19 @@ exports[`HasuraClient gets tracked tables and their permissions for a schema 1`]
   {
     "delete_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
     "insert_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
     "select_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],
@@ -265,6 +272,7 @@ exports[`HasuraClient gets tracked tables and their permissions for a schema 1`]
     },
     "update_permissions": [
       {
+        "permission": {},
         "role": "role",
       },
     ],

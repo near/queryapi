@@ -3,7 +3,7 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient, { type HasuraDatabaseConnectionParameters } from '../hasura-client';
+import HasuraClient, { type HasuraDatabaseConnectionParameters, type HasuraPermission, type HasuraTableMetadata } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
@@ -38,21 +38,6 @@ interface Config {
 
 type TableName = string;
 type TrackedTablePermissions = Map<TableName, HasuraTableMetadata>;
-
-interface TableDefinition {
-  name: string
-  columns: string
-}
-
-type Permission = 'select' | 'insert' | 'update' | 'delete';
-type HasuraPermissions = Array<{ role: string }>;
-interface HasuraTableMetadata {
-  table: TableDefinition
-  insert_permissions?: HasuraPermissions
-  select_permissions?: HasuraPermissions
-  update_permissions?: HasuraPermissions
-  delete_permissions?: HasuraPermissions
-}
 
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
@@ -260,7 +245,7 @@ export default class Provisioner {
     }
     const logsTable = '__logs';
     const metadataTable = '__metadata';
-    const permissionsToAdd: Permission[] = ['select', 'insert', 'update', 'delete'];
+    const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
     let provisioningComplete = false;
 
     await wrapError(
@@ -307,7 +292,7 @@ export default class Provisioner {
   }
 
   async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {
-    const trackedTables = await this.hasuraClient.getTrackedTablesWithPermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
+    const trackedTables: HasuraTableMetadata[] = await this.hasuraClient.getTrackedTablePermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
     const trackedTablePermissions: TrackedTablePermissions = new Map();
 
     trackedTables.forEach((tableMetadata: HasuraTableMetadata) => {
@@ -325,16 +310,15 @@ export default class Provisioner {
     userName: string,
     shouldHavePermissionsTables: string[],
     tableMetadata: Map<string, HasuraTableMetadata>,
-    permissionsToCheck: Permission[]
+    permissionsToCheck: HasuraPermission[]
   ): string[] {
     return shouldHavePermissionsTables.filter((tableName: string) => {
       const tablePermissions = tableMetadata.get(tableName);
       if (tablePermissions) {
         return permissionsToCheck.some((permission: string) => {
-          const permisionAttribute = `${permission}_permissions` as keyof HasuraTableMetadata;
-          const usersWithPermission = tablePermissions[permisionAttribute] as (HasuraPermissions | undefined);
+          const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
           // Returns true if the table does not have the permission or the user doesn't have the permission
-          const userIsLackingPermission = !usersWithPermission?.some((role: { role: string }) => role.role === userName);
+          const userIsLackingPermission = !tablePermissions[permissionAttribute]?.some((role: { role: string }) => role.role === userName);
           return userIsLackingPermission;
         });
       }
