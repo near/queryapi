@@ -1,12 +1,18 @@
 use actix_web::{get, App, HttpServer, Responder};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_int_counter_vec, register_int_gauge_vec, Encoder, IntCounterVec, IntGaugeVec,
+    register_int_counter, register_int_counter_vec, register_int_gauge_vec, Encoder, IntCounter,
+    IntCounterVec, IntGaugeVec,
 };
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::Layer;
 
 lazy_static! {
+    pub static ref LAKE_S3_GET_REQUEST_COUNT: IntCounter = register_int_counter!(
+        "queryapi_block_streamer_lake_s3_get_request_count",
+        "Number of requests made to S3 from near lake framework",
+    )
+    .unwrap();
     pub static ref LAST_PROCESSED_BLOCK: IntGaugeVec = register_int_gauge_vec!(
         "queryapi_block_streamer_last_processed_block",
         "Height of last block seen",

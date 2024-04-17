@@ -119,9 +119,10 @@ fn match_account(
             .split(',')
             .any(|sub_account_id| match_account(sub_account_id.trim(), outcome_with_receipt)),
         _ => {
-            wildmatch::WildMatch::new(account_id).matches(&outcome_with_receipt.receipt.receiver_id)
+            wildmatch::WildMatch::new(account_id)
+                .matches(outcome_with_receipt.receipt.receiver_id.as_str())
                 || wildmatch::WildMatch::new(account_id)
-                    .matches(&outcome_with_receipt.receipt.predecessor_id)
+                    .matches(outcome_with_receipt.receipt.predecessor_id.as_str())
         }
     }
 }
