@@ -1,16 +1,14 @@
 use std::collections::HashMap;
 
+use near_account_id::AccountId;
+
 #[cfg(feature = "near-sdk")]
 use near_sdk::borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(feature = "near-sdk")]
 use near_sdk::serde::{Deserialize, Serialize};
-#[cfg(feature = "near-sdk")]
-use near_sdk::AccountId;
 
 #[cfg(not(feature = "near-sdk"))]
 use borsh::{BorshDeserialize, BorshSerialize};
-#[cfg(not(feature = "near-sdk"))]
-use near_primitives::types::AccountId;
 #[cfg(not(feature = "near-sdk"))]
 use serde::{Deserialize, Serialize};
 

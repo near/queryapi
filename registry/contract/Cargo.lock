@@ -1276,9 +1276,9 @@ dependencies = [
 
 [[package]]
 name = "near-account-id"
-version = "1.0.0-alpha.4"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d10d45a9c49c3e975c362cf4d1dc1d7b72a716b30394bea56ee2a8fb225f50b7"
+checksum = "35cbb989542587b47205e608324ddd391f0cee1c22b4b64ae49f458334b95907"
 dependencies = [
  "borsh 1.2.1",
  "schemars",
@@ -1462,7 +1462,7 @@ dependencies = [
  "borsh 1.2.1",
  "bs58",
  "near-abi",
- "near-account-id 1.0.0-alpha.4",
+ "near-account-id 1.0.0",
  "near-crypto",
  "near-gas",
  "near-primitives",
@@ -2059,6 +2059,7 @@ name = "registry-types"
 version = "0.1.0"
 dependencies = [
  "borsh 1.2.1",
+ "near-account-id 1.0.0",
  "near-sdk",
  "serde",
 ]
