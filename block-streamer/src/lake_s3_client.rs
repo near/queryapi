@@ -84,6 +84,10 @@ impl FuturesCache {
 
         let lock = self.cache.lock().await;
 
+        metrics::LAKE_CACHE_SIZE.set(lock.cache_size() as i64);
+        metrics::LAKE_CACHE_HITS.set(lock.cache_hits().unwrap_or(0) as i64);
+        metrics::LAKE_CACHE_MISSES.set(lock.cache_misses().unwrap_or(0) as i64);
+
         timer.observe_duration();
 
         lock
