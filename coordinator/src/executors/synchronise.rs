@@ -22,8 +22,7 @@ pub async fn synchronise_executors(
             let active_executor = active_executors
                 .iter()
                 .position(|stream| {
-                    stream.account_id == account_id.to_string()
-                        && &stream.function_name == function_name
+                    stream.account_id == *account_id && &stream.function_name == function_name
                 })
                 .map(|index| active_executors.swap_remove(index));
 
