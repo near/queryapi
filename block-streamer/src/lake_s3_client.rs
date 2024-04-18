@@ -34,6 +34,7 @@ pub struct SharedLakeS3ClientImpl {
 }
 
 impl SharedLakeS3ClientImpl {
+    #[cfg(test)]
     pub fn new(inner: LakeS3Client) -> Self {
         Self {
             inner: Arc::new(inner),
@@ -249,8 +250,8 @@ mod tests {
 
         let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
 
-        let barrier = Arc::new(Barrier::new(10));
-        let handles: Vec<_> = (0..10)
+        let barrier = Arc::new(Barrier::new(50));
+        let handles: Vec<_> = (0..50)
             .map(|_| {
                 let client = shared_lake_s3_client.clone();
                 let barrier_clone = barrier.clone();
