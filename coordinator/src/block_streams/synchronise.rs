@@ -20,8 +20,7 @@ pub async fn synchronise_block_streams(
             let active_block_stream = active_block_streams
                 .iter()
                 .position(|stream| {
-                    stream.account_id == account_id.to_string()
-                        && &stream.function_name == function_name
+                    stream.account_id == *account_id && &stream.function_name == function_name
                 })
                 .map(|index| active_block_streams.swap_remove(index));
 

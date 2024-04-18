@@ -3,7 +3,7 @@
 use std::fmt::Debug;
 
 use anyhow::Context;
-use redis::{aio::ConnectionManager, AsyncCommands, FromRedisValue, ToRedisArgs};
+use redis::{aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
 use crate::indexer_config::IndexerConfig;
 
@@ -14,7 +14,6 @@ pub use RedisClientImpl as RedisClient;
 
 pub struct RedisClientImpl {
     connection: ConnectionManager,
-    url: String,
 }
 
 #[cfg_attr(test, mockall::automock)]
@@ -25,10 +24,7 @@ impl RedisClientImpl {
             .await
             .context("Unable to connect to Redis")?;
 
-        Ok(Self {
-            connection,
-            url: redis_url.to_string(),
-        })
+        Ok(Self { connection })
     }
 
     pub async fn get<T, U>(&self, key: T) -> anyhow::Result<Option<U>>
