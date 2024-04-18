@@ -37,10 +37,10 @@ impl S3ClientImpl {
             .await
     }
 
-    pub async fn list_objects(
+    pub async fn list_objects_with_prefix(
         &self,
         bucket: &str,
-        start_after: &str,
+        prefix: &str,
         continuation_token: Option<String>,
     ) -> Result<
         aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
@@ -51,13 +51,30 @@ impl S3ClientImpl {
             .list_objects_v2()
             .delimiter("/")
             .bucket(bucket)
-            .start_after(start_after);
+            .prefix(prefix);
 
         if let Some(token) = continuation_token {
             builder = builder.continuation_token(token);
         }
 
         builder.send().await
+    }
+
+    pub async fn list_objects_after(
+        &self,
+        bucket: &str,
+        start_after: &str,
+    ) -> Result<
+        aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+        aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+    > {
+        self.client
+            .list_objects_v2()
+            .delimiter("/")
+            .bucket(bucket)
+            .start_after(start_after)
+            .send()
+            .await
     }
 
     pub async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String> {
@@ -86,7 +103,7 @@ impl S3ClientImpl {
             }
 
             let list = self
-                .list_objects(bucket, prefix, continuation_token)
+                .list_objects_with_prefix(bucket, prefix, continuation_token)
                 .await
                 .context(format!("Failed to list {bucket}/{prefix}"))?;
 
@@ -135,7 +152,16 @@ mockall::mock! {
             aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::get_object::GetObjectError>,
         >;
 
-        pub async fn list_objects(
+        pub async fn list_objects_after(
+            &self,
+            bucket: &str,
+            start_after: &str,
+        ) -> Result<
+            aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+            aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+        >;
+
+        pub async fn list_objects_with_prefix(
             &self,
             bucket: &str,
             prefix: &str,

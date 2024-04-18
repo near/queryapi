@@ -168,7 +168,7 @@ impl LakeS3Client {
     ) -> ListCommonPrefixesResult {
         let response = self
             .s3_client
-            .list_objects(bucket, start_after_prefix, None)
+            .list_objects_after(bucket, start_after_prefix)
             .await?;
 
         let prefixes = match response.common_prefixes {
