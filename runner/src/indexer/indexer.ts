@@ -99,8 +99,8 @@ export default class Indexer {
           const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight);
           logEntries.push(provisionSuccessLogEntry);
         }
-        await this.deps.provisioner.provisionLogsIfNeeded(this.indexerConfig);
-        await this.deps.provisioner.provisionMetadataIfNeeded(this.indexerConfig);
+        await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
+        await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
         simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint: failure:${error.message}`));
@@ -407,7 +407,7 @@ export default class Indexer {
           status
         }
       }`;
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through hasura`);
+    const setStatusSpan = this.tracer.startSpan(`set status to ${status} through hasura`);
     try {
       await this.runGraphQLQuery(
         setStatusMutation,
@@ -477,7 +477,7 @@ export default class Indexer {
       function_name: this.indexerConfig.fullName(),
       block_height: blockHeight,
     };
-    const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
+    const setBlockHeightSpan = this.tracer.startSpan('set last processed block through Hasura');
     try {
       await this.runGraphQLQuery(realTimeMutation, variables, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
@@ -490,7 +490,6 @@ export default class Indexer {
     await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
-  // todo rename to writeLogOld
   async writeLogOld (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
     if (logLevel < this.indexerConfig.logLevel) {
       return;
@@ -501,7 +500,7 @@ export default class Indexer {
           insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
       }`;
 
-    const writeLogSpan = this.tracer.startSpan('Write log to log table through Hasura');
+    const writeLogSpan = this.tracer.startSpan('Write log through Hasura');
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');

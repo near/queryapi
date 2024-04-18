@@ -219,8 +219,8 @@ describe('Indexer unit tests', () => {
   const genericProvisioner = {
     getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
     fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true),
-    provisionLogsIfNeeded: jest.fn(),
-    provisionMetadataIfNeeded: jest.fn(),
+    provisionLogsAndMetadataIfNeeded: jest.fn(),
+    ensureConsistentHasuraState: jest.fn(),
   } as unknown as Provisioner;
 
   const config = {
@@ -930,8 +930,8 @@ describe('Indexer unit tests', () => {
       getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(false),
       provisionUserApi: jest.fn(),
-      provisionLogsIfNeeded: jest.fn(),
-      provisionMetadataIfNeeded: jest.fn(),
+      provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
@@ -951,8 +951,8 @@ describe('Indexer unit tests', () => {
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(2, IndexerStatus.RUNNING);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
-    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
-    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
@@ -977,8 +977,8 @@ describe('Indexer unit tests', () => {
       getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
-      provisionLogsIfNeeded: jest.fn(),
-      provisionMetadataIfNeeded: jest.fn(),
+      provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexer = new Indexer(simpleSchemaConfig, {
       fetch: mockFetch as unknown as typeof fetch,
@@ -991,8 +991,8 @@ describe('Indexer unit tests', () => {
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
-    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.execute() skips database credentials fetch second time onward', async () => {
@@ -1016,8 +1016,8 @@ describe('Indexer unit tests', () => {
       getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
-      provisionLogsIfNeeded: jest.fn(),
-      provisionMetadataIfNeeded: jest.fn(),
+      provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
@@ -1037,8 +1037,8 @@ describe('Indexer unit tests', () => {
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
-    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalled();
     expect(indexerMeta.setStatus).toHaveBeenCalledTimes(1); // Status is cached, so only called once
     expect(indexerMeta.setStatus).toHaveBeenCalledWith(IndexerStatus.RUNNING);
     expect(indexerMeta.updateBlockHeight).toHaveBeenCalledTimes(3);
@@ -1066,8 +1066,8 @@ describe('Indexer unit tests', () => {
       getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
       fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
       provisionUserApi: jest.fn(),
-      provisionLogsIfNeeded: jest.fn(),
-      provisionMetadataIfNeeded: jest.fn(),
+      provisionLogsAndMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
@@ -1091,8 +1091,8 @@ describe('Indexer unit tests', () => {
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(1, IndexerStatus.RUNNING);
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    expect(provisioner.provisionLogsIfNeeded).toHaveBeenCalled();
-    expect(provisioner.provisionMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
     expect(indexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
   });
 
@@ -1120,6 +1120,7 @@ describe('Indexer unit tests', () => {
       provisionUserApi: jest.fn().mockRejectedValue(error),
       provisionLogsIfNeeded: jest.fn(),
       provisionMetadataIfNeeded: jest.fn(),
+      ensureConsistentHasuraState: jest.fn(),
     };
     const indexerMeta = {
       writeLogs: jest.fn(),
