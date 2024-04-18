@@ -341,18 +341,18 @@ export default class Provisioner {
         return true;
       }
 
-      return this.roleLacksPermissionsForTable(roleName, tablePermissionsMetadata, permissionsToCheck);
+      return this.tablePermissionsLackRole(roleName, tablePermissionsMetadata, permissionsToCheck);
     });
   }
 
-  private roleLacksPermissionsForTable (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
+  private tablePermissionsLackRole (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
     return permissionsToCheck.some((permission: string) => {
       const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
-      return this.roleLacksPermission(roleName, tablePermissionsMetadata[permissionAttribute]);
+      return this.permissionLacksRole(roleName, tablePermissionsMetadata[permissionAttribute]);
     });
   }
 
-  private roleLacksPermission (roleName: string, tablePermission: HasuraRolePermission[] | undefined): boolean {
+  private permissionLacksRole (roleName: string, tablePermission: HasuraRolePermission[] | undefined): boolean {
     return !tablePermission?.some((roleWithPermission: { role: string }) => roleWithPermission.role === roleName);
   }
 
