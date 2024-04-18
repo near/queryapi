@@ -951,7 +951,8 @@ describe('Indexer unit tests', () => {
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(2, IndexerStatus.RUNNING);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
-    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
   });
 
@@ -990,7 +991,8 @@ describe('Indexer unit tests', () => {
 
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
   });
 
   test('Indexer.execute() skips database credentials fetch second time onward', async () => {
@@ -1036,6 +1038,7 @@ describe('Indexer unit tests', () => {
     expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalled();
     expect(indexerMeta.setStatus).toHaveBeenCalledTimes(1); // Status is cached, so only called once
     expect(indexerMeta.setStatus).toHaveBeenCalledWith(IndexerStatus.RUNNING);
     expect(indexerMeta.updateBlockHeight).toHaveBeenCalledTimes(3);
@@ -1088,7 +1091,8 @@ describe('Indexer unit tests', () => {
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(1, IndexerStatus.RUNNING);
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalled();
+    expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
+    expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
     expect(indexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
   });
 

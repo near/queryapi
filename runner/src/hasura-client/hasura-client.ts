@@ -241,12 +241,12 @@ export default class HasuraClient {
   async getTrackedTablePermissions (
     databaseName: string,
     schemaName: string,
-  ): Promise<any> {
+  ): Promise<HasuraTableMetadata[]> {
     const metadata: HasuraMetadata = await this.exportMetadata();
     const hasuraSource = metadata.sources.find((source: HasuraSource) => source.name === databaseName);
     const tablesForSchema = hasuraSource?.tables.filter((tableMetadata: HasuraTableMetadata) => tableMetadata.table.schema === schemaName);
 
-    return tablesForSchema;
+    return tablesForSchema ?? [];
   }
 
   async trackTables (

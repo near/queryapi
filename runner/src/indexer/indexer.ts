@@ -490,7 +490,6 @@ export default class Indexer {
     await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
-  // todo rename to writeLogOld
   async writeLogOld (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
     if (logLevel < this.indexerConfig.logLevel) {
       return;

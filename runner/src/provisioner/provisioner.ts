@@ -300,11 +300,8 @@ export default class Provisioner {
           hasuraTablesMetadata,
           permissionsToAdd
         );
-        console.log('untrackedTables', untrackedTables);
-        console.log('tablesWithoutPermissions', tablesWithoutPermissions);
 
         if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
-          console.log('Consistent state achieved');
           this.setConsistentState(indexerConfig.accountId, indexerConfig.functionName);
           return;
         }

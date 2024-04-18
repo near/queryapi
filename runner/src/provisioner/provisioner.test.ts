@@ -352,7 +352,7 @@ function generateTableConfig (schemaName: string, tableName: string, role: strin
   };
 
   permissionsToAdd.forEach((permission) => {
-    const permissionKey: keyof Omit<HasuraTableMetadata, 'table'> = `${permission}_permissions`;
+    const permissionKey = `${permission as string}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
     config[permissionKey] = [{ role, permission: {} }];
   });
 
