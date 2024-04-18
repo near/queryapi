@@ -48,7 +48,7 @@ const defaultConfig: Config = {
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
-  IS_FIRST_EXECUTION: boolean = false;
+  IS_FIRST_EXECUTION: boolean = true;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly deps: Dependencies;
@@ -103,8 +103,11 @@ export default class Indexer {
         await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
-        simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint: failure:${error.message}`));
-        const provisionFailureLogEntry = LogEntry.systemError('Provisioning endpoint: failure', blockHeight);
+        if (this.IS_FIRST_EXECUTION) {
+          console.error(`Provisioning endpoint: failure:${error.message}`, error);
+        }
+        simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint failure: ${error.message}`));
+        const provisionFailureLogEntry = LogEntry.systemError(`Provisioning endpoint failure: ${error.message}`, blockHeight);
         logEntries.push(provisionFailureLogEntry);
         throw error;
       }
@@ -158,7 +161,13 @@ export default class Indexer {
       await this.setStatus(blockHeight, IndexerStatus.FAILING);
       throw e;
     } finally {
-      await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
+      this.IS_FIRST_EXECUTION = false;
+      try {
+        await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
+      } catch (e) {
+        const error = e as Error;
+        console.error('Failed to write logs:', error);
+      }
     }
     return allMutations;
   }
@@ -385,9 +394,8 @@ export default class Indexer {
       return result;
     } catch (error) {
       const errorContent = error as { message: string, location: Record<string, any> };
-      if (!this.IS_FIRST_EXECUTION) {
+      if (this.IS_FIRST_EXECUTION) {
         console.warn(`${this.indexerConfig.fullName()}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
-        this.IS_FIRST_EXECUTION = true;
       }
     }
     return {}; // Default to empty object if error
