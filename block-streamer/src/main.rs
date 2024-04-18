@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
-    let lake_s3_client = crate::lake_s3_client::LakeS3Client::from_conf(s3_config);
+    let lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::from_conf(s3_config);
 
     tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 

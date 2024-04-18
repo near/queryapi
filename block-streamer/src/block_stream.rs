@@ -47,7 +47,7 @@ impl BlockStream {
         start_block_height: near_indexer_primitives::types::BlockHeight,
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-        lake_s3_client: crate::lake_s3_client::LakeS3Client,
+        lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -131,7 +131,7 @@ pub(crate) async fn start_block_stream(
     indexer: &IndexerConfig,
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    lake_s3_client: crate::lake_s3_client::LakeS3Client,
+    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: &ChainId,
     lake_prefetch_size: usize,
     redis_stream: String,
@@ -251,7 +251,7 @@ async fn process_delta_lake_blocks(
 
 async fn process_near_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
-    lake_s3_client: crate::lake_s3_client::LakeS3Client,
+    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     lake_prefetch_size: usize,
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     indexer: &IndexerConfig,
@@ -324,7 +324,7 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn adds_matching_blocks_from_index_and_lake() {
-        let mut mock_lake_s3_client = crate::lake_s3_client::LakeS3Client::default();
+        let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
 
         mock_lake_s3_client
             .expect_get_object_bytes()
@@ -413,7 +413,7 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn skips_caching_of_lake_block_over_stream_size_limit() {
-        let mock_lake_s3_client = crate::lake_s3_client::LakeS3Client::default();
+        let mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
 
         let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
         mock_delta_lake_client

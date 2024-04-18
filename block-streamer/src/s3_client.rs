@@ -14,7 +14,6 @@ pub struct S3ClientImpl {
     client: aws_sdk_s3::Client,
 }
 
-#[cfg_attr(test, mockall::automock)]
 impl S3ClientImpl {
     pub fn new(s3_config: aws_sdk_s3::Config) -> Self {
         Self {
@@ -38,7 +37,7 @@ impl S3ClientImpl {
             .await
     }
 
-    pub async fn list_objects(
+    pub async fn list_objects_with_prefix(
         &self,
         bucket: &str,
         prefix: &str,
@@ -59,6 +58,23 @@ impl S3ClientImpl {
         }
 
         builder.send().await
+    }
+
+    pub async fn list_objects_after(
+        &self,
+        bucket: &str,
+        start_after: &str,
+    ) -> Result<
+        aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+        aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+    > {
+        self.client
+            .list_objects_v2()
+            .delimiter("/")
+            .bucket(bucket)
+            .start_after(start_after)
+            .send()
+            .await
     }
 
     pub async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String> {
@@ -87,7 +103,7 @@ impl S3ClientImpl {
             }
 
             let list = self
-                .list_objects(bucket, prefix, continuation_token)
+                .list_objects_with_prefix(bucket, prefix, continuation_token)
                 .await
                 .context(format!("Failed to list {bucket}/{prefix}"))?;
 
@@ -118,5 +134,53 @@ impl S3ClientImpl {
         }
 
         Ok(results)
+    }
+}
+
+#[cfg(test)]
+mockall::mock! {
+    #[derive(Debug)]
+    pub S3ClientImpl {
+        pub fn new(s3_config: aws_sdk_s3::Config) -> Self;
+
+        pub async fn get_object(
+            &self,
+            bucket: &str,
+            prefix: &str,
+        ) -> Result<
+            aws_sdk_s3::operation::get_object::GetObjectOutput,
+            aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::get_object::GetObjectError>,
+        >;
+
+        pub async fn list_objects_after(
+            &self,
+            bucket: &str,
+            start_after: &str,
+        ) -> Result<
+            aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+            aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+        >;
+
+        pub async fn list_objects_with_prefix(
+            &self,
+            bucket: &str,
+            prefix: &str,
+            continuation_token: Option<String>,
+        ) -> Result<
+            aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Output,
+            aws_sdk_s3::error::SdkError<aws_sdk_s3::operation::list_objects_v2::ListObjectsV2Error>,
+        >;
+
+        pub async fn get_text_file(&self, bucket: &str, prefix: &str) -> anyhow::Result<String>;
+
+        pub async fn list_all_objects(
+            &self,
+            bucket: &str,
+            prefix: &str,
+        ) -> anyhow::Result<Vec<String>>;
+    }
+
+    impl Clone for S3ClientImpl {
+        fn clone(&self) -> Self;
     }
 }
