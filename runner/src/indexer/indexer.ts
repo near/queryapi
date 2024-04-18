@@ -407,7 +407,7 @@ export default class Indexer {
           status
         }
       }`;
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through hasura`);
+    const setStatusSpan = this.tracer.startSpan(`set status to ${status} through hasura`);
     try {
       await this.runGraphQLQuery(
         setStatusMutation,
@@ -477,7 +477,7 @@ export default class Indexer {
       function_name: this.indexerConfig.fullName(),
       block_height: blockHeight,
     };
-    const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
+    const setBlockHeightSpan = this.tracer.startSpan('set last processed block through Hasura');
     try {
       await this.runGraphQLQuery(realTimeMutation, variables, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
@@ -500,7 +500,7 @@ export default class Indexer {
           insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
       }`;
 
-    const writeLogSpan = this.tracer.startSpan('Write log to log table through Hasura');
+    const writeLogSpan = this.tracer.startSpan('Write log through Hasura');
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');

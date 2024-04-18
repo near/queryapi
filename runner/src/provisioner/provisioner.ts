@@ -264,12 +264,10 @@ export default class Provisioner {
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
-          tableNames.push(logsTable);
         }
         if (!tableNames.includes(metadataTable)) {
           await this.createMetadataTable(indexerConfig.databaseName(), indexerConfig.schemaName());
           await this.setProvisioningStatus(indexerConfig.userName(), indexerConfig.schemaName());
-          tableNames.push(metadataTable);
         }
       },
       'Failed logs and metadata provisioning'
