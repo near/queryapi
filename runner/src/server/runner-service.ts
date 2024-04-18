@@ -34,7 +34,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      console.log('Starting executor: ', indexerConfig);
+      console.log('Starting executor: ', JSON.stringify(indexerConfig));
 
       // Handle request
       try {
