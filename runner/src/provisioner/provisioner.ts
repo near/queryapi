@@ -3,7 +3,12 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient, { HasuraPermissionMetadata, type HasuraDatabaseConnectionParameters, type HasuraPermission, type HasuraTableMetadata } from '../hasura-client';
+import HasuraClient, {
+  type HasuraDatabaseConnectionParameters,
+  type HasuraPermission,
+  type HasuraTableMetadata,
+  type HasuraRolePermission
+} from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
@@ -289,22 +294,25 @@ export default class Provisioner {
 
         const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
         const untrackedTables = this.getUntrackedTables(tableNamesToCheck, hasuraTablesMetadata);
-        const tablesWithoutPermissions = this.getTablesWithoutPermissions(
+        const tablesWithoutPermissions = this.getTablesWithoutRole(
           indexerConfig.hasuraRoleName(),
           tableNamesToCheck,
           hasuraTablesMetadata,
           permissionsToAdd
         );
+        console.log('untrackedTables', untrackedTables);
+        console.log('tablesWithoutPermissions', tablesWithoutPermissions);
 
         if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
+          console.log('Consistent state achieved');
           this.setConsistentState(indexerConfig.accountId, indexerConfig.functionName);
-        } else {
-          if (untrackedTables.length > 0) {
-            await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
-          }
-          if (tablesWithoutPermissions.length > 0) {
-            await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
-          }
+          return;
+        }
+        if (untrackedTables.length > 0) {
+          await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
+        }
+        if (tablesWithoutPermissions.length > 0) {
+          await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
         }
       }, 'Failed to ensure consistent Hasura state');
   }
@@ -333,25 +341,21 @@ export default class Provisioner {
     return allTables.filter((tableName: string) => {
       const tablePermissionsMetadata = tableMetadata.get(tableName);
       if (!tablePermissionsMetadata) {
-        return false;
+        return true;
       }
 
-      return permissionsToCheck.some((permission: string) => {
-        const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
-        return this.roleLacksPermissionInTable(roleName, tablePermissionsMetadata[permissionAttribute]);
-      });
+      return this.roleLacksPermissionsForTable(roleName, tablePermissionsMetadata, permissionsToCheck);
     });
   }
 
-  private roleLacksPermissionsInTable (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
+  private roleLacksPermissionsForTable (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
     return permissionsToCheck.some((permission: string) => {
       const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
       return this.roleLacksPermission(roleName, tablePermissionsMetadata[permissionAttribute]);
     });
   }
 
-  private roleLacksPermission (roleName: string, tablePermission: HasuraPermissionMetadata | undefined): boolean {
-    // Returns true if the table does not have the permission or the specified role lacks the permission
+  private roleLacksPermission (roleName: string, tablePermission: HasuraRolePermission[] | undefined): boolean {
     return !tablePermission?.some((roleWithPermission: { role: string }) => roleWithPermission.role === roleName);
   }
 

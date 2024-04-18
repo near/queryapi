@@ -3,7 +3,7 @@ import pgFormat from 'pg-format';
 import Provisioner from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
-import { type HasuraTableMetadata } from '../hasura-client';
+import { type HasuraPermission, type HasuraTableMetadata } from '../hasura-client';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -251,44 +251,35 @@ describe('Provisioner', () => {
     });
 
     it('ensuring consistent state tracks logs and metadata table once, adds permissions twice', async () => {
-      hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([
-        {
-          table: {
-            name: 'blocks',
-            schema: 'morgs_near_test_function',
-          },
-        },
-        {
-          table: {
-            name: '__logs',
-            schema: 'morgs_near_test_function',
-          },
-        },
-        {
-          table: {
-            name: '__metadata',
-            schema: 'morgs_near_test_function',
-          },
-        }
-      ]);
-      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValueOnce(['blocks', '__logs', '__metadata']);
+      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', '__logs', '__metadata']);
+      hasuraClient.getTrackedTablePermissions = jest.fn()
+        .mockReturnValueOnce([
+          generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+        ])
+        .mockReturnValueOnce([
+          generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+          generateTableConfig('morgs_near_test_function', '__logs', 'morgs_near', []),
+          generateTableConfig('morgs_near_test_function', '__metadata', 'morgs_near', []),
+        ]);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
 
+      expect(hasuraClient.getTableNames).toBeCalledTimes(2);
       expect(hasuraClient.trackTables).toBeCalledTimes(1);
       expect(hasuraClient.addPermissionsToTables).toBeCalledTimes(2);
     });
 
     it('ensuring consistent state caches result', async () => {
-      hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
-        generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near'),
-        generateTableConfig('morgs_near_test_function', '__logs', 'morgs_near'),
-        generateTableConfig('morgs_near_test_function', '__metadata', 'morgs_near'),
-      ]);
       hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', '__logs', '__metadata']);
+      hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
+        generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+        generateTableConfig('morgs_near_test_function', '__logs', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+        generateTableConfig('morgs_near_test_function', '__metadata', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+      ]);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
 
+      expect(hasuraClient.getTableNames).toBeCalledTimes(1);
       expect(hasuraClient.trackTables).not.toBeCalled();
       expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
       expect(userPgClientQuery).not.toBeCalled();
@@ -352,15 +343,18 @@ describe('Provisioner', () => {
   });
 });
 
-function generateTableConfig (schemaName: string, tableName: string, role: string): HasuraTableMetadata {
-  return {
+function generateTableConfig (schemaName: string, tableName: string, role: string, permissionsToAdd: HasuraPermission[]): HasuraTableMetadata {
+  const config: HasuraTableMetadata = {
     table: {
       name: tableName,
       schema: schemaName,
     },
-    insert_permissions: [{ role, permission: {} }],
-    select_permissions: [{ role, permission: {} }],
-    update_permissions: [{ role, permission: {} }],
-    delete_permissions: [{ role, permission: {} }],
   };
+
+  permissionsToAdd.forEach((permission) => {
+    const permissionKey: keyof Omit<HasuraTableMetadata, 'table'> = `${permission}_permissions`;
+    config[permissionKey] = [{ role, permission: {} }];
+  });
+
+  return config;
 }
