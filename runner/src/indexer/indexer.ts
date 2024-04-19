@@ -135,7 +135,7 @@ export default class Indexer {
       vm.freeze(block, 'block');
       vm.freeze(lakePrimitives, 'primitives');
       vm.freeze(context, 'context');
-      vm.freeze(context, 'console'); // provide console.log via context.log
+      vm.freeze(console, 'console'); // provide console.log via context.log
       resourceCreationSpan.end();
 
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
