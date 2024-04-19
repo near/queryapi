@@ -128,14 +128,14 @@ export default class Provisioner {
         const userCronPgClient = new this.PgClient(userDbConnectionParameters);
         await userCronPgClient.query(
           this.pgFormat(
-            "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT %1$I.fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
+            "SELECT cron.schedule_in_database('%1$I_sys_logs_create_partition', '0 1 * * *', $$SELECT %1$I.fn_create_partition('%1$I.sys_logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
             schemaName,
             databaseName
           )
         );
         await userCronPgClient.query(
           this.pgFormat(
-            "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT %1$I.fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$L);",
+            "SELECT cron.schedule_in_database('%1$I_sys_logs_delete_partition', '0 2 * * *', $$SELECT %1$I.fn_delete_partition('%1$I.sys_logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$L);",
             schemaName,
             databaseName
           )
@@ -255,12 +255,24 @@ export default class Provisioner {
     if (this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
       return;
     }
-    const logsTable = '__logs';
-    const metadataTable = '__metadata';
+    const oldLogsTable = '__logs';
+    const oldMetadataTable = '__metadata';
+    const logsTable = 'sys_logs';
+    const metadataTable = 'sys_metadata';
 
     await wrapError(
       async () => {
         const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const tablesToDelete: string[] = tableNames.filter((tableName: string) => tableName === oldLogsTable || tableName === oldMetadataTable);
+        if (tablesToDelete.length > 0) {
+          await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), tablesToDelete, true);
+        }
+        if (tableNames.includes(oldLogsTable)) {
+          await this.hasuraClient.executeSqlOnSchema(indexerConfig.databaseName(), indexerConfig.schemaName(), `DROP TABLE IF EXISTS ${oldLogsTable} CASCADE;`);
+        }
+        if (tableNames.includes(oldMetadataTable)) {
+          await this.hasuraClient.executeSqlOnSchema(indexerConfig.databaseName(), indexerConfig.schemaName(), `DROP TABLE IF EXISTS ${oldMetadataTable};`);
+        }
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());

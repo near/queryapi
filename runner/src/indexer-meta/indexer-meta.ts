@@ -13,7 +13,7 @@ export enum IndexerStatus {
   STOPPED = 'STOPPED',
 }
 
-export const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+export const METADATA_TABLE_UPSERT = 'INSERT INTO %I.sys_metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 export enum MetadataFields {
   STATUS = 'STATUS',
   LAST_PROCESSED_BLOCK_HEIGHT = 'LAST_PROCESSED_BLOCK_HEIGHT'
@@ -24,7 +24,7 @@ export default class IndexerMeta {
 
   private readonly pgClient: PgClient;
   private readonly indexerConfig: IndexerConfig;
-  private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';
+  private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.sys_logs (block_height, date, timestamp, type, level, message) VALUES %L';
 
   constructor (
     indexerConfig: IndexerConfig,
@@ -62,7 +62,7 @@ export default class IndexerMeta {
 
       const query = format(this.logInsertQueryTemplate, this.indexerConfig.schemaName(), values);
       await this.pgClient.query(query);
-    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.__logs table`)
+    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.sys_logs table`)
       .finally(() => {
         writeLogSpan.end();
       });
