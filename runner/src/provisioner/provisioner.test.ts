@@ -243,7 +243,7 @@ describe('Provisioner', () => {
     });
 
     it('provisions logs and metadata tables once', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValue(['blocks', '_logs', 'sys_metadata']);
+      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValue(['blocks', 'sys_logs', 'sys_metadata']);
       await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
       expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
       expect(cronPgClient.query).toBeCalledTimes(2);
