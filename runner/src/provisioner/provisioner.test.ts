@@ -18,7 +18,7 @@ describe('Provisioner', () => {
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
-  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}._metadata (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
+  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.sys_metadata (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
   const logsDDL = expect.any(String);
   const metadataDDL = expect.any(String);
   const error = new Error('some error');
@@ -111,8 +111,8 @@ describe('Provisioner', () => {
       ]);
       expect(userPgClientQuery.mock.calls).toEqual([
         [setProvisioningStatusQuery],
-        ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_create_partition', '0 1 * * *', $$SELECT morgs_near_test_function.fn_create_partition('morgs_near_test_function._logs', CURRENT_DATE, '1 day', '2 day')$$, 'morgs_near');"],
-        ["SELECT cron.schedule_in_database('morgs_near_test_function_logs_delete_partition', '0 2 * * *', $$SELECT morgs_near_test_function.fn_delete_partition('morgs_near_test_function._logs', CURRENT_DATE, '-15 day', '-14 day')$$, 'morgs_near');"]
+        ["SELECT cron.schedule_in_database('morgs_near_test_function_sys_logs_create_partition', '0 1 * * *', $$SELECT morgs_near_test_function.fn_create_partition('morgs_near_test_function.sys_logs', CURRENT_DATE, '1 day', '2 day')$$, 'morgs_near');"],
+        ["SELECT cron.schedule_in_database('morgs_near_test_function_sys_logs_delete_partition', '0 2 * * *', $$SELECT morgs_near_test_function.fn_delete_partition('morgs_near_test_function.sys_logs', CURRENT_DATE, '-15 day', '-14 day')$$, 'morgs_near');"]
       ]);
       expect(hasuraClient.addDatasource).toBeCalledWith(indexerConfig.userName(), password, indexerConfig.databaseName());
       expect(hasuraClient.createSchema).toBeCalledWith(indexerConfig.userName(), indexerConfig.schemaName());
@@ -243,7 +243,7 @@ describe('Provisioner', () => {
     });
 
     it('provisions logs and metadata tables once', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValue(['blocks', '_logs', '_metadata']);
+      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValue(['blocks', '_logs', 'sys_metadata']);
       await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
       expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
       expect(cronPgClient.query).toBeCalledTimes(2);
@@ -251,15 +251,15 @@ describe('Provisioner', () => {
     });
 
     it('ensuring consistent state tracks logs and metadata table once, adds permissions twice', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', '_logs', '_metadata']);
+      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', 'sys_logs', 'sys_metadata']);
       hasuraClient.getTrackedTablePermissions = jest.fn()
         .mockReturnValueOnce([
           generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
         ])
         .mockReturnValueOnce([
           generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-          generateTableConfig('morgs_near_test_function', '_logs', 'morgs_near', []),
-          generateTableConfig('morgs_near_test_function', '_metadata', 'morgs_near', []),
+          generateTableConfig('morgs_near_test_function', 'sys_logs', 'morgs_near', []),
+          generateTableConfig('morgs_near_test_function', 'sys_metadata', 'morgs_near', []),
         ]);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
@@ -270,11 +270,11 @@ describe('Provisioner', () => {
     });
 
     it('ensuring consistent state caches result', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', '_logs', '_metadata']);
+      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', 'sys_logs', 'sys_metadata']);
       hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
         generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-        generateTableConfig('morgs_near_test_function', '_logs', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-        generateTableConfig('morgs_near_test_function', '_metadata', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+        generateTableConfig('morgs_near_test_function', 'sys_logs', 'morgs_near', ['select', 'insert', 'update', 'delete']),
+        generateTableConfig('morgs_near_test_function', 'sys_metadata', 'morgs_near', ['select', 'insert', 'update', 'delete']),
       ]);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
       await provisioner.ensureConsistentHasuraState(indexerConfig);

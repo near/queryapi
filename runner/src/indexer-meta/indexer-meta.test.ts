@@ -41,7 +41,7 @@ describe('IndexerMeta', () => {
       const infoEntry = LogEntry.systemInfo('Info message');
       await indexerMeta.writeLogs([infoEntry]);
 
-      const expectedQueryStructure = `INSERT INTO ${infoIndexerConfig.schemaName()}._logs (block_height, date, timestamp, type, level, message) VALUES (NULL, '${formattedDate}', '${formattedDate}', 'system', 'INFO', 'Info message')`;
+      const expectedQueryStructure = `INSERT INTO ${infoIndexerConfig.schemaName()}.sys_logs (block_height, date, timestamp, type, level, message) VALUES (NULL, '${formattedDate}', '${formattedDate}', 'system', 'INFO', 'Info message')`;
       expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
     });
 
@@ -54,7 +54,7 @@ describe('IndexerMeta', () => {
       const errorEntry = LogEntry.systemError('Error message', 12345);
       await indexerMeta.writeLogs([errorEntry]);
 
-      const expectedQueryStructure = `INSERT INTO ${infoIndexerConfig.schemaName()}._logs (block_height, date, timestamp, type, level, message) VALUES ('12345', '${formattedDate}', '${formattedDate}', 'system', 'ERROR', 'Error message')`;
+      const expectedQueryStructure = `INSERT INTO ${infoIndexerConfig.schemaName()}.sys_logs (block_height, date, timestamp, type, level, message) VALUES ('12345', '${formattedDate}', '${formattedDate}', 'system', 'ERROR', 'Error message')`;
       expect(query.mock.calls[0][0]).toEqual(expectedQueryStructure);
     });
 
@@ -77,7 +77,7 @@ describe('IndexerMeta', () => {
 
       await indexerMeta.writeLogs(logEntries);
 
-      const expectedQuery = `INSERT INTO ${infoIndexerConfig.schemaName()}._logs (block_height, date, timestamp, type, level, message) VALUES`;
+      const expectedQuery = `INSERT INTO ${infoIndexerConfig.schemaName()}.sys_logs (block_height, date, timestamp, type, level, message) VALUES`;
       expect(query.mock.calls[0][0]).toContain(expectedQuery);
     });
 
@@ -116,7 +116,7 @@ describe('IndexerMeta', () => {
       const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.setStatus(IndexerStatus.RUNNING);
       expect(query).toBeCalledWith(
-        `INSERT INTO ${infoIndexerConfig.schemaName()}._metadata (attribute, value) VALUES ('STATUS', 'RUNNING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+        `INSERT INTO ${infoIndexerConfig.schemaName()}.sys_metadata (attribute, value) VALUES ('STATUS', 'RUNNING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
 
@@ -124,7 +124,7 @@ describe('IndexerMeta', () => {
       const indexerMeta = new IndexerMeta(infoIndexerConfig, mockDatabaseConnectionParameters, genericMockPgClient);
       await indexerMeta.updateBlockHeight(123);
       expect(query).toBeCalledWith(
-        `INSERT INTO ${infoIndexerConfig.schemaName()}._metadata (attribute, value) VALUES ('LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
+        `INSERT INTO ${infoIndexerConfig.schemaName()}.sys_metadata (attribute, value) VALUES ('LAST_PROCESSED_BLOCK_HEIGHT', '123') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`
       );
     });
   });
