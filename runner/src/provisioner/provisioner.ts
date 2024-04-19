@@ -263,10 +263,19 @@ export default class Provisioner {
     await wrapError(
       async () => {
         const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
-        const tablesToDelete: string[] = tableNames.filter((tableName: string) => tableName === oldLogsTable || tableName === oldMetadataTable);
-        if (tablesToDelete.length > 0) {
+        if (tableNames.includes(oldLogsTable)) {
           try {
-            await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), tablesToDelete, true);
+            await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), [oldLogsTable], true);
+          } catch (err) {
+            const error = err as Error;
+            if (error.message.includes('already untracked')) {
+              console.error(error.message);
+            }
+          }
+        }
+        if (tableNames.includes(oldMetadataTable)) {
+          try {
+            await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), [oldMetadataTable], true);
           } catch (err) {
             const error = err as Error;
             if (error.message.includes('already untracked')) {
