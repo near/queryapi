@@ -280,6 +280,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator-api2"
+version = "0.2.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5c6cb57a04249c6480766f7f7cef5467412af1490f8d1e243141daddada3264f"
+
+[[package]]
 name = "android-tzdata"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -912,6 +918,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-s3",
  "borsh 0.10.3",
+ "cached",
  "chrono",
  "futures",
  "lazy_static",
@@ -1085,6 +1092,39 @@ dependencies = [
  "cipher",
  "ppv-lite86",
 ]
+
+[[package]]
+name = "cached"
+version = "0.49.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e8e463fceca5674287f32d252fb1d94083758b8709c160efae66d263e5f4eba"
+dependencies = [
+ "ahash",
+ "cached_proc_macro",
+ "cached_proc_macro_types",
+ "hashbrown 0.14.3",
+ "instant",
+ "once_cell",
+ "thiserror",
+]
+
+[[package]]
+name = "cached_proc_macro"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad9f16c0d84de31a2ab7fdf5f7783c14631f7075cf464eb3bb43119f61c9cb2a"
+dependencies = [
+ "darling 0.14.4",
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "cached_proc_macro_types"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ade8366b8bd5ba243f0a58f036cc0ca8a2f069cff1a2351ef1cac6b083e16fc0"
 
 [[package]]
 name = "cc"
@@ -1940,6 +1980,10 @@ name = "hashbrown"
 version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290f1a1d9242c78d09ce40a5e87e7554ee637af1351968159f4952f028f75604"
+dependencies = [
+ "ahash",
+ "allocator-api2",
+]
 
 [[package]]
 name = "heck"
@@ -2181,6 +2225,15 @@ dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
  "serde",
+]
+
+[[package]]
+name = "instant"
+version = "0.1.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a5bbe824c507c5da5956355e86a746d82e0e1464f65d862cc5e71da70e94b2c"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]

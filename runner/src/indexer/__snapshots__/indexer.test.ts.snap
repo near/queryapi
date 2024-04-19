@@ -396,7 +396,7 @@ exports[`Indexer unit tests Indexer.execute() logs provisioning failures 1`] = `
   [
     "mock-hasura-endpoint/v1/graphql",
     {
-      "body": "{"query":"\\n      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n          insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n      }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Provisioning endpoint: failure:something went wrong with provisioning"}}",
+      "body": "{"query":"\\n      mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){\\n          insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}\\n      }","variables":{"function_name":"morgs.near/test","block_height":82699904,"message":"Provisioning endpoint failure: something went wrong with provisioning"}}",
       "headers": {
         "Content-Type": "application/json",
         "X-Hasura-Admin-Secret": "mock-hasura-secret",
