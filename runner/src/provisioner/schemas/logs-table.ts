@@ -1,5 +1,5 @@
 export const logsTableDDL = (schemaName: string): string => `
-CREATE TABLE __logs (
+CREATE TABLE _logs (
     id BIGSERIAL NOT NULL,
     block_height NUMERIC(20),
     date DATE NOT NULL,
@@ -10,11 +10,11 @@ CREATE TABLE __logs (
     PRIMARY KEY (date, id)
 ) PARTITION BY RANGE (date);
 
-CREATE INDEX __logs_timestamp_idx ON __logs USING btree (timestamp);
-CREATE INDEX __logs_type_idx ON __logs USING btree (type);
-CREATE INDEX __logs_level_idx ON __logs USING btree (level);
-CREATE INDEX __logs_block_height_idx ON __logs USING btree (block_height);
-CREATE INDEX __logs_search_vector_idx ON __logs USING GIN (to_tsvector('english', message));
+CREATE INDEX _logs_timestamp_idx ON _logs USING btree (timestamp);
+CREATE INDEX _logs_type_idx ON _logs USING btree (type);
+CREATE INDEX _logs_level_idx ON _logs USING btree (level);
+CREATE INDEX _logs_block_height_idx ON _logs USING btree (block_height);
+CREATE INDEX _logs_search_vector_idx ON _logs USING GIN (to_tsvector('english', message));
 
 
 CREATE OR REPLACE FUNCTION fn_create_partition(_tbl text, _date date, _interval_start text, _interval_end text)
@@ -34,8 +34,8 @@ EXECUTE 'CREATE TABLE IF NOT EXISTS ' || _tbl || '_p' || _partition_name || ' PA
 END
 $func$;
 
-SELECT fn_create_partition('${schemaName}.__logs', CURRENT_DATE, '0 day', '1 day');
-SELECT fn_create_partition('${schemaName}.__logs', CURRENT_DATE, '1 day', '2 day');
+SELECT fn_create_partition('${schemaName}._logs', CURRENT_DATE, '0 day', '1 day');
+SELECT fn_create_partition('${schemaName}._logs', CURRENT_DATE, '1 day', '2 day');
 
 CREATE OR REPLACE FUNCTION fn_delete_partition(_tbl text, _date date, _interval_start text, _interval_end text)
 RETURNS void

@@ -276,12 +276,12 @@ async function indexerOldLogsQuery (indexerSchemaName: string, graphqlClient: Gr
 async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`
     query {
-      ${indexerSchemaName}___logs {
+      ${indexerSchemaName}__logs {
         message
       }
     }
   `);
-  return graphqlResult[`${indexerSchemaName}___logs`];
+  return graphqlResult[`${indexerSchemaName}__logs`];
 }
 
 async function indexerStatusQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
@@ -295,11 +295,11 @@ async function indexerBlockHeightQuery (indexerSchemaName: string, graphqlClient
 async function indexerMetadataQuery (indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`
     query {
-      ${indexerSchemaName}___metadata(where: {attribute: {_eq: "${attribute}"}}) {
+      ${indexerSchemaName}__metadata(where: {attribute: {_eq: "${attribute}"}}) {
         attribute
         value
       }
     }
   `);
-  return graphqlResult[`${indexerSchemaName}___metadata`][0];
+  return graphqlResult[`${indexerSchemaName}__metadata`][0];
 }
