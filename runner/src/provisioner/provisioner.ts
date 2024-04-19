@@ -268,7 +268,7 @@ export default class Provisioner {
             await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), [oldLogsTable], true);
           } catch (err) {
             const error = err as Error;
-            if (error.message.includes('already untracked')) {
+            if (!error.message.includes('already untracked')) {
               console.error(error.message);
             }
           }
@@ -278,7 +278,7 @@ export default class Provisioner {
             await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), [oldMetadataTable], true);
           } catch (err) {
             const error = err as Error;
-            if (error.message.includes('already untracked')) {
+            if (!error.message.includes('already untracked')) {
               console.error(error.message);
             }
           }
