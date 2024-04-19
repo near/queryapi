@@ -15,7 +15,7 @@ const IndexerLogsComponent = () => {
   const tableName = `${schemaName}___logs`;
 
   const GET_INDEXER_LOGS = gql`
-    query MyQuery($limit: Int = 0, $offset: Int = 0, $_functionName: String = "") {
+    query GetIndexerLogs($limit: Int = 0, $offset: Int = 0, $_functionName: String = "") {
       ${schemaName}___logs(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
         block_height
         date
@@ -33,7 +33,7 @@ const IndexerLogsComponent = () => {
     }
   `;
 
-  const { loading, error, data } = useQuery(GET_INDEXER_LOGS, {
+  const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
     variables: { "_functionName": functionName, limit: 50, offset: 0 },
     context: { headers: { "x-hasura-role": indexerDetails.accountId.replace(/\./g, "_") } },
   });
@@ -45,7 +45,13 @@ const IndexerLogsComponent = () => {
   }, [data, error, loading, tableName]);
 
   const renderGrid = (logs) => {
-    const grid = new Grid({
+    const gridConfig = getGridConfig(logs);
+    const grid = new Grid(gridConfig);
+    grid.render(document.getElementById("grid-logs-container"));
+  };
+
+  const getGridConfig = (logs) => {
+    return {
       columns: [
         "Block Height",
         "Timestamp",
@@ -70,23 +76,23 @@ const IndexerLogsComponent = () => {
       search: true,
       resizable: true,
       fixedHeader: true,
-      pagination: false, 
+      pagination: false,
       style: {
         container: {
-          "font-family": '"Roboto Mono", monospace',
+          fontFamily: "Roboto Mono, monospace",
         },
         table: {},
         th: {
-          "text-align": "center",
-          "max-width": "950px",
+          textAlign: "center",
+          maxWidth: "950px",
           width: "800px",
         },
         td: {
-          "text-align": "left",
-          "font-size": "11px",
-          "vertical-align": "text-top",
-          "background-color": "rgb(255, 255, 255)",
-          "max-height": "400px",
+          textAlign: "left",
+          fontSize: "11px",
+          verticalAlign: "top",
+          backgroundColor: "rgb(255, 255, 255)",
+          maxHeight: "400px",
           padding: "5px",
         },
       },
@@ -95,12 +101,10 @@ const IndexerLogsComponent = () => {
           placeholder: "🔍 Search by Block Height...",
         },
         pagination: {
-          results: () => `- Total Logs Count: ${data[`${schemaName}___logs_aggregate`].aggregate.count}`,
+          results: () => `- Total Logs Count: ${data[`${schemaName}___logs_aggregate`]?.aggregate.count || 0}`,
         },
       },
-    });
-
-    grid.render(document.getElementById("grid-logs-container"));
+    };
   };
 
   return (
@@ -114,7 +118,13 @@ const IndexerLogsComponent = () => {
         functionName={functionName}
         latestHeight={latestHeight}
       />
-      <div id="grid-logs-container"></div>
+      {loading ? (
+        <p>Loading...</p>
+      ) : error ? (
+        <p>Error fetching data</p>
+      ) : data ? (
+        <div id="grid-logs-container"></div>
+      ) : null}
     </div>
   );
 };
