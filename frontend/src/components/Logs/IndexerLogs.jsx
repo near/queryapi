@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
 import { useQuery, gql } from "@apollo/client";
 import { Grid, html } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
@@ -6,7 +6,6 @@ import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
 import Status from "./Status";
-
 
 const IndexerLogsComponent = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
@@ -18,7 +17,7 @@ const IndexerLogsComponent = () => {
   const tableName = `${schemaName}_sys_logs`;
 
   const GET_INDEXER_LOGS = gql`
-    query GetIndexerLogs($limit: Int = 0, $offset: Int = 0, $_functionName: String = "") {
+    query GetIndexerLogs($limit: Int, $offset: Int) {
       ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
         block_height
         date
@@ -38,34 +37,28 @@ const IndexerLogsComponent = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalLogsCount, setTotalLogsCount] = useState(0);
+  const [isGridRendered, setIsGridRendered] = useState(false);
+  const gridContainerRef = useRef(null);
+  const gridRef = useRef(null);
 
   const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
-    variables: { "_functionName": functionName, limit: 50, offset: (currentPage - 1) * 10 },
+    variables: { limit: 50, offset: (currentPage - 1) * 50 },
     context: { headers: { "x-hasura-role": hasuraAccountId } },
+    fetchPolicy: "network-only",
   });
 
-
   useEffect(() => {
-    if (!loading && !error && data) {
+    if (!loading && !error && data && !isGridRendered) {
       setTotalLogsCount(data[`${tableName}_aggregate`]?.aggregate.count || 0);
       renderGrid(data[tableName]);
+      setIsGridRendered(true);
     }
-  }, [data, error, loading, tableName]);
-
-
-  const renderGrid = (logs) => {
-    const container = document.getElementById("grid-logs-container");
-    //todo check if grid is already initialized, else use forceRender
-    container.innerHTML = '';
-    const gridConfig = getGridConfig(logs);
-    const grid = new Grid(gridConfig);
-    grid.render(document.getElementById("grid-logs-container"));
-  };
+  }, [data, error, loading, tableName, isGridRendered]);
 
   const getGridConfig = (logs) => {
     return {
       columns: [
-        "Block Height",
+        "Height",
         "Timestamp",
         "Date",
         "Type",
@@ -84,8 +77,8 @@ const IndexerLogsComponent = () => {
         log.level,
         log.message,
       ]),
-      sort: true,
       search: true,
+      sort: true,
       resizable: true,
       fixedHeader: true,
       pagination: false,
@@ -96,37 +89,43 @@ const IndexerLogsComponent = () => {
         },
         table: {},
         th: {
+          width: "auto",
+          fontSize: "14px",
           textAlign: "center",
-          maxWidth: "950px",
-          width: "800px",
         },
         td: {
-          textAlign: "left",
-          fontSize: "11px",
-          verticalAlign: "top",
-          backgroundColor: "rgb(255, 255, 255)",
-          maxHeight: "400px",
+          width: "auto",
+          fontSize: "12px",
           padding: "5px",
         },
-      },
-      language: {
-        search: {
-          placeholder: "🔍 Search by Block Height...",
-        },
-        pagination: {
-          results: () => `- Total Logs Count: ${data?.[`${tableName}_aggregate`]?.aggregate.count || 0}`,
+        language: {
+          search: {
+            placeholder: "🔍 Search by Block Height...",
+          },
         },
       },
     };
   };
 
+  const renderGrid = (logs) => {
+    const gridConfig = getGridConfig(logs);
+    const grid = new Grid(gridConfig);
+    grid.render(gridContainerRef.current);
+    gridRef.current = grid;
+  };
+
   const handlePagination = (pageNumber) => {
-    console.log(pageNumber)
     setCurrentPage(pageNumber);
-    refetch({ limit: 10, offset: (pageNumber - 1) * 10 });
+    refetch();
   };
 
   const totalPages = Math.ceil(totalLogsCount / 10);
+
+  useEffect(() => {
+    if (gridRef.current && data) {
+      renderGrid(data[tableName]);
+    }
+  }, [data, tableName]);
 
   return (
     <div>
@@ -143,34 +142,48 @@ const IndexerLogsComponent = () => {
         <p>Loading...</p>
       ) : error ? (
         <p>Error fetching data, {console.log(error)}</p>
-
       ) : data ? (
         <div style={{}}>
-          <div>
+          <div id="grid-logs-container" ref={gridContainerRef}></div>
+          {totalLogsCount > 50 && (
+            <p style={{ textAlign: "center", fontSize: "14px", margin: "10px 0" }}>
+              {`Showing logs ${(currentPage - 1) * 50 + 1} to ${Math.min(
+                currentPage * 50,
+                totalLogsCount
+              )} of ${totalLogsCount}`}
+            </p>
+          )}
+          <div
+            style={{
+              maxHeight: "150px",
+              overflowY: "auto",
+              padding: "10px",
+              border: "1px solid #ccc",
+            }}
+          >
             {Array.from({ length: totalPages }, (_, i) => (
               <button
                 style={{
-                  backgroundColor: i + 1 === currentPage ? '#007bff' : 'transparent',
-                  border: '1px solid #ccc',
-                  color: i + 1 === currentPage ? '#fff' : '#555',
-                  padding: '8px 16px',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s ease',
-                  width: '100px',
-                  display: 'inline-block',
-                  margin: '0 5px',
+                  backgroundColor: i + 1 === currentPage ? "#007bff" : "transparent",
+                  border: "1px solid #ccc",
+                  color: i + 1 === currentPage ? "#fff" : "#555",
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  width: "75px",
+                  display: "inline-block",
+                  margin: "0 5px 5px 0",
                 }}
-                key={i} onClick={() => handlePagination(i + 1)}>Page {i + 1}</button>
+                key={i}
+                onClick={() => handlePagination(i + 1)}
+              >
+                {i + 1}
+              </button>
             ))}
           </div>
-          <div id="grid-logs-container"></div>
         </div>
       ) : null}
-
     </div>
   );
 };
 
 export default IndexerLogsComponent;
-
