@@ -10,13 +10,15 @@ import Status from "./Status";
 const IndexerLogsComponent = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
   const { currentUserAccountId } = useInitialPayload();
+
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
-  const schemaName = `${indexerDetails.accountId.replace(/\./g, "_")}_${indexerDetails.indexerName}`;
-  const tableName = `${schemaName}___logs`;
+  const hasuraAccountId = indexerDetails.accountId.replace(/\./g, "_");
+  const schemaName = `${hasuraAccountId}_${indexerDetails.indexerName}`;
+  const tableName = `${schemaName}_sys_logs`;
 
   const GET_INDEXER_LOGS = gql`
     query GetIndexerLogs($limit: Int = 0, $offset: Int = 0, $_functionName: String = "") {
-      ${schemaName}___logs(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
+      ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
         block_height
         date
         id
@@ -25,7 +27,7 @@ const IndexerLogsComponent = () => {
         timestamp
         type
       }
-      ${schemaName}___logs_aggregate {
+      ${tableName}_aggregate {
         aggregate {
           count
         }
@@ -34,8 +36,8 @@ const IndexerLogsComponent = () => {
   `;
 
   const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
-    variables: { "_functionName": functionName, limit: 50, offset: 0 },
-    context: { headers: { "x-hasura-role": indexerDetails.accountId.replace(/\./g, "_") } },
+    variables: { "_functionName": functionName, limit: 500, offset: 0 },
+    context: { headers: { "x-hasura-role": hasuraAccountId } },
   });
 
   useEffect(() => {
@@ -45,6 +47,7 @@ const IndexerLogsComponent = () => {
   }, [data, error, loading, tableName]);
 
   const renderGrid = (logs) => {
+    console.log(logs)
     const gridConfig = getGridConfig(logs);
     const grid = new Grid(gridConfig);
     grid.render(document.getElementById("grid-logs-container"));
@@ -101,7 +104,7 @@ const IndexerLogsComponent = () => {
           placeholder: "🔍 Search by Block Height...",
         },
         pagination: {
-          results: () => `- Total Logs Count: ${data[`${schemaName}___logs_aggregate`]?.aggregate.count || 0}`,
+          results: () => `- Total Logs Count: ${data?.[`${tableName}_aggregate`]?.aggregate.count || 0}`,
         },
       },
     };
@@ -121,7 +124,8 @@ const IndexerLogsComponent = () => {
       {loading ? (
         <p>Loading...</p>
       ) : error ? (
-        <p>Error fetching data</p>
+        <p>Error fetching data, {console.log(error)}</p>
+
       ) : data ? (
         <div id="grid-logs-container"></div>
       ) : null}
