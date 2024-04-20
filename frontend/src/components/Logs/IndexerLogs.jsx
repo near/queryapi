@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useQuery, gql } from "@apollo/client";
 import { Grid, html } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
@@ -6,6 +6,7 @@ import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
 import Status from "./Status";
+
 
 const IndexerLogsComponent = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
@@ -35,19 +36,27 @@ const IndexerLogsComponent = () => {
     }
   `;
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalLogsCount, setTotalLogsCount] = useState(0);
+
   const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
-    variables: { "_functionName": functionName, limit: 500, offset: 0 },
+    variables: { "_functionName": functionName, limit: 50, offset: (currentPage - 1) * 10 },
     context: { headers: { "x-hasura-role": hasuraAccountId } },
   });
 
+
   useEffect(() => {
     if (!loading && !error && data) {
+      setTotalLogsCount(data[`${tableName}_aggregate`]?.aggregate.count || 0);
       renderGrid(data[tableName]);
     }
   }, [data, error, loading, tableName]);
 
+
   const renderGrid = (logs) => {
-    console.log(logs)
+    const container = document.getElementById("grid-logs-container");
+    //todo check if grid is already initialized, else use forceRender
+    container.innerHTML = '';
     const gridConfig = getGridConfig(logs);
     const grid = new Grid(gridConfig);
     grid.render(document.getElementById("grid-logs-container"));
@@ -80,6 +89,7 @@ const IndexerLogsComponent = () => {
       resizable: true,
       fixedHeader: true,
       pagination: false,
+      resetPageOnUpdate: true,
       style: {
         container: {
           fontFamily: "Roboto Mono, monospace",
@@ -110,6 +120,14 @@ const IndexerLogsComponent = () => {
     };
   };
 
+  const handlePagination = (pageNumber) => {
+    console.log(pageNumber)
+    setCurrentPage(pageNumber);
+    refetch({ limit: 10, offset: (pageNumber - 1) * 10 });
+  };
+
+  const totalPages = Math.ceil(totalLogsCount / 10);
+
   return (
     <div>
       <LogButtons
@@ -127,10 +145,32 @@ const IndexerLogsComponent = () => {
         <p>Error fetching data, {console.log(error)}</p>
 
       ) : data ? (
-        <div id="grid-logs-container"></div>
+        <div style={{}}>
+          <div>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                style={{
+                  backgroundColor: i + 1 === currentPage ? '#007bff' : 'transparent',
+                  border: '1px solid #ccc',
+                  color: i + 1 === currentPage ? '#fff' : '#555',
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s ease',
+                  width: '100px',
+                  display: 'inline-block',
+                  margin: '0 5px',
+                }}
+                key={i} onClick={() => handlePagination(i + 1)}>Page {i + 1}</button>
+            ))}
+          </div>
+          <div id="grid-logs-container"></div>
+        </div>
       ) : null}
+
     </div>
   );
 };
 
 export default IndexerLogsComponent;
+
