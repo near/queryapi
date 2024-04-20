@@ -255,40 +255,12 @@ export default class Provisioner {
     if (this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
       return;
     }
-    const oldLogsTable = '__logs';
-    const oldMetadataTable = '__metadata';
     const logsTable = 'sys_logs';
     const metadataTable = 'sys_metadata';
 
     await wrapError(
       async () => {
         const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
-        if (tableNames.includes(oldLogsTable)) {
-          try {
-            await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), [oldLogsTable], true);
-          } catch (err) {
-            const error = err as Error;
-            if (!error.message.includes('already untracked')) {
-              console.error(error.message);
-            }
-          }
-        }
-        if (tableNames.includes(oldMetadataTable)) {
-          try {
-            await this.hasuraClient.untrackTables(indexerConfig.databaseName(), indexerConfig.schemaName(), [oldMetadataTable], true);
-          } catch (err) {
-            const error = err as Error;
-            if (!error.message.includes('already untracked')) {
-              console.error(error.message);
-            }
-          }
-        }
-        if (tableNames.includes(oldLogsTable)) {
-          await this.hasuraClient.executeSqlOnSchema(indexerConfig.databaseName(), indexerConfig.schemaName(), `DROP TABLE IF EXISTS ${oldLogsTable} CASCADE;`);
-        }
-        if (tableNames.includes(oldMetadataTable)) {
-          await this.hasuraClient.executeSqlOnSchema(indexerConfig.databaseName(), indexerConfig.schemaName(), `DROP TABLE IF EXISTS ${oldMetadataTable};`);
-        }
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
