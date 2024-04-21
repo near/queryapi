@@ -2,12 +2,12 @@ import fetch, { type Response } from 'node-fetch';
 import { VM } from 'vm2';
 import * as lakePrimitives from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
+import { trace, type Span } from '@opentelemetry/api';
 
+import logger from '../logger';
 import Provisioner from '../provisioner';
 import DmlHandler from '../dml-handler/dml-handler';
 import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
-
-import { trace, type Span } from '@opentelemetry/api';
 import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
 import IndexerMeta, { IndexerStatus } from '../indexer-meta';
@@ -51,10 +51,9 @@ export default class Indexer {
   IS_FIRST_EXECUTION: boolean = true;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
+  private readonly logger: typeof logger;
   private readonly deps: Dependencies;
-
   private database_connection_parameters: PostgresConnectionParams | undefined;
-
   private currentStatus?: string;
 
   constructor (
@@ -63,6 +62,8 @@ export default class Indexer {
     databaseConnectionParameters: PostgresConnectionParams | undefined = undefined,
     private readonly config: Config = defaultConfig,
   ) {
+    this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
+
     this.DEFAULT_HASURA_ROLE = 'append';
     this.deps = {
       fetch,
@@ -393,9 +394,8 @@ export default class Indexer {
       }, {});
       return result;
     } catch (error) {
-      const errorContent = error as { message: string, location: Record<string, any> };
       if (this.IS_FIRST_EXECUTION) {
-        console.warn(`${this.indexerConfig.fullName()}: Caught error when generating context.db methods. Building no functions. You can still use other context object methods.\nError: ${errorContent.message}\nLocation: `, errorContent.location);
+        this.logger.warn('Caught error when generating context.db methods', error);
       }
     }
     return {}; // Default to empty object if error
@@ -449,7 +449,7 @@ export default class Indexer {
         this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
       } catch (e) {
         const error = e as Error;
-        console.error(failureMessage, e);
+        this.logger.error(failureMessage, e);
         throw error;
       }
     }
@@ -489,7 +489,7 @@ export default class Indexer {
     try {
       await this.runGraphQLQuery(realTimeMutation, variables, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
-          console.error(`${this.indexerConfig.fullName()}: Error writing function state`, e);
+          this.logger.error('Error writing function state', e);
         });
     } finally {
       setBlockHeightSpan.end();
@@ -518,8 +518,8 @@ export default class Indexer {
       .then((result: any) => {
         return result?.insert_indexer_log_entries_one?.returning?.[0]?.id;
       })
-      .catch((e: any) => {
-        console.error('Error writing log to in writeLogOld Function', e);
+      .catch((e) => {
+        this.logger.error('Error writing log in writeLogOld Function', e);
       })
       .finally(() => {
         writeLogSpan.end();
@@ -557,7 +557,7 @@ export default class Indexer {
         try {
           await this.runGraphQLQuery(mutation, { function_name: this.indexerConfig.fullName(), block_height: blockHeight, message }, blockHeight, this.DEFAULT_HASURA_ROLE, false);
         } catch (e) {
-          console.error(`${this.indexerConfig.fullName()}: Error writing log of graphql error`, e);
+          this.logger.error('Error writing log of graphql error', e);
         }
       }
       throw new Error(`Failed to write graphql, http status: ${response.status}, errors: ${JSON.stringify(errors, null, 2)}`);

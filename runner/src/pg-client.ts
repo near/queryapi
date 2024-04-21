@@ -1,6 +1,8 @@
 import { Pool, type PoolConfig, type QueryResult, type QueryResultRow } from 'pg';
 import pgFormatModule from 'pg-format';
 
+import logger from './logger';
+
 export interface PostgresConnectionParams {
   user: string
   password: string
@@ -10,6 +12,7 @@ export interface PostgresConnectionParams {
 }
 
 export default class PgClient {
+  private readonly logger = logger.child({ service: 'PgClient' });
   private readonly pgPool: Pool;
   public format: typeof pgFormatModule;
 
@@ -18,7 +21,7 @@ export default class PgClient {
     poolConfig: PoolConfig = { max: Number(process.env.MAX_PG_POOL_SIZE ?? 10), idleTimeoutMillis: 3000 },
     PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule,
-    onError: (err: Error) => void = (err) => { console.error(err); }
+    onError: (err: Error) => void = (err) => { this.logger.error(err); }
   ) {
     this.pgPool = new PgPool({
       user: connectionParams.user,

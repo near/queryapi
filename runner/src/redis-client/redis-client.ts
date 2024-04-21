@@ -1,5 +1,7 @@
 import { createClient, type RedisClientType } from 'redis';
 
+import logger from '../logger';
+
 interface StreamMessage {
   id: string
   message: {
@@ -13,11 +15,15 @@ export default class RedisClient {
   STREAMS_SET_KEY = 'streams';
   STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer_message:';
 
+  private readonly logger: typeof logger;
+
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })
   ) {
-    client.on('error', (err) => { console.log('Redis Client Error', err); });
-    client.connect().catch(console.error);
+    this.logger = logger.child({ service: this.constructor.name });
+
+    client.on('error', (err) => { this.logger.error('Redis Client Error', err); });
+    client.connect().catch(this.logger.error.bind(this));
   }
 
   async disconnect (): Promise<void> {

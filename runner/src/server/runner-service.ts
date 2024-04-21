@@ -11,6 +11,9 @@ import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
 import StreamHandler from '../stream-handler';
 import IndexerConfig from '../indexer-config';
+import parentLogger from '../logger';
+
+const logger = parentLogger.child({ service: 'RunnerService' });
 
 function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
@@ -34,7 +37,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      console.log('Starting executor: ', JSON.stringify(indexerConfig));
+      logger.info('Starting executor', { accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, version: indexerConfig.version });
 
       // Handle request
       try {
@@ -42,7 +45,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         executors.set(indexerConfig.executorId, streamHandler);
         callback(null, { executorId: indexerConfig.executorId });
       } catch (error) {
-        callback(handleInternalError(error), null);
+        callback(handleInternalError(error as Error), null);
       }
     },
 
@@ -63,7 +66,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      console.log('Stopping executor: ', { executorId });
+      logger.log('Stopping executor', { executorId });
 
       // Handle request
       executors.get(executorId)?.stop()
@@ -94,24 +97,19 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           executors: response
         });
       } catch (error) {
-        callback(handleInternalError(error), null);
+        callback(handleInternalError(error as Error), null);
       }
     }
   };
   return RunnerService;
 }
 
-function handleInternalError (error: unknown): any {
-  let errorMessage = 'An unknown error occurred';
+function handleInternalError (error: Error): any {
+  logger.error(error);
 
-  // Check if error is an instance of Error
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  }
-  console.error(errorMessage);
   return {
     code: grpc.status.INTERNAL,
-    message: errorMessage
+    message: error.message ?? 'An unknown error occurred'
   };
 }
 
