@@ -12,6 +12,7 @@ export interface PostgresConnectionParams {
 }
 
 export default class PgClient {
+  private readonly logger = logger.child({ service: 'PgClient' });
   private readonly pgPool: Pool;
   public format: typeof pgFormatModule;
 
@@ -20,7 +21,7 @@ export default class PgClient {
     poolConfig: PoolConfig = { max: Number(process.env.MAX_PG_POOL_SIZE ?? 10), idleTimeoutMillis: 3000 },
     PgPool: typeof Pool = Pool,
     pgFormat: typeof pgFormatModule = pgFormatModule,
-    onError: (err: Error) => void = (err) => { logger.error(err); }
+    onError: (err: Error) => void = (err) => { this.logger.error(err); }
   ) {
     this.pgPool = new PgPool({
       user: connectionParams.user,

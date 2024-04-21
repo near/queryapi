@@ -11,7 +11,9 @@ import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
 import StreamHandler from '../stream-handler';
 import IndexerConfig from '../indexer-config';
-import logger from '../logger';
+import parentLogger from '../logger';
+
+const logger = parentLogger.child({ service: 'RunnerService' });
 
 function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
@@ -35,7 +37,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      logger.info('Starting executor', indexerConfig);
+      logger.info('Starting executor', { accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, version: indexerConfig.version });
 
       // Handle request
       try {

@@ -26,6 +26,7 @@ interface ExecutorContext {
 }
 
 export default class StreamHandler {
+  private readonly logger: typeof logger;
   private readonly worker: Worker;
   public readonly executorContext: ExecutorContext;
 
@@ -33,6 +34,8 @@ export default class StreamHandler {
     public readonly indexerConfig: IndexerConfig,
   ) {
     if (isMainThread) {
+      this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
+
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
           indexerConfigData: indexerConfig.toObject(),
@@ -57,15 +60,15 @@ export default class StreamHandler {
   }
 
   private handleError (error: Error): void {
-    logger.error(`Encountered error processing stream: ${this.indexerConfig.fullName()}, terminating thread`, error);
+    this.logger.error('Terminating thread', error);
     this.executorContext.status = IndexerStatus.STOPPED;
 
     const indexer = new Indexer(this.indexerConfig);
     indexer.setStatus(0, IndexerStatus.STOPPED).catch((e) => {
-      logger.error(`Failed to set status STOPPED for stream: ${this.indexerConfig.redisStreamKey}`, e);
+      this.logger.error('Failed to set status STOPPED for stream', e);
     });
     indexer.setStoppedStatus().catch((e) => {
-      logger.error(`Failed to set stopped status for stream in Metadata table: ${this.indexerConfig.redisStreamKey}`, e);
+      this.logger.error('Failed to set stopped status for stream in Metadata table', e);
     });
 
     const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${error.toString()}`, this.executorContext.block_height);
@@ -74,11 +77,11 @@ export default class StreamHandler {
       indexer.writeLogOld(LogLevel.ERROR, this.executorContext.block_height, `Encountered error processing stream: ${this.indexerConfig.fullName()}, terminating thread\n${error.toString()}`),
       indexer.callWriteLog(streamErrorLogEntry),
     ]).catch((e) => {
-      logger.error(`Failed to write failure log for stream: ${this.indexerConfig.redisStreamKey}`, e);
+      this.logger.error('Failed to write failure log for stream', e);
     });
 
     this.worker.terminate().catch(() => {
-      logger.error(`Failed to terminate thread for stream: ${this.indexerConfig.redisStreamKey}`);
+      this.logger.error('Failed to terminate thread for stream');
     });
   }
 

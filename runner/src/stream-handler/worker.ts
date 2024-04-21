@@ -11,15 +11,17 @@ import { WorkerMessageType, type WorkerMessage } from './stream-handler';
 import setUpTracerExport from '../instrumentation';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
-import logger from '../logger';
+import parentLogger from '../logger';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
 }
+
 interface QueueMessage {
   block: Block
   streamMessageId: string
 }
+
 type PrefetchQueue = Array<Promise<QueueMessage>>;
 
 interface WorkerContext {
@@ -28,6 +30,8 @@ interface WorkerContext {
   queue: PrefetchQueue
   indexerConfig: IndexerConfig
 }
+
+const logger = parentLogger.child({ service: 'StreamHandler/worker' });
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 setUpTracerExport();
@@ -42,8 +46,6 @@ void (async function main () {
     queue: [],
     indexerConfig
   };
-
-  logger.info('Started processing stream', workerContext.indexerConfig.fullName(), workerContext.indexerConfig.version);
 
   await handleStream(workerContext);
 })();
