@@ -105,7 +105,7 @@ export default class Indexer {
       } catch (e) {
         const error = e as Error;
         if (this.IS_FIRST_EXECUTION) {
-          console.error(`Provisioning endpoint: failure:${error.message}`, error);
+          this.logger.error('Provisioning endpoint: failure', error);
         }
         simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint failure: ${error.message}`));
         const provisionFailureLogEntry = LogEntry.systemError(`Provisioning endpoint failure: ${error.message}`, blockHeight);
@@ -167,7 +167,7 @@ export default class Indexer {
         await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
       } catch (e) {
         const error = e as Error;
-        console.error('Failed to write logs:', error);
+        this.logger.error('Failed to write logs', error);
       }
     }
     return allMutations;
