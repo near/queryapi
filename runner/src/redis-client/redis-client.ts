@@ -1,5 +1,7 @@
 import { createClient, type RedisClientType } from 'redis';
 
+import logger from '../logger';
+
 interface StreamMessage {
   id: string
   message: {
@@ -16,8 +18,8 @@ export default class RedisClient {
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })
   ) {
-    client.on('error', (err) => { console.log('Redis Client Error', err); });
-    client.connect().catch(console.error);
+    client.on('error', (err) => { logger.error('Redis Client Error', err); });
+    client.connect().catch(logger.error);
   }
 
   async disconnect (): Promise<void> {

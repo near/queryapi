@@ -1,6 +1,8 @@
 import express from 'express';
 import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
 
+import logger from './logger';
+
 const HEAP_TOTAL_ALLOCATION = new Gauge({
   name: 'queryapi_runner_heap_total_allocation_megabytes',
   help: 'Size of heap allocation for indexer function',
@@ -90,6 +92,6 @@ export const startServer = async (): Promise<void> => {
   });
 
   app.listen(process.env.PORT, () => {
-    console.log(`Metrics server running on http://localhost:${process.env.PORT}`);
+    logger.info(`Metrics server running on http://localhost:${process.env.PORT}`);
   });
 };

@@ -1,15 +1,17 @@
 import { isMainThread, parentPort, workerData } from 'worker_threads';
+import { trace, type Span, context } from '@opentelemetry/api';
 import promClient from 'prom-client';
+import type { Block } from '@near-lake/primitives';
+
 import Indexer from '../indexer';
 import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
-import type { Block } from '@near-lake/primitives';
 import LakeClient from '../lake-client';
 import { WorkerMessageType, type WorkerMessage } from './stream-handler';
-import { trace, type Span, context } from '@opentelemetry/api';
 import setUpTracerExport from '../instrumentation';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
+import logger from '../logger';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -41,7 +43,7 @@ void (async function main () {
     indexerConfig
   };
 
-  console.log('Started processing stream: ', workerContext.indexerConfig.fullName(), workerContext.indexerConfig.version);
+  logger.info('Started processing stream', workerContext.indexerConfig.fullName(), workerContext.indexerConfig.version);
 
   await handleStream(workerContext);
 })();
@@ -75,7 +77,7 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
 
       streamMessageStartId = messages[messages.length - 1].id;
     } catch (err) {
-      console.error('Error fetching stream messages', err);
+      logger.error('Error fetching stream messages', err);
       await sleep(500);
     }
   }
@@ -109,7 +111,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
           }
         });
         if (queueMessage === undefined) {
-          console.warn('Block promise is undefined');
+          logger.warn('Block promise is undefined');
           return;
         }
 
@@ -148,7 +150,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         const error = err as Error;
         if (previousError !== error.message) {
           previousError = error.message;
-          console.log(`Failed: ${indexerConfig.fullName()} on block ${currBlockHeight}`, err);
+          logger.log(`Failed: ${indexerConfig.fullName()} on block ${currBlockHeight}`, err);
         }
         const sleepSpan = tracer.startSpan('Sleep for 10 seconds after failing', {}, context.active());
         await sleep(10000);

@@ -10,6 +10,8 @@ import { ZipkinExporter } from '@opentelemetry/exporter-zipkin';
 import { TraceExporter } from '@google-cloud/opentelemetry-cloud-trace-exporter';
 import { TraceIdRatioBasedSampler } from '@opentelemetry/sdk-trace-node';
 
+import logger from '../logger';
+
 export default function setUpTracerExport (): void {
   switch (process.env.TRACING_EXPORTER) {
     case 'CONSOLE':
@@ -22,13 +24,13 @@ export default function setUpTracerExport (): void {
       setGCPExport();
       break;
     default: // No-Op
-      console.debug('Using No Op Exporter. No traces will be recorded.');
+      logger.debug('Using No Op Exporter. No traces will be recorded.');
       break;
   }
 }
 
 function setGCPExport (): void {
-  console.debug('Using GCP Exporter. Traces exported to GCP Trace.');
+  logger.debug('Using GCP Exporter. Traces exported to GCP Trace.');
   const sdk = new NodeSDK({
     resource: new Resource({
       [SEMRESATTRS_SERVICE_NAME]: 'queryapi-runner',
@@ -50,7 +52,7 @@ function setGCPExport (): void {
 }
 
 function setZipkinExport (): void {
-  console.debug('Using Zipkin Exporter. Traces exported to Zipkin in port 9411.');
+  logger.debug('Using Zipkin Exporter. Traces exported to Zipkin in port 9411.');
   const sdk = new NodeSDK({
     resource: new Resource({
       [SEMRESATTRS_SERVICE_NAME]: 'queryapi-runner',
@@ -70,7 +72,7 @@ function setZipkinExport (): void {
 }
 
 function setConsoleExport (): void {
-  console.debug('Using Console Exporter. Traces exported to console.');
+  logger.debug('Using Console Exporter. Traces exported to console.');
   const sdk = new NodeSDK({
     resource: new Resource({
       [SEMRESATTRS_SERVICE_NAME]: 'queryapi-runner',
