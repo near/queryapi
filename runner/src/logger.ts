@@ -1,4 +1,5 @@
 import winston from 'winston';
+import { LoggingWinston } from '@google-cloud/logging-winston';
 
 const { format, transports } = winston;
 
@@ -7,12 +8,12 @@ const logger = winston.createLogger({
   format: format.combine(
     format.timestamp(),
     format.errors({ stack: true }),
-    format.json()
   ),
-  transports: [],
 });
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.GCP_LOGGING_ENABLED) {
+  logger.add(new LoggingWinston({ redirectToStdout: true }));
+} else {
   logger.add(new transports.Console({
     format: format.combine(
       format.colorize(),
