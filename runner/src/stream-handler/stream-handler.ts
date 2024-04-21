@@ -65,10 +65,10 @@ export default class StreamHandler {
 
     const indexer = new Indexer(this.indexerConfig);
     indexer.setStatus(0, IndexerStatus.STOPPED).catch((e) => {
-      this.logger.error('Failed to set status STOPPED for stream', e);
+      this.logger.error('Failed to set status STOPPED for indexer through hasura', e);
     });
     indexer.setStoppedStatus().catch((e) => {
-      this.logger.error('Failed to set stopped status for stream in Metadata table', e);
+      this.logger.error('Failed to set stopped status for indexer', e);
     });
 
     const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${error.toString()}`, this.executorContext.block_height);

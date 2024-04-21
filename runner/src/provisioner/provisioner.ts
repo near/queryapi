@@ -3,12 +3,17 @@ import pgFormatLib from 'pg-format';
 
 import { wrapError } from '../utility';
 import cryptoModule from 'crypto';
-import HasuraClient, { type HasuraDatabaseConnectionParameters } from '../hasura-client';
+import HasuraClient, {
+  type HasuraDatabaseConnectionParameters,
+  type HasuraPermission,
+  type HasuraTableMetadata,
+  type HasuraRolePermission
+} from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import type IndexerConfig from '../indexer-config/indexer-config';
-import { IndexerStatus, METADATA_TABLE_UPSERT, MetadataFields } from '../indexer-meta/indexer-meta';
+import { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus } from '../indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -37,6 +42,9 @@ interface Config {
   postgresPort: number
 }
 
+type TableName = string;
+type TrackedTablePermissions = Map<TableName, HasuraTableMetadata>;
+
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
   pgBouncerHost: process.env.PGHOST_PGBOUNCER ?? process.env.PGHOST,
@@ -48,8 +56,8 @@ const defaultConfig: Config = {
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
-  #hasLogsBeenProvisioned: Record<string, Record<string, boolean>> = {};
-  #hasMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasLogsMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
+  #hasuraConsistentState: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -79,6 +87,11 @@ export default class Provisioner {
   private setProvisioned (accountId: string, functionName: string): void {
     this.#hasBeenProvisioned[accountId] ??= {};
     this.#hasBeenProvisioned[accountId][functionName] = true;
+  }
+
+  private setConsistentState (accountId: string, functionName: string): void {
+    this.#hasuraConsistentState[accountId] ??= {};
+    this.#hasuraConsistentState[accountId][functionName] = true;
   }
 
   async createDatabase (name: string): Promise<void> {
@@ -115,14 +128,14 @@ export default class Provisioner {
         const userCronPgClient = new this.PgClient(userDbConnectionParameters);
         await userCronPgClient.query(
           this.pgFormat(
-            "SELECT cron.schedule_in_database('%1$I_logs_create_partition', '0 1 * * *', $$SELECT %1$I.fn_create_partition('%1$I.__logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
+            "SELECT cron.schedule_in_database('%1$I_sys_logs_create_partition', '0 1 * * *', $$SELECT %1$I.fn_create_partition('%1$I.sys_logs', CURRENT_DATE, '1 day', '2 day')$$, %2$L);",
             schemaName,
             databaseName
           )
         );
         await userCronPgClient.query(
           this.pgFormat(
-            "SELECT cron.schedule_in_database('%1$I_logs_delete_partition', '0 2 * * *', $$SELECT %1$I.fn_delete_partition('%1$I.__logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$L);",
+            "SELECT cron.schedule_in_database('%1$I_sys_logs_delete_partition', '0 2 * * *', $$SELECT %1$I.fn_delete_partition('%1$I.sys_logs', CURRENT_DATE, '-15 day', '-14 day')$$, %2$L);",
             schemaName,
             databaseName
           )
@@ -211,12 +224,12 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, tableNames, databaseName), 'Failed to track tables');
   }
 
-  async addPermissionsToTables (schemaName: string, databaseName: string, tableNames: string[], roleName: string, permissions: string[]): Promise<void> {
+  async addPermissionsToTables (indexerSchema: IndexerConfig, tableNames: string[], permissions: string[]): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.addPermissionsToTables(
-      schemaName,
-      databaseName,
+      indexerSchema.schemaName(),
+      indexerSchema.databaseName(),
       tableNames,
-      roleName,
+      indexerSchema.hasuraRoleName(),
       permissions
     ), 'Failed to add permissions to tables');
   }
@@ -234,15 +247,16 @@ export default class Provisioner {
   }
 
   /**
-    * Provision logs table for existing Indexers which have already had all
+    * Provision logs and metadata table for existing Indexers which have already had all
     * other resources provisioned.
     *
     * */
-  async provisionLogsIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
-    if (this.#hasLogsBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
+  async provisionLogsAndMetadataIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
+    if (this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
       return;
     }
-    const logsTable = '__logs';
+    const logsTable = 'sys_logs';
+    const metadataTable = 'sys_metadata';
 
     await wrapError(
       async () => {
@@ -250,44 +264,94 @@ export default class Provisioner {
 
         if (!tableNames.includes(logsTable)) {
           await this.setupPartitionedLogsTable(indexerConfig.userName(), indexerConfig.databaseName(), indexerConfig.schemaName());
-          await this.trackTables(indexerConfig.schemaName(), [logsTable], indexerConfig.databaseName());
-          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [logsTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
-      },
-      'Failed standalone logs provisioning'
-    );
-
-    this.#hasLogsBeenProvisioned[indexerConfig.accountId] ??= {};
-    this.#hasLogsBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
-  }
-
-  /**
-    * Provision metadata table for existing Indexers which have already had all
-    * other resources provisioned.
-    *
-    * */
-  async provisionMetadataIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
-    if (this.#hasMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
-      return;
-    }
-    const metadataTable = '__metadata';
-
-    await wrapError(
-      async () => {
-        const tableNames = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
-
         if (!tableNames.includes(metadataTable)) {
           await this.createMetadataTable(indexerConfig.databaseName(), indexerConfig.schemaName());
           await this.setProvisioningStatus(indexerConfig.userName(), indexerConfig.schemaName());
-          await this.trackTables(indexerConfig.schemaName(), [metadataTable], indexerConfig.databaseName());
-          await this.addPermissionsToTables(indexerConfig.schemaName(), indexerConfig.databaseName(), [metadataTable], indexerConfig.userName(), ['select', 'insert', 'update', 'delete']);
         }
       },
-      'Failed standalone metadata provisioning'
+      'Failed logs and metadata provisioning'
     );
 
-    this.#hasMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
-    this.#hasMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+    this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId] ??= {};
+    this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId][indexerConfig.functionName] = true;
+  }
+
+  /**
+    * Tracks and adds permissions to any Postgres tables successfully created in schema and which lack tracking and/or permissions.
+    *
+    * */
+  async ensureConsistentHasuraState (indexerConfig: IndexerConfig): Promise<void> {
+    if (this.#hasuraConsistentState[indexerConfig.accountId]?.[indexerConfig.functionName]) {
+      return;
+    }
+    await wrapError(
+      async () => {
+        const tableNamesToCheck = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
+
+        const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
+        const untrackedTables = this.getUntrackedTables(tableNamesToCheck, hasuraTablesMetadata);
+        const tablesWithoutPermissions = this.getTablesWithoutRole(
+          indexerConfig.hasuraRoleName(),
+          tableNamesToCheck,
+          hasuraTablesMetadata,
+          permissionsToAdd
+        );
+
+        if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
+          this.setConsistentState(indexerConfig.accountId, indexerConfig.functionName);
+          return;
+        }
+        if (untrackedTables.length > 0) {
+          await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
+        }
+        if (tablesWithoutPermissions.length > 0) {
+          await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
+        }
+      }, 'Failed to ensure consistent Hasura state');
+  }
+
+  async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {
+    const trackedTables: HasuraTableMetadata[] = await this.hasuraClient.getTrackedTablePermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
+    const trackedTablePermissions: TrackedTablePermissions = new Map();
+
+    trackedTables.forEach((tableMetadata: HasuraTableMetadata) => {
+      trackedTablePermissions.set(tableMetadata.table.name, tableMetadata);
+    });
+
+    return trackedTablePermissions;
+  }
+
+  private getUntrackedTables (allTables: string[], tableMetadata: Map<string, any>): string[] {
+    return allTables.filter((tableName: string) => !tableMetadata.has(tableName));
+  }
+
+  private getTablesWithoutRole (
+    roleName: string,
+    allTables: string[],
+    tableMetadata: Map<string, HasuraTableMetadata>,
+    permissionsToCheck: HasuraPermission[]
+  ): string[] {
+    return allTables.filter((tableName: string) => {
+      const tablePermissionsMetadata = tableMetadata.get(tableName);
+      if (!tablePermissionsMetadata) {
+        return true;
+      }
+
+      return this.tablePermissionsLackRole(roleName, tablePermissionsMetadata, permissionsToCheck);
+    });
+  }
+
+  private tablePermissionsLackRole (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
+    return permissionsToCheck.some((permission: string) => {
+      const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
+      return this.permissionLacksRole(roleName, tablePermissionsMetadata[permissionAttribute]);
+    });
+  }
+
+  private permissionLacksRole (roleName: string, tablePermission: HasuraRolePermission[] | undefined): boolean {
+    return !tablePermission?.some((roleWithPermission: { role: string }) => roleWithPermission.role === roleName);
   }
 
   async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
@@ -318,7 +382,7 @@ export default class Provisioner {
 
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
-          await this.addPermissionsToTables(schemaName, databaseName, updatedTableNames, userName, ['select', 'insert', 'update', 'delete']);
+          await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
           this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
         },
         'Failed to provision endpoint'

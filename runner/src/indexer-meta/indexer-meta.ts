@@ -13,7 +13,7 @@ export enum IndexerStatus {
   STOPPED = 'STOPPED',
 }
 
-export const METADATA_TABLE_UPSERT = 'INSERT INTO %I.__metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
+export const METADATA_TABLE_UPSERT = 'INSERT INTO %I.sys_metadata (attribute, value) VALUES %L ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *';
 export enum MetadataFields {
   STATUS = 'STATUS',
   LAST_PROCESSED_BLOCK_HEIGHT = 'LAST_PROCESSED_BLOCK_HEIGHT'
@@ -24,7 +24,7 @@ export default class IndexerMeta {
 
   private readonly pgClient: PgClient;
   private readonly indexerConfig: IndexerConfig;
-  private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.__logs (block_height, date, timestamp, type, level, message) VALUES %L';
+  private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.sys_logs (block_height, date, timestamp, type, level, message) VALUES %L';
 
   constructor (
     indexerConfig: IndexerConfig,
@@ -47,7 +47,7 @@ export default class IndexerMeta {
     const entriesArray = logEntries.filter(entry => this.shouldLog(entry.level));
     if (entriesArray.length === 0) return;
 
-    const spanMessage = `write log for ${entriesArray.length === 1 ? 'single entry' : `batch of ${entriesArray.length}`} through postgres `;
+    const spanMessage = `write batch of ${entriesArray.length} logs through postgres`;
     const writeLogSpan = this.tracer.startSpan(spanMessage);
 
     await wrapError(async () => {
@@ -62,14 +62,14 @@ export default class IndexerMeta {
 
       const query = format(this.logInsertQueryTemplate, this.indexerConfig.schemaName(), values);
       await this.pgClient.query(query);
-    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.__logs table`)
+    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.sys_logs table`)
       .finally(() => {
         writeLogSpan.end();
       });
   }
 
   async setStatus (status: IndexerStatus): Promise<void> {
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through postgres`);
+    const setStatusSpan = this.tracer.startSpan(`set status to ${status} through postgres`);
     const values = [[MetadataFields.STATUS, status]];
     const setStatusQuery = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 
@@ -81,7 +81,7 @@ export default class IndexerMeta {
   }
 
   async updateBlockHeight (blockHeight: number): Promise<void> {
-    const setLastProcessedBlockSpan = this.tracer.startSpan(`set last processed block to ${blockHeight} through postgres`);
+    const setLastProcessedBlockSpan = this.tracer.startSpan('set last processed block through postgres');
     const values = [[MetadataFields.LAST_PROCESSED_BLOCK_HEIGHT, blockHeight.toString()]];
     const updateBlockHeightQuery = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 

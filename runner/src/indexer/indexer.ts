@@ -48,7 +48,7 @@ const defaultConfig: Config = {
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
-  IS_FIRST_EXECUTION: boolean = false;
+  IS_FIRST_EXECUTION: boolean = true;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly logger: typeof logger;
@@ -100,12 +100,15 @@ export default class Indexer {
           const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight);
           logEntries.push(provisionSuccessLogEntry);
         }
-        await this.deps.provisioner.provisionLogsIfNeeded(this.indexerConfig);
-        await this.deps.provisioner.provisionMetadataIfNeeded(this.indexerConfig);
+        await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
+        await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
-        simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint: failure:${error.message}`));
-        const provisionFailureLogEntry = LogEntry.systemError('Provisioning endpoint: failure', blockHeight);
+        if (this.IS_FIRST_EXECUTION) {
+          console.error(`Provisioning endpoint: failure:${error.message}`, error);
+        }
+        simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, `Provisioning endpoint failure: ${error.message}`));
+        const provisionFailureLogEntry = LogEntry.systemError(`Provisioning endpoint failure: ${error.message}`, blockHeight);
         logEntries.push(provisionFailureLogEntry);
         throw error;
       }
@@ -159,7 +162,13 @@ export default class Indexer {
       await this.setStatus(blockHeight, IndexerStatus.FAILING);
       throw e;
     } finally {
-      await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
+      this.IS_FIRST_EXECUTION = false;
+      try {
+        await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
+      } catch (e) {
+        const error = e as Error;
+        console.error('Failed to write logs:', error);
+      }
     }
     return allMutations;
   }
@@ -385,9 +394,8 @@ export default class Indexer {
       }, {});
       return result;
     } catch (error) {
-      if (!this.IS_FIRST_EXECUTION) {
+      if (this.IS_FIRST_EXECUTION) {
         this.logger.warn('Caught error when generating context.db methods', error);
-        this.IS_FIRST_EXECUTION = true;
       }
     }
     return {}; // Default to empty object if error
@@ -407,7 +415,7 @@ export default class Indexer {
           status
         }
       }`;
-    const setStatusSpan = this.tracer.startSpan(`set status of indexer to ${status} through hasura`);
+    const setStatusSpan = this.tracer.startSpan(`set status to ${status} through hasura`);
     try {
       await this.runGraphQLQuery(
         setStatusMutation,
@@ -477,7 +485,7 @@ export default class Indexer {
       function_name: this.indexerConfig.fullName(),
       block_height: blockHeight,
     };
-    const setBlockHeightSpan = this.tracer.startSpan('set last processed block height through Hasura');
+    const setBlockHeightSpan = this.tracer.startSpan('set last processed block through Hasura');
     try {
       await this.runGraphQLQuery(realTimeMutation, variables, blockHeight, this.DEFAULT_HASURA_ROLE)
         .catch((e: any) => {
@@ -490,7 +498,6 @@ export default class Indexer {
     await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
-  // todo rename to writeLogOld
   async writeLogOld (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
     if (logLevel < this.indexerConfig.logLevel) {
       return;
@@ -501,7 +508,7 @@ export default class Indexer {
           insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {id}
       }`;
 
-    const writeLogSpan = this.tracer.startSpan('Write log to log table through Hasura');
+    const writeLogSpan = this.tracer.startSpan('Write log through Hasura');
     const parsedMessage: string = message
       .map(m => typeof m === 'object' ? JSON.stringify(m) : m)
       .join(':');
