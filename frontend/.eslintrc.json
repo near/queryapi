@@ -1,33 +1,33 @@
 {
   "extends": [
-  "eslint:recommended",
-  "plugin:react/recommended",
-  "plugin:react-hooks/recommended",
-  "next/core-web-vitals"
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "next/core-web-vitals"
   ],
   "parser": "@typescript-eslint/parser",
   "env": {
-  "es2021": true
+    "es2021": true
   },
   "overrides": [
-  {
-  "files": [".eslintrc.js", "jest.config.js"],
-  "parser": "espree",
-  "rules": {
-  "semi": ["error", "always"],
-  "comma-dangle": ["error", "only-multiline"]
-  }
-  },
-  {
-  "files": ["./src//*.ts", "./tests//*.ts"],
-  "parserOptions": {
-  "project": "./tsconfig.json"
-  },
-  "rules": {
-  "@typescript-eslint/semi": ["error", "always"],
-  "@typescript-eslint/comma-dangle": ["error", "only-multiline"],
-  "@typescript-eslint/strict-boolean-expressions": "off"
-  }
-  }
+    {
+      "files": [".eslintrc.js", "jest.config.js"],
+      "parser": "espree",
+      "rules": {
+        "semi": ["error", "always"],
+        "comma-dangle": ["error", "only-multiline"]
+      }
+    },
+    {
+      "files": ["./src//*.ts", "./tests//*.ts"],
+      "parserOptions": {
+        "project": "./tsconfig.json"
+      },
+      "rules": {
+        "@typescript-eslint/semi": ["error", "always"],
+        "@typescript-eslint/comma-dangle": ["error", "only-multiline"],
+        "@typescript-eslint/strict-boolean-expressions": "off"
+      }
+    }
   ]
 }
