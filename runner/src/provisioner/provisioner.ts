@@ -242,10 +242,6 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.addDatasource(userName, password, databaseName), 'Failed to add datasource');
   }
 
-  replaceSpecialChars (str: string): string {
-    return str.replaceAll(/[.-]/g, '_');
-  }
-
   /**
     * Provision logs and metadata table for existing Indexers which have already had all
     * other resources provisioned.

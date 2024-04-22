@@ -66,8 +66,13 @@ export default class IndexerConfig {
   }
 
   private sanitizeNameForDatabase (name: string): string {
-    // TODO: Add underscore for accounts with invalid starting character
-    return name.replace(/[^a-zA-Z0-9]/g, '_');
+    let sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '_');
+
+    // Add underscore if first character is a number
+    if (/^[0-9]/.test(sanitizedName)) {
+      sanitizedName = '_' + sanitizedName;
+    }
+    return sanitizedName;
   }
 
   fullName (): string {
