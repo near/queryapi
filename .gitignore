@@ -5,4 +5,4 @@ redis/
 /indexer/blocks/
 node_modules/
 .vscode/
-*/yarn.lock
+runner/yarn.lock
