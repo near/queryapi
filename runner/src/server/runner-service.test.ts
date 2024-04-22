@@ -21,6 +21,8 @@ describe('Runner gRPC Service', () => {
   let genericStreamHandlerType: typeof StreamHandler;
   let genericIndexerConfig: IndexerConfig;
 
+  console.log(process.env);
+
   beforeEach(() => {
     genericStreamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
@@ -115,8 +117,8 @@ describe('Runner gRPC Service', () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
-    const streamHandlerType = jest.fn().mockImplementation(() => {
-      return { stop };
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return { stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -182,8 +184,8 @@ describe('Runner gRPC Service', () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.reject(new Error('somehow fails'));
     });
-    const streamHandlerType = jest.fn().mockImplementation(() => {
-      return { stop };
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return { stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
