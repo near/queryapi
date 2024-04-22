@@ -29,9 +29,8 @@ interface WorkerContext {
   lakeClient: LakeClient
   queue: PrefetchQueue
   indexerConfig: IndexerConfig
+  logger: typeof parentLogger
 }
-
-const logger = parentLogger.child({ service: 'StreamHandler/worker' });
 
 const sleep = async (ms: number): Promise<void> => { await new Promise((resolve) => setTimeout(resolve, ms)); };
 setUpTracerExport();
@@ -39,12 +38,19 @@ const tracer = trace.getTracer('queryapi-runner-worker');
 
 void (async function main () {
   const indexerConfig: IndexerConfig = IndexerConfig.fromObject(workerData.indexerConfigData);
+  const logger = parentLogger.child({
+    service: 'StreamHandler/worker',
+    accountId: indexerConfig.accountId,
+    functionName: indexerConfig.functionName
+  });
   const redisClient = new RedisClient();
+
   const workerContext: WorkerContext = {
     redisClient,
     lakeClient: new LakeClient(),
     queue: [],
-    indexerConfig
+    indexerConfig,
+    logger
   };
 
   await handleStream(workerContext);
@@ -79,7 +85,7 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
 
       streamMessageStartId = messages[messages.length - 1].id;
     } catch (err) {
-      logger.error('Error fetching stream messages', err);
+      workerContext.logger.error('Error fetching stream messages', err);
       await sleep(500);
     }
   }
@@ -113,7 +119,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
           }
         });
         if (queueMessage === undefined) {
-          logger.warn('Block promise is undefined');
+          workerContext.logger.warn('Block promise is undefined');
           return;
         }
 
@@ -152,7 +158,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         const error = err as Error;
         if (previousError !== error.message) {
           previousError = error.message;
-          logger.error(`Failed on block ${currBlockHeight}`, err);
+          workerContext.logger.error(`Failed on block ${currBlockHeight}`, err);
         }
         const sleepSpan = tracer.startSpan('Sleep for 10 seconds after failing', {}, context.active());
         await sleep(10000);
@@ -185,3 +191,4 @@ async function generateQueuePromise (workerContext: WorkerContext, blockHeight: 
     streamMessageId
   };
 }
+
