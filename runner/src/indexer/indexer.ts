@@ -78,7 +78,8 @@ export default class Indexer {
   }
 
   async execute (
-    block: lakePrimitives.Block
+    block: lakePrimitives.Block,
+    whiteList: string[] = [],
   ): Promise<string[]> {
     const blockHeight: number = block.blockHeight;
 
@@ -103,8 +104,10 @@ export default class Indexer {
           const provisionSuccessLogEntry = LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight);
           logEntries.push(provisionSuccessLogEntry);
         }
-        await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
-        await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
+        if (whiteList.length === 0 || whiteList.includes(this.indexerConfig.accountId)) {
+          await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
+          await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
+        }
       } catch (e) {
         const error = e as Error;
         if (this.IS_FIRST_EXECUTION) {
