@@ -101,7 +101,7 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
           executors.delete(executorId);
           callback(null, { executorId });
         }).catch(error => {
-          logger.error('Failed to stop exectuor', error);
+          logger.error('Failed to stop executor', error);
 
           const internalError = {
             code: grpc.status.INTERNAL,

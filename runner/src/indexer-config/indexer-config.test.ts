@@ -26,11 +26,26 @@ describe('IndexerConfig unit tests', () => {
     expect(indexerConfig.hasuraFunctionName()).toEqual('test_indexer');
   });
 
+  test('returns correct hasura values for account starting with number', () => {
+    const indexerConfig = new IndexerConfig(REDIS_STREAM, '0xSome-Account', FUNCTION_NAME, 0, '', SCHEMA, LogLevel.INFO);
+
+    expect(indexerConfig.hasuraRoleName()).toEqual('_0xSome_Account');
+    expect(indexerConfig.hasuraFunctionName()).toEqual('test_indexer');
+  });
+
   test('returns correct postgres values', () => {
     const indexerConfig = new IndexerConfig(REDIS_STREAM, ACCOUNT_ID, FUNCTION_NAME, 0, '', SCHEMA, LogLevel.INFO);
 
     expect(indexerConfig.userName()).toEqual('test_account_near');
     expect(indexerConfig.databaseName()).toEqual('test_account_near');
     expect(indexerConfig.schemaName()).toEqual('test_account_near_test_indexer');
+  });
+
+  test('returns correct postgres values for account starting with number', () => {
+    const indexerConfig = new IndexerConfig(REDIS_STREAM, '0xSome-Account', FUNCTION_NAME, 0, '', SCHEMA, LogLevel.INFO);
+
+    expect(indexerConfig.userName()).toEqual('_0xSome_Account');
+    expect(indexerConfig.databaseName()).toEqual('_0xSome_Account');
+    expect(indexerConfig.schemaName()).toEqual('_0xSome_Account_test_indexer');
   });
 });
