@@ -902,7 +902,7 @@ describe('Indexer unit tests', () => {
       indexerMeta,
     }, undefined, config);
 
-    await expect(indexer.execute(mockBlock)).rejects.toThrow(new Error('boom'));
+    await expect(indexer.execute(mockBlock)).rejects.toThrow(new Error('Execution error: boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(1, IndexerStatus.RUNNING);
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(2, IndexerStatus.FAILING);

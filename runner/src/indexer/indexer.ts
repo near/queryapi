@@ -3,6 +3,7 @@ import { VM } from 'vm2';
 import * as lakePrimitives from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 import { trace, type Span } from '@opentelemetry/api';
+import VError from 'verror';
 
 import logger from '../logger';
 import Provisioner from '../provisioner';
@@ -151,7 +152,8 @@ export default class Indexer {
           simultaneousPromises.push(this.writeLogOld(LogLevel.ERROR, blockHeight, 'Error running IndexerFunction', error.message));
           const indexerErrorLogEntry = LogEntry.systemError('Error running IndexerFunction', blockHeight);
           logEntries.push(indexerErrorLogEntry);
-          throw e;
+
+          throw new VError(error, 'Execution error');
         } finally {
           runIndexerCodeSpan.end();
         }

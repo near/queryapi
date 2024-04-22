@@ -21,8 +21,6 @@ describe('Runner gRPC Service', () => {
   let genericStreamHandlerType: typeof StreamHandler;
   let genericIndexerConfig: IndexerConfig;
 
-  console.log(process.env);
-
   beforeEach(() => {
     genericStreamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
