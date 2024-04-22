@@ -120,7 +120,7 @@ const IndexerLogsComponent = () => {
     refetch();
   };
 
-  const totalPages = Math.ceil(totalLogsCount / 10);
+  const totalPages = Math.ceil(totalLogsCount / PAGINATION_LIMIT);
 
   useEffect(() => {
     if (gridRef.current && data) {
