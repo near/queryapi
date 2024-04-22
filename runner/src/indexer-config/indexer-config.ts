@@ -66,13 +66,9 @@ export default class IndexerConfig {
   }
 
   private sanitizeNameForDatabase (name: string): string {
-    let sanitizedName = name.replace(/[^a-zA-Z0-9]/g, '_');
-
-    // Add underscore if first character is a number
-    if (/^[0-9]/.test(sanitizedName)) {
-      sanitizedName = '_' + sanitizedName;
-    }
-    return sanitizedName;
+    return name
+      .replace(/[^a-zA-Z0-9]/g, '_') // Replace all non-alphanumeric characters with underscores
+      .replace(/^([0-9])/, '_$1'); // Add underscore if first character is a number
   }
 
   fullName (): string {

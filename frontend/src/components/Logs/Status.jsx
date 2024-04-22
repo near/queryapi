@@ -9,8 +9,8 @@ import {
 import { useQuery, gql } from "@apollo/client";
 
 const Status = ({ accountId, functionName, latestHeight }) => {
-  const hasuraRole = accountId.replace(/[^a-zA-Z0-9]/g, '_'); // TODO: Support accounts that start with a number
-  const queryName = `${functionName.replace(/[^a-zA-Z0-9]/g, '_')}___metadata`; // TODO: Rename the query to match new metadata table name
+  const hasuraRole = accountId.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
+  const queryName = `${functionName.replace(/[^a-zA-Z0-9]/g, '_')}_sys_metadata`;
   const GET_METADATA = gql`
     query getMetadata {
       ${queryName} {
