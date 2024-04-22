@@ -10,12 +10,71 @@ interface SqlOptions {
   source?: string
 }
 
-interface DatabaseConnectionParameters {
+export type HasuraPermission = 'select' | 'insert' | 'update' | 'delete';
+
+interface TableDefinition {
+  name: string
+  schema: string
+}
+export interface HasuraRolePermission {
+  role: string
+  permission: {
+    check?: Record<string, any>
+    columns?: string[]
+    backend_only?: boolean
+    filter?: Record<string, any>
+    allow_aggregations?: boolean
+  }
+}
+export interface HasuraTableMetadata {
+  table: TableDefinition
+  insert_permissions?: HasuraRolePermission[]
+  select_permissions?: HasuraRolePermission[]
+  update_permissions?: HasuraRolePermission[]
+  delete_permissions?: HasuraRolePermission[]
+}
+
+export interface HasuraDatabaseConnectionParameters {
   password: string
   database: string
   username: string
   host: string
   port: number
+}
+
+interface HasuraDatabaseUrl {
+  connection_parameters: HasuraDatabaseConnectionParameters
+}
+
+interface DefaultHasuraDatabaseUrl {
+  from_env: string
+}
+
+function isDefaultDatabaseUrl (
+  object: DefaultHasuraDatabaseUrl | HasuraDatabaseUrl
+): object is DefaultHasuraDatabaseUrl {
+  return 'from_env' in object;
+}
+
+export interface HasuraConfiguration {
+  connection_info: {
+    database_url: DefaultHasuraDatabaseUrl | HasuraDatabaseUrl
+    isolation_level?: string
+    pool_settings?: Record<string, any>
+    use_prepared_statements?: boolean
+  }
+}
+
+export interface HasuraSource {
+  name: string
+  kind: string
+  tables: HasuraTableMetadata[]
+  configuration: HasuraConfiguration
+}
+
+export interface HasuraMetadata {
+  version: number
+  sources: HasuraSource[]
 }
 
 type MetadataRequestArgs = Record<string, any>;
@@ -116,7 +175,7 @@ export default class HasuraClient {
     return await this.executeMetadataRequest('bulk', metadataRequests);
   }
 
-  async exportMetadata (): Promise<any> {
+  async exportMetadata (): Promise<HasuraMetadata> {
     const { metadata } = await this.executeMetadataRequest(
       'export_metadata',
       {},
@@ -125,11 +184,13 @@ export default class HasuraClient {
     return metadata;
   }
 
-  async getDbConnectionParameters (account: string): Promise<DatabaseConnectionParameters> {
-    const metadata = await this.exportMetadata();
-    const source = metadata.sources.find((source: { name: any, configuration: any }) => source.name === account);
+  async getDbConnectionParameters (account: string): Promise<HasuraDatabaseConnectionParameters> {
+    const metadata: HasuraMetadata = await this.exportMetadata();
+    const source = metadata.sources.find((source: HasuraSource) => source.name === account);
     if (source === undefined) {
       throw new Error(`Could not find connection parameters for user ${account} on respective database.`);
+    } else if (isDefaultDatabaseUrl(source.configuration.connection_info.database_url)) {
+      throw new Error('Default connection parameters are not supported.');
     }
     return source.configuration.connection_info.database_url.connection_parameters;
   }
@@ -155,11 +216,11 @@ export default class HasuraClient {
     });
   }
 
-  async runMigrations (source: string, schemaName: string, migration: string): Promise<any> {
+  async executeSqlOnSchema (source: string, schemaName: string, sqlScript: string): Promise<any> {
     return await this.executeSql(
       `
       set schema '${schemaName}';
-      ${migration}
+      ${sqlScript}
       `,
       { source, readOnly: false }
     );
@@ -172,10 +233,20 @@ export default class HasuraClient {
         source,
       }
     );
-
     return tablesInSource
       .filter(({ schema }: { schema: string }) => schema === schemaName)
       .map(({ name }: { name: string }) => name);
+  }
+
+  async getTrackedTablePermissions (
+    databaseName: string,
+    schemaName: string,
+  ): Promise<HasuraTableMetadata[]> {
+    const metadata: HasuraMetadata = await this.exportMetadata();
+    const hasuraSource = metadata.sources.find((source: HasuraSource) => source.name === databaseName);
+    const tablesForSchema = hasuraSource?.tables.filter((tableMetadata: HasuraTableMetadata) => tableMetadata.table.schema === schemaName);
+
+    return tablesForSchema ?? [];
   }
 
   async trackTables (

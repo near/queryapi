@@ -3,6 +3,7 @@ use tracing_subscriber::prelude::*;
 mod block_stream;
 mod delta_lake_client;
 mod indexer_config;
+mod lake_s3_client;
 mod metrics;
 mod redis;
 mod rules;
@@ -15,11 +16,17 @@ mod test_utils;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
+    let subscriber = tracing_subscriber::registry()
         .with(metrics::LogCounter)
-        .with(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+        .with(tracing_subscriber::EnvFilter::from_default_env());
+
+    if std::env::var("GCP_LOGGING_ENABLED").is_ok() {
+        subscriber.with(tracing_stackdriver::layer()).init();
+    } else {
+        subscriber
+            .with(tracing_subscriber::fmt::layer().compact())
+            .init();
+    }
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
@@ -44,9 +51,11 @@ async fn main() -> anyhow::Result<()> {
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
+    let lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::from_conf(s3_config);
+
     tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 
-    server::init(&grpc_port, redis_client, delta_lake_client, s3_config).await?;
+    server::init(&grpc_port, redis_client, delta_lake_client, lake_s3_client).await?;
 
     Ok(())
 }

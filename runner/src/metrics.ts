@@ -1,28 +1,30 @@
 import express from 'express';
-import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
+import { Gauge, Histogram, Counter, AggregatorRegistry, register } from 'prom-client';
+
+import logger from './logger';
 
 const HEAP_TOTAL_ALLOCATION = new Gauge({
   name: 'queryapi_runner_heap_total_allocation_megabytes',
   help: 'Size of heap allocation for indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const HEAP_USED = new Gauge({
   name: 'queryapi_runner_heap_used_megabytes',
   help: 'Size of used heap space for indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const PREFETCH_QUEUE_COUNT = new Gauge({
   name: 'queryapi_runner_prefetch_queue_count',
   help: 'Count of items in prefetch queue for indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const BLOCK_WAIT_DURATION = new Histogram({
   name: 'queryapi_runner_block_wait_duration_milliseconds',
   help: 'Time an indexer function waited for a block before processing',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
   buckets: [1, 10, 100, 300, 500, 1000, 3000, 5000, 10000, 30000],
 });
 
@@ -39,19 +41,25 @@ const CACHE_MISS = new Counter({
 const UNPROCESSED_STREAM_MESSAGES = new Gauge({
   name: 'queryapi_runner_unprocessed_stream_messages',
   help: 'Number of Redis Stream messages not yet processed',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const LAST_PROCESSED_BLOCK_HEIGHT = new Gauge({
   name: 'queryapi_runner_last_processed_block_height',
   help: 'Previous block height processed by an indexer',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
 });
 
 const EXECUTION_DURATION = new Histogram({
   name: 'queryapi_runner_execution_duration_milliseconds',
   help: 'Time taken to execute an indexer function',
-  labelNames: ['indexer', 'type'],
+  labelNames: ['indexer'],
+});
+
+const LOGS_COUNT = new Counter({
+  name: 'queryapi_runner_logs_count',
+  help: 'Number of messages logged',
+  labelNames: ['level'],
 });
 
 export const METRICS = {
@@ -64,6 +72,7 @@ export const METRICS = {
   UNPROCESSED_STREAM_MESSAGES,
   LAST_PROCESSED_BLOCK_HEIGHT,
   EXECUTION_DURATION,
+  LOGS_COUNT
 };
 
 const aggregatorRegistry = new AggregatorRegistry();
@@ -85,11 +94,13 @@ export const startServer = async (): Promise<void> => {
   app.get('/metrics', async (_req, res) => {
     res.set('Content-Type', aggregatorRegistry.contentType);
 
-    const metrics = await AggregatorRegistry.aggregate(Array.from(workerMetrics.values())).metrics();
+    const mainThreadMetrics = await register.getMetricsAsJSON();
+    const metrics = await AggregatorRegistry.aggregate([...Array.from(workerMetrics.values()), mainThreadMetrics]).metrics();
+
     res.send(metrics);
   });
 
   app.listen(process.env.PORT, () => {
-    console.log(`Metrics server running on http://localhost:${process.env.PORT}`);
+    logger.info(`Metrics server running on http://localhost:${process.env.PORT}`);
   });
 };

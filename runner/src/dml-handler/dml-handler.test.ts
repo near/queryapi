@@ -2,14 +2,15 @@ import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
 import type PgClient from '../pg-client';
 import { type TableDefinitionNames } from '../indexer';
+import { type PostgresConnectionParams } from '../pg-client';
 
 describe('DML Handler tests', () => {
-  const getDbConnectionParameters = {
+  const getDbConnectionParameters: PostgresConnectionParams = {
     database: 'test_near',
     host: 'postgres',
     password: 'test_pass',
     port: 5432,
-    username: 'test_near'
+    user: 'test_near'
   };
   let pgClient: PgClient;
   let query: any;
@@ -46,7 +47,7 @@ describe('DML Handler tests', () => {
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_DEFINITION_NAMES, [inputObj]);
     expect(query.mock.calls).toEqual([
@@ -66,7 +67,7 @@ describe('DML Handler tests', () => {
       receipt_id: 'abc',
     }];
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.insert(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
@@ -82,7 +83,7 @@ describe('DML Handler tests', () => {
 
     TABLE_DEFINITION_NAMES.originalTableName = 'test_table';
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
@@ -96,7 +97,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
@@ -110,7 +111,7 @@ describe('DML Handler tests', () => {
       block_height: [998, 999],
     };
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
@@ -124,7 +125,7 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj, 1);
     expect(query.mock.calls).toEqual([
@@ -143,7 +144,7 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
     };
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.update(SCHEMA, TABLE_DEFINITION_NAMES, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
@@ -166,7 +167,7 @@ describe('DML Handler tests', () => {
     const conflictCol = ['account_id', 'block_height'];
     const updateCol = ['receipt_id'];
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.upsert(SCHEMA, TABLE_DEFINITION_NAMES, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
@@ -180,7 +181,7 @@ describe('DML Handler tests', () => {
       block_height: [998, 999],
     };
 
-    const dmlHandler = DmlHandler.create(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
 
     await dmlHandler.delete(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([

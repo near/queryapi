@@ -1,9 +1,11 @@
 import * as grpc from '@grpc/grpc-js';
 import * as protoLoader from '@grpc/proto-loader';
+import assert from 'assert';
+
+import logger from '../logger';
 import getRunnerService from './runner-service';
 import { type ProtoGrpcType } from '../generated/runner';
 import type StreamHandler from '../stream-handler/stream-handler';
-import assert from 'assert';
 
 const PROTO_PATH = 'protos/runner.proto';
 
@@ -24,9 +26,9 @@ export default function startRunnerServer (executors: Map<string, StreamHandler>
     credentials.createInsecure(), // TODO: Use secure credentials with allow for Coordinator
     (err: Error | null, port: number) => {
       if (err) {
-        console.error(`Server error: ${err.message}`);
+        logger.error('gRPC server error', err);
       } else {
-        console.log(`gRPC server bound on: 0.0.0.0:${port}`);
+        logger.info(`gRPC server bound on: 0.0.0.0:${port}`);
         server.start();
       }
     }

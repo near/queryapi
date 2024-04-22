@@ -3,29 +3,11 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
+import logger from '../logger';
 
-export enum Status {
-  RUNNING = 'RUNNING',
-  FAILING = 'FAILING',
-  STOPPED = 'STOPPED',
-}
-
-export enum LogLevel {
-  DEBUG = 2,
-  INFO = 5,
-  ERROR = 8,
-}
-export interface IndexerConfig {
-  account_id: string
-  function_name: string
-  code: string
-  schema: string
-  version: number
-}
-
-export interface IndexerBehavior {
-  log_level: LogLevel
-}
+import type IndexerConfig from '../indexer-config';
 
 export enum WorkerMessageType {
   METRICS = 'METRICS',
@@ -39,29 +21,28 @@ export interface WorkerMessage {
 }
 
 interface ExecutorContext {
-  status: Status
+  status: IndexerStatus
   block_height: number
 }
 
 export default class StreamHandler {
+  private readonly logger: typeof logger;
   private readonly worker: Worker;
   public readonly executorContext: ExecutorContext;
 
   constructor (
-    public readonly streamKey: string,
     public readonly indexerConfig: IndexerConfig,
-    public readonly indexerBehavior: IndexerBehavior
   ) {
     if (isMainThread) {
+      this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
+
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
         workerData: {
-          streamKey,
-          indexerConfig,
-          indexerBehavior,
+          indexerConfigData: indexerConfig.toObject(),
         },
       });
       this.executorContext = {
-        status: Status.RUNNING,
+        status: IndexerStatus.RUNNING,
         block_height: indexerConfig.version,
       };
 
@@ -79,21 +60,28 @@ export default class StreamHandler {
   }
 
   private handleError (error: Error): void {
-    console.error(`Encountered error processing stream: ${this.streamKey}, terminating thread`, error);
-    this.executorContext.status = Status.STOPPED;
-    const indexer = new Indexer(this.indexerBehavior);
-    const functionName = `${this.indexerConfig.account_id}/${this.indexerConfig.function_name}`;
+    this.logger.error('Terminating thread', error);
+    this.executorContext.status = IndexerStatus.STOPPED;
 
-    indexer.setStatus(functionName, 0, Status.STOPPED).catch((e) => {
-      console.error(`Failed to set status STOPPED for stream: ${this.streamKey}`, e);
+    const indexer = new Indexer(this.indexerConfig);
+    indexer.setStatus(0, IndexerStatus.STOPPED).catch((e) => {
+      this.logger.error('Failed to set status STOPPED for indexer through hasura', e);
     });
-    indexer.writeLog(LogLevel.ERROR, functionName, this.executorContext.block_height,
-      `Encountered error processing stream: ${this.streamKey}, terminating thread\n${error.toString()}`
-    ).catch((e) => {
-      console.error(`Failed to write log for stream: ${this.streamKey}`, e);
+    indexer.setStoppedStatus().catch((e) => {
+      this.logger.error('Failed to set stopped status for indexer', e);
     });
+
+    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${error.toString()}`, this.executorContext.block_height);
+
+    Promise.all([
+      indexer.writeLogOld(LogLevel.ERROR, this.executorContext.block_height, `Encountered error processing stream: ${this.indexerConfig.fullName()}, terminating thread\n${error.toString()}`),
+      indexer.callWriteLog(streamErrorLogEntry),
+    ]).catch((e) => {
+      this.logger.error('Failed to write failure log for stream', e);
+    });
+
     this.worker.terminate().catch(() => {
-      console.error(`Failed to terminate thread for stream: ${this.streamKey}`);
+      this.logger.error('Failed to terminate thread for stream');
     });
   }
 

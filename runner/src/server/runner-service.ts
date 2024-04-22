@@ -1,7 +1,5 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
-import { LogLevel, Status } from '../stream-handler/stream-handler';
-import crypto from 'crypto';
 
 import { type RunnerHandlers } from '../generated/runner/Runner';
 import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../generated/runner/StartExecutorResponse';
@@ -12,12 +10,8 @@ import { type ListExecutorsRequest__Output } from '../generated/runner/ListExecu
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
 import StreamHandler from '../stream-handler';
-
-const hashString = (input: string): string => {
-  const hash = crypto.createHash('sha256');
-  hash.update(input);
-  return hash.digest('hex');
-};
+import IndexerConfig from '../indexer-config';
+import parentLogger from '../logger';
 
 function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
@@ -29,37 +23,44 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      const { accountId, functionName, code, schema, redisStream, version } = call.request;
-      const executorId = hashString(`${accountId}/${functionName}`);
+      const indexerConfig: IndexerConfig = IndexerConfig.fromStartRequest(call.request);
 
-      if (executors.has(executorId)) {
+      const logger = parentLogger.child({
+        executorId: indexerConfig.executorId,
+        accountId: indexerConfig.accountId,
+        functionName: indexerConfig.functionName,
+        version: indexerConfig.version,
+        service: 'RunnerService'
+      });
+
+      if (executors.has(indexerConfig.executorId)) {
         const alreadyExistsError = {
           code: grpc.status.ALREADY_EXISTS,
-          message: `Executor ${executorId} can't be started as it already exists.`
+          message: `Executor ${indexerConfig.executorId} can't be started as it already exists.`
         };
         callback(alreadyExistsError, null);
 
         return;
       }
 
-      console.log('Starting executor: ', { accountId, functionName, executorId, version });
+      logger.info('Starting executor');
 
       // Handle request
       try {
-        const streamHandler = new StreamHandlerType(redisStream, {
-          account_id: accountId,
-          function_name: functionName,
-          version: Number(version),
-          code,
-          schema,
-        },
-        {
-          log_level: LogLevel.INFO, // TODO: Pass this in from Coordinator
-        });
-        executors.set(executorId, streamHandler);
-        callback(null, { executorId });
-      } catch (error) {
-        callback(handleInternalError(error), null);
+        const streamHandler = new StreamHandlerType(indexerConfig);
+        executors.set(indexerConfig.executorId, streamHandler);
+        callback(null, { executorId: indexerConfig.executorId });
+      } catch (e) {
+        const error = e as Error;
+
+        logger.error('Failed to start executor', error);
+
+        const internalError = {
+          code: grpc.status.INTERNAL,
+          message: error.message
+        };
+
+        callback(internalError, null);
       }
     },
 
@@ -71,7 +72,10 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         callback(validationResult, null);
         return;
       }
-      if (executors.get(executorId) === undefined) {
+
+      const executor = executors.get(executorId);
+
+      if (!executor) {
         const notFoundError = {
           code: grpc.status.NOT_FOUND,
           message: `Executor ${executorId} cannot be stopped as it does not exist.`
@@ -80,16 +84,31 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      console.log('Stopping executor: ', { executorId });
+      const indexerConfig = executor.indexerConfig;
 
-      // Handle request
-      executors.get(executorId)?.stop()
+      const logger = parentLogger.child({
+        executorId: indexerConfig.executorId,
+        accountId: indexerConfig.accountId,
+        functionName: indexerConfig.functionName,
+        version: indexerConfig.version,
+        service: 'RunnerService'
+      });
+
+      logger.info('Stopping executor');
+
+      executor.stop()
         .then(() => {
           executors.delete(executorId);
           callback(null, { executorId });
         }).catch(error => {
-          const grpcError = handleInternalError(error);
-          callback(grpcError, null);
+          logger.error('Failed to stop executor', error);
+
+          const internalError = {
+            code: grpc.status.INTERNAL,
+            message: error.message
+          };
+
+          callback(internalError, null);
         });
     },
 
@@ -97,54 +116,34 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
       const response: ExecutorInfo__Output[] = [];
       try {
         executors.forEach((handler, executorId) => {
-          let config = handler.indexerConfig;
-          let context = handler.executorContext;
-          if (config === undefined) {
-            // TODO: Throw error instead when V1 is deprecated
-            const [accountId, functionName] = executorId.substring(0, executorId.indexOf(':')).split('/', 2);
-            config = {
-              account_id: accountId,
-              function_name: functionName,
-              version: 0, // Ensure Coordinator V2 sees version mismatch
-              code: '',
-              schema: '',
-            };
-            context = {
-              status: Status.RUNNING,
-              block_height: context.block_height,
-            };
-          }
+          const indexerConfig = handler.indexerConfig;
+          const indexerContext = handler.executorContext;
           response.push({
             executorId,
-            accountId: config.account_id,
-            functionName: config.function_name,
-            version: config.version.toString(),
-            status: context.status
+            accountId: indexerConfig.accountId,
+            functionName: indexerConfig.functionName,
+            version: indexerConfig.version.toString(),
+            status: indexerContext.status
           });
         });
         callback(null, {
           executors: response
         });
-      } catch (error) {
-        callback(handleInternalError(error), null);
+      } catch (e) {
+        const error = e as Error;
+
+        parentLogger.child({ service: 'RunnerService' }).error('Failed to list executors', error);
+
+        const internalError = {
+          code: grpc.status.INTERNAL,
+          message: error.message
+        };
+
+        callback(internalError, null);
       }
     }
   };
   return RunnerService;
-}
-
-function handleInternalError (error: unknown): any {
-  let errorMessage = 'An unknown error occurred';
-
-  // Check if error is an instance of Error
-  if (error instanceof Error) {
-    errorMessage = error.message;
-  }
-  console.error(errorMessage);
-  return {
-    code: grpc.status.INTERNAL,
-    message: errorMessage
-  };
 }
 
 function validateStringParameter (parameterName: string, parameterValue: string): any | null {

@@ -46,9 +46,12 @@ services:
       HASURA_ENDPOINT: http://hasura-graphql:8080
       HASURA_ADMIN_SECRET: myadminsecretkey
       REDIS_CONNECTION_STRING: redis://redis
-      PGHOST: pgbouncer
-      PGHOST_HASURA: pgbouncer
-      PGPORT: 6432
+      PGHOST: postgres
+      PGPORT: 5432
+      PGHOST_HASURA: postgres
+      PGPORT_HASURA: 5432
+      PGHOST_PGBOUNCER: pgbouncer
+      PGPORT_PGBOUNCER: 6432
       PGUSER: postgres
       PGPASSWORD: postgrespassword
       PGDATABASE: postgres
@@ -104,7 +107,7 @@ services:
       AUTH_QUERY: SELECT uname, phash FROM public.user_lookup($1::text)
       AUTH_DBNAME: postgres
       MAX_CLIENT_CONN: 4000 # Max Connections to PgBouncer
-      DEFAULT_POOL_SIZE: 10 # Standard connections open per user/db combo
+      DEFAULT_POOL_SIZE: 5 # Standard connections open per user/db combo
     ports:
       - "6432:6432"
     depends_on:

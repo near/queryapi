@@ -1,5 +1,7 @@
 import { createClient, type RedisClientType } from 'redis';
 
+import logger from '../logger';
+
 interface StreamMessage {
   id: string
   message: {
@@ -7,30 +9,29 @@ interface StreamMessage {
   }
 }
 
-export type StreamType = 'historical' | 'real-time';
-
 export default class RedisClient {
   SMALLEST_STREAM_ID = '0';
   LARGEST_STREAM_ID = '+';
   STREAMS_SET_KEY = 'streams';
   STREAMER_MESSAGE_HASH_KEY_BASE = 'streamer_message:';
 
+  private readonly logger: typeof logger;
+
   constructor (
     private readonly client: RedisClientType = createClient({ url: process.env.REDIS_CONNECTION_STRING })
   ) {
-    client.on('error', (err) => { console.log('Redis Client Error', err); });
-    client.connect().catch(console.error);
-  }
+    this.logger = logger.child({ service: this.constructor.name });
 
-  getStreamType (streamKey: string): StreamType {
-    if (streamKey.endsWith(':historical:stream')) {
-      return 'historical';
-    }
-    return 'real-time';
+    client.on('error', (err) => { this.logger.error('Redis Client Error', err); });
+    client.connect().catch(this.logger.error.bind(this));
   }
 
   async disconnect (): Promise<void> {
     await this.client.disconnect();
+  }
+
+  async getWhiteList (): Promise<string[]> {
+    return await this.client.sMembers('whitelist_accounts');
   }
 
   async getStreamMessages (

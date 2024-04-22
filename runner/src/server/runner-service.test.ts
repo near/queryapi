@@ -1,7 +1,9 @@
 import type StreamHandler from '../stream-handler/stream-handler';
-import { LogLevel, Status } from '../stream-handler/stream-handler';
+import { IndexerStatus } from '../indexer-meta/indexer-meta';
+import { LogLevel } from '../indexer-meta/log-entry';
 import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
+import IndexerConfig from '../indexer-config/indexer-config';
 
 const BASIC_REDIS_STREAM = 'test-redis-stream';
 const BASIC_ACCOUNT_ID = 'test-account-id';
@@ -11,31 +13,22 @@ const BASIC_EXECUTOR_ID = '964551da443042a0c834d5fe9bb2c07023b69f1528404f0f0a3fc
 const BASIC_CODE = 'test-code';
 const BASIC_SCHEMA = 'test-schema';
 const BASIC_VERSION = 1;
-const BASIC_INDEXER_CONFIG = {
-  account_id: BASIC_ACCOUNT_ID,
-  function_name: BASIC_FUNCTION_NAME,
-  code: BASIC_CODE,
-  schema: BASIC_SCHEMA,
-  version: BASIC_VERSION,
-};
 const BASIC_EXECUTOR_CONTEXT = {
-  status: Status.RUNNING,
+  status: IndexerStatus.RUNNING,
 };
 
 describe('Runner gRPC Service', () => {
   let genericStreamHandlerType: typeof StreamHandler;
-
-  const genericIndexerBehavior = {
-    log_level: LogLevel.INFO
-  };
+  let genericIndexerConfig: IndexerConfig;
 
   beforeEach(() => {
-    genericStreamHandlerType = jest.fn().mockImplementation((...args) => {
+    genericStreamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
-        updateIndexerConfig: jest.fn(),
-        indexerConfig: { account_id: args[1].account_id, function_name: args[1].function_name }
+        indexerConfig,
+        stop: jest.fn(),
       };
     });
+    genericIndexerConfig = new IndexerConfig(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_VERSION, BASIC_CODE, BASIC_SCHEMA, LogLevel.INFO);
   });
 
   it('starts a executor with correct settings', () => {
@@ -45,7 +38,7 @@ describe('Runner gRPC Service', () => {
 
     service.StartExecutor(request, mockCallback);
 
-    expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG, genericIndexerBehavior);
+    expect(genericStreamHandlerType).toHaveBeenCalledWith(genericIndexerConfig);
     expect(mockCallback).toHaveBeenCalledWith(null, { executorId: BASIC_EXECUTOR_ID });
   });
 
@@ -108,7 +101,7 @@ describe('Runner gRPC Service', () => {
     service.StartExecutor(startRequest, mockCallback);
 
     expect(genericStreamHandlerType).toHaveBeenCalledTimes(1);
-    expect(genericStreamHandlerType).toHaveBeenCalledWith(BASIC_REDIS_STREAM, BASIC_INDEXER_CONFIG, genericIndexerBehavior);
+    expect(genericStreamHandlerType).toHaveBeenCalledWith(genericIndexerConfig);
     expect(mockCallback.mock.calls).toEqual([
       [null, { executorId: BASIC_EXECUTOR_ID }],
       [{
@@ -122,8 +115,8 @@ describe('Runner gRPC Service', () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
-    const streamHandlerType = jest.fn().mockImplementation(() => {
-      return { stop };
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return { stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -174,10 +167,10 @@ describe('Runner gRPC Service', () => {
     });
     const service = getRunnerService(new Map(), streamHandlerType);
 
-    service.StopExecutor({ request: { executorId: 'non-existant' } } as any, (err) => {
+    service.StopExecutor({ request: { executorId: 'non-existent' } } as any, (err) => {
       expect(err).toEqual({
         code: grpc.status.NOT_FOUND,
-        message: 'Executor non-existant cannot be stopped as it does not exist.'
+        message: 'Executor non-existent cannot be stopped as it does not exist.'
       });
       expect(stop).toHaveBeenCalledTimes(0);
 
@@ -189,8 +182,8 @@ describe('Runner gRPC Service', () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.reject(new Error('somehow fails'));
     });
-    const streamHandlerType = jest.fn().mockImplementation(() => {
-      return { stop };
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return { stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -216,14 +209,10 @@ describe('Runner gRPC Service', () => {
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
-    const streamHandlerType = jest.fn().mockImplementation((_, indexerConfig) => {
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
         stop,
-        indexerConfig: {
-          account_id: indexerConfig.account_id,
-          function_name: indexerConfig.function_name,
-          version: indexerConfig.version
-        },
+        indexerConfig,
         executorContext: BASIC_EXECUTOR_CONTEXT
       };
     });
@@ -243,9 +232,9 @@ describe('Runner gRPC Service', () => {
         expect(response).toEqual({
           executors: [{
             executorId: BASIC_EXECUTOR_ID,
-            accountId: BASIC_INDEXER_CONFIG.account_id,
-            functionName: BASIC_INDEXER_CONFIG.function_name,
-            status: Status.RUNNING,
+            accountId: genericIndexerConfig.accountId,
+            functionName: genericIndexerConfig.functionName,
+            status: IndexerStatus.RUNNING,
             version: '1'
           }]
         });

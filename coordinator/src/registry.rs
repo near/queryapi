@@ -27,7 +27,7 @@ pub struct RegistryImpl {
 
 #[cfg_attr(test, mockall::automock)]
 impl RegistryImpl {
-    const LIST_METHOD: &str = "list_all";
+    const LIST_METHOD: &'static str = "list_all";
 
     pub fn connect(registry_contract_id: AccountId, rpc_url: &str) -> Self {
         let json_rpc_client = JsonRpcClient::connect(rpc_url);
