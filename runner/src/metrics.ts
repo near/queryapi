@@ -1,5 +1,5 @@
 import express from 'express';
-import { Gauge, Histogram, Counter, AggregatorRegistry } from 'prom-client';
+import { Gauge, Histogram, Counter, AggregatorRegistry, register } from 'prom-client';
 
 import logger from './logger';
 
@@ -94,7 +94,9 @@ export const startServer = async (): Promise<void> => {
   app.get('/metrics', async (_req, res) => {
     res.set('Content-Type', aggregatorRegistry.contentType);
 
-    const metrics = await AggregatorRegistry.aggregate(Array.from(workerMetrics.values())).metrics();
+    const mainThreadMetrics = await register.getMetricsAsJSON();
+    const metrics = await AggregatorRegistry.aggregate([...Array.from(workerMetrics.values()), mainThreadMetrics]).metrics();
+
     res.send(metrics);
   });
 
