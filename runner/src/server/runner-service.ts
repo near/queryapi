@@ -13,8 +13,6 @@ import StreamHandler from '../stream-handler';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 
-const logger = parentLogger.child({ service: 'RunnerService' });
-
 function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
@@ -27,6 +25,14 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
 
       const indexerConfig: IndexerConfig = IndexerConfig.fromStartRequest(call.request);
 
+      const logger = parentLogger.child({
+        executorId: indexerConfig.executorId,
+        accountId: indexerConfig.accountId,
+        functionName: indexerConfig.functionName,
+        version: indexerConfig.version,
+        service: 'RunnerService'
+      });
+
       if (executors.has(indexerConfig.executorId)) {
         const alreadyExistsError = {
           code: grpc.status.ALREADY_EXISTS,
@@ -37,15 +43,24 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      logger.info('Starting executor', { accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, version: indexerConfig.version });
+      logger.info('Starting executor');
 
       // Handle request
       try {
         const streamHandler = new StreamHandlerType(indexerConfig);
         executors.set(indexerConfig.executorId, streamHandler);
         callback(null, { executorId: indexerConfig.executorId });
-      } catch (error) {
-        callback(handleInternalError(error as Error), null);
+      } catch (e) {
+        const error = e as Error;
+
+        logger.error('Failed to start executor', error);
+
+        const internalError = {
+          code: grpc.status.INTERNAL,
+          message: error.message
+        };
+
+        callback(internalError, null);
       }
     },
 
@@ -57,7 +72,10 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         callback(validationResult, null);
         return;
       }
-      if (executors.get(executorId) === undefined) {
+
+      const executor = executors.get(executorId);
+
+      if (!executor) {
         const notFoundError = {
           code: grpc.status.NOT_FOUND,
           message: `Executor ${executorId} cannot be stopped as it does not exist.`
@@ -66,16 +84,31 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         return;
       }
 
-      logger.log('Stopping executor', { executorId });
+      const indexerConfig = executor.indexerConfig;
 
-      // Handle request
-      executors.get(executorId)?.stop()
+      const logger = parentLogger.child({
+        executorId: indexerConfig.executorId,
+        accountId: indexerConfig.accountId,
+        functionName: indexerConfig.functionName,
+        version: indexerConfig.version,
+        service: 'RunnerService'
+      });
+
+      logger.info('Stopping executor');
+
+      executor.stop()
         .then(() => {
           executors.delete(executorId);
           callback(null, { executorId });
         }).catch(error => {
-          const grpcError = handleInternalError(error);
-          callback(grpcError, null);
+          logger.error('Failed to stop exectuor', error);
+
+          const internalError = {
+            code: grpc.status.INTERNAL,
+            message: error.message
+          };
+
+          callback(internalError, null);
         });
     },
 
@@ -96,21 +129,21 @@ function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerT
         callback(null, {
           executors: response
         });
-      } catch (error) {
-        callback(handleInternalError(error as Error), null);
+      } catch (e) {
+        const error = e as Error;
+
+        parentLogger.child({ service: 'RunnerService' }).error('Failed to list executors', error);
+
+        const internalError = {
+          code: grpc.status.INTERNAL,
+          message: error.message
+        };
+
+        callback(internalError, null);
       }
     }
   };
   return RunnerService;
-}
-
-function handleInternalError (error: Error): any {
-  logger.error(error);
-
-  return {
-    code: grpc.status.INTERNAL,
-    message: error.message ?? 'An unknown error occurred'
-  };
 }
 
 function validateStringParameter (parameterName: string, parameterValue: string): any | null {
