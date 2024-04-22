@@ -10,6 +10,7 @@ import Status from "./Status";
 const IndexerLogsComponent = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
   const { currentUserAccountId } = useInitialPayload();
+  const PAGINATION_LIMIT = 50;
 
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
   const hasuraAccountId = indexerDetails.accountId.replace(/\./g, "_");
@@ -42,7 +43,7 @@ const IndexerLogsComponent = () => {
   const gridRef = useRef(null);
 
   const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
-    variables: { limit: 50, offset: (currentPage - 1) * 50 },
+    variables: { limit: PAGINATION_LIMIT, offset: (currentPage - 1) * PAGINATION_LIMIT },
     context: { headers: { "x-hasura-role": hasuraAccountId } },
     fetchPolicy: "network-only",
   });
@@ -145,10 +146,10 @@ const IndexerLogsComponent = () => {
       ) : data ? (
         <div style={{}}>
           <div id="grid-logs-container" ref={gridContainerRef}></div>
-          {totalLogsCount > 50 && (
+          {totalLogsCount > PAGINATION_LIMIT && (
             <p style={{ textAlign: "center", fontSize: "14px", margin: "10px 0" }}>
-              {`Showing logs ${(currentPage - 1) * 50 + 1} to ${Math.min(
-                currentPage * 50,
+              {`Showing logs ${(currentPage - 1) * PAGINATION_LIMIT + 1} to ${Math.min(
+                currentPage * PAGINATION_LIMIT,
                 totalLogsCount
               )} of ${totalLogsCount}`}
             </p>
