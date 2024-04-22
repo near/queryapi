@@ -12,9 +12,9 @@ First, download the bos-loader cli by following this guide [here](https://docs.n
 From the root of QueryAPI Frontend repo, run the following command
 
 ```bash
-npm run serve:widgets:local // for running local enviornment 
-npm run serve:widgets:dev // for running dev enviornment 
-npm run serve:widgets:prod // for running prod enviornment 
+yarn serve:widgets:local // for running local enviornment 
+yarn serve:widgets:dev // for running dev enviornment 
+yarn serve:widgets:prod // for running prod enviornment 
 ```
 > Near.org or any other BOS gateway queries the blockchain state to pull the latest widgets code and renders it. If we would like to test our BOS widgets, we need to override the path at which the gateway (near.org) queries for the widget code. We do this using the Bos-loader tool (the underlying CLI tool used in the `yarn serve:widgets:dev` command) which allows us to serve out widgets locally (http://127.0.0.1:3030 by default). ** This command replaces all keys found in `replacement.dev.json` object with the their values in the widgets directory when serving the widgets **.  At this point, we have served our widgets locally but have not yet told the BOS gateway (near.org) where to load our local widgets from. 
 
@@ -25,7 +25,7 @@ npm run serve:widgets:prod // for running prod enviornment
 
 **Finally**, run the following to serve the local NextJS frontend
 ```bash
-npm run dev
+yarn dev
 ```
 
 **Now, head to the path where the widgets are served on the BOS.**
