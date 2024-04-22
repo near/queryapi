@@ -56,6 +56,12 @@ const EXECUTION_DURATION = new Histogram({
   labelNames: ['indexer'],
 });
 
+const LOGS_COUNT = new Counter({
+  name: 'queryapi_runner_logs_count',
+  help: 'Number of messages logged',
+  labelNames: ['level'],
+});
+
 export const METRICS = {
   HEAP_TOTAL_ALLOCATION,
   HEAP_USED,
@@ -66,6 +72,7 @@ export const METRICS = {
   UNPROCESSED_STREAM_MESSAGES,
   LAST_PROCESSED_BLOCK_HEIGHT,
   EXECUTION_DURATION,
+  LOGS_COUNT
 };
 
 const aggregatorRegistry = new AggregatorRegistry();
