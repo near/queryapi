@@ -70,6 +70,7 @@
     "redis": "^4.6.7",
     "verror": "^1.10.1",
     "vm2": "^3.9.19",
-    "winston": "^3.13.0"
+    "winston": "^3.13.0",
+    "winston-transport": "^4.7.0"
   }
 }
