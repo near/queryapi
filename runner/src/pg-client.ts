@@ -15,9 +15,10 @@ export default class PgClient {
 
   constructor (
     connectionParams: ConnectionParams,
-    poolConfig: PoolConfig = { max: 10, idleTimeoutMillis: 30000 },
+    poolConfig: PoolConfig = { max: Number(process.env.MAX_PG_POOL_SIZE ?? 10), idleTimeoutMillis: 3000 },
     PgPool: typeof Pool = Pool,
-    pgFormat: typeof pgFormatModule = pgFormatModule
+    pgFormat: typeof pgFormatModule = pgFormatModule,
+    onError: (err: Error) => void = (err) => { console.error(err); }
   ) {
     this.pgPool = new PgPool({
       user: connectionParams.user,
@@ -27,6 +28,9 @@ export default class PgClient {
       database: connectionParams.database,
       ...poolConfig,
     });
+
+    this.pgPool.on('error', onError);
+
     this.format = pgFormat;
   }
 
