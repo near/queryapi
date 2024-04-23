@@ -11,7 +11,9 @@ import DmlHandler from '../dml-handler/dml-handler';
 import LogEntry, { LogLevel } from '../indexer-meta/log-entry';
 import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
-import IndexerMeta, { IndexerStatus } from '../indexer-meta';
+// import IndexerMeta, { IndexerStatus } from '../indexer-meta';
+import type IndexerMeta from '../indexer-meta';
+import { IndexerStatus } from '../indexer-meta';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -123,7 +125,7 @@ export default class Indexer {
       const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
       try {
         this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-        this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+        // this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
         this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
       } catch (e) {
         const error = e as Error;
@@ -169,7 +171,7 @@ export default class Indexer {
     } finally {
       this.IS_FIRST_EXECUTION = false;
       try {
-        await Promise.all([...simultaneousPromises, (this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries)]);
+        await Promise.all([...simultaneousPromises, this.deps.indexerMeta?.writeLogs(logEntries)]);
       } catch (e) {
         const error = e as Error;
         this.logger.error('Failed to write logs', error);
@@ -436,6 +438,7 @@ export default class Indexer {
     }
 
     // Metadata table possibly unprovisioned when called, so I am not validating indexerMeta yet
+    // await (this.deps.indexerMeta as IndexerMeta).setStatus(status);
     await this.deps.indexerMeta?.setStatus(status);
   }
 
@@ -447,30 +450,32 @@ export default class Indexer {
     }
   }
 
-  private async createIndexerMetaIfNotExists (failureMessage: string): Promise<void> {
-    if (!this.deps.indexerMeta) {
-      try {
-        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-        this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
-      } catch (e) {
-        const error = e as Error;
-        this.logger.error(failureMessage, e);
-        throw error;
-      }
-    }
-  }
+  // private async createIndexerMetaIfNotExists (failureMessage: string): Promise<void> {
+  //   if (!this.deps.indexerMeta) {
+  //     try {
+  //       this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+  //       this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+  //     } catch (e) {
+  //       const error = e as Error;
+  //       this.logger.error(failureMessage, e);
+  //       throw error;
+  //     }
+  //   }
+  // }
 
   async setStoppedStatus (): Promise<void> {
-    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`);
-    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
-    await indexerMeta.setStatus(IndexerStatus.STOPPED);
+    // await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`);
+    // const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
+    // await indexerMeta.setStatus(IndexerStatus.STOPPED);
+    await this.deps.indexerMeta?.setStatus(IndexerStatus.STOPPED);
   }
 
   // onetime use method to allow stream-handler to writeLog into new log table in case of failure
   async callWriteLog (logEntry: LogEntry): Promise<void> {
-    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to write crashed worker error log for stream`);
-    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
-    await indexerMeta.writeLogs([logEntry]);
+    // await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to write crashed worker error log for stream`);
+    // const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
+    // await indexerMeta.writeLogs([logEntry]);
+    await this.deps.indexerMeta?.writeLogs([logEntry]);
   }
 
   async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
@@ -500,7 +505,8 @@ export default class Indexer {
       setBlockHeightSpan.end();
     }
 
-    await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
+    // await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
+    await this.deps.indexerMeta?.updateBlockHeight(blockHeight);
   }
 
   async writeLogOld (logLevel: LogLevel, blockHeight: number, ...message: any[]): Promise<any> {
