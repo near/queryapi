@@ -155,7 +155,7 @@ export default class Indexer {
       this.IS_FIRST_EXECUTION = false;
       const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
       if (results[0].status === 'rejected') {
-        this.logger.error('Error writing logs', results[0].reason);
+        this.logger.error('Failed to write logs after executing on block:', results[0].reason);
       }
     }
     return allMutations;
