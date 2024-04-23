@@ -948,7 +948,7 @@ describe('Indexer unit tests', () => {
     await indexer.execute(mockBlock);
 
     expect(provisioner.fetchUserApiProvisioningStatus).toHaveBeenCalledWith(simpleSchemaConfig);
-    expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(2, IndexerStatus.RUNNING);
+    expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(1, IndexerStatus.RUNNING);
     expect(provisioner.provisionUserApi).toHaveBeenCalledTimes(1);
     expect(provisioner.provisionUserApi).toHaveBeenCalledWith(simpleSchemaConfig);
     expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
