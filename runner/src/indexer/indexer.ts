@@ -50,6 +50,7 @@ const defaultConfig: Config = {
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
   IS_FIRST_EXECUTION: boolean = true;
+  WHITELIST_ACCOUNT = false;
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly logger: typeof logger;
@@ -77,7 +78,9 @@ export default class Indexer {
 
   async execute (
     block: lakePrimitives.Block,
+    whitelist: string[] = [],
   ): Promise<string[]> {
+    this.WHITELIST_ACCOUNT = whitelist.length === 0 || whitelist.includes(this.indexerConfig.accountId);
     const blockHeight: number = block.blockHeight;
 
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
@@ -96,8 +99,10 @@ export default class Indexer {
           await this.deps.provisioner.provisionUserApi(this.indexerConfig);
           logEntries.push(LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight));
         }
-        await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
-        await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
+        if (this.WHITELIST_ACCOUNT) {
+          await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
+          await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
+        }
       } catch (e) {
         const error = e as Error;
         if (this.IS_FIRST_EXECUTION) {
@@ -153,7 +158,7 @@ export default class Indexer {
       throw e;
     } finally {
       this.IS_FIRST_EXECUTION = false;
-      const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
+      const results = await Promise.allSettled(this.WHITELIST_ACCOUNT ? [(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises] : [...simultaneousPromises]);
       if (results[0].status === 'rejected') {
         this.logger.error('Failed to write logs after executing on block:', results[0].reason);
       }
@@ -189,19 +194,19 @@ export default class Indexer {
         }
       },
       debug: (...log) => {
-        const debugLogEntry = LogEntry.systemDebug(log.join(' : '), blockHeight);
+        const debugLogEntry = LogEntry.userDebug(log.join(' : '), blockHeight);
         logEntries.push(debugLogEntry);
       },
       log: (...log) => {
-        const infoLogEntry = LogEntry.systemInfo(log.join(' : '), blockHeight);
+        const infoLogEntry = LogEntry.userInfo(log.join(' : '), blockHeight);
         logEntries.push(infoLogEntry);
       },
       warn: (...log) => {
-        const warnLogEntry = LogEntry.systemWarn(log.join(' : '), blockHeight);
+        const warnLogEntry = LogEntry.userWarn(log.join(' : '), blockHeight);
         logEntries.push(warnLogEntry);
       },
       error: (...log) => {
-        const errorLogEntry = LogEntry.systemError(log.join(' : '), blockHeight);
+        const errorLogEntry = LogEntry.userError(log.join(' : '), blockHeight);
         logEntries.push(errorLogEntry);
       },
       fetchFromSocialApi: async (path, options) => {
@@ -390,7 +395,7 @@ export default class Indexer {
   }
 
   async setStatus (status: IndexerStatus): Promise<any> {
-    if (this.currentStatus === status) {
+    if (this.currentStatus === status || !this.WHITELIST_ACCOUNT) {
       return;
     }
 
@@ -426,6 +431,9 @@ export default class Indexer {
   }
 
   async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
+    if (!this.WHITELIST_ACCOUNT) {
+      return;
+    }
     await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 

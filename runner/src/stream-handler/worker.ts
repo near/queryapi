@@ -138,7 +138,8 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (executeSpan: Span) => {
           try {
-            await indexer.execute(block);
+            const whitelist = await workerContext.redisClient.getWhiteList();
+            await indexer.execute(block, whitelist);
           } finally {
             executeSpan.end();
           }
@@ -191,3 +192,4 @@ async function generateQueuePromise (workerContext: WorkerContext, blockHeight: 
     streamMessageId
   };
 }
+
