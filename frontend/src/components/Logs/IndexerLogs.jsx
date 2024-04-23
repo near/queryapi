@@ -230,7 +230,7 @@ const IndexerLogsComponent = () => {
           reloadData={reloadData}
         />
         <Status
-          // accountId={indexerDetails.accountId}
+          accountId={indexerDetails.accountId}
           functionName={functionName}
           latestHeight={latestHeight}
         />
