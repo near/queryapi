@@ -138,13 +138,6 @@ describe('Indexer integration', () => {
     const secondHeight: any = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
     expect(secondHeight.value).toEqual('115185109');
 
-    const indexerState: any = await indexerOldStateQuery('morgs.near/test', graphqlClient);
-    expect(indexerState.current_block_height).toEqual(115185109);
-    expect(indexerState.status).toEqual('RUNNING');
-
-    const oldLogs: any = await indexerOldLogsQuery('morgs.near/test', graphqlClient);
-    expect(oldLogs.length).toEqual(4);
-
     const logs: any = await indexerLogsQuery('morgs_near_test', graphqlClient);
     expect(logs.length).toEqual(4);
 
@@ -249,29 +242,6 @@ describe('Indexer integration', () => {
     expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
 });
-
-async function indexerOldStateQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-  const { indexer_state: result }: any = await graphqlClient.request(gql`
-    query {
-      indexer_state(where: { function_name: { _eq: "${indexerSchemaName}" } }) {
-        current_block_height
-        status
-      }
-    }
-  `);
-  return result[0];
-}
-
-async function indexerOldLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-  const { indexer_log_entries: result }: any = await graphqlClient.request(gql`
-    query {
-      indexer_log_entries(where: { function_name: { _eq:"${indexerSchemaName}" } }) {
-        message
-      }
-    }
-  `);
-  return result;
-}
 
 async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`

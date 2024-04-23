@@ -1147,25 +1147,22 @@ describe('Indexer unit tests', () => {
     expect(provisioner.getPgBouncerConnectionParameters).not.toHaveBeenCalled();
   });
 
-  test('Indexer log level respected by writeLog', async () => {
-    const mockFetchDebug = jest.fn(() => ({
-      status: 200,
-      json: async () => ({
-        errors: null,
-      }),
-    }));
-    const mockFetchInfo = jest.fn(() => ({
-      status: 200,
-      json: async () => ({
-        errors: null,
-      }),
-    }));
-    const mockFetchError = jest.fn(() => ({
-      status: 200,
-      json: async () => ({
-        errors: null,
-      }),
-    }));
+  test('Indexer passes all relevant logs to writeLogs', async () => {
+    const mockDebugIndexerMeta = {
+      writeLogs: jest.fn(),
+      setStatus: jest.fn(),
+      updateBlockHeight: jest.fn()
+    };
+    const mockInfoIndexerMeta = {
+      writeLogs: jest.fn(),
+      setStatus: jest.fn(),
+      updateBlockHeight: jest.fn()
+    };
+    const mockErrorIndexerMeta = {
+      writeLogs: jest.fn(),
+      setStatus: jest.fn(),
+      updateBlockHeight: jest.fn()
+    };
     const blockHeight = 456;
     const mockBlock = Block.fromStreamerMessage({
       block: {
@@ -1194,10 +1191,10 @@ describe('Indexer unit tests', () => {
     const indexerDebug = new Indexer(
       debugIndexerConfig,
       {
-        fetch: mockFetchDebug as unknown as typeof fetch,
+        fetch: jest.fn() as unknown as typeof fetch,
         provisioner: genericProvisioner,
         dmlHandler: mockDmlHandler,
-        indexerMeta: genericMockIndexerMeta
+        indexerMeta: mockDebugIndexerMeta as unknown as IndexerMeta
       },
       undefined,
       config
@@ -1205,10 +1202,10 @@ describe('Indexer unit tests', () => {
     const indexerInfo = new Indexer(
       infoIndexerConfig,
       {
-        fetch: mockFetchInfo as unknown as typeof fetch,
+        fetch: jest.fn() as unknown as typeof fetch,
         provisioner: genericProvisioner,
         dmlHandler: mockDmlHandler,
-        indexerMeta: genericMockIndexerMeta
+        indexerMeta: mockInfoIndexerMeta as unknown as IndexerMeta
       },
       undefined,
       config
@@ -1216,10 +1213,10 @@ describe('Indexer unit tests', () => {
     const indexerError = new Indexer(
       errorIndexerConfig,
       {
-        fetch: mockFetchError as unknown as typeof fetch,
+        fetch: jest.fn() as unknown as typeof fetch,
         provisioner: genericProvisioner,
         dmlHandler: mockDmlHandler,
-        indexerMeta: genericMockIndexerMeta
+        indexerMeta: mockErrorIndexerMeta as unknown as IndexerMeta
       },
       undefined,
       config
@@ -1229,15 +1226,20 @@ describe('Indexer unit tests', () => {
     await indexerInfo.execute(mockBlock);
     await indexerError.execute(mockBlock);
 
-    // There are 1 set status (no log level), 1 run function log (info level), and 1 set function state (no log level) made each run
-    expect(mockFetchDebug.mock.calls).toMatchSnapshot();
-    expect(mockFetchDebug).toHaveBeenCalledTimes(7); // 4 logs + 3 graphql calls
+    expect(mockDebugIndexerMeta.writeLogs.mock.calls[0][0].length).toEqual(5);
+    expect(mockDebugIndexerMeta.writeLogs).toHaveBeenCalledTimes(1);
+    expect(mockDebugIndexerMeta.setStatus).toHaveBeenCalledWith(IndexerStatus.RUNNING);
+    expect(mockDebugIndexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
 
-    expect(mockFetchInfo.mock.calls).toMatchSnapshot();
-    expect(mockFetchInfo).toHaveBeenCalledTimes(5); // 2 logs + 2 graphql call
+    expect(mockInfoIndexerMeta.writeLogs.mock.calls[0][0].length).toEqual(5);
+    expect(mockInfoIndexerMeta.writeLogs).toHaveBeenCalledTimes(1);
+    expect(mockInfoIndexerMeta.setStatus).toHaveBeenCalledWith(IndexerStatus.RUNNING);
+    expect(mockInfoIndexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
 
-    expect(mockFetchError.mock.calls).toMatchSnapshot();
-    expect(mockFetchError).toHaveBeenCalledTimes(3); // 1 log + 2 graphql call
+    expect(mockErrorIndexerMeta.writeLogs.mock.calls[0][0].length).toEqual(5);
+    expect(mockErrorIndexerMeta.writeLogs).toHaveBeenCalledTimes(1);
+    expect(mockErrorIndexerMeta.setStatus).toHaveBeenCalledWith(IndexerStatus.RUNNING);
+    expect(mockErrorIndexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
   });
 
   test('attaches the backend only header to requests to hasura', async () => {
