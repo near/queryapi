@@ -279,7 +279,7 @@ export default class Provisioner {
   }
 
   /**
-    * Tracks and adds permissions to any Postgres tables successfully created in schema and which lack tracking and/or permissions.
+    * Tracks and adds permissions for successfully created sys_logs and sys_metadata tables in schema which lack tracking and/or permissions.
     *
     * */
   async ensureConsistentHasuraState (indexerConfig: IndexerConfig): Promise<void> {
@@ -288,7 +288,7 @@ export default class Provisioner {
     }
     await wrapError(
       async () => {
-        const tableNamesToCheck = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const tableNamesToCheck = ['sys_logs', 'sys_metadata'];
         const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
 
         const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
