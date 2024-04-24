@@ -51,16 +51,19 @@ describe('Provisioner', () => {
 
     adminPgClient = {
       query: jest.fn().mockReturnValue(null),
+      end: jest.fn()
     };
 
     cronPgClient = {
       query: jest.fn().mockReturnValue(null),
+      end: jest.fn()
     };
 
     userPgClientQuery = jest.fn().mockReturnValue(null);
     const PgClient = jest.fn().mockImplementation(() => {
       return {
         query: userPgClientQuery,
+        end: jest.fn()
       };
     });
 

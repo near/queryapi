@@ -94,7 +94,6 @@ export default class Indexer {
 
       try {
         if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
-          await this.setStatus(IndexerStatus.PROVISIONING);
           logEntries.push(LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight));
           await this.deps.provisioner.provisionUserApi(this.indexerConfig);
           logEntries.push(LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight));

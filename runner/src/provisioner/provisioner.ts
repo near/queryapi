@@ -140,6 +140,8 @@ export default class Provisioner {
             databaseName
           )
         );
+
+        await userCronPgClient.end();
       },
       'Failed to schedule log partition jobs'
     );
@@ -208,7 +210,10 @@ export default class Provisioner {
     await wrapError(async () => {
       const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
       const userPgClient = new this.PgClient(userDbConnectionParameters);
+
       await userPgClient.query(pgFormatLib(METADATA_TABLE_UPSERT, schemaName, [[MetadataFields.STATUS, IndexerStatus.PROVISIONING]]));
+
+      await userPgClient.end();
     }, 'Failed to set provisioning status on metadata table');
   }
 
