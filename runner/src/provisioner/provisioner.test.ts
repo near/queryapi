@@ -251,7 +251,6 @@ describe('Provisioner', () => {
     });
 
     it('ensuring consistent state tracks logs and metadata table once, adds permissions twice', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', 'sys_logs', 'sys_metadata']);
       hasuraClient.getTrackedTablePermissions = jest.fn()
         .mockReturnValueOnce([
           generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
@@ -264,13 +263,11 @@ describe('Provisioner', () => {
       await provisioner.ensureConsistentHasuraState(indexerConfig);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
 
-      expect(hasuraClient.getTableNames).toBeCalledTimes(2);
       expect(hasuraClient.trackTables).toBeCalledTimes(1);
       expect(hasuraClient.addPermissionsToTables).toBeCalledTimes(2);
     });
 
     it('ensuring consistent state caches result', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValue(['blocks', 'sys_logs', 'sys_metadata']);
       hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
         generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
         generateTableConfig('morgs_near_test_function', 'sys_logs', 'morgs_near', ['select', 'insert', 'update', 'delete']),
@@ -279,7 +276,6 @@ describe('Provisioner', () => {
       await provisioner.ensureConsistentHasuraState(indexerConfig);
       await provisioner.ensureConsistentHasuraState(indexerConfig);
 
-      expect(hasuraClient.getTableNames).toBeCalledTimes(1);
       expect(hasuraClient.trackTables).not.toBeCalled();
       expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
       expect(userPgClientQuery).not.toBeCalled();
