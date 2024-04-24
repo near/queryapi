@@ -283,7 +283,7 @@ export default class Provisioner {
     }
     await wrapError(
       async () => {
-        const tableNamesToCheck = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const tableNamesToCheck = ['sys_logs', 'sys_metadata'];
         const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
 
         const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
