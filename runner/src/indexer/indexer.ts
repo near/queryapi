@@ -95,8 +95,8 @@ export default class Indexer {
           await this.deps.provisioner.provisionUserApi(this.indexerConfig);
           logEntries.push(LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight));
         }
-        await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
-        await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
+        // await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
+        // await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
         if (this.IS_FIRST_EXECUTION) {
