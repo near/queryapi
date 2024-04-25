@@ -1,9 +1,9 @@
 {
   "extends": [
-    "eslint:recommended",
-    "plugin:react/recommended",
-    "plugin:react-hooks/recommended",
-    "next/core-web-vitals"
+    // "eslint:recommended",
+    // "plugin:react/recommended",
+    // "plugin:react-hooks/recommended",
+    // "next/core-web-vitals"
   ],
   "parser": "@typescript-eslint/parser",
   "env": {
@@ -19,7 +19,7 @@
       }
     },
     {
-      "files": ["./src//*.ts", "./tests//*.ts"],
+      "files": ["./src/**/*.ts", "./tests/**/*.ts"],
       "parserOptions": {
         "project": "./tsconfig.json"
       },
