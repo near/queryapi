@@ -19,7 +19,7 @@
       }
     },
     {
-      "files": ["./src//*.ts", "./tests//*.ts"],
+      "files": [],
       "parserOptions": {
         "project": "./tsconfig.json"
       },
