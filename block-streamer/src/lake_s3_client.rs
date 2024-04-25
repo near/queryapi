@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use cached::{Cached, SizedCache};
+use dashmap::DashMap;
 use futures::future::Shared;
 use futures::{Future, FutureExt};
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
@@ -67,50 +68,50 @@ impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
 
 #[derive(Debug)]
 struct FuturesCache {
-    cache: Mutex<SizedCache<String, SharedGetObjectBytesFuture>>,
+    cache: DashMap<String, SharedGetObjectBytesFuture>,
 }
 
 impl FuturesCache {
     pub fn with_size(size: usize) -> Self {
         Self {
-            cache: Mutex::new(SizedCache::with_size(size)),
+            cache: DashMap::with_capacity(size),
         }
     }
 
-    async fn lock(
-        &self,
-    ) -> tokio::sync::MutexGuard<'_, SizedCache<String, SharedGetObjectBytesFuture>> {
-        let timer = metrics::LAKE_CACHE_LOCK_WAIT_SECONDS.start_timer();
+    // async fn lock(
+    //     &self,
+    // ) -> tokio::sync::MutexGuard<'_, SizedCache<String, SharedGetObjectBytesFuture>> {
+    //     let timer = metrics::LAKE_CACHE_LOCK_WAIT_SECONDS.start_timer();
+    //
+    //     let lock = self.cache.lock().await;
+    //
+    //     metrics::LAKE_CACHE_SIZE.set(lock.cache_size() as i64);
+    //     metrics::LAKE_CACHE_HITS.set(lock.cache_hits().unwrap_or(0) as i64);
+    //     metrics::LAKE_CACHE_MISSES.set(lock.cache_misses().unwrap_or(0) as i64);
+    //
+    //     let duration = timer.stop_and_record();
+    //     // eprintln!("duration = {:#?}", duration);
+    //     // eprintln!("lock.cache_hits() = {:#?}", lock.cache_hits());
+    //     // eprintln!("lock.cache_misses() = {:#?}", lock.cache_misses());
+    //
+    //     lock
+    // }
 
-        let lock = self.cache.lock().await;
-
-        metrics::LAKE_CACHE_SIZE.set(lock.cache_size() as i64);
-        metrics::LAKE_CACHE_HITS.set(lock.cache_hits().unwrap_or(0) as i64);
-        metrics::LAKE_CACHE_MISSES.set(lock.cache_misses().unwrap_or(0) as i64);
-
-        let duration = timer.stop_and_record();
-        eprintln!("duration = {:#?}", duration);
-        // eprintln!("lock.cache_hits() = {:#?}", lock.cache_hits());
-        // eprintln!("lock.cache_misses() = {:#?}", lock.cache_misses());
-
-        lock
-    }
-
-    #[cfg(test)]
-    pub async fn get(&self, key: &str) -> Option<SharedGetObjectBytesFuture> {
-        self.lock().await.cache_get(key).cloned()
-    }
+    // #[cfg(test)]
+    // pub async fn get(&self, key: &str) -> Option<SharedGetObjectBytesFuture> {
+    //     self.lock().await.cache_get(key).cloned()
+    // }
 
     pub async fn get_or_set_with(
         &self,
         key: String,
         f: impl FnOnce() -> SharedGetObjectBytesFuture,
     ) -> SharedGetObjectBytesFuture {
-        self.lock().await.cache_get_or_set_with(key, f).clone()
+        self.cache.entry(key).or_insert_with(f).value().clone()
     }
 
     pub async fn remove(&self, key: &str) {
-        self.lock().await.cache_remove(key);
+        self.cache.remove(key);
     }
 }
 
