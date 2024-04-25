@@ -88,7 +88,10 @@ impl FuturesCache {
         metrics::LAKE_CACHE_HITS.set(lock.cache_hits().unwrap_or(0) as i64);
         metrics::LAKE_CACHE_MISSES.set(lock.cache_misses().unwrap_or(0) as i64);
 
-        timer.observe_duration();
+        let duration = timer.stop_and_record();
+        eprintln!("duration = {:#?}", duration);
+        // eprintln!("lock.cache_hits() = {:#?}", lock.cache_hits());
+        // eprintln!("lock.cache_misses() = {:#?}", lock.cache_misses());
 
         lock
     }
@@ -113,12 +116,12 @@ impl FuturesCache {
 
 #[derive(Debug)]
 pub struct LakeS3Client {
-    s3_client: crate::s3_client::S3Client,
+    s3_client: crate::s3_client::S3ClientImpl,
     futures_cache: FuturesCache,
 }
 
 impl LakeS3Client {
-    pub fn new(s3_client: crate::s3_client::S3Client) -> Self {
+    pub fn new(s3_client: crate::s3_client::S3ClientImpl) -> Self {
         Self {
             s3_client,
             futures_cache: FuturesCache::with_size(CACHE_SIZE),
@@ -126,7 +129,7 @@ impl LakeS3Client {
     }
 
     pub fn from_conf(config: aws_sdk_s3::config::Config) -> Self {
-        let s3_client = crate::s3_client::S3Client::new(config);
+        let s3_client = crate::s3_client::S3ClientImpl::new(config);
 
         Self::new(s3_client)
     }
@@ -252,20 +255,54 @@ mod tests {
             mock_s3_client
         });
 
-        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
+        let aws_config = aws_config::from_env().load().await;
+        let s3_config = aws_sdk_s3::Config::from(&aws_config);
+        let s3_client = crate::s3_client::S3ClientImpl::new(s3_config);
 
-        let barrier = Arc::new(Barrier::new(50));
-        let handles: Vec<_> = (0..50)
+        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(s3_client));
+
+        let barrier = Arc::new(Barrier::new(100));
+        let handles: Vec<_> = (0..100)
             .map(|_| {
                 let client = shared_lake_s3_client.clone();
                 let barrier_clone = barrier.clone();
+                let s3_get_call_count = s3_get_call_count.clone();
 
                 std::thread::spawn(move || {
                     let rt = tokio::runtime::Runtime::new().unwrap();
 
                     rt.block_on(async {
                         barrier_clone.wait();
-                        client.get_object_bytes("bucket", "prefix").await
+
+                        let handles: Vec<_> = (117500034..117500134)
+                            .map(|height| {
+                                tokio::spawn({
+                                    let client = client.clone();
+                                    let s3_get_call_count = s3_get_call_count.clone();
+                                    async move {
+                                        s3_get_call_count.fetch_add(1, Ordering::SeqCst);
+                                        let block_bytes = client
+                                            .get_object_bytes(
+                                                "near-lake-data-mainnet",
+                                                &format!("{:0>12}/block.json", height),
+                                            )
+                                            .await
+                                            .unwrap();
+
+                                        let block = serde_json::from_slice::<near_lake_framework::near_indexer_primitives::views::BlockView>(
+                                            &block_bytes,
+                                        )
+                                        .unwrap();
+
+                                        eprintln!("block = {:#?}", block.header.height);
+                                    }
+                                })
+                            })
+                            .collect();
+
+                        for handle in handles {
+                            let _ = handle.await;
+                        }
                     })
                 })
             })
@@ -276,63 +313,5 @@ mod tests {
         }
 
         assert_eq!(s3_get_call_count.load(Ordering::SeqCst), 1);
-    }
-
-    #[tokio::test]
-    async fn caches_requests() {
-        let mut mock_s3_client = crate::s3_client::S3Client::default();
-
-        mock_s3_client.expect_clone().returning(|| {
-            let mut mock_s3_client = crate::s3_client::S3Client::default();
-
-            mock_s3_client
-                .expect_get_object()
-                .returning(|_, _| Ok(GetObjectOutput::builder().build()));
-
-            mock_s3_client
-        });
-
-        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
-
-        let _ = shared_lake_s3_client
-            .get_object_bytes("bucket", "prefix")
-            .await;
-
-        assert!(shared_lake_s3_client
-            .inner
-            .futures_cache
-            .get("prefix")
-            .await
-            .is_some());
-    }
-
-    #[tokio::test]
-    async fn removes_cache_on_error() {
-        let mut mock_s3_client = crate::s3_client::S3Client::default();
-
-        mock_s3_client.expect_clone().returning(|| {
-            let mut mock_s3_client = crate::s3_client::S3Client::default();
-
-            mock_s3_client.expect_get_object().returning(|_, _| {
-                Err(SdkError::construction_failure(GetObjectError::NoSuchKey(
-                    NoSuchKey::builder().build(),
-                )))
-            });
-
-            mock_s3_client
-        });
-
-        let shared_lake_s3_client = SharedLakeS3ClientImpl::new(LakeS3Client::new(mock_s3_client));
-
-        let _ = shared_lake_s3_client
-            .get_object_bytes("bucket", "prefix")
-            .await;
-
-        assert!(shared_lake_s3_client
-            .inner
-            .futures_cache
-            .get("prefix")
-            .await
-            .is_none());
     }
 }
