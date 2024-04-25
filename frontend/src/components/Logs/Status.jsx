@@ -28,9 +28,11 @@ const Status = ({ accountId, functionName, latestHeight }) => {
   });
 
   if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error : {error.message}</p>;
-  if (data) {
-    const attributeMap = data[queryName].reduce((acc, item) => {
+  if (data || error) {
+    if (error) {
+      console.error('Failed to query sys_metadata table for status:', error);
+    }
+    const attributeMap = error ? new Map() : data[queryName].reduce((acc, item) => {
       acc.set(item.attribute, item.value);
       return acc;
     }, new Map());
@@ -46,7 +48,7 @@ const Status = ({ accountId, functionName, latestHeight }) => {
               }}
             >
               <Card.Header as="h5">
-                Indexer Status: {attributeMap.get("STATUS")}
+                Indexer Status for {functionName}
               </Card.Header>
               <ListGroup
                 variant="flush"
@@ -59,7 +61,7 @@ const Status = ({ accountId, functionName, latestHeight }) => {
                   overlay={<Tooltip> {
                     attributeMap.get("LAST_PROCESSED_BLOCK_HEIGHT")
                     ? `Current Block Height of Near is ${latestHeight}. Your indexer has a gap of ${latestHeight - attributeMap.get("LAST_PROCESSED_BLOCK_HEIGHT")} Blocks`
-                    : 'Indexer needs to run successfully to update block height' } </Tooltip>}
+                    : 'Indexer needs to run to update block height' } </Tooltip>}
                 >
                 <ListGroup.Item>
                   Current Block Height:{" "}
@@ -77,7 +79,7 @@ const Status = ({ accountId, functionName, latestHeight }) => {
                         pill
                         bg={attributeMap.get("STATUS") === "RUNNING" ? "success" : "danger"}
                       >
-                        {attributeMap.get("STATUS")}
+                        {attributeMap.get("STATUS") ?? "UNKNOWN"}
                       </Badge>
                     </>
                   </OverlayTrigger>

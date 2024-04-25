@@ -36,6 +36,18 @@ const IndexerLogsComponent = () => {
     }
   `;
 
+  const EMPTY_LOGS_DATA = [
+    {
+      block_height: 0,
+      date: "ERROR",
+      id: 1,
+      level: "ERROR",
+      message: "Query for logs failed. See console for more details. Table may not exist or indexer has not run yet.",
+      timestamp: "ERROR",
+      type: "system"
+    },
+  ];
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalLogsCount, setTotalLogsCount] = useState(0);
   const [isGridRendered, setIsGridRendered] = useState(false);
@@ -52,6 +64,11 @@ const IndexerLogsComponent = () => {
     if (!loading && !error && data && !isGridRendered) {
       setTotalLogsCount(data[`${tableName}_aggregate`]?.aggregate.count || 0);
       renderGrid(data[tableName]);
+      setIsGridRendered(true);
+    } else if (!loading && error && !data && !isGridRendered) {
+      console.error('Failed to query sys_logs table for logs:', error);
+      setTotalLogsCount(0);
+      renderGrid(EMPTY_LOGS_DATA);
       setIsGridRendered(true);
     }
   }, [data, error, loading, tableName, isGridRendered]);
@@ -141,9 +158,7 @@ const IndexerLogsComponent = () => {
       />
       {loading ? (
         <p>Loading...</p>
-      ) : error ? (
-        <p>Error fetching data, {console.log(error)}</p>
-      ) : data ? (
+      ) : (
         <div style={{}}>
           <div id="grid-logs-container" ref={gridContainerRef}></div>
           {totalLogsCount > PAGINATION_LIMIT && (
@@ -182,7 +197,7 @@ const IndexerLogsComponent = () => {
             ))}
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };
