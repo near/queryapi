@@ -30,10 +30,6 @@ export default class RedisClient {
     await this.client.disconnect();
   }
 
-  async getWhiteList (): Promise<string[]> {
-    return await this.client.sMembers('whitelist_accounts');
-  }
-
   async getStreamMessages (
     streamKey: string,
     streamId = this.SMALLEST_STREAM_ID,
