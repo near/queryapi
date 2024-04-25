@@ -265,44 +265,31 @@ mod tests {
         let handles: Vec<_> = (0..100)
             .map(|_| {
                 let client = shared_lake_s3_client.clone();
-                let barrier_clone = barrier.clone();
-                let s3_get_call_count = s3_get_call_count.clone();
 
                 std::thread::spawn(move || {
                     let rt = tokio::runtime::Runtime::new().unwrap();
 
                     rt.block_on(async {
-                        barrier_clone.wait();
+                        let start_block_height = 117500034;
+                        let lake_config = near_lake_framework::LakeConfigBuilder::default()
+                            .mainnet()
+                            .s3_client(client)
+                            .start_block_height(start_block_height)
+                            .blocks_preload_pool_size(10)
+                            .build()
+                            .unwrap();
 
-                        let handles: Vec<_> = (117500034..117500134)
-                            .map(|height| {
-                                tokio::spawn({
-                                    let client = client.clone();
-                                    let s3_get_call_count = s3_get_call_count.clone();
-                                    async move {
-                                        s3_get_call_count.fetch_add(1, Ordering::SeqCst);
-                                        let block_bytes = client
-                                            .get_object_bytes(
-                                                "near-lake-data-mainnet",
-                                                &format!("{:0>12}/block.json", height),
-                                            )
-                                            .await
-                                            .unwrap();
+                        let (sender, mut stream) = near_lake_framework::streamer(lake_config);
 
-                                        let block = serde_json::from_slice::<near_lake_framework::near_indexer_primitives::views::BlockView>(
-                                            &block_bytes,
-                                        )
-                                        .unwrap();
-
-                                        eprintln!("block = {:#?}", block.header.height);
-                                    }
-                                })
-                            })
-                            .collect();
-
-                        for handle in handles {
-                            let _ = handle.await;
+                        while let Some(streamer_message) = stream.recv().await {
+                            let block_height = streamer_message.block.header.height;
+                            if block_height == start_block_height + 100 {
+                                break;
+                            }
+                            eprintln!("block_height = {:#?}", block_height);
                         }
+
+                        drop(sender);
                     })
                 })
             })
