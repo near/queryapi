@@ -14,7 +14,7 @@ const IndexerLogsComponent = () => {
 
   const sanitizedAccountId = indexerDetails.accountId.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
   const sanitizedIndexerName = indexerDetails.indexerName.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
-  const functionName = `${sanitizedAccountId}/${sanitizedIndexerName}`;
+  const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
   const schemaName = `${sanitizedAccountId}_${sanitizedIndexerName}`;
   const tableName = `${schemaName}_sys_logs`;
 
