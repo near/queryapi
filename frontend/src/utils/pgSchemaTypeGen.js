@@ -165,7 +165,7 @@ export class PgSchemaTypeGen {
 			columnDef.unique_or_primary === "primary key";
 		const isNullable =
 			Object.prototype.hasOwnProperty.call(columnDef, "nullable") &&
-		    columnDef.nullable &&
+			columnDef.nullable &&
 			columnDef.nullable.value === "not null";
 		return isPrimaryKey || isNullable ? false : true;
 	}

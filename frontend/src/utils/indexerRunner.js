@@ -175,22 +175,22 @@ export default class IndexerRunner {
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (rowsToInsert) => await this.dbOperationLog(blockHeight, 
-              `Inserting the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`, 
+              `Mocking: Insert of the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
               rowsToInsert),
 
             select: async (whereObj, limit = null) => await this.dbOperationLog(blockHeight,
-              `Selecting objects with the following values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`, 
+              `Mocking: Selection of objects with the following values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`,
               whereObj),
               
             update: async (whereObj, updateObj) => await this.dbOperationLog(blockHeight,
-              `Updating objects that match the specified fields with the following values in table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`, 
+              `Mocking: Update of objects that match the specified fields with the following values in table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
               {
                 matchingFields: whereObj.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col),
                 fieldsToUpdate: updateObj.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col)
               }),
 
             upsert: async (rowsToUpsert, conflictColumns, updateColumns) => await this.dbOperationLog(blockHeight,
-              `Inserting the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`, 
+              `Mocking: Insertion of the following objects into table ${tableDefinitionNames.originalTableName} on schema ${schemaName}. Conflict on the specified columns will update values in the specified columns`,
               {
                 insertObjects: rowsToUpsert,
                 conflictColumns: conflictColumns.map(col => tableDefinitionNames.originalColumnNames.get(col) ?? col).join(', '),
@@ -198,7 +198,7 @@ export default class IndexerRunner {
               }),
 
             delete: async (whereObj) => await this.dbOperationLog(blockHeight,
-              `Deleting objects which match the following object's values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
+              `Mocking: Deletion of objects which match the following object's values from table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
               whereObj)
           }
         };

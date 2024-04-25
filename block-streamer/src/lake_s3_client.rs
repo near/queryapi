@@ -51,8 +51,7 @@ impl SharedLakeS3ClientImpl {
 #[async_trait]
 impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
     async fn get_object_bytes(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
-        // TODO: Re-enable cache implementation once better locking strategy is implemented
-        self.inner.get_object_bytes_shared(bucket, prefix).await
+        self.inner.get_object_bytes_cached(bucket, prefix).await
     }
 
     async fn list_common_prefixes(
@@ -233,7 +232,6 @@ mod tests {
     use aws_sdk_s3::types::error::NoSuchKey;
     use near_lake_framework::s3_client::S3Client;
 
-    #[ignore]
     #[tokio::test]
     async fn deduplicates_parallel_requests() {
         let s3_get_call_count = Arc::new(AtomicUsize::new(0));
@@ -280,7 +278,6 @@ mod tests {
         assert_eq!(s3_get_call_count.load(Ordering::SeqCst), 1);
     }
 
-    #[ignore]
     #[tokio::test]
     async fn caches_requests() {
         let mut mock_s3_client = crate::s3_client::S3Client::default();

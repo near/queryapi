@@ -140,6 +140,8 @@ export default class Provisioner {
             databaseName
           )
         );
+
+        await userCronPgClient.end();
       },
       'Failed to schedule log partition jobs'
     );
@@ -208,7 +210,10 @@ export default class Provisioner {
     await wrapError(async () => {
       const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
       const userPgClient = new this.PgClient(userDbConnectionParameters);
+
       await userPgClient.query(pgFormatLib(METADATA_TABLE_UPSERT, schemaName, [[MetadataFields.STATUS, IndexerStatus.PROVISIONING]]));
+
+      await userPgClient.end();
     }, 'Failed to set provisioning status on metadata table');
   }
 
@@ -274,7 +279,7 @@ export default class Provisioner {
   }
 
   /**
-    * Tracks and adds permissions to any Postgres tables successfully created in schema and which lack tracking and/or permissions.
+    * Tracks and adds permissions for successfully created sys_logs and sys_metadata tables in schema which lack tracking and/or permissions.
     *
     * */
   async ensureConsistentHasuraState (indexerConfig: IndexerConfig): Promise<void> {
@@ -283,7 +288,7 @@ export default class Provisioner {
     }
     await wrapError(
       async () => {
-        const tableNamesToCheck = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const tableNamesToCheck = ['sys_logs', 'sys_metadata'];
         const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
 
         const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);

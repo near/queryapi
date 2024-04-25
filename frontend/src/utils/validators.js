@@ -54,7 +54,7 @@ export function validateSQLSchema(schema) {
       return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location };
     }
   }
-};
+}
 
 /**
  * Asynchronously validates and formats JavaScript code.
@@ -74,4 +74,4 @@ export function validateJSCode(code) {
     console.error(error.message)
     return { data: code, error };
   }
-};
+}

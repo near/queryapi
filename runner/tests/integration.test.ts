@@ -128,25 +128,18 @@ describe('Indexer integration', () => {
 
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
 
-    // const firstHeight = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
-    // expect(firstHeight.value).toEqual('115185108');
+    const firstHeight = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
+    expect(firstHeight.value).toEqual('115185108');
 
     await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
 
-    // const secondStatus = await indexerStatusQuery('morgs_near_test', graphqlClient);
-    // expect(secondStatus.value).toEqual('RUNNING');
-    // const secondHeight: any = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
-    // expect(secondHeight.value).toEqual('115185109');
+    const secondStatus = await indexerStatusQuery('morgs_near_test', graphqlClient);
+    expect(secondStatus.value).toEqual('RUNNING');
+    const secondHeight: any = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
+    expect(secondHeight.value).toEqual('115185109');
 
-    const indexerState: any = await indexerOldStateQuery('morgs.near/test', graphqlClient);
-    expect(indexerState.current_block_height).toEqual(115185109);
-    expect(indexerState.status).toEqual('RUNNING');
-
-    const oldLogs: any = await indexerOldLogsQuery('morgs.near/test', graphqlClient);
-    expect(oldLogs.length).toEqual(4);
-
-    // const logs: any = await indexerLogsQuery('morgs_near_test', graphqlClient);
-    // expect(logs.length).toEqual(4);
+    const logs: any = await indexerLogsQuery('morgs_near_test', graphqlClient);
+    expect(logs.length).toEqual(4);
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(blocksIndexerQuery);
     expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
@@ -250,56 +243,33 @@ describe('Indexer integration', () => {
   });
 });
 
-async function indexerOldStateQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-  const { indexer_state: result }: any = await graphqlClient.request(gql`
+async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  const graphqlResult: any = await graphqlClient.request(gql`
     query {
-      indexer_state(where: { function_name: { _eq: "${indexerSchemaName}" } }) {
-        current_block_height
-        status
-      }
-    }
-  `);
-  return result[0];
-}
-
-async function indexerOldLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-  const { indexer_log_entries: result }: any = await graphqlClient.request(gql`
-    query {
-      indexer_log_entries(where: { function_name: { _eq:"${indexerSchemaName}" } }) {
+      ${indexerSchemaName}_sys_logs {
         message
       }
     }
   `);
-  return result;
+  return graphqlResult[`${indexerSchemaName}_sys_logs`];
 }
 
-// async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-//   const graphqlResult: any = await graphqlClient.request(gql`
-//     query {
-//       ${indexerSchemaName}_sys_logs {
-//         message
-//       }
-//     }
-//   `);
-//   return graphqlResult[`${indexerSchemaName}_sys_logs`];
-// }
+async function indexerStatusQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  return await indexerMetadataQuery(indexerSchemaName, 'STATUS', graphqlClient);
+}
 
-// async function indexerStatusQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-//   return await indexerMetadataQuery(indexerSchemaName, 'STATUS', graphqlClient);
-// }
+async function indexerBlockHeightQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+  return await indexerMetadataQuery(indexerSchemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', graphqlClient);
+}
 
-// async function indexerBlockHeightQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
-//   return await indexerMetadataQuery(indexerSchemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', graphqlClient);
-// }
-
-// async function indexerMetadataQuery (indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
-//   const graphqlResult: any = await graphqlClient.request(gql`
-//     query {
-//       ${indexerSchemaName}_sys_metadata(where: {attribute: {_eq: "${attribute}"}}) {
-//         attribute
-//         value
-//       }
-//     }
-//   `);
-//   return graphqlResult[`${indexerSchemaName}_sys_metadata`][0];
-// }
+async function indexerMetadataQuery (indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
+  const graphqlResult: any = await graphqlClient.request(gql`
+    query {
+      ${indexerSchemaName}_sys_metadata(where: {attribute: {_eq: "${attribute}"}}) {
+        attribute
+        value
+      }
+    }
+  `);
+  return graphqlResult[`${indexerSchemaName}_sys_metadata`][0];
+}
