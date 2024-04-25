@@ -18,24 +18,6 @@ const IndexerLogsComponent = () => {
   const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
   const tableName = `${schemaName}_sys_logs`;
 
-  console.log('GET_INDEXER_LOGS:', `
-  query GetIndexerLogs($limit: Int, $offset: Int) {
-    ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
-      block_height
-      date
-      id
-      level
-      message
-      timestamp
-      type
-    }
-    ${tableName}_aggregate {
-      aggregate {
-        count
-      }
-    }
-  }
-`);
   const GET_INDEXER_LOGS = gql`
     query GetIndexerLogs($limit: Int, $offset: Int) {
       ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
