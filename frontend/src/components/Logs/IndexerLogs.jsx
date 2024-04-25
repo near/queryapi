@@ -12,11 +12,30 @@ const IndexerLogsComponent = () => {
   const { currentUserAccountId } = useInitialPayload();
   const PAGINATION_LIMIT = 50;
 
-  const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
-  const hasuraAccountId = indexerDetails.accountId.replace(/\./g, "_");
-  const schemaName = `${hasuraAccountId}_${indexerDetails.indexerName}`;
+  const sanitizedAccountId = indexerDetails.accountId.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
+  const sanitizedIndexerName = indexerDetails.indexerName.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
+  const functionName = `${sanitizedAccountId}/${sanitizedIndexerName}`;
+  const schemaName = functionName.replace(/[^a-zA-Z0-9]/g, '_').replace(/^([0-9])/, '_$1');
   const tableName = `${schemaName}_sys_logs`;
 
+  console.log('GET_INDEXER_LOGS:', `
+  query GetIndexerLogs($limit: Int, $offset: Int) {
+    ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
+      block_height
+      date
+      id
+      level
+      message
+      timestamp
+      type
+    }
+    ${tableName}_aggregate {
+      aggregate {
+        count
+      }
+    }
+  }
+`);
   const GET_INDEXER_LOGS = gql`
     query GetIndexerLogs($limit: Int, $offset: Int) {
       ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
@@ -56,7 +75,7 @@ const IndexerLogsComponent = () => {
 
   const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
     variables: { limit: PAGINATION_LIMIT, offset: (currentPage - 1) * PAGINATION_LIMIT },
-    context: { headers: { "x-hasura-role": hasuraAccountId } },
+    context: { headers: { "x-hasura-role": sanitizedAccountId } },
     fetchPolicy: "network-only",
   });
 
