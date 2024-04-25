@@ -1,4 +1,5 @@
-import React, { useContext, useRef, useEffect, useState } from "react";
+import React, { useContext, useState, useEffect, useRef } from "react";
+import { useQuery, gql } from "@apollo/client";
 import { Grid, html } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
@@ -6,237 +7,198 @@ import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
 import Status from "./Status";
 
-const LIMIT = 100;
-
 const IndexerLogsComponent = () => {
-  const { indexerDetails, debugMode, setLogsView, latestHeight } = useContext(
-    IndexerDetailsContext
-  );
+  const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
+  const { currentUserAccountId } = useInitialPayload();
+  const PAGINATION_LIMIT = 50;
+
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
+  const hasuraAccountId = indexerDetails.accountId.replace(/\./g, "_");
+  const schemaName = `${hasuraAccountId}_${indexerDetails.indexerName}`;
+  const tableName = `${schemaName}_sys_logs`;
 
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName} `;
-
-  const { height, selectedTab, currentUserAccountId } = useInitialPayload();
-  const [heights, setHeights] = useState(
-    localStorage.getItem(DEBUG_LIST_STORAGE_KEY) || []
-  );
-  useEffect(() => {
-    localStorage.setItem(DEBUG_LIST_STORAGE_KEY, heights);
-  }, [heights]);
-
-  const indexerLogsRef = useRef(null);
-  const indexerStateRef = useRef(null);
-
-  function formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
-
-    const options = {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    };
-    const formattedDate = date.toLocaleDateString(undefined, options);
-
-    const now = new Date();
-    const diffInSeconds = Math.round((now - date) / 1000);
-    let relativeTime = undefined;
-    if (diffInSeconds < 60) {
-      relativeTime = "(just now)";
-    } else if (diffInSeconds < 3600) {
-      relativeTime = `(${Math.floor(diffInSeconds / 60)} minutes ago)`;
-    } else if (diffInSeconds < 86400) {
-      relativeTime = `(${Math.floor(diffInSeconds / 3600)} hours ago)`;
+  const GET_INDEXER_LOGS = gql`
+    query GetIndexerLogs($limit: Int, $offset: Int) {
+      ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
+        block_height
+        date
+        id
+        level
+        message
+        timestamp
+        type
+      }
+      ${tableName}_aggregate {
+        aggregate {
+          count
+        }
+      }
     }
+  `;
 
-    return `${formattedDate} ${relativeTime ?? ""}`;
-  }
+  const EMPTY_LOGS_DATA = [
+    {
+      block_height: 0,
+      date: "ERROR",
+      id: 1,
+      level: "ERROR",
+      message: "Query for logs failed. See console for more details. Table may not exist or indexer has not run yet.",
+      timestamp: "ERROR",
+      type: "system"
+    },
+  ];
 
-  function formatTimestampToReadableLocal(timestamp) {
-    const date = new Date(timestamp);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalLogsCount, setTotalLogsCount] = useState(0);
+  const [isGridRendered, setIsGridRendered] = useState(false);
+  const gridContainerRef = useRef(null);
+  const gridRef = useRef(null);
 
-    const options = {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    };
-    const formattedDate = date.toLocaleString(undefined, options);
-
-    return formattedDate;
-  }
-
-  const processLogs = (data) => {
-    const logEntries = data.indexer_log_entries.map((row) => ({
-      block_height: row.block_height,
-      timestamp: row.timestamp,
-      message: row.message,
-    }));
-
-    const groupedEntries = new Map();
-
-    logEntries.forEach(({ block_height, timestamp, message }) => {
-      if (!groupedEntries.has(block_height)) {
-        groupedEntries.set(block_height, []);
-      }
-      groupedEntries.get(block_height).push({ timestamp, message });
-    });
-
-    const mergedEntries = Array.from(groupedEntries).map(
-      ([block_height, entries]) => {
-        const messages = entries
-          .map(
-            (e) =>
-              `<strong>Timestamp: ${e.timestamp
-              }(${formatTimestampToReadableLocal(
-                e.timestamp
-              )}):</strong> \n <p>${e.message}</p>`
-          )
-          .join("<br>");
-
-        const minTimestamp = entries.reduce(
-          (min, e) => (e.timestamp < min ? e.timestamp : min),
-          entries[0].timestamp
-        );
-
-        const formattedMinTimstamp = formatTimestamp(minTimestamp);
-        const humanReadableStamp = formatTimestampToReadableLocal(minTimestamp);
-
-        return {
-          block_height,
-          timestamp: { humanReadableStamp, formattedMinTimstamp },
-          messages,
-        };
-      }
-    );
-
-    return mergedEntries;
-  };
-
+  const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
+    variables: { limit: PAGINATION_LIMIT, offset: (currentPage - 1) * PAGINATION_LIMIT },
+    context: { headers: { "x-hasura-role": hasuraAccountId } },
+    fetchPolicy: "network-only",
+  });
 
   useEffect(() => {
-    const grid = new Grid({
+    if (!loading && !error && data && !isGridRendered) {
+      setTotalLogsCount(data[`${tableName}_aggregate`]?.aggregate.count || 0);
+      renderGrid(data[tableName]);
+      setIsGridRendered(true);
+    } else if (!loading && error && !data && !isGridRendered) {
+      console.error('Failed to query sys_logs table for logs:', error);
+      setTotalLogsCount(0);
+      renderGrid(EMPTY_LOGS_DATA);
+      setIsGridRendered(true);
+    }
+  }, [data, error, loading, tableName, isGridRendered]);
+
+  const getGridConfig = (logs) => {
+    return {
       columns: [
-        {
-          name: "Block Height",
-          formatter: (cell) =>
-            html(
-              `<div style="text-align: center;"><a target='_blank' href='https://legacy.explorer.near.org/?query=${cell}'>${cell}</a></div>`
-            ),
-        },
+        "Height",
         "Timestamp",
+        "Date",
+        "Type",
+        "Level",
         {
           name: "Message",
           formatter: (cell) => html(`<div>${cell}</div>`),
           sort: false,
         },
       ],
-      search: {
-        server: {
-          url: (prev, keyword) =>
-            `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/api/rest/queryapi/logsByBlock/?_functionName=${functionName}&_blockHeight=${keyword}`,
-          then: (data) => {
-            const logs = processLogs(data).map((log) => [
-              log.block_height,
-              log.timestamp.formattedMinTimstamp,
-              log.messages,
-            ]);
-            return logs;
-          },
-          debounceTimeout: 2000,
-        },
-      },
+      data: logs.map((log) => [
+        log.block_height,
+        log.timestamp,
+        log.date,
+        log.type,
+        log.level,
+        log.message,
+      ]),
+      search: true,
       sort: true,
       resizable: true,
       fixedHeader: true,
-      pagination: {
-        limit: 30,
-        server: {
-          url: (prev, page, limit) => {
-            return prev + "&limit=" + limit + "&offset=" + page * limit;
-          },
-        },
-      },
-      server: {
-        url: `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/api/rest/queryapi/logs/?_functionName=${functionName}`,
-        headers: {
-          "x-hasura-role": "append",
-        },
-        then: (data) => {
-          const logs = processLogs(data).map((log) => [
-            log.block_height,
-            log.timestamp.formattedMinTimstamp,
-            log.messages,
-          ]);
-          return logs;
-        },
-        total: (data) => data.indexer_log_entries_aggregate.aggregate.count,
-      },
+      pagination: false,
+      resetPageOnUpdate: true,
       style: {
         container: {
-          "font-family": '"Roboto Mono", monospace',
+          fontFamily: "Roboto Mono, monospace",
         },
         table: {},
         th: {
-          "text-align": "center",
-          "max-width": "950px",
-          width: "800px",
+          width: "auto",
+          fontSize: "14px",
+          textAlign: "center",
         },
         td: {
-          "text-align": "left",
-          "font-size": "11px",
-          "vertical-align": "text-top",
-          "background-color": "rgb(255, 255, 255)",
-          "max-height": "400px",
+          width: "auto",
+          fontSize: "12px",
           padding: "5px",
         },
-      },
-      language: {
-        search: {
-          placeholder: "🔍 Search by Block Height...",
-        },
-        pagination: {
-          results: () => "Indexer Logs",
+        language: {
+          search: {
+            placeholder: "🔍 Search by Block Height...",
+          },
         },
       },
-    });
-    indexerLogsRef.current = grid;
-    grid.render(document.getElementById('grid-logs-container'));
-  }, []);
-
-  const reloadData = () => {
-    indexerLogsRef.current.forceRender();
+    };
   };
 
+  const renderGrid = (logs) => {
+    const gridConfig = getGridConfig(logs);
+    const grid = new Grid(gridConfig);
+    grid.render(gridContainerRef.current);
+    gridRef.current = grid;
+  };
+
+  const handlePagination = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    refetch();
+  };
+
+  const totalPages = Math.ceil(totalLogsCount / PAGINATION_LIMIT);
+
+  useEffect(() => {
+    if (gridRef.current && data) {
+      renderGrid(data[tableName]);
+    }
+  }, [data, tableName]);
+
   return (
-    <>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          height: "100%"
-        }}
-      >
-        <LogButtons
-          currentUserAccountId={currentUserAccountId}
-          heights={heights}
-          setHeights={setHeights}
-          latestHeight={height}
-          isUserIndexer={indexerDetails.accountId === currentUserAccountId}
-          reloadData={reloadData}
-        />
-        <Status
-          accountId={indexerDetails.accountId}
-          functionName={functionName}
-          latestHeight={latestHeight}
-        />
-        <div id="grid-logs-container"></div>
-      </div>
-    </>
+    <div>
+      <LogButtons
+        currentUserAccountId={currentUserAccountId}
+        latestHeight={latestHeight}
+      />
+      <Status
+        accountId={indexerDetails.accountId}
+        functionName={functionName}
+        latestHeight={latestHeight}
+      />
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <div style={{}}>
+          <div id="grid-logs-container" ref={gridContainerRef}></div>
+          {totalLogsCount > PAGINATION_LIMIT && (
+            <p style={{ textAlign: "center", fontSize: "14px", margin: "10px 0" }}>
+              {`Showing logs ${(currentPage - 1) * PAGINATION_LIMIT + 1} to ${Math.min(
+                currentPage * PAGINATION_LIMIT,
+                totalLogsCount
+              )} of ${totalLogsCount}`}
+            </p>
+          )}
+          <div
+            style={{
+              maxHeight: "150px",
+              overflowY: "auto",
+              padding: "10px",
+              border: "1px solid #ccc",
+            }}
+          >
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                style={{
+                  backgroundColor: i + 1 === currentPage ? "#007bff" : "transparent",
+                  border: "1px solid #ccc",
+                  color: i + 1 === currentPage ? "#fff" : "#555",
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  width: "75px",
+                  display: "inline-block",
+                  margin: "0 5px 5px 0",
+                }}
+                key={i}
+                onClick={() => handlePagination(i + 1)}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
