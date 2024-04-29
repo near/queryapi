@@ -54,6 +54,7 @@ const IndexerLogsComponent = () => {
   const [isGridRendered, setIsGridRendered] = useState(false);
   const gridContainerRef = useRef(null);
   const gridRef = useRef(null);
+  const totalPages = Math.ceil(totalLogsCount / PAGINATION_LIMIT);
 
   const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
     variables: { limit: PAGINATION_LIMIT, offset: (currentPage - 1) * PAGINATION_LIMIT },
@@ -128,20 +129,25 @@ const IndexerLogsComponent = () => {
 
   const renderGrid = (logs) => {
     const gridConfig = getGridConfig(logs);
+    if (gridRef.current) {
+      gridRef.current.destroy();
+    }
     const grid = new Grid(gridConfig);
     grid.render(gridContainerRef.current);
     gridRef.current = grid;
   };
 
+  const reloadData = () => {
+    handlePagination(1);
+  };
+  
   const handlePagination = (pageNumber) => {
     setCurrentPage(pageNumber);
     refetch();
-  };
-
-  const totalPages = Math.ceil(totalLogsCount / PAGINATION_LIMIT);
+  };  
 
   useEffect(() => {
-    if (gridRef.current && data) {
+    if (gridRef.current && data && isGridRendered) {
       renderGrid(data[tableName]);
     }
   }, [data, tableName]);
@@ -151,6 +157,7 @@ const IndexerLogsComponent = () => {
       <LogButtons
         currentUserAccountId={currentUserAccountId}
         latestHeight={latestHeight}
+        reloadData={reloadData}
       />
       <Status
         accountId={indexerDetails.accountId}
