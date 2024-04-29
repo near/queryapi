@@ -235,6 +235,13 @@ const Editor = ({ actionButtonText }) => {
     )[1];
     indexerName = indexerName.replaceAll(" ", "_");
 
+    const startBlock =
+    indexerConfig.startBlock === "startBlockHeight"
+      ? { HEIGHT: indexerConfig.height }
+      : indexerConfig.startBlock === "startBlockLatest"
+      ? "LATEST"
+      : "CONTINUE";  
+
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
       return;
@@ -243,21 +250,10 @@ const Editor = ({ actionButtonText }) => {
         indexerName,
         code: innerCode,
         schema: validatedSchema,
-        blockHeight: indexerConfig.startBlockHeight,
+        startBlock,
         contractFilter: indexerConfig.filter,
       });
       return;
-    }
-
-    let startBlock = null;
-    if (indexerConfig.startBlock === "startBlockHeight") {
-      startBlock = {
-        HEIGHT: indexerConfig.height
-      };
-    } else if (indexerConfig.startBlock === "startBlockLatest") {
-      startBlock = "LATEST";
-    } else {
-      startBlock = "CONTINUE"
     }
 
     request("register-function", {
