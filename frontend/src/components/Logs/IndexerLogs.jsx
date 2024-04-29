@@ -56,11 +56,11 @@ const IndexerLogsComponent = () => {
   const gridRef = useRef(null);
   const totalPages = Math.ceil(totalLogsCount / PAGINATION_LIMIT);
 
-  let { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
+  const { loading, error, data, refetch } = useQuery(GET_INDEXER_LOGS, {
     variables: { limit: PAGINATION_LIMIT, offset: (currentPage - 1) * PAGINATION_LIMIT },
     context: { headers: { "x-hasura-role": sanitizedAccountId } },
     fetchPolicy: "network-only",
-  });  
+  });
 
   useEffect(() => {
     if (!loading && !error && data && !isGridRendered) {
@@ -129,12 +129,10 @@ const IndexerLogsComponent = () => {
 
   const renderGrid = (logs) => {
     const gridConfig = getGridConfig(logs);
-    // If there's already a grid rendered, destroy it first
     if (gridRef.current) {
       gridRef.current.destroy();
     }
     const grid = new Grid(gridConfig);
-
     grid.render(gridContainerRef.current);
     gridRef.current = grid;
   };
@@ -149,7 +147,7 @@ const IndexerLogsComponent = () => {
   };  
 
   useEffect(() => {
-    if (gridRef.current && !loading && data && isGridRendered) {
+    if (gridRef.current && data && isGridRendered) {
       renderGrid(data[tableName]);
     }
   }, [data, tableName]);
