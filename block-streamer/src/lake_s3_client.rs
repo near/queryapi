@@ -2,13 +2,13 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::{Mutex, MutexGuard};
 
 use async_trait::async_trait;
 use cached::{Cached, SizedCache};
 use futures::future::Shared;
 use futures::{Future, FutureExt};
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
-use tokio::sync::Mutex;
 
 use crate::metrics;
 
@@ -77,12 +77,10 @@ impl FuturesCache {
         }
     }
 
-    async fn lock(
-        &self,
-    ) -> tokio::sync::MutexGuard<'_, SizedCache<String, SharedGetObjectBytesFuture>> {
+    fn lock(&self) -> MutexGuard<'_, SizedCache<String, SharedGetObjectBytesFuture>> {
         let timer = metrics::LAKE_CACHE_LOCK_WAIT_SECONDS.start_timer();
 
-        let lock = self.cache.lock().await;
+        let lock = self.cache.lock().unwrap();
 
         metrics::LAKE_CACHE_SIZE.set(lock.cache_size() as i64);
         metrics::LAKE_CACHE_HITS.set(lock.cache_hits().unwrap_or(0) as i64);
@@ -94,20 +92,20 @@ impl FuturesCache {
     }
 
     #[cfg(test)]
-    pub async fn get(&self, key: &str) -> Option<SharedGetObjectBytesFuture> {
-        self.lock().await.cache_get(key).cloned()
+    pub fn get(&self, key: &str) -> Option<SharedGetObjectBytesFuture> {
+        self.lock().cache_get(key).cloned()
     }
 
-    pub async fn get_or_set_with(
+    pub fn get_or_set_with(
         &self,
         key: String,
         f: impl FnOnce() -> SharedGetObjectBytesFuture,
     ) -> SharedGetObjectBytesFuture {
-        self.lock().await.cache_get_or_set_with(key, f).clone()
+        self.lock().cache_get_or_set_with(key, f).clone()
     }
 
-    pub async fn remove(&self, key: &str) {
-        self.lock().await.cache_remove(key);
+    pub fn remove(&self, key: &str) {
+        self.lock().cache_remove(key);
     }
 }
 
@@ -150,17 +148,15 @@ impl LakeS3Client {
     }
 
     async fn get_object_bytes_cached(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
-        let get_object_bytes_future = self
-            .futures_cache
-            .get_or_set_with(prefix.to_string(), || {
+        let get_object_bytes_future =
+            self.futures_cache.get_or_set_with(prefix.to_string(), || {
                 self.get_object_bytes_shared(bucket, prefix)
-            })
-            .await;
+            });
 
         let get_object_bytes_result = get_object_bytes_future.await;
 
         if get_object_bytes_result.is_err() {
-            self.futures_cache.remove(prefix).await;
+            self.futures_cache.remove(prefix);
         }
 
         get_object_bytes_result
@@ -302,7 +298,6 @@ mod tests {
             .inner
             .futures_cache
             .get("prefix")
-            .await
             .is_some());
     }
 
@@ -332,7 +327,6 @@ mod tests {
             .inner
             .futures_cache
             .get("prefix")
-            .await
             .is_none());
     }
 }
