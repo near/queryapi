@@ -1,6 +1,6 @@
 import { formatSQL, formatIndexingCode } from "./formatters";
 
-const inputSQL1 = `CREATE TABLE\n  \"indexer_storage\" (\n    \"function_name\" TEXT NOT NULL,\n    \"key_name\" TEXT NOT NULL,\n    \"value\" TEXT NOT NULL,\n    PRIMARY KEY (\"function_name\", \"key_name\")\n  )\n`;
+const inputSQL1 = `CREATE TABLE\n  "indexer_storage" (\n    "function_name" TEXT NOT NULL,\n    "key_name" TEXT NOT NULL,\n    "value" TEXT NOT NULL,\n    PRIMARY KEY ("function_name", "key_name")\n  )\n`;
 const expectedOutput1 =
   `CREATE TABLE
   "indexer_storage" (

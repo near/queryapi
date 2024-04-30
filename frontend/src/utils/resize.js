@@ -16,7 +16,6 @@ export function useDragResize({
   onHiddenElementChange,
   sizeThresholdFirst = 100,
   sizeThresholdSecond = 100,
-  sessionStorage,
   storageKey,
 }) {
   const storage = null;
