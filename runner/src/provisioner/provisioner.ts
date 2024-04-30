@@ -1,7 +1,7 @@
 import { type Tracer, trace } from '@opentelemetry/api';
 import pgFormatLib from 'pg-format';
 
-import { wrapError } from '../utility';
+import { wrapError, wrapSpan } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient, {
   type HasuraDatabaseConnectionParameters,
@@ -356,12 +356,11 @@ export default class Provisioner {
   }
 
   async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
-    const provisioningSpan = this.tracer.startSpan('Provision indexer resources');
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
 
-    try {
+    await wrapSpan(async () => {
       await wrapError(
         async () => {
           if (!await this.hasuraClient.doesSourceExist(databaseName)) {
@@ -388,9 +387,7 @@ export default class Provisioner {
         },
         'Failed to provision endpoint'
       );
-    } finally {
-      provisioningSpan.end();
-    }
+    }, this.tracer, 'provision indexer resources');
   }
 
   async getPostgresConnectionParameters (userName: string): Promise<PostgresConnectionParams> {

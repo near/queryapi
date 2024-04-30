@@ -12,6 +12,7 @@ import setUpTracerExport from '../instrumentation';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
+import { wrapSpan } from '../utility';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -111,13 +112,9 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         const startTime = performance.now();
         const blockStartTime = performance.now();
 
-        const queueMessage = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
-          try {
-            return await workerContext.queue.at(0);
-          } finally {
-            blockWaitSpan.end();
-          }
-        });
+        const queueMessage = await wrapSpan(async () => {
+          return await workerContext.queue.at(0);
+        }, tracer, 'Wait for block to download');
         if (queueMessage === undefined) {
           workerContext.logger.warn('Block promise is undefined');
           return;

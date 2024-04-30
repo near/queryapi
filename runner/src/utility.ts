@@ -12,7 +12,7 @@ export async function wrapError<T> (fn: () => Promise<T>, errorMessage: string):
   }
 }
 
-export async function wrapSpan<T> (fn: () => Promise<T>, tracer: Tracer, spanName: string): Promise<T> {
+export async function wrapSpan<T> (fn: (...vars: any[]) => Promise<T>, tracer: Tracer, spanName: string): Promise<T> {
   const span = tracer.startSpan(spanName);
   try {
     return await fn();

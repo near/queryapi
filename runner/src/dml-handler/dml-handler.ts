@@ -1,10 +1,10 @@
 import { wrapError } from '../utility';
 import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { type TableDefinitionNames } from '../indexer';
+import type IndexerConfig from '../indexer-config/indexer-config';
 
 import { type Tracer, trace, type Span } from '@opentelemetry/api';
 import { type QueryResult } from 'pg';
-import type IndexerConfig from '../indexer-config/indexer-config';
 
 type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
 type WhereClauseSingle = Record<string, (string | number)>;

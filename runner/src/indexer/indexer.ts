@@ -12,6 +12,7 @@ import LogEntry from '../indexer-meta/log-entry';
 import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
 import IndexerMeta, { IndexerStatus } from '../indexer-meta';
+import { wrapSpan } from '../utility';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -106,18 +107,17 @@ export default class Indexer {
 
       logEntries.push(LogEntry.systemInfo(runningMessage, blockHeight));
       // Cache database credentials after provisioning
-      const credentialsFetchSpan = this.tracer.startSpan('fetch database connection parameters');
-      try {
-        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-        this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
-        this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters, this.indexerConfig);
-      } catch (e) {
-        const error = e as Error;
-        logEntries.push(LogEntry.systemError(`Failed to get database connection parameters: ${error.message}`, blockHeight));
-        throw error;
-      } finally {
-        credentialsFetchSpan.end();
-      }
+      await wrapSpan(async () => {
+        try {
+          this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+          this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+          this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters, this.indexerConfig);
+        } catch (e) {
+          const error = e as Error;
+          logEntries.push(LogEntry.systemError(`Failed to get database connection parameters: ${error.message}`, blockHeight));
+          throw error;
+        }
+      }, this.tracer, 'get database connection parameters');
 
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
       simultaneousPromises.push(this.setStatus(IndexerStatus.RUNNING));
@@ -161,15 +161,11 @@ export default class Indexer {
   buildContext (blockHeight: number, logEntries: LogEntry[]): Context {
     return {
       graphql: async (operation, variables) => {
-        const graphqlSpan = this.tracer.startSpan(`Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
-        try {
+        return await wrapSpan(async () => {
           return await this.runGraphQLQuery(operation, variables, blockHeight, this.indexerConfig.hasuraRoleName());
-        } finally {
-          graphqlSpan.end();
-        }
+        }, this.tracer, `Call graphql ${operation.includes('mutation') ? 'mutation' : 'query'} through Hasura`);
       },
       set: async (key, value) => {
-        const setSpan = this.tracer.startSpan('Call insert mutation through Hasura');
         const mutation = `
           mutation SetKeyValue($function_name: String!, $key: String!, $value: String!) {
             insert_${this.indexerConfig.hasuraRoleName()}_${this.indexerConfig.hasuraFunctionName()}_indexer_storage_one(object: {function_name: $function_name, key_name: $key, value: $value} on_conflict: {constraint: indexer_storage_pkey, update_columns: value}) {key_name}
@@ -179,11 +175,9 @@ export default class Indexer {
           key,
           value: value ? JSON.stringify(value) : null
         };
-        try {
+        return await wrapSpan(async () => {
           return await this.runGraphQLQuery(mutation, variables, blockHeight, this.indexerConfig.hasuraRoleName());
-        } finally {
-          setSpan.end();
-        }
+        }, this.tracer, 'call insert mutation through Hasura');
       },
       debug: (...log) => {
         const debugLogEntry = LogEntry.userDebug(log.join(' : '), blockHeight);
