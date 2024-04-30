@@ -4,20 +4,14 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use cached::{Cached, SizedCache};
-use dashmap::DashMap;
 use futures::future::Shared;
 use futures::{Future, FutureExt};
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
 use std::collections::HashMap;
 use tokio::sync::Mutex;
-use tracing::{instrument, trace, Instrument};
 // use std::sync::Mutex;
 
 use crate::metrics;
-
-/// Number of files added to Near Lake S3 per hour
-const CACHE_SIZE: usize = 18_000;
 
 #[cfg(test)]
 pub use MockSharedLakeS3ClientImpl as SharedLakeS3Client;
@@ -54,11 +48,13 @@ impl SharedLakeS3ClientImpl {
 
 #[async_trait]
 impl near_lake_framework::s3_client::S3Client for SharedLakeS3ClientImpl {
-    #[instrument(skip(self), level = "trace")]
     async fn get_object_bytes(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
-        let bytes = self.inner.get_object_bytes_cached(bucket, prefix).await;
-
-        bytes
+        metrics::PROFILE
+            .with_label_values(&["get_object_bytes"])
+            .observe_closure_duration(|| async {
+                self.inner.get_object_bytes_cached(bucket, prefix).await
+            })
+            .await
     }
 
     async fn list_common_prefixes(
@@ -80,7 +76,7 @@ struct FuturesCache {
 
 impl FuturesCache {
     fn new() -> Self {
-        let shard_count = 1;
+        let shard_count = 2000;
         let mut shards = Vec::with_capacity(shard_count);
 
         for _ in 0..shard_count {
@@ -93,17 +89,17 @@ impl FuturesCache {
         }
     }
 
-    #[instrument(skip_all, level = "trace")]
     async fn lock_shard(
         &self,
         key: &str,
     ) -> tokio::sync::MutexGuard<'_, HashMap<String, SharedGetObjectBytesFuture>> {
-        let timer = metrics::LAKE_CACHE_LOCK_WAIT_SECONDS.start_timer();
-        let shard_index = self.determine_shard(key);
-        let lock = self.shards[shard_index].lock().await;
-        let duration = timer.stop_and_record();
-        eprintln!("duration = {:#?}", duration);
-        lock
+        metrics::PROFILE
+            .with_label_values(&["lock_shard"])
+            .observe_closure_duration(|| async {
+                let shard_index = self.determine_shard(key);
+                self.shards[shard_index].lock().await
+            })
+            .await
     }
 
     async fn get_or_set_with(
@@ -112,15 +108,7 @@ impl FuturesCache {
         f: impl FnOnce() -> SharedGetObjectBytesFuture,
     ) -> SharedGetObjectBytesFuture {
         let mut shard = self.lock_shard(&key).await;
-        // TODO: Needs to be atmoic
-        match shard.get(&key) {
-            Some(future) => future.clone(),
-            None => {
-                let future = f();
-                shard.insert(key, future.clone());
-                future
-            }
-        }
+        shard.entry(key).or_insert_with(f).clone()
     }
 
     async fn remove(&self, key: &str) {
@@ -163,41 +151,43 @@ impl LakeS3Client {
         let prefix = prefix.to_owned();
 
         async move {
-            metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
+            metrics::PROFILE
+                .with_label_values(&["get_object_bytes_shared"])
+                .observe_closure_duration(|| async {
+                    metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
 
-            let object = s3_client.get_object(&bucket, &prefix).await?;
+                    let object = s3_client.get_object(&bucket, &prefix).await?;
 
-            let bytes = object.body.collect().await?.into_bytes().to_vec();
+                    let bytes = object.body.collect().await?.into_bytes().to_vec();
 
-            Ok(bytes)
+                    Ok(bytes)
+                })
+                .await
         }
-        .instrument(tracing::trace_span!("get_object_bytes_shared"))
         .boxed()
         .shared()
     }
 
-    #[instrument(skip_all, level = "trace")]
     async fn get_object_bytes_cached(&self, bucket: &str, prefix: &str) -> GetObjectBytesResult {
-        let get_object_bytes_future = self
-            .futures_cache
-            .get_or_set_with(prefix.to_string(), || {
-                trace!("creating future");
-                self.get_object_bytes_shared(bucket, prefix)
+        metrics::PROFILE
+            .with_label_values(&["get_object_bytes_cached"])
+            .observe_closure_duration(|| async {
+                let get_object_bytes_future = self
+                    .futures_cache
+                    .get_or_set_with(prefix.to_string(), || {
+                        self.get_object_bytes_shared(bucket, prefix)
+                    })
+                    .await;
+
+                let get_object_bytes_result = get_object_bytes_future.await;
+
+                if get_object_bytes_result.is_err() {
+                    self.futures_cache.remove(prefix).await;
+                }
+
+                get_object_bytes_result
             })
-            .await;
-
-        trace!("read from cache");
-
-        let get_object_bytes_result = get_object_bytes_future.await;
-
-        trace!("awaited future");
-
-        if get_object_bytes_result.is_err() {
-            trace!("removing failed future");
-            self.futures_cache.remove(prefix).await;
-        }
-
-        get_object_bytes_result
+            .await
     }
 
     async fn list_common_prefixes(

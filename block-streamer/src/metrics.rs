@@ -1,8 +1,9 @@
 use actix_web::{get, App, HttpServer, Responder};
 use lazy_static::lazy_static;
 use prometheus::{
-    register_histogram, register_int_counter, register_int_counter_vec, register_int_gauge,
-    register_int_gauge_vec, Encoder, Histogram, IntCounter, IntCounterVec, IntGauge, IntGaugeVec,
+    register_histogram, register_histogram_vec, register_int_counter, register_int_counter_vec,
+    register_int_gauge, register_int_gauge_vec, Encoder, Histogram, HistogramVec, IntCounter,
+    IntCounterVec, IntGauge, IntGaugeVec,
 };
 use tracing_subscriber::layer::Context;
 use tracing_subscriber::Layer;
@@ -13,6 +14,9 @@ lazy_static! {
         "Time spent waiting for lock acquisition in LakeS3Client cache",
     )
     .unwrap();
+    pub static ref PROFILE: HistogramVec =
+        register_histogram_vec!("queryapi_block_streamer_profile", "something", &["part",])
+            .unwrap();
     pub static ref LAKE_CACHE_HITS: IntGauge = register_int_gauge!(
         "queryapi_block_streamer_lake_cache_hits",
         "Number of cache hits in lake cache",

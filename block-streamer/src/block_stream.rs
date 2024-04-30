@@ -142,18 +142,18 @@ pub(crate) async fn start_block_stream(
         .with_label_values(&[&indexer.get_full_name()])
         .reset();
 
-    let last_indexed_delta_lake_block = process_delta_lake_blocks(
-        start_block_height,
-        delta_lake_client,
-        redis_client.clone(),
-        indexer,
-        redis_stream.clone(),
-    )
-    .await
-    .context("Failed during Delta Lake processing")?;
+    // let last_indexed_delta_lake_block = process_delta_lake_blocks(
+    //     start_block_height,
+    //     delta_lake_client,
+    //     redis_client.clone(),
+    //     indexer,
+    //     redis_stream.clone(),
+    // )
+    // .await
+    // .context("Failed during Delta Lake processing")?;
 
     let last_indexed_near_lake_block = process_near_lake_blocks(
-        last_indexed_delta_lake_block,
+        start_block_height,
         lake_s3_client,
         lake_prefetch_size,
         redis_client,
@@ -264,6 +264,7 @@ async fn process_near_lake_blocks(
         ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
         ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
     }
+    .s3_client(lake_s3_client)
     .start_block_height(start_block_height)
     .blocks_preload_pool_size(lake_prefetch_size)
     .build()
