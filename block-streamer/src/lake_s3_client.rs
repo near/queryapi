@@ -8,8 +8,7 @@ use futures::future::Shared;
 use futures::{Future, FutureExt};
 use near_lake_framework::s3_client::{GetObjectBytesError, ListCommonPrefixesError};
 use std::collections::HashMap;
-use tokio::sync::Mutex;
-// use std::sync::Mutex;
+use std::sync::Mutex;
 
 use crate::metrics;
 
@@ -89,17 +88,16 @@ impl FuturesCache {
         }
     }
 
-    async fn lock_shard(
+    fn lock_shard(
         &self,
         key: &str,
-    ) -> tokio::sync::MutexGuard<'_, HashMap<String, SharedGetObjectBytesFuture>> {
+    ) -> std::sync::MutexGuard<'_, HashMap<String, SharedGetObjectBytesFuture>> {
         metrics::PROFILE
             .with_label_values(&["lock_shard"])
-            .observe_closure_duration(|| async {
+            .observe_closure_duration(|| {
                 let shard_index = self.determine_shard(key);
-                self.shards[shard_index].lock().await
+                self.shards[shard_index].lock().unwrap()
             })
-            .await
     }
 
     async fn get_or_set_with(
@@ -107,12 +105,12 @@ impl FuturesCache {
         key: String,
         f: impl FnOnce() -> SharedGetObjectBytesFuture,
     ) -> SharedGetObjectBytesFuture {
-        let mut shard = self.lock_shard(&key).await;
+        let mut shard = self.lock_shard(&key);
         shard.entry(key).or_insert_with(f).clone()
     }
 
     async fn remove(&self, key: &str) {
-        let mut shard = self.lock_shard(key).await;
+        let mut shard = self.lock_shard(key);
         shard.remove(key);
     }
 
