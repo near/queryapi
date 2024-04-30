@@ -554,7 +554,7 @@ describe('Indexer unit tests', () => {
       query: jest.fn().mockReturnValue({ rows: [] }),
       format: jest.fn().mockReturnValue('mock')
     } as unknown as PgClient;
-    const mockDmlHandler: any = new DmlHandler(genericDbCredentials, mockPgClient);
+    const mockDmlHandler: any = new DmlHandler(genericDbCredentials, socialSchemaConfig, mockPgClient);
     const upsertSpy = jest.spyOn(mockDmlHandler, 'upsert');
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
@@ -609,7 +609,7 @@ describe('Indexer unit tests', () => {
 
   test('indexer builds context and updates multiple objects from existing table', async () => {
     const mockDmlHandler: any = {
-      update: jest.fn().mockImplementation((_, __, whereObj, updateObj) => {
+      update: jest.fn().mockImplementation((_, whereObj, updateObj) => {
         if (whereObj.account_id === 'morgs_near' && updateObj.content === 'test_content') {
           return [{ colA: 'valA' }, { colA: 'valA' }];
         }
@@ -637,7 +637,7 @@ describe('Indexer unit tests', () => {
 
   test('indexer builds context and upserts on existing table', async () => {
     const mockDmlHandler: any = {
-      upsert: jest.fn().mockImplementation((_, __, objects, conflict, update) => {
+      upsert: jest.fn().mockImplementation((_, objects, conflict, update) => {
         if (objects.length === 2 && conflict.includes('account_id') && update.includes('content')) {
           return [{ colA: 'valA' }, { colA: 'valA' }];
         } else if (objects.length === 1 && conflict.includes('account_id') && update.includes('content')) {

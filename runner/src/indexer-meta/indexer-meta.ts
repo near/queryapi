@@ -1,5 +1,5 @@
 import format from 'pg-format';
-import { wrapError } from '../utility';
+import { wrapError, wrapSpan } from '../utility';
 import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
@@ -47,48 +47,38 @@ export default class IndexerMeta {
     const entriesArray = logEntries.filter(entry => this.shouldLog(entry.level));
     if (entriesArray.length === 0) return;
 
-    const spanMessage = `write batch of ${entriesArray.length} logs through postgres`;
-    const writeLogSpan = this.tracer.startSpan(spanMessage);
+    await wrapSpan(async () => {
+      await wrapError(async () => {
+        const values = entriesArray.map(entry => [
+          entry.blockHeight,
+          entry.timestamp,
+          entry.timestamp,
+          entry.type,
+          LogLevel[entry.level],
+          entry.message
+        ]);
 
-    await wrapError(async () => {
-      const values = entriesArray.map(entry => [
-        entry.blockHeight,
-        entry.timestamp,
-        entry.timestamp,
-        entry.type,
-        LogLevel[entry.level],
-        entry.message
-      ]);
-
-      const query = format(this.logInsertQueryTemplate, this.indexerConfig.schemaName(), values);
-      await this.pgClient.query(query);
-    }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.sys_logs table`)
-      .finally(() => {
-        writeLogSpan.end();
-      });
+        const query = format(this.logInsertQueryTemplate, this.indexerConfig.schemaName(), values);
+        await this.pgClient.query(query);
+      }, `Failed to insert ${entriesArray.length > 1 ? 'logs' : 'log'} into the ${this.indexerConfig.schemaName()}.sys_logs table`);
+    }, this.tracer, `write batch of ${entriesArray.length} logs through postgres`);
   }
 
   async setStatus (status: IndexerStatus): Promise<void> {
-    const setStatusSpan = this.tracer.startSpan(`set status to ${status} through postgres`);
     const values = [[MetadataFields.STATUS, status]];
     const setStatusQuery = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 
-    try {
+    await wrapSpan(async () => {
       await wrapError(async () => await this.pgClient.query(setStatusQuery), `Failed to update status for ${this.indexerConfig.schemaName()}`);
-    } finally {
-      setStatusSpan.end();
-    }
+    }, this.tracer, `set status to ${status} through postgres`);
   }
 
   async updateBlockHeight (blockHeight: number): Promise<void> {
-    const setLastProcessedBlockSpan = this.tracer.startSpan('set last processed block through postgres');
     const values = [[MetadataFields.LAST_PROCESSED_BLOCK_HEIGHT, blockHeight.toString()]];
     const updateBlockHeightQuery = format(METADATA_TABLE_UPSERT, this.indexerConfig.schemaName(), values);
 
-    try {
+    await wrapSpan(async () => {
       await wrapError(async () => await this.pgClient.query(updateBlockHeightQuery), `Failed to update last processed block height for ${this.indexerConfig.schemaName()}`);
-    } finally {
-      setLastProcessedBlockSpan.end();
-    }
+    }, this.tracer, `set last processed block height to ${blockHeight} through postgres`);
   }
 }
