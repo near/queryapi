@@ -23,7 +23,7 @@ serde_json = "1.0.55"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 tracing-stackdriver = "0.10.0"
-tokio = { version = "1.28.0", features = ["full"]}
+tokio = { version = "1.28.0", features = ["full", "tracing"]}
 tokio-util = "0.7.10"
 tokio-stream = "0.1.14"
 tonic = "0.10.2"
@@ -33,6 +33,8 @@ registry-types = { path = "../registry/types" }
 
 near-lake-framework = "0.7.8"
 dashmap = { version = "5.5.3", features = ["raw-api"] }
+tracing-timing = { version = "0.6.0", features = ["layer"]}
+console-subscriber = "0.2.0"
 
 [build-dependencies]
 tonic-build = "0.10"
