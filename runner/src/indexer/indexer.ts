@@ -110,7 +110,7 @@ export default class Indexer {
       try {
         this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
         this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
-        this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters);
+        this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters, this.indexerConfig);
       } catch (e) {
         const error = e as Error;
         logEntries.push(LogEntry.systemError(`Failed to get database connection parameters: ${error.message}`, blockHeight));
@@ -309,31 +309,31 @@ export default class Indexer {
               const insertLogEntry = LogEntry.userDebug(`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`, blockHeight);
               logEntries.push(insertLogEntry);
 
-              return await dmlHandler.insert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
+              return await dmlHandler.insert(tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
             },
             select: async (filterObj: any, limit = null) => {
               const selectLogEntry = LogEntry.userDebug(`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`, blockHeight);
               logEntries.push(selectLogEntry);
 
-              return await dmlHandler.select(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, limit);
+              return await dmlHandler.select(tableDefinitionNames, filterObj, limit);
             },
             update: async (filterObj: any, updateObj: any) => {
               const updateLogEntry = LogEntry.userDebug(`Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`, blockHeight);
               logEntries.push(updateLogEntry);
 
-              return await dmlHandler.update(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, updateObj);
+              return await dmlHandler.update(tableDefinitionNames, filterObj, updateObj);
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
               const upsertLogEntry = LogEntry.userDebug(`Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`, blockHeight);
               logEntries.push(upsertLogEntry);
 
-              return await dmlHandler.upsert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
+              return await dmlHandler.upsert(tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
             },
             delete: async (filterObj: any) => {
               const deleteLogEntry = LogEntry.userDebug(`Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`, blockHeight);
               logEntries.push(deleteLogEntry);
 
-              return await dmlHandler.delete(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj);
+              return await dmlHandler.delete(tableDefinitionNames, filterObj);
             }
           }
         };
