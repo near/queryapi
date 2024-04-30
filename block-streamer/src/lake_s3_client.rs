@@ -80,7 +80,16 @@ impl FuturesCache {
     fn lock(&self) -> MutexGuard<'_, SizedCache<String, SharedGetObjectBytesFuture>> {
         let timer = metrics::LAKE_CACHE_LOCK_WAIT_SECONDS.start_timer();
 
-        let lock = self.cache.lock().unwrap();
+        let lock = match self.cache.lock() {
+            Ok(lock) => lock,
+            Err(poisoned) => {
+                let lock = poisoned.into_inner();
+
+                tracing::error!("Lake Cache Mutex was poisoned, recovering...");
+
+                lock
+            }
+        };
 
         metrics::LAKE_CACHE_SIZE.set(lock.cache_size() as i64);
         metrics::LAKE_CACHE_HITS.set(lock.cache_hits().unwrap_or(0) as i64);
