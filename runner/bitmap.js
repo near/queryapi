@@ -1,146 +1,215 @@
 const fs = require("fs/promises");
 const path = require("path");
 const { Block } = require("@near-lake/primitives");
+const {performance} = require("node:perf_hooks");
 
-function bitmapToString(buffer) {
-  console.log({ bitmapToString, buffer });
-  return buffer.reduce((r, b) => r + b.toString(2).padStart(8, "0"), "");
-}
-
-// bit packing: converts array of indexes to a bitmap packed into Uint8Array
-// example: [0,1,6] -> "11000010" -> [194]
-function indexArrayToBitmap(arr) {
-  console.log({ indexArrayToBitmap, arr });
-  const lastItem = arr[arr.length - 1];
-  return arr.reduce(
-    (bytes, bit) => {
-      bytes[Math.floor(bit / 8)] |= 1 << (7 - (bit % 8));
-      return bytes;
-    },
-    new Uint8Array(Math.floor(lastItem / 8) + 2),
-  );
-}
-
-// example: [0,1,6] -> "11000010"
-function indexArrayToBitmapString(arr) {
-  return bitmapToString(indexArrayToBitmap(arr));
-}
-
-// example: "0101" -> [1,3]
-function bitmapStringToIndexArray(strBits) {
-  console.log({ bitmapStringToIndexArray, strBits });
-  const result = [];
-  for (let i = 0; i < strBits.length; i++) {
-    if (strBits[i] === "1") {
-      result.push(i);
+function indexOfFirstBitInByteArray(bytes, startBit) {
+  let firstBit = startBit % 8;
+  for (let iByte = Math.floor(startBit / 8); iByte < bytes.length; iByte++) {
+    if (bytes[iByte] > 0) {
+      for (let iBit = firstBit; iBit <= 7; iBit++) {
+        if (bytes[iByte] & (1 << (7 - iBit))) {
+          return iByte * 8 + iBit;
+        }
+      }
     }
+    firstBit = 0;
   }
+  return -1;
+}
+
+function setBitInBitmap(uint8Array, bit, bitValue = true) {
+  if (!bitValue) return uint8Array;
+  const newLen = Math.floor(bit / 8) + 1;
+  let result = uint8Array;
+  if (uint8Array.length < newLen) {
+    console.log(`Resize from ${uint8Array.length} to ${newLen}`)
+    result = new Uint8Array(new ArrayBuffer(newLen));
+    result.set(uint8Array);
+  }
+  result[Math.floor(bit / 8)] |= 1 << (7 - (bit % 8));
   return result;
 }
 
-function strBitmapToBitmap(strBits) {
-  const bytes = new Uint8Array(Math.ceil(strBits.length / 8));
-  for (let bit = 0; bit < strBits.length; bit++) {
-    if (strBits[bit] === "1") {
-      bytes[Math.floor(bit / 8)] |= 1 << (7 - (bit % 8));
+function getBitInByteArray(bytes, bitIndex) {
+  const b = Math.floor(bitIndex / 8);
+  const bi = bitIndex % 8;
+  return (bytes[b] & (1 << (7 - bi))) > 0;
+}
+
+// takes numbers between [start, end] bits inclusive in byte array and
+// returns decimal number they represent
+function getNumberBetweenBits(bytes, start, end) {
+  const len = end - start + 1;
+  let r = 0;
+  for (let i = start, rbit = 0; i <= end; i++, rbit++) {
+    if (getBitInByteArray(bytes, i)) {
+      r |= 1 << (len - 1 - rbit);
     }
   }
-  return bytes;
+  return r;
 }
 
-// computes Elias gamma coding for number x. Returns a string.
+// Writes Elias gamma coding bits for number x into result bytes array starting with index startBit.
+// Returns index of the next bit after the coding.
 // Examples: https://en.wikipedia.org/wiki/Elias_gamma_coding
-function eliasGamma(x) {
-  if (x === 0) return "";
-  if (x === 1) return "1";
-  const N = Math.floor(Math.log2(x));
-  const encN = "1".padStart(N + 1, "0");
-  const encRemainer = (x - 2 ** N).toString(2).padStart(N, "0");
-  return encN + encRemainer;
-}
-
-// returns first number x and corresponding coded string length of the first occurrence of
-// Elias gamma coding. E.g. for "0101" returns {x:2,len:3}
-function decodeEliasGammaFirstEntry(strBits) {
-  if (strBits === "") return { x: 0, len: 0 };
-  const N = strBits.indexOf("1");
-  if (N < 0) {
-    return { x: 0, len: strBits.length };
+function writeEliasGammaBits(x, result, startBit) {
+  if (x === 0) return {bit: startBit, result};
+  if (x === 1) {
+    setBitInBitmap(result, startBit);
+    return {bit: startBit + 1, result};
   }
-  const remainder = strBits.slice(N + 1, 2 * N + 1);
-  return { x: 2 ** N + (parseInt(remainder, 2) || 0), len: 2 * N + 1 };
+  let bit = startBit;
+  const N = Math.floor(Math.log2(x));
+  const remainder = x - 2 ** N;
+  bit += N;
+  result = setBitInBitmap(result, bit++);
+  for (let ri = 0; ri < N; ri++, bit++) {
+    if (remainder & (1 << (N - 1 - ri))) {
+      result = setBitInBitmap(result, bit);
+    }
+  }
+  return {bit, result};
 }
 
 // stores first char (0 or 1) and then repeats alternating repeating sequences using Elias gamma coding
 // pads the resulting string at the end with '0's for length to be divisible by 8
-function compressBitmapString(strBit) {
-  let target = strBit[0];
-  let result = target;
-  let targetLen = 0;
-  for (let i = 0; i < strBit.length; i++) {
-    if (strBit[i] === target) {
-      targetLen++;
+function compressBitmapArray(uint8Array) {
+  const p = performance.now();
+  let curBit = (uint8Array[0] & 0b10000000) > 0;
+  let curBitStretch = 0;
+  let resultBuffer = new ArrayBuffer(9000);
+  let result = new Uint8Array(resultBuffer);
+  let nextBit = 0;
+  result = setBitInBitmap(result, nextBit++, curBit);
+  for (let ibit = 0; ibit < uint8Array.length * 8; ibit++) {
+    if (getBitInByteArray(uint8Array, ibit) === curBit) {
+      curBitStretch++;
     } else {
-      result += eliasGamma(targetLen);
-      target = target === "0" ? "1" : "0";
-      targetLen = 1;
+      const w = writeEliasGammaBits(curBitStretch, result, nextBit);
+      nextBit = w.bit;
+      result = w.result;
+      curBit = !curBit;
+      curBitStretch = 1;
     }
   }
-  result += eliasGamma(targetLen);
-  return result.padEnd(Math.ceil(result.length / 8) * 8, "0");
-}
-
-function decompressBitmapString(compressedStrBit) {
-  let target = compressedStrBit[0];
-  let result = "";
-  let remainder = compressedStrBit.slice(1);
-  while (remainder.length) {
-    const { x, len } = decodeEliasGammaFirstEntry(remainder);
-    result += target.repeat(x);
-    target = target === "0" ? "1" : "0";
-    remainder = remainder.slice(len);
-    if (len === 0) break; // we won't find any Elias gamma here, exiting
-  }
+  const w = writeEliasGammaBits(curBitStretch, result, nextBit);
+  nextBit = w.bit;
+  result = w.result.slice(0, Math.ceil(nextBit / 8))
   return result;
 }
 
-function decompressBase64(compressedBase64) {
-  if (!compressedBase64 || compressedBase64 === "") {
-    return new Uint8Array(0);
+// Returns first number x and corresponding coded bits length of the first occurrence of Elias gamma coding
+function decodeEliasGammaFirstEntryFromBytes(bytes, startBit = 0) {
+  if (!bytes || bytes.length === 0) return { x: 0, lastBit: 0 };
+  const idx = indexOfFirstBitInByteArray(bytes, startBit);
+  if (idx < 0) {
+    return { x: 0, len: bytes.length * 8 };
   }
-  const bitmap = bitmapToString(Buffer.from(compressedBase64, "base64"));
-  return decompressBitmapString(bitmap);
+  const N = idx - startBit;
+  const remainder = getNumberBetweenBits(bytes, idx + 1, idx + N);
+  return { x: 2 ** N + remainder, lastBit: idx + N };
 }
 
-function indexArrayFromCompressedBase64(compressedBase64) {
-  const decompressedBase64 = decompressBase64(compressedBase64);
-  return bitmapStringToIndexArray(decompressedBase64);
+// Decompresses Elias-gamma coded bytes to Uint8Array
+function decompressToBitmapArray(compressedBytes) {
+  let curBit = (compressedBytes[0] & 0x80) > 0;
+  const buffer = new ArrayBuffer(90000);
+  let bufferLength = 0;
+  let result = new Uint8Array(buffer);
+  let compressedBitIdx = 1;
+  let nextBitIdx = 0;
+  while (compressedBitIdx < compressedBytes.length * 8) {
+    const { x, lastBit } = decodeEliasGammaFirstEntryFromBytes(
+        compressedBytes,
+        compressedBitIdx
+    );
+    compressedBitIdx = lastBit + 1;
+    if (bufferLength * 8 < nextBitIdx + x) {
+      bufferLength = Math.ceil((nextBitIdx + x) / 8);
+    }
+    for (let i = 0; curBit && i < x; i++) {
+      setBitInBitmap(result, nextBitIdx + i);
+    }
+    nextBitIdx += x;
+    curBit = !curBit;
+    if (x === 0) break; // we won't find any Elias gamma here, exiting
+  }
+  return result.slice(0, bufferLength);
 }
 
 function addIndexCompressed(compressedBase64, index) {
-  console.log({ addIndexCompressed, compressedBase64, index });
-  const decompressedBase64 = decompressBase64(compressedBase64);
-  const strBits = bitmapToString(
-    indexArrayToBitmap([
-      ...bitmapStringToIndexArray(decompressedBase64),
-      index,
-    ]),
+  const d = performance.now();
+  const bitmap = decompressToBitmapArray(
+      Buffer.from(compressedBase64, "base64")
   );
-  const compressed = compressBitmapString(strBits);
-  return Buffer.from(strBitmapToBitmap(compressed)).toString("base64");
+  const decompressMs = performance.now() - d;
+  const s = performance.now();
+  const newBitmap = setBitInBitmap(bitmap, index);
+  const setsMs = performance.now() - s;
+  const c = performance.now();
+  const compressed = compressBitmapArray(newBitmap);
+  const compMs = performance.now() - c;
+  console.log(`decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
+  return Buffer.from(compressed).toString("base64");
+}
+
+const QUERYAPI_ENDPOINT = `https://near-queryapi.dev.api.pagoda.co/v1/graphql`;
+
+const query = (receivers, blockDate) => `query Bitmaps {
+nearpavel_near_bitmap_v2_actions_index(
+    where: {block_date: {_eq: "${blockDate}"}, receiver_id: {_in: ${JSON.stringify(receivers)}}}
+  ) {
+    block_date
+    bitmap
+    first_block_height
+    receiver_id
+  }
+}`
+function fetchGraphQL(operationsDoc, operationName, variables) {
+  return fetch(
+      QUERYAPI_ENDPOINT,
+      {
+        method: "POST",
+        headers: { "x-hasura-role": `nearpavel_near`, 'Content-Type': 'application/json', },
+        body: JSON.stringify({
+          query: operationsDoc,
+          // variables: variables,
+          // operationName: operationName,
+        }),
+      }
+  );
+}
+
+async function getReceivers(receivers, blockDate) {
+  return await fetchGraphQL(query(receivers, blockDate), "AccountIdByPublicKey", {})
+      .then(async (result) => {
+        if (result.status === 200) {
+          const json = await result.json();
+          if (json.data) {
+            return json.data.nearpavel_near_bitmap_v2_actions_index;
+          }
+          if (json.errors) {
+            const data = json.errors.nearpavel_near_bitmap_v2_actions_index;
+            console.error(data);
+          }
+        } else {
+          console.error(result)
+        }
+      });
 }
 
 async function main() {
   const blockBuffer = await fs.readFile(
-    path.join(__dirname, "./tests/blocks/00115185108/streamer_message.json"),
+      path.join(__dirname, "./tests/blocks/115598802/streamer_message.json"),
   );
   const block = Block.fromStreamerMessage(JSON.parse(blockBuffer.toString()));
 
   const blockDate = new Date(
-    block.streamerMessage.block.header.timestamp / 1000000,
+      block.streamerMessage.block.header.timestamp / 1000000,
   )
-    .toISOString()
-    .substring(0, 10);
+      .toISOString()
+      .substring(0, 10);
 
   const actionsByReceiver = block.actions().reduce((groups, action) => {
     (groups[action.receiverId] ||= []).push(action);
@@ -149,17 +218,18 @@ async function main() {
 
   const allReceivers = Object.keys(actionsByReceiver);
   console.log(`There are ${allReceivers.length} receivers in this block.`);
-  console.log(
-    `SELECT * FROM "actions_index" WHERE block_date='${blockDate}' AND receiver_id IN (${allReceivers
-      .map((r) => `'${r}'`)
-      .join(",")})`,
-  );
-  const currIndexes = [];
+  // console.log(
+  //     `SELECT * FROM "actions_index" WHERE block_date='${blockDate}' AND receiver_id IN (${allReceivers
+  //         .map((r) => `'${r}'`)
+  //         .join(",")})`,
+  // );
+  const currIndexes = await getReceivers(allReceivers, blockDate);
+  const startTime = Date.now();
   // (await context.db.ActionsIndex.select({
   //   block_date: blockDate,
   //   receiver_id: allReceivers,
   // })) ?? [];
-  console.log("currIndexes", JSON.stringify(currIndexes));
+  //console.log("currIndexes", JSON.stringify(currIndexes));
 
   // await Promise.all(
   //   allReceivers.map(async (receiverId) => {
@@ -177,17 +247,17 @@ async function main() {
   //   })
   // );
 
-  console.log({ allReceivers, currIndexes }, allReceivers.length);
+  const startTimeR = Date.now();
   const upserts = allReceivers.map((receiverId) => {
-    const currentIndex = currIndexes.find((i) => i.receiver_id === receiverId);
-
-    const blockDiff =
-      block.blockHeight - (currentIndex?.first_block_height ?? 0);
-
-    // This is the bit that takes the most time
-    const p = performance.now();
-    const newBitmap = addIndexCompressed(currentIndex?.bitmap ?? "", blockDiff);
-    console.log(performance.now() - p, "ms")
+    const currentIndex = currIndexes.find((i) => i?.receiver_id === receiverId);
+    const blockIndexInCurrentBitmap = currentIndex?.first_block_height
+        ? block.blockHeight - currentIndex?.first_block_height
+        : 0;
+    //console.log(`${currentIndex?.first_block_height ?? 0} ${block.blockHeight}: currentIndex?.first_block_height: ${currentIndex?.first_block_height}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}`)
+    const newBitmap = addIndexCompressed(
+        currentIndex?.bitmap ?? "",
+        blockIndexInCurrentBitmap
+    );
     return {
       first_block_height: currentIndex?.first_block_height ?? block.blockHeight,
       block_date: blockDate,
@@ -195,12 +265,19 @@ async function main() {
       bitmap: newBitmap,
     };
   });
-  console.log("upserts", JSON.stringify(upserts));
-  await context.db.ActionsIndex.upsert(
-    upserts,
-    ["block_date", "receiver_id"],
-    ["bitmap"],
+  const endTimeR = Date.now();
+  const endTime = Date.now();
+  console.log(
+      `Computing bitmaps for ${allReceivers.length} receivers took ${
+          endTimeR - startTimeR
+      }ms; total time ${endTime - startTime}ms`
   );
+  //console.log("upserts", JSON.stringify(upserts));
+  // await context.db.ActionsIndex.upsert(
+  //     upserts,
+  //     ["block_date", "receiver_id"],
+  //     ["bitmap"],
+  // );
 }
 
 main();
