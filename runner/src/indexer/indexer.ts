@@ -95,8 +95,6 @@ export default class Indexer {
           await this.deps.provisioner.provisionUserApi(this.indexerConfig);
           logEntries.push(LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight));
         }
-        // await this.deps.provisioner.provisionLogsAndMetadataIfNeeded(this.indexerConfig);
-        // await this.deps.provisioner.ensureConsistentHasuraState(this.indexerConfig);
       } catch (e) {
         const error = e as Error;
         if (this.IS_FIRST_EXECUTION) {
@@ -151,11 +149,11 @@ export default class Indexer {
       simultaneousPromises.push(await this.setStatus(IndexerStatus.FAILING));
       throw e;
     } finally {
-      this.IS_FIRST_EXECUTION = false;
       const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
-      if (results[0].status === 'rejected') {
+      if (this.IS_FIRST_EXECUTION && results[0].status === 'rejected') {
         this.logger.error('Failed to write logs after executing on block:', results[0].reason);
       }
+      this.IS_FIRST_EXECUTION = false;
     }
     return allMutations;
   }
@@ -308,69 +306,34 @@ export default class Indexer {
         const funcForTable = {
           [`${sanitizedTableName}`]: {
             insert: async (objectsToInsert: any) => {
-              return await this.tracer.startActiveSpan('Call context db insert', async (insertSpan: Span) => {
-                try {
-                  // Write log before calling insert
-                  const insertLogEntry = LogEntry.userDebug(`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`, blockHeight);
-                  logEntries.push(insertLogEntry);
-                  // Call insert with parameters
-                  return await dmlHandler.insert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
-                } finally {
-                  insertSpan.end();
-                }
-              });
+              const insertLogEntry = LogEntry.userDebug(`Inserting object ${JSON.stringify(objectsToInsert)} into table ${tableName}`, blockHeight);
+              logEntries.push(insertLogEntry);
+
+              return await dmlHandler.insert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert]);
             },
             select: async (filterObj: any, limit = null) => {
-              return await this.tracer.startActiveSpan('Call context db select', async (selectSpan: Span) => {
-                try {
-                  // Write log before calling select
-                  const selectLogEntry = LogEntry.userDebug(`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`, blockHeight);
-                  logEntries.push(selectLogEntry);
-                  // Call select with parameters
-                  return await dmlHandler.select(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, limit);
-                } finally {
-                  selectSpan.end();
-                }
-              });
+              const selectLogEntry = LogEntry.userDebug(`Selecting objects in table ${tableName} with values ${JSON.stringify(filterObj)} with ${limit === null ? 'no' : limit} limit`, blockHeight);
+              logEntries.push(selectLogEntry);
+
+              return await dmlHandler.select(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, limit);
             },
             update: async (filterObj: any, updateObj: any) => {
-              return await this.tracer.startActiveSpan('Call context db update', async (updateSpan: Span) => {
-                try {
-                  // Write log before calling update
-                  const updateLogEntry = LogEntry.userDebug(`Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`, blockHeight);
-                  logEntries.push(updateLogEntry);
-                  // Call update with parameters
-                  return await dmlHandler.update(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, updateObj);
-                } finally {
-                  updateSpan.end();
-                }
-              });
+              const updateLogEntry = LogEntry.userDebug(`Updating objects in table ${tableName} that match ${JSON.stringify(filterObj)} with values ${JSON.stringify(updateObj)}`, blockHeight);
+              logEntries.push(updateLogEntry);
+
+              return await dmlHandler.update(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj, updateObj);
             },
             upsert: async (objectsToInsert: any, conflictColumns: string[], updateColumns: string[]) => {
-              return await this.tracer.startActiveSpan('Call context db upsert', async (upsertSpan: Span) => {
-                try {
-                  // Write log before calling upsert
-                  const upsertLogEntry = LogEntry.userDebug(`Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`, blockHeight);
-                  logEntries.push(upsertLogEntry);
-                  // Call upsert with parameters
-                  return await dmlHandler.upsert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
-                } finally {
-                  upsertSpan.end();
-                }
-              });
+              const upsertLogEntry = LogEntry.userDebug(`Inserting objects into table ${tableName} with values ${JSON.stringify(objectsToInsert)}. Conflict on columns ${conflictColumns.join(', ')} will update values in columns ${updateColumns.join(', ')}`, blockHeight);
+              logEntries.push(upsertLogEntry);
+
+              return await dmlHandler.upsert(this.indexerConfig.schemaName(), tableDefinitionNames, Array.isArray(objectsToInsert) ? objectsToInsert : [objectsToInsert], conflictColumns, updateColumns);
             },
             delete: async (filterObj: any) => {
-              return await this.tracer.startActiveSpan('Call context db delete', async (deleteSpan: Span) => {
-                try {
-                  // Write log before calling delete
-                  const deleteLogEntry = LogEntry.userDebug(`Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`, blockHeight);
-                  logEntries.push(deleteLogEntry);
-                  // Call delete with parameters
-                  return await dmlHandler.delete(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj);
-                } finally {
-                  deleteSpan.end();
-                }
-              });
+              const deleteLogEntry = LogEntry.userDebug(`Deleting objects from table ${tableName} with values ${JSON.stringify(filterObj)}`, blockHeight);
+              logEntries.push(deleteLogEntry);
+
+              return await dmlHandler.delete(this.indexerConfig.schemaName(), tableDefinitionNames, filterObj);
             }
           }
         };

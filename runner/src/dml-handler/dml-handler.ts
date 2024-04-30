@@ -2,18 +2,22 @@ import { wrapError } from '../utility';
 import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { type TableDefinitionNames } from '../indexer';
 
+import { type Tracer, trace } from '@opentelemetry/api';
+
 type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
 type WhereClauseSingle = Record<string, (string | number)>;
 
 export default class DmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   pgClient: PgClient;
+  tracer: Tracer;
 
   constructor (
     databaseConnectionParameters: PostgresConnectionParams,
     pgClientInstance: PgClient | undefined = undefined,
   ) {
     this.pgClient = pgClientInstance ?? new PgClient(databaseConnectionParameters);
+    this.tracer = trace.getTracer('queryapi-runner-dml-handler');
   }
 
   private getWhereClause (whereObject: WhereClauseMulti, columnLookup: Map<string, string>): { queryVars: Array<string | number>, whereClause: string } {
