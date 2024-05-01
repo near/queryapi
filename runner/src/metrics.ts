@@ -22,10 +22,10 @@ const PREFETCH_QUEUE_COUNT = new Gauge({
 });
 
 const BLOCK_WAIT_DURATION = new Histogram({
-  name: 'queryapi_runner_block_wait_duration_milliseconds',
+  name: 'queryapi_runner_block_wait_duration_seconds',
   help: 'Time an indexer function waited for a block before processing',
   labelNames: ['indexer'],
-  buckets: [1, 10, 100, 300, 500, 1000, 3000, 5000, 10000, 30000],
+  buckets: [0.001, 0.01, 0.1, 0.3, 0.5, 1, 3, 5, 10, 30]
 });
 
 const CACHE_HIT = new Counter({
@@ -51,9 +51,10 @@ const LAST_PROCESSED_BLOCK_HEIGHT = new Gauge({
 });
 
 const EXECUTION_DURATION = new Histogram({
-  name: 'queryapi_runner_execution_duration_milliseconds',
+  name: 'queryapi_runner_execution_duration_seconds',
   help: 'Time taken to execute an indexer function',
   labelNames: ['indexer'],
+  buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 5, 30, 60, 120]
 });
 
 const LOGS_COUNT = new Counter({
