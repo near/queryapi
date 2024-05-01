@@ -264,6 +264,7 @@ async fn process_near_lake_blocks(
         ChainId::Mainnet => near_lake_framework::LakeConfigBuilder::default().mainnet(),
         ChainId::Testnet => near_lake_framework::LakeConfigBuilder::default().testnet(),
     }
+    .s3_client(lake_s3_client)
     .start_block_height(start_block_height)
     .blocks_preload_pool_size(lake_prefetch_size)
     .build()

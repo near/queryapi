@@ -3,19 +3,21 @@ import DmlHandler from './dml-handler';
 import type PgClient from '../pg-client';
 import { type TableDefinitionNames } from '../indexer';
 import { type PostgresConnectionParams } from '../pg-client';
+import IndexerConfig from '../indexer-config/indexer-config';
+import { LogLevel } from '../indexer-meta/log-entry';
 
 describe('DML Handler tests', () => {
   const getDbConnectionParameters: PostgresConnectionParams = {
-    database: 'test_near',
+    database: 'test_account',
     host: 'postgres',
     password: 'test_pass',
     port: 5432,
-    user: 'test_near'
+    user: 'test_account'
   };
   let pgClient: PgClient;
   let query: any;
 
-  const SCHEMA = 'test_schema';
+  const TEST_INDEXER_CONFIG = new IndexerConfig('', 'test_account', 'test_function', 0, '', '', LogLevel.INFO);
   let TABLE_DEFINITION_NAMES: TableDefinitionNames;
 
   beforeEach(() => {
@@ -47,11 +49,11 @@ describe('DML Handler tests', () => {
       accounts_liked: JSON.stringify(['cwpuzzles.near', 'devbose.near'])
     };
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.insert(SCHEMA, TABLE_DEFINITION_NAMES, [inputObj]);
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, [inputObj]);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, "block_height", block_timestamp, "content", receipt_id, "accounts_liked") VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
+      ['INSERT INTO test_account_test_function."test_table" (account_id, "block_height", block_timestamp, "content", receipt_id, "accounts_liked") VALUES (\'test_acc_near\', \'999\', \'UTC\', \'test_content\', \'111\', \'["cwpuzzles.near","devbose.near"]\') RETURNING *', []]
     ]);
   });
 
@@ -67,11 +69,11 @@ describe('DML Handler tests', () => {
       receipt_id: 'abc',
     }];
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.insert(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, "block_height", receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
+      ['INSERT INTO test_account_test_function."test_table" (account_id, "block_height", receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') RETURNING *', []]
     ]);
   });
 
@@ -83,11 +85,11 @@ describe('DML Handler tests', () => {
 
     TABLE_DEFINITION_NAMES.originalTableName = 'test_table';
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
+    await dmlHandler.select(TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema.test_table WHERE account_id=$1 AND "block_height"=$2', Object.values(inputObj)]
+      ['SELECT * FROM test_account_test_function.test_table WHERE account_id=$1 AND "block_height"=$2', Object.values(inputObj)]
     ]);
   });
 
@@ -97,11 +99,11 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
+    await dmlHandler.select(TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id IN ($1,$2) AND "block_height"=$3', [...inputObj.account_id, inputObj.block_height]]
+      ['SELECT * FROM test_account_test_function."test_table" WHERE account_id IN ($1,$2) AND "block_height"=$3', [...inputObj.account_id, inputObj.block_height]]
     ]);
   });
 
@@ -111,11 +113,11 @@ describe('DML Handler tests', () => {
       block_height: [998, 999],
     };
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
+    await dmlHandler.select(TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id IN ($1,$2) AND "block_height" IN ($3,$4)', [...inputObj.account_id, ...inputObj.block_height]]
+      ['SELECT * FROM test_account_test_function."test_table" WHERE account_id IN ($1,$2) AND "block_height" IN ($3,$4)', [...inputObj.account_id, ...inputObj.block_height]]
     ]);
   });
 
@@ -125,11 +127,11 @@ describe('DML Handler tests', () => {
       block_height: 999,
     };
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.select(SCHEMA, TABLE_DEFINITION_NAMES, inputObj, 1);
+    await dmlHandler.select(TABLE_DEFINITION_NAMES, inputObj, 1);
     expect(query.mock.calls).toEqual([
-      ['SELECT * FROM test_schema."test_table" WHERE account_id=$1 AND "block_height"=$2 LIMIT 1', Object.values(inputObj)]
+      ['SELECT * FROM test_account_test_function."test_table" WHERE account_id=$1 AND "block_height"=$2 LIMIT 1', Object.values(inputObj)]
     ]);
   });
 
@@ -144,11 +146,11 @@ describe('DML Handler tests', () => {
       receipt_id: 111,
     };
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.update(SCHEMA, TABLE_DEFINITION_NAMES, whereObj, updateObj);
+    await dmlHandler.update(TABLE_DEFINITION_NAMES, whereObj, updateObj);
     expect(query.mock.calls).toEqual([
-      ['UPDATE test_schema."test_table" SET "content"=$1, receipt_id=$2 WHERE account_id=$3 AND "block_height"=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
+      ['UPDATE test_account_test_function."test_table" SET "content"=$1, receipt_id=$2 WHERE account_id=$3 AND "block_height"=$4 RETURNING *', [...Object.values(updateObj), ...Object.values(whereObj)]]
     ]);
   });
 
@@ -167,11 +169,11 @@ describe('DML Handler tests', () => {
     const conflictCol = ['account_id', 'block_height'];
     const updateCol = ['receipt_id'];
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.upsert(SCHEMA, TABLE_DEFINITION_NAMES, inputObj, conflictCol, updateCol);
+    await dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObj, conflictCol, updateCol);
     expect(query.mock.calls).toEqual([
-      ['INSERT INTO test_schema."test_table" (account_id, "block_height", receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, "block_height") DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
+      ['INSERT INTO test_account_test_function."test_table" (account_id, "block_height", receipt_id) VALUES (\'morgs_near\', \'1\', \'abc\'), (\'morgs_near\', \'2\', \'abc\') ON CONFLICT (account_id, "block_height") DO UPDATE SET receipt_id = excluded.receipt_id RETURNING *', []]
     ]);
   });
 
@@ -181,11 +183,11 @@ describe('DML Handler tests', () => {
       block_height: [998, 999],
     };
 
-    const dmlHandler = new DmlHandler(getDbConnectionParameters, pgClient);
+    const dmlHandler = new DmlHandler(getDbConnectionParameters, TEST_INDEXER_CONFIG, pgClient);
 
-    await dmlHandler.delete(SCHEMA, TABLE_DEFINITION_NAMES, inputObj);
+    await dmlHandler.delete(TABLE_DEFINITION_NAMES, inputObj);
     expect(query.mock.calls).toEqual([
-      ['DELETE FROM test_schema."test_table" WHERE account_id=$1 AND "block_height" IN ($2,$3) RETURNING *', [inputObj.account_id, ...inputObj.block_height]]
+      ['DELETE FROM test_account_test_function."test_table" WHERE account_id=$1 AND "block_height" IN ($2,$3) RETURNING *', [inputObj.account_id, ...inputObj.block_height]]
     ]);
   });
 });

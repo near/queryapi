@@ -12,6 +12,7 @@ import setUpTracerExport from '../instrumentation';
 import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
+import { wrapSpan } from '../utility';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -108,16 +109,12 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
       parentSpan.setAttribute('account', indexerConfig.accountId);
       parentSpan.setAttribute('service.name', 'queryapi-runner');
       try {
-        const startTime = performance.now();
-        const blockStartTime = performance.now();
+        const blockWaitDurationTimer = METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerConfig.fullName() }).startTimer();
+        const executionDurationTimer = METRICS.EXECUTION_DURATION.labels({ indexer: indexerConfig.fullName() }).startTimer();
 
-        const queueMessage = await tracer.startActiveSpan('Wait for block to download', async (blockWaitSpan: Span) => {
-          try {
-            return await workerContext.queue.at(0);
-          } finally {
-            blockWaitSpan.end();
-          }
-        });
+        const queueMessage = await wrapSpan(async () => {
+          return await workerContext.queue.at(0);
+        }, tracer, 'Wait for block to download');
         if (queueMessage === undefined) {
           workerContext.logger.warn('Block promise is undefined');
           return;
@@ -134,7 +131,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         parentPort?.postMessage(blockHeightMessage);
         streamMessageId = queueMessage.streamMessageId;
 
-        METRICS.BLOCK_WAIT_DURATION.labels({ indexer: indexerConfig.fullName() }).observe(performance.now() - blockStartTime);
+        blockWaitDurationTimer();
 
         await tracer.startActiveSpan(`Process Block ${currBlockHeight}`, async (executeSpan: Span) => {
           try {
@@ -149,7 +146,8 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         await workerContext.redisClient.deleteStreamMessage(indexerConfig.redisStreamKey, streamMessageId);
         await workerContext.queue.shift();
 
-        METRICS.EXECUTION_DURATION.labels({ indexer: indexerConfig.fullName() }).observe(performance.now() - startTime);
+        executionDurationTimer();
+
         METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerConfig.fullName() }).set(currBlockHeight);
         postRunSpan.end();
       } catch (err) {
