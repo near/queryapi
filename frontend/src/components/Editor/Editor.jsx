@@ -220,7 +220,6 @@ const Editor = ({ actionButtonText }) => {
   };
 
   const registerFunction = async (indexerName, indexerConfig) => {
-    console.log('forked indexer:', indexerDetails.forkedAccountId, indexerDetails.forkedIndexerName);
     const { data: validatedSchema, error: schemaValidationError } =
       validateSQLSchema(schema);
     const { data: validatedCode, error: codeValidationError } =

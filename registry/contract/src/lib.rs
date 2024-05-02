@@ -258,13 +258,25 @@ impl Contract {
 
     pub fn register(
         &mut self,
+        account_id: Option<String>,
         function_name: String,
         code: String,
         schema: String,
         rule: Rule,
         start_block: StartBlock,
     ) {
-        let account_id = env::signer_account_id();
+        let account_id = match account_id {
+            Some(account_id) => {
+                self.assert_roles(vec![Role::Owner]);
+
+                account_id.parse::<AccountId>().unwrap_or_else(|_| {
+                    env::panic_str(&format!("Account ID {} is invalid", account_id));
+                })
+            }
+            None => {
+                env::signer_account_id()
+            }
+        };
 
         log!(
             "Registering function {} for account {}",
