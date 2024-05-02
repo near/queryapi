@@ -220,6 +220,7 @@ const Editor = ({ actionButtonText }) => {
   };
 
   const registerFunction = async (indexerName, indexerConfig) => {
+    console.log('forked indexer:', indexerDetails.forkedAccountId, indexerDetails.forkedIndexerName);
     const { data: validatedSchema, error: schemaValidationError } =
       validateSQLSchema(schema);
     const { data: validatedCode, error: codeValidationError } =
@@ -234,6 +235,8 @@ const Editor = ({ actionButtonText }) => {
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     indexerName = indexerName.replaceAll(" ", "_");
+    let forkedAccountId = indexerDetails.forkedAccountId;
+    let forkedIndexerName = indexerDetails.forkedIndexerName;
 
     const startBlock =
     indexerConfig.startBlock === "startBlockHeight"
@@ -258,6 +261,8 @@ const Editor = ({ actionButtonText }) => {
 
     request("register-function", {
       indexerName: indexerName,
+      forkedAccountId: forkedAccountId,
+      forkedIndexerName: forkedIndexerName,
       code: innerCode,
       schema: validatedSchema,
       startBlock,
