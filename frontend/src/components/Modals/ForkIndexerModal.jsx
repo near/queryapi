@@ -10,6 +10,8 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
     setShowForkIndexerModal,
     setIsCreateNewIndexer,
     setIndexerName,
+    setForkedAccountId,
+    setForkedIndexerName,
     setIndexerConfig,
     isCreateNewIndexer,
   } = useContext(IndexerDetailsContext);
@@ -31,6 +33,8 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
 
     setError(null);
     setIndexerName(indexerName);
+    setForkedAccountId(indexerDetails.accountId);
+    setForkedIndexerName(indexerDetails.indexerName);
     setIsCreateNewIndexer(true);
     forkIndexer(indexerName);
     setShowForkIndexerModal(false);

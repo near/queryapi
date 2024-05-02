@@ -18,7 +18,7 @@ const initialPayload = {
 
 const registerFunctionHandler = (request, response) => {
   const gas = 200000000000000;
-  const { indexerName, code, schema, startBlock, contractFilter } =
+  const { indexerName, forkedAccountId, forkedIndexerName, code, schema, startBlock, contractFilter } =
     request.payload;
 
   const jsonFilter = `{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"${contractFilter || "social.near"}","status":"SUCCESS"}}`
@@ -28,6 +28,8 @@ const registerFunctionHandler = (request, response) => {
     "register",
     {
       function_name: indexerName,
+      forked_account_id: forkedAccountId,
+      forked_indexer_name: forkedIndexerName,
       code,
       schema,
       start_block: startBlock,
