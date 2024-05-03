@@ -28,8 +28,10 @@ const registerFunctionHandler = (request, response) => {
     "register",
     {
       function_name: indexerName,
-      forked_from_account_id: forkedAccountId,
-      forked_from_function_name: forkedIndexerName,
+      forked_from: {
+        account_id: forkedAccountId,
+        fuction_name: forkedIndexerName,
+      },
       code,
       schema,
       start_block: startBlock,

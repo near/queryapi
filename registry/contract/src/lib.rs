@@ -260,8 +260,7 @@ impl Contract {
         &mut self,
         account_id: Option<String>,
         function_name: String,
-        forked_from_account_id: Option<String>,
-        forked_from_function_name: Option<String>,
+        forked_from: Option<IndexerIdentity>,
         code: String,
         schema: String,
         rule: Rule,
@@ -279,20 +278,6 @@ impl Contract {
                 env::signer_account_id()
             }
         };
-
-        let forked_from: match (forked_from_account_id, forked_from_function_name) {
-            (Some(account_id), Some(function_name)) => {
-                const account_id_parsed = account_id.parse::<AccountId>().unwrap_or_else(|_| {
-                    env::panic_str(&format!("Account ID {} is invalid", account_id));
-                });
-                IndexerIdentity {
-                    account_id_parsed,
-                    function_name
-                }
-            },
-            (None, None) => Ok(None),
-            _ => env::panic_str(&format!("Either the account {} or name {} of the forked indexer is missing", forked_from_account_id, forked_from_function_name),
-        }
 
         log!(
             "Registering function {} for account {}",
