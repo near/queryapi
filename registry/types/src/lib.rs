@@ -206,6 +206,12 @@ pub enum StartBlock {
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct IndexerIdentity {
+    pub account_id: AccountId,
+    pub function_name: FunctionName,
+}
+
+#[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct IndexerConfig {
     pub code: String,
     pub start_block: StartBlock,
@@ -213,6 +219,7 @@ pub struct IndexerConfig {
     pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+    pub forked_from: Option<IndexerIdentity>,
 }
 
 impl From<OldIndexerConfig> for IndexerConfig {
@@ -227,6 +234,7 @@ impl From<OldIndexerConfig> for IndexerConfig {
             rule: config.filter.matching_rule.into(),
             created_at_block_height: config.created_at_block_height,
             updated_at_block_height: config.updated_at_block_height,
+            forked_from: None,
         }
     }
 }

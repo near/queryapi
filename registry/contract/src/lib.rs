@@ -260,6 +260,8 @@ impl Contract {
         &mut self,
         account_id: Option<String>,
         function_name: String,
+        forked_from_account_id: Option<String>,
+        forked_from_function_name: Option<String>,
         code: String,
         schema: String,
         rule: Rule,
@@ -277,6 +279,20 @@ impl Contract {
                 env::signer_account_id()
             }
         };
+
+        let forked_from: match (forked_from_account_id, forked_from_function_name) {
+            (Some(account_id), Some(function_name)) => {
+                const account_id_parsed = account_id.parse::<AccountId>().unwrap_or_else(|_| {
+                    env::panic_str(&format!("Account ID {} is invalid", account_id));
+                });
+                IndexerIdentity {
+                    account_id_parsed,
+                    function_name
+                }
+            },
+            (None, None) => Ok(None),
+            _ => env::panic_str(&format!("Either the account {} or name {} of the forked indexer is missing", forked_from_account_id, forked_from_function_name),
+        }
 
         log!(
             "Registering function {} for account {}",
@@ -317,6 +333,7 @@ impl Contract {
                     start_block,
                     updated_at_block_height: Some(env::block_height()),
                     created_at_block_height: indexer.created_at_block_height,
+                    forked_from,
                 });
             }
             near_sdk::store::unordered_map::Entry::Vacant(entry) => {
@@ -327,6 +344,7 @@ impl Contract {
                     start_block,
                     updated_at_block_height: None,
                     created_at_block_height: env::block_height(),
+                    forked_from,
                 });
             }
         }
