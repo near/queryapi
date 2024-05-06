@@ -74,8 +74,8 @@ export const IndexerDetailsProvider = ({ children }) => {
       const details = {
         accountId: accountId,
         indexerName: indexerName,
-        forkedAccountId: data.forkedAccountId,
-        forkedIndexerName: data.forkedIndexerName,
+        forkedAccountId: data.forked_from?.account_id,
+        forkedIndexerName: data.forked_from?.function_name,
         code: wrapCode(data.code),
         schema: data.schema,
         startBlock: data.start_block,

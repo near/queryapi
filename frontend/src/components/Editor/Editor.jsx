@@ -234,8 +234,10 @@ const Editor = ({ actionButtonText }) => {
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     indexerName = indexerName.replaceAll(" ", "_");
-    let forkedAccountId = indexerDetails.forkedAccountId;
-    let forkedIndexerName = indexerDetails.forkedIndexerName;
+    let forkedFrom = 
+      (indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName)
+      ? { account_id: indexerDetails.forkedAccountId, function_name: indexerDetails.forkedIndexerName }
+      : null;
 
     const startBlock =
     indexerConfig.startBlock === "startBlockHeight"
@@ -254,18 +256,18 @@ const Editor = ({ actionButtonText }) => {
         schema: validatedSchema,
         startBlock,
         contractFilter: indexerConfig.filter,
+        forkedFrom,
       });
       return;
     }
 
     request("register-function", {
       indexerName: indexerName,
-      forkedAccountId: forkedAccountId,
-      forkedIndexerName: forkedIndexerName,
       code: innerCode,
       schema: validatedSchema,
       startBlock,
       contractFilter: indexerConfig.filter,
+      ...(forkedFrom && { forkedFrom })
     });
 
     setShowPublishModal(false);
