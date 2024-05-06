@@ -250,15 +250,14 @@ impl Contract {
         schema: String,
         rule: Rule,
         start_block: StartBlock,
-        account_id: Option<String>,
+        account_id: Option<AccountId>,
     ) {
         let account_id = match account_id {
             Some(account_id) => {
-                self.assert_roles(vec![Role::Owner]);
-
-                account_id.parse::<AccountId>().unwrap_or_else(|_| {
-                    env::panic_str(&format!("Account ID {} is invalid", account_id));
-                })
+                if env::signer_account_id() != account_id {
+                    self.assert_roles(vec![Role::Owner]);
+                }
+                account_id
             }
             None => {
                 env::signer_account_id()
@@ -280,7 +279,7 @@ impl Contract {
                 affected_account_id,
                 ..
             } => {
-                if affected_account_id.contains("*") {
+                if affected_account_id.split(',').any(|account_id| ["*", "*.near", "*.kaiching", "*.tg"].contains(&account_id.trim())) {
                     self.assert_roles(vec![Role::Owner]);
                 }
             }
@@ -833,6 +832,31 @@ mod tests {
     }
 
     #[test]
+    fn anonymous_can_register_functions_using_their_own_account_parameter() {
+        let mut contract = Contract {
+            registry: IndexersByAccount::new(StorageKeys::Registry),
+            account_roles: vec![],
+        };
+
+        contract.register(
+            "test_function".to_string(),
+            Some(IndexerIdentity {
+                account_id: "some_other_account.near".parse().unwrap(),
+                function_name: String::from("some_other_function"),
+            }),
+            String::new(),
+            String::new(),
+            Rule::ActionFunctionCall {
+                affected_account_id: String::from("social.near"),
+                status: Status::Any,
+                function: String::from("set"),
+            },
+            StartBlock::Latest,
+            Some("bob.near".parse().unwrap()),
+        );
+    }
+
+    #[test]
     #[should_panic(expected = "Account bob.near does not have any roles")]
     fn anonymous_cannot_register_functions_for_others() {
         let mut contract = Contract {
@@ -854,7 +878,7 @@ mod tests {
                 function: String::from("set"),
             },
             StartBlock::Latest,
-            Some("alice.near".to_string()),
+            Some("alice.near".parse().unwrap()),
         );
     }
 
@@ -883,7 +907,7 @@ mod tests {
                 function: String::from("set"),
             },
             StartBlock::Latest,
-            Some("alice.near".to_string()),
+            Some("alice.near".parse().unwrap()),
         );
     }
 
@@ -911,7 +935,7 @@ mod tests {
                 function: String::from("set"),
             },
             StartBlock::Latest,
-            Some("alice.near".to_string()),
+            Some("alice.near".parse().unwrap()),
         );
 
         assert!(contract
@@ -1104,6 +1128,30 @@ mod tests {
             String::new(),
             Rule::ActionFunctionCall {
                 affected_account_id: String::from("*"),
+                status: Status::Fail,
+                function: String::from("test"),
+            },
+            StartBlock::Latest,
+            None,
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "Account bob.near does not have one of required roles [Owner]")]
+    fn prevents_non_owners_from_using_wildcard_near() {
+        let mut contract = Contract::default();
+        contract.account_roles.push(AccountRole {
+            account_id: "bob.near".parse().unwrap(),
+            role: Role::User,
+        });
+
+        contract.register(
+            "test_function".to_string(),
+            None,
+            String::new(), 
+            String::new(),
+            Rule::ActionFunctionCall {
+                affected_account_id: String::from("*.near"),
                 status: Status::Fail,
                 function: String::from("test"),
             },
