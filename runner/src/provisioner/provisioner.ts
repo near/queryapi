@@ -313,6 +313,23 @@ export default class Provisioner {
       }, 'Failed to ensure consistent Hasura state');
   }
 
+  async addBackendOnlyPermission (indexerConfig: IndexerConfig): Promise<void> {
+    await wrapError(
+      async () => {
+        const tableNamesToCheck = await this.getTableNames(indexerConfig.schemaName(), indexerConfig.databaseName());
+        const permissionsToAdd: HasuraPermission[] = ['insert', 'update', 'delete'];
+
+        const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
+        const tablePermissionsToSetBackendOnly = this.getPresentPermissionsForTables(
+          tableNamesToCheck,
+          hasuraTablesMetadata,
+          permissionsToAdd
+        );
+
+        await this.hasuraClient.setBackendOnly(indexerConfig.schemaName(), indexerConfig.databaseName(), indexerConfig.hasuraRoleName(), tablePermissionsToSetBackendOnly);
+      }, 'Failed to ensure consistent Hasura state');
+  }
+
   async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {
     const trackedTables: HasuraTableMetadata[] = await this.hasuraClient.getTrackedTablePermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
     const trackedTablePermissions: TrackedTablePermissions = new Map();
@@ -348,6 +365,29 @@ export default class Provisioner {
     return permissionsToCheck.some((permission: string) => {
       const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
       return this.permissionLacksRole(roleName, tablePermissionsMetadata[permissionAttribute]);
+    });
+  }
+
+  private getPresentPermissionsForTables (
+    allTables: string[],
+    tableMetadata: Map<string, HasuraTableMetadata>,
+    permissionsToFind: HasuraPermission[]
+  ): Map<string, HasuraPermission[]> {
+    return allTables.reduce((map, tableName) => {
+      const tablePermissionsMetadata = tableMetadata.get(tableName);
+      if (!tablePermissionsMetadata) {
+        map.set(tableName, permissionsToFind);
+      } else {
+        map.set(tableName, this.getPermissionsPresent(tablePermissionsMetadata, permissionsToFind));
+      }
+      return map;
+    }, new Map<string, HasuraPermission[]>());
+  }
+
+  private getPermissionsPresent (tablePermissionsMetadata: HasuraTableMetadata, permissionsToFind: HasuraPermission[]): HasuraPermission[] {
+    return permissionsToFind.filter((permission: string) => {
+      const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
+      return tablePermissionsMetadata[permissionAttribute];
     });
   }
 

@@ -415,6 +415,7 @@ export default class HasuraClient {
                 check: {},
                 computed_fields: [],
                 filter: {},
+                backend_only: true,
                 ...(permission === 'select' && { allow_aggregations: true })
               },
             },
@@ -422,6 +423,49 @@ export default class HasuraClient {
         ))
         .flat()
     );
+  }
+
+  async setBackendOnly (schemaName: string, source: string, roleName: string, permissions: Map<string, HasuraPermission[]>): Promise<any> {
+    const metadataRequests: any[] = [];
+    permissions.forEach((permissions, tableName) => {
+      if (permissions.length > 0) {
+        permissions.forEach((permission) => {
+          const dropRequest = {
+            type: `pg_drop_${permission}_permission`,
+            args: {
+              source,
+              table: {
+                name: tableName,
+                schema: schemaName,
+              },
+              role: roleName,
+            },
+          };
+          const createRequest = {
+            type: `pg_create_${permission}_permission`,
+            args: {
+              source,
+              table: {
+                name: tableName,
+                schema: schemaName,
+              },
+              role: roleName,
+              permission: {
+                columns: '*',
+                check: {},
+                computed_fields: [],
+                filter: {},
+                backend_only: true,
+                ...(permission === 'select' && { allow_aggregations: true })
+              },
+            },
+          };
+          metadataRequests.push(dropRequest);
+          metadataRequests.push(createRequest);
+        });
+      }
+    });
+    return await this.executeBulkMetadataRequest(metadataRequests);
   }
 
   async addDatasource (userName: string, password: string, databaseName: string): Promise<any> {
