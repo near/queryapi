@@ -12,11 +12,11 @@ pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
 pub use RedisClientImpl as RedisClient;
 
+#[derive(Clone)]
 pub struct RedisClientImpl {
     connection: ConnectionManager,
 }
 
-#[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
     pub async fn connect(redis_url: &str) -> anyhow::Result<Self> {
         let connection = redis::Client::open(redis_url)?
@@ -99,5 +99,23 @@ impl RedisClientImpl {
             indexer_config.get_registry_version(),
         )
         .await
+    }
+}
+
+#[cfg(test)]
+mockall::mock! {
+    pub RedisClientImpl {
+        pub async fn connect(redis_url: &str) -> anyhow::Result<Self>;
+
+        pub async fn get_last_published_block(
+            &self,
+            indexer_config: &IndexerConfig,
+        ) -> anyhow::Result<Option<u64>>;
+
+        pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()>;
+    }
+
+    impl Clone for RedisClientImpl {
+        fn clone(&self) -> Self;
     }
 }
