@@ -42,4 +42,8 @@ impl IndexerManagerImpl {
     pub fn get_sync_status(&self, indexer_config: &IndexerConfig) -> SyncStatus {
         SyncStatus::Synced
     }
+
+    pub fn set_synced(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        Ok(())
+    }
 }
