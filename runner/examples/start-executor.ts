@@ -1,25 +1,25 @@
 // Run with 'npx ts-node src/test-client.ts'
 
 import runnerClient from '../src/server/runner-client';
+import fs from 'fs';
 
 const schema = `
 CREATE TABLE
-  "indexer_storage" (
-    "function_name" TEXT NOT NULL,
-    "key_name" TEXT NOT NULL,
-    "value" TEXT NOT NULL,
-    PRIMARY KEY ("function_name", "key_name")
-  )
+  "actions_index" (
+    "block_date" TEXT NOT NULL,
+    "receiver_id" TEXT NOT NULL,
+    "first_block_height" NUMERIC(20) NOT NULL,
+    "bitmap" TEXT NOT NULL,
+    PRIMARY KEY ("block_date", "receiver_id")
+  );
 `;
 
-const code = `
-console.log("hello");
-`;
+const code = fs.readFileSync('./src/indexer-code', 'utf8');
 
 const indexer = {
-  account_id: 'account.near', // Can be anything
+  account_id: 'nearpavel.near', // Can be anything
   redis_stream: 'test:stream', // Redis stream will need messages for indexer to run. This is just an example.
-  function_name: 'sample_indexer', // Can be anything
+  function_name: 'bitmap_v2', // Can be anything
   code,
   schema,
 };

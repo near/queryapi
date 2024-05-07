@@ -4,6 +4,7 @@ import * as lakePrimitives from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 import { trace, type Span } from '@opentelemetry/api';
 import VError from 'verror';
+import performance from 'node:perf_hooks';
 
 import logger from '../logger';
 import Provisioner from '../provisioner';
@@ -89,6 +90,7 @@ export default class Indexer {
 
     try {
       const runningMessage = `Running function ${this.indexerConfig.fullName()} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
+      console.log(runningMessage);
 
       try {
         if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
@@ -110,6 +112,7 @@ export default class Indexer {
       await wrapSpan(async () => {
         try {
           this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+          console.log('Database connection parameters:', this.database_connection_parameters);
           this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
           this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters, this.indexerConfig);
         } catch (e) {
@@ -120,7 +123,7 @@ export default class Indexer {
       }, this.tracer, 'get database connection parameters');
 
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
-      simultaneousPromises.push(this.setStatus(IndexerStatus.RUNNING));
+      // simultaneousPromises.push(this.setStatus(IndexerStatus.RUNNING));
       const vm = new VM({ allowAsync: true });
       const context = this.buildContext(blockHeight, logEntries);
 
@@ -133,6 +136,7 @@ export default class Indexer {
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
           const transformedCode = this.transformIndexerFunction();
+          // eval(transformedCode); // eslint-disable-line no-eval
           await vm.run(transformedCode);
         } catch (e) {
           const error = e as Error;
@@ -143,16 +147,17 @@ export default class Indexer {
           runIndexerCodeSpan.end();
         }
       });
-      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight));
+      // simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight));
+    // eslint-disable-next-line no-useless-catch
     } catch (e) {
       // TODO: Prevent unnecesary reruns of set status
-      simultaneousPromises.push(await this.setStatus(IndexerStatus.FAILING));
+      // simultaneousPromises.push(await this.setStatus(IndexerStatus.FAILING));
       throw e;
     } finally {
-      const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
-      if (this.IS_FIRST_EXECUTION && results[0].status === 'rejected') {
-        this.logger.error('Failed to write logs after executing on block:', results[0].reason);
-      }
+      // const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
+      // if (this.IS_FIRST_EXECUTION && results[0].status === 'rejected') {
+      //   this.logger.error('Failed to write logs after executing on block:', results[0].reason);
+      // }
       this.IS_FIRST_EXECUTION = false;
     }
     return allMutations;
@@ -185,6 +190,7 @@ export default class Indexer {
       },
       log: (...log) => {
         const infoLogEntry = LogEntry.userInfo(log.join(' : '), blockHeight);
+        console.log(...log);
         logEntries.push(infoLogEntry);
       },
       warn: (...log) => {

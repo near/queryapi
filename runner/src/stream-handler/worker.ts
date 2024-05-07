@@ -143,7 +143,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.RUNNING } });
-        await workerContext.redisClient.deleteStreamMessage(indexerConfig.redisStreamKey, streamMessageId);
+        // await workerContext.redisClient.deleteStreamMessage(indexerConfig.redisStreamKey, streamMessageId);
         await workerContext.queue.shift();
 
         METRICS.EXECUTION_DURATION.labels({ indexer: indexerConfig.fullName() }).observe(performance.now() - startTime);

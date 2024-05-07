@@ -104,7 +104,7 @@ export default class DmlHandler {
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
     const query = `INSERT INTO ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} (${originalColumns.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
-    const result = await this.query(this.pgClient.format(query, rowValues), [], tableDefinitionNames.originalTableName, 'upsert');
+    const result = /* await this.query(this.pgClient.format(query, rowValues), [], tableDefinitionNames.originalTableName, 'upsert'); */ { rows: [] };
     return result.rows;
   }
 
