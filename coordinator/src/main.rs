@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = RedisClient::connect(&redis_url).await?;
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
-    let indexer_manager = IndexerManager::new();
+    let indexer_manager = IndexerManager::new(redis_client.clone());
 
     tracing::info!(
         rpc_url,

@@ -73,14 +73,6 @@ impl RedisClientImpl {
         Ok(())
     }
 
-    pub async fn get_stream_version(
-        &self,
-        indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<Option<u64>> {
-        self.get::<_, u64>(indexer_config.get_redis_stream_version_key())
-            .await
-    }
-
     pub async fn get_last_published_block(
         &self,
         indexer_config: &IndexerConfig,
@@ -93,12 +85,11 @@ impl RedisClientImpl {
         self.del(indexer_config.get_redis_stream_key()).await
     }
 
-    pub async fn set_stream_version(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
-        self.set(
-            indexer_config.get_redis_stream_version_key(),
-            indexer_config.get_registry_version(),
-        )
-        .await
+    pub async fn get_indexer_state(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<String>> {
+        self.get(indexer_config.get_state_key()).await
     }
 }
 
@@ -106,6 +97,8 @@ impl RedisClientImpl {
 mockall::mock! {
     pub RedisClientImpl {
         pub async fn connect(redis_url: &str) -> anyhow::Result<Self>;
+
+        pub async fn get_indexer_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<String>>;
 
         pub async fn get_last_published_block(
             &self,
