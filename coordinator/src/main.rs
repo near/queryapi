@@ -6,12 +6,14 @@ use tracing_subscriber::prelude::*;
 
 use crate::block_streams::{synchronise_block_streams, BlockStreamsHandler};
 use crate::executors::{synchronise_executors, ExecutorsHandler};
+use crate::indexer_manager::IndexerManager;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
 
 mod block_streams;
 mod executors;
 mod indexer_config;
+mod indexer_manager;
 mod redis;
 mod registry;
 mod utils;
@@ -39,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = RedisClient::connect(&redis_url).await?;
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
+    let indexer_manager = IndexerManager::new();
 
     tracing::info!(
         rpc_url,
@@ -52,13 +55,22 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
+        // migrate state
+
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
-            synchronise_block_streams(&indexer_registry, &redis_client, &block_streams_handler),
+            synchronise_block_streams(
+                &indexer_registry,
+                &indexer_manager,
+                &redis_client,
+                &block_streams_handler
+            ),
             async {
                 sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
                 Ok(())
             }
         )?;
+
+        // flush state
     }
 }

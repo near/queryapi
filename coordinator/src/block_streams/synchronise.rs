@@ -3,6 +3,7 @@ use std::cmp::Ordering;
 use registry_types::StartBlock;
 
 use crate::indexer_config::IndexerConfig;
+use crate::indexer_manager::{IndexerManager, IndexerState, SyncStatus};
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
 
@@ -10,6 +11,7 @@ use super::handler::{BlockStreamsHandler, StreamInfo};
 
 pub async fn synchronise_block_streams(
     indexer_registry: &IndexerRegistry,
+    indexer_manager: &IndexerManager,
     redis_client: &RedisClient,
     block_streams_handler: &BlockStreamsHandler,
 ) -> anyhow::Result<()> {
@@ -24,9 +26,12 @@ pub async fn synchronise_block_streams(
                 })
                 .map(|index| active_block_streams.swap_remove(index));
 
+            let indexer_state = indexer_manager.get_state(indexer_config);
+
             let _ = synchronise_block_stream(
                 active_block_stream,
                 indexer_config,
+                &indexer_state,
                 redis_client,
                 block_streams_handler,
             )
@@ -69,6 +74,7 @@ pub async fn synchronise_block_streams(
 async fn synchronise_block_stream(
     active_block_stream: Option<StreamInfo>,
     indexer_config: &IndexerConfig,
+    indexer_state: &IndexerState,
     redis_client: &RedisClient,
     block_streams_handler: &BlockStreamsHandler,
 ) -> anyhow::Result<()> {
@@ -87,12 +93,12 @@ async fn synchronise_block_stream(
             .await?;
     }
 
-    let stream_status = get_stream_status(indexer_config, redis_client).await?;
+    let sync_status = indexer_state.get_sync_status(indexer_config);
 
-    clear_block_stream_if_needed(&stream_status, indexer_config, redis_client).await?;
+    clear_block_stream_if_needed(&sync_status, indexer_config, redis_client).await?;
 
     let start_block_height =
-        determine_start_block_height(&stream_status, indexer_config, redis_client).await?;
+        determine_start_block_height(&sync_status, indexer_config, redis_client).await?;
 
     tracing::info!(
         "Starting new block stream starting at block {}",
@@ -103,50 +109,18 @@ async fn synchronise_block_stream(
         .start(start_block_height, indexer_config)
         .await?;
 
+    // use indexer manager
     redis_client.set_stream_version(indexer_config).await?;
 
     Ok(())
 }
 
-#[derive(Debug, PartialEq, Eq)]
-enum StreamStatus {
-    /// Stream version is synchronized with the registry
-    Synced,
-    /// Stream version does not match registry
-    Outdated,
-    /// No stream version, therefore new
-    New,
-}
-
-async fn get_stream_status(
-    indexer_config: &IndexerConfig,
-    redis_client: &RedisClient,
-) -> anyhow::Result<StreamStatus> {
-    let stream_version = redis_client.get_stream_version(indexer_config).await?;
-
-    if stream_version.is_none() {
-        return Ok(StreamStatus::New);
-    }
-
-    let stream_version = stream_version.unwrap();
-
-    match indexer_config.get_registry_version().cmp(&stream_version) {
-        Ordering::Equal => Ok(StreamStatus::Synced),
-        Ordering::Greater => Ok(StreamStatus::Outdated),
-        Ordering::Less => {
-            tracing::warn!("Found stream with version greater than registry, treating as outdated");
-
-            Ok(StreamStatus::Outdated)
-        }
-    }
-}
-
 async fn clear_block_stream_if_needed(
-    stream_status: &StreamStatus,
+    sync_status: &SyncStatus,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<()> {
-    if matches!(stream_status, StreamStatus::Synced | StreamStatus::New)
+    if matches!(sync_status, SyncStatus::Synced | SyncStatus::New)
         || indexer_config.start_block == StartBlock::Continue
     {
         return Ok(());
@@ -158,11 +132,11 @@ async fn clear_block_stream_if_needed(
 }
 
 async fn determine_start_block_height(
-    stream_status: &StreamStatus,
+    sync_status: &SyncStatus,
     indexer_config: &IndexerConfig,
     redis_client: &RedisClient,
 ) -> anyhow::Result<u64> {
-    if stream_status == &StreamStatus::Synced {
+    if sync_status == &SyncStatus::Synced {
         tracing::info!("Resuming block stream");
 
         return get_continuation_block_height(indexer_config, redis_client).await;
@@ -196,7 +170,7 @@ mod tests {
     use registry_types::{Rule, Status};
 
     #[tokio::test]
-    async fn resumes_stream_with_matching_redis_version() {
+    async fn resumes_previously_synced_stream() {
         let indexer_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -216,12 +190,15 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(Some(200)))
-            .once();
+            .returning(|_| IndexerState {
+                synced_at: Some(200),
+            });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_last_published_block()
             .with(predicate::eq(indexer_config.clone()))
@@ -242,9 +219,14 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -262,17 +244,19 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Latest,
         };
+
         let indexer_registry = HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(Some(1)))
-            .once();
+            .returning(|_| IndexerState { synced_at: Some(1) });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_clear_block_stream()
             .with(predicate::eq(indexer_config.clone()))
@@ -293,9 +277,14 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -318,12 +307,13 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(Some(1)))
-            .once();
+            .returning(|_| IndexerState { synced_at: Some(1) });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_clear_block_stream()
             .with(predicate::eq(indexer_config.clone()))
@@ -344,9 +334,14 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -369,12 +364,13 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(Some(1)))
-            .once();
+            .returning(|_| IndexerState { synced_at: Some(1) });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_last_published_block()
             .with(predicate::eq(indexer_config.clone()))
@@ -395,9 +391,14 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -405,6 +406,8 @@ mod tests {
         let indexer_registry = HashMap::from([]);
 
         let redis_client = RedisClient::default();
+
+        let mut mock_indexer_manager = IndexerManager::default();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
         block_stream_handler.expect_list().returning(|| {
@@ -421,34 +424,45 @@ mod tests {
             .returning(|_| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn ignores_stream_with_matching_registry_version() {
+    async fn ignores_synced_stream() {
+        let indexer_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 101,
+            updated_at_block_height: None,
+            start_block: StartBlock::Latest,
+        };
         let indexer_registry = HashMap::from([(
             "morgs.near".parse().unwrap(),
-            HashMap::from([(
-                "test".to_string(),
-                IndexerConfig {
-                    account_id: "morgs.near".parse().unwrap(),
-                    function_name: "test".to_string(),
-                    code: String::new(),
-                    schema: String::new(),
-                    rule: Rule::ActionAny {
-                        affected_account_id: "queryapi.dataplatform.near".to_string(),
-                        status: Status::Any,
-                    },
-                    created_at_block_height: 101,
-                    updated_at_block_height: None,
-                    start_block: StartBlock::Latest,
-                },
-            )]),
+            HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
         let redis_client = RedisClient::default();
+
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
+            .with(predicate::eq(indexer_config))
+            .returning(|_| IndexerState {
+                synced_at: Some(101),
+            });
 
         let mut block_stream_handler = BlockStreamsHandler::default();
         block_stream_handler.expect_list().returning(|| {
@@ -462,13 +476,18 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler.expect_start().never();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn restarts_streams_when_registry_version_differs() {
+    async fn restarts_unsynced_streams() {
         let indexer_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -487,12 +506,15 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(Some(101)))
-            .once();
+            .returning(|_| IndexerState {
+                synced_at: Some(250),
+            });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_clear_block_stream()
             .with(predicate::eq(indexer_config.clone()))
@@ -524,9 +546,14 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
@@ -549,12 +576,15 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(Some(101)))
-            .once();
+            .returning(|_| IndexerState {
+                synced_at: Some(101),
+            });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_last_published_block()
             .with(predicate::eq(indexer_config.clone()))
@@ -566,13 +596,18 @@ mod tests {
         block_stream_handler.expect_stop().never();
         block_stream_handler.expect_start().never();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn starts_block_stream_for_first_time() {
+    async fn starts_new_stream() {
         let indexer_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -591,12 +626,13 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut redis_client = RedisClient::default();
-        redis_client
-            .expect_get_stream_version()
+        let mut mock_indexer_manager = IndexerManager::default();
+        mock_indexer_manager
+            .expect_get_state()
             .with(predicate::eq(indexer_config.clone()))
-            .returning(|_| Ok(None))
-            .once();
+            .returning(|_| IndexerState { synced_at: None });
+
+        let mut redis_client = RedisClient::default();
         redis_client
             .expect_set_stream_version()
             .with(predicate::eq(indexer_config.clone()))
@@ -612,8 +648,13 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        synchronise_block_streams(&indexer_registry, &redis_client, &block_stream_handler)
-            .await
-            .unwrap();
+        synchronise_block_streams(
+            &indexer_registry,
+            &mock_indexer_manager,
+            &redis_client,
+            &block_stream_handler,
+        )
+        .await
+        .unwrap();
     }
 }
