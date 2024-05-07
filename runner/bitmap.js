@@ -3,12 +3,14 @@ const path = require("path");
 const { Block } = require("@near-lake/primitives");
 const {performance} = require("node:perf_hooks");
 
+const BITS = new Uint8Array([128,64,32,16,8,4,2,1]);
+
 function indexOfFirstBitInByteArray(bytes, startBit) {
   let firstBit = startBit % 8;
   for (let iByte = Math.floor(startBit / 8); iByte < bytes.length; iByte++) {
     if (bytes[iByte] > 0) {
-      for (let iBit = firstBit; iBit <= 7; iBit++) {
-        if (bytes[iByte] & (1 << (7 - iBit))) {
+      for (let iBit= firstBit; iBit <= 7; iBit++) {
+        if (bytes[iByte] & BITS[iBit]) {
           return iByte * 8 + iBit;
         }
       }
@@ -27,14 +29,13 @@ function setBitInBitmap(uint8Array, bit, bitValue = true) {
     result = new Uint8Array(new ArrayBuffer(newLen));
     result.set(uint8Array);
   }
-  result[Math.floor(bit / 8)] |= 1 << (7 - (bit % 8));
+  //uint8Array.buffer.resize(newLen);
+  result[Math.floor(bit / 8)] |= BITS[bit % 8];
   return result;
 }
 
 function getBitInByteArray(bytes, bitIndex) {
-  const b = Math.floor(bitIndex / 8);
-  const bi = bitIndex % 8;
-  return (bytes[b] & (1 << (7 - bi))) > 0;
+  return (bytes[Math.floor(bitIndex / 8)] & BITS[bitIndex % 8]) > 0;
 }
 
 // takes numbers between [start, end] bits inclusive in byte array and
@@ -76,9 +77,9 @@ function writeEliasGammaBits(x, result, startBit) {
 // pads the resulting string at the end with '0's for length to be divisible by 8
 function compressBitmapArray(uint8Array) {
   const p = performance.now();
-  let curBit = (uint8Array[0] & 0b10000000) > 0;
+  let curBit = (uint8Array[0] & 128) > 0;
   let curBitStretch = 0;
-  let resultBuffer = new ArrayBuffer(9000);
+  let resultBuffer = new ArrayBuffer(12000);
   let result = new Uint8Array(resultBuffer);
   let nextBit = 0;
   result = setBitInBitmap(result, nextBit++, curBit);
@@ -114,7 +115,7 @@ function decodeEliasGammaFirstEntryFromBytes(bytes, startBit = 0) {
 // Decompresses Elias-gamma coded bytes to Uint8Array
 function decompressToBitmapArray(compressedBytes) {
   let curBit = (compressedBytes[0] & 0x80) > 0;
-  const buffer = new ArrayBuffer(90000);
+  const buffer = new ArrayBuffer(12000);
   let bufferLength = 0;
   let result = new Uint8Array(buffer);
   let compressedBitIdx = 1;
@@ -129,28 +130,30 @@ function decompressToBitmapArray(compressedBytes) {
       bufferLength = Math.ceil((nextBitIdx + x) / 8);
     }
     for (let i = 0; curBit && i < x; i++) {
-      setBitInBitmap(result, nextBitIdx + i);
+      result = setBitInBitmap(result, nextBitIdx + i);
     }
     nextBitIdx += x;
     curBit = !curBit;
     if (x === 0) break; // we won't find any Elias gamma here, exiting
   }
-  return result.slice(0, bufferLength);
+  return {result: result, length: bufferLength};
 }
 
 function addIndexCompressed(compressedBase64, index) {
   const d = performance.now();
-  const bitmap = decompressToBitmapArray(
+  const {result: bitmap, length} = decompressToBitmapArray(
       Buffer.from(compressedBase64, "base64")
   );
   const decompressMs = performance.now() - d;
   const s = performance.now();
   const newBitmap = setBitInBitmap(bitmap, index);
+  const indexByte = Math.floor(index / 8);
+  const newBitmapLen = indexByte + 1 > length ? indexByte + 1 : length;
   const setsMs = performance.now() - s;
   const c = performance.now();
-  const compressed = compressBitmapArray(newBitmap);
+  const compressed = compressBitmapArray(newBitmap, newBitmapLen);
   const compMs = performance.now() - c;
-  console.log(`decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
+  console.log(`[${compressedBase64.length}] decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
   return Buffer.from(compressed).toString("base64");
 }
 
@@ -201,7 +204,7 @@ async function getReceivers(receivers, blockDate) {
 
 async function main() {
   const blockBuffer = await fs.readFile(
-      path.join(__dirname, "./tests/blocks/115598802/streamer_message.json"),
+      path.join(__dirname, "./tests/blocks/00115598802/streamer_message.json"),
   );
   const block = Block.fromStreamerMessage(JSON.parse(blockBuffer.toString()));
 
