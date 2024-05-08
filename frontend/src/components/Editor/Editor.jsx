@@ -234,6 +234,10 @@ const Editor = ({ actionButtonText }) => {
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     indexerName = indexerName.replaceAll(" ", "_");
+    let forkedFrom = 
+      (indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName)
+      ? { account_id: indexerDetails.forkedAccountId, function_name: indexerDetails.forkedIndexerName }
+      : null;
 
     const startBlock =
     indexerConfig.startBlock === "startBlockHeight"
@@ -252,6 +256,7 @@ const Editor = ({ actionButtonText }) => {
         schema: validatedSchema,
         startBlock,
         contractFilter: indexerConfig.filter,
+        forkedFrom,
       });
       return;
     }
@@ -262,6 +267,7 @@ const Editor = ({ actionButtonText }) => {
       schema: validatedSchema,
       startBlock,
       contractFilter: indexerConfig.filter,
+      ...(forkedFrom && { forkedFrom })
     });
 
     setShowPublishModal(false);
