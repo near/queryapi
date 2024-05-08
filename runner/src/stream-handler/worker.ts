@@ -19,7 +19,7 @@ if (isMainThread) {
 }
 
 interface QueueMessage {
-  block: Block
+  block?: Block
   streamMessageId: string
 }
 
@@ -42,7 +42,8 @@ void (async function main () {
   const logger = parentLogger.child({
     service: 'StreamHandler/worker',
     accountId: indexerConfig.accountId,
-    functionName: indexerConfig.functionName
+    functionName: indexerConfig.functionName,
+    version: indexerConfig.version
   });
   const redisClient = new RedisClient();
 
@@ -115,13 +116,14 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         const queueMessage = await wrapSpan(async () => {
           return await workerContext.queue.at(0);
         }, tracer, 'Wait for block to download');
+
         if (queueMessage === undefined) {
           workerContext.logger.warn('Block promise is undefined');
           return;
         }
 
         const block = queueMessage.block;
-        if (block === undefined || block.blockHeight == null) {
+        if (!block?.blockHeight) {
           throw new Error(`Block ${currBlockHeight} failed to process or does not have block height`);
         }
 
@@ -183,7 +185,11 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 }
 
 async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
-  const block = await workerContext.lakeClient.fetchBlock(blockHeight);
+  const block = await workerContext.lakeClient.fetchBlock(blockHeight).catch((err) => {
+    workerContext.logger.error(`Error fetching block ${blockHeight}`, err);
+    return undefined;
+  });
+
   return {
     block,
     streamMessageId

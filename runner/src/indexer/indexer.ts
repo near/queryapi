@@ -79,6 +79,8 @@ export default class Indexer {
   async execute (
     block: lakePrimitives.Block,
   ): Promise<string[]> {
+    this.logger.debug('Executing block', { blockHeight: block.blockHeight });
+
     const blockHeight: number = block.blockHeight;
 
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
