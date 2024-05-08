@@ -6,7 +6,10 @@ import RedisClient from '../redis-client';
 export default class LakeClient {
   constructor (
     private readonly network: string = 'mainnet',
-    private readonly s3Client: S3Client = new S3Client(),
+    private readonly s3Client: S3Client = new S3Client({
+      maxAttempts: 5,
+      retryMode: 'adaptive'
+    }),
     private readonly redisClient: RedisClient = new RedisClient()
   ) {}
 
