@@ -13,9 +13,19 @@ pub enum SyncStatus {
     New,
 }
 
-#[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IndexerState {
     block_stream_synced_at: Option<u64>,
+    enabled: bool,
+}
+
+impl Default for IndexerState {
+    fn default() -> Self {
+        Self {
+            block_stream_synced_at: None,
+            enabled: true,
+        }
+    }
 }
 
 #[cfg(not(test))]
@@ -55,6 +65,19 @@ impl IndexerStateManagerImpl {
             .await
     }
 
+    pub async fn set_enabled(
+        &self,
+        indexer_config: &IndexerConfig,
+        enabled: bool,
+    ) -> anyhow::Result<()> {
+        let mut indexer_state = self.get_state(indexer_config).await?;
+        indexer_state.enabled = enabled;
+
+        self.set_state(indexer_config, indexer_state).await?;
+
+        Ok(())
+    }
+
     pub async fn migrate_state_if_needed(
         &self,
         indexer_registry: &IndexerRegistry,
@@ -72,6 +95,7 @@ impl IndexerStateManagerImpl {
                         indexer_config,
                         IndexerState {
                             block_stream_synced_at: Some(version),
+                            enabled: true,
                         },
                     )
                     .await?;
@@ -198,7 +222,10 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(morgs_config),
-                predicate::eq(serde_json::json!({ "block_stream_synced_at": 200 }).to_string()),
+                predicate::eq(
+                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
+                        .to_string(),
+                ),
             )
             .returning(|_, _| Ok(()))
             .once();
@@ -206,7 +233,9 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(darunrs_config),
-                predicate::eq(serde_json::json!({ "block_stream_synced_at": 1 }).to_string()),
+                predicate::eq(
+                    serde_json::json!({ "block_stream_synced_at": 1, "enabled": true }).to_string(),
+                ),
             )
             .returning(|_, _| Ok(()))
             .once();
@@ -293,7 +322,8 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "block_stream_synced_at": 300 }).to_string(),
+                    serde_json::json!({ "block_stream_synced_at": 300, "enabled": true })
+                        .to_string(),
                 ))
             });
 
@@ -328,7 +358,8 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "block_stream_synced_at": 200 }).to_string(),
+                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
+                        .to_string(),
                 ))
             });
 
@@ -370,5 +401,51 @@ mod tests {
             .unwrap();
 
         assert_eq!(result, SyncStatus::New);
+    }
+
+    #[tokio::test]
+    pub async fn disable_indexer() {
+        let indexer_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: None,
+            start_block: StartBlock::Continue,
+        };
+
+        let mut redis_client = RedisClient::default();
+        redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(indexer_config.clone()))
+            .returning(|_| {
+                Ok(Some(
+                    serde_json::json!({ "block_stream_synced_at": 123, "enabled": true })
+                        .to_string(),
+                ))
+            });
+        redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(indexer_config.clone()),
+                predicate::eq(
+                    serde_json::json!({ "block_stream_synced_at":123, "enabled": false })
+                        .to_string(),
+                ),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(redis_client);
+
+        indexer_manager
+            .set_enabled(&indexer_config, false)
+            .await
+            .unwrap();
     }
 }
