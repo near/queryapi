@@ -55,7 +55,9 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        // migrate state
+        indexer_manager
+            .migrate_state_if_needed(&indexer_registry)
+            .await?;
 
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
@@ -70,7 +72,5 @@ async fn main() -> anyhow::Result<()> {
                 Ok(())
             }
         )?;
-
-        // flush state
     }
 }

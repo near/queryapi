@@ -73,6 +73,14 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    pub async fn get_stream_version(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<u64>> {
+        self.get::<_, u64>(indexer_config.get_redis_stream_version_key())
+            .await
+    }
+
     pub async fn get_last_published_block(
         &self,
         indexer_config: &IndexerConfig,
@@ -99,6 +107,14 @@ impl RedisClientImpl {
     ) -> anyhow::Result<()> {
         self.set(indexer_config.get_state_key(), state).await
     }
+
+    pub async fn set_migration_complete(&self) -> anyhow::Result<()> {
+        self.set("indexer_manager_migration_complete", true).await
+    }
+
+    pub async fn is_migration_complete(&self) -> anyhow::Result<Option<bool>> {
+        self.get("indexer_manager_migration_complete").await
+    }
 }
 
 #[cfg(test)]
@@ -114,12 +130,21 @@ mockall::mock! {
             state: String,
         ) -> anyhow::Result<()>;
 
+        pub async fn get_stream_version(
+            &self,
+            indexer_config: &IndexerConfig,
+        ) -> anyhow::Result<Option<u64>>;
+
         pub async fn get_last_published_block(
             &self,
             indexer_config: &IndexerConfig,
         ) -> anyhow::Result<Option<u64>>;
 
         pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()>;
+
+        pub async fn set_migration_complete(&self) -> anyhow::Result<()>;
+
+        pub async fn is_migration_complete(&self) -> anyhow::Result<Option<bool>>;
     }
 
     impl Clone for RedisClientImpl {

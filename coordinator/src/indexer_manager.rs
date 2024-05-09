@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 
 use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
+use crate::registry::IndexerRegistry;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SyncStatus {
@@ -12,6 +13,7 @@ pub enum SyncStatus {
 
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IndexerState {
+    // block_stream_synced_at/executor_synced_at? to?
     synced_at_block_height: u64,
 }
 
@@ -57,6 +59,37 @@ impl IndexerManagerImpl {
             .await
     }
 
+    pub async fn migrate_state_if_needed(
+        &self,
+        indexer_registry: &IndexerRegistry,
+    ) -> anyhow::Result<()> {
+        if self.redis_client.is_migration_complete().await?.is_some() {
+            return Ok(());
+        }
+
+        tracing::info!("Migrating indexer state");
+
+        for (_, indexers) in indexer_registry.iter() {
+            for (_, indexer_config) in indexers.iter() {
+                if let Some(version) = self.redis_client.get_stream_version(indexer_config).await? {
+                    self.set_state(
+                        indexer_config,
+                        IndexerState {
+                            synced_at_block_height: version,
+                        },
+                    )
+                    .await?;
+                }
+            }
+        }
+
+        tracing::info!("Indexer state migration complete");
+
+        self.redis_client.set_migration_complete().await?;
+
+        Ok(())
+    }
+
     pub async fn get_sync_status(
         &self,
         indexer_config: &IndexerConfig,
@@ -100,8 +133,146 @@ impl IndexerManagerImpl {
 mod tests {
     use super::*;
 
+    use std::collections::HashMap;
+
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn migrates_state() {
+        let morgs_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: Some(200),
+            start_block: StartBlock::Height(100),
+        };
+        let darunrs_config = IndexerConfig {
+            account_id: "darunrs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: None,
+            start_block: StartBlock::Height(100),
+        };
+
+        let indexer_registry = HashMap::from([
+            (
+                "morgs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), morgs_config.clone())]),
+            ),
+            (
+                "darunrs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), darunrs_config.clone())]),
+            ),
+        ]);
+
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_is_migration_complete()
+            .returning(|| Ok(None))
+            .once();
+        mock_redis_client
+            .expect_set_migration_complete()
+            .returning(|| Ok(()))
+            .once();
+        mock_redis_client
+            .expect_get_stream_version()
+            .with(predicate::eq(morgs_config.clone()))
+            .returning(|_| Ok(Some(200)))
+            .once();
+        mock_redis_client
+            .expect_get_stream_version()
+            .with(predicate::eq(darunrs_config.clone()))
+            .returning(|_| Ok(Some(1)))
+            .once();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(morgs_config),
+                predicate::eq(serde_json::json!({ "synced_at_block_height": 200 }).to_string()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(darunrs_config),
+                predicate::eq(serde_json::json!({ "synced_at_block_height": 1 }).to_string()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerManagerImpl::new(mock_redis_client);
+
+        indexer_manager
+            .migrate_state_if_needed(&indexer_registry)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn skips_state_migration() {
+        let morgs_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: Some(200),
+            start_block: StartBlock::Height(100),
+        };
+
+        let indexer_registry = HashMap::from([(
+            "morgs.near".parse().unwrap(),
+            HashMap::from([("test".to_string(), morgs_config.clone())]),
+        )]);
+
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_is_migration_complete()
+            .returning(|| Ok(Some(true)))
+            .once();
+        mock_redis_client
+            .expect_set_migration_complete()
+            .returning(|| Ok(()))
+            .never();
+        mock_redis_client
+            .expect_get_stream_version()
+            .with(predicate::eq(morgs_config.clone()))
+            .returning(|_| Ok(Some(200)))
+            .never();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(morgs_config),
+                predicate::eq(serde_json::json!({ "synced_at_block_height": 200 }).to_string()),
+            )
+            .returning(|_, _| Ok(()))
+            .never();
+
+        let indexer_manager = IndexerManagerImpl::new(mock_redis_client);
+
+        indexer_manager
+            .migrate_state_if_needed(&indexer_registry)
+            .await
+            .unwrap();
+    }
 
     #[tokio::test]
     pub async fn outdated_indexer() {
