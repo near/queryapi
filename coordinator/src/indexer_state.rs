@@ -13,8 +13,7 @@ pub enum SyncStatus {
 
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IndexerState {
-    // block_stream_synced_at/executor_synced_at? to?
-    synced_at_block_height: u64,
+    block_stream_synced_at: u64,
 }
 
 #[cfg(not(test))]
@@ -22,14 +21,10 @@ pub use IndexerStateManagerImpl as IndexerStateManager;
 #[cfg(test)]
 pub use MockIndexerStateManagerImpl as IndexerStateManager;
 
-// binary semaphore to protect updating redis simultaneously
-// or wrap redis in a mutex
 pub struct IndexerStateManagerImpl {
     redis_client: RedisClient,
 }
 
-// IndexerStateManager?
-// StateManager?
 #[cfg_attr(test, mockall::automock)]
 impl IndexerStateManagerImpl {
     pub fn new(redis_client: RedisClient) -> Self {
@@ -75,7 +70,7 @@ impl IndexerStateManagerImpl {
                     self.set_state(
                         indexer_config,
                         IndexerState {
-                            synced_at_block_height: version,
+                            block_stream_synced_at: version,
                         },
                     )
                     .await?;
@@ -90,7 +85,7 @@ impl IndexerStateManagerImpl {
         Ok(())
     }
 
-    pub async fn get_sync_status(
+    pub async fn get_block_stream_sync_status(
         &self,
         indexer_config: &IndexerConfig,
     ) -> anyhow::Result<SyncStatus> {
@@ -104,7 +99,7 @@ impl IndexerStateManagerImpl {
 
         match indexer_config
             .get_registry_version()
-            .cmp(&indexer_state.synced_at_block_height)
+            .cmp(&indexer_state.block_stream_synced_at)
         {
             Ordering::Equal => Ok(SyncStatus::Synced),
             Ordering::Greater => Ok(SyncStatus::Outdated),
@@ -118,10 +113,13 @@ impl IndexerStateManagerImpl {
         }
     }
 
-    pub async fn set_synced(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn set_block_stream_synced(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<()> {
         let mut indexer_state = self.get_state(indexer_config).await?.unwrap_or_default();
 
-        indexer_state.synced_at_block_height = indexer_config.get_registry_version();
+        indexer_state.block_stream_synced_at = indexer_config.get_registry_version();
 
         self.set_state(indexer_config, indexer_state).await?;
 
@@ -201,7 +199,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(morgs_config),
-                predicate::eq(serde_json::json!({ "synced_at_block_height": 200 }).to_string()),
+                predicate::eq(serde_json::json!({ "block_stream_synced_at": 200 }).to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();
@@ -209,7 +207,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(darunrs_config),
-                predicate::eq(serde_json::json!({ "synced_at_block_height": 1 }).to_string()),
+                predicate::eq(serde_json::json!({ "block_stream_synced_at": 1 }).to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();
@@ -261,7 +259,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(morgs_config),
-                predicate::eq(serde_json::json!({ "synced_at_block_height": 200 }).to_string()),
+                predicate::eq(serde_json::json!({ "block_stream_synced_at": 200 }).to_string()),
             )
             .returning(|_, _| Ok(()))
             .never();
@@ -275,7 +273,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn outdated_indexer() {
+    pub async fn outdated_block_stream() {
         let indexer_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -296,13 +294,13 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "synced_at_block_height": 300 }).to_string(),
+                    serde_json::json!({ "block_stream_synced_at": 300 }).to_string(),
                 ))
             });
 
         let indexer_manager = IndexerStateManagerImpl::new(redis_client);
         let result = indexer_manager
-            .get_sync_status(&indexer_config)
+            .get_block_stream_sync_status(&indexer_config)
             .await
             .unwrap();
 
@@ -310,7 +308,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn synced_indexer() {
+    pub async fn synced_block_stream() {
         let indexer_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -331,13 +329,13 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "synced_at_block_height": 200 }).to_string(),
+                    serde_json::json!({ "block_stream_synced_at": 200 }).to_string(),
                 ))
             });
 
         let indexer_manager = IndexerStateManagerImpl::new(redis_client);
         let result = indexer_manager
-            .get_sync_status(&indexer_config)
+            .get_block_stream_sync_status(&indexer_config)
             .await
             .unwrap();
 
@@ -345,7 +343,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn new_indexer() {
+    pub async fn new_block_stream() {
         let indexer_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -368,7 +366,7 @@ mod tests {
 
         let indexer_manager = IndexerStateManagerImpl::new(redis_client);
         let result = indexer_manager
-            .get_sync_status(&indexer_config)
+            .get_block_stream_sync_status(&indexer_config)
             .await
             .unwrap();
 

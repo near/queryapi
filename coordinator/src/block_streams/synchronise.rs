@@ -89,7 +89,9 @@ async fn synchronise_block_stream(
             .await?;
     }
 
-    let sync_status = indexer_manager.get_sync_status(indexer_config).await?;
+    let sync_status = indexer_manager
+        .get_block_stream_sync_status(indexer_config)
+        .await?;
 
     clear_block_stream_if_needed(&sync_status, indexer_config, redis_client).await?;
 
@@ -105,7 +107,9 @@ async fn synchronise_block_stream(
         .start(start_block_height, indexer_config)
         .await?;
 
-    indexer_manager.set_synced(indexer_config).await?;
+    indexer_manager
+        .set_block_stream_synced(indexer_config)
+        .await?;
 
     Ok(())
 }
@@ -187,11 +191,11 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Synced));
         mock_indexer_manager
-            .expect_set_synced()
+            .expect_set_block_stream_synced()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
@@ -245,11 +249,11 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Outdated));
         mock_indexer_manager
-            .expect_set_synced()
+            .expect_set_block_stream_synced()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
@@ -302,11 +306,11 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Outdated));
         mock_indexer_manager
-            .expect_set_synced()
+            .expect_set_block_stream_synced()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
@@ -359,11 +363,11 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Outdated));
         mock_indexer_manager
-            .expect_set_synced()
+            .expect_set_block_stream_synced()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
@@ -451,7 +455,7 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Synced));
 
@@ -499,11 +503,11 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Outdated));
         mock_indexer_manager
-            .expect_set_synced()
+            .expect_set_block_stream_synced()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
@@ -567,7 +571,7 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::Outdated));
 
@@ -615,11 +619,11 @@ mod tests {
 
         let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
-            .expect_get_sync_status()
+            .expect_get_block_stream_sync_status()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(SyncStatus::New));
         mock_indexer_manager
-            .expect_set_synced()
+            .expect_set_block_stream_synced()
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(()))
             .once();
