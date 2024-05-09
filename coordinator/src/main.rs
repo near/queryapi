@@ -6,14 +6,14 @@ use tracing_subscriber::prelude::*;
 
 use crate::block_streams::{synchronise_block_streams, BlockStreamsHandler};
 use crate::executors::{synchronise_executors, ExecutorsHandler};
-use crate::indexer_manager::IndexerManager;
+use crate::indexer_state::IndexerStateManager;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
 
 mod block_streams;
 mod executors;
 mod indexer_config;
-mod indexer_manager;
+mod indexer_state;
 mod redis;
 mod registry;
 mod utils;
@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = RedisClient::connect(&redis_url).await?;
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
-    let indexer_manager = IndexerManager::new(redis_client.clone());
+    let indexer_state_manager = IndexerStateManager::new(redis_client.clone());
 
     tracing::info!(
         rpc_url,
@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        indexer_manager
+        indexer_state_manager
             .migrate_state_if_needed(&indexer_registry)
             .await?;
 
@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
             synchronise_executors(&indexer_registry, &executors_handler),
             synchronise_block_streams(
                 &indexer_registry,
-                &indexer_manager,
+                &indexer_state_manager,
                 &redis_client,
                 &block_streams_handler
             ),

@@ -1,7 +1,7 @@
 use registry_types::StartBlock;
 
 use crate::indexer_config::IndexerConfig;
-use crate::indexer_manager::{IndexerManager, SyncStatus};
+use crate::indexer_state::{IndexerStateManager, SyncStatus};
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
 
@@ -9,7 +9,7 @@ use super::handler::{BlockStreamsHandler, StreamInfo};
 
 pub async fn synchronise_block_streams(
     indexer_registry: &IndexerRegistry,
-    indexer_manager: &IndexerManager,
+    indexer_manager: &IndexerStateManager,
     redis_client: &RedisClient,
     block_streams_handler: &BlockStreamsHandler,
 ) -> anyhow::Result<()> {
@@ -70,7 +70,7 @@ pub async fn synchronise_block_streams(
 async fn synchronise_block_stream(
     active_block_stream: Option<StreamInfo>,
     indexer_config: &IndexerConfig,
-    indexer_manager: &IndexerManager,
+    indexer_manager: &IndexerStateManager,
     redis_client: &RedisClient,
     block_streams_handler: &BlockStreamsHandler,
 ) -> anyhow::Result<()> {
@@ -185,7 +185,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -243,7 +243,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -300,7 +300,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -357,7 +357,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -400,7 +400,7 @@ mod tests {
 
         let redis_client = RedisClient::default();
 
-        let mock_indexer_manager = IndexerManager::default();
+        let mock_indexer_manager = IndexerStateManager::default();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
         block_stream_handler.expect_list().returning(|| {
@@ -449,7 +449,7 @@ mod tests {
 
         let redis_client = RedisClient::default();
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -497,7 +497,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -565,7 +565,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))
@@ -613,7 +613,7 @@ mod tests {
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
 
-        let mut mock_indexer_manager = IndexerManager::default();
+        let mut mock_indexer_manager = IndexerStateManager::default();
         mock_indexer_manager
             .expect_get_sync_status()
             .with(predicate::eq(indexer_config.clone()))

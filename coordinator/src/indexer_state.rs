@@ -18,20 +18,20 @@ struct IndexerState {
 }
 
 #[cfg(not(test))]
-pub use IndexerManagerImpl as IndexerManager;
+pub use IndexerStateManagerImpl as IndexerStateManager;
 #[cfg(test)]
-pub use MockIndexerManagerImpl as IndexerManager;
+pub use MockIndexerStateManagerImpl as IndexerStateManager;
 
 // binary semaphore to protect updating redis simultaneously
 // or wrap redis in a mutex
-pub struct IndexerManagerImpl {
+pub struct IndexerStateManagerImpl {
     redis_client: RedisClient,
 }
 
 // IndexerStateManager?
 // StateManager?
 #[cfg_attr(test, mockall::automock)]
-impl IndexerManagerImpl {
+impl IndexerStateManagerImpl {
     pub fn new(redis_client: RedisClient) -> Self {
         Self { redis_client }
     }
@@ -214,7 +214,7 @@ mod tests {
             .returning(|_, _| Ok(()))
             .once();
 
-        let indexer_manager = IndexerManagerImpl::new(mock_redis_client);
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
 
         indexer_manager
             .migrate_state_if_needed(&indexer_registry)
@@ -266,7 +266,7 @@ mod tests {
             .returning(|_, _| Ok(()))
             .never();
 
-        let indexer_manager = IndexerManagerImpl::new(mock_redis_client);
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
 
         indexer_manager
             .migrate_state_if_needed(&indexer_registry)
@@ -300,7 +300,7 @@ mod tests {
                 ))
             });
 
-        let indexer_manager = IndexerManagerImpl::new(redis_client);
+        let indexer_manager = IndexerStateManagerImpl::new(redis_client);
         let result = indexer_manager
             .get_sync_status(&indexer_config)
             .await
@@ -335,7 +335,7 @@ mod tests {
                 ))
             });
 
-        let indexer_manager = IndexerManagerImpl::new(redis_client);
+        let indexer_manager = IndexerStateManagerImpl::new(redis_client);
         let result = indexer_manager
             .get_sync_status(&indexer_config)
             .await
@@ -366,7 +366,7 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(None));
 
-        let indexer_manager = IndexerManagerImpl::new(redis_client);
+        let indexer_manager = IndexerStateManagerImpl::new(redis_client);
         let result = indexer_manager
             .get_sync_status(&indexer_config)
             .await
