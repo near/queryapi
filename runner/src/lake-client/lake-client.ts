@@ -1,7 +1,11 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client, type GetObjectCommandOutput } from '@aws-sdk/client-s3';
 import { Block } from '@near-lake/primitives';
+import { VError } from 'verror';
+
 import { METRICS } from '../metrics';
 import RedisClient from '../redis-client';
+
+class GetObjectError extends VError {}
 
 export default class LakeClient {
   constructor (
@@ -18,6 +22,17 @@ export default class LakeClient {
     return blockHeight.toString().padStart(12, '0');
   }
 
+  private async getObject (bucket: string, key: string): Promise<GetObjectCommandOutput> {
+    try {
+      return await this.s3Client.send(new GetObjectCommand({
+        Bucket: bucket,
+        Key: key,
+      }));
+    } catch (error) {
+      throw new GetObjectError({ cause: error as Error, info: { bucket, key } }, 'Failed to fetch object from S3');
+    }
+  }
+
   private fetchShards (blockHeight: number, numberOfShards: number): Array<Promise<any>> {
     return ([...Array(numberOfShards).keys()].map(async (shardId) =>
       await this.fetchShard(blockHeight, shardId)
@@ -25,23 +40,19 @@ export default class LakeClient {
   }
 
   private async fetchShard (blockHeight: number, shardId: number): Promise<any> {
-    const params = {
-      Bucket: `near-lake-data-${this.network}`,
-      Key: `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
-    };
-    const response = await this.s3Client.send(new GetObjectCommand(params));
+    const response = await this.getObject(
+      `near-lake-data-${this.network}`,
+      `${this.normalizeBlockHeight(blockHeight)}/shard_${shardId}.json`,
+    );
     const shardData = await response.Body?.transformToString() ?? '{}';
     return JSON.parse(shardData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
 
   private async fetchBlockPromise (blockHeight: number): Promise<any> {
-    const file = 'block.json';
-    const folder = this.normalizeBlockHeight(blockHeight);
-    const params = {
-      Bucket: 'near-lake-data-' + this.network,
-      Key: `${folder}/${file}`,
-    };
-    const response = await this.s3Client.send(new GetObjectCommand(params));
+    const response = await this.getObject(
+      `near-lake-data-${this.network}`,
+      `${this.normalizeBlockHeight(blockHeight)}/block.json`
+    );
     const blockData = await response.Body?.transformToString() ?? '{}';
     return JSON.parse(blockData, (_key, value) => this.renameUnderscoreFieldsToCamelCase(value));
   }
