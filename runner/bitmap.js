@@ -3,7 +3,7 @@ const path = require("path");
 const { Block } = require("@near-lake/primitives");
 const {performance} = require("node:perf_hooks");
 
-function indexOfFirstBitInByteArray(bytes, startBit) {
+function indexOfFirstBitInByteArray (bytes, startBit) {
   let firstBit = startBit % 8;
   for (let iByte = Math.floor(startBit / 8); iByte < bytes.length; iByte++) {
     if (bytes[iByte] > 0) {
@@ -18,12 +18,11 @@ function indexOfFirstBitInByteArray(bytes, startBit) {
   return -1;
 }
 
-function setBitInBitmap(uint8Array, bit, bitValue = true) {
+function setBitInBitmap (uint8Array, bit, bitValue = true) {
   if (!bitValue) return uint8Array;
   const newLen = Math.floor(bit / 8) + 1;
   let result = uint8Array;
   if (uint8Array.length < newLen) {
-    console.log(`Resize from ${uint8Array.length} to ${newLen}`)
     result = new Uint8Array(new ArrayBuffer(newLen));
     result.set(uint8Array);
   }
@@ -31,7 +30,7 @@ function setBitInBitmap(uint8Array, bit, bitValue = true) {
   return result;
 }
 
-function getBitInByteArray(bytes, bitIndex) {
+function getBitInByteArray (bytes, bitIndex) {
   const b = Math.floor(bitIndex / 8);
   const bi = bitIndex % 8;
   return (bytes[b] & (1 << (7 - bi))) > 0;
@@ -39,25 +38,26 @@ function getBitInByteArray(bytes, bitIndex) {
 
 // takes numbers between [start, end] bits inclusive in byte array and
 // returns decimal number they represent
-function getNumberBetweenBits(bytes, start, end) {
+function getNumberBetweenBits (bytes, start, end) {
   const len = end - start + 1;
-  let r = 0;
+  if (end < start) console.log('end < start', start, end, len);
+  let result = 0;
   for (let i = start, rbit = 0; i <= end; i++, rbit++) {
     if (getBitInByteArray(bytes, i)) {
-      r |= 1 << (len - 1 - rbit);
+      result |= 1 << (len - 1 - rbit);
     }
   }
-  return r;
+  return result;
 }
 
 // Writes Elias gamma coding bits for number x into result bytes array starting with index startBit.
 // Returns index of the next bit after the coding.
 // Examples: https://en.wikipedia.org/wiki/Elias_gamma_coding
-function writeEliasGammaBits(x, result, startBit) {
-  if (x === 0) return {bit: startBit, result};
+function writeEliasGammaBits (x, result, startBit) {
+  if (x === 0) return { bit: startBit, result };
   if (x === 1) {
     setBitInBitmap(result, startBit);
-    return {bit: startBit + 1, result};
+    return { bit: startBit + 1, result };
   }
   let bit = startBit;
   const N = Math.floor(Math.log2(x));
@@ -69,16 +69,15 @@ function writeEliasGammaBits(x, result, startBit) {
       result = setBitInBitmap(result, bit);
     }
   }
-  return {bit, result};
+  return { bit, result };
 }
 
 // stores first char (0 or 1) and then repeats alternating repeating sequences using Elias gamma coding
 // pads the resulting string at the end with '0's for length to be divisible by 8
-function compressBitmapArray(uint8Array) {
-  const p = performance.now();
+function compressBitmapArray (uint8Array) {
   let curBit = (uint8Array[0] & 0b10000000) > 0;
   let curBitStretch = 0;
-  let resultBuffer = new ArrayBuffer(9000);
+  const resultBuffer = new ArrayBuffer(12000);
   let result = new Uint8Array(resultBuffer);
   let nextBit = 0;
   result = setBitInBitmap(result, nextBit++, curBit);
@@ -95,55 +94,75 @@ function compressBitmapArray(uint8Array) {
   }
   const w = writeEliasGammaBits(curBitStretch, result, nextBit);
   nextBit = w.bit;
-  result = w.result.slice(0, Math.ceil(nextBit / 8))
+  result = w.result.slice(0, Math.ceil(nextBit / 8));
   return result;
 }
 
 // Returns first number x and corresponding coded bits length of the first occurrence of Elias gamma coding
-function decodeEliasGammaFirstEntryFromBytes(bytes, startBit = 0) {
+function decodeEliasGammaFirstEntryFromBytes (bytes, startBit = 0) {
   if (!bytes || bytes.length === 0) return { x: 0, lastBit: 0 };
   const idx = indexOfFirstBitInByteArray(bytes, startBit);
   if (idx < 0) {
     return { x: 0, len: bytes.length * 8 };
   }
   const N = idx - startBit;
-  const remainder = getNumberBetweenBits(bytes, idx + 1, idx + N);
+  const remainder = N === 0 ? 0 : getNumberBetweenBits(bytes, idx + 1, idx + N);
   return { x: 2 ** N + remainder, lastBit: idx + N };
 }
 
 // Decompresses Elias-gamma coded bytes to Uint8Array
-function decompressToBitmapArray(compressedBytes) {
-  let curBit = (compressedBytes[0] & 0x80) > 0;
-  const buffer = new ArrayBuffer(12000);
+function decompressToBitmapArray (compressedBytes) {
+  const decompressTotalTimer = performance.now();
+  const variableInitTimer = performance.now();
+  const compressedBitLength = compressedBytes.length * 8;
+  let curBit = (compressedBytes[0] & 0b10000000) > 0;
+  const buffer = new ArrayBuffer(11000);
   let bufferLength = 0;
-  let result = new Uint8Array(buffer);
+  const result = new Uint8Array(buffer);
   let compressedBitIdx = 1;
-  let nextBitIdx = 0;
-  const beforeDecode = performance.now();
-  while (compressedBitIdx < compressedBytes.length * 8) {
+  let resultBitIdx = 0;
+  let [ decodeEliasGammaCumulativeMs, longestDecodeEliasGammaMs, settingRemainderCumulativeMs, longestSettingRemainderMs, decodingLoopMs, decodeCount ] = [0,0,0,0,0,0];
+  const variableInitMs = performance.now() - variableInitTimer;
+  while (compressedBitIdx < compressedBitLength) {
+    const decodeEliasGammaTimer = performance.now();
+    // Get x, the number of bits to set, and lastBit, the bit number which is the last bit of the Elias gamma coding
     const { x, lastBit } = decodeEliasGammaFirstEntryFromBytes(
-        compressedBytes,
-        compressedBitIdx
+      compressedBytes,
+      compressedBitIdx
     );
-    compressedBitIdx = lastBit + 1;
-    if (bufferLength * 8 < nextBitIdx + x) {
-      bufferLength = Math.ceil((nextBitIdx + x) / 8);
+    decodeEliasGammaCumulativeMs += performance.now() - decodeEliasGammaTimer;
+    longestDecodeEliasGammaMs = Math.max(longestDecodeEliasGammaMs, performance.now() - decodeEliasGammaTimer);
+    const settingRemainderTimer = performance.now();
+    compressedBitIdx = lastBit + 1; // Ensure next loop starts on next bit
+    if (bufferLength * 8 < resultBitIdx + x) {
+      bufferLength = Math.ceil((resultBitIdx + x) / 8);
     }
-    for (let i = 0; curBit && i < x; i++) {
-      setBitInBitmap(result, nextBitIdx + i);
+    // If x is large, we can set by byte instead of bit
+    for (let i = 0; curBit && i < x; i++) { // Specifically if curBit is 1, set next x bits to 1
+      setBitInBitmap(result, resultBitIdx + i);
     }
-    nextBitIdx += x;
-    curBit = !curBit;
+    resultBitIdx += x;
+    curBit = !curBit; // Switch currBit for next iteration (counting 1s, then 0s, then 1s, etc.)
+    settingRemainderCumulativeMs += performance.now() - settingRemainderTimer;
+    longestSettingRemainderMs = Math.max(longestSettingRemainderMs, performance.now() - settingRemainderTimer);
+    decodingLoopMs += performance.now() - decodeEliasGammaTimer;
+    decodeCount++;
     if (x === 0) break; // we won't find any Elias gamma here, exiting
   }
-  console.log(`Decompressing took ${performance.now() - beforeDecode}ms`);
-  return result.slice(0, bufferLength);
+  const decompressTotalMs = performance.now() - decompressTotalTimer;
+  // console.log(`compression ratio=${compressedBytes.length / (bufferLength)}, compressedLength=${compressedBytes.length}, bufferLength=${bufferLength}`);
+  console.log(`decompressTotalMs=${decompressTotalMs}, variableInitMs=${variableInitMs}, decodingLoopMs=${decodingLoopMs}, decodeCount=${decodeCount}`);
+  console.log(`decodeEliasGammaCumulativeMs=${decodeEliasGammaCumulativeMs}, longestDecodeEliasGammaMs=${longestDecodeEliasGammaMs}, settingRemainderCumulativeMs=${settingRemainderCumulativeMs}, longestSettingRemainderMs=${longestSettingRemainderMs}`);
+  return result.subarray(0, bufferLength);
 }
 
-function addIndexCompressed(compressedBase64, index) {
+function addIndexCompressed (compressedBase64, index) {
+  const b = performance.now();
+  const buf = Buffer.from(compressedBase64, 'base64');
+  const bufferMs = performance.now() - b;
   const d = performance.now();
   const bitmap = decompressToBitmapArray(
-      Buffer.from(compressedBase64, "base64")
+    buf
   );
   const decompressMs = performance.now() - d;
   const s = performance.now();
@@ -152,8 +171,8 @@ function addIndexCompressed(compressedBase64, index) {
   const c = performance.now();
   const compressed = compressBitmapArray(newBitmap);
   const compMs = performance.now() - c;
-  console.log(`decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}, length=${bitmap.length}`);
-  return Buffer.from(compressed).toString("base64");
+  console.log(`bufferMs=${bufferMs}, decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
+  return Buffer.from(compressed).toString('base64');
 }
 
 const QUERYAPI_ENDPOINT = `https://near-queryapi.dev.api.pagoda.co/v1/graphql`;
@@ -250,7 +269,7 @@ async function main() {
   // );
 
   const startTimeR = Date.now();
-  const upserts = allReceivers.map((receiverId) => {
+  const upserts = allReceivers.filter((receiverId) => receiverId === 'app.nearcrowd.near').map((receiverId) => {
     const currentIndex = currIndexes.find((i) => i?.receiver_id === receiverId);
     const blockIndexInCurrentBitmap = currentIndex?.first_block_height
         ? block.blockHeight - currentIndex?.first_block_height

@@ -216,31 +216,7 @@ const upserts = allReceivers.filter((receiverId) => receiverId === 'app.nearcrow
     bitmap: newBitmap,
   };
 });
-// const promises = allReceivers.map((receiverId) => {
-//   return new Promise((resolve, reject) => {
-//     const currentIndex = currIndexes.find((i) => i?.receiver_id === receiverId);
-//     const blockIndexInCurrentBitmap = currentIndex?.first_block_height
-//       ? block.blockHeight - currentIndex?.first_block_height
-//       : 0;
 
-//     const s = performanceNow();
-//     const newBitmap = addIndexCompressed(
-//       currentIndex?.bitmap ?? '',
-//       blockIndexInCurrentBitmap
-//     );
-//     console.log(`${receiverId}: ${performanceNow() - s} ms, first_block_height: ${currentIndex?.first_block_height ?? 0}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}\n`);
-    
-//     const result = {
-//       first_block_height: currentIndex?.first_block_height ?? block.blockHeight,
-//       block_date: blockDate,
-//       receiver_id: receiverId,
-//       bitmap: newBitmap,
-//     };
-
-//     resolve(result);
-//   });
-// });
-// const upserts = await Promise.all(promises);
 
 const endTimeR = performanceNow();
 await context.db.ActionsIndex.upsert(

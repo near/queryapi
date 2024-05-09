@@ -6,6 +6,6 @@ import logger from './logger';
 const executors = new Map<string, StreamHandler>();
 startRunnerServer(executors);
 
-startMetricsServer().catch((err) => {
-  logger.error('Failed to start metrics server', err);
-});
+// startMetricsServer().catch((err) => {
+//   logger.error('Failed to start metrics server', err);
+// });
