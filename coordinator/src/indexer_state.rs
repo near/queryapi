@@ -1,3 +1,5 @@
+#![cfg_attr(test, allow(dead_code))]
+
 use std::cmp::Ordering;
 
 use crate::indexer_config::IndexerConfig;
