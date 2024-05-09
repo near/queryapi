@@ -15,7 +15,7 @@ pub enum SyncStatus {
 
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IndexerState {
-    block_stream_synced_at: u64,
+    block_stream_synced_at: Option<u64>,
 }
 
 #[cfg(not(test))]
@@ -33,15 +33,14 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
-    async fn get_state(
-        &self,
-        indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<Option<IndexerState>> {
+    async fn get_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<IndexerState> {
         let raw_state = self.redis_client.get_indexer_state(indexer_config).await?;
 
-        raw_state
-            .map(|raw_state| serde_json::from_str(&raw_state).map_err(Into::into))
-            .transpose()
+        if let Some(raw_state) = raw_state {
+            return Ok(serde_json::from_str(&raw_state)?);
+        }
+
+        Ok(IndexerState::default())
     }
 
     async fn set_state(
@@ -72,7 +71,7 @@ impl IndexerStateManagerImpl {
                     self.set_state(
                         indexer_config,
                         IndexerState {
-                            block_stream_synced_at: version,
+                            block_stream_synced_at: Some(version),
                         },
                     )
                     .await?;
@@ -93,15 +92,13 @@ impl IndexerStateManagerImpl {
     ) -> anyhow::Result<SyncStatus> {
         let indexer_state = self.get_state(indexer_config).await?;
 
-        if indexer_state.is_none() {
+        if indexer_state.block_stream_synced_at.is_none() {
             return Ok(SyncStatus::New);
         }
 
-        let indexer_state = indexer_state.unwrap();
-
         match indexer_config
             .get_registry_version()
-            .cmp(&indexer_state.block_stream_synced_at)
+            .cmp(&indexer_state.block_stream_synced_at.unwrap())
         {
             Ordering::Equal => Ok(SyncStatus::Synced),
             Ordering::Greater => Ok(SyncStatus::Outdated),
@@ -119,9 +116,9 @@ impl IndexerStateManagerImpl {
         &self,
         indexer_config: &IndexerConfig,
     ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(indexer_config).await?.unwrap_or_default();
+        let mut indexer_state = self.get_state(indexer_config).await?;
 
-        indexer_state.block_stream_synced_at = indexer_config.get_registry_version();
+        indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
 
         self.set_state(indexer_config, indexer_state).await?;
 
