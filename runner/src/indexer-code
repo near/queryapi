@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
-const startTime = Date.now();
+const startTime = performanceNow();
 
 function indexOfFirstBitInByteArray (bytes, startBit) {
   let firstBit = startBit % 8;
@@ -38,13 +38,14 @@ function getBitInByteArray (bytes, bitIndex) {
 // returns decimal number they represent
 function getNumberBetweenBits (bytes, start, end) {
   const len = end - start + 1;
-  let r = 0;
+  if (end < start) console.log('end < start', start, end, len);
+  let result = 0;
   for (let i = start, rbit = 0; i <= end; i++, rbit++) {
     if (getBitInByteArray(bytes, i)) {
-      r |= 1 << (len - 1 - rbit);
+      result |= 1 << (len - 1 - rbit);
     }
   }
-  return r;
+  return result;
 }
 
 // Writes Elias gamma coding bits for number x into result bytes array starting with index startBit.
@@ -103,72 +104,69 @@ function decodeEliasGammaFirstEntryFromBytes (bytes, startBit = 0) {
     return { x: 0, len: bytes.length * 8 };
   }
   const N = idx - startBit;
-  const remainder = getNumberBetweenBits(bytes, idx + 1, idx + N);
+  const remainder = N === 0 ? 0 : getNumberBetweenBits(bytes, idx + 1, idx + N);
   return { x: 2 ** N + remainder, lastBit: idx + N };
 }
 
 // Decompresses Elias-gamma coded bytes to Uint8Array
 function decompressToBitmapArray (compressedBytes) {
-  let curBit = (compressedBytes[0] & 0x80) > 0;
-  const bufferAlocTimer = Date.now();
-  const buffer = new ArrayBuffer(12000);
-  const bufferAlocTimerMs = Date.now() - bufferAlocTimer;
+  const compressedBitLength = compressedBytes.length * 8;
+  let curBit = (compressedBytes[0] & 0b10000000) > 0;
+  const buffer = new ArrayBuffer(11000);
   let bufferLength = 0;
-  const UintArrayTimer = Date.now();
   const result = new Uint8Array(buffer);
-  const UintArrayTimerMs = Date.now() - UintArrayTimer;
   let compressedBitIdx = 1;
-  let nextBitIdx = 0;
-  let longestDecodeEntryMs = 0;
-  let longestDocodeOperationMs = 0;
-  let decodeCumulativeMs = 0;
-  let decodeCount = 0;
-  while (compressedBitIdx < compressedBytes.length * 8) {
-    const decodeFirstEntryTimer = Date.now();
+  let resultBitIdx = 0;
+  let [ longestDecodeEntryMs, longestDecodeOperationMs, decodeCumulativeMs, decodeEntryCumulativeMs, decodeOperationCumulativeMs, decodeCount ] = [0,0,0,0,0,0];
+  while (compressedBitIdx < compressedBitLength) {
+    const decodeFirstEntryTimer = performanceNow();
+    // Get x, the number of bits to set, and lastBit, the bit number which is the last bit of the Elias gamma coding
     const { x, lastBit } = decodeEliasGammaFirstEntryFromBytes(
       compressedBytes,
       compressedBitIdx
     );
-    const decodeFirstEntryTimerMs = Date.now() - decodeFirstEntryTimer;
-    longestDecodeEntryMs = Math.max(longestDecodeEntryMs, Date.now() - decodeFirstEntryTimer);
+    decodeEntryCumulativeMs += performanceNow() - decodeFirstEntryTimer;
+    longestDecodeEntryMs = Math.max(longestDecodeEntryMs, performanceNow() - decodeFirstEntryTimer);
+    const decodeOperationsTimer = performanceNow();
+    compressedBitIdx = lastBit + 1; // Ensure next loop starts on next bit
+    if (bufferLength * 8 < resultBitIdx + x) {
+      bufferLength = Math.ceil((resultBitIdx + x) / 8);
+    }
+    // If x is large, we can set by byte instead of bit
+    for (let i = 0; curBit && i < x; i++) { // Specifically if curBit is 1, set next x bits to 1
+      setBitInBitmap(result, resultBitIdx + i);
+    }
+    resultBitIdx += x;
+    curBit = !curBit; // Switch currBit for next iteration (counting 1s, then 0s, then 1s, etc.)
+    decodeOperationCumulativeMs += performanceNow() - decodeOperationsTimer;
+    longestDecodeOperationMs = Math.max(longestDecodeOperationMs, performanceNow() - decodeOperationsTimer);
+    decodeCumulativeMs += performanceNow() - decodeFirstEntryTimer;
     decodeCount++;
-    const decodeOperationsTimer = Date.now();
-    compressedBitIdx = lastBit + 1;
-    if (bufferLength * 8 < nextBitIdx + x) {
-      bufferLength = Math.ceil((nextBitIdx + x) / 8);
-    }
-    for (let i = 0; curBit && i < x; i++) {
-      setBitInBitmap(result, nextBitIdx + i);
-    }
-    nextBitIdx += x;
-    curBit = !curBit;
-    const decodeOperationsTimerMs = Date.now() - decodeOperationsTimer;
-    longestDoceOperationMs = Math.max(longestDocodeOperationMs, Date.now() - decodeOperationsTimer);
-    decodeCumulativeMs += Date.now() - decodeFirstEntryTimer;
-    if (Date.now() - decodeFirstEntryTimer > 0) {
-      console.log(`decodeFirstEntryTimerMs=${decodeFirstEntryTimerMs}, decodeOperationsTimerMs=${decodeOperationsTimerMs}, decodeCount=${decodeCount}, decodeCumulativeMs=${decodeCumulativeMs}`);
-    }
+    // if ((performanceNow() - decodeFirstEntryTimer) > .1) {
+    //   console.log(`x=${x}, lastBit=${lastBit}, decodeFirstEntryTimerMs=${decodeFirstEntryTimerMs}, decodeOperationsTimerMs=${decodeOperationsTimerMs}, decodeCount=${decodeCount}, decodeCumulativeMs=${decodeCumulativeMs}`);
+    // }
     if (x === 0) break; // we won't find any Elias gamma here, exiting
   }
-  console.log(`bufferAlocTimerMs=${bufferAlocTimerMs}, UintArrayTimerMs=${UintArrayTimerMs}, cumulativeDecodeMs=${decodeCumulativeMs}, longestDecodeEntryMs=${longestDecodeEntryMs}, longestDecodeOperationMs=${longestDoceOperationMs}, decodeCount=${decodeCount}`);
-  return result.slice(0, bufferLength);
+  console.log(`compression ratio=${compressedBytes.length / (bufferLength)}, compressedLength=${compressedBytes.length}, bufferLength=${bufferLength}`);
+  console.log(`cumulativeDecodeMs=${decodeCumulativeMs}, cumulativeEntryMs=${decodeEntryCumulativeMs}, cumulativeOperationMs=${decodeOperationCumulativeMs}, longestDecodeEntryMs=${longestDecodeEntryMs}, longestDecodeOperationMs=${longestDecodeOperationMs}, decodeCount=${decodeCount}`)
+  return result.subarray(0, bufferLength);
 }
 
 function addIndexCompressed (compressedBase64, index) {
-  const b = Date.now();
+  const b = performanceNow();
   const buf = Buffer.from(compressedBase64, 'base64');
-  const bufferMs = Date.now() - b;
-  const d = Date.now();
+  const bufferMs = performanceNow() - b;
+  const d = performanceNow();
   const bitmap = decompressToBitmapArray(
     buf
   );
-  const decompressMs = Date.now() - d;
-  const s = Date.now();
+  const decompressMs = performanceNow() - d;
+  const s = performanceNow();
   const newBitmap = setBitInBitmap(bitmap, index);
-  const setsMs = Date.now() - s;
-  const c = Date.now();
+  const setsMs = performanceNow() - s;
+  const c = performanceNow();
   const compressed = compressBitmapArray(newBitmap);
-  const compMs = Date.now() - c;
+  const compMs = performanceNow() - c;
   console.log(`bufferMs=${bufferMs}, decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
   return Buffer.from(compressed).toString('base64');
 }
@@ -195,23 +193,20 @@ const currIndexes =
       block_date: blockDate,
       receiver_id: allReceivers,
     })) ?? [];
-const startTimeR = Date.now();
+const startTimeR = performanceNow();
+// .filter((receiverId) => receiverId === 'app.nearcrowd.near').filter((receiverId) => currIndexes.find((i) => i?.receiver_id === receiverId)?.bitmap?.length > 1000)
 const upserts = allReceivers.map((receiverId) => {
   const currentIndex = currIndexes.find((i) => i?.receiver_id === receiverId);
   const blockIndexInCurrentBitmap = currentIndex?.first_block_height
     ? block.blockHeight - currentIndex?.first_block_height
     : 0;
 
-  const s = Date.now();
+  const s = performanceNow();
   const newBitmap = addIndexCompressed(
     currentIndex?.bitmap ?? '',
     blockIndexInCurrentBitmap
   );
-  // console.log('previous buffer', currentIndex.bitmap);
-  console.log(`${receiverId}: ${Date.now() - s} ms, first_block_height: ${currentIndex?.first_block_height ?? 0}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}, bitmapLen: ${(currentIndex?.bitmap ?? "").length}`);
-  if (Date.now() - s > 50) {
-    throw new Error('Too slow');
-  }
+  console.log(`${receiverId}: ${performanceNow() - s} ms, first_block_height: ${currentIndex?.first_block_height ?? 0}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}\n`);
   return {
     first_block_height: currentIndex?.first_block_height ?? block.blockHeight,
     block_date: blockDate,
@@ -219,14 +214,39 @@ const upserts = allReceivers.map((receiverId) => {
     bitmap: newBitmap,
   };
 });
-const endTimeR = Date.now();
-// console.log("upserts", JSON.stringify(upserts));
+// const promises = allReceivers.map((receiverId) => {
+//   return new Promise((resolve, reject) => {
+//     const currentIndex = currIndexes.find((i) => i?.receiver_id === receiverId);
+//     const blockIndexInCurrentBitmap = currentIndex?.first_block_height
+//       ? block.blockHeight - currentIndex?.first_block_height
+//       : 0;
+
+//     const s = performanceNow();
+//     const newBitmap = addIndexCompressed(
+//       currentIndex?.bitmap ?? '',
+//       blockIndexInCurrentBitmap
+//     );
+//     console.log(`${receiverId}: ${performanceNow() - s} ms, first_block_height: ${currentIndex?.first_block_height ?? 0}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}\n`);
+    
+//     const result = {
+//       first_block_height: currentIndex?.first_block_height ?? block.blockHeight,
+//       block_date: blockDate,
+//       receiver_id: receiverId,
+//       bitmap: newBitmap,
+//     };
+
+//     resolve(result);
+//   });
+// });
+// const upserts = await Promise.all(promises);
+
+const endTimeR = performanceNow();
 await context.db.ActionsIndex.upsert(
   upserts,
   ['block_date', 'receiver_id'],
   ['bitmap']
 );
-const endTime = Date.now();
+const endTime = performanceNow();
 context.log(
     `Computing bitmaps for ${allReceivers.length} receivers took ${
       endTimeR - startTimeR

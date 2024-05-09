@@ -4,7 +4,6 @@ import * as lakePrimitives from '@near-lake/primitives';
 import { Parser } from 'node-sql-parser';
 import { trace, type Span } from '@opentelemetry/api';
 import VError from 'verror';
-import performance from 'node:perf_hooks';
 
 import logger from '../logger';
 import Provisioner from '../provisioner';
@@ -14,6 +13,7 @@ import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
 import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
+import { performance } from 'perf_hooks';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -48,6 +48,9 @@ const defaultConfig: Config = {
   hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET,
   hasuraEndpoint: process.env.HASURA_ENDPOINT,
 };
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const performanceNow = (): number => performance.now();
 
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
@@ -131,13 +134,14 @@ export default class Indexer {
       vm.freeze(lakePrimitives, 'primitives');
       vm.freeze(context, 'context');
       vm.freeze(context, 'console'); // provide console.log via context.log
+      vm.freeze(performance.now.bind(performance), 'performanceNow');
       resourceCreationSpan.end();
 
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
           const transformedCode = this.transformIndexerFunction();
-          // eval(transformedCode); // eslint-disable-line no-eval
-          await vm.run(transformedCode);
+          eval(transformedCode); // eslint-disable-line no-eval
+          // await vm.run(transformedCode);
         } catch (e) {
           const error = e as Error;
           logEntries.push(LogEntry.systemError(`Error running IndexerFunction: ${error.message}`, blockHeight));

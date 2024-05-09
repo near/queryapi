@@ -25,17 +25,50 @@ const indexer = {
 };
 
 void (async function main () {
-  runnerClient.StartExecutor({
-    redisStream: indexer.redis_stream,
-    accountId: indexer.account_id,
-    functionName: indexer.function_name,
-    code: indexer.code,
-    schema: indexer.schema
+  runnerClient.StopExecutor({
+    executorId: 'f778fc14ebf01fb35b827810c7e46a8d077ac702861645dd9befd8bed8ecb1ef'
   }, (err, response) => {
     if (err) {
-      console.error('error: ', err);
+      runnerClient.StartExecutor({
+        redisStream: indexer.redis_stream,
+        accountId: indexer.account_id,
+        functionName: indexer.function_name,
+        code: indexer.code,
+        schema: indexer.schema
+      }, (err, response) => {
+        if (err) {
+          console.error('error: ', err);
+        } else {
+          console.log('start request: ', response);
+        }
+      });
     } else {
-      console.log('start request: ', response);
+      runnerClient.StartExecutor({
+        redisStream: indexer.redis_stream,
+        accountId: indexer.account_id,
+        functionName: indexer.function_name,
+        code: indexer.code,
+        schema: indexer.schema
+      }, (err, response) => {
+        if (err) {
+          console.error('error: ', err);
+        } else {
+          console.log('start request: ', response);
+        }
+      });
     }
   });
+  // runnerClient.StartExecutor({
+  //   redisStream: indexer.redis_stream,
+  //   accountId: indexer.account_id,
+  //   functionName: indexer.function_name,
+  //   code: indexer.code,
+  //   schema: indexer.schema
+  // }, (err, response) => {
+  //   if (err) {
+  //     console.error('error: ', err);
+  //   } else {
+  //     console.log('start request: ', response);
+  //   }
+  // });
 })();
