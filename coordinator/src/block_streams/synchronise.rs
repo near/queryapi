@@ -105,7 +105,7 @@ async fn synchronise_block_stream(
         .start(start_block_height, indexer_config)
         .await?;
 
-    indexer_manager.set_synced(indexer_config);
+    indexer_manager.set_synced(indexer_config).await?;
 
     Ok(())
 }

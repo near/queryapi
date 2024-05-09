@@ -91,6 +91,14 @@ impl RedisClientImpl {
     ) -> anyhow::Result<Option<String>> {
         self.get(indexer_config.get_state_key()).await
     }
+
+    pub async fn set_indexer_state(
+        &self,
+        indexer_config: &IndexerConfig,
+        state: String,
+    ) -> anyhow::Result<()> {
+        self.set(indexer_config.get_state_key(), state).await
+    }
 }
 
 #[cfg(test)]
@@ -99,6 +107,12 @@ mockall::mock! {
         pub async fn connect(redis_url: &str) -> anyhow::Result<Self>;
 
         pub async fn get_indexer_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<String>>;
+
+        pub async fn set_indexer_state(
+            &self,
+            indexer_config: &IndexerConfig,
+            state: String,
+        ) -> anyhow::Result<()>;
 
         pub async fn get_last_published_block(
             &self,

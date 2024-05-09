@@ -10,7 +10,7 @@ pub enum SyncStatus {
     New,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IndexerState {
     synced_at_block_height: u64,
 }
@@ -45,6 +45,18 @@ impl IndexerManagerImpl {
             .transpose()
     }
 
+    async fn set_state(
+        &self,
+        indexer_config: &IndexerConfig,
+        state: IndexerState,
+    ) -> anyhow::Result<()> {
+        let raw_state = serde_json::to_string(&state)?;
+
+        self.redis_client
+            .set_indexer_state(indexer_config, raw_state)
+            .await
+    }
+
     pub async fn get_sync_status(
         &self,
         indexer_config: &IndexerConfig,
@@ -73,7 +85,13 @@ impl IndexerManagerImpl {
         }
     }
 
-    pub fn set_synced(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn set_synced(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        let mut indexer_state = self.get_state(indexer_config).await?.unwrap_or_default();
+
+        indexer_state.synced_at_block_height = indexer_config.get_registry_version();
+
+        self.set_state(indexer_config, indexer_state).await?;
+
         Ok(())
     }
 }
