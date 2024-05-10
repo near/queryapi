@@ -9,7 +9,7 @@
   "scripts": {
     "build": "rm -rf ./dist && npm run codegen && tsc -p ./tsconfig.build.json",
     "codegen": "proto-loader-gen-types --longs=String --enums=String --defaults --oneofs --grpcLib=@grpc/grpc-js --outDir=src/generated/ protos/runner.proto",
-    "start": "npm run build && node --prof dist/index.js",
+    "start": "npm run build && node dist/index.js",
     "start:dev": "ts-node ./src/index.ts",
     "start:docker": "node dist/index.js",
     "test": "npm run codegen && node --experimental-vm-modules ./node_modules/.bin/jest --silent",
@@ -66,7 +66,7 @@
     "pg": "^8.11.1",
     "pg-format": "^1.0.4",
     "pluralize": "^8.0.0",
-    "prom-client": "^14.2.0",
+    "prom-client": "^15.1.2",
     "redis": "^4.6.7",
     "verror": "^1.10.1",
     "vm2": "^3.9.19",
