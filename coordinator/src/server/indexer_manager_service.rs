@@ -1,8 +1,21 @@
+use std::sync::Arc;
+
 use tonic::{Request, Response, Status};
 
+use crate::indexer_state::IndexerStateManager;
 use crate::server::indexer_manager;
 
-pub struct IndexerManagerService;
+pub struct IndexerManagerService {
+    indexer_state_manager: Arc<IndexerStateManager>,
+}
+
+impl IndexerManagerService {
+    pub fn new(indexer_state_manager: Arc<IndexerStateManager>) -> Self {
+        Self {
+            indexer_state_manager,
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerService {

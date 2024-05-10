@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use near_primitives::types::AccountId;
@@ -52,9 +53,12 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = RedisClient::connect(&redis_url).await?;
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
-    let indexer_state_manager = IndexerStateManager::new(redis_client.clone());
+    let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));
 
-    tokio::spawn(server::init(grpc_port));
+    tokio::spawn({
+        let indexer_state_manager = indexer_state_manager.clone();
+        async move { server::init(grpc_port, indexer_state_manager).await }
+    });
 
     loop {
         let indexer_registry = registry.fetch().await?;
