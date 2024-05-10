@@ -206,7 +206,9 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(Some(500)))
             .once();
-        redis_client.expect_clear_block_stream().never();
+        redis_client
+            .expect_clear_block_stream::<IndexerConfig>()
+            .never();
 
         let mut block_stream_handler = BlockStreamsHandler::default();
         block_stream_handler.expect_list().returning(|| Ok(vec![]));

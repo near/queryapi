@@ -5,12 +5,30 @@ use std::fmt::Debug;
 use anyhow::Context;
 use redis::{aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
-use crate::indexer_config::IndexerConfig;
-
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
 pub use RedisClientImpl as RedisClient;
+
+pub trait RedisKeyProvider {
+    fn prefix(&self) -> String;
+
+    fn get_redis_stream_key(&self) -> String {
+        format!("{}:block_stream", self.prefix())
+    }
+
+    fn get_last_published_block_key(&self) -> String {
+        format!("{}:last_published_block", self.prefix())
+    }
+
+    fn get_redis_stream_version_key(&self) -> String {
+        format!("{}:version", self.prefix())
+    }
+
+    fn get_state_key(&self) -> String {
+        format!("{}:state", self.prefix())
+    }
+}
 
 #[derive(Clone)]
 pub struct RedisClientImpl {
@@ -73,39 +91,42 @@ impl RedisClientImpl {
         Ok(())
     }
 
-    pub async fn get_stream_version(
+    pub async fn get_stream_version<K: RedisKeyProvider + 'static>(
         &self,
-        indexer_config: &IndexerConfig,
+        key_provider: &K,
     ) -> anyhow::Result<Option<u64>> {
-        self.get::<_, u64>(indexer_config.get_redis_stream_version_key())
+        self.get::<_, u64>(key_provider.get_redis_stream_version_key())
             .await
     }
 
-    pub async fn get_last_published_block(
+    pub async fn get_last_published_block<K: RedisKeyProvider + 'static>(
         &self,
-        indexer_config: &IndexerConfig,
+        key_provider: &K,
     ) -> anyhow::Result<Option<u64>> {
-        self.get::<_, u64>(indexer_config.get_last_published_block_key())
+        self.get::<_, u64>(key_provider.get_last_published_block_key())
             .await
     }
 
-    pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
-        self.del(indexer_config.get_redis_stream_key()).await
+    pub async fn clear_block_stream<K: RedisKeyProvider + 'static>(
+        &self,
+        key_provider: &K,
+    ) -> anyhow::Result<()> {
+        self.del(key_provider.get_redis_stream_key()).await
     }
 
-    pub async fn get_indexer_state(
+    pub async fn get_indexer_state<K: RedisKeyProvider + 'static>(
         &self,
-        indexer_config: &IndexerConfig,
+        key_provider: &K,
     ) -> anyhow::Result<Option<String>> {
-        self.get(indexer_config.get_state_key()).await
+        self.get(key_provider.get_state_key()).await
     }
 
-    pub async fn set_indexer_state(
+    pub async fn set_indexer_state<K: RedisKeyProvider + 'static>(
         &self,
-        indexer_config: &IndexerConfig,
+        key_provider: &K,
         state: String,
     ) -> anyhow::Result<()> {
-        self.set(indexer_config.get_state_key(), state).await
+        self.set(key_provider.get_state_key(), state).await
     }
 
     pub async fn set_migration_complete(&self) -> anyhow::Result<()> {
@@ -122,25 +143,25 @@ mockall::mock! {
     pub RedisClientImpl {
         pub async fn connect(redis_url: &str) -> anyhow::Result<Self>;
 
-        pub async fn get_indexer_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<String>>;
+        pub async fn get_indexer_state<K: RedisKeyProvider + 'static>(&self, key_provider: &K) -> anyhow::Result<Option<String>>;
 
-        pub async fn set_indexer_state(
+        pub async fn set_indexer_state<K: RedisKeyProvider + 'static>(
             &self,
-            indexer_config: &IndexerConfig,
+            key_provider: &K,
             state: String,
         ) -> anyhow::Result<()>;
 
-        pub async fn get_stream_version(
+        pub async fn get_stream_version<K: RedisKeyProvider + 'static>(
             &self,
-            indexer_config: &IndexerConfig,
+            key_provider: &K,
         ) -> anyhow::Result<Option<u64>>;
 
-        pub async fn get_last_published_block(
+        pub async fn get_last_published_block<K: RedisKeyProvider + 'static>(
             &self,
-            indexer_config: &IndexerConfig,
+            key_provider: &K,
         ) -> anyhow::Result<Option<u64>>;
 
-        pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()>;
+        pub async fn clear_block_stream<K: RedisKeyProvider + 'static>(&self, key_provider: &K) -> anyhow::Result<()>;
 
         pub async fn set_migration_complete(&self) -> anyhow::Result<()>;
 
