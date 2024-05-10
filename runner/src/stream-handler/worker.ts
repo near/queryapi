@@ -85,6 +85,7 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
       }
 
       streamMessageStartId = messages[messages.length - 1].id;
+      return;
     } catch (err) {
       workerContext.logger.error('Error fetching stream messages', err);
       await sleep(500);

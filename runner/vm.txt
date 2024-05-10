@@ -1,0 +1,472 @@
+Statistical profiling result from isolate-0x120008000-58416-v8.log, (10139 ticks, 28 unaccounted, 0 excluded).
+
+ [Shared libraries]:
+   ticks  total  nonlib   name
+     62    0.6%          /usr/lib/system/libsystem_malloc.dylib
+     42    0.4%          /usr/lib/system/libsystem_pthread.dylib
+     37    0.4%          /usr/lib/system/libsystem_c.dylib
+     19    0.2%          /usr/lib/libc++.1.dylib
+     13    0.1%          /usr/lib/system/libsystem_m.dylib
+      3    0.0%          /usr/lib/system/libsystem_platform.dylib
+      2    0.0%          /usr/lib/system/libsystem_kernel.dylib
+
+ [JavaScript]:
+   ticks  total  nonlib   name
+     55    0.5%    0.6%  LazyCompile: *compressBitmapArray vm.js:77:30
+     24    0.2%    0.2%  LazyCompile: *get /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:415:6
+     21    0.2%    0.2%  LazyCompile: *decompressToBitmapArray vm.js:114:34
+     11    0.1%    0.1%  LazyCompile: *thisFromOtherArguments /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:956:33
+     11    0.1%    0.1%  LazyCompile: *resolve node:path:1091:10
+     11    0.1%    0.1%  LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+      6    0.1%    0.1%  LazyCompile: *<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/indexer/indexer.js:115:23
+      5    0.0%    0.1%  LazyCompile: *thisFromOther /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:796:24
+      4    0.0%    0.0%  LazyCompile: *Module._nodeModulePaths node:internal/modules/cjs/loader:749:37
+      3    0.0%    0.0%  LazyCompile: *<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:231:4
+      2    0.0%    0.0%  Function: ^decodeEliasGammaFirstEntryFromBytes vm.js:102:46
+      1    0.0%    0.0%  RegExp: [\\^$.*+?()[\]{}|]
+      1    0.0%    0.0%  LazyCompile: *setBitInBitmap vm.js:21:25
+      1    0.0%    0.0%  LazyCompile: *realpathSync node:fs:2577:22
+      1    0.0%    0.0%  LazyCompile: *pushAsyncContext node:internal/async_hooks:538:26
+      1    0.0%    0.0%  LazyCompile: *normalizeString node:path:66:25
+      1    0.0%    0.0%  LazyCompile: *emitInitNative node:internal/async_hooks:192:24
+      1    0.0%    0.0%  LazyCompile: *<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:31:38
+      1    0.0%    0.0%  Function: ^writeOrBuffer node:internal/streams/writable:368:23
+      1    0.0%    0.0%  Function: ^thisProxyOther /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:801:25
+      1    0.0%    0.0%  Function: ^thisFromOtherArguments /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:956:33
+      1    0.0%    0.0%  Function: ^shift node:internal/fixed_queue:108:8
+      1    0.0%    0.0%  Function: ^renameUnderscoreFieldsToCamelCase /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:45:38
+      1    0.0%    0.0%  Function: ^processTicksAndRejections node:internal/process/task_queues:67:35
+      1    0.0%    0.0%  Function: ^percolateDown node:internal/priority_queue:41:16
+      1    0.0%    0.0%  Function: ^peek node:internal/linkedlist:10:14
+      1    0.0%    0.0%  Function: ^parseEnvironment /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/@opentelemetry/core/build/src/utils/environment.js:230:26
+      1    0.0%    0.0%  Function: ^normalizeString node:path:66:25
+      1    0.0%    0.0%  Function: ^needFinish node:internal/streams/writable:653:20
+      1    0.0%    0.0%  Function: ^makeSafeRegex /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/semver/internal/re.js:30:23
+      1    0.0%    0.0%  Function: ^listenerCount node:events:842:23
+      1    0.0%    0.0%  Function: ^isEmpty node:internal/fixed_queue:67:10
+      1    0.0%    0.0%  Function: ^getDefaultTriggerAsyncId node:internal/async_hooks:432:34
+      1    0.0%    0.0%  Function: ^get /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:415:6
+      1    0.0%    0.0%  Function: ^fromStringFast node:buffer:465:24
+      1    0.0%    0.0%  Function: ^emitCloseNT node:internal/streams/destroy:120:21
+      1    0.0%    0.0%  Function: ^dirname node:path:1274:10
+      1    0.0%    0.0%  Function: ^apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+      1    0.0%    0.0%  Function: ^addCatch node:events:359:18
+      1    0.0%    0.0%  Function: ^_copyActual node:buffer:252:21
+      1    0.0%    0.0%  Function: ^__classPrivateFieldGet /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/@redis/client/dist/lib/client/socket.js:2:80
+
+ [C++]:
+   ticks  total  nonlib   name
+   6073   59.9%   61.0%  T _host_get_clock_service
+   3535   34.9%   35.5%  T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     28    0.3%    0.3%  T _guarded_close_np
+     13    0.1%    0.1%  T __kernelrpc_mach_port_set_context
+     12    0.1%    0.1%  t std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>> std::__1::__pad_and_output<char, std::__1::char_traits<char>>(std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>>, char const*, char const*, char const*, std::__1::ios_base&, char)
+     10    0.1%    0.1%  T _semaphore_destroy
+     10    0.1%    0.1%  T _mig_get_reply_port
+      9    0.1%    0.1%  t _udec
+      9    0.1%    0.1%  T _mach_absolute_time
+      5    0.0%    0.1%  t void node::Buffer::(anonymous namespace)::StringSlice<(node::encoding)1>(v8::FunctionCallbackInfo<v8::Value> const&)
+      5    0.0%    0.1%  t std::__1::basic_ostream<char, std::__1::char_traits<char>>& std::__1::__put_character_sequence<char, std::__1::char_traits<char>>(std::__1::basic_ostream<char, std::__1::char_traits<char>>&, char const*, unsigned long)
+      5    0.0%    0.1%  T _task_restartable_ranges_register
+      4    0.0%    0.0%  t std::__1::__hash_table<unsigned long, std::__1::hash<unsigned long>, std::__1::equal_to<unsigned long>, std::__1::allocator<unsigned long>>::remove(std::__1::__hash_const_iterator<std::__1::__hash_node<unsigned long, void*>*>)
+      4    0.0%    0.0%  T _task_set_special_port
+      3    0.0%    0.0%  t std::__1::__hash_table<unsigned int, std::__1::hash<unsigned int>, std::__1::equal_to<unsigned int>, std::__1::allocator<unsigned int>>::__rehash(unsigned long)
+      3    0.0%    0.0%  T _task_policy_set
+      3    0.0%    0.0%  T __simple_asl_send
+      2    0.0%    0.0%  T node::binding::GetInternalBinding(v8::FunctionCallbackInfo<v8::Value> const&)
+      2    0.0%    0.0%  T _task_get_special_port
+      2    0.0%    0.0%  T __os_semaphore_create
+      1    0.0%    0.0%  t void std::__1::__tree_balance_after_insert<std::__1::__tree_node_base<void*>*>(std::__1::__tree_node_base<void*>*, std::__1::__tree_node_base<void*>*)
+      1    0.0%    0.0%  t node::Buffer::(anonymous namespace)::CreateFromString(v8::FunctionCallbackInfo<v8::Value> const&)
+      1    0.0%    0.0%  t node::Buffer::(anonymous namespace)::ByteLengthUtf8(v8::FunctionCallbackInfo<v8::Value> const&)
+      1    0.0%    0.0%  T node::InternalCallbackScope::Close()
+      1    0.0%    0.0%  T _pivot_root
+      1    0.0%    0.0%  T _mach_vm_map
+      1    0.0%    0.0%  T _mach_right_send_release
+      1    0.0%    0.0%  T __simple_sappend
+      1    0.0%    0.0%  T __os_log_simple_shim
+      1    0.0%    0.0%  T __os_log_simple_parse_type
+      1    0.0%    0.0%  T __os_log_simple_parse_subsystem
+      1    0.0%    0.0%  T __kernelrpc_mach_port_get_refs
+      1    0.0%    0.0%  T ___pthread_init
+
+ [Summary]:
+   ticks  total  nonlib   name
+    183    1.8%    1.8%  JavaScript
+   9750   96.2%   97.9%  C++
+     78    0.8%    0.8%  GC
+    178    1.8%          Shared libraries
+     28    0.3%          Unaccounted
+
+ [C++ entry points]:
+   ticks    cpp   total   name
+   3525   97.1%   34.8%  T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     26    0.7%    0.3%  T _guarded_close_np
+     13    0.4%    0.1%  T __kernelrpc_mach_port_set_context
+     11    0.3%    0.1%  t std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>> std::__1::__pad_and_output<char, std::__1::char_traits<char>>(std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>>, char const*, char const*, char const*, std::__1::ios_base&, char)
+     10    0.3%    0.1%  T _mig_get_reply_port
+      6    0.2%    0.1%  t _udec
+      5    0.1%    0.0%  t void node::Buffer::(anonymous namespace)::StringSlice<(node::encoding)1>(v8::FunctionCallbackInfo<v8::Value> const&)
+      5    0.1%    0.0%  t std::__1::basic_ostream<char, std::__1::char_traits<char>>& std::__1::__put_character_sequence<char, std::__1::char_traits<char>>(std::__1::basic_ostream<char, std::__1::char_traits<char>>&, char const*, unsigned long)
+      5    0.1%    0.0%  T _task_restartable_ranges_register
+      4    0.1%    0.0%  T _task_set_special_port
+      2    0.1%    0.0%  T node::binding::GetInternalBinding(v8::FunctionCallbackInfo<v8::Value> const&)
+      2    0.1%    0.0%  T __simple_asl_send
+      2    0.1%    0.0%  T __os_semaphore_create
+      1    0.0%    0.0%  t void std::__1::__tree_balance_after_insert<std::__1::__tree_node_base<void*>*>(std::__1::__tree_node_base<void*>*, std::__1::__tree_node_base<void*>*)
+      1    0.0%    0.0%  t std::__1::__hash_table<unsigned int, std::__1::hash<unsigned int>, std::__1::equal_to<unsigned int>, std::__1::allocator<unsigned int>>::__rehash(unsigned long)
+      1    0.0%    0.0%  t node::Buffer::(anonymous namespace)::CreateFromString(v8::FunctionCallbackInfo<v8::Value> const&)
+      1    0.0%    0.0%  t node::Buffer::(anonymous namespace)::ByteLengthUtf8(v8::FunctionCallbackInfo<v8::Value> const&)
+      1    0.0%    0.0%  T _task_policy_set
+      1    0.0%    0.0%  T _task_get_special_port
+      1    0.0%    0.0%  T _pivot_root
+      1    0.0%    0.0%  T _mach_vm_map
+      1    0.0%    0.0%  T _mach_right_send_release
+      1    0.0%    0.0%  T _mach_absolute_time
+      1    0.0%    0.0%  T __os_log_simple_shim
+      1    0.0%    0.0%  T __os_log_simple_parse_type
+      1    0.0%    0.0%  T __os_log_simple_parse_subsystem
+
+ [Bottom up (heavy) profile]:
+  Note: percentage shows a share of a particular caller in the total
+  amount of its parent calls.
+  Callers occupying less than 1.0% are not shown.
+
+   ticks parent  name
+   6073   59.9%  T _host_get_clock_service
+
+   3535   34.9%  T node::builtins::BuiltinLoader::GetCannotBeRequired()
+   1271   36.0%    LazyCompile: *compressBitmapArray vm.js:77:30
+   1241   97.6%      Function: ^addIndexCompressed vm.js:159:29
+   1241  100.0%        Function: ^<anonymous> vm.js:202:34
+   1241  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+   1241  100.0%            LazyCompile: ~f vm.js:2:23
+     30    2.4%      LazyCompile: ~addIndexCompressed vm.js:159:29
+     30  100.0%        LazyCompile: ~<anonymous> vm.js:202:34
+     30  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     30  100.0%            LazyCompile: ~f vm.js:2:23
+    642   18.2%    LazyCompile: *decompressToBitmapArray vm.js:114:34
+    619   96.4%      Function: ^addIndexCompressed vm.js:159:29
+    619  100.0%        Function: ^<anonymous> vm.js:202:34
+    619  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+    619  100.0%            LazyCompile: ~f vm.js:2:23
+     23    3.6%      LazyCompile: ~addIndexCompressed vm.js:159:29
+     23  100.0%        LazyCompile: ~<anonymous> vm.js:202:34
+     23  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     23  100.0%            LazyCompile: ~f vm.js:2:23
+    579   16.4%    Function: ^internalCompileFunction node:internal/vm:31:33
+    576   99.5%      Function: ^wrapSafe node:internal/modules/cjs/loader:1154:18
+    574   99.7%        Function: ^Module._compile node:internal/modules/cjs/loader:1210:37
+    574  100.0%          Function: ^Module._extensions..js node:internal/modules/cjs/loader:1265:37
+    423   73.7%            Function: ^Module.load node:internal/modules/cjs/loader:1107:33
+    151   26.3%            LazyCompile: *Module._load node:internal/modules/cjs/loader:888:24
+    165    4.7%    T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     47   28.5%      LazyCompile: *get /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:415:6
+     42   89.4%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     41   97.6%          LazyCompile: *decompressToBitmapArray vm.js:114:34
+     40   97.6%            Function: ^addIndexCompressed vm.js:159:29
+      1    2.4%            LazyCompile: ~addIndexCompressed vm.js:159:29
+      1    2.4%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%            Function: ^fromArrayLike node:buffer:532:23
+      5   10.6%        LazyCompile: *decompressToBitmapArray vm.js:114:34
+      5  100.0%          Function: ^addIndexCompressed vm.js:159:29
+      5  100.0%            Function: ^<anonymous> vm.js:202:34
+     28   17.0%      LazyCompile: *<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:231:4
+     28  100.0%        LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+     24   85.7%          LazyCompile: *FastBuffer node:internal/buffer:960:14
+     24  100.0%            Function: ^fromArrayLike node:buffer:532:23
+      4   14.3%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      4  100.0%            Function: ^FastBuffer node:internal/buffer:960:14
+     23   13.9%      LazyCompile: *decompressToBitmapArray vm.js:114:34
+     22   95.7%        Function: ^addIndexCompressed vm.js:159:29
+     22  100.0%          Function: ^<anonymous> vm.js:202:34
+     22  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    4.3%        LazyCompile: ~addIndexCompressed vm.js:159:29
+      1  100.0%          LazyCompile: ~<anonymous> vm.js:202:34
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     15    9.1%      T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     11   73.3%        LazyCompile: *<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:231:4
+     11  100.0%          LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+     10   90.9%            LazyCompile: *FastBuffer node:internal/buffer:960:14
+      1    9.1%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    6.7%        Function: ^readPackage node:internal/modules/cjs/loader:364:21
+      1  100.0%          Function: ^readPackageScope node:internal/modules/cjs/loader:406:26
+      1  100.0%            Function: ^trySelf node:internal/modules/cjs/loader:526:17
+      1    6.7%        Function: ^processTicksAndRejections node:internal/process/task_queues:67:35
+      1    6.7%        Function: ^fromArrayLike node:buffer:532:23
+      1  100.0%          Function: ^fromObject node:buffer:547:20
+      1  100.0%            Function: ^from node:buffer:306:28
+      1    6.7%        Function: ^Module node:internal/modules/cjs/loader:225:16
+      1  100.0%          Function: ^Module._load node:internal/modules/cjs/loader:888:24
+      1  100.0%            Function: ^Module.require node:internal/modules/cjs/loader:1135:36
+      7    4.2%      LazyCompile: *<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:31:38
+      7  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      7  100.0%          LazyCompile: ~fetchShard /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:23:21
+      7  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      4    2.4%      Function: ^fromArrayLike node:buffer:532:23
+      4  100.0%        Function: ^fromObject node:buffer:547:20
+      4  100.0%          Function: ^from node:buffer:306:28
+      4  100.0%            LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+      4    2.4%      Function: ^FastBuffer node:internal/buffer:960:14
+      2   50.0%        Function: ^fromArrayLike node:buffer:532:23
+      2  100.0%          Function: ^fromObject node:buffer:547:20
+      2  100.0%            Function: ^from node:buffer:306:28
+      1   25.0%        Function: ^onStreamRead node:internal/stream_base_commons:167:22
+      1  100.0%          Function: ^callbackTrampoline node:internal/async_hooks:118:28
+      1   25.0%        Function: ^createUnsafeBuffer node:internal/buffer:1061:28
+      1  100.0%          Function: ^allocate node:buffer:450:18
+      1  100.0%            Function: ^allocUnsafe node:buffer:425:42
+      3    1.8%      LazyCompile: *realpathSync node:fs:2577:22
+      2   66.7%        Function: ^toRealPath node:internal/modules/cjs/loader:478:20
+      2  100.0%          Function: ^tryFile node:internal/modules/cjs/loader:469:17
+      2  100.0%            Function: ^tryExtensions node:internal/modules/cjs/loader:485:23
+      1   33.3%        LazyCompile: *Module._findPath node:internal/modules/cjs/loader:584:28
+      1  100.0%          Function: ^Module._resolveFilename node:internal/modules/cjs/loader:986:35
+      1  100.0%            LazyCompile: *Module._load node:internal/modules/cjs/loader:888:24
+      3    1.8%      LazyCompile: *readPackageScope node:internal/modules/cjs/loader:406:26
+      2   66.7%        Function: ^trySelf node:internal/modules/cjs/loader:526:17
+      2  100.0%          Function: ^Module._resolveFilename node:internal/modules/cjs/loader:986:35
+      2  100.0%            LazyCompile: *Module._load node:internal/modules/cjs/loader:888:24
+      1   33.3%        Function: ^Module._extensions..js node:internal/modules/cjs/loader:1265:37
+      1  100.0%          LazyCompile: *Module._load node:internal/modules/cjs/loader:888:24
+      1  100.0%            Function: ^Module.require node:internal/modules/cjs/loader:1135:36
+      2    1.2%      LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+      2  100.0%        Function: ^<anonymous> vm.js:202:34
+      2  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      2  100.0%            LazyCompile: ~f vm.js:2:23
+      2    1.2%      LazyCompile: *Module._load node:internal/modules/cjs/loader:888:24
+      2  100.0%        Function: ^Module.require node:internal/modules/cjs/loader:1135:36
+      2  100.0%          Function: ^require node:internal/modules/cjs/helpers:119:31
+      1   50.0%            Function: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/@smithy/types/dist-cjs/auth/index.js:1:1
+      1   50.0%            Function: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/@smithy/protocol-http/dist-cjs/index.js:1:1
+      2    1.2%      LazyCompile: *Module._findPath node:internal/modules/cjs/loader:584:28
+      2  100.0%        Function: ^Module._resolveFilename node:internal/modules/cjs/loader:986:35
+      2  100.0%          LazyCompile: *Module._load node:internal/modules/cjs/loader:888:24
+      1   50.0%            LazyCompile: *Module.require node:internal/modules/cjs/loader:1135:36
+      1   50.0%            Function: ^Module.require node:internal/modules/cjs/loader:1135:36
+      2    1.2%      Function: ^resolve node:path:1091:10
+      1   50.0%        LazyCompile: *readPackageScope node:internal/modules/cjs/loader:406:26
+      1  100.0%          Function: ^trySelf node:internal/modules/cjs/loader:526:17
+      1  100.0%            Function: ^Module._resolveFilename node:internal/modules/cjs/loader:986:35
+      1   50.0%        Function: ^readPackage node:internal/modules/cjs/loader:364:21
+      1  100.0%          Function: ^readPackageScope node:internal/modules/cjs/loader:406:26
+      1  100.0%            Function: ^trySelf node:internal/modules/cjs/loader:526:17
+      2    1.2%      Function: ^renameUnderscoreFieldsToCamelCase /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:45:38
+      2  100.0%        Function: ^<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:31:38
+      2  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      2  100.0%            LazyCompile: ~fetchShard /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/lake-client/lake-client.js:23:21
+      2    1.2%      Function: ^readPackage node:internal/modules/cjs/loader:364:21
+      2  100.0%        Function: ^readPackageScope node:internal/modules/cjs/loader:406:26
+      1   50.0%          Function: ^trySelf node:internal/modules/cjs/loader:526:17
+      1  100.0%            Function: ^Module._resolveFilename node:internal/modules/cjs/loader:986:35
+      1   50.0%          Function: ^Module._extensions..js node:internal/modules/cjs/loader:1265:37
+      1  100.0%            Function: ^Module.load node:internal/modules/cjs/loader:1107:33
+     95    2.7%    Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+     90   94.7%      Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      6    6.7%        Function: ~<anonymous> node:internal/bootstrap/node:1:1
+      4    4.4%        Function: ~<anonymous> node:internal/webstreams/transformstream:1:1
+      4  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      4  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      4    4.4%        Function: ~<anonymous> node:http2:1:1
+      4  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      4  100.0%            Function: ^compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      4    4.4%        Function: ~<anonymous> node:fs:1:1
+      4  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      4  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      4    4.4%        Function: ~<anonymous> node:crypto:1:1
+      4  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      4  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3    3.3%        Function: ~<anonymous> node:internal/streams/operators:1:1
+      3  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      3  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3    3.3%        Function: ~<anonymous> node:internal/modules/esm/loader:1:1
+      3  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      3  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3    3.3%        Function: ~<anonymous> node:http:1:1
+      3  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      3  100.0%            LazyCompile: ~compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      3    3.3%        Function: ~<anonymous> node:buffer:1:1
+      3  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      3  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        LazyCompile: ~setupBuffer node:internal/bootstrap/node:433:21
+      2  100.0%          Function: ~<anonymous> node:internal/bootstrap/node:1:1
+      2    2.2%        LazyCompile: ~initializeCJSLoader node:internal/process/pre_execution:534:29
+      2  100.0%          LazyCompile: ~setupUserModules node:internal/process/pre_execution:112:26
+      2  100.0%            LazyCompile: ~<anonymous> node:internal/main/worker_thread:85:20
+      2    2.2%        LazyCompile: ~getRandomValues node:internal/crypto/webcrypto:988:25
+      2  100.0%          LazyCompile: ~randomBytes /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/pg/lib/crypto/utils.js:38:21
+      2  100.0%            LazyCompile: ~startSession /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/pg/lib/crypto/sasl.js:4:22
+      2    2.2%        Function: ~<anonymous> node:util:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:tls:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:internal/webstreams/readablestream:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:internal/streams/duplex:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:internal/process/execution:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:internal/process/esm_loader:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:internal/modules/esm/fetch_module:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    2.2%        Function: ~<anonymous> node:_http_client:1:1
+      2  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        LazyCompile: ~setupProcessObject node:internal/bootstrap/node:392:28
+      1  100.0%          Function: ~<anonymous> node:internal/bootstrap/node:1:1
+      1    1.1%        LazyCompile: ~setupInspectorHooks node:internal/process/pre_execution:377:29
+      1  100.0%          LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%            LazyCompile: ~prepareWorkerThreadExecution node:internal/process/pre_execution:44:38
+      1    1.1%        LazyCompile: ~lazyWebCrypto node:crypto:125:23
+      1  100.0%          LazyCompile: ~get node:crypto:369:8
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    1.1%        LazyCompile: ~lazyLoadStreams node:fs:3010:25
+      1  100.0%          LazyCompile: ~get ReadStream node:fs:3155:17
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    1.1%        LazyCompile: ~importKey node:internal/crypto/webcrypto:569:25
+      1  100.0%          LazyCompile: ~hmacSha256 /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/pg/lib/crypto/utils.js:77:26
+      1  100.0%            LazyCompile: ~continueSession /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/pg/lib/crypto/sasl.js:19:31
+      1    1.1%        Function: ~<anonymous> node:worker_threads:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:stream:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:module:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      1    1.1%        Function: ~<anonymous> node:internal/worker/io:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/webstreams/compression:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/timers:1:1
+      1  100.0%          LazyCompile: ~compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            LazyCompile: ~requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/streams/readable:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/streams/pipeline:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/source_map/source_map_cache:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/readline/interface:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/process/task_queues:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/perf/resource_timing:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/modules/esm/load:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/main/worker_thread:1:1
+      1    1.1%        Function: ~<anonymous> node:internal/http2/core:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/http2/compat:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/fs/promises:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/dns/utils:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/crypto/pbkdf2:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/crypto/hkdf:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/console/global:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/child_process:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/bootstrap/browser:1:1
+      1    1.1%        Function: ~<anonymous> node:internal/blob:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:internal/abort_controller:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:child_process:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      1    1.1%        Function: ~<anonymous> node:assert:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      1    1.1%        Function: ~<anonymous> node:_tls_common:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    1.1%        Function: ~<anonymous> node:_http_outgoing:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3    3.2%      Function: ^compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      3  100.0%        Function: ^loadBuiltinModule node:internal/modules/cjs/helpers:52:27
+      3  100.0%          Function: ^Module._load node:internal/modules/cjs/loader:888:24
+      3  100.0%            Function: ^Module.require node:internal/modules/cjs/loader:1135:36
+      2    2.1%      LazyCompile: ~compileForPublicLoader node:internal/bootstrap/loaders:265:25
+      2  100.0%        Function: ^loadBuiltinModule node:internal/modules/cjs/helpers:52:27
+      2  100.0%          Function: ^Module._load node:internal/modules/cjs/loader:888:24
+      2  100.0%            Function: ^Module.require node:internal/modules/cjs/loader:1135:36
+     55    1.6%    Function: ^addIndexCompressed vm.js:159:29
+     55  100.0%      Function: ^<anonymous> vm.js:202:34
+     55  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     55  100.0%          LazyCompile: ~f vm.js:2:23
+     55  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     52    1.5%    LazyCompile: *thisFromOtherArguments /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:956:33
+     52  100.0%      LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+     50   96.2%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     50  100.0%          LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+     50  100.0%            Function: ^<anonymous> vm.js:202:34
+      1    1.9%        LazyCompile: *decompressToBitmapArray vm.js:114:34
+      1  100.0%          Function: ^addIndexCompressed vm.js:159:29
+      1  100.0%            Function: ^<anonymous> vm.js:202:34
+      1    1.9%        Function: ^<anonymous> vm.js:202:34
+      1  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%            LazyCompile: ~f vm.js:2:23
+     50    1.4%    LazyCompile: *get /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:415:6
+     21   42.0%      LazyCompile: *decompressToBitmapArray vm.js:114:34
+     20   95.2%        Function: ^addIndexCompressed vm.js:159:29
+     20  100.0%          Function: ^<anonymous> vm.js:202:34
+     20  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    4.8%        LazyCompile: ~addIndexCompressed vm.js:159:29
+      1  100.0%          LazyCompile: ~<anonymous> vm.js:202:34
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     19   38.0%      T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     19  100.0%        LazyCompile: *decompressToBitmapArray vm.js:114:34
+     19  100.0%          Function: ^addIndexCompressed vm.js:159:29
+     19  100.0%            Function: ^<anonymous> vm.js:202:34
+      5   10.0%      LazyCompile: *FastBuffer node:internal/buffer:960:14
+      5  100.0%        Function: ^fromArrayLike node:buffer:532:23
+      5  100.0%          Function: ^fromObject node:buffer:547:20
+      5  100.0%            Function: ^from node:buffer:306:28
+      3    6.0%      LazyCompile: *decodeEliasGammaFirstEntryFromBytes vm.js:102:46
+      3  100.0%        Function: ^decompressToBitmapArray vm.js:114:34
+      3  100.0%          LazyCompile: ~addIndexCompressed vm.js:159:29
+      3  100.0%            LazyCompile: ~<anonymous> vm.js:202:34
+      1    2.0%      LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/dml-handler/dml-handler.js:85:63
+      1  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%          LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/dist/dml-handler/dml-handler.js:85:44
+      1  100.0%            LazyCompile: *apply /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/vm2/lib/bridge.js:478:8
+      1    2.0%      Function: ^decodeEliasGammaFirstEntryFromBytes vm.js:102:46
+      1  100.0%        Function: ^decompressToBitmapArray vm.js:114:34
+      1  100.0%          LazyCompile: ~addIndexCompressed vm.js:159:29
+      1  100.0%            LazyCompile: ~<anonymous> vm.js:202:34
+

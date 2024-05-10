@@ -37,10 +37,14 @@ export default class StreamHandler {
       this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
 
       this.worker = new Worker(path.join(__dirname, 'worker.js'), {
+        resourceLimits: {
+          stackSizeMb: 16,
+        },
         workerData: {
           indexerConfigData: indexerConfig.toObject(),
         },
       });
+      console.log('worker resource', this.worker.resourceLimits);
       this.executorContext = {
         status: IndexerStatus.RUNNING,
         block_height: indexerConfig.version,

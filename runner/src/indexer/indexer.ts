@@ -141,8 +141,8 @@ export default class Indexer {
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
           const transformedCode = this.transformIndexerFunction();
-          eval(transformedCode); // eslint-disable-line no-eval
-          // await vm.run(transformedCode);
+          // eval(transformedCode); // eslint-disable-line no-eval
+          await vm.run(transformedCode);
         } catch (e) {
           const error = e as Error;
           logEntries.push(LogEntry.systemError(`Error running IndexerFunction: ${error.message}`, blockHeight));

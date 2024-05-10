@@ -1,0 +1,451 @@
+Statistical profiling result from isolate-0x140040000-2741-v8.log, (252 ticks, 10 unaccounted, 0 excluded).
+
+ [Shared libraries]:
+   ticks  total  nonlib   name
+     19    7.5%          /usr/lib/system/libsystem_pthread.dylib
+      9    3.6%          /usr/lib/system/libsystem_c.dylib
+      7    2.8%          /usr/lib/libc++.1.dylib
+      4    1.6%          /usr/lib/system/libsystem_malloc.dylib
+      2    0.8%          /usr/lib/system/libsystem_m.dylib
+      1    0.4%          /usr/lib/system/libsystem_platform.dylib
+      1    0.4%          /usr/lib/libc++abi.dylib
+
+ [JavaScript]:
+   ticks  total  nonlib   name
+      1    0.4%    0.5%  LazyCompile: *now node:internal/perf/utils:13:13
+      1    0.4%    0.5%  LazyCompile: *compressBitmapArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:77:30
+      1    0.4%    0.5%  Function: ^indexOfFirstBitInByteArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:6:37
+
+ [C++]:
+   ticks  total  nonlib   name
+    148   58.7%   70.8%  T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     20    7.9%    9.6%  T _thread_info
+      9    3.6%    4.3%  T _guarded_close_np
+      5    2.0%    2.4%  t std::__1::basic_ostream<char, std::__1::char_traits<char>>& std::__1::__put_character_sequence<char, std::__1::char_traits<char>>(std::__1::basic_ostream<char, std::__1::char_traits<char>>&, char const*, unsigned long)
+      2    0.8%    1.0%  t void std::__1::__tree_balance_after_insert<std::__1::__tree_node_base<void*>*>(std::__1::__tree_node_base<void*>*, std::__1::__tree_node_base<void*>*)
+      2    0.8%    1.0%  t std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>> std::__1::__pad_and_output<char, std::__1::char_traits<char>>(std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>>, char const*, char const*, char const*, std::__1::ios_base&, char)
+      2    0.8%    1.0%  T _task_restartable_ranges_register
+      2    0.8%    1.0%  T __simple_asl_send
+      1    0.4%    0.5%  t _udec
+      1    0.4%    0.5%  T node::cares_wrap::ChannelWrap::New(v8::FunctionCallbackInfo<v8::Value> const&)
+      1    0.4%    0.5%  T _mach_vm_map
+      1    0.4%    0.5%  T _issetugid
+      1    0.4%    0.5%  T __os_semaphore_create
+      1    0.4%    0.5%  T __os_log_simple_shim
+
+ [Summary]:
+   ticks  total  nonlib   name
+      3    1.2%    1.4%  JavaScript
+    196   77.8%   93.8%  C++
+      5    2.0%    2.4%  GC
+     43   17.1%          Shared libraries
+     10    4.0%          Unaccounted
+
+ [C++ entry points]:
+   ticks    cpp   total   name
+    149   87.6%   59.1%  T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      4    2.4%    1.6%  t std::__1::basic_ostream<char, std::__1::char_traits<char>>& std::__1::__put_character_sequence<char, std::__1::char_traits<char>>(std::__1::basic_ostream<char, std::__1::char_traits<char>>&, char const*, unsigned long)
+      4    2.4%    1.6%  T _guarded_close_np
+      2    1.2%    0.8%  t void std::__1::__tree_balance_after_insert<std::__1::__tree_node_base<void*>*>(std::__1::__tree_node_base<void*>*, std::__1::__tree_node_base<void*>*)
+      2    1.2%    0.8%  t std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>> std::__1::__pad_and_output<char, std::__1::char_traits<char>>(std::__1::ostreambuf_iterator<char, std::__1::char_traits<char>>, char const*, char const*, char const*, std::__1::ios_base&, char)
+      2    1.2%    0.8%  T _task_restartable_ranges_register
+      1    0.6%    0.4%  t _udec
+      1    0.6%    0.4%  T node::cares_wrap::ChannelWrap::New(v8::FunctionCallbackInfo<v8::Value> const&)
+      1    0.6%    0.4%  T _mach_vm_map
+      1    0.6%    0.4%  T _issetugid
+      1    0.6%    0.4%  T __simple_asl_send
+      1    0.6%    0.4%  T __os_semaphore_create
+      1    0.6%    0.4%  T __os_log_simple_shim
+
+ [Bottom up (heavy) profile]:
+  Note: percentage shows a share of a particular caller in the total
+  amount of its parent calls.
+  Callers occupying less than 1.0% are not shown.
+
+   ticks parent  name
+    148   58.7%  T node::builtins::BuiltinLoader::GetCannotBeRequired()
+     34   23.0%    Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+     34  100.0%      Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+     18   52.9%        LazyCompile: ~lazyUndici node:internal/process/pre_execution:219:22
+     18  100.0%          LazyCompile: ~fetch node:internal/process/pre_execution:228:23
+     18  100.0%            LazyCompile: ~fetchGraphQL /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:190:22
+      4   11.8%        Function: ~<anonymous> node:http:1:1
+      4  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      4  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3    8.8%        Function: ~<anonymous> node:tls:1:1
+      3  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      3  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3    8.8%        Function: ~<anonymous> node:_http_client:1:1
+      3  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      3  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    5.9%        LazyCompile: ~requireWithFallbackInDeps node:internal/bootstrap/loaders:371:35
+      1   50.0%          LazyCompile: ~lib/fetch/index.js node:internal/deps/undici/undici:10616:23
+      1  100.0%            LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1   50.0%          LazyCompile: ~lib/core/util.js node:internal/deps/undici/undici:287:21
+      1  100.0%            LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1    2.9%        Function: ~<anonymous> node:worker_threads:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    2.9%        Function: ~<anonymous> node:tty:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    2.9%        Function: ~<anonymous> node:assert:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    2.9%        Function: ~<anonymous> node:_http_common:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+     22   14.9%    Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      5   22.7%      Function: ~<anonymous> node:internal/modules/esm/loader:1:1
+      5  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      5  100.0%          Function: ~<anonymous> node:internal/process/esm_loader:1:1
+      5  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3   13.6%      LazyCompile: ~initializeCJSLoader node:internal/process/pre_execution:534:29
+      3  100.0%        LazyCompile: ~setupUserModules node:internal/process/pre_execution:112:26
+      3  100.0%          LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      3  100.0%            LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      3   13.6%      Function: ~<anonymous> node:internal/modules/esm/fetch_module:1:1
+      3  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      3  100.0%          Function: ~<anonymous> node:internal/modules/esm/get_format:1:1
+      3  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    9.1%      Function: ~<anonymous> node:internal/process/esm_loader:1:1
+      2  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2  100.0%          Function: ~<anonymous> node:internal/modules/cjs/loader:1:1
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2    9.1%      Function: ~<anonymous> node:internal/fs/promises:1:1
+      2  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      2  100.0%          Function: ~<anonymous> node:internal/modules/esm/load:1:1
+      2  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    4.5%      LazyCompile: ~requireWithFallbackInDeps node:internal/bootstrap/loaders:371:35
+      1  100.0%        LazyCompile: ~lib/core/util.js node:internal/deps/undici/undici:287:21
+      1  100.0%          LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1  100.0%            LazyCompile: ~lib/fetch/headers.js node:internal/deps/undici/undici:1728:25
+      1    4.5%      LazyCompile: ~get BlockList node:net:2248:16
+      1  100.0%        Function: ~<anonymous> node:internal/modules/esm/fetch_module:1:1
+      1  100.0%          Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1  100.0%            Function: ~<anonymous> node:internal/modules/esm/get_format:1:1
+      1    4.5%      Function: ~<anonymous> node:internal/source_map/source_map_cache:1:1
+      1  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1  100.0%          LazyCompile: ~initializeSourceMapsHandlers node:internal/process/pre_execution:573:38
+      1  100.0%            LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1    4.5%      Function: ~<anonymous> node:internal/readline/interface:1:1
+      1  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1  100.0%          Function: ~<anonymous> node:internal/fs/promises:1:1
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    4.5%      Function: ~<anonymous> node:internal/modules/esm/resolve:1:1
+      1  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1  100.0%          Function: ~<anonymous> node:internal/modules/esm/loader:1:1
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    4.5%      Function: ~<anonymous> node:internal/modules/esm/load:1:1
+      1  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1  100.0%          Function: ~<anonymous> node:internal/modules/esm/loader:1:1
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1    4.5%      Function: ~<anonymous> node:internal/dns/utils:1:1
+      1  100.0%        Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1  100.0%          LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%            LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+     11    7.4%    LazyCompile: ~configSecureContext node:internal/tls/secure-context:125:29
+     11  100.0%      LazyCompile: ~createSecureContext node:_tls_common:99:29
+     11  100.0%        LazyCompile: ~connect node:_tls_wrap:1617:35
+     11  100.0%          LazyCompile: ~connect node:internal/deps/undici/undici:8443:30
+     11  100.0%            LazyCompile: ~socket node:internal/deps/undici/undici:9844:42
+      8    5.4%    LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      7   87.5%      T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   12.5%      Function: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:1:1
+      1  100.0%        LazyCompile: ~Module._compile node:internal/modules/cjs/loader:1210:37
+      1  100.0%          LazyCompile: ~Module._extensions..js node:internal/modules/cjs/loader:1265:37
+      1  100.0%            LazyCompile: ~Module.load node:internal/modules/cjs/loader:1107:33
+      4    2.7%    T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   25.0%      T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%        LazyCompile: ~readPackage node:internal/modules/cjs/loader:364:21
+      1  100.0%          LazyCompile: ~resolveExports node:internal/modules/cjs/loader:557:24
+      1  100.0%            LazyCompile: ~Module._findPath node:internal/modules/cjs/loader:584:28
+      1   25.0%      LazyCompile: ~getMessage node:internal/errors:445:20
+      1  100.0%        LazyCompile: ~NodeError node:internal/errors:373:28
+      1  100.0%          LazyCompile: ~lazyReadableReleasedError node:internal/webstreams/readablestream:146:35
+      1  100.0%            LazyCompile: ~readableStreamReaderGenericRelease node:internal/webstreams/readablestream:2085:44
+      1   25.0%      Function: ^realpathSync node:fs:2577:22
+      1  100.0%        LazyCompile: ~toRealPath node:internal/modules/cjs/loader:478:20
+      1  100.0%          LazyCompile: ~tryFile node:internal/modules/cjs/loader:469:17
+      1  100.0%            Function: ^tryExtensions node:internal/modules/cjs/loader:485:23
+      1   25.0%      Function: ^ZlibBase._transform node:zlib:412:41
+      1  100.0%        Function: ^Transform._write node:internal/streams/transform:170:38
+      1  100.0%          Function: ^doWrite node:internal/streams/writable:401:17
+      1  100.0%            Function: ^clearBuffer node:internal/streams/writable:532:21
+      3    2.0%    Function: ^decompressToBitmapArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:114:34
+      3  100.0%      LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      3  100.0%        LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      3  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      3  100.0%            LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      2    1.4%    LazyCompile: ~writeIterable node:internal/deps/undici/undici:10234:33
+      2  100.0%      T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      2    1.4%    LazyCompile: ~internalCompileFunction node:internal/vm:31:33
+      2  100.0%      LazyCompile: ~wrapSafe node:internal/modules/cjs/loader:1154:18
+      2  100.0%        LazyCompile: ~Module._compile node:internal/modules/cjs/loader:1210:37
+      2  100.0%          LazyCompile: ~Module._extensions..js node:internal/modules/cjs/loader:1265:37
+      2  100.0%            LazyCompile: ~Module.load node:internal/modules/cjs/loader:1107:33
+      2    1.4%    LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      2  100.0%      LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      2  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      2  100.0%          LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      2  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      2    1.4%    LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1   50.0%      LazyCompile: ~node_modules/busboy/lib/index.js node:internal/deps/undici/undici:5689:37
+      1  100.0%        LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1  100.0%          LazyCompile: ~lib/fetch/body.js node:internal/deps/undici/undici:6313:22
+      1  100.0%            LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1   50.0%      LazyCompile: ~lib/client.js node:internal/deps/undici/undici:9045:18
+      1  100.0%        LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      1  100.0%          LazyCompile: ~lib/pool.js node:internal/deps/undici/undici:10390:16
+      1  100.0%            LazyCompile: ~__require node:internal/deps/undici/undici:3:49
+      2    1.4%    LazyCompile: ~WriteStream node:tty:84:21
+      2  100.0%      LazyCompile: ~createWritableStdioStream node:internal/bootstrap/switches/is_main_thread:45:35
+      1   50.0%        LazyCompile: ~getStdout node:internal/bootstrap/switches/is_main_thread:146:19
+      1  100.0%          LazyCompile: ~get node:internal/console/constructor:214:14
+      1  100.0%            LazyCompile: ~value node:internal/console/constructor:340:20
+      1   50.0%        LazyCompile: ~getStderr node:internal/bootstrap/switches/is_main_thread:168:19
+      1  100.0%          LazyCompile: ~refresh node:internal/util/colors:25:10
+      1  100.0%            Function: ~<anonymous> node:internal/util/colors:1:1
+      2    1.4%    Function: ^internalCompileFunction node:internal/vm:31:33
+      2  100.0%      LazyCompile: ~wrapSafe node:internal/modules/cjs/loader:1154:18
+      2  100.0%        LazyCompile: ~Module._compile node:internal/modules/cjs/loader:1210:37
+      2  100.0%          LazyCompile: ~Module._extensions..js node:internal/modules/cjs/loader:1265:37
+      1   50.0%            LazyCompile: ~Module.load node:internal/modules/cjs/loader:1107:33
+      1   50.0%            Function: ^Module.load node:internal/modules/cjs/loader:1107:33
+      2    1.4%    Function: ^compressBitmapArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:77:30
+      2  100.0%      LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      2  100.0%        LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      2  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      2  100.0%            LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+
+     20    7.9%  T _thread_info
+
+     19    7.5%  /usr/lib/system/libsystem_pthread.dylib
+      2   10.5%    LazyCompile: ~realpathSync node:fs:2577:22
+      2  100.0%      LazyCompile: ~toRealPath node:internal/modules/cjs/loader:478:20
+      2  100.0%        LazyCompile: ~Module._findPath node:internal/modules/cjs/loader:584:28
+      2  100.0%          LazyCompile: ~resolveMainPath node:internal/modules/run_main:15:25
+      2  100.0%            LazyCompile: ~executeUserEntryPoint node:internal/modules/run_main:74:31
+      1    5.3%    LazyCompile: ~write node:internal/deps/undici/undici:10281:12
+      1  100.0%      LazyCompile: ~writeIterable node:internal/deps/undici/undici:10234:33
+      1  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    5.3%    LazyCompile: ~value node:internal/console/constructor:340:20
+      1  100.0%      LazyCompile: ~log node:internal/console/constructor:379:6
+      1  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%          LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    5.3%    LazyCompile: ~toRealPath node:internal/modules/cjs/loader:478:20
+      1  100.0%      LazyCompile: ~Module._findPath node:internal/modules/cjs/loader:584:28
+      1  100.0%        LazyCompile: ~resolveMainPath node:internal/modules/run_main:15:25
+      1  100.0%          LazyCompile: ~executeUserEntryPoint node:internal/modules/run_main:74:31
+      1  100.0%            Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1    5.3%    LazyCompile: ~resolveMainPath node:internal/modules/run_main:15:25
+      1  100.0%      LazyCompile: ~executeUserEntryPoint node:internal/modules/run_main:74:31
+      1  100.0%        Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1    5.3%    LazyCompile: ~removeListener node:events:676:28
+      1  100.0%      LazyCompile: ~Readable.removeListener node:internal/streams/readable:916:45
+      1  100.0%        LazyCompile: ~newListener node:_tls_wrap:755:25
+      1  100.0%          Function: ^addListener node:events:605:58
+      1  100.0%            LazyCompile: ~Readable.on node:internal/streams/readable:886:33
+      1    5.3%    LazyCompile: ~readPackage node:internal/modules/cjs/loader:364:21
+      1  100.0%      LazyCompile: ~readPackageScope node:internal/modules/cjs/loader:406:26
+      1  100.0%        LazyCompile: ~shouldUseESMLoader node:internal/modules/run_main:30:28
+      1  100.0%          LazyCompile: ~executeUserEntryPoint node:internal/modules/run_main:74:31
+      1  100.0%            Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1    5.3%    LazyCompile: ~processTicksAndRejections node:internal/process/task_queues:67:35
+      1    5.3%    LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%      LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      1  100.0%        Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1    5.3%    LazyCompile: ~onHeaders node:internal/deps/undici/undici:11473:20
+      1  100.0%      LazyCompile: ~onHeaders node:internal/deps/undici/undici:8276:16
+      1  100.0%        LazyCompile: ~onHeadersComplete node:internal/deps/undici/undici:9588:24
+      1  100.0%          LazyCompile: ~wasm_on_headers_complete node:internal/deps/undici/undici:9360:37
+      1  100.0%            Function: wasm-to-js:iiii:i
+      1    5.3%    LazyCompile: ~lazyReadableReleasedError node:internal/webstreams/readablestream:146:35
+      1  100.0%      LazyCompile: ~readableStreamReaderGenericRelease node:internal/webstreams/readablestream:2085:44
+      1  100.0%        LazyCompile: ~readableStreamDefaultReaderRead node:internal/webstreams/readablestream:497:17
+      1  100.0%          LazyCompile: ~readableStreamDefaultReaderRead node:internal/webstreams/readablestream:2126:41
+      1  100.0%            LazyCompile: ~nextSteps node:internal/webstreams/readablestream:481:23
+      1    5.3%    LazyCompile: ~initializeTransformStream node:internal/webstreams/transformstream:352:35
+      1  100.0%      LazyCompile: ~TransformStream node:internal/webstreams/transformstream:119:14
+      1  100.0%        LazyCompile: ~fetchFinale node:internal/deps/undici/undici:11046:31
+      1  100.0%          LazyCompile: ~mainFetch node:internal/deps/undici/undici:10888:29
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1    5.3%    LazyCompile: ~createWritableStdioStream node:internal/bootstrap/switches/is_main_thread:45:35
+      1  100.0%      LazyCompile: ~getStdout node:internal/bootstrap/switches/is_main_thread:146:19
+      1  100.0%        LazyCompile: ~get node:internal/console/constructor:214:14
+      1  100.0%          LazyCompile: ~value node:internal/console/constructor:340:20
+      1  100.0%            LazyCompile: ~log node:internal/console/constructor:379:6
+      1    5.3%    LazyCompile: ~Request node:internal/deps/undici/undici:7109:18
+      1  100.0%      LazyCompile: ~fetch2 node:internal/deps/undici/undici:10710:26
+      1  100.0%        LazyCompile: ~fetch node:internal/deps/undici/undici:11572:44
+      1  100.0%          LazyCompile: ~fetch node:internal/process/pre_execution:228:23
+      1  100.0%            LazyCompile: ~fetchGraphQL /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:190:22
+      1    5.3%    LazyCompile: ~ReadableState node:internal/streams/readable:83:23
+      1  100.0%      LazyCompile: ~Readable node:internal/streams/readable:186:18
+      1  100.0%        LazyCompile: ~Duplex node:internal/streams/duplex:54:16
+      1  100.0%          LazyCompile: ~Socket node:net:339:16
+      1  100.0%            LazyCompile: ~WriteStream node:tty:84:21
+      1    5.3%    LazyCompile: ~Duplex node:internal/streams/duplex:54:16
+      1  100.0%      LazyCompile: ~Socket node:net:339:16
+      1  100.0%        LazyCompile: ~WriteStream node:tty:84:21
+      1  100.0%          LazyCompile: ~createWritableStdioStream node:internal/bootstrap/switches/is_main_thread:45:35
+      1  100.0%            LazyCompile: ~getStdout node:internal/bootstrap/switches/is_main_thread:146:19
+      1    5.3%    Function: ^require node:internal/modules/cjs/helpers:119:31
+      1  100.0%      Function: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/node_modules/@near-lake/primitives/dist/src/types/index.js:1:1
+      1  100.0%        LazyCompile: ~Module._compile node:internal/modules/cjs/loader:1210:37
+      1  100.0%          LazyCompile: ~Module._extensions..js node:internal/modules/cjs/loader:1265:37
+      1  100.0%            LazyCompile: ~Module.load node:internal/modules/cjs/loader:1107:33
+
+     10    4.0%  UNKNOWN
+      1   10.0%    LazyCompile: ~writableStreamDefaultControllerProcessClose node:internal/webstreams/writablestream:1138:53
+      1  100.0%      Function: ^writableStreamDefaultControllerAdvanceQueueIfNeeded node:internal/webstreams/writablestream:1208:61
+      1  100.0%        LazyCompile: ~writableStreamDefaultControllerClose node:internal/webstreams/writablestream:1192:46
+      1  100.0%          LazyCompile: ~writableStreamClose node:internal/webstreams/writablestream:687:29
+      1  100.0%            LazyCompile: ~writableStreamDefaultWriterClose node:internal/webstreams/writablestream:1071:42
+      1   10.0%    LazyCompile: ~transformStreamDefaultSinkWriteAlgorithm node:internal/webstreams/transformstream:537:50
+      1  100.0%      Function: ^write node:internal/webstreams/transformstream:363:10
+      1  100.0%        Function: ^ensureIsPromise node:internal/webstreams/util:190:25
+      1  100.0%          Function: ^writableStreamDefaultControllerProcessWrite node:internal/webstreams/writablestream:1106:53
+      1  100.0%            Function: ^writableStreamDefaultControllerAdvanceQueueIfNeeded node:internal/webstreams/writablestream:1208:61
+      1   10.0%    LazyCompile: ~setTimeout node:timers:140:20
+      1  100.0%      LazyCompile: ~setupTimeout node:internal/deps/undici/undici:8499:26
+      1  100.0%        LazyCompile: ~connect node:internal/deps/undici/undici:8443:30
+      1  100.0%          LazyCompile: ~socket node:internal/deps/undici/undici:9844:42
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   10.0%    LazyCompile: ~processCiphers node:internal/tls/secure-context:96:24
+      1  100.0%      LazyCompile: ~configSecureContext node:internal/tls/secure-context:125:29
+      1  100.0%        LazyCompile: ~createSecureContext node:_tls_common:99:29
+      1  100.0%          LazyCompile: ~connect node:_tls_wrap:1617:35
+      1  100.0%            LazyCompile: ~connect node:internal/deps/undici/undici:8443:30
+      1   10.0%    LazyCompile: ~patchProcessObject node:internal/process/pre_execution:126:28
+      1  100.0%      LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%        LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      1  100.0%          Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1   10.0%    LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      1  100.0%      T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   10.0%    LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      1  100.0%      LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      1  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%          LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   10.0%    Function: ^decompressToBitmapArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:114:34
+      1  100.0%      LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      1  100.0%        LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      1  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%            LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+
+      9    3.6%  T _guarded_close_np
+      1   11.1%    LazyCompile: ~getStderr node:internal/bootstrap/switches/is_main_thread:168:19
+      1  100.0%      LazyCompile: ~refresh node:internal/util/colors:25:10
+      1  100.0%        Function: ~<anonymous> node:internal/util/colors:1:1
+      1  100.0%          Function: ^compileForInternalLoader node:internal/bootstrap/loaders:320:27
+      1  100.0%            Function: ^requireBuiltin node:internal/bootstrap/loaders:357:24
+      1   11.1%    LazyCompile: ~fileURLToPath node:internal/url:1397:23
+      1  100.0%      LazyCompile: ~finalizeEsmResolution node:internal/modules/cjs/loader:1083:31
+      1  100.0%        LazyCompile: ~resolveExports node:internal/modules/cjs/loader:557:24
+      1  100.0%          LazyCompile: ~Module._findPath node:internal/modules/cjs/loader:584:28
+      1  100.0%            LazyCompile: ~Module._resolveFilename node:internal/modules/cjs/loader:986:35
+      1   11.1%    LazyCompile: ~<anonymous> node:internal/deps/undici/undici:10905:27
+      1  100.0%      LazyCompile: ~mainFetch node:internal/deps/undici/undici:10888:29
+      1  100.0%        LazyCompile: ~fetching node:internal/deps/undici/undici:10826:22
+      1  100.0%          LazyCompile: ~fetch2 node:internal/deps/undici/undici:10710:26
+      1  100.0%            LazyCompile: ~fetch node:internal/deps/undici/undici:11572:44
+      1   11.1%    Function: ^addListener node:events:605:58
+      1  100.0%      LazyCompile: ~Readable.on node:internal/streams/readable:886:33
+      1  100.0%        LazyCompile: ~connect node:internal/deps/undici/undici:9818:27
+      1  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+
+      9    3.6%  /usr/lib/system/libsystem_c.dylib
+      1   11.1%    LazyCompile: ~wasm_on_header_field node:internal/deps/undici/undici:9350:33
+      1  100.0%      Function: wasm-to-js:iii:i
+      1  100.0%        Function: wasm-function[47]
+      1  100.0%          Function: wasm-function[68]
+      1  100.0%            Function: wasm-function[67]
+      1   11.1%    LazyCompile: ~setupDebugEnv node:internal/process/pre_execution:329:23
+      1  100.0%      LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%        LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      1  100.0%          Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1   11.1%    LazyCompile: ~setSourceMapsEnabled node:internal/source_map/source_map_cache:58:30
+      1  100.0%      LazyCompile: ~getSourceMapsEnabled node:internal/source_map/source_map_cache:51:30
+      1  100.0%        LazyCompile: ~initializeSourceMapsHandlers node:internal/process/pre_execution:573:38
+      1  100.0%          LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%            LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      1   11.1%    LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%      LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      1  100.0%        Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1   11.1%    LazyCompile: ~pipelineImpl node:internal/streams/pipeline:186:22
+      1  100.0%      LazyCompile: ~pipeline node:internal/streams/pipeline:182:18
+      1  100.0%        LazyCompile: ~onHeaders node:internal/deps/undici/undici:11473:20
+      1  100.0%          LazyCompile: ~onHeaders node:internal/deps/undici/undici:8276:16
+      1  100.0%            LazyCompile: ~onHeadersComplete node:internal/deps/undici/undici:9588:24
+      1   11.1%    LazyCompile: ~patchProcessObject node:internal/process/pre_execution:126:28
+      1  100.0%      LazyCompile: ~prepareExecution node:internal/process/pre_execution:52:26
+      1  100.0%        LazyCompile: ~prepareMainThreadExecution node:internal/process/pre_execution:36:36
+      1  100.0%          Function: ~<anonymous> node:internal/main/run_main_module:1:1
+
+      7    2.8%  /usr/lib/libc++.1.dylib
+      2   28.6%    LazyCompile: ~extractBody node:internal/deps/undici/undici:6338:25
+      2  100.0%      LazyCompile: ~Request node:internal/deps/undici/undici:7109:18
+      2  100.0%        LazyCompile: ~fetch2 node:internal/deps/undici/undici:10710:26
+      2  100.0%          LazyCompile: ~fetch node:internal/deps/undici/undici:11572:44
+      2  100.0%            LazyCompile: ~fetch node:internal/process/pre_execution:228:23
+      1   14.3%    LazyCompile: ~lazyReadableReleasedError node:internal/webstreams/readablestream:146:35
+      1  100.0%      LazyCompile: ~readableStreamReaderGenericRelease node:internal/webstreams/readablestream:2085:44
+      1  100.0%        LazyCompile: ~readableStreamDefaultReaderRead node:internal/webstreams/readablestream:497:17
+      1  100.0%          LazyCompile: ~readableStreamDefaultReaderRead node:internal/webstreams/readablestream:2126:41
+      1  100.0%            LazyCompile: ~nextSteps node:internal/webstreams/readablestream:481:23
+      1   14.3%    LazyCompile: ~initializeTransformStream node:internal/webstreams/transformstream:352:35
+      1  100.0%      LazyCompile: ~TransformStream node:internal/webstreams/transformstream:119:14
+      1  100.0%        LazyCompile: ~fetchFinale node:internal/deps/undici/undici:11046:31
+      1  100.0%          LazyCompile: ~mainFetch node:internal/deps/undici/undici:10888:29
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   14.3%    LazyCompile: ~connect node:_tls_wrap:1617:35
+      1  100.0%      LazyCompile: ~connect node:internal/deps/undici/undici:8443:30
+      1  100.0%        LazyCompile: ~socket node:internal/deps/undici/undici:9844:42
+      1  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%            LazyCompile: ~connect node:internal/deps/undici/undici:9818:27
+      1   14.3%    LazyCompile: ~Module node:internal/modules/cjs/loader:225:16
+      1  100.0%      LazyCompile: ~Module._load node:internal/modules/cjs/loader:888:24
+      1  100.0%        LazyCompile: ~executeUserEntryPoint node:internal/modules/run_main:74:31
+      1  100.0%          Function: ~<anonymous> node:internal/main/run_main_module:1:1
+
+      5    2.0%  t std::__1::basic_ostream<char, std::__1::char_traits<char>>& std::__1::__put_character_sequence<char, std::__1::char_traits<char>>(std::__1::basic_ostream<char, std::__1::char_traits<char>>&, char const*, unsigned long)
+      1   20.0%    LazyCompile: ~value node:internal/console/constructor:340:20
+      1  100.0%      LazyCompile: ~log node:internal/console/constructor:379:6
+      1  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%          LazyCompile: ~main /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:223:20
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1   20.0%    LazyCompile: ~toRealPath node:internal/modules/cjs/loader:478:20
+      1  100.0%      LazyCompile: ~Module._findPath node:internal/modules/cjs/loader:584:28
+      1  100.0%        LazyCompile: ~resolveMainPath node:internal/modules/run_main:15:25
+      1  100.0%          LazyCompile: ~executeUserEntryPoint node:internal/modules/run_main:74:31
+      1  100.0%            Function: ~<anonymous> node:internal/main/run_main_module:1:1
+      1   20.0%    LazyCompile: ~extractBody node:internal/deps/undici/undici:6338:25
+      1  100.0%      LazyCompile: ~Request node:internal/deps/undici/undici:7109:18
+      1  100.0%        LazyCompile: ~fetch2 node:internal/deps/undici/undici:10710:26
+      1  100.0%          LazyCompile: ~fetch node:internal/deps/undici/undici:11572:44
+      1  100.0%            LazyCompile: ~fetch node:internal/process/pre_execution:228:23
+      1   20.0%    Function: ^decodeEliasGammaFirstEntryFromBytes /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:102:46
+      1  100.0%      Function: ^decompressToBitmapArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:114:34
+      1  100.0%        LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      1  100.0%          LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+
+      4    1.6%  /usr/lib/system/libsystem_malloc.dylib
+      1   25.0%    LazyCompile: ~append node:internal/deps/undici/undici:1792:13
+      1  100.0%      LazyCompile: ~append node:internal/deps/undici/undici:1856:13
+      1  100.0%        LazyCompile: ~onHeaders node:internal/deps/undici/undici:11473:20
+      1  100.0%          LazyCompile: ~onHeaders node:internal/deps/undici/undici:8276:16
+      1  100.0%            LazyCompile: ~onHeadersComplete node:internal/deps/undici/undici:9588:24
+      1   25.0%    LazyCompile: ~Readable.read node:internal/streams/readable:402:35
+      1  100.0%      LazyCompile: ~createAsyncIterator node:internal/streams/readable:1099:36
+      1  100.0%        T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%          T node::builtins::BuiltinLoader::GetCannotBeRequired()
+      1  100.0%            LazyCompile: ~processTicksAndRejections node:internal/process/task_queues:67:35
+      1   25.0%    Function: ^decodeEliasGammaFirstEntryFromBytes /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:102:46
+      1  100.0%      Function: ^decompressToBitmapArray /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:114:34
+      1  100.0%        LazyCompile: ~addIndexCompressed /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:159:29
+      1  100.0%          LazyCompile: ~<anonymous> /Users/darunrs/Documents/NEAR/QueryApi/queryapi-mvp/runner/bitmap.js:272:96
+      1  100.0%            T node::builtins::BuiltinLoader::GetCannotBeRequired()
+
