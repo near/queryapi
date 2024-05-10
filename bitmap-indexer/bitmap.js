@@ -136,7 +136,7 @@ function compressBitmapArray (uint8Array) {
   const w = writeEliasGammaBits(curBitStretch, result, nextBit);
   nextBit = w.bit;
   result = w.result.slice(0, ((nextBit / 8) + 1) >> 0);
-  return result;
+  return {result, lastEliasGammaStartBit: nextBit};
 }
 
 // Returns first number x and corresponding coded bits length of the first occurrence of Elias gamma coding
@@ -208,10 +208,10 @@ function addIndexCompressed (compressedBase64, index) {
   const newBitmap = setBitInBitmap(bitmap, index);
   const setsMs = performance.now() - s;
   const c = performance.now();
-  const compressed = compressBitmapArray(newBitmap);
+  const {result: compressed, lastEliasGammaStartBit} = compressBitmapArray(newBitmap);
   const compMs = performance.now() - c;
   console.log(`bufferMs=${bufferMs}, decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
-  return Buffer.from(compressed).toString('base64');
+  return {compressed: Buffer.from(compressed).toString('base64'), lastEliasGammaStartBit};
 }
 
 const QUERYAPI_ENDPOINT = `https://near-queryapi.dev.api.pagoda.co/v1/graphql`;
@@ -289,7 +289,7 @@ async function main() {
         : 0;
     //console.log(`${currentIndex?.first_block_height ?? 0} ${block.blockHeight}: currentIndex?.first_block_height: ${currentIndex?.first_block_height}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}`)
     console.log('receiverId', receiverId);
-    const newBitmap = addIndexCompressed(
+    const {compressed: newBitmap} = addIndexCompressed(
         currentIndex?.bitmap ?? "",
         blockIndexInCurrentBitmap
     );

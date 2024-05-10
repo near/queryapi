@@ -35,7 +35,7 @@ describe('Bitmap Indexes', () => {
     it.each(table)(`Compresses $arr indexes sequentially`, ({arr, expected}) => {
         const compressedBase64 = arr.reduce((compressedAcc, idx) => {
             const before = decompressBase64(compressedAcc)
-            const compressed = addIndexCompressed(compressedAcc, idx);
+            const {compressed} = addIndexCompressed(compressedAcc, idx);
             const after = decompressBase64(compressed)
             console.log(`adding ${idx}: ${before} -> ${after} (${compressed})`);
             return compressed;
@@ -45,13 +45,13 @@ describe('Bitmap Indexes', () => {
     })
 
     it("Should compress 0 index correctly", () =>{
-        const compressedFast = addIndexCompressed('', 0);
-        console.log('decompressed', decompressBase64(compressedFast));
+        const {compressed} = addIndexCompressed('', 0);
+        console.log('decompressed', decompressBase64(compressed));
     })
 
     it("Should decompress to bitmap correctly", () =>{
         const index = 1;
-        let compressed = addIndexCompressed('', index);
+        let {compressed} = addIndexCompressed('', index);
         //compressed = addIndexCompressed(compressed, 3);
         //compressed = addIndexCompressed(compressed, 3);
         //const slowDecompressed = decompressBase64(compressed);
