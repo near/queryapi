@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use crate::indexer_config::IndexerConfig;
+use crate::indexer_config::{IndexerConfig, IndexerIdentity};
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
 
@@ -43,8 +43,8 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
-    async fn get_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<IndexerState> {
-        let raw_state = self.redis_client.get_indexer_state(indexer_config).await?;
+    async fn get_state(&self, identity: &IndexerIdentity) -> anyhow::Result<IndexerState> {
+        let raw_state = self.redis_client.get_indexer_state(identity).await?;
 
         if let Some(raw_state) = raw_state {
             return Ok(serde_json::from_str(&raw_state)?);
@@ -55,25 +55,25 @@ impl IndexerStateManagerImpl {
 
     async fn set_state(
         &self,
-        indexer_config: &IndexerConfig,
+        identity: &IndexerIdentity,
         state: IndexerState,
     ) -> anyhow::Result<()> {
         let raw_state = serde_json::to_string(&state)?;
 
         self.redis_client
-            .set_indexer_state(indexer_config, raw_state)
+            .set_indexer_state(identity, raw_state)
             .await
     }
 
     pub async fn set_enabled(
         &self,
-        indexer_config: &IndexerConfig,
+        identity: &IndexerIdentity,
         enabled: bool,
     ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(indexer_config).await?;
+        let mut indexer_state = self.get_state(identity).await?;
         indexer_state.enabled = enabled;
 
-        self.set_state(indexer_config, indexer_state).await?;
+        self.set_state(identity, indexer_state).await?;
 
         Ok(())
     }
@@ -92,7 +92,7 @@ impl IndexerStateManagerImpl {
             for (_, indexer_config) in indexers.iter() {
                 if let Some(version) = self.redis_client.get_stream_version(indexer_config).await? {
                     self.set_state(
-                        indexer_config,
+                        &indexer_config.into(),
                         IndexerState {
                             block_stream_synced_at: Some(version),
                             enabled: true,
@@ -114,7 +114,7 @@ impl IndexerStateManagerImpl {
         &self,
         indexer_config: &IndexerConfig,
     ) -> anyhow::Result<SyncStatus> {
-        let indexer_state = self.get_state(indexer_config).await?;
+        let indexer_state = self.get_state(&indexer_config.into()).await?;
 
         if indexer_state.block_stream_synced_at.is_none() {
             return Ok(SyncStatus::New);
@@ -140,11 +140,12 @@ impl IndexerStateManagerImpl {
         &self,
         indexer_config: &IndexerConfig,
     ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(indexer_config).await?;
+        let mut indexer_state = self.get_state(&indexer_config.into()).await?;
 
         indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
 
-        self.set_state(indexer_config, indexer_state).await?;
+        self.set_state(&indexer_config.into(), indexer_state)
+            .await?;
 
         Ok(())
     }
@@ -444,7 +445,7 @@ mod tests {
         let indexer_manager = IndexerStateManagerImpl::new(redis_client);
 
         indexer_manager
-            .set_enabled(&indexer_config, false)
+            .set_enabled(&indexer_config.into(), false)
             .await
             .unwrap();
     }

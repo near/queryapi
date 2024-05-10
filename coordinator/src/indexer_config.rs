@@ -3,6 +3,35 @@ use registry_types::{Rule, StartBlock};
 
 use crate::redis::RedisKeyProvider;
 
+pub struct IndexerIdentity {
+    pub account_id: AccountId,
+    pub function_name: String,
+}
+
+impl RedisKeyProvider for IndexerIdentity {
+    fn prefix(&self) -> String {
+        format!("{}/{}", self.account_id, self.function_name)
+    }
+}
+
+impl From<IndexerConfig> for IndexerIdentity {
+    fn from(val: IndexerConfig) -> Self {
+        IndexerIdentity {
+            account_id: val.account_id,
+            function_name: val.function_name,
+        }
+    }
+}
+
+impl From<&IndexerConfig> for IndexerIdentity {
+    fn from(val: &IndexerConfig) -> Self {
+        IndexerIdentity {
+            account_id: val.account_id.clone(),
+            function_name: val.function_name.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndexerConfig {
     pub account_id: AccountId,
