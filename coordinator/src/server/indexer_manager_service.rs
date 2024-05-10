@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
+use crate::indexer_config::IndexerIdentity;
 use crate::indexer_state::IndexerStateManager;
 use crate::server::indexer_manager;
 
@@ -32,6 +33,23 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
     ) -> Result<Response<indexer_manager::IndexerResponse>, Status> {
         tracing::info!("Enabling indexer");
 
+        let request = request.into_inner();
+
+        let account_id = request
+            .account_id
+            .parse()
+            .map_err(|_| Status::invalid_argument("Invalid account ID"))?;
+
+        let indexer_identity = IndexerIdentity {
+            account_id,
+            function_name: request.function_name,
+        };
+
+        self.indexer_state_manager
+            .set_enabled(&indexer_identity, true)
+            .await
+            .map_err(|_| Status::internal("Failed to enable indexer"))?;
+
         Ok(Response::new(indexer_manager::IndexerResponse {
             success: true,
             message: "Indexer enabled".to_string(),
@@ -50,6 +68,23 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
         request: Request<indexer_manager::IndexerRequest>,
     ) -> Result<Response<indexer_manager::IndexerResponse>, Status> {
         tracing::info!("Disabling indexer");
+
+        let request = request.into_inner();
+
+        let account_id = request
+            .account_id
+            .parse()
+            .map_err(|_| Status::invalid_argument("Invalid account ID"))?;
+
+        let indexer_identity = IndexerIdentity {
+            account_id,
+            function_name: request.function_name,
+        };
+
+        self.indexer_state_manager
+            .set_enabled(&indexer_identity, false)
+            .await
+            .map_err(|_| Status::internal("Failed to disable indexer"))?;
 
         Ok(Response::new(indexer_manager::IndexerResponse {
             success: true,
