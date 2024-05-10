@@ -16,6 +16,7 @@ mod indexer_config;
 mod indexer_state;
 mod redis;
 mod registry;
+mod server;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
@@ -36,12 +37,7 @@ async fn main() -> anyhow::Result<()> {
     let block_streamer_url =
         std::env::var("BLOCK_STREAMER_URL").expect("BLOCK_STREAMER_URL is not set");
     let runner_url = std::env::var("RUNNER_URL").expect("RUNNER_URL is not set");
-
-    let registry = Registry::connect(registry_contract_id.clone(), &rpc_url);
-    let redis_client = RedisClient::connect(&redis_url).await?;
-    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
-    let executors_handler = ExecutorsHandler::connect(&runner_url)?;
-    let indexer_state_manager = IndexerStateManager::new(redis_client.clone());
+    let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
 
     tracing::info!(
         rpc_url,
@@ -51,6 +47,14 @@ async fn main() -> anyhow::Result<()> {
         redis_url,
         "Starting Coordinator"
     );
+
+    let registry = Registry::connect(registry_contract_id.clone(), &rpc_url);
+    let redis_client = RedisClient::connect(&redis_url).await?;
+    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
+    let executors_handler = ExecutorsHandler::connect(&runner_url)?;
+    let indexer_state_manager = IndexerStateManager::new(redis_client.clone());
+
+    tokio::spawn(server::init(grpc_port));
 
     loop {
         let indexer_registry = registry.fetch().await?;
