@@ -12,7 +12,7 @@ import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
 overrideLocalStorage();
 
 export default function App({ Component, pageProps }) {
-
+  console.log('welcome to dev')
   const client = new ApolloClient({
     uri: `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql`,
     cache: new InMemoryCache()

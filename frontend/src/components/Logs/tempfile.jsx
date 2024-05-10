@@ -8,10 +8,11 @@ import Status from "./Status";
 import { sanitizeString } from "../../utils/helpers";
 
 const IndexerLogsComponent = () => {
-  const DEV_ENV = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql';
+
+  const DEV_ENV = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql'
   const PROD_ENV = '';
 
-  const LOGS_PER_PAGE = 50;
+  const LOGS_PER_PAGE = 25;
 
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
   const { currentUserAccountId } = useInitialPayload();
@@ -22,9 +23,6 @@ const IndexerLogsComponent = () => {
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
   const schemaName = `${sanitizedAccountId}_${sanitizedIndexerName}`;
   const tableName = `${schemaName}_sys_logs`;
-
-  const gridContainerRef = useRef(null);
-  const gridRef = useRef(null);
 
   const getIndexerQuery = () => `
     query GetIndexerQuery($limit: Int, $offset: Int) {
@@ -40,90 +38,66 @@ const IndexerLogsComponent = () => {
           count
         }
       }
-    }`;
+    }`
 
-  const getPaginationQuery = () => `
-    query GetPaginationQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
+  const getSearchQuery = (keyword) => `
+    query GetSearchQuery($limit: Int, $offset: Int) {
+      ${tableName}(limit: $limit, offset: $offset, where: { message: { _ilike: "%${keyword}%" } }, order_by: { timestamp: desc }) {
         block_height
         level
         message
         timestamp
         type
       }
-      ${tableName}_aggregate {
-        aggregate {
-          count
-        }
-      }
-    }`;
-
-  const getBlockHeightAndMessageSearchQuery = (keyword) => `
-    query getBlockHeightAndMessageSearchQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, where: { _or: [
-        { message: { _ilike: "%${keyword}%" } },
-        { block_height: { _eq: ${keyword} } }
-      ]
-    }, order_by: { timestamp: desc }) {
-        block_height
-        level
-        message
-        timestamp
-        type
-      }
-      
-      ${tableName}_aggregate(where: { _or: [
-        { message: { _ilike: "%${keyword}%" } },
-        { block_height: { _eq: ${keyword} } }
-      ]
-    }) {
-        aggregate {
-          count
-        }
-      }
-    }`;
-
-  const getMessageSearchQuery = (keyword) => `
-    query getMessageSearchQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, where: {message: {_ilike: "%D%"}}, order_by: { timestamp: desc }) {
-        block_height
-        level
-        message
-        timestamp
-        type
-      }
-      
       ${tableName}_aggregate(where: { message: { _ilike: "%${keyword}%" } }) {
         aggregate {
           count
         }
       }
-    }`;
+    }  
+  `
+  const [currentQueryType, setCurrentQueryType] = useState('indexer');
+  const [currentQuery, setCurrentQuery] = useState(getIndexerQuery());
+  const [keyword, setKeyword] = useState('');
+
+  const gridContainerRef = useRef(null);
+  const gridRef = useRef(null);
 
   const getSearchConfig = () => {
     return {
       server: {
         url: (prev, keyword) => prev,
         body: (prev, keyword) => {
+          setKeyword(keyword);
           return JSON.stringify({
-            query: (!isNaN(parseInt(keyword))) ? getBlockHeightAndMessageSearchQuery(keyword) : getMessageSearchQuery(keyword),
+            query: getSearchQuery(keyword),
             variables: { limit: LOGS_PER_PAGE, offset: 0 },
-          });
+          })
         },
         then: ({ data }) => (data[tableName]),
         total: ({ data }) => (data[`${tableName}_aggregate`].aggregate.count),
       },
-    };
-  };
+    }
+  }
 
   const getPaginationConfig = () => {
     return {
-      prevButton: false,
-      nextButton: false,
       limit: LOGS_PER_PAGE,
-      buttonsCount: 0
-    };
-  };
+      resetPageOnUpdate: true,
+      server: {
+        url: (prev, page, limit) => prev,
+        body: (prev, page, limit) => {
+          const offset = page * limit;
+          return JSON.stringify({
+            query: currentQuery,
+            variables: { limit: LOGS_PER_PAGE, offset: offset },
+          })
+        },
+        then: ({ data }) => (data[tableName]),
+        total: ({ data }) => (data[`${tableName}_aggregate`].aggregate.count),
+      },
+    }
+  }
 
   const getIndexerLogsConfig = () => {
     return {
@@ -139,8 +113,8 @@ const IndexerLogsComponent = () => {
       }),
       then: ({ data }) => (data[tableName]),
       total: ({ data }) => (data[`${tableName}_aggregate`].aggregate.count),
-    };
-  };
+    }
+  }
 
   const getGridStyle = () => {
     return {
@@ -158,19 +132,33 @@ const IndexerLogsComponent = () => {
         fontSize: "12px",
         padding: "5px",
       },
-    };
-  };
+    }
+  }
+  useEffect(() => {
+    if (!keyword) {
+      setCurrentQuery(prev => getIndexerQuery());
+      setCurrentQueryType(prev => 'indexer');
+    } else {
+      setCurrentQuery(prev => getSearchQuery(keyword));
+      setCurrentQueryType(prev => 'search');
+    }
+  }, [keyword]);
 
   useEffect(() => {
-    renderGrid();
-  }, []);
+    console.log(currentQueryType)
+  })
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.updateConfig(getGridConfig()).forceRender();
+    }
+  }, [currentQueryType]);
 
-  const renderGrid = () => {
+  useEffect(() => {
     const gridConfig = getGridConfig();
     const grid = new Grid(gridConfig);
     grid.render(gridContainerRef.current);
     gridRef.current = grid;
-  };
+  }, []);
 
   const getGridConfig = () => {
     return {
@@ -179,13 +167,8 @@ const IndexerLogsComponent = () => {
       pagination: getPaginationConfig(),
       server: getIndexerLogsConfig(),
       style: getGridStyle(),
-      sort: true,
-    };
-  };
-
-  const reloadData = () => {
-    gridRef.current.destroy();
-    renderGrid();
+      // sort: true,
+    }
   };
 
   return (
@@ -193,7 +176,6 @@ const IndexerLogsComponent = () => {
       <LogButtons
         currentUserAccountId={currentUserAccountId}
         latestHeight={latestHeight}
-        reloadData={reloadData}
       />
       <Status
         accountId={indexerDetails.accountId}
