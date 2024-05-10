@@ -44,7 +44,6 @@ export default class StreamHandler {
           indexerConfigData: indexerConfig.toObject(),
         },
       });
-      console.log('worker resource', this.worker.resourceLimits);
       this.executorContext = {
         status: IndexerStatus.RUNNING,
         block_height: indexerConfig.version,

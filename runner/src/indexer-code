@@ -146,7 +146,7 @@ function decompressToBitmapArray (compressedBytes) {
   const decompressTotalMs = performanceNow() - decompressTotalTimer;
   // console.log(`compression ratio=${compressedBytes.length / (bufferLength)}, compressedLength=${compressedBytes.length}, bufferLength=${bufferLength}`);
   console.log(`decompressTotalMs=${decompressTotalMs}, variableInitMs=${variableInitMs}, decodingLoopMs=${decodingLoopMs}, decodeCount=${decodeCount}`);
-  console.log(`decodeEliasGammaCumulativeMs=${decodeEliasGammaCumulativeMs}, longestDecodeEliasGammaMs=${longestDecodeEliasGammaMs}, settingRemainderCumulativeMs=${settingRemainderCumulativeMs}, longestSettingRemainderMs=${longestSettingRemainderMs}`);
+  // console.log(`decodeEliasGammaCumulativeMs=${decodeEliasGammaCumulativeMs}, longestDecodeEliasGammaMs=${longestDecodeEliasGammaMs}, settingRemainderCumulativeMs=${settingRemainderCumulativeMs}, longestSettingRemainderMs=${longestSettingRemainderMs}`);
   return result.subarray(0, bufferLength);
 }
 
@@ -193,7 +193,7 @@ const currIndexes =
     })) ?? [];
 const startTimeR = performanceNow();
 const upserts = allReceivers
-.filter((receiverId) => receiverId === 'app.nearcrowd.near')
+// .filter((receiverId) => receiverId === 'app.nearcrowd.near')
 // .filter((receiverId) => currIndexes.find((i) => i?.receiver_id === receiverId)?.bitmap?.length > 1000)
 .map((receiverId) => {
   const currentIndex = currIndexes.find((i) => i?.receiver_id === receiverId);

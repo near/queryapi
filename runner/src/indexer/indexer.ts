@@ -115,7 +115,6 @@ export default class Indexer {
       await wrapSpan(async () => {
         try {
           this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-          console.log('Database connection parameters:', this.database_connection_parameters);
           this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
           this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters, this.indexerConfig);
         } catch (e) {

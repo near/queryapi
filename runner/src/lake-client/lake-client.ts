@@ -3,6 +3,9 @@ import { Block } from '@near-lake/primitives';
 import { METRICS } from '../metrics';
 import RedisClient from '../redis-client';
 
+import fs from 'fs';
+import path from 'path';
+
 export default class LakeClient {
   constructor (
     private readonly network: string = 'mainnet',
@@ -65,6 +68,10 @@ export default class LakeClient {
   }
 
   async fetchBlock (blockHeight: number): Promise<Block> {
+    if (blockHeight === 115667764) {
+      const blockBuffer = fs.readFileSync('./tests/blocks/00115667764/streamer_message.json');
+      return Block.fromStreamerMessage(JSON.parse(blockBuffer.toString()));
+    }
     const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
     if (cachedMessage) {
       METRICS.CACHE_HIT.inc();
