@@ -1,3 +1,4 @@
+//file for comparison
 import React, { useContext, useState, useEffect, useRef } from "react";
 import { Grid } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
