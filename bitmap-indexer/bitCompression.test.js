@@ -10,10 +10,10 @@ describe('Bitmap Indexes', () => {
     });
     const table = [
         {arr: [2,3], expected: "00110000"},
-        // {arr: [0,1,2,3], expected: "11110000"},
-        // {arr: [0,1,2,7], expected: "11100001"},
-        // {arr: [1,2,8,9], expected: "0110000011000000"},
-        // {arr: [31], expected: Array(31).fill('0').join('') + '1'}
+        {arr: [0,1,2,3], expected: "11110000"},
+        {arr: [0,1,2,7], expected: "11100001"},
+        {arr: [1,2,8,9], expected: "0110000011000000"},
+        {arr: [31], expected: Array(31).fill('0').join('') + '1'}
     ];
     describe("Bitmap Array to String", () => {
         it.each(table)(`Should serialize $arr to $expected`, ({arr, expected}) => {
