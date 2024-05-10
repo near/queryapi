@@ -153,8 +153,8 @@ function decodeEliasGammaFirstEntryFromBytes (bytes, startBit = 0) {
 
 // Decompresses Elias-gamma coded bytes to Uint8Array
 function decompressToBitmapArray (compressedBytes) {
-  const decompressTotalTimer = performanceNow();
-  const variableInitTimer = performanceNow();
+  const decompressTotalTimer = performance.now();
+  const variableInitTimer = performance.now();
   const compressedBitLength = compressedBytes.length * 8;
   let curBit = (compressedBytes[0] & 0b10000000) > 0;
   const buffer = new ArrayBuffer(11000);
@@ -162,17 +162,17 @@ function decompressToBitmapArray (compressedBytes) {
   let compressedBitIdx = 1;
   let resultBitIdx = 0;
   let [ decodeEliasGammaCumulativeMs, longestDecodeEliasGammaMs, settingRemainderCumulativeMs, longestSettingRemainderMs, decodingLoopMs, decodeCount ] = [0,0,0,0,0,0];
-  const variableInitMs = performanceNow() - variableInitTimer;
+  const variableInitMs = performance.now() - variableInitTimer;
   while (compressedBitIdx < compressedBitLength) {
-    const decodeEliasGammaTimer = performanceNow();
+    const decodeEliasGammaTimer = performance.now();
     // Get x, the number of bits to set, and lastBit, the bit number which is the last bit of the Elias gamma coding
     const { x, lastBit } = decodeEliasGammaFirstEntryFromBytes(
       compressedBytes,
       compressedBitIdx
     );
-    decodeEliasGammaCumulativeMs += performanceNow() - decodeEliasGammaTimer;
-    // longestDecodeEliasGammaMs = Math.max(longestDecodeEliasGammaMs, performanceNow() - decodeEliasGammaTimer);
-    const settingRemainderTimer = performanceNow();
+    decodeEliasGammaCumulativeMs += performance.now() - decodeEliasGammaTimer;
+    // longestDecodeEliasGammaMs = Math.max(longestDecodeEliasGammaMs, performance.now() - decodeEliasGammaTimer);
+    const settingRemainderTimer = performance.now();
     compressedBitIdx = lastBit + 1; // Ensure next loop starts on next bit
     // If x is large, we can set by byte instead of bit
     for (let i = 0; curBit && i < x; i++) { // Specifically if curBit is 1, set next x bits to 1
@@ -180,14 +180,14 @@ function decompressToBitmapArray (compressedBytes) {
     }
     resultBitIdx += x;
     curBit = !curBit; // Switch currBit for next iteration (counting 1s, then 0s, then 1s, etc.)
-    settingRemainderCumulativeMs += performanceNow() - settingRemainderTimer;
-    // longestSettingRemainderMs = Math.max(longestSettingRemainderMs, performanceNow() - settingRemainderTimer);
-    decodingLoopMs += performanceNow() - decodeEliasGammaTimer;
+    settingRemainderCumulativeMs += performance.now() - settingRemainderTimer;
+    // longestSettingRemainderMs = Math.max(longestSettingRemainderMs, performance.now() - settingRemainderTimer);
+    decodingLoopMs += performance.now() - decodeEliasGammaTimer;
     decodeCount++;
     if (x === 0) break; // we won't find any Elias gamma here, exiting
   }
-  let bufferLength = ((resultBitIdx / 8) + 1) >> 0;
-  const decompressTotalMs = performanceNow() - decompressTotalTimer;
+  let bufferLength = Math.ceil(resultBitIdx / 8);
+  const decompressTotalMs = performance.now() - decompressTotalTimer;
   // console.log(`compression ratio=${compressedBytes.length / (bufferLength)}, compressedLength=${compressedBytes.length}, bufferLength=${bufferLength}`);
   if (decompressTotalMs)
   console.log(`decompressTotalMs=${decompressTotalMs}, variableInitMs=${variableInitMs}, decodingLoopMs=${decodingLoopMs}, decodeCount=${decodeCount}`);
@@ -196,20 +196,20 @@ function decompressToBitmapArray (compressedBytes) {
 }
 
 function addIndexCompressed (compressedBase64, index) {
-  const b = performanceNow();
+  const b = performance.now();
   const buf = Buffer.from(compressedBase64, 'base64');
-  const bufferMs = performanceNow() - b;
-  const d = performanceNow();
+  const bufferMs = performance.now() - b;
+  const d = performance.now();
   const bitmap = decompressToBitmapArray(
     buf
   );
-  const decompressMs = performanceNow() - d;
-  const s = performanceNow();
+  const decompressMs = performance.now() - d;
+  const s = performance.now();
   const newBitmap = setBitInBitmap(bitmap, index);
-  const setsMs = performanceNow() - s;
-  const c = performanceNow();
+  const setsMs = performance.now() - s;
+  const c = performance.now();
   const compressed = compressBitmapArray(newBitmap);
-  const compMs = performanceNow() - c;
+  const compMs = performance.now() - c;
   console.log(`bufferMs=${bufferMs}, decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
   return Buffer.from(compressed).toString('base64');
 }
@@ -315,4 +315,11 @@ async function main() {
   // );
 }
 
-main();
+module.exports = {
+  addIndexCompressed,
+  decompressToBitmapArray,
+  bitmapStringToIndexArray,
+  indexArrayToBitmap,
+  strBitmapToBitmap,
+  bitmapToString
+}
