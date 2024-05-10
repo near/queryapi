@@ -200,13 +200,9 @@ const IndexerLogsComponent = () => {
         functionName={functionName}
         latestHeight={latestHeight}
       />
-      {false ? (
-        <p>Loading...</p>
-      ) : (
-        <div>
-          <div ref={gridContainerRef}></div>
-        </div>
-      )}
+      <div>
+        <div ref={gridContainerRef}></div>
+      </div>
     </div>
   );
 };
