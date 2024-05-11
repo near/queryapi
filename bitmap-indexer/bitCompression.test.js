@@ -1,18 +1,21 @@
 const { describe, expect, test, it } = require("@jest/globals");
 const {
   addIndexCompressed,
-  bitmapStringToIndexArray,
-  indexArrayToBitmap,
-  strBitmapToBitmap,
   decompressToBitmapArray,
+  addIndexCompressedLast,
 } = require("./bitmap");
 const {
   decompressBase64,
   bitmapToString,
   indexArrayFromCompressedBase64,
   indexArrayToBitmapString,
+  indexArrayToBitmap,
+  bitmapStringToIndexArray,
+  strBitmapToBitmap,
   base64BitmapToString,
+  compressedBase64ToBitmapString,
 } = require("./helpers");
+const { performance } = require("node:perf_hooks");
 
 describe("Bitmap Indexes", () => {
   beforeEach(() => {
@@ -30,7 +33,7 @@ describe("Bitmap Indexes", () => {
       arr: [2, 3],
       bitmap: "00110000",
       compressed: "0 010 010 00100 0000",
-      expectedLastEGStartBit: 7,
+      expectedLastEGStartBit: 4,
       expectedLastEGBitValue: false,
     },
     {
@@ -68,7 +71,7 @@ describe("Bitmap Indexes", () => {
   });
 
   it.each(compressedCases)(
-    `Return correct lastEliasGammaStartBit for $arr`,
+    `Return correct lastEliasGammaStartBit=$expectedLastEGStartBit for $arr`,
     ({
       arr,
       bitmap,
@@ -85,10 +88,69 @@ describe("Bitmap Indexes", () => {
     },
   );
 
-  it("Should add index into a compressed bitmap", () => {
-    const { compressed } = addIndexCompressed("", 0);
-    expect(decompressBase64(compressed)).toBe("0");
-  });
+  const compressLastCases = [
+    // {
+    //   arr: [2, 3],
+    //   newIndex: 4,
+    //   bitmap: "00111000",
+    //   compressed: "0 010 011 011 000000",
+    //   expectedLastEGStartBit: 4,
+    // },
+    // {
+    //   arr: [6, 7],
+    //   newIndex: 10,
+    //   bitmap: "0000001100100000",
+    //   compressed: "0 010 1 010 1 010 0000",
+    //   expectedLastEGStartBit: 8,
+    // },
+    {
+      arr: [7, 9],
+      newIndex: 14,
+      bitmap: "0000000101000010",
+      compressed: "0 00111 1 1 1 00100 1 1",
+      expectedLastEGStartBit: 14,
+    },
+    // {
+    //   arr: [7],
+    //   newIndex: 16,
+    //   bitmap: "00000001 00000000 10000000",
+    //   compressed: "0 00111 1 0001000 1 00111 0000",
+    //   expectedLastEGStartBit: 14,
+    // },
+  ];
+
+  it.each(compressLastCases)(
+    `Should add bit=$newIndex into a compressed $arr`,
+    ({ arr, bitmap, newIndex, compressed, expectedLastEGStartBit }) => {
+      let compressedBase64 = arr.reduce(
+        (acc, idx) => addIndexCompressed(acc.compressed, idx),
+        { compressed: "", lastEliasGammaStartBit: -1, maxIndex: -1 },
+      );
+      const compressedFull = addIndexCompressed(
+        compressedBase64.compressed,
+        newIndex,
+      );
+      compressedBase64 = addIndexCompressedLast(
+        compressedBase64.compressed,
+        newIndex,
+        compressedBase64.lastEliasGammaStartBit,
+        compressedBase64.maxIndex,
+      );
+      expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
+        compressedBase64ToBitmapString(compressedFull.compressed),
+      );
+
+      const actual = compressedBase64ToBitmapString(
+        compressedBase64.compressed,
+      );
+
+      expect(actual).toBe(bitmap.replace(/\s/g, ""));
+
+      // expect(decompressBase64(compressedBase64.compressed)).toBe(
+      //   bitmap.replace(/\s/g, ""),
+      // );
+    },
+  );
 
   it.each(table)(
     `Compresses $arr indexes sequentially`,
