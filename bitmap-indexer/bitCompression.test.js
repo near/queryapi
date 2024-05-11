@@ -1,6 +1,6 @@
 const { describe, expect, test, it } = require("@jest/globals");
 const {
-  addIndexCompressed,
+  addIndexCompressedFull,
   decompressToBitmapArray,
   addIndexCompressedLast,
 } = require("./bitmap");
@@ -72,8 +72,8 @@ describe("Bitmap Indexes", () => {
   it.each(compressedCases)(
     `Return correct lastEliasGammaStartBit=$expectedLastEGStartBit for $arr`,
     ({ arr, bitmap, compressed, expectedLastEGStartBit }) => {
-      let comp = addIndexCompressed("", arr[0]);
-      comp = addIndexCompressed(comp.compressed, arr[1]);
+      let comp = addIndexCompressedFull("", arr[0]);
+      comp = addIndexCompressedFull(comp.compressed, arr[1]);
       const compressedString = base64BitmapToString(comp.compressed);
       expect(compressedString).toBe(compressed.replace(/\s/g, ""));
       expect(comp.lastEliasGammaStartBit).toBe(expectedLastEGStartBit);
@@ -115,10 +115,10 @@ describe("Bitmap Indexes", () => {
     `Should add bit=$newIndex into a compressed $arr`,
     ({ arr, bitmap, newIndex, compressed, expectedLastEGStartBit }) => {
       let compressedBase64 = arr.reduce(
-        (acc, idx) => addIndexCompressed(acc.compressed, idx),
+        (acc, idx) => addIndexCompressedFull(acc.compressed, idx),
         { compressed: "", lastEliasGammaStartBit: -1, maxIndex: -1 },
       );
-      const compressedFull = addIndexCompressed(
+      const compressedFull = addIndexCompressedFull(
         compressedBase64.compressed,
         newIndex,
       );
@@ -132,7 +132,7 @@ describe("Bitmap Indexes", () => {
       expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
         compressed.replace(/\s/g, ""),
       );
-      // assert that addIndexCompressed is the same as the addIndexCompressedLast
+      // assert that addIndexCompressedFull is the same as the addIndexCompressedFullLast
       expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
         compressedBase64ToBitmapString(compressedFull.compressed),
       );
@@ -151,11 +151,11 @@ describe("Bitmap Indexes", () => {
   );
 
   it.each(table)(
-    `Compresses $arr indexes sequentially`,
+    `Compresses $arr indexes sequentially using addIndexCompressedFull`,
     ({ arr, expected }) => {
       const compressedBase64 = arr.reduce((compressedAcc, idx) => {
         const before = decompressBase64ToBitmapString(compressedAcc);
-        const { compressed } = addIndexCompressed(compressedAcc, idx);
+        const { compressed } = addIndexCompressedFull(compressedAcc, idx);
         const after = decompressBase64ToBitmapString(compressed);
         console.log(`adding ${idx}: ${before} -> ${after} (${compressed})`);
         return compressed;
@@ -167,16 +167,45 @@ describe("Bitmap Indexes", () => {
     },
   );
 
+  it.each(table)(
+    `Compresses $arr indexes sequentially using addIndexCompressedLast`,
+    ({ arr, expected }) => {
+      const result = arr.reduce(
+        (compressedAcc, idx) => {
+          const before = decompressBase64ToBitmapString(
+            compressedAcc.compressed,
+          );
+          const res = addIndexCompressedLast(
+            compressedAcc.compressed,
+            idx,
+            compressedAcc.lastEliasGammaStartBit,
+            compressedAcc.maxIndex,
+          );
+          const after = decompressBase64ToBitmapString(res.compressed);
+          console.log(
+            `adding ${idx}: ${before} -> ${after} (${res.compressed})`,
+          );
+          return res;
+        },
+        { compressed: "", lastEliasGammaStartBit: -1, maxIndex: -1 },
+      );
+      expect(decompressBase64ToBitmapString(result.compressed)).toBe(expected);
+      expect(indexArrayFromCompressedBase64(result.compressed).toString()).toBe(
+        arr.toString(),
+      );
+    },
+  );
+
   it("Should compress 0 index correctly", () => {
-    const { compressed } = addIndexCompressed("", 0);
+    const { compressed } = addIndexCompressedFull("", 0);
     console.log("decompressed", decompressBase64(compressed));
   });
 
   it("Should decompress to bitmap correctly", () => {
     const index = 1;
-    let { compressed } = addIndexCompressed("", index);
-    //compressed = addIndexCompressed(compressed, 3);
-    //compressed = addIndexCompressed(compressed, 3);
+    let { compressed } = addIndexCompressedFull("", index);
+    //compressed = addIndexCompressedFull(compressed, 3);
+    //compressed = addIndexCompressedFull(compressed, 3);
     //const slowDecompressed = decompressBase64(compressed);
     const resFast = decompressToBitmapArray(Buffer.from(compressed, "base64"));
     const fastDecompressed = bitmapToString(resFast);
