@@ -133,10 +133,11 @@ function compressBitmapArray (uint8Array) {
       curBitStretch = 1;
     }
   }
+  const lastEliasGammaStartBit = nextBit;
   const w = writeEliasGammaBits(curBitStretch, result, nextBit);
   nextBit = w.bit;
   result = w.result.slice(0, ((nextBit / 8) + 1) >> 0);
-  return {result, lastEliasGammaStartBit: nextBit};
+  return {result, lastEliasGammaStartBit, lastEliasGammaBitValue: curBit};
 }
 
 // Returns first number x and corresponding coded bits length of the first occurrence of Elias gamma coding
@@ -195,6 +196,17 @@ function decompressToBitmapArray (compressedBytes) {
   return result.subarray(0, bufferLength);
 }
 
+function addIndexCompressedLast (compressedBase64, index, lastEliasGammaStartBit1) {
+  const buf = Buffer.from(compressedBase64, 'base64');
+  // decompress the last EG section
+  // set index bit in it
+  // write it back to the compressed buffer
+  const bitmap = decompressToBitmapArray(buf);
+  const newBitmap = setBitInBitmap(bitmap, index);
+  const {result: compressed, lastEliasGammaStartBit} = compressBitmapArray(newBitmap);
+  return {compressed: Buffer.from(compressed).toString('base64'), lastEliasGammaStartBit};
+}
+
 function addIndexCompressed (compressedBase64, index) {
   const b = performance.now();
   const buf = Buffer.from(compressedBase64, 'base64');
@@ -208,10 +220,10 @@ function addIndexCompressed (compressedBase64, index) {
   const newBitmap = setBitInBitmap(bitmap, index);
   const setsMs = performance.now() - s;
   const c = performance.now();
-  const {result: compressed, lastEliasGammaStartBit} = compressBitmapArray(newBitmap);
+  const {result: compressed, lastEliasGammaStartBit, lastEliasGammaBitValue} = compressBitmapArray(newBitmap);
   const compMs = performance.now() - c;
   console.log(`bufferMs=${bufferMs}, decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`)
-  return {compressed: Buffer.from(compressed).toString('base64'), lastEliasGammaStartBit};
+  return {compressed: Buffer.from(compressed).toString('base64'), lastEliasGammaStartBit, lastEliasGammaBitValue};
 }
 
 const QUERYAPI_ENDPOINT = `https://near-queryapi.dev.api.pagoda.co/v1/graphql`;

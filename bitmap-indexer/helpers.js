@@ -2,6 +2,11 @@ function bitmapToString(buffer) {
     return buffer.reduce((r, b) => r + b.toString(2).padStart(8, "0"), "");
 }
 
+function base64BitmapToString(base64) {
+    const buffer = Buffer.from(base64, 'base64');
+    return buffer.reduce((r, b) => r + b.toString(2).padStart(8, "0"), "");
+}
+
 function decompressBitmapString(compressedStrBit) {
     let target = compressedStrBit[0];
     let result = '';
@@ -70,6 +75,7 @@ function decodeEliasGammaFirstEntry(strBits) {
 }
 
 module.exports = {
+    base64BitmapToString,
     decompressBitmapString,
     decompressBase64,
     bitmapToString,
