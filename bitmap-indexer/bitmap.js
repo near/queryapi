@@ -68,7 +68,7 @@ function writeEliasGammaBits(x, result, startBit, writeZeros = false) {
   nextBit += N;
   result = setBitInBitmap(result, nextBit++, true, writeZeros);
   for (let ri = 0; ri < N; ri++, nextBit++) {
-    const bitValue = remainder & (1 << (N - 1 - ri) > 0);
+    const bitValue = (remainder & (1 << (N - 1 - ri))) > 0;
     result = setBitInBitmap(result, nextBit, bitValue, writeZeros);
   }
   return { nextBit, result };
@@ -103,7 +103,7 @@ function compressBitmapArray(uint8Array) {
   maxIndex = curBit ? ibit - 1 : maxIndex;
   const w = writeEliasGammaBits(curBitStretch, result, nextBit);
   nextBit = w.nextBit;
-  result = w.result.slice(0, (nextBit / 8 + 1) >> 0);
+  result = w.result.slice(0, Math.ceil(nextBit / 8));
   return {
     result,
     lastEliasGammaStartBit,

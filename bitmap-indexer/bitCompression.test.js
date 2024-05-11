@@ -14,6 +14,7 @@ const {
   strBitmapToBitmap,
   base64BitmapToString,
   compressedBase64ToBitmapString,
+  decompressBase64ToBitmapString,
 } = require("./helpers");
 const { performance } = require("node:perf_hooks");
 
@@ -156,13 +157,13 @@ describe("Bitmap Indexes", () => {
     `Compresses $arr indexes sequentially`,
     ({ arr, expected }) => {
       const compressedBase64 = arr.reduce((compressedAcc, idx) => {
-        const before = decompressBase64(compressedAcc);
+        const before = decompressBase64ToBitmapString(compressedAcc);
         const { compressed } = addIndexCompressed(compressedAcc, idx);
-        const after = decompressBase64(compressed);
+        const after = decompressBase64ToBitmapString(compressed);
         console.log(`adding ${idx}: ${before} -> ${after} (${compressed})`);
         return compressed;
       }, "");
-      expect(decompressBase64(compressedBase64)).toBe(expected);
+      expect(decompressBase64ToBitmapString(compressedBase64)).toBe(expected);
       expect(indexArrayFromCompressedBase64(compressedBase64).toString()).toBe(
         arr.toString(),
       );
