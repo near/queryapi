@@ -35,14 +35,12 @@ describe("Bitmap Indexes", () => {
       bitmap: "00110000",
       compressed: "0 010 010 00100 0000",
       expectedLastEGStartBit: 4,
-      expectedLastEGBitValue: false,
     },
     {
       arr: [7],
       bitmap: "00000001",
       compressed: "0 00111 1 0",
       expectedLastEGStartBit: 6,
-      expectedLastEGBitValue: true,
     },
   ];
   describe("Bitmap Array to String", () => {
@@ -73,19 +71,12 @@ describe("Bitmap Indexes", () => {
 
   it.each(compressedCases)(
     `Return correct lastEliasGammaStartBit=$expectedLastEGStartBit for $arr`,
-    ({
-      arr,
-      bitmap,
-      compressed,
-      expectedLastEGStartBit,
-      expectedLastEGBitValue,
-    }) => {
+    ({ arr, bitmap, compressed, expectedLastEGStartBit }) => {
       let comp = addIndexCompressed("", arr[0]);
       comp = addIndexCompressed(comp.compressed, arr[1]);
       const compressedString = base64BitmapToString(comp.compressed);
       expect(compressedString).toBe(compressed.replace(/\s/g, ""));
       expect(comp.lastEliasGammaStartBit).toBe(expectedLastEGStartBit);
-      expect(comp.lastEliasGammaBitValue).toBe(expectedLastEGBitValue);
     },
   );
 
@@ -101,8 +92,8 @@ describe("Bitmap Indexes", () => {
       arr: [6, 7],
       newIndex: 10,
       bitmap: "0000001100100000",
-      compressed: "0 010 1 010 1 010 0000",
-      expectedLastEGStartBit: 8,
+      compressed: "0 00110 010 010 1 00101 000000",
+      expectedLastEGStartBit: 12,
     },
     {
       arr: [7, 9],
@@ -137,19 +128,25 @@ describe("Bitmap Indexes", () => {
         compressedBase64.lastEliasGammaStartBit,
         compressedBase64.maxIndex,
       );
+      // assert that manually computed expectation is correct
+      expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
+        compressed.replace(/\s/g, ""),
+      );
+      // assert that addIndexCompressed is the same as the addIndexCompressedLast
       expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
         compressedBase64ToBitmapString(compressedFull.compressed),
       );
 
-      const actual = decompressBase64ToBitmapString(
+      // assert that resulting bitmap is correct
+      const actualBitmap = decompressBase64ToBitmapString(
         compressedBase64.compressed,
       );
+      expect(actualBitmap).toBe(bitmap.replace(/\s/g, ""));
 
-      expect(actual).toBe(bitmap.replace(/\s/g, ""));
-
-      // expect(decompressBase64(compressedBase64.compressed)).toBe(
-      //   bitmap.replace(/\s/g, ""),
-      // );
+      // assert that lastEliasGammaStartBit is correct
+      expect(compressedBase64.lastEliasGammaStartBit).toBe(
+        expectedLastEGStartBit,
+      );
     },
   );
 

@@ -237,7 +237,6 @@ function addIndexCompressed(compressedBase64, index) {
   const {
     result: compressed,
     lastEliasGammaStartBit,
-    lastEliasGammaBitValue,
     maxIndex,
   } = compressBitmapArray(newBitmap);
   const compMs = performance.now() - c;
@@ -247,7 +246,6 @@ function addIndexCompressed(compressedBase64, index) {
   return {
     compressed: Buffer.from(compressed).toString("base64"),
     lastEliasGammaStartBit,
-    lastEliasGammaBitValue,
     maxIndex,
   };
 }
