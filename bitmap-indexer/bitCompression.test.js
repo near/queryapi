@@ -90,20 +90,20 @@ describe("Bitmap Indexes", () => {
   );
 
   const compressLastCases = [
-    // {
-    //   arr: [2, 3],
-    //   newIndex: 4,
-    //   bitmap: "00111000",
-    //   compressed: "0 010 011 011 000000",
-    //   expectedLastEGStartBit: 4,
-    // },
-    // {
-    //   arr: [6, 7],
-    //   newIndex: 10,
-    //   bitmap: "0000001100100000",
-    //   compressed: "0 010 1 010 1 010 0000",
-    //   expectedLastEGStartBit: 8,
-    // },
+    {
+      arr: [2, 3],
+      newIndex: 4,
+      bitmap: "00111000",
+      compressed: "0 010 011 011 000000",
+      expectedLastEGStartBit: 4,
+    },
+    {
+      arr: [6, 7],
+      newIndex: 10,
+      bitmap: "0000001100100000",
+      compressed: "0 010 1 010 1 010 0000",
+      expectedLastEGStartBit: 8,
+    },
     {
       arr: [7, 9],
       newIndex: 14,
@@ -111,13 +111,13 @@ describe("Bitmap Indexes", () => {
       compressed: "0 00111 1 1 1 00100 1 1",
       expectedLastEGStartBit: 14,
     },
-    // {
-    //   arr: [7],
-    //   newIndex: 16,
-    //   bitmap: "00000001 00000000 10000000",
-    //   compressed: "0 00111 1 0001000 1 00111 0000",
-    //   expectedLastEGStartBit: 14,
-    // },
+    {
+      arr: [7],
+      newIndex: 16,
+      bitmap: "00000001 00000000 10000000",
+      compressed: "0 00111 1 0001000 1 00111 0000",
+      expectedLastEGStartBit: 14,
+    },
   ];
 
   it.each(compressLastCases)(
@@ -141,7 +141,7 @@ describe("Bitmap Indexes", () => {
         compressedBase64ToBitmapString(compressedFull.compressed),
       );
 
-      const actual = compressedBase64ToBitmapString(
+      const actual = decompressBase64ToBitmapString(
         compressedBase64.compressed,
       );
 
