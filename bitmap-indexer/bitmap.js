@@ -178,6 +178,8 @@ function decompressToBitmapArray(compressedBytes) {
   return result.subarray(0, bufferLength);
 }
 
+// Adds a bit at position 'index' into the compressed bitmap by editing the compressed bitmap
+// from the bit at index lastEliasGammaStartBit
 function addIndexCompressedLast(
   compressedBase64,
   index,
@@ -185,64 +187,40 @@ function addIndexCompressedLast(
   maxIndex,
 ) {
   const originalCompressed = Buffer.from(compressedBase64, "base64");
-  const resultBuffer = new Buffer(12000);
+  const resultBuffer = Buffer.alloc(12000);
   originalCompressed.copy(resultBuffer);
   let result = new Uint8Array(resultBuffer);
-  // decompress the last EG section
+  // decode the last EG section
   const { x, lastBit } = decodeEliasGammaFirstEntryFromBytes(
     originalCompressed,
     lastEliasGammaStartBit,
   );
-  let curBit = true;
-  let curBitStretch = x;
-  let nextBit = lastEliasGammaStartBit;
-  // set index bit in it
+  let resLastEliasGammaStartBit = lastEliasGammaStartBit;
+  let cur;
   if (index - maxIndex === 1) {
     // write increased stretch of 1s
-    let cursor = writeEliasGammaBits(curBitStretch + 1, result, nextBit, true);
-    // write remaining zeros
-    const remainingZeros = Math.ceil(index / 8) * 8 - index - 1;
-    cursor = writeEliasGammaBits(
-      remainingZeros,
-      cursor.result,
-      cursor.nextBit,
-      true,
-    );
-    const len = Math.ceil(cursor.nextBit / 8);
-    const bufferLen =
-      len > originalCompressed.length ? len : originalCompressed.length;
-    return {
-      compressed: Buffer.from(cursor.result.slice(0, bufferLen)).toString(
-        "base64",
-      ),
-      lastEliasGammaStartBit,
-    };
+    cur = writeEliasGammaBits(x + 1, result, lastEliasGammaStartBit, true);
   } else if (index - maxIndex > 1) {
-    // write eg back
-    let cursor = writeEliasGammaBits(curBitStretch, result, nextBit, true);
     // write zeros
     const zeros = index - maxIndex - 1;
-    cursor = writeEliasGammaBits(zeros, cursor.result, cursor.nextBit, true);
+    cur = writeEliasGammaBits(zeros, result, lastBit + 1, true);
     // write 1 for the `index` bit
-    result = setBitInBitmap(cursor.result, cursor.nextBit, true);
-    nextBit = cursor.nextBit + 1;
-    // write remaining zeros
-    const remainingZeros = Math.ceil(nextBit / 8) * 8 - nextBit;
-    cursor = writeEliasGammaBits(
-      remainingZeros,
-      cursor.result,
-      cursor.nextBit,
-      true,
-    );
-    return {
-      compressed: Buffer.from(
-        result.slice(0, Math.ceil((cursor.nextBit + 1) / 8) + 1),
-      ).toString("base64"),
-      lastEliasGammaStartBit: nextBit,
-    };
+    resLastEliasGammaStartBit = cur.nextBit;
+    cur = writeEliasGammaBits(1, cur.result, cur.nextBit, true);
   } else {
-    throw Error(``);
+    throw Error(
+      `addIndexCompressedLast: cannot write into ${index} before ${maxIndex}`,
+    );
   }
+  // write remaining zeros
+  const remainingZeros = Math.ceil((index + 1) / 8) * 8 - index - 1;
+  cur = writeEliasGammaBits(remainingZeros, cur.result, cur.nextBit, true);
+  return {
+    compressed: Buffer.from(
+      result.slice(0, Math.ceil(cur.nextBit / 8)),
+    ).toString("base64"),
+    lastEliasGammaStartBit: resLastEliasGammaStartBit,
+  };
 }
 
 function addIndexCompressed(compressedBase64, index) {
