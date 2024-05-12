@@ -14,6 +14,11 @@ pub enum SyncStatus {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct OldIndexerState {
+    block_stream_synced_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct IndexerState {
     block_stream_synced_at: Option<u64>,
     enabled: bool,
@@ -82,30 +87,30 @@ impl IndexerStateManagerImpl {
         &self,
         indexer_registry: &IndexerRegistry,
     ) -> anyhow::Result<()> {
-        if self.redis_client.is_migration_complete().await?.is_some() {
-            return Ok(());
-        }
+        if self.redis_client.is_migration_complete().await?.is_none() {
+            tracing::info!("Migrating indexer state");
 
-        tracing::info!("Migrating indexer state");
-
-        for (_, indexers) in indexer_registry.iter() {
-            for (_, indexer_config) in indexers.iter() {
-                if let Some(version) = self.redis_client.get_stream_version(indexer_config).await? {
-                    self.set_state(
-                        &indexer_config.into(),
-                        IndexerState {
-                            block_stream_synced_at: Some(version),
-                            enabled: true,
-                        },
-                    )
-                    .await?;
+            for (_, indexers) in indexer_registry.iter() {
+                for (_, indexer_config) in indexers.iter() {
+                    if let Some(version) =
+                        self.redis_client.get_stream_version(indexer_config).await?
+                    {
+                        self.redis_client
+                            .set_indexer_state(
+                                indexer_config,
+                                serde_json::to_string(&OldIndexerState {
+                                    block_stream_synced_at: Some(version),
+                                })?,
+                            )
+                            .await?;
+                    }
                 }
             }
+
+            tracing::info!("Indexer state migration complete");
+
+            self.redis_client.set_migration_complete().await?;
         }
-
-        tracing::info!("Indexer state migration complete");
-
-        self.redis_client.set_migration_complete().await?;
 
         Ok(())
     }
@@ -161,7 +166,7 @@ mod tests {
     use registry_types::{Rule, StartBlock, Status};
 
     #[tokio::test]
-    async fn migrates_state() {
+    async fn migrates_state_to_indexer_manager() {
         let morgs_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
             function_name: "test".to_string(),
@@ -206,6 +211,10 @@ mod tests {
             .returning(|| Ok(None))
             .once();
         mock_redis_client
+            .expect_is_migration_complete()
+            .returning(|| Ok(Some(true)))
+            .once();
+        mock_redis_client
             .expect_set_migration_complete()
             .returning(|| Ok(()))
             .once();
@@ -223,10 +232,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(morgs_config),
-                predicate::eq(
-                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
-                        .to_string(),
-                ),
+                predicate::eq(serde_json::json!({ "block_stream_synced_at": 200 }).to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();
@@ -234,9 +240,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::eq(darunrs_config),
-                predicate::eq(
-                    serde_json::json!({ "block_stream_synced_at": 1, "enabled": true }).to_string(),
-                ),
+                predicate::eq(serde_json::json!({ "block_stream_synced_at": 1 }).to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();
@@ -247,54 +251,8 @@ mod tests {
             .migrate_state_if_needed(&indexer_registry)
             .await
             .unwrap();
-    }
 
-    #[tokio::test]
-    async fn skips_state_migration() {
-        let morgs_config = IndexerConfig {
-            account_id: "morgs.near".parse().unwrap(),
-            function_name: "test".to_string(),
-            code: String::new(),
-            schema: String::new(),
-            rule: Rule::ActionAny {
-                affected_account_id: "queryapi.dataplatform.near".to_string(),
-                status: Status::Any,
-            },
-            created_at_block_height: 1,
-            updated_at_block_height: Some(200),
-            start_block: StartBlock::Height(100),
-        };
-
-        let indexer_registry = HashMap::from([(
-            "morgs.near".parse().unwrap(),
-            HashMap::from([("test".to_string(), morgs_config.clone())]),
-        )]);
-
-        let mut mock_redis_client = RedisClient::default();
-        mock_redis_client
-            .expect_is_migration_complete()
-            .returning(|| Ok(Some(true)))
-            .once();
-        mock_redis_client
-            .expect_set_migration_complete()
-            .returning(|| Ok(()))
-            .never();
-        mock_redis_client
-            .expect_get_stream_version()
-            .with(predicate::eq(morgs_config.clone()))
-            .returning(|_| Ok(Some(200)))
-            .never();
-        mock_redis_client
-            .expect_set_indexer_state()
-            .with(
-                predicate::eq(morgs_config),
-                predicate::eq(serde_json::json!({ "block_stream_synced_at": 200 }).to_string()),
-            )
-            .returning(|_, _| Ok(()))
-            .never();
-
-        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
-
+        // ensure it is only called once
         indexer_manager
             .migrate_state_if_needed(&indexer_registry)
             .await
@@ -320,7 +278,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(indexer_config.clone()))
+            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 300, "enabled": true })
@@ -356,7 +314,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(indexer_config.clone()))
+            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
@@ -392,7 +350,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(indexer_config.clone()))
+            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
             .returning(|_| Ok(None));
 
         let indexer_manager = IndexerStateManagerImpl::new(redis_client);
@@ -423,7 +381,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(indexer_config.clone()))
+            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 123, "enabled": true })
@@ -433,7 +391,7 @@ mod tests {
         redis_client
             .expect_set_indexer_state()
             .with(
-                predicate::eq(indexer_config.clone()),
+                predicate::eq(IndexerIdentity::from(indexer_config.clone())),
                 predicate::eq(
                     serde_json::json!({ "block_stream_synced_at":123, "enabled": false })
                         .to_string(),

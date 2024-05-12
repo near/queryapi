@@ -3,6 +3,7 @@ use registry_types::{Rule, StartBlock};
 
 use crate::redis::RedisKeyProvider;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct IndexerIdentity {
     pub account_id: AccountId,
     pub function_name: String,
