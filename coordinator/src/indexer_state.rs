@@ -112,6 +112,42 @@ impl IndexerStateManagerImpl {
             self.redis_client.set_migration_complete().await?;
         }
 
+        if self
+            .redis_client
+            .get::<_, bool>("state_migration:enabled_flag")
+            .await?
+            .is_none()
+        {
+            println!("here");
+            tracing::info!("Migrating enabled flag");
+
+            for (_, indexers) in indexer_registry.iter() {
+                for (_, indexer_config) in indexers.iter() {
+                    let existing_state =
+                        self.redis_client.get_indexer_state(indexer_config).await?;
+
+                    let state = match existing_state {
+                        Some(state) => {
+                            let old_state: OldIndexerState = serde_json::from_str(&state)?;
+                            IndexerState {
+                                block_stream_synced_at: old_state.block_stream_synced_at,
+                                enabled: true,
+                            }
+                        }
+                        None => IndexerState::default(),
+                    };
+
+                    self.set_state(&indexer_config.into(), state).await?;
+                }
+            }
+
+            self.redis_client
+                .set("state_migration:enabled_flag", true)
+                .await?;
+
+            tracing::info!("Enabled flag migration complete");
+        }
+
         Ok(())
     }
 
@@ -166,6 +202,123 @@ mod tests {
     use registry_types::{Rule, StartBlock, Status};
 
     #[tokio::test]
+    async fn migrates_enabled_flag() {
+        let morgs_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: Some(200),
+            start_block: StartBlock::Height(100),
+        };
+        let darunrs_config = IndexerConfig {
+            account_id: "darunrs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: None,
+            start_block: StartBlock::Height(100),
+        };
+
+        let indexer_registry = HashMap::from([
+            (
+                "morgs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), morgs_config.clone())]),
+            ),
+            (
+                "darunrs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), darunrs_config.clone())]),
+            ),
+        ]);
+
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_is_migration_complete()
+            .returning(|| Ok(Some(true)))
+            .times(2);
+        mock_redis_client
+            .expect_get::<&str, bool>()
+            .with(predicate::eq("state_migration:enabled_flag"))
+            .returning(|_| Ok(None))
+            .once();
+        mock_redis_client
+            .expect_get::<&str, bool>()
+            .with(predicate::eq("state_migration:enabled_flag"))
+            .returning(|_| Ok(Some(true)))
+            .once();
+        mock_redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(morgs_config.clone()))
+            .returning(|_| {
+                Ok(Some(
+                    serde_json::json!({ "block_stream_synced_at": 200 }).to_string(),
+                ))
+            })
+            .once();
+        mock_redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(darunrs_config.clone()))
+            .returning(|_| {
+                Ok(Some(
+                    serde_json::json!({ "block_stream_synced_at": 1 }).to_string(),
+                ))
+            })
+            .once();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(IndexerIdentity::from(morgs_config)),
+                predicate::eq(
+                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
+                        .to_string(),
+                ),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(IndexerIdentity::from(darunrs_config)),
+                predicate::eq(
+                    serde_json::json!({ "block_stream_synced_at": 1, "enabled": true }).to_string(),
+                ),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        mock_redis_client
+            .expect_set::<&str, bool>()
+            .with(
+                predicate::eq("state_migration:enabled_flag"),
+                predicate::eq(true),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+
+        indexer_manager
+            .migrate_state_if_needed(&indexer_registry)
+            .await
+            .unwrap();
+
+        // ensure it is only called once
+        indexer_manager
+            .migrate_state_if_needed(&indexer_registry)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn migrates_state_to_indexer_manager() {
         let morgs_config = IndexerConfig {
             account_id: "morgs.near".parse().unwrap(),
@@ -214,6 +367,10 @@ mod tests {
             .expect_is_migration_complete()
             .returning(|| Ok(Some(true)))
             .once();
+        mock_redis_client
+            .expect_get::<&str, _>()
+            .with(predicate::eq("state_migration:enabled_flag"))
+            .returning(|_| Ok(Some(true)));
         mock_redis_client
             .expect_set_migration_complete()
             .returning(|| Ok(()))
