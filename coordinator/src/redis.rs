@@ -12,11 +12,11 @@ pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
 pub use RedisClientImpl as RedisClient;
 
+#[derive(Clone)]
 pub struct RedisClientImpl {
     connection: ConnectionManager,
 }
 
-#[cfg_attr(test, mockall::automock)]
 impl RedisClientImpl {
     pub async fn connect(redis_url: &str) -> anyhow::Result<Self> {
         let connection = redis::Client::open(redis_url)?
@@ -93,11 +93,61 @@ impl RedisClientImpl {
         self.del(indexer_config.get_redis_stream_key()).await
     }
 
-    pub async fn set_stream_version(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
-        self.set(
-            indexer_config.get_redis_stream_version_key(),
-            indexer_config.get_registry_version(),
-        )
-        .await
+    pub async fn get_indexer_state(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<String>> {
+        self.get(indexer_config.get_state_key()).await
+    }
+
+    pub async fn set_indexer_state(
+        &self,
+        indexer_config: &IndexerConfig,
+        state: String,
+    ) -> anyhow::Result<()> {
+        self.set(indexer_config.get_state_key(), state).await
+    }
+
+    pub async fn set_migration_complete(&self) -> anyhow::Result<()> {
+        self.set("indexer_manager_migration_complete", true).await
+    }
+
+    pub async fn is_migration_complete(&self) -> anyhow::Result<Option<bool>> {
+        self.get("indexer_manager_migration_complete").await
+    }
+}
+
+#[cfg(test)]
+mockall::mock! {
+    pub RedisClientImpl {
+        pub async fn connect(redis_url: &str) -> anyhow::Result<Self>;
+
+        pub async fn get_indexer_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<String>>;
+
+        pub async fn set_indexer_state(
+            &self,
+            indexer_config: &IndexerConfig,
+            state: String,
+        ) -> anyhow::Result<()>;
+
+        pub async fn get_stream_version(
+            &self,
+            indexer_config: &IndexerConfig,
+        ) -> anyhow::Result<Option<u64>>;
+
+        pub async fn get_last_published_block(
+            &self,
+            indexer_config: &IndexerConfig,
+        ) -> anyhow::Result<Option<u64>>;
+
+        pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()>;
+
+        pub async fn set_migration_complete(&self) -> anyhow::Result<()>;
+
+        pub async fn is_migration_complete(&self) -> anyhow::Result<Option<bool>>;
+    }
+
+    impl Clone for RedisClientImpl {
+        fn clone(&self) -> Self;
     }
 }
