@@ -9,6 +9,7 @@ export const PublishModal = ({
   actionButtonText,
 }) => {
   const {
+    indexerDetails,
     showPublishModal,
     setShowPublishModal,
   } = useContext(IndexerDetailsContext);

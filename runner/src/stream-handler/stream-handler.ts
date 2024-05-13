@@ -83,7 +83,7 @@ export default class StreamHandler {
   private handleMessage (message: WorkerMessage): void {
     switch (message.type) {
       case WorkerMessageType.STATUS:
-        this.executorContext.status = message.data;
+        this.executorContext.status = message.data.status;
         break;
       case WorkerMessageType.BLOCK_HEIGHT:
         this.executorContext.block_height = message.data;
