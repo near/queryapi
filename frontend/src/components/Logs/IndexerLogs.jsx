@@ -85,7 +85,7 @@ const IndexerLogsComponent = () => {
 
   const getMessageSearchQuery = (keyword) => `
     query getMessageSearchQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, where: {message: {_ilike: "%D%"}}, order_by: { timestamp: desc }) {
+      ${tableName}(limit: $limit, offset: $offset, where: {message: {_ilike: "%${keyword}%"}}, order_by: { timestamp: desc }) {
         block_height
         level
         message
@@ -105,8 +105,9 @@ const IndexerLogsComponent = () => {
       server: {
         url: (prev, keyword) => prev,
         body: (prev, keyword) => {
+          (isNaN(Number(keyword))) ? console.log('we doing message') : console.log('message and bh');
           return JSON.stringify({
-            query: (!isNaN(parseInt(keyword))) ? getBlockHeightAndMessageSearchQuery(keyword) : getMessageSearchQuery(keyword),
+            query: (isNaN(Number(keyword))) ? getMessageSearchQuery(keyword) : getBlockHeightAndMessageSearchQuery(keyword),
             variables: { limit: LOGS_PER_PAGE, offset: 0 },
           });
         },
