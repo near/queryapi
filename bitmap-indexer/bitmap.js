@@ -174,7 +174,8 @@ function addIndexCompressedLast(
   const originalCompressed = Buffer.from(compressedBase64, "base64");
   const resultBuffer = Buffer.alloc(12000);
   originalCompressed.copy(resultBuffer);
-  let result = new Uint8Array(resultBuffer);
+  // let result = new Uint8Array(resultBuffer);
+  let result = resultBuffer;
   // decode the last EG section
   const { x, lastBit } = decodeEliasGammaEntryFromBytes(
     originalCompressed,
@@ -201,9 +202,7 @@ function addIndexCompressedLast(
   cur = writeEliasGammaBits(remainingZeros, cur.result, cur.nextBit, true);
 
   return {
-    compressed: Buffer.from(
-      result.slice(0, Math.ceil(cur.nextBit / 8)),
-    ).toString("base64"),
+    compressed: result.subarray(0, Math.ceil(cur.nextBit / 8)).toString("base64"),
     lastEliasGammaStartBit: newLastEliasGammaStartBit,
     maxIndex: index,
   };
