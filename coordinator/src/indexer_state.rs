@@ -2,7 +2,7 @@
 
 use std::cmp::Ordering;
 
-use crate::indexer_config::{IndexerConfig, IndexerIdentity};
+use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
 use crate::registry::IndexerRegistry;
 
@@ -48,8 +48,8 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
-    pub async fn get_state(&self, identity: &IndexerIdentity) -> anyhow::Result<IndexerState> {
-        let raw_state = self.redis_client.get_indexer_state(identity).await?;
+    pub async fn get_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<IndexerState> {
+        let raw_state = self.redis_client.get_indexer_state(indexer_config).await?;
 
         if let Some(raw_state) = raw_state {
             return Ok(serde_json::from_str(&raw_state)?);
@@ -60,25 +60,25 @@ impl IndexerStateManagerImpl {
 
     async fn set_state(
         &self,
-        identity: &IndexerIdentity,
+        indexer_config: &IndexerConfig,
         state: IndexerState,
     ) -> anyhow::Result<()> {
         let raw_state = serde_json::to_string(&state)?;
 
         self.redis_client
-            .set_indexer_state(identity, raw_state)
+            .set_indexer_state(indexer_config, raw_state)
             .await
     }
 
     pub async fn set_enabled(
         &self,
-        identity: &IndexerIdentity,
+        indexer_config: &IndexerConfig,
         enabled: bool,
     ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(identity).await?;
+        let mut indexer_state = self.get_state(indexer_config).await?;
         indexer_state.enabled = enabled;
 
-        self.set_state(identity, indexer_state).await?;
+        self.set_state(indexer_config, indexer_state).await?;
 
         Ok(())
     }
@@ -91,7 +91,7 @@ impl IndexerStateManagerImpl {
 
         for (account_id, indexers) in indexer_registry.iter() {
             for (function_name, indexer_config) in indexers.iter() {
-                let indexer_state = self.get_state(&indexer_config.into()).await?;
+                let indexer_state = self.get_state(indexer_config).await?;
 
                 if indexer_state.enabled {
                     filtered_registry
@@ -158,7 +158,7 @@ impl IndexerStateManagerImpl {
                         None => IndexerState::default(),
                     };
 
-                    self.set_state(&indexer_config.into(), state).await?;
+                    self.set_state(indexer_config, state).await?;
                 }
             }
 
@@ -176,7 +176,7 @@ impl IndexerStateManagerImpl {
         &self,
         indexer_config: &IndexerConfig,
     ) -> anyhow::Result<SyncStatus> {
-        let indexer_state = self.get_state(&indexer_config.into()).await?;
+        let indexer_state = self.get_state(indexer_config).await?;
 
         if indexer_state.block_stream_synced_at.is_none() {
             return Ok(SyncStatus::New);
@@ -202,12 +202,11 @@ impl IndexerStateManagerImpl {
         &self,
         indexer_config: &IndexerConfig,
     ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(&indexer_config.into()).await?;
+        let mut indexer_state = self.get_state(indexer_config).await?;
 
         indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
 
-        self.set_state(&indexer_config.into(), indexer_state)
-            .await?;
+        self.set_state(indexer_config, indexer_state).await?;
 
         Ok(())
     }
@@ -265,7 +264,7 @@ mod tests {
         let mut mock_redis_client = RedisClient::default();
         mock_redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(IndexerIdentity::from(morgs_config.clone())))
+            .with(predicate::eq(morgs_config.clone()))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
@@ -275,7 +274,7 @@ mod tests {
             .once();
         mock_redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(IndexerIdentity::from(darunrs_config.clone())))
+            .with(predicate::eq(darunrs_config.clone()))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 1, "enabled": false })
@@ -370,7 +369,7 @@ mod tests {
         mock_redis_client
             .expect_set_indexer_state()
             .with(
-                predicate::eq(IndexerIdentity::from(morgs_config)),
+                predicate::eq(morgs_config),
                 predicate::eq(
                     serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
                         .to_string(),
@@ -381,7 +380,7 @@ mod tests {
         mock_redis_client
             .expect_set_indexer_state()
             .with(
-                predicate::eq(IndexerIdentity::from(darunrs_config)),
+                predicate::eq(darunrs_config),
                 predicate::eq(
                     serde_json::json!({ "block_stream_synced_at": 1, "enabled": true }).to_string(),
                 ),
@@ -528,7 +527,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
+            .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 300, "enabled": true })
@@ -564,7 +563,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
+            .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
@@ -600,7 +599,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
+            .with(predicate::eq(indexer_config.clone()))
             .returning(|_| Ok(None));
 
         let indexer_manager = IndexerStateManagerImpl::new(redis_client);
@@ -631,7 +630,7 @@ mod tests {
         let mut redis_client = RedisClient::default();
         redis_client
             .expect_get_indexer_state()
-            .with(predicate::eq(IndexerIdentity::from(indexer_config.clone())))
+            .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
                     serde_json::json!({ "block_stream_synced_at": 123, "enabled": true })
@@ -641,7 +640,7 @@ mod tests {
         redis_client
             .expect_set_indexer_state()
             .with(
-                predicate::eq(IndexerIdentity::from(indexer_config.clone())),
+                predicate::eq(indexer_config.clone()),
                 predicate::eq(
                     serde_json::json!({ "block_stream_synced_at":123, "enabled": false })
                         .to_string(),

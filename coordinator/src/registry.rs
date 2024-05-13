@@ -28,6 +28,7 @@ pub struct RegistryImpl {
 #[cfg_attr(test, mockall::automock)]
 impl RegistryImpl {
     const LIST_METHOD: &'static str = "list_all";
+    const GET_METHOD: &'static str = "read_indexer_function";
 
     pub fn connect(registry_contract_id: AccountId, rpc_url: &str) -> Self {
         let json_rpc_client = JsonRpcClient::connect(rpc_url);
@@ -93,5 +94,50 @@ impl RegistryImpl {
             anyhow::bail!("Invalid registry response")
         })
         .await
+    }
+
+    pub async fn fetch_indexer(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<IndexerConfig> {
+        let response = self
+            .json_rpc_client
+            .call(RpcQueryRequest {
+                block_reference: BlockReference::Finality(Finality::Final),
+                request: QueryRequest::CallFunction {
+                    method_name: Self::GET_METHOD.to_string(),
+                    account_id: self.registry_contract_id.clone(),
+                    args: FunctionArgs::from(
+                        serde_json::json!({
+                            "account_id": account_id,
+                            "function_name": function_name,
+                        })
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                    ),
+                },
+            })
+            .await
+            .context("Failed to fetch indexer")?;
+
+        if let QueryResponseKind::CallResult(call_result) = response.kind {
+            let indexer: registry_types::IndexerConfig =
+                serde_json::from_slice(&call_result.result)?;
+
+            return Ok(IndexerConfig {
+                account_id: account_id.clone(),
+                function_name: function_name.to_string(),
+                code: indexer.code,
+                schema: indexer.schema,
+                rule: indexer.rule,
+                start_block: indexer.start_block,
+                updated_at_block_height: indexer.updated_at_block_height,
+                created_at_block_height: indexer.created_at_block_height,
+            });
+        }
+
+        anyhow::bail!("Invalid registry response")
     }
 }

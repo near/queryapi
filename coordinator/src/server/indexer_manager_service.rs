@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use tonic::{Request, Response, Status};
 
-use crate::indexer_config::IndexerIdentity;
 use crate::indexer_state::IndexerStateManager;
 use crate::registry::Registry;
 use crate::server::indexer_manager;
@@ -34,8 +33,6 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
         &self,
         request: Request<indexer_manager::IndexerRequest>,
     ) -> Result<Response<indexer_manager::EnableIndexerResponse>, Status> {
-        tracing::info!("Enabling indexer");
-
         let request = request.into_inner();
 
         let account_id = request
@@ -43,15 +40,18 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
             .parse()
             .map_err(|_| Status::invalid_argument("Invalid account ID"))?;
 
-        let indexer_identity = IndexerIdentity {
-            account_id,
-            function_name: request.function_name,
-        };
+        let indexer_config = self
+            .registry
+            .fetch_indexer(account_id, request.function_name)
+            .await
+            .map_err(|_| Status::not_found("Indexer not found"))?;
 
         self.indexer_state_manager
-            .set_enabled(&indexer_identity, true)
+            .set_enabled(&indexer_config, true)
             .await
             .map_err(|_| Status::internal("Failed to enable indexer"))?;
+
+        tracing::info!("Enabled indexer");
 
         Ok(Response::new(indexer_manager::EnableIndexerResponse {
             success: true,
@@ -69,8 +69,6 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
         &self,
         request: Request<indexer_manager::IndexerRequest>,
     ) -> Result<Response<indexer_manager::DisableIndexerResponse>, Status> {
-        tracing::info!("Disabling indexer");
-
         let request = request.into_inner();
 
         let account_id = request
@@ -78,15 +76,18 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
             .parse()
             .map_err(|_| Status::invalid_argument("Invalid account ID"))?;
 
-        let indexer_identity = IndexerIdentity {
-            account_id,
-            function_name: request.function_name,
-        };
+        let indexer_config = self
+            .registry
+            .fetch_indexer(account_id, request.function_name)
+            .await
+            .map_err(|_| Status::not_found("Indexer not found"))?;
 
         self.indexer_state_manager
-            .set_enabled(&indexer_identity, false)
+            .set_enabled(&indexer_config, false)
             .await
             .map_err(|_| Status::internal("Failed to disable indexer"))?;
+
+        tracing::info!("Disabled indexer");
 
         Ok(Response::new(indexer_manager::DisableIndexerResponse {
             success: true,
@@ -109,7 +110,7 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
             for (function_name, indexer_config) in functions {
                 let state = self
                     .indexer_state_manager
-                    .get_state(&indexer_config.into())
+                    .get_state(&indexer_config)
                     .await
                     .unwrap();
 
@@ -120,8 +121,6 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
                 });
             }
         }
-
-        eprintln!("indexers = {:#?}", indexers);
 
         Ok(Response::new(indexer_manager::ListIndexersResponse {
             indexers,
