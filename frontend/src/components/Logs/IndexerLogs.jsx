@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
+import { Container } from "react-bootstrap";
 import { Grid } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
@@ -6,10 +7,11 @@ import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
 import Status from "./Status";
 import { sanitizeString } from "../../utils/helpers";
+import { getIndexerQuery, getPaginationQuery, getBlockHeightAndMessageSearchQuery, getMessageSearchQuery } from './IndexerLogsComponents/Queries';
 
 const IndexerLogsComponent = () => {
   const DEV_ENV = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql';
-  const PROD_ENV = '';
+  const PROD_ENV = 'https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql';
 
   const LOGS_PER_PAGE = 50;
 
@@ -26,88 +28,14 @@ const IndexerLogsComponent = () => {
   const gridContainerRef = useRef(null);
   const gridRef = useRef(null);
 
-  const getIndexerQuery = () => `
-    query GetIndexerQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
-        block_height
-        level
-        message
-        timestamp
-        type
-      }
-      ${tableName}_aggregate {
-        aggregate {
-          count
-        }
-      }
-    }`;
-
-  const getPaginationQuery = () => `
-    query GetPaginationQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, order_by: {timestamp: desc}) {
-        block_height
-        level
-        message
-        timestamp
-        type
-      }
-      ${tableName}_aggregate {
-        aggregate {
-          count
-        }
-      }
-    }`;
-
-  const getBlockHeightAndMessageSearchQuery = (keyword) => `
-    query getBlockHeightAndMessageSearchQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, where: { _or: [
-        { message: { _ilike: "%${keyword}%" } },
-        { block_height: { _eq: ${keyword} } }
-      ]
-    }, order_by: { timestamp: desc }) {
-        block_height
-        level
-        message
-        timestamp
-        type
-      }
-      
-      ${tableName}_aggregate(where: { _or: [
-        { message: { _ilike: "%${keyword}%" } },
-        { block_height: { _eq: ${keyword} } }
-      ]
-    }) {
-        aggregate {
-          count
-        }
-      }
-    }`;
-
-  const getMessageSearchQuery = (keyword) => `
-    query getMessageSearchQuery($limit: Int, $offset: Int) {
-      ${tableName}(limit: $limit, offset: $offset, where: {message: {_ilike: "%${keyword}%"}}, order_by: { timestamp: desc }) {
-        block_height
-        level
-        message
-        timestamp
-        type
-      }
-      
-      ${tableName}_aggregate(where: { message: { _ilike: "%${keyword}%" } }) {
-        aggregate {
-          count
-        }
-      }
-    }`;
-
   const getSearchConfig = () => {
     return {
+      debounceTimeout: 500,
       server: {
         url: (prev, keyword) => prev,
         body: (prev, keyword) => {
-          (isNaN(Number(keyword))) ? console.log('we doing message') : console.log('message and bh');
           return JSON.stringify({
-            query: (isNaN(Number(keyword))) ? getMessageSearchQuery(keyword) : getBlockHeightAndMessageSearchQuery(keyword),
+            query: (isNaN(Number(keyword))) ? getMessageSearchQuery(tableName, keyword) : getBlockHeightAndMessageSearchQuery(tableName, keyword),
             variables: { limit: LOGS_PER_PAGE, offset: 0 },
           });
         },
@@ -135,7 +63,7 @@ const IndexerLogsComponent = () => {
         ['Content-Type']: 'application/json',
       },
       body: JSON.stringify({
-        query: getIndexerQuery(),
+        query: getIndexerQuery(tableName),
         variables: { limit: LOGS_PER_PAGE, offset: 0 },
       }),
       then: ({ data }) => (data[tableName]),
@@ -190,7 +118,7 @@ const IndexerLogsComponent = () => {
   };
 
   return (
-    <div>
+    <>
       <LogButtons
         currentUserAccountId={currentUserAccountId}
         latestHeight={latestHeight}
@@ -201,10 +129,16 @@ const IndexerLogsComponent = () => {
         functionName={functionName}
         latestHeight={latestHeight}
       />
-      <div>
-        <div ref={gridContainerRef}></div>
-      </div>
-    </div>
+      <Container
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          margin: "0px",
+          maxWidth: "100%",
+        }}
+        ref={gridContainerRef}>
+      </Container>
+    </>
   );
 };
 
