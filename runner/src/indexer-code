@@ -193,6 +193,7 @@ function addIndexCompressedLast(
   if (index - maxIndex === 1) {
     // write increased stretch of 1s
     cur = writeEliasGammaBits(x + 1, result, lastEliasGammaStartBit, true);
+    middleEliasGammaWriteTimerEnd = performanceNow() - writeZerosAndOnesTimer;
   } else if (index - maxIndex > 1) {
     const writeZerosAndOnesTimer = performanceNow();
     // write zeros
@@ -217,8 +218,8 @@ function addIndexCompressedLast(
   // const finalBuffer = Buffer.from(result.slice(0, Math.ceil(cur.nextBit / 8))).toString("base64");
   const finalBuffer = result.subarray(0, Math.ceil(cur.nextBit / 8)).toString("base64");
   const createFinalBufferTimerEnd = performanceNow() - createFinalBufferTimer;
-  // console.log(`createBuffersTimer=${createBuffersTimerEnd}, copyBufferTimer=${copyBufferTimerEnd}, createFinalBufferTimer=${createFinalBufferTimerEnd}`);
-  // console.log(`decodeLastEGTimer=${decodeLastEGTimerEnd}, middleEliasGammaWriteTimer=${middleEliasGammaWriteTimerEnd}, writeRemainingZerosTimer=${writeRemainingZerosTimerEnd}`);
+  console.log(`createBuffersTimer=${createBuffersTimerEnd}, copyBufferTimer=${copyBufferTimerEnd}, createFinalBufferTimer=${createFinalBufferTimerEnd}`);
+  console.log(`decodeLastEGTimer=${decodeLastEGTimerEnd}, middleEliasGammaWriteTimer=${middleEliasGammaWriteTimerEnd}, writeRemainingZerosTimer=${writeRemainingZerosTimerEnd}`);
 
   return {
     compressed: finalBuffer,

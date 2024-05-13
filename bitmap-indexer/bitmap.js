@@ -182,6 +182,7 @@ function addIndexCompressedLast(
     lastEliasGammaStartBit,
   );
   let newLastEliasGammaStartBit = lastEliasGammaStartBit;
+  let cur;
   if (index - maxIndex === 1) {
     // write increased stretch of 1s
     cur = writeEliasGammaBits(x + 1, result, lastEliasGammaStartBit, true);
@@ -209,25 +210,14 @@ function addIndexCompressedLast(
 }
 
 function addIndexCompressedFull(compressedBase64, index) {
-  const b = performance.now();
   const buf = Buffer.from(compressedBase64, "base64");
-  const bufferMs = performance.now() - b;
-  const d = performance.now();
   const bitmap = decompressToBitmapArray(buf);
-  const decompressMs = performance.now() - d;
-  const s = performance.now();
   const newBitmap = setBitInBitmap(bitmap, index, true);
-  const setsMs = performance.now() - s;
-  const c = performance.now();
   const {
     result: compressed,
     lastEliasGammaStartBit,
     maxIndex,
   } = compressBitmapArray(newBitmap);
-  const compMs = performance.now() - c;
-  // console.log(
-  //   `bufferMs=${bufferMs}, decompressMs=${decompressMs}, setsMs=${setsMs}, compMs=${compMs}`,
-  // );
   return {
     compressed: Buffer.from(compressed).toString("base64"),
     lastEliasGammaStartBit,
