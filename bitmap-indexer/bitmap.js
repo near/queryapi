@@ -1,6 +1,5 @@
 const { performance } = require("node:perf_hooks");
 
-// Core functions start here
 function indexOfFirstBitInByteArray(bytes, startBit) {
   let firstBit = startBit % 8;
   for (let iByte = ~~(startBit / 8); iByte < bytes.length; iByte++) {
@@ -63,6 +62,9 @@ function writeEliasGammaBits(x, result, startBit, writeZeros = false) {
   const N = ~~Math.log2(x);
   const remainder = x - 2 ** N;
   nextBit += N;
+  for (let index = startBit; writeZeros && index <= nextBit; index++) {
+    result = setBitInBitmap(result, index, 0, writeZeros);
+  }
   result = setBitInBitmap(result, nextBit++, true, writeZeros);
   for (let ri = 0; ri < N; ri++, nextBit++) {
     const bitValue = (remainder & (1 << (N - 1 - ri))) > 0;
@@ -182,11 +184,8 @@ function addIndexCompressedLast(
   compressedBase64,
   index,
   lastEliasGammaStartBit,
-  maxIndex = -1,
+  maxIndex,
 ) {
-  if (maxIndex = -1) {
-    return addIndexCompressedFull(compressedBase64, index);
-  }
   const originalCompressed = Buffer.from(compressedBase64, "base64");
   const resultBuffer = Buffer.alloc(12000);
   originalCompressed.copy(resultBuffer);
@@ -256,9 +255,9 @@ function addIndexCompressed(
   compressedBase64,
   index,
   lastEliasGammaStartBit,
-  maxIndex,
+  maxIndex = -1,
 ) {
-  if (index <= maxIndex) {
+  if (maxIndex < 0 || index <= maxIndex) {
     return addIndexCompressedFull(compressedBase64, index);
   } else {
     return addIndexCompressedLast(

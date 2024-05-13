@@ -176,7 +176,7 @@ describe("Bitmap Indexes", () => {
           const before = decompressBase64ToBitmapString(
             compressedAcc.compressed,
           );
-          const res = addIndexCompressedLast(
+          const res = before === "" ? addIndexCompressedFull(compressedAcc.compressed, idx) : addIndexCompressedLast(
             compressedAcc.compressed,
             idx,
             compressedAcc.lastEliasGammaStartBit,
