@@ -172,7 +172,6 @@ function addIndexCompressedLast(
   lastEliasGammaStartBit,
   maxIndex,
 ) {
-  console.log('addIndexCompressedLast');
   const createBuffersTimer = performanceNow();
   const originalCompressed = Buffer.from(compressedBase64, "base64");
   const resultBuffer = Buffer.alloc(12000);
@@ -302,12 +301,10 @@ const lastRunData = allReceivers
   const blockIndexInCurrentBitmap = currentIndex?.first_block_height
     ? block.blockHeight - currentIndex?.first_block_height
     : 0;
-  const s = performanceNow();
   const compressedData = addIndexCompressed(
     currentIndex?.bitmap ?? '',
     blockIndexInCurrentBitmap
   );
-  console.log(`${receiverId}: ${performanceNow() - s} ms, first_block_height: ${currentIndex?.first_block_height ?? 0}, blockIndexInCurrentBitmap: ${blockIndexInCurrentBitmap}\n`);
   return {
     lastEliasGammaStartBit: compressedData.lastEliasGammaStartBit,
     maxIndex: compressedData.maxIndex,
