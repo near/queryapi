@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
-import { Container } from "react-bootstrap";
+import { Container, Row, Col } from 'react-bootstrap';
 import { Grid } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
@@ -7,7 +7,8 @@ import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
 import Status from "./Status";
 import { sanitizeString } from "../../utils/helpers";
-import { getIndexerQuery, getPaginationQuery, getBlockHeightAndMessageSearchQuery, getMessageSearchQuery } from './IndexerLogsComponents/Queries';
+import { getIndexerQuery, getPaginationQuery, getBlockHeightAndMessageSearchQuery, getMessageSearchQuery, getIndexerQueryWithSeverity, getMessageSearchQueryWithSeverity, getBlockHeightAndMessageSearchQueryWithSeverity } from './IndexerLogsComponents/Queries';
+import SeverityRadioButtonGroup from './IndexerLogsComponents/SeverityRadioButtonGroup';
 
 const IndexerLogsComponent = () => {
   const DEV_ENV = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql';
@@ -28,6 +29,12 @@ const IndexerLogsComponent = () => {
   const gridContainerRef = useRef(null);
   const gridRef = useRef(null);
 
+  const [severity, setSeverity] = useState('');
+
+  const handleSeverityChange = (selectedSeverity) => {
+    setSeverity(selectedSeverity);
+  };
+
   const getSearchConfig = () => {
     return {
       debounceTimeout: 500,
@@ -35,7 +42,7 @@ const IndexerLogsComponent = () => {
         url: (prev, keyword) => prev,
         body: (prev, keyword) => {
           return JSON.stringify({
-            query: (isNaN(Number(keyword))) ? getMessageSearchQuery(tableName, keyword) : getBlockHeightAndMessageSearchQuery(tableName, keyword),
+            query: !severity ? (isNaN(Number(keyword)) ? getMessageSearchQuery(tableName, keyword) : getBlockHeightAndMessageSearchQuery(tableName, keyword)) : (isNaN(Number(keyword)) ? getMessageSearchQueryWithSeverity(tableName, keyword, severity) : getBlockHeightAndMessageSearchQueryWithSeverity(tableName, keyword, severity)),
             variables: { limit: LOGS_PER_PAGE, offset: 0 },
           });
         },
@@ -63,7 +70,7 @@ const IndexerLogsComponent = () => {
         ['Content-Type']: 'application/json',
       },
       body: JSON.stringify({
-        query: getIndexerQuery(tableName),
+        query: (severity) ? getIndexerQueryWithSeverity(tableName, severity) : getIndexerQuery(tableName),
         variables: { limit: LOGS_PER_PAGE, offset: 0 },
       }),
       then: ({ data }) => (data[tableName]),
@@ -117,6 +124,10 @@ const IndexerLogsComponent = () => {
     renderGrid();
   };
 
+  useEffect(() => {
+    reloadData();
+  }, [severity]);
+
   return (
     <>
       <LogButtons
@@ -129,16 +140,33 @@ const IndexerLogsComponent = () => {
         functionName={functionName}
         latestHeight={latestHeight}
       />
-      <Container
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          margin: "0px",
-          maxWidth: "100%",
-        }}
-        ref={gridContainerRef}>
+      <Container fluid>
+        <Row>
+          <Col md={2}>
+            <div>
+              <h6>Selected Severity: {severity}</h6>
+              <SeverityRadioButtonGroup
+                selectedSeverity={severity}
+                onSeverityChange={handleSeverityChange}
+              />
+            </div>
+          </Col>
+
+          <Col md={10}>
+            <div
+              style={{
+                width: "100%",
+                margin: "0px",
+                padding: "0px",
+              }}
+              ref={gridContainerRef}
+            >
+            </div>
+          </Col>
+        </Row>
       </Container>
     </>
+
   );
 };
 
