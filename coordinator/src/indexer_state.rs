@@ -19,9 +19,9 @@ struct OldIndexerState {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct IndexerState {
-    block_stream_synced_at: Option<u64>,
-    enabled: bool,
+pub struct IndexerState {
+    pub block_stream_synced_at: Option<u64>,
+    pub enabled: bool,
 }
 
 impl Default for IndexerState {
@@ -48,7 +48,7 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
-    async fn get_state(&self, identity: &IndexerIdentity) -> anyhow::Result<IndexerState> {
+    pub async fn get_state(&self, identity: &IndexerIdentity) -> anyhow::Result<IndexerState> {
         let raw_state = self.redis_client.get_indexer_state(identity).await?;
 
         if let Some(raw_state) = raw_state {

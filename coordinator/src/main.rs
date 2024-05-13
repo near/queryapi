@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
         "Starting Coordinator"
     );
 
-    let registry = Registry::connect(registry_contract_id.clone(), &rpc_url);
+    let registry = Arc::new(Registry::connect(registry_contract_id.clone(), &rpc_url));
     let redis_client = RedisClient::connect(&redis_url).await?;
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
@@ -57,7 +57,8 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::spawn({
         let indexer_state_manager = indexer_state_manager.clone();
-        async move { server::init(grpc_port, indexer_state_manager).await }
+        let registry = registry.clone();
+        async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
     loop {
