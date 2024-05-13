@@ -27,6 +27,8 @@ describe("Bitmap Indexes", () => {
     { arr: [0, 1, 2, 3], expected: "11110000" },
     { arr: [0, 1, 2, 7], expected: "11100001" },
     { arr: [1, 2, 8, 9], expected: "0110000011000000" },
+    { arr: [1, 3, 5, 7, 9, 11, 13, 15, 17, 19], expected: "010101010101010101010000" },
+    { arr: [0, 3, 7, 10, 14, 17], expected: "100100010010001001000000" },
     { arr: [31], expected: Array(31).fill("0").join("") + "1" },
   ];
   const compressedCases = [
@@ -41,6 +43,36 @@ describe("Bitmap Indexes", () => {
       bitmap: "00000001",
       compressed: "0 00111 1 0",
       expectedLastEGStartBit: 6,
+    },
+  ];
+  const compressLastCases = [
+    {
+      arr: [2, 3],
+      newIndex: 4,
+      bitmap: "00111000",
+      compressed: "0 010 011 011 000000",
+      expectedLastEGStartBit: 4,
+    },
+    {
+      arr: [6, 7],
+      newIndex: 10,
+      bitmap: "0000001100100000",
+      compressed: "0 00110 010 010 1 00101 000000",
+      expectedLastEGStartBit: 12,
+    },
+    {
+      arr: [7, 9],
+      newIndex: 14,
+      bitmap: "0000000101000010",
+      compressed: "0 00111 1 1 1 00100 1 1",
+      expectedLastEGStartBit: 14,
+    },
+    {
+      arr: [7],
+      newIndex: 16,
+      bitmap: "00000001 00000000 10000000",
+      compressed: "0 00111 1 0001000 1 00111 0000",
+      expectedLastEGStartBit: 14,
     },
   ];
   describe("Bitmap Array to String", () => {
@@ -79,37 +111,6 @@ describe("Bitmap Indexes", () => {
       expect(comp.lastEliasGammaStartBit).toBe(expectedLastEGStartBit);
     },
   );
-
-  const compressLastCases = [
-    {
-      arr: [2, 3],
-      newIndex: 4,
-      bitmap: "00111000",
-      compressed: "0 010 011 011 000000",
-      expectedLastEGStartBit: 4,
-    },
-    {
-      arr: [6, 7],
-      newIndex: 10,
-      bitmap: "0000001100100000",
-      compressed: "0 00110 010 010 1 00101 000000",
-      expectedLastEGStartBit: 12,
-    },
-    {
-      arr: [7, 9],
-      newIndex: 14,
-      bitmap: "0000000101000010",
-      compressed: "0 00111 1 1 1 00100 1 1",
-      expectedLastEGStartBit: 14,
-    },
-    {
-      arr: [7],
-      newIndex: 16,
-      bitmap: "00000001 00000000 10000000",
-      compressed: "0 00111 1 0001000 1 00111 0000",
-      expectedLastEGStartBit: 14,
-    },
-  ];
 
   it.each(compressLastCases)(
     `Should add bit=$newIndex into a compressed $arr`,

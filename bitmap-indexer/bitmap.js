@@ -184,7 +184,6 @@ function addIndexCompressedLast(
   lastEliasGammaStartBit,
   maxIndex = -1,
 ) {
-  console.log(`Adding ${index} to bitmap at ${lastEliasGammaStartBit} index of last 1 EG section, existing maxIndex=${maxIndex}`);
   if (maxIndex = -1) {
     return addIndexCompressedFull(compressedBase64, index);
   }
