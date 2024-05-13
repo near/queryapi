@@ -89,15 +89,16 @@ function compressBitmapArray(uint8Array) {
       curBitStretch++;
     } else {
       maxIndex = curBit ? ibit - 1 : maxIndex;
+      lastEliasGammaStartBit = curBit ? nextBit : lastEliasGammaStartBit;
       const w = writeEliasGammaBits(curBitStretch, result, nextBit);
       nextBit = w.nextBit;
       result = w.result;
       curBit = !curBit;
-      lastEliasGammaStartBit = curBit ? nextBit : lastEliasGammaStartBit;
       curBitStretch = 1;
     }
   }
   maxIndex = curBit ? ibit - 1 : maxIndex;
+  lastEliasGammaStartBit = curBit ? nextBit : lastEliasGammaStartBit;
   const w = writeEliasGammaBits(curBitStretch, result, nextBit);
   nextBit = w.nextBit;
   result = w.result.slice(0, Math.ceil(nextBit / 8));
@@ -181,8 +182,12 @@ function addIndexCompressedLast(
   compressedBase64,
   index,
   lastEliasGammaStartBit,
-  maxIndex,
+  maxIndex = -1,
 ) {
+  console.log(`Adding ${index} to bitmap at ${lastEliasGammaStartBit} index of last 1 EG section, existing maxIndex=${maxIndex}`);
+  if (maxIndex = -1) {
+    return addIndexCompressedFull(compressedBase64, index);
+  }
   const originalCompressed = Buffer.from(compressedBase64, "base64");
   const resultBuffer = Buffer.alloc(12000);
   originalCompressed.copy(resultBuffer);
