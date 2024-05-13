@@ -145,6 +145,16 @@ mockall::mock! {
         pub async fn set_migration_complete(&self) -> anyhow::Result<()>;
 
         pub async fn is_migration_complete(&self) -> anyhow::Result<Option<bool>>;
+
+        pub async fn get<T, U>(&self, key: T) -> anyhow::Result<Option<U>>
+        where
+            T: ToRedisArgs + Debug + Send + Sync + 'static,
+            U: FromRedisValue + Debug + 'static;
+
+        pub async fn set<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
+        where
+            K: ToRedisArgs + Debug + Send + Sync + 'static,
+            V: ToRedisArgs + Debug + Send + Sync + 'static;
     }
 
     impl Clone for RedisClientImpl {

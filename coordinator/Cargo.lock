@@ -1266,6 +1266,7 @@ dependencies = [
  "near-jsonrpc-client",
  "near-jsonrpc-primitives",
  "near-primitives",
+ "prost 0.12.3",
  "redis 0.24.0",
  "registry-types",
  "runner",
@@ -1273,6 +1274,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tonic 0.10.2",
+ "tonic-build 0.10.2",
  "tracing",
  "tracing-subscriber",
 ]

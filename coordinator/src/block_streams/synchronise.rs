@@ -98,11 +98,6 @@ async fn synchronise_block_stream(
     let start_block_height =
         determine_start_block_height(&sync_status, indexer_config, redis_client).await?;
 
-    tracing::info!(
-        "Starting new block stream starting at block {}",
-        start_block_height
-    );
-
     block_streams_handler
         .start(start_block_height, indexer_config)
         .await?;
@@ -136,16 +131,22 @@ async fn determine_start_block_height(
     redis_client: &RedisClient,
 ) -> anyhow::Result<u64> {
     if sync_status == &SyncStatus::Synced {
-        tracing::info!("Resuming block stream");
+        let height = get_continuation_block_height(indexer_config, redis_client).await?;
 
-        return get_continuation_block_height(indexer_config, redis_client).await;
+        tracing::info!(height, "Resuming block stream");
+
+        return Ok(height);
     }
 
-    match indexer_config.start_block {
+    let height = match indexer_config.start_block {
         StartBlock::Latest => Ok(indexer_config.get_registry_version()),
         StartBlock::Height(height) => Ok(height),
         StartBlock::Continue => get_continuation_block_height(indexer_config, redis_client).await,
-    }
+    }?;
+
+    tracing::info!(height, "Starting block stream");
+
+    Ok(height)
 }
 
 async fn get_continuation_block_height(
