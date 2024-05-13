@@ -83,6 +83,28 @@ impl IndexerStateManagerImpl {
         Ok(())
     }
 
+    pub async fn filter_disabled_indexers(
+        &self,
+        indexer_registry: &IndexerRegistry,
+    ) -> anyhow::Result<IndexerRegistry> {
+        let mut filtered_registry: IndexerRegistry = std::collections::HashMap::new();
+
+        for (account_id, indexers) in indexer_registry.iter() {
+            for (function_name, indexer_config) in indexers.iter() {
+                let indexer_state = self.get_state(&indexer_config.into()).await?;
+
+                if indexer_state.enabled {
+                    filtered_registry
+                        .entry(account_id.clone())
+                        .or_default()
+                        .insert(function_name.clone(), indexer_config.clone());
+                }
+            }
+        }
+
+        Ok(filtered_registry)
+    }
+
     pub async fn migrate_state_if_needed(
         &self,
         indexer_registry: &IndexerRegistry,
@@ -118,7 +140,6 @@ impl IndexerStateManagerImpl {
             .await?
             .is_none()
         {
-            println!("here");
             tracing::info!("Migrating enabled flag");
 
             for (_, indexers) in indexer_registry.iter() {
@@ -200,6 +221,78 @@ mod tests {
 
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn filters_disabled_indexers() {
+        let morgs_config = IndexerConfig {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: Some(200),
+            start_block: StartBlock::Height(100),
+        };
+        let darunrs_config = IndexerConfig {
+            account_id: "darunrs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            code: String::new(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: Status::Any,
+            },
+            created_at_block_height: 1,
+            updated_at_block_height: None,
+            start_block: StartBlock::Height(100),
+        };
+
+        let indexer_registry = HashMap::from([
+            (
+                "morgs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), morgs_config.clone())]),
+            ),
+            (
+                "darunrs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), darunrs_config.clone())]),
+            ),
+        ]);
+
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(IndexerIdentity::from(morgs_config.clone())))
+            .returning(|_| {
+                Ok(Some(
+                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": true })
+                        .to_string(),
+                ))
+            })
+            .once();
+        mock_redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(IndexerIdentity::from(darunrs_config.clone())))
+            .returning(|_| {
+                Ok(Some(
+                    serde_json::json!({ "block_stream_synced_at": 1, "enabled": false })
+                        .to_string(),
+                ))
+            })
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+
+        let filtered_registry = indexer_manager
+            .filter_disabled_indexers(&indexer_registry)
+            .await
+            .unwrap();
+
+        assert!(filtered_registry.contains_key(&morgs_config.account_id));
+    }
 
     #[tokio::test]
     async fn migrates_enabled_flag() {

@@ -67,6 +67,10 @@ async fn main() -> anyhow::Result<()> {
             .migrate_state_if_needed(&indexer_registry)
             .await?;
 
+        let indexer_registry = indexer_state_manager
+            .filter_disabled_indexers(&indexer_registry)
+            .await?;
+
         tokio::try_join!(
             synchronise_executors(&indexer_registry, &executors_handler),
             synchronise_block_streams(
