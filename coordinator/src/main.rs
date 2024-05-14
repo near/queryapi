@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use near_primitives::types::AccountId;
@@ -16,6 +17,7 @@ mod indexer_config;
 mod indexer_state;
 mod redis;
 mod registry;
+mod server;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
@@ -36,12 +38,7 @@ async fn main() -> anyhow::Result<()> {
     let block_streamer_url =
         std::env::var("BLOCK_STREAMER_URL").expect("BLOCK_STREAMER_URL is not set");
     let runner_url = std::env::var("RUNNER_URL").expect("RUNNER_URL is not set");
-
-    let registry = Registry::connect(registry_contract_id.clone(), &rpc_url);
-    let redis_client = RedisClient::connect(&redis_url).await?;
-    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
-    let executors_handler = ExecutorsHandler::connect(&runner_url)?;
-    let indexer_state_manager = IndexerStateManager::new(redis_client.clone());
+    let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
 
     tracing::info!(
         rpc_url,
@@ -52,11 +49,27 @@ async fn main() -> anyhow::Result<()> {
         "Starting Coordinator"
     );
 
+    let registry = Arc::new(Registry::connect(registry_contract_id.clone(), &rpc_url));
+    let redis_client = RedisClient::connect(&redis_url).await?;
+    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
+    let executors_handler = ExecutorsHandler::connect(&runner_url)?;
+    let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));
+
+    tokio::spawn({
+        let indexer_state_manager = indexer_state_manager.clone();
+        let registry = registry.clone();
+        async move { server::init(grpc_port, indexer_state_manager, registry).await }
+    });
+
     loop {
         let indexer_registry = registry.fetch().await?;
 
         indexer_state_manager
             .migrate_state_if_needed(&indexer_registry)
+            .await?;
+
+        let indexer_registry = indexer_state_manager
+            .filter_disabled_indexers(&indexer_registry)
             .await?;
 
         tokio::try_join!(

@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 futures-util = "0.3.30"
+prost = "0.12.3"
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
 tokio = "1.28"
 tonic = "0.10.2"
@@ -21,6 +22,9 @@ registry-types = { path = "../registry/types" }
 near-jsonrpc-client = "0.8.0"
 near-primitives = "0.20.0"
 near-jsonrpc-primitives = "0.20.0"
+
+[build-dependencies]
+tonic-build = "0.10"
 
 [dev-dependencies]
 mockall = "0.11.4"
