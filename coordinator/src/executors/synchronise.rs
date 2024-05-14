@@ -3,19 +3,11 @@ use crate::registry::IndexerRegistry;
 
 use super::handler::{ExecutorInfo, ExecutorsHandler};
 
-const V1_EXECUTOR_VERSION: u64 = 0;
-
 pub async fn synchronise_executors(
     indexer_registry: &IndexerRegistry,
     executors_handler: &ExecutorsHandler,
 ) -> anyhow::Result<()> {
-    let active_executors = executors_handler.list().await?;
-
-    // Ignore V1 executors
-    let mut active_executors: Vec<_> = active_executors
-        .into_iter()
-        .filter(|executor| executor.version != V1_EXECUTOR_VERSION)
-        .collect();
+    let mut active_executors = executors_handler.list().await?;
 
     for indexer_config in indexer_registry.iter() {
         let active_executor = active_executors
