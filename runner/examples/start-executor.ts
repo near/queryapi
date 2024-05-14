@@ -10,6 +10,8 @@ CREATE TABLE
     "receiver_id" TEXT NOT NULL,
     "first_block_height" NUMERIC(20) NOT NULL,
     "bitmap" TEXT NOT NULL,
+    "last_elias_gamma_start_bit" NUMERIC(10) NOT NULL,
+    "max_index" NUMERIC(10) NOT NULL,
     PRIMARY KEY ("block_date", "receiver_id")
   );
 `;
@@ -17,16 +19,16 @@ CREATE TABLE
 const code = fs.readFileSync('./src/indexer-code', 'utf8');
 
 const indexer = {
-  account_id: 'nearpavel.near', // Can be anything
+  account_id: 'darunrs.near', // Can be anything
   redis_stream: 'test:stream', // Redis stream will need messages for indexer to run. This is just an example.
-  function_name: 'bitmap_v2', // Can be anything
+  function_name: 'bitmap_v4', // Can be anything
   code,
   schema,
 };
 
 void (async function main () {
   runnerClient.StopExecutor({
-    executorId: 'f778fc14ebf01fb35b827810c7e46a8d077ac702861645dd9befd8bed8ecb1ef'
+    executorId: 'f1e59f1520c75bab540b74f9d213dd7c99252537345bb8c348e15fdae64312d9'
   }, (err, response) => {
     if (err) {
       runnerClient.StartExecutor({

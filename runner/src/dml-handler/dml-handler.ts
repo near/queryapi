@@ -95,6 +95,7 @@ export default class DmlHandler {
     if (!rowsToUpsert?.length) {
       return [];
     }
+
     conflictColumns = conflictColumns.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
     updateColumns = updateColumns.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
 
@@ -104,7 +105,7 @@ export default class DmlHandler {
     const updatePlaceholders = updateColumns.map(col => `${col} = excluded.${col}`).join(', ');
     const query = `INSERT INTO ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} (${originalColumns.join(', ')}) VALUES %L ON CONFLICT (${conflictColumns.join(', ')}) DO UPDATE SET ${updatePlaceholders} RETURNING *`;
 
-    const result = /* await this.query(this.pgClient.format(query, rowValues), [], tableDefinitionNames.originalTableName, 'upsert'); */ { rows: [] };
+    const result = await this.query(this.pgClient.format(query, rowValues), [], tableDefinitionNames.originalTableName, 'upsert');
     return result.rows;
   }
 

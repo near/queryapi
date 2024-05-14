@@ -15,6 +15,8 @@ import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
 import { performance } from 'perf_hooks';
 
+import fs from 'fs';
+
 interface Dependencies {
   fetch: typeof fetch
   provisioner: Provisioner
@@ -136,6 +138,14 @@ export default class Indexer {
       vm.freeze(performance.now.bind(performance), 'performanceNow');
       // vm.freeze(() => { return 0; }, 'performanceNow');
       resourceCreationSpan.end();
+
+      const actionsByReceiver = block.actions().reduce<any>((groups, action) => {
+        (groups[action.receiverId] ||= []).push(action);
+        return groups;
+      }, {});
+      const allReceivers = Object.keys(actionsByReceiver);
+      fs.appendFileSync('actionsByReceiver.txt', `${blockHeight}\n`);
+      fs.appendFileSync('actionsByReceiver.txt', allReceivers.join('\n'));
 
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
