@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
-import { Container, Row, Col } from 'react-bootstrap';
+import { Container, Row, Col, Card, ListGroup, Accordion } from 'react-bootstrap';
 import { Grid } from "gridjs";
 import "gridjs/dist/theme/mermaid.css";
 import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
@@ -7,13 +7,12 @@ import LogButtons from "./LogButtons";
 import { useInitialPayload } from "near-social-bridge";
 import Status from "./Status";
 import { sanitizeString } from "../../utils/helpers";
-import { getIndexerQuery, getPaginationQuery, getBlockHeightAndMessageSearchQuery, getMessageSearchQuery, getIndexerQueryWithSeverity, getMessageSearchQueryWithSeverity, getBlockHeightAndMessageSearchQueryWithSeverity } from './IndexerLogsComponents/Queries';
-import SeverityRadioButtonGroup from './IndexerLogsComponents/SeverityRadioButtonGroup';
+import { getIndexerQuery, getPaginationQuery, getBlockHeightAndMessageSearchQuery, getMessageSearchQuery, getIndexerQueryWithSeverity, getMessageSearchQueryWithSeverity, getBlockHeightAndMessageSearchQueryWithSeverity } from './GraphQL/Queries';
+import LogFieldsCard from "./IndexerLogsComponents/LogFieldCard";
 
 const IndexerLogsComponent = () => {
   const DEV_ENV = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql';
   const PROD_ENV = 'https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql';
-
   const LOGS_PER_PAGE = 50;
 
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
@@ -30,10 +29,10 @@ const IndexerLogsComponent = () => {
   const gridRef = useRef(null);
 
   const [severity, setSeverity] = useState('');
+  const [logType, setLogType] = useState('');
 
-  const handleSeverityChange = (selectedSeverity) => {
-    setSeverity(selectedSeverity);
-  };
+  const handleSeverityChange = (selectedSeverity) => setSeverity(selectedSeverity);
+  const handleLogTypeChange = (selectedLogType) => setLogType(selectedLogType);
 
   const getSearchConfig = () => {
     return {
@@ -81,7 +80,7 @@ const IndexerLogsComponent = () => {
   const getGridStyle = () => {
     return {
       container: {
-        fontFamily: "Roboto Mono, monospace",
+        fontFamily: "Roboto sans-serif",
       },
       table: {},
       th: {
@@ -96,10 +95,6 @@ const IndexerLogsComponent = () => {
       },
     };
   };
-
-  useEffect(() => {
-    renderGrid();
-  }, []);
 
   const renderGrid = () => {
     const gridConfig = getGridConfig();
@@ -125,6 +120,10 @@ const IndexerLogsComponent = () => {
   };
 
   useEffect(() => {
+    renderGrid();
+  }, []);
+
+  useEffect(() => {
     reloadData();
   }, [severity]);
 
@@ -142,17 +141,15 @@ const IndexerLogsComponent = () => {
       />
       <Container fluid>
         <Row>
-          <Col md={2}>
-            <div>
-              <h6>Selected Severity: {severity}</h6>
-              <SeverityRadioButtonGroup
-                selectedSeverity={severity}
-                onSeverityChange={handleSeverityChange}
-              />
-            </div>
+          <Col md={3}>
+            <LogFieldsCard
+              severity={severity}
+              handleSeverityChange={handleSeverityChange}
+              logType={logType}
+              handleLogTypeChange={handleLogTypeChange}
+            />
           </Col>
-
-          <Col md={10}>
+          <Col md={9}>
             <div
               style={{
                 width: "100%",
