@@ -13,7 +13,21 @@ use registry_types::AllIndexers;
 use crate::indexer_config::IndexerConfig;
 use crate::utils::exponential_retry;
 
-pub type IndexerRegistry = HashMap<AccountId, HashMap<String, IndexerConfig>>;
+pub struct IndexerRegistry(pub HashMap<AccountId, HashMap<String, IndexerConfig>>);
+
+impl IndexerRegistry {
+    #[cfg(test)]
+    pub fn from(slice: &[(AccountId, HashMap<String, IndexerConfig>)]) -> Self {
+        Self(slice.iter().cloned().collect())
+    }
+}
+
+impl std::ops::Deref for IndexerRegistry {
+    type Target = HashMap<AccountId, HashMap<String, IndexerConfig>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[cfg(test)]
 pub use MockRegistryImpl as Registry;
@@ -42,31 +56,33 @@ impl RegistryImpl {
         &self,
         registry: HashMap<AccountId, HashMap<String, registry_types::IndexerConfig>>,
     ) -> IndexerRegistry {
-        registry
-            .into_iter()
-            .map(|(account_id, indexers)| {
-                let indexers = indexers
-                    .into_iter()
-                    .map(|(function_name, indexer)| {
-                        (
-                            function_name.to_owned(),
-                            IndexerConfig {
-                                account_id: account_id.clone(),
-                                function_name,
-                                code: indexer.code,
-                                start_block: indexer.start_block,
-                                schema: indexer.schema,
-                                rule: indexer.rule,
-                                updated_at_block_height: indexer.updated_at_block_height,
-                                created_at_block_height: indexer.created_at_block_height,
-                            },
-                        )
-                    })
-                    .collect::<HashMap<_, _>>();
+        IndexerRegistry(
+            registry
+                .into_iter()
+                .map(|(account_id, indexers)| {
+                    let indexers = indexers
+                        .into_iter()
+                        .map(|(function_name, indexer)| {
+                            (
+                                function_name.to_owned(),
+                                IndexerConfig {
+                                    account_id: account_id.clone(),
+                                    function_name,
+                                    code: indexer.code,
+                                    start_block: indexer.start_block,
+                                    schema: indexer.schema,
+                                    rule: indexer.rule,
+                                    updated_at_block_height: indexer.updated_at_block_height,
+                                    created_at_block_height: indexer.created_at_block_height,
+                                },
+                            )
+                        })
+                        .collect::<HashMap<_, _>>();
 
-                (account_id, indexers)
-            })
-            .collect::<HashMap<_, _>>()
+                    (account_id, indexers)
+                })
+                .collect::<HashMap<_, _>>(),
+        )
     }
 
     pub async fn fetch(&self) -> anyhow::Result<IndexerRegistry> {

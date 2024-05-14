@@ -113,10 +113,10 @@ mod tests {
             updated_at_block_height: None,
             start_block: StartBlock::Height(100),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
-        )]);
+        )]));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| Ok(vec![]));
@@ -146,10 +146,10 @@ mod tests {
             updated_at_block_height: Some(2),
             start_block: StartBlock::Height(100),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
-        )]);
+        )]));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| {
@@ -180,7 +180,7 @@ mod tests {
 
     #[tokio::test]
     async fn ignores_executor_with_matching_registry_version() {
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([(
                 "test".to_string(),
@@ -198,7 +198,7 @@ mod tests {
                     start_block: StartBlock::Height(100),
                 },
             )]),
-        )]);
+        )]));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| {
@@ -221,7 +221,7 @@ mod tests {
 
     #[tokio::test]
     async fn stops_executor_not_in_registry() {
-        let indexer_registry = HashMap::from([]);
+        let indexer_registry = IndexerRegistry::from(&[]);
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| {

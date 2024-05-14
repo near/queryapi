@@ -164,7 +164,7 @@ mod tests {
             start_block: StartBlock::Height(100),
         };
 
-        let indexer_registry = HashMap::from([
+        let indexer_registry = IndexerRegistry(HashMap::from([
             (
                 "morgs.near".parse().unwrap(),
                 HashMap::from([("test".to_string(), morgs_config.clone())]),
@@ -173,7 +173,7 @@ mod tests {
                 "darunrs.near".parse().unwrap(),
                 HashMap::from([("test".to_string(), darunrs_config.clone())]),
             ),
-        ]);
+        ]));
 
         let mut mock_redis_client = RedisClient::default();
         mock_redis_client
@@ -235,10 +235,10 @@ mod tests {
             start_block: StartBlock::Height(100),
         };
 
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), morgs_config.clone())]),
-        )]);
+        )]));
 
         let mut mock_redis_client = RedisClient::default();
         mock_redis_client

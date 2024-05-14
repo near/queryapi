@@ -184,7 +184,7 @@ mod tests {
             start_block: StartBlock::Height(100),
         };
 
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -242,7 +242,7 @@ mod tests {
             start_block: StartBlock::Latest,
         };
 
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -299,7 +299,7 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Height(100),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -356,7 +356,7 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Continue,
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -400,7 +400,7 @@ mod tests {
 
     #[tokio::test]
     async fn stops_stream_not_in_registry() {
-        let indexer_registry = HashMap::from([]);
+        let indexer_registry = IndexerRegistry::from(&[]);
 
         let redis_client = RedisClient::default();
 
@@ -446,7 +446,7 @@ mod tests {
             updated_at_block_height: None,
             start_block: StartBlock::Latest,
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -496,7 +496,7 @@ mod tests {
             updated_at_block_height: Some(199),
             start_block: StartBlock::Height(1000),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -564,7 +564,7 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Continue,
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -612,7 +612,7 @@ mod tests {
             updated_at_block_height: None,
             start_block: StartBlock::Height(50),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
