@@ -15,32 +15,31 @@ pub async fn synchronise_block_streams(
 ) -> anyhow::Result<()> {
     let mut active_block_streams = block_streams_handler.list().await?;
 
-    for (account_id, indexers) in indexer_registry.iter() {
-        for (function_name, indexer_config) in indexers.iter() {
-            let active_block_stream = active_block_streams
-                .iter()
-                .position(|stream| {
-                    stream.account_id == *account_id && &stream.function_name == function_name
-                })
-                .map(|index| active_block_streams.swap_remove(index));
+    for indexer_config in indexer_registry.iter() {
+        let active_block_stream = active_block_streams
+            .iter()
+            .position(|stream| {
+                stream.account_id == *indexer_config.account_id
+                    && stream.function_name == indexer_config.function_name
+            })
+            .map(|index| active_block_streams.swap_remove(index));
 
-            let _ = synchronise_block_stream(
-                active_block_stream,
-                indexer_config,
-                indexer_manager,
-                redis_client,
-                block_streams_handler,
+        let _ = synchronise_block_stream(
+            active_block_stream,
+            indexer_config,
+            indexer_manager,
+            redis_client,
+            block_streams_handler,
+        )
+        .await
+        .map_err(|err| {
+            tracing::error!(
+                account_id = indexer_config.account_id.as_str(),
+                function_name = indexer_config.function_name,
+                version = indexer_config.get_registry_version(),
+                "failed to sync block stream: {err:?}"
             )
-            .await
-            .map_err(|err| {
-                tracing::error!(
-                    account_id = account_id.as_str(),
-                    function_name,
-                    version = indexer_config.get_registry_version(),
-                    "failed to sync block stream: {err:?}"
-                )
-            });
-        }
+        });
     }
 
     for unregistered_block_stream in active_block_streams {

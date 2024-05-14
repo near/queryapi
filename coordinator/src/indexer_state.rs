@@ -65,17 +65,15 @@ impl IndexerStateManagerImpl {
 
         tracing::info!("Migrating indexer state");
 
-        for (_, indexers) in indexer_registry.iter() {
-            for (_, indexer_config) in indexers.iter() {
-                if let Some(version) = self.redis_client.get_stream_version(indexer_config).await? {
-                    self.set_state(
-                        indexer_config,
-                        IndexerState {
-                            block_stream_synced_at: Some(version),
-                        },
-                    )
-                    .await?;
-                }
+        for indexer_config in indexer_registry.iter() {
+            if let Some(version) = self.redis_client.get_stream_version(indexer_config).await? {
+                self.set_state(
+                    indexer_config,
+                    IndexerState {
+                        block_stream_synced_at: Some(version),
+                    },
+                )
+                .await?;
             }
         }
 

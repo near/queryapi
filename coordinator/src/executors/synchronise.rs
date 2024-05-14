@@ -17,26 +17,25 @@ pub async fn synchronise_executors(
         .filter(|executor| executor.version != V1_EXECUTOR_VERSION)
         .collect();
 
-    for (account_id, indexers) in indexer_registry.iter() {
-        for (function_name, indexer_config) in indexers.iter() {
-            let active_executor = active_executors
-                .iter()
-                .position(|stream| {
-                    stream.account_id == *account_id && &stream.function_name == function_name
-                })
-                .map(|index| active_executors.swap_remove(index));
+    for indexer_config in indexer_registry.iter() {
+        let active_executor = active_executors
+            .iter()
+            .position(|stream| {
+                stream.account_id == *indexer_config.account_id
+                    && stream.function_name == indexer_config.function_name
+            })
+            .map(|index| active_executors.swap_remove(index));
 
-            let _ = synchronise_executor(active_executor, indexer_config, executors_handler)
-                .await
-                .map_err(|err| {
-                    tracing::error!(
-                        account_id = account_id.as_str(),
-                        function_name,
-                        version = indexer_config.get_registry_version(),
-                        "failed to sync executor: {err:?}"
-                    )
-                });
-        }
+        let _ = synchronise_executor(active_executor, indexer_config, executors_handler)
+            .await
+            .map_err(|err| {
+                tracing::error!(
+                    account_id = indexer_config.account_id.as_str(),
+                    function_name = indexer_config.function_name,
+                    version = indexer_config.get_registry_version(),
+                    "failed to sync executor: {err:?}"
+                )
+            });
     }
 
     for unregistered_executor in active_executors {

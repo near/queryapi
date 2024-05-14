@@ -1,6 +1,7 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use anyhow::Context;
+use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 
 use near_jsonrpc_client::methods::query::RpcQueryRequest;
@@ -19,6 +20,39 @@ impl IndexerRegistry {
     #[cfg(test)]
     pub fn from(slice: &[(AccountId, HashMap<String, IndexerConfig>)]) -> Self {
         Self(slice.iter().cloned().collect())
+    }
+
+    pub fn iter(&self) -> IndexerRegistryIter {
+        IndexerRegistryIter {
+            account_iter: self.0.iter(),
+            function_iter: None,
+        }
+    }
+}
+
+pub struct IndexerRegistryIter<'a> {
+    account_iter: Iter<'a, AccountId, HashMap<String, IndexerConfig>>,
+    function_iter: Option<Iter<'a, String, IndexerConfig>>,
+}
+
+impl<'a> Iterator for IndexerRegistryIter<'a> {
+    type Item = &'a IndexerConfig;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(ref mut function_iter) = self.function_iter {
+                if let Some((_function_name, indexer_config)) = function_iter.next() {
+                    return Some(indexer_config);
+                }
+            }
+
+            match self.account_iter.next() {
+                Some((_account_id, function_iter)) => {
+                    self.function_iter = Some(function_iter.iter())
+                }
+                None => return None,
+            }
+        }
     }
 }
 
