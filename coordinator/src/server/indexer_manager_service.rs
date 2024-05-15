@@ -106,20 +106,18 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
 
         let mut indexers = vec![];
 
-        for (account_id, functions) in regsitry {
-            for (function_name, indexer_config) in functions {
-                let state = self
-                    .indexer_state_manager
-                    .get_state(&indexer_config)
-                    .await
-                    .unwrap();
+        for indexer_config in regsitry.iter() {
+            let state = self
+                .indexer_state_manager
+                .get_state(indexer_config)
+                .await
+                .unwrap();
 
-                indexers.push(indexer_manager::IndexerState {
-                    account_id: account_id.to_string(),
-                    function_name,
-                    enabled: state.enabled,
-                });
-            }
+            indexers.push(indexer_manager::IndexerState {
+                account_id: indexer_config.account_id.to_string(),
+                function_name: indexer_config.function_name.clone(),
+                enabled: state.enabled,
+            });
         }
 
         Ok(Response::new(indexer_manager::ListIndexersResponse {
