@@ -1,4 +1,4 @@
-const overallTime = Date.now()
+const overallTime = Date.now();
 
   // Gets index of first bit in byte array starting from startBit
   function indexOfFirstBitInByteArray(bytes, startBit) {
@@ -250,7 +250,14 @@ const overallTime = Date.now()
     (groups[action.receiverId] ||= []).push(action);
     return groups;
   }, {});
-  const allReceivers = Object.keys(actionsByReceiver);
+  let allReceivers = Object.keys(actionsByReceiver);
+  allReceivers = Array.from(allReceivers.reduce((totalReceivers, receiver) => {
+    totalReceivers.add(receiver);
+    const lastIndexOfPeriod = receiver.lastIndexOf('.');
+    return lastIndexOfPeriod === -1
+      ? totalReceivers.add(receiver)
+      : totalReceivers.add(receiver.substring(lastIndexOfPeriod + 1));
+  }, new Set()));
   const existingReceivers =
     (await context.db.ActionsIndex.select({
       block_date: blockDate,

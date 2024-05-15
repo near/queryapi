@@ -139,14 +139,6 @@ export default class Indexer {
       // vm.freeze(() => { return 0; }, 'performanceNow');
       resourceCreationSpan.end();
 
-      const actionsByReceiver = block.actions().reduce<any>((groups, action) => {
-        (groups[action.receiverId] ||= []).push(action);
-        return groups;
-      }, {});
-      const allReceivers = Object.keys(actionsByReceiver);
-      fs.appendFileSync('actionsByReceiver.txt', `${blockHeight}\n`);
-      fs.appendFileSync('actionsByReceiver.txt', allReceivers.join('\n'));
-
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
           const transformedCode = this.transformIndexerFunction();

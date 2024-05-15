@@ -92,7 +92,14 @@ async function main() {
     return groups;
   }, {});
 
-  const allReceivers = Object.keys(actionsByReceiver);
+  let allReceivers = Object.keys(actionsByReceiver);
+  allReceivers = Array.from(allReceivers.reduce((totalReceivers, receiver) => {
+    totalReceivers.add(receiver);
+    const lastIndexOfPeriod = receiver.lastIndexOf('.');
+    return lastIndexOfPeriod === -1
+      ? totalReceivers.add(receiver)
+      : totalReceivers.add(receiver.substring(lastIndexOfPeriod + 1));
+  }, new Set()));
   console.log(`There are ${allReceivers.length} receivers in this block.`);
   const currIndexes = (await getReceivers(allReceivers, blockDate)).map((b) =>
     fillMaxIndex(b),
