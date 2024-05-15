@@ -46,6 +46,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -63,6 +64,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -80,6 +82,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -115,6 +118,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -132,6 +136,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
@@ -149,6 +154,7 @@ exports[`HasuraClient adds the specified permissions for the specified roles/tab
     {
       "args": {
         "permission": {
+          "backend_only": true,
           "check": {},
           "columns": "*",
           "computed_fields": [],
