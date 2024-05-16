@@ -67,8 +67,8 @@ export default class StreamHandler {
     indexer.setStoppedStatus().catch((e) => {
       this.logger.error('Failed to set stopped status for indexer', e);
     });
-
-    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${error.toString()}`, this.executorContext.block_height);
+    const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
+    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height);
 
     indexer.writeCrashedWorkerLog(streamErrorLogEntry)
       .catch((e) => {
