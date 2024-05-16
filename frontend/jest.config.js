@@ -1,4 +1,4 @@
-// jest.config.js
+/* eslint-disable */
 module.exports = {
   testEnvironment: 'node',
   moduleNameMapper: {

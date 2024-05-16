@@ -6,7 +6,7 @@ function _mergeNamespaces(n, m) {
     m.forEach(function (e) {
         e && typeof e !== 'string' && !Array.isArray(e) && Object.keys(e).forEach(function (k) {
             if (k !== 'default' && !(k in n)) {
-                var d = Object.getOwnPropertyDescriptor(e, k);
+                const d = Object.getOwnPropertyDescriptor(e, k);
                 Object.defineProperty(n, k, d.get ? d : {
                     enumerable: true,
                     get: function () { return e[k]; }
@@ -281,8 +281,8 @@ type StateChangeWithCauseView = {
 };
 
 type Log = {
-    log: String;
-    relatedReceiptId: String;
+    log: string;
+    relatedReceiptId: string;
 };
 /**
  * This structure is an ephemeral entity to provide access to the [Events Standard](https://github.com/near/NEPs/blob/master/neps/nep-0297.md) structure and keep data about the related `Receipt` for convenience.
@@ -803,7 +803,7 @@ declare class BlockHeader {
 
 declare const fromBorsh: (schema: borsh.Schema, encoded: Uint8Array) => borsh_lib_types_types.DecodeTypes;
 
-var fromBorsh$1 = /*#__PURE__*/_mergeNamespaces({
+const fromBorsh$1 = /*#__PURE__*/_mergeNamespaces({
     __proto__: null,
     fromBorsh: fromBorsh
 }, [borsher]) as { fromBorsh: typeof fromBorsh };
