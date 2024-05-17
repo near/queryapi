@@ -15,7 +15,7 @@ class LogCounter extends Transport {
 }
 
 const logger = winston.createLogger({
-  level: 'info',
+  level: 'debug',
   format: format.combine(
     format.timestamp(),
     format.errors({ stack: true }),

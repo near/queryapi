@@ -13,6 +13,7 @@ import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
 import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
+import { getBlock } from './indexer-code';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -22,7 +23,7 @@ interface Dependencies {
   parser: Parser
 };
 
-interface Context {
+export interface Context {
   graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
   set: (key: string, value: any) => Promise<any>
   debug: (message: string) => void
@@ -134,8 +135,7 @@ export default class Indexer {
 
       await this.tracer.startActiveSpan('run indexer code', async (runIndexerCodeSpan: Span) => {
         try {
-          const transformedCode = this.transformIndexerFunction();
-          await vm.run(transformedCode);
+          await getBlock(block, context);
         } catch (e) {
           const error = e as Error;
           logEntries.push(LogEntry.systemError(`Error running IndexerFunction: ${error.message}`, blockHeight));
