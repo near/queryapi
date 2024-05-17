@@ -112,9 +112,12 @@ function compressBitmapArray(uint8Array) {
   // Write Elias Gamma for the last stretch
   maxIndex = curBit ? ibit - 1 : maxIndex;
   lastEliasGammaStartBit = curBit ? nextBit : lastEliasGammaStartBit;
-  const w = writeEliasGammaBits(curBitStretch, result, nextBit);
-  nextBit = w.nextBit;
-  result = w.result.slice(0, Math.ceil(nextBit / 8));
+  if (curBit) {
+    const w = writeEliasGammaBits(curBitStretch, result, nextBit);
+    nextBit = w.nextBit;
+    result = w.result;
+  }
+  result = result.slice(0, Math.ceil(nextBit / 8));
 
   return {
     result,
@@ -199,8 +202,11 @@ function addIndexCompressedLast(
     );
   }
   // write remaining zeros
-  const remainingZeros = Math.ceil((index + 1) / 8) * 8 - index - 1;
-  cur = writeEliasGammaBits(remainingZeros, cur.result, cur.nextBit, true);
+  const lastEliasGammaEndBit = cur.nextBit - 1;
+  const remainingZeros = 8 - (lastEliasGammaEndBit % 8) - 1;
+  for (let i = 0; i < remainingZeros; i++) {
+    result = setBitInBitmap(cur.result, cur.nextBit+i, false, true);
+  }
 
   return {
     compressed: result.subarray(0, Math.ceil(cur.nextBit / 8)).toString("base64"),

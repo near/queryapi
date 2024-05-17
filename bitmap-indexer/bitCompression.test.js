@@ -22,9 +22,6 @@ describe("Bitmap Indexes", () => {
   beforeEach(() => {
     global.console = require("console");
   });
-  it("TEST", () => {
-    console.log(decompressBase64ToBitmapString("wdvA"));
-  });
   const table = [
     { arr: [0, 1], expected: "11000000" },
     { arr: [2, 3], expected: "00110000" },
@@ -40,7 +37,7 @@ describe("Bitmap Indexes", () => {
     {
       arr: [2, 3],
       bitmap: "00110000",
-      compressed: "0 010 010 00100 0000",
+      compressed: "0 010 010 0",
       expectedLastEGStartBit: 4,
     },
     {
@@ -55,28 +52,35 @@ describe("Bitmap Indexes", () => {
       arr: [2, 3],
       newIndex: 4,
       bitmap: "00111000",
-      compressed: "0 010 011 011 000000",
+      compressed: "0 010 011 0",
       expectedLastEGStartBit: 4,
     },
     {
       arr: [6, 7],
       newIndex: 10,
       bitmap: "0000001100100000",
-      compressed: "0 00110 010 010 1 00101 000000",
+      compressed: "0 00110 010 010 1 000",
       expectedLastEGStartBit: 12,
     },
     {
       arr: [7, 9],
       newIndex: 14,
       bitmap: "0000000101000010",
-      compressed: "0 00111 1 1 1 00100 1 1",
+      compressed: "0 00111 1 1 1 00100 1 0",
       expectedLastEGStartBit: 14,
+    },
+    {
+      arr: [7],
+      newIndex: 15,
+      bitmap: "00000001 00000001",
+      compressed: "0 00111 1 00111 1 000",
+      expectedLastEGStartBit: 12,
     },
     {
       arr: [7],
       newIndex: 16,
       bitmap: "00000001 00000000 10000000",
-      compressed: "0 00111 1 0001000 1 00111 0000",
+      compressed: "0 00111 1 0001000 1 0",
       expectedLastEGStartBit: 14,
     },
   ];
@@ -128,29 +132,32 @@ describe("Bitmap Indexes", () => {
         compressedBase64.compressed,
         newIndex,
       );
-      compressedBase64 = addIndexCompressedLast(
+      compressedLast = addIndexCompressedLast(
         compressedBase64.compressed,
         newIndex,
         compressedBase64.lastEliasGammaStartBit,
         compressedBase64.maxIndex,
       );
+      console.log(
+        `adding ${newIndex}: ${decompressBase64ToBitmapString(compressedBase64.compressed)} -> ${decompressBase64ToBitmapString(compressedLast.compressed)} (${compressedLast.compressed})\n`,
+      );
       // assert that manually computed expectation is correct
-      expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
+      expect(compressedBase64ToBitmapString(compressedLast.compressed)).toBe(
         compressed.replace(/\s/g, ""),
       );
       // assert that addIndexCompressedFull is the same as the addIndexCompressedFullLast
-      expect(compressedBase64ToBitmapString(compressedBase64.compressed)).toBe(
+      expect(compressedBase64ToBitmapString(compressedLast.compressed)).toBe(
         compressedBase64ToBitmapString(compressedFull.compressed),
       );
 
       // assert that resulting bitmap is correct
       const actualBitmap = decompressBase64ToBitmapString(
-        compressedBase64.compressed,
+        compressedLast.compressed,
       );
       expect(actualBitmap).toBe(bitmap.replace(/\s/g, ""));
 
       // assert that lastEliasGammaStartBit is correct
-      expect(compressedBase64.lastEliasGammaStartBit).toBe(
+      expect(compressedLast.lastEliasGammaStartBit).toBe(
         expectedLastEGStartBit,
       );
     },
@@ -189,7 +196,7 @@ describe("Bitmap Indexes", () => {
           );
           const after = decompressBase64ToBitmapString(res.compressed);
           console.log(
-            `adding ${idx}: ${before} -> ${after} (${res.compressed})`,
+            `adding ${idx}: ${before} -> ${after} (${res.compressed})\n`,
           );
           return res;
         },

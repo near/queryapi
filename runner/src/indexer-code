@@ -67,7 +67,7 @@ const overallTime = Date.now();
     nextBit += N;
 
     // Write N zeros if writeZeros is true
-    for (let index = startBit; writeZeros && index < nextBit; index++) {
+    for (let index = startBit; writeZeros && index <= nextBit; index++) {
       result = setBitInBitmap(result, index, 0, writeZeros);
     }
     // Write 1 to separate prefix from suffix
@@ -112,9 +112,12 @@ const overallTime = Date.now();
     // Write Elias Gamma for the last stretch
     maxIndex = curBit ? ibit - 1 : maxIndex;
     lastEliasGammaStartBit = curBit ? nextBit : lastEliasGammaStartBit;
-    const w = writeEliasGammaBits(curBitStretch, result, nextBit);
-    nextBit = w.nextBit;
-    result = w.result.slice(0, Math.ceil(nextBit / 8));
+    if (curBit) {
+      const w = writeEliasGammaBits(curBitStretch, result, nextBit);
+      nextBit = w.nextBit;
+      result = w.result;
+    }
+    result = result.slice(0, Math.ceil(nextBit / 8));
 
     return {
       result,
@@ -199,8 +202,11 @@ const overallTime = Date.now();
       );
     }
     // write remaining zeros
-    const remainingZeros = Math.ceil((index + 1) / 8) * 8 - index - 1;
-    cur = writeEliasGammaBits(remainingZeros, cur.result, cur.nextBit, true);
+    const lastEliasGammaEndBit = cur.nextBit - 1;
+    const remainingZeros = 8 - (lastEliasGammaEndBit % 8) - 1;
+    for (let i = 0; i < remainingZeros; i++) {
+      result = setBitInBitmap(cur.result, cur.nextBit+i, false, true);
+    }
 
     return {
       compressed: result.subarray(0, Math.ceil(cur.nextBit / 8)).toString("base64"),
@@ -228,7 +234,7 @@ const overallTime = Date.now();
   function addIndexCompressed(
     compressedBase64,
     index,
-    lastEliasGammaStartBit = -1,
+    lastEliasGammaStartBit,
     maxIndex = -1,
   ) {
     if (maxIndex < 0 || index <= maxIndex) {
@@ -266,6 +272,7 @@ const overallTime = Date.now();
 
   let startTime = Date.now();
   const upserts = allReceivers
+    .filter((receiverId) => receiverId === '001789d03d15d0a874ff61043e3eb5f02b9b596af4ee2c50347e29b37c8a8f6e')
     .map((receiverId) => {
       const currentIndex = existingReceivers.find((receiver) => receiver?.receiver_id === receiverId);
       const blockIndexInCurrentBitmap = currentIndex?.first_block_height
@@ -278,6 +285,7 @@ const overallTime = Date.now();
         parseInt(currentIndex?.last_elias_gamma_start_bit ?? -1),
         parseInt(currentIndex?.max_index ?? -1),
       );
+      console.log(`blockheight: ${block.blockHeight}, index: ${blockIndexInCurrentBitmap}, start bit: ${currentIndex?.last_elias_gamma_start_bit ?? -1}, max_index: ${currentIndex?.max_index ?? -1}, ${decompressToBitmapArray(Buffer.from(currentIndex?.bitmap ?? '', "base64")).reduce((r, b) => r + b.toString(2).padStart(8, "0"), "")} -> ${decompressToBitmapArray(Buffer.from(newBitmap.compressed ?? '', "base64")).reduce((r, b) => r + b.toString(2).padStart(8, "0"), "")}, `);
       return {
         first_block_height: currentIndex?.first_block_height ?? block.blockHeight,
         block_date: blockDate,
