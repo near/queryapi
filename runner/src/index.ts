@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import { trace, type Span, context } from '@opentelemetry/api';
 // import promClient from 'prom-client';
 import type { Block } from '@near-lake/primitives';
