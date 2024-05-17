@@ -9,6 +9,8 @@ const IndexerLogsView = ({
     setSeverity,
     logType,
     setLogType,
+    startTime,
+    setStartTime,
     functionName,
     tableName,
     latestHeight,
@@ -35,21 +37,25 @@ const IndexerLogsView = ({
                 functionName={functionName}
                 latestHeight={latestHeight}
             />
-            <Container fluid>
-                <Row>
-                    <Col md={3}>
+            <Container fluid
+                className='w-100 h-screen'
+            >
+                <Row className="transform scale-[0.7] origin-top-left w-[142.86%] h-[142.86%]">
+                    <Col md={2}>
                         <LogFieldCardView
                             severity={severity}
                             handleSeverityChange={setSeverity}
                             logType={logType}
                             handleLogTypeChange={setLogType}
+                            dateFilter={startTime}
+                            handleDateFilter={setStartTime}
                         />
                     </Col>
-                    <Col md={9}>
+                    <Col md={10}>
                         <div className="w-100 m-0 p-0" ref={gridContainerRef} />
                     </Col>
                 </Row>
-            </Container>
+            </Container >
         </>
     );
 };

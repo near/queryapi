@@ -1,7 +1,6 @@
 import React from 'react';
 import { Row, Col, Form, Button } from 'react-bootstrap';
 import { CheckmarkIcon } from './Icons/CheckMarkIcon';
-
 import ClearButtonContainer from '../LogsViewContainer/ClearButtonContainer';
 
 const OptionSelectorView = ({ options, selectedOption, onOptionChange, handleOptionChange, handleClearSelection }) => {
@@ -16,7 +15,7 @@ const OptionSelectorView = ({ options, selectedOption, onOptionChange, handleOpt
                             onClick={() => handleOptionChange(option)}
                         >
                             <span className="text-left font-inherit px-3 py-0 flex gap-x-2">
-                                {selectedOption === option && <CheckmarkIcon/>}
+                                {selectedOption === option && <CheckmarkIcon />}
                                 <div>{option}</div>
                             </span>
                             {selectedOption === option && (

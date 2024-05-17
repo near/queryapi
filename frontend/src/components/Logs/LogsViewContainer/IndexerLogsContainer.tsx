@@ -4,23 +4,9 @@ import { sanitizeString } from "../../../utils/helpers";
 import { IndexerDetailsContext } from "../../../contexts/IndexerDetailsContext";
 import IndexerLogsView from "../LogsView/IndexerLogsView";
 import { Grid } from "gridjs";
-import {
-    getIndexerQuery,
-    getPaginationQuery,
-    getBlockHeightAndMessageSearchQuery,
-    getMessageSearchQuery,
-    getIndexerQueryWithSeverity,
-    getMessageSearchQueryWithSeverity,
-    getBlockHeightAndMessageSearchQueryWithSeverity,
-    getIndexerQueryWithLogType,
-    getIndexerQueryWithSeverityAndLogType,
-    getBlockHeightAndMessageSearchQueryWithLogType,
-    getMessageSearchQueryWithLogType,
-    getBlockHeightAndMessageSearchQueryWithSeverityAndLogType,
-    getMessageSearchQueryWithSeverityAndLogType
 
-} from "../GraphQL/Queries";
-
+import { getIndexerLogsQueryDefinition } from "../GraphQL/getIndexerLogsQueryDefinition";
+import { getSearchLogsQueryDefinition } from "../GraphQL/getSearchLogsQueryDefinition";
 interface GridConfig {
     columns: string[];
     search: any;
@@ -51,41 +37,11 @@ const IndexerLogsContainer: React.FC = () => {
 
     const [severity, setSeverity] = useState<string>('');
     const [logType, setLogType] = useState<string>('');
+    const [startTime, setStartTime] = useState<string>('');
+    // const [endTime, setEndTime] = useState<string>(''); //todo: for custom time range
 
     const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<Grid | null>(null);
-
-    const getIndexerLogsQueryDefinition = (severity: string, logType: string): void => {
-        const conditions: { [key: string]: () => void } = {
-            '11': () => getIndexerQueryWithSeverityAndLogType(tableName, severity, logType),
-            '10': () => getIndexerQueryWithSeverity(tableName, severity),
-            '01': () => getIndexerQueryWithLogType(tableName, logType),
-            '00': () => getIndexerQuery(tableName)
-        };
-
-        const key = `${severity ? '1' : '0'}${logType ? '1' : '0'}`;
-        return conditions[key]();
-    };
-
-    const getSearchLogsQueryDefinition = (keyword: string, severity: string, logType: string): void => {
-        const isKeywordNumber = !isNaN(Number(keyword));
-        const severityExists = !!severity;
-        const logTypeExists = !!logType;
-
-        const conditions: { [key: string]: () => void } = {
-            '000': () => getMessageSearchQuery(tableName, keyword),
-            '010': () => getBlockHeightAndMessageSearchQuery(tableName, keyword),
-            '100': () => getMessageSearchQueryWithSeverity(tableName, keyword, severity),
-            '110': () => getBlockHeightAndMessageSearchQueryWithSeverity(tableName, keyword, severity),
-            '011': () => getBlockHeightAndMessageSearchQueryWithLogType(tableName, keyword, logType),
-            '001': () => getMessageSearchQueryWithLogType(tableName, keyword, logType),
-            '111': () => getBlockHeightAndMessageSearchQueryWithSeverityAndLogType(tableName, keyword, severity, logType),
-            '101': () => getMessageSearchQueryWithSeverityAndLogType(tableName, keyword, severity, logType),
-        };
-
-        const key = `${severityExists ? '1' : '0'}${isKeywordNumber ? '1' : '0'}${logTypeExists ? '1' : '0'}`;
-        return conditions[key]();
-    }
 
     const getIndexerLogsConfig = () => {
         return {
@@ -96,7 +52,7 @@ const IndexerLogsContainer: React.FC = () => {
                 ['Content-Type']: 'application/json',
             },
             body: JSON.stringify({
-                query: getIndexerLogsQueryDefinition(severity, logType),
+                query: getIndexerLogsQueryDefinition(tableName, severity, logType, startTime),
                 variables: { limit: LOGS_PER_PAGE, offset: 0 },
             }),
             then: ({ data }: any) => (data[tableName]),
@@ -111,7 +67,7 @@ const IndexerLogsContainer: React.FC = () => {
                 url: (prev: string, keyword: string) => prev,
                 body: (prev: string, keyword: string) => {
                     return JSON.stringify({
-                        query: getSearchLogsQueryDefinition(keyword, severity, logType),
+                        query: getSearchLogsQueryDefinition(tableName, keyword, severity, logType, startTime),
                         variables: { limit: LOGS_PER_PAGE, offset: 0 },
                     });
                 },
@@ -178,7 +134,7 @@ const IndexerLogsContainer: React.FC = () => {
 
     useEffect(() => {
         reloadData();
-    }, [severity, logType]);
+    }, [severity, logType, startTime]);
 
     return (
         <IndexerLogsView
@@ -186,6 +142,8 @@ const IndexerLogsContainer: React.FC = () => {
             setSeverity={setSeverity}
             logType={logType}
             setLogType={setLogType}
+            startTime={startTime}
+            setStartTime={setStartTime}
             functionName={functionName}
             tableName={tableName}
             latestHeight={latestHeight}

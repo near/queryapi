@@ -12,10 +12,10 @@ module.exports = {
           100: '#dcfce7',
           900: '#22543d',
         },
-        black: '#000000', 
+        black: '#000000',
         white: '#ffffff',
         gray: {
-          50: '#fafafa' ,
+          50: '#fafafa',
           100: '#f3f4f6',
           900: '#111827',
         },
@@ -58,6 +58,9 @@ module.exports = {
         6: '1.5rem',
         8: '2rem',
         10: '2.5rem',
+      },
+      transformOrigin: {
+        'top-left': 'top left',
       },
     },
   },
