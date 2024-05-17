@@ -7,7 +7,7 @@ const LogFieldCardView = ({ severity, handleSeverityChange, logType, handleLogTy
     return (
         <Card className="text-black">
             <Card.Header className="bg-white p-3">Log Fields</Card.Header>
-            <Accordion defaultActiveKey={[]} alwaysOpen>
+            <Accordion defaultActiveKey={["0", "1"]} alwaysOpen>
                 <Accordion.Item eventKey="0">
                     <Accordion.Header >Severity</Accordion.Header>
                     <Accordion.Body className='p-0'>
