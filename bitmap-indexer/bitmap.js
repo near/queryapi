@@ -67,7 +67,7 @@ function writeEliasGammaBits(x, result, startBit, writeZeros = false) {
   nextBit += N;
 
   // Write N zeros if writeZeros is true
-  for (let index = startBit; writeZeros && index <= nextBit; index++) {
+  for (let index = startBit; writeZeros && index < nextBit; index++) {
     result = setBitInBitmap(result, index, 0, writeZeros);
   }
   // Write 1 to separate prefix from suffix
