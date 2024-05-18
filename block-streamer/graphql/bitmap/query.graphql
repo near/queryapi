@@ -1,0 +1,6 @@
+query GetBitmapByDate($block_date: date) {
+  darunrs_near_bitmap_v5_actions_index(where: {block_date: {_eq: $block_date}}) {
+    bitmap
+    first_block_height
+  }
+}

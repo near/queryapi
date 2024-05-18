@@ -32,6 +32,7 @@ wildmatch = "2.1.1"
 registry-types = { path = "../registry/types" }
 
 near-lake-framework = "0.7.8"
+graphql_client = "0.14.0"
 
 [build-dependencies]
 tonic-build = "0.10"
