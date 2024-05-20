@@ -1,6 +1,7 @@
 use graphql_client::{GraphQLQuery, Response};
 use std::error::Error;
 use ::reqwest::Client;
+use block_streamer::graphql;
 
 #[allow(clippy::upper_case_acronyms)]
 type URI = String;
@@ -16,8 +17,6 @@ type Date = String;
 struct GetBitmaps;
 
 async fn perform_my_query(variables: get_bitmaps::Variables) -> Result<(), Box<dyn Error>> {
-
-    // this is the important line
     let request_body = GetBitmaps::build_query(variables);
 
     let client = reqwest::Client::new();
@@ -29,11 +28,13 @@ async fn perform_my_query(variables: get_bitmaps::Variables) -> Result<(), Box<d
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let variables = get_bitmaps::Variables {
-        receiver_ids: Some(".*".to_string()),
-        block_date: Some("2024-03-21".to_string()),
-        limit: Some(100),
-        offset: Some(0),
-    };
-    perform_my_query(variables).await
+    // let variables = get_bitmaps::Variables {
+    //     receiver_ids: Some(".*".to_string()),
+    //     block_date: Some("2024-03-21".to_string()),
+    //     limit: Some(100),
+    //     offset: Some(0),
+    // };
+    // perform_my_query(variables).await
+    let client = graphql::GraphqlClient::new("https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql".to_string());
+    client.get_bitmaps("app.nearcrowd.near".to_string(), "2024-03-21".to_string(), 100, 0).await
 }

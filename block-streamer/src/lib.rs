@@ -3,3 +3,4 @@ mod blockstreamer {
 }
 
 pub use blockstreamer::*;
+pub mod graphql;
