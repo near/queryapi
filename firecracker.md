@@ -51,7 +51,7 @@ sudo mkfs.ext7 rootfs.ext4
 - mount fs and copy files
 ```sh
 sudo mkdir -p /mnt/rootfs
-sudo mount rootfs.ext7 /mnt/rootfs
+sudo mount rootfs.ext4 /mnt/rootfs
 sudo cp -r rootfs/* /mnt/rootfs
 sudo ln -sf /init.sh /mnt/rootfs/sbin/init
 sudo umount /mnt/rootfs
@@ -104,6 +104,9 @@ sudo rm -f $API_SOCKET
 sudo ./firecracker --api-sock "${API_SOCKET}" --config-file ./vm_config.json
 ```
 
+
+docker network setup was interferring with firecracker - needed to disable it
+
 # Questions
 - How will I pass in user code
 - how will I manage firecracker instances - start new ones, stop them etc
@@ -119,3 +122,35 @@ sudo ./firecracker --api-sock "${API_SOCKET}" --config-file ./vm_config.json
 
 # TODO
 - get networking inside microvm
+
+# random
+
+chroot fs to install stuff
+```sh
+# mount
+sudo mount --bind /dev /mnt/rootfs/dev
+sudo mount --bind /dev/pts /mnt/rootfs/dev/pts
+sudo mount --bind /proc /mnt/rootfs/proc
+sudo mount --bind /sys /mnt/rootfs/sys
+sudo mount --bind /tmp /mnt/rootfs/tmp
+sudo cp /etc/resolv.conf /mnt/rootfs/etc/resolv.conf
+
+#unmount
+sudo umount /mnt/rootfs/dev/pts
+sudo umount /mnt/rootfs/dev
+sudo umount /mnt/rootfs/proc
+sudo umount /mnt/rootfs/sys
+sudo umount /mnt/rootfs/tmp
+```
+
+ip setup
+```sh
+sudo iptables -t nat -F PREROUTING
+sudo iptables -F FORWARD
+
+sudo iptables -t nat -A PREROUTING -p tcp --dport 9180 -j DNAT --to-destination 172.16.0.2:9180
+sudo iptables -A FORWARD -p tcp -d 172.16.0.2 --dport 9180 -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+sudo iptables -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -A FORWARD -i tap0 -o ens4 -j ACCEPT
+sudo iptables -A FORWARD -i ens4 -o tap0 -j ACCEPT
+```

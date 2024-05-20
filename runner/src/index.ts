@@ -6,13 +6,17 @@ import type { Block } from '@near-lake/primitives';
 
 import Indexer from './indexer';
 import RedisClient from './redis-client';
-import { METRICS } from './metrics';
+import { METRICS, startServer } from './metrics';
 import LakeClient from './lake-client';
 // import { WorkerMessageType, type WorkerMessage } from './stream-handler/stream-handler';
 import setUpTracerExport from './instrumentation';
 import IndexerConfig from './indexer-config';
 import parentLogger from './logger';
 import { wrapSpan } from './utility';
+
+startServer().catch((err) => {
+  parentLogger.error('Failed to start metrics server', err);
+});
 
 interface QueueMessage {
   block?: Block
