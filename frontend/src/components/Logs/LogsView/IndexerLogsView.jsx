@@ -1,9 +1,9 @@
 import { Container, Row, Col } from 'react-bootstrap';
-import LogButtons from "../LogButtons";
-import Status from "../Status";
+import LogsMenu from '../LogsMenu';
 import LogFieldCardView from "./LogFieldCardView";
 import "gridjs/dist/theme/mermaid.css";
 import styled from "styled-components";
+
 const CustomGridContainer = styled.div`
  .gridjs-wrapper{
     border-radius: 0 !important;
@@ -59,16 +59,14 @@ const IndexerLogsView = ({
 }) => {
     return (
         <>
-            <LogButtons
+            <LogsMenu
                 currentUserAccountId={currentUserAccountId}
                 latestHeight={latestHeight}
                 reloadData={reloadData}
-            />
-            <Status
                 accountId={currentIndexerDetails.accountId}
                 functionName={functionName}
-                latestHeight={latestHeight}
             />
+       
             <Container fluid
                 className='w-100 h-screen'
             >
