@@ -13,15 +13,14 @@ borsh = "0.10.2"
 cached = "0.49.3"
 chrono = "0.4.25"
 futures = "0.3.5"
-graphql_client = "0.14.0"
+graphql_client = { version = "0.14.0", features = ["reqwest"] }
 lazy_static = "1.4.0"
 mockall = "0.11.4"
 near-lake-framework = "0.7.8"
 prometheus = "0.13.3"
 prost = "0.12.3"
 redis = { version = "0.21.5", features = ["tokio-comp", "connection-manager"] }
-registry-types = { path = "../registry/types" }
-reqwest = { version = "^0.12.4", features = ["json", "blocking"] }
+reqwest = { version = "^0.11.0", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.55"
 tracing = "0.1.40"
@@ -32,6 +31,8 @@ tokio-util = "0.7.10"
 tokio-stream = "0.1.14"
 tonic = "0.10.2"
 wildmatch = "2.1.1"
+
+registry-types = { path = "../registry/types" }
 
 [build-dependencies]
 tonic-build = "0.10"

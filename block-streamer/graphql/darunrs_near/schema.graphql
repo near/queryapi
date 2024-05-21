@@ -1,0 +1,6178 @@
+schema {
+  query: query_root
+  mutation: mutation_root
+  subscription: subscription_root
+}
+
+"""whether this query should be cached (Hasura Cloud only)"""
+directive @cached(
+  """measured in seconds"""
+  ttl: Int! = 60
+
+  """refresh the cache entry"""
+  refresh: Boolean! = false
+) on QUERY
+
+"""
+Boolean expression to compare columns of type "Int". All fields are combined with logical 'AND'.
+"""
+input Int_comparison_exp {
+  _eq: Int
+  _gt: Int
+  _gte: Int
+  _in: [Int!]
+  _is_null: Boolean
+  _lt: Int
+  _lte: Int
+  _neq: Int
+  _nin: [Int!]
+}
+
+"""
+Boolean expression to compare columns of type "String". All fields are combined with logical 'AND'.
+"""
+input String_comparison_exp {
+  _eq: String
+  _gt: String
+  _gte: String
+
+  """does the column match the given case-insensitive pattern"""
+  _ilike: String
+  _in: [String!]
+
+  """
+  does the column match the given POSIX regular expression, case insensitive
+  """
+  _iregex: String
+  _is_null: Boolean
+
+  """does the column match the given pattern"""
+  _like: String
+  _lt: String
+  _lte: String
+  _neq: String
+
+  """does the column NOT match the given case-insensitive pattern"""
+  _nilike: String
+  _nin: [String!]
+
+  """
+  does the column NOT match the given POSIX regular expression, case insensitive
+  """
+  _niregex: String
+
+  """does the column NOT match the given pattern"""
+  _nlike: String
+
+  """
+  does the column NOT match the given POSIX regular expression, case sensitive
+  """
+  _nregex: String
+
+  """does the column NOT match the given SQL regular expression"""
+  _nsimilar: String
+
+  """
+  does the column match the given POSIX regular expression, case sensitive
+  """
+  _regex: String
+
+  """does the column match the given SQL regular expression"""
+  _similar: String
+}
+
+scalar bigint
+
+"""
+Boolean expression to compare columns of type "bigint". All fields are combined with logical 'AND'.
+"""
+input bigint_comparison_exp {
+  _eq: bigint
+  _gt: bigint
+  _gte: bigint
+  _in: [bigint!]
+  _is_null: Boolean
+  _lt: bigint
+  _lte: bigint
+  _neq: bigint
+  _nin: [bigint!]
+}
+
+"""ordering argument of a cursor"""
+enum cursor_ordering {
+  """ascending ordering of the cursor"""
+  ASC
+
+  """descending ordering of the cursor"""
+  DESC
+}
+
+"""
+columns and relationships of "darunrs_near_benchmark_indexer.indexer_storage"
+"""
+type darunrs_near_benchmark_indexer_indexer_storage {
+  function_name: String!
+  key_name: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_benchmark_indexer.indexer_storage"
+"""
+type darunrs_near_benchmark_indexer_indexer_storage_aggregate {
+  aggregate: darunrs_near_benchmark_indexer_indexer_storage_aggregate_fields
+  nodes: [darunrs_near_benchmark_indexer_indexer_storage!]!
+}
+
+"""
+aggregate fields of "darunrs_near_benchmark_indexer.indexer_storage"
+"""
+type darunrs_near_benchmark_indexer_indexer_storage_aggregate_fields {
+  count(columns: [darunrs_near_benchmark_indexer_indexer_storage_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_benchmark_indexer_indexer_storage_max_fields
+  min: darunrs_near_benchmark_indexer_indexer_storage_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_benchmark_indexer.indexer_storage". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_benchmark_indexer_indexer_storage_bool_exp {
+  _and: [darunrs_near_benchmark_indexer_indexer_storage_bool_exp!]
+  _not: darunrs_near_benchmark_indexer_indexer_storage_bool_exp
+  _or: [darunrs_near_benchmark_indexer_indexer_storage_bool_exp!]
+  function_name: String_comparison_exp
+  key_name: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_benchmark_indexer_indexer_storage_max_fields {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_benchmark_indexer_indexer_storage_min_fields {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_benchmark_indexer.indexer_storage".
+"""
+input darunrs_near_benchmark_indexer_indexer_storage_order_by {
+  function_name: order_by
+  key_name: order_by
+  value: order_by
+}
+
+"""
+select columns of table "darunrs_near_benchmark_indexer.indexer_storage"
+"""
+enum darunrs_near_benchmark_indexer_indexer_storage_select_column {
+  """column name"""
+  function_name
+
+  """column name"""
+  key_name
+
+  """column name"""
+  value
+}
+
+"""
+Streaming cursor of the table "darunrs_near_benchmark_indexer_indexer_storage"
+"""
+input darunrs_near_benchmark_indexer_indexer_storage_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_benchmark_indexer_indexer_storage_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_benchmark_indexer_indexer_storage_stream_cursor_value_input {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""
+columns and relationships of "darunrs_near_benchmark_indexer.sys_logs"
+"""
+type darunrs_near_benchmark_indexer_sys_logs {
+  block_height: numeric
+  date: date!
+  id: bigint!
+  level: String!
+  message: String!
+  timestamp: timestamp!
+  type: String!
+}
+
+"""
+aggregated selection of "darunrs_near_benchmark_indexer.sys_logs"
+"""
+type darunrs_near_benchmark_indexer_sys_logs_aggregate {
+  aggregate: darunrs_near_benchmark_indexer_sys_logs_aggregate_fields
+  nodes: [darunrs_near_benchmark_indexer_sys_logs!]!
+}
+
+"""
+aggregate fields of "darunrs_near_benchmark_indexer.sys_logs"
+"""
+type darunrs_near_benchmark_indexer_sys_logs_aggregate_fields {
+  avg: darunrs_near_benchmark_indexer_sys_logs_avg_fields
+  count(columns: [darunrs_near_benchmark_indexer_sys_logs_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_benchmark_indexer_sys_logs_max_fields
+  min: darunrs_near_benchmark_indexer_sys_logs_min_fields
+  stddev: darunrs_near_benchmark_indexer_sys_logs_stddev_fields
+  stddev_pop: darunrs_near_benchmark_indexer_sys_logs_stddev_pop_fields
+  stddev_samp: darunrs_near_benchmark_indexer_sys_logs_stddev_samp_fields
+  sum: darunrs_near_benchmark_indexer_sys_logs_sum_fields
+  var_pop: darunrs_near_benchmark_indexer_sys_logs_var_pop_fields
+  var_samp: darunrs_near_benchmark_indexer_sys_logs_var_samp_fields
+  variance: darunrs_near_benchmark_indexer_sys_logs_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_avg_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_benchmark_indexer.sys_logs". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_benchmark_indexer_sys_logs_bool_exp {
+  _and: [darunrs_near_benchmark_indexer_sys_logs_bool_exp!]
+  _not: darunrs_near_benchmark_indexer_sys_logs_bool_exp
+  _or: [darunrs_near_benchmark_indexer_sys_logs_bool_exp!]
+  block_height: numeric_comparison_exp
+  date: date_comparison_exp
+  id: bigint_comparison_exp
+  level: String_comparison_exp
+  message: String_comparison_exp
+  timestamp: timestamp_comparison_exp
+  type: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_max_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_min_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_benchmark_indexer.sys_logs".
+"""
+input darunrs_near_benchmark_indexer_sys_logs_order_by {
+  block_height: order_by
+  date: order_by
+  id: order_by
+  level: order_by
+  message: order_by
+  timestamp: order_by
+  type: order_by
+}
+
+"""
+select columns of table "darunrs_near_benchmark_indexer.sys_logs"
+"""
+enum darunrs_near_benchmark_indexer_sys_logs_select_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_stddev_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_stddev_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_stddev_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_benchmark_indexer_sys_logs"
+"""
+input darunrs_near_benchmark_indexer_sys_logs_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_benchmark_indexer_sys_logs_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_benchmark_indexer_sys_logs_stream_cursor_value_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_sum_fields {
+  block_height: numeric
+  id: bigint
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_var_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_var_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_benchmark_indexer_sys_logs_variance_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+columns and relationships of "darunrs_near_benchmark_indexer.sys_metadata"
+"""
+type darunrs_near_benchmark_indexer_sys_metadata {
+  attribute: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_benchmark_indexer.sys_metadata"
+"""
+type darunrs_near_benchmark_indexer_sys_metadata_aggregate {
+  aggregate: darunrs_near_benchmark_indexer_sys_metadata_aggregate_fields
+  nodes: [darunrs_near_benchmark_indexer_sys_metadata!]!
+}
+
+"""
+aggregate fields of "darunrs_near_benchmark_indexer.sys_metadata"
+"""
+type darunrs_near_benchmark_indexer_sys_metadata_aggregate_fields {
+  count(columns: [darunrs_near_benchmark_indexer_sys_metadata_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_benchmark_indexer_sys_metadata_max_fields
+  min: darunrs_near_benchmark_indexer_sys_metadata_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_benchmark_indexer.sys_metadata". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_benchmark_indexer_sys_metadata_bool_exp {
+  _and: [darunrs_near_benchmark_indexer_sys_metadata_bool_exp!]
+  _not: darunrs_near_benchmark_indexer_sys_metadata_bool_exp
+  _or: [darunrs_near_benchmark_indexer_sys_metadata_bool_exp!]
+  attribute: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_benchmark_indexer_sys_metadata_max_fields {
+  attribute: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_benchmark_indexer_sys_metadata_min_fields {
+  attribute: String
+  value: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_benchmark_indexer.sys_metadata".
+"""
+input darunrs_near_benchmark_indexer_sys_metadata_order_by {
+  attribute: order_by
+  value: order_by
+}
+
+"""
+select columns of table "darunrs_near_benchmark_indexer.sys_metadata"
+"""
+enum darunrs_near_benchmark_indexer_sys_metadata_select_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+"""
+Streaming cursor of the table "darunrs_near_benchmark_indexer_sys_metadata"
+"""
+input darunrs_near_benchmark_indexer_sys_metadata_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_benchmark_indexer_sys_metadata_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_benchmark_indexer_sys_metadata_stream_cursor_value_input {
+  attribute: String
+  value: String
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v3.actions_index"
+"""
+type darunrs_near_bitmap_v3_actions_index {
+  bitmap: String!
+  block_date: String!
+  first_block_height: numeric!
+  last_elias_gamma_start_bit: numeric!
+  max_index: numeric!
+  receiver_id: String!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v3.actions_index"
+"""
+type darunrs_near_bitmap_v3_actions_index_aggregate {
+  aggregate: darunrs_near_bitmap_v3_actions_index_aggregate_fields
+  nodes: [darunrs_near_bitmap_v3_actions_index!]!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v3.actions_index"
+"""
+type darunrs_near_bitmap_v3_actions_index_aggregate_fields {
+  avg: darunrs_near_bitmap_v3_actions_index_avg_fields
+  count(columns: [darunrs_near_bitmap_v3_actions_index_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v3_actions_index_max_fields
+  min: darunrs_near_bitmap_v3_actions_index_min_fields
+  stddev: darunrs_near_bitmap_v3_actions_index_stddev_fields
+  stddev_pop: darunrs_near_bitmap_v3_actions_index_stddev_pop_fields
+  stddev_samp: darunrs_near_bitmap_v3_actions_index_stddev_samp_fields
+  sum: darunrs_near_bitmap_v3_actions_index_sum_fields
+  var_pop: darunrs_near_bitmap_v3_actions_index_var_pop_fields
+  var_samp: darunrs_near_bitmap_v3_actions_index_var_samp_fields
+  variance: darunrs_near_bitmap_v3_actions_index_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_bitmap_v3_actions_index_avg_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v3.actions_index". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v3_actions_index_bool_exp {
+  _and: [darunrs_near_bitmap_v3_actions_index_bool_exp!]
+  _not: darunrs_near_bitmap_v3_actions_index_bool_exp
+  _or: [darunrs_near_bitmap_v3_actions_index_bool_exp!]
+  bitmap: String_comparison_exp
+  block_date: String_comparison_exp
+  first_block_height: numeric_comparison_exp
+  last_elias_gamma_start_bit: numeric_comparison_exp
+  max_index: numeric_comparison_exp
+  receiver_id: String_comparison_exp
+}
+
+"""
+unique or primary key constraints on table "darunrs_near_bitmap_v3.actions_index"
+"""
+enum darunrs_near_bitmap_v3_actions_index_constraint {
+  """
+  unique or primary key constraint on columns "receiver_id", "block_date"
+  """
+  actions_index_pkey
+}
+
+"""
+input type for incrementing numeric columns in table "darunrs_near_bitmap_v3.actions_index"
+"""
+input darunrs_near_bitmap_v3_actions_index_inc_input {
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+}
+
+"""
+input type for inserting data into table "darunrs_near_bitmap_v3.actions_index"
+"""
+input darunrs_near_bitmap_v3_actions_index_insert_input {
+  bitmap: String
+  block_date: String
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+  receiver_id: String
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v3_actions_index_max_fields {
+  bitmap: String
+  block_date: String
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+  receiver_id: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v3_actions_index_min_fields {
+  bitmap: String
+  block_date: String
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+  receiver_id: String
+}
+
+"""
+response of any mutation on the table "darunrs_near_bitmap_v3.actions_index"
+"""
+type darunrs_near_bitmap_v3_actions_index_mutation_response {
+  """number of rows affected by the mutation"""
+  affected_rows: Int!
+
+  """data from the rows affected by the mutation"""
+  returning: [darunrs_near_bitmap_v3_actions_index!]!
+}
+
+"""
+on_conflict condition type for table "darunrs_near_bitmap_v3.actions_index"
+"""
+input darunrs_near_bitmap_v3_actions_index_on_conflict {
+  constraint: darunrs_near_bitmap_v3_actions_index_constraint!
+  update_columns: [darunrs_near_bitmap_v3_actions_index_update_column!]! = []
+  where: darunrs_near_bitmap_v3_actions_index_bool_exp
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v3.actions_index".
+"""
+input darunrs_near_bitmap_v3_actions_index_order_by {
+  bitmap: order_by
+  block_date: order_by
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""
+primary key columns input for table: darunrs_near_bitmap_v3.actions_index
+"""
+input darunrs_near_bitmap_v3_actions_index_pk_columns_input {
+  block_date: String!
+  receiver_id: String!
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v3.actions_index"
+"""
+enum darunrs_near_bitmap_v3_actions_index_select_column {
+  """column name"""
+  bitmap
+
+  """column name"""
+  block_date
+
+  """column name"""
+  first_block_height
+
+  """column name"""
+  last_elias_gamma_start_bit
+
+  """column name"""
+  max_index
+
+  """column name"""
+  receiver_id
+}
+
+"""
+input type for updating data in table "darunrs_near_bitmap_v3.actions_index"
+"""
+input darunrs_near_bitmap_v3_actions_index_set_input {
+  bitmap: String
+  block_date: String
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+  receiver_id: String
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_bitmap_v3_actions_index_stddev_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_bitmap_v3_actions_index_stddev_pop_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_bitmap_v3_actions_index_stddev_samp_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v3_actions_index"
+"""
+input darunrs_near_bitmap_v3_actions_index_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v3_actions_index_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v3_actions_index_stream_cursor_value_input {
+  bitmap: String
+  block_date: String
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+  receiver_id: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_bitmap_v3_actions_index_sum_fields {
+  first_block_height: numeric
+  last_elias_gamma_start_bit: numeric
+  max_index: numeric
+}
+
+"""
+update columns of table "darunrs_near_bitmap_v3.actions_index"
+"""
+enum darunrs_near_bitmap_v3_actions_index_update_column {
+  """column name"""
+  bitmap
+
+  """column name"""
+  block_date
+
+  """column name"""
+  first_block_height
+
+  """column name"""
+  last_elias_gamma_start_bit
+
+  """column name"""
+  max_index
+
+  """column name"""
+  receiver_id
+}
+
+input darunrs_near_bitmap_v3_actions_index_updates {
+  """increments the numeric columns with given value of the filtered values"""
+  _inc: darunrs_near_bitmap_v3_actions_index_inc_input
+
+  """sets the columns of the filtered rows to the given values"""
+  _set: darunrs_near_bitmap_v3_actions_index_set_input
+
+  """filter the rows which have to be updated"""
+  where: darunrs_near_bitmap_v3_actions_index_bool_exp!
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_bitmap_v3_actions_index_var_pop_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_bitmap_v3_actions_index_var_samp_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_bitmap_v3_actions_index_variance_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v3.sys_logs"
+"""
+type darunrs_near_bitmap_v3_sys_logs {
+  block_height: numeric
+  date: date!
+  id: bigint!
+  level: String!
+  message: String!
+  timestamp: timestamp!
+  type: String!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v3.sys_logs"
+"""
+type darunrs_near_bitmap_v3_sys_logs_aggregate {
+  aggregate: darunrs_near_bitmap_v3_sys_logs_aggregate_fields
+  nodes: [darunrs_near_bitmap_v3_sys_logs!]!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v3.sys_logs"
+"""
+type darunrs_near_bitmap_v3_sys_logs_aggregate_fields {
+  avg: darunrs_near_bitmap_v3_sys_logs_avg_fields
+  count(columns: [darunrs_near_bitmap_v3_sys_logs_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v3_sys_logs_max_fields
+  min: darunrs_near_bitmap_v3_sys_logs_min_fields
+  stddev: darunrs_near_bitmap_v3_sys_logs_stddev_fields
+  stddev_pop: darunrs_near_bitmap_v3_sys_logs_stddev_pop_fields
+  stddev_samp: darunrs_near_bitmap_v3_sys_logs_stddev_samp_fields
+  sum: darunrs_near_bitmap_v3_sys_logs_sum_fields
+  var_pop: darunrs_near_bitmap_v3_sys_logs_var_pop_fields
+  var_samp: darunrs_near_bitmap_v3_sys_logs_var_samp_fields
+  variance: darunrs_near_bitmap_v3_sys_logs_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_bitmap_v3_sys_logs_avg_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v3.sys_logs". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v3_sys_logs_bool_exp {
+  _and: [darunrs_near_bitmap_v3_sys_logs_bool_exp!]
+  _not: darunrs_near_bitmap_v3_sys_logs_bool_exp
+  _or: [darunrs_near_bitmap_v3_sys_logs_bool_exp!]
+  block_height: numeric_comparison_exp
+  date: date_comparison_exp
+  id: bigint_comparison_exp
+  level: String_comparison_exp
+  message: String_comparison_exp
+  timestamp: timestamp_comparison_exp
+  type: String_comparison_exp
+}
+
+"""
+unique or primary key constraints on table "darunrs_near_bitmap_v3.sys_logs"
+"""
+enum darunrs_near_bitmap_v3_sys_logs_constraint {
+  """
+  unique or primary key constraint on columns "id", "date"
+  """
+  sys_logs_pkey
+}
+
+"""
+input type for incrementing numeric columns in table "darunrs_near_bitmap_v3.sys_logs"
+"""
+input darunrs_near_bitmap_v3_sys_logs_inc_input {
+  block_height: numeric
+  id: bigint
+}
+
+"""
+input type for inserting data into table "darunrs_near_bitmap_v3.sys_logs"
+"""
+input darunrs_near_bitmap_v3_sys_logs_insert_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v3_sys_logs_max_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v3_sys_logs_min_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""
+response of any mutation on the table "darunrs_near_bitmap_v3.sys_logs"
+"""
+type darunrs_near_bitmap_v3_sys_logs_mutation_response {
+  """number of rows affected by the mutation"""
+  affected_rows: Int!
+
+  """data from the rows affected by the mutation"""
+  returning: [darunrs_near_bitmap_v3_sys_logs!]!
+}
+
+"""
+on_conflict condition type for table "darunrs_near_bitmap_v3.sys_logs"
+"""
+input darunrs_near_bitmap_v3_sys_logs_on_conflict {
+  constraint: darunrs_near_bitmap_v3_sys_logs_constraint!
+  update_columns: [darunrs_near_bitmap_v3_sys_logs_update_column!]! = []
+  where: darunrs_near_bitmap_v3_sys_logs_bool_exp
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v3.sys_logs".
+"""
+input darunrs_near_bitmap_v3_sys_logs_order_by {
+  block_height: order_by
+  date: order_by
+  id: order_by
+  level: order_by
+  message: order_by
+  timestamp: order_by
+  type: order_by
+}
+
+"""primary key columns input for table: darunrs_near_bitmap_v3.sys_logs"""
+input darunrs_near_bitmap_v3_sys_logs_pk_columns_input {
+  date: date!
+  id: bigint!
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v3.sys_logs"
+"""
+enum darunrs_near_bitmap_v3_sys_logs_select_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+"""
+input type for updating data in table "darunrs_near_bitmap_v3.sys_logs"
+"""
+input darunrs_near_bitmap_v3_sys_logs_set_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_bitmap_v3_sys_logs_stddev_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_bitmap_v3_sys_logs_stddev_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_bitmap_v3_sys_logs_stddev_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v3_sys_logs"
+"""
+input darunrs_near_bitmap_v3_sys_logs_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v3_sys_logs_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v3_sys_logs_stream_cursor_value_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_bitmap_v3_sys_logs_sum_fields {
+  block_height: numeric
+  id: bigint
+}
+
+"""
+update columns of table "darunrs_near_bitmap_v3.sys_logs"
+"""
+enum darunrs_near_bitmap_v3_sys_logs_update_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+input darunrs_near_bitmap_v3_sys_logs_updates {
+  """increments the numeric columns with given value of the filtered values"""
+  _inc: darunrs_near_bitmap_v3_sys_logs_inc_input
+
+  """sets the columns of the filtered rows to the given values"""
+  _set: darunrs_near_bitmap_v3_sys_logs_set_input
+
+  """filter the rows which have to be updated"""
+  where: darunrs_near_bitmap_v3_sys_logs_bool_exp!
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_bitmap_v3_sys_logs_var_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_bitmap_v3_sys_logs_var_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_bitmap_v3_sys_logs_variance_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v3.sys_metadata"
+"""
+type darunrs_near_bitmap_v3_sys_metadata {
+  attribute: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v3.sys_metadata"
+"""
+type darunrs_near_bitmap_v3_sys_metadata_aggregate {
+  aggregate: darunrs_near_bitmap_v3_sys_metadata_aggregate_fields
+  nodes: [darunrs_near_bitmap_v3_sys_metadata!]!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v3.sys_metadata"
+"""
+type darunrs_near_bitmap_v3_sys_metadata_aggregate_fields {
+  count(columns: [darunrs_near_bitmap_v3_sys_metadata_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v3_sys_metadata_max_fields
+  min: darunrs_near_bitmap_v3_sys_metadata_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v3.sys_metadata". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v3_sys_metadata_bool_exp {
+  _and: [darunrs_near_bitmap_v3_sys_metadata_bool_exp!]
+  _not: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+  _or: [darunrs_near_bitmap_v3_sys_metadata_bool_exp!]
+  attribute: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""
+unique or primary key constraints on table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+enum darunrs_near_bitmap_v3_sys_metadata_constraint {
+  """
+  unique or primary key constraint on columns "attribute"
+  """
+  sys_metadata_pkey
+}
+
+"""
+input type for inserting data into table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+input darunrs_near_bitmap_v3_sys_metadata_insert_input {
+  attribute: String
+  value: String
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v3_sys_metadata_max_fields {
+  attribute: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v3_sys_metadata_min_fields {
+  attribute: String
+  value: String
+}
+
+"""
+response of any mutation on the table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+type darunrs_near_bitmap_v3_sys_metadata_mutation_response {
+  """number of rows affected by the mutation"""
+  affected_rows: Int!
+
+  """data from the rows affected by the mutation"""
+  returning: [darunrs_near_bitmap_v3_sys_metadata!]!
+}
+
+"""
+on_conflict condition type for table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+input darunrs_near_bitmap_v3_sys_metadata_on_conflict {
+  constraint: darunrs_near_bitmap_v3_sys_metadata_constraint!
+  update_columns: [darunrs_near_bitmap_v3_sys_metadata_update_column!]! = []
+  where: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v3.sys_metadata".
+"""
+input darunrs_near_bitmap_v3_sys_metadata_order_by {
+  attribute: order_by
+  value: order_by
+}
+
+"""
+primary key columns input for table: darunrs_near_bitmap_v3.sys_metadata
+"""
+input darunrs_near_bitmap_v3_sys_metadata_pk_columns_input {
+  attribute: String!
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+enum darunrs_near_bitmap_v3_sys_metadata_select_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+"""
+input type for updating data in table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+input darunrs_near_bitmap_v3_sys_metadata_set_input {
+  attribute: String
+  value: String
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v3_sys_metadata"
+"""
+input darunrs_near_bitmap_v3_sys_metadata_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v3_sys_metadata_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v3_sys_metadata_stream_cursor_value_input {
+  attribute: String
+  value: String
+}
+
+"""
+update columns of table "darunrs_near_bitmap_v3.sys_metadata"
+"""
+enum darunrs_near_bitmap_v3_sys_metadata_update_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+input darunrs_near_bitmap_v3_sys_metadata_updates {
+  """sets the columns of the filtered rows to the given values"""
+  _set: darunrs_near_bitmap_v3_sys_metadata_set_input
+
+  """filter the rows which have to be updated"""
+  where: darunrs_near_bitmap_v3_sys_metadata_bool_exp!
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v5.actions_index"
+"""
+type darunrs_near_bitmap_v5_actions_index {
+  bitmap: String!
+  block_date: date!
+  first_block_height: Int!
+  last_elias_gamma_start_bit: Int!
+  max_index: Int!
+
+  """An object relationship"""
+  receiver: darunrs_near_bitmap_v5_receivers!
+  receiver_id: bigint!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v5.actions_index"
+"""
+type darunrs_near_bitmap_v5_actions_index_aggregate {
+  aggregate: darunrs_near_bitmap_v5_actions_index_aggregate_fields
+  nodes: [darunrs_near_bitmap_v5_actions_index!]!
+}
+
+input darunrs_near_bitmap_v5_actions_index_aggregate_bool_exp {
+  count: darunrs_near_bitmap_v5_actions_index_aggregate_bool_exp_count
+}
+
+input darunrs_near_bitmap_v5_actions_index_aggregate_bool_exp_count {
+  arguments: [darunrs_near_bitmap_v5_actions_index_select_column!]
+  distinct: Boolean
+  filter: darunrs_near_bitmap_v5_actions_index_bool_exp
+  predicate: Int_comparison_exp!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v5.actions_index"
+"""
+type darunrs_near_bitmap_v5_actions_index_aggregate_fields {
+  avg: darunrs_near_bitmap_v5_actions_index_avg_fields
+  count(columns: [darunrs_near_bitmap_v5_actions_index_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v5_actions_index_max_fields
+  min: darunrs_near_bitmap_v5_actions_index_min_fields
+  stddev: darunrs_near_bitmap_v5_actions_index_stddev_fields
+  stddev_pop: darunrs_near_bitmap_v5_actions_index_stddev_pop_fields
+  stddev_samp: darunrs_near_bitmap_v5_actions_index_stddev_samp_fields
+  sum: darunrs_near_bitmap_v5_actions_index_sum_fields
+  var_pop: darunrs_near_bitmap_v5_actions_index_var_pop_fields
+  var_samp: darunrs_near_bitmap_v5_actions_index_var_samp_fields
+  variance: darunrs_near_bitmap_v5_actions_index_variance_fields
+}
+
+"""
+order by aggregate values of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_aggregate_order_by {
+  avg: darunrs_near_bitmap_v5_actions_index_avg_order_by
+  count: order_by
+  max: darunrs_near_bitmap_v5_actions_index_max_order_by
+  min: darunrs_near_bitmap_v5_actions_index_min_order_by
+  stddev: darunrs_near_bitmap_v5_actions_index_stddev_order_by
+  stddev_pop: darunrs_near_bitmap_v5_actions_index_stddev_pop_order_by
+  stddev_samp: darunrs_near_bitmap_v5_actions_index_stddev_samp_order_by
+  sum: darunrs_near_bitmap_v5_actions_index_sum_order_by
+  var_pop: darunrs_near_bitmap_v5_actions_index_var_pop_order_by
+  var_samp: darunrs_near_bitmap_v5_actions_index_var_samp_order_by
+  variance: darunrs_near_bitmap_v5_actions_index_variance_order_by
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_bitmap_v5_actions_index_avg_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by avg() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_avg_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v5.actions_index". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v5_actions_index_bool_exp {
+  _and: [darunrs_near_bitmap_v5_actions_index_bool_exp!]
+  _not: darunrs_near_bitmap_v5_actions_index_bool_exp
+  _or: [darunrs_near_bitmap_v5_actions_index_bool_exp!]
+  bitmap: String_comparison_exp
+  block_date: date_comparison_exp
+  first_block_height: Int_comparison_exp
+  last_elias_gamma_start_bit: Int_comparison_exp
+  max_index: Int_comparison_exp
+  receiver: darunrs_near_bitmap_v5_receivers_bool_exp
+  receiver_id: bigint_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v5_actions_index_max_fields {
+  bitmap: String
+  block_date: date
+  first_block_height: Int
+  last_elias_gamma_start_bit: Int
+  max_index: Int
+  receiver_id: bigint
+}
+
+"""
+order by max() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_max_order_by {
+  bitmap: order_by
+  block_date: order_by
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v5_actions_index_min_fields {
+  bitmap: String
+  block_date: date
+  first_block_height: Int
+  last_elias_gamma_start_bit: Int
+  max_index: Int
+  receiver_id: bigint
+}
+
+"""
+order by min() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_min_order_by {
+  bitmap: order_by
+  block_date: order_by
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v5.actions_index".
+"""
+input darunrs_near_bitmap_v5_actions_index_order_by {
+  bitmap: order_by
+  block_date: order_by
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver: darunrs_near_bitmap_v5_receivers_order_by
+  receiver_id: order_by
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+enum darunrs_near_bitmap_v5_actions_index_select_column {
+  """column name"""
+  bitmap
+
+  """column name"""
+  block_date
+
+  """column name"""
+  first_block_height
+
+  """column name"""
+  last_elias_gamma_start_bit
+
+  """column name"""
+  max_index
+
+  """column name"""
+  receiver_id
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_bitmap_v5_actions_index_stddev_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by stddev() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_stddev_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_bitmap_v5_actions_index_stddev_pop_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by stddev_pop() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_stddev_pop_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_bitmap_v5_actions_index_stddev_samp_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by stddev_samp() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_stddev_samp_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v5_actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v5_actions_index_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v5_actions_index_stream_cursor_value_input {
+  bitmap: String
+  block_date: date
+  first_block_height: Int
+  last_elias_gamma_start_bit: Int
+  max_index: Int
+  receiver_id: bigint
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_bitmap_v5_actions_index_sum_fields {
+  first_block_height: Int
+  last_elias_gamma_start_bit: Int
+  max_index: Int
+  receiver_id: bigint
+}
+
+"""
+order by sum() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_sum_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_bitmap_v5_actions_index_var_pop_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by var_pop() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_var_pop_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_bitmap_v5_actions_index_var_samp_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by var_samp() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_var_samp_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_bitmap_v5_actions_index_variance_fields {
+  first_block_height: Float
+  last_elias_gamma_start_bit: Float
+  max_index: Float
+  receiver_id: Float
+}
+
+"""
+order by variance() on columns of table "darunrs_near_bitmap_v5.actions_index"
+"""
+input darunrs_near_bitmap_v5_actions_index_variance_order_by {
+  first_block_height: order_by
+  last_elias_gamma_start_bit: order_by
+  max_index: order_by
+  receiver_id: order_by
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v5.receivers"
+"""
+type darunrs_near_bitmap_v5_receivers {
+  """An array relationship"""
+  actions_index(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v5_actions_index!]!
+
+  """An aggregate relationship"""
+  actions_index_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): darunrs_near_bitmap_v5_actions_index_aggregate!
+  id: bigint!
+  receiver: String!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v5.receivers"
+"""
+type darunrs_near_bitmap_v5_receivers_aggregate {
+  aggregate: darunrs_near_bitmap_v5_receivers_aggregate_fields
+  nodes: [darunrs_near_bitmap_v5_receivers!]!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v5.receivers"
+"""
+type darunrs_near_bitmap_v5_receivers_aggregate_fields {
+  avg: darunrs_near_bitmap_v5_receivers_avg_fields
+  count(columns: [darunrs_near_bitmap_v5_receivers_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v5_receivers_max_fields
+  min: darunrs_near_bitmap_v5_receivers_min_fields
+  stddev: darunrs_near_bitmap_v5_receivers_stddev_fields
+  stddev_pop: darunrs_near_bitmap_v5_receivers_stddev_pop_fields
+  stddev_samp: darunrs_near_bitmap_v5_receivers_stddev_samp_fields
+  sum: darunrs_near_bitmap_v5_receivers_sum_fields
+  var_pop: darunrs_near_bitmap_v5_receivers_var_pop_fields
+  var_samp: darunrs_near_bitmap_v5_receivers_var_samp_fields
+  variance: darunrs_near_bitmap_v5_receivers_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_bitmap_v5_receivers_avg_fields {
+  id: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v5.receivers". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v5_receivers_bool_exp {
+  _and: [darunrs_near_bitmap_v5_receivers_bool_exp!]
+  _not: darunrs_near_bitmap_v5_receivers_bool_exp
+  _or: [darunrs_near_bitmap_v5_receivers_bool_exp!]
+  actions_index: darunrs_near_bitmap_v5_actions_index_bool_exp
+  actions_index_aggregate: darunrs_near_bitmap_v5_actions_index_aggregate_bool_exp
+  id: bigint_comparison_exp
+  receiver: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v5_receivers_max_fields {
+  id: bigint
+  receiver: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v5_receivers_min_fields {
+  id: bigint
+  receiver: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v5.receivers".
+"""
+input darunrs_near_bitmap_v5_receivers_order_by {
+  actions_index_aggregate: darunrs_near_bitmap_v5_actions_index_aggregate_order_by
+  id: order_by
+  receiver: order_by
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v5.receivers"
+"""
+enum darunrs_near_bitmap_v5_receivers_select_column {
+  """column name"""
+  id
+
+  """column name"""
+  receiver
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_bitmap_v5_receivers_stddev_fields {
+  id: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_bitmap_v5_receivers_stddev_pop_fields {
+  id: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_bitmap_v5_receivers_stddev_samp_fields {
+  id: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v5_receivers"
+"""
+input darunrs_near_bitmap_v5_receivers_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v5_receivers_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v5_receivers_stream_cursor_value_input {
+  id: bigint
+  receiver: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_bitmap_v5_receivers_sum_fields {
+  id: bigint
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_bitmap_v5_receivers_var_pop_fields {
+  id: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_bitmap_v5_receivers_var_samp_fields {
+  id: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_bitmap_v5_receivers_variance_fields {
+  id: Float
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v5.sys_logs"
+"""
+type darunrs_near_bitmap_v5_sys_logs {
+  block_height: numeric
+  date: date!
+  id: bigint!
+  level: String!
+  message: String!
+  timestamp: timestamp!
+  type: String!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v5.sys_logs"
+"""
+type darunrs_near_bitmap_v5_sys_logs_aggregate {
+  aggregate: darunrs_near_bitmap_v5_sys_logs_aggregate_fields
+  nodes: [darunrs_near_bitmap_v5_sys_logs!]!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v5.sys_logs"
+"""
+type darunrs_near_bitmap_v5_sys_logs_aggregate_fields {
+  avg: darunrs_near_bitmap_v5_sys_logs_avg_fields
+  count(columns: [darunrs_near_bitmap_v5_sys_logs_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v5_sys_logs_max_fields
+  min: darunrs_near_bitmap_v5_sys_logs_min_fields
+  stddev: darunrs_near_bitmap_v5_sys_logs_stddev_fields
+  stddev_pop: darunrs_near_bitmap_v5_sys_logs_stddev_pop_fields
+  stddev_samp: darunrs_near_bitmap_v5_sys_logs_stddev_samp_fields
+  sum: darunrs_near_bitmap_v5_sys_logs_sum_fields
+  var_pop: darunrs_near_bitmap_v5_sys_logs_var_pop_fields
+  var_samp: darunrs_near_bitmap_v5_sys_logs_var_samp_fields
+  variance: darunrs_near_bitmap_v5_sys_logs_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_bitmap_v5_sys_logs_avg_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v5.sys_logs". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v5_sys_logs_bool_exp {
+  _and: [darunrs_near_bitmap_v5_sys_logs_bool_exp!]
+  _not: darunrs_near_bitmap_v5_sys_logs_bool_exp
+  _or: [darunrs_near_bitmap_v5_sys_logs_bool_exp!]
+  block_height: numeric_comparison_exp
+  date: date_comparison_exp
+  id: bigint_comparison_exp
+  level: String_comparison_exp
+  message: String_comparison_exp
+  timestamp: timestamp_comparison_exp
+  type: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v5_sys_logs_max_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v5_sys_logs_min_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v5.sys_logs".
+"""
+input darunrs_near_bitmap_v5_sys_logs_order_by {
+  block_height: order_by
+  date: order_by
+  id: order_by
+  level: order_by
+  message: order_by
+  timestamp: order_by
+  type: order_by
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v5.sys_logs"
+"""
+enum darunrs_near_bitmap_v5_sys_logs_select_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_bitmap_v5_sys_logs_stddev_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_bitmap_v5_sys_logs_stddev_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_bitmap_v5_sys_logs_stddev_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v5_sys_logs"
+"""
+input darunrs_near_bitmap_v5_sys_logs_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v5_sys_logs_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v5_sys_logs_stream_cursor_value_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_bitmap_v5_sys_logs_sum_fields {
+  block_height: numeric
+  id: bigint
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_bitmap_v5_sys_logs_var_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_bitmap_v5_sys_logs_var_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_bitmap_v5_sys_logs_variance_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+columns and relationships of "darunrs_near_bitmap_v5.sys_metadata"
+"""
+type darunrs_near_bitmap_v5_sys_metadata {
+  attribute: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_bitmap_v5.sys_metadata"
+"""
+type darunrs_near_bitmap_v5_sys_metadata_aggregate {
+  aggregate: darunrs_near_bitmap_v5_sys_metadata_aggregate_fields
+  nodes: [darunrs_near_bitmap_v5_sys_metadata!]!
+}
+
+"""
+aggregate fields of "darunrs_near_bitmap_v5.sys_metadata"
+"""
+type darunrs_near_bitmap_v5_sys_metadata_aggregate_fields {
+  count(columns: [darunrs_near_bitmap_v5_sys_metadata_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_bitmap_v5_sys_metadata_max_fields
+  min: darunrs_near_bitmap_v5_sys_metadata_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_bitmap_v5.sys_metadata". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_bitmap_v5_sys_metadata_bool_exp {
+  _and: [darunrs_near_bitmap_v5_sys_metadata_bool_exp!]
+  _not: darunrs_near_bitmap_v5_sys_metadata_bool_exp
+  _or: [darunrs_near_bitmap_v5_sys_metadata_bool_exp!]
+  attribute: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_bitmap_v5_sys_metadata_max_fields {
+  attribute: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_bitmap_v5_sys_metadata_min_fields {
+  attribute: String
+  value: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_bitmap_v5.sys_metadata".
+"""
+input darunrs_near_bitmap_v5_sys_metadata_order_by {
+  attribute: order_by
+  value: order_by
+}
+
+"""
+select columns of table "darunrs_near_bitmap_v5.sys_metadata"
+"""
+enum darunrs_near_bitmap_v5_sys_metadata_select_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+"""
+Streaming cursor of the table "darunrs_near_bitmap_v5_sys_metadata"
+"""
+input darunrs_near_bitmap_v5_sys_metadata_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_bitmap_v5_sys_metadata_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_bitmap_v5_sys_metadata_stream_cursor_value_input {
+  attribute: String
+  value: String
+}
+
+"""
+columns and relationships of "darunrs_near_social_feed_test.comments"
+"""
+type darunrs_near_social_feed_test_comments {
+  account_id: String!
+  block_height: numeric!
+  block_timestamp: numeric!
+  content: String!
+  id: Int!
+
+  """An object relationship"""
+  post: darunrs_near_social_feed_test_posts!
+  post_id: Int!
+  receipt_id: String!
+}
+
+"""
+aggregated selection of "darunrs_near_social_feed_test.comments"
+"""
+type darunrs_near_social_feed_test_comments_aggregate {
+  aggregate: darunrs_near_social_feed_test_comments_aggregate_fields
+  nodes: [darunrs_near_social_feed_test_comments!]!
+}
+
+input darunrs_near_social_feed_test_comments_aggregate_bool_exp {
+  count: darunrs_near_social_feed_test_comments_aggregate_bool_exp_count
+}
+
+input darunrs_near_social_feed_test_comments_aggregate_bool_exp_count {
+  arguments: [darunrs_near_social_feed_test_comments_select_column!]
+  distinct: Boolean
+  filter: darunrs_near_social_feed_test_comments_bool_exp
+  predicate: Int_comparison_exp!
+}
+
+"""
+aggregate fields of "darunrs_near_social_feed_test.comments"
+"""
+type darunrs_near_social_feed_test_comments_aggregate_fields {
+  avg: darunrs_near_social_feed_test_comments_avg_fields
+  count(columns: [darunrs_near_social_feed_test_comments_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_social_feed_test_comments_max_fields
+  min: darunrs_near_social_feed_test_comments_min_fields
+  stddev: darunrs_near_social_feed_test_comments_stddev_fields
+  stddev_pop: darunrs_near_social_feed_test_comments_stddev_pop_fields
+  stddev_samp: darunrs_near_social_feed_test_comments_stddev_samp_fields
+  sum: darunrs_near_social_feed_test_comments_sum_fields
+  var_pop: darunrs_near_social_feed_test_comments_var_pop_fields
+  var_samp: darunrs_near_social_feed_test_comments_var_samp_fields
+  variance: darunrs_near_social_feed_test_comments_variance_fields
+}
+
+"""
+order by aggregate values of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_aggregate_order_by {
+  avg: darunrs_near_social_feed_test_comments_avg_order_by
+  count: order_by
+  max: darunrs_near_social_feed_test_comments_max_order_by
+  min: darunrs_near_social_feed_test_comments_min_order_by
+  stddev: darunrs_near_social_feed_test_comments_stddev_order_by
+  stddev_pop: darunrs_near_social_feed_test_comments_stddev_pop_order_by
+  stddev_samp: darunrs_near_social_feed_test_comments_stddev_samp_order_by
+  sum: darunrs_near_social_feed_test_comments_sum_order_by
+  var_pop: darunrs_near_social_feed_test_comments_var_pop_order_by
+  var_samp: darunrs_near_social_feed_test_comments_var_samp_order_by
+  variance: darunrs_near_social_feed_test_comments_variance_order_by
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_social_feed_test_comments_avg_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by avg() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_avg_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_social_feed_test.comments". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_social_feed_test_comments_bool_exp {
+  _and: [darunrs_near_social_feed_test_comments_bool_exp!]
+  _not: darunrs_near_social_feed_test_comments_bool_exp
+  _or: [darunrs_near_social_feed_test_comments_bool_exp!]
+  account_id: String_comparison_exp
+  block_height: numeric_comparison_exp
+  block_timestamp: numeric_comparison_exp
+  content: String_comparison_exp
+  id: Int_comparison_exp
+  post: darunrs_near_social_feed_test_posts_bool_exp
+  post_id: Int_comparison_exp
+  receipt_id: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_social_feed_test_comments_max_fields {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  content: String
+  id: Int
+  post_id: Int
+  receipt_id: String
+}
+
+"""
+order by max() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_max_order_by {
+  account_id: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  content: order_by
+  id: order_by
+  post_id: order_by
+  receipt_id: order_by
+}
+
+"""aggregate min on columns"""
+type darunrs_near_social_feed_test_comments_min_fields {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  content: String
+  id: Int
+  post_id: Int
+  receipt_id: String
+}
+
+"""
+order by min() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_min_order_by {
+  account_id: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  content: order_by
+  id: order_by
+  post_id: order_by
+  receipt_id: order_by
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_social_feed_test.comments".
+"""
+input darunrs_near_social_feed_test_comments_order_by {
+  account_id: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  content: order_by
+  id: order_by
+  post: darunrs_near_social_feed_test_posts_order_by
+  post_id: order_by
+  receipt_id: order_by
+}
+
+"""
+select columns of table "darunrs_near_social_feed_test.comments"
+"""
+enum darunrs_near_social_feed_test_comments_select_column {
+  """column name"""
+  account_id
+
+  """column name"""
+  block_height
+
+  """column name"""
+  block_timestamp
+
+  """column name"""
+  content
+
+  """column name"""
+  id
+
+  """column name"""
+  post_id
+
+  """column name"""
+  receipt_id
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_social_feed_test_comments_stddev_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by stddev() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_stddev_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_social_feed_test_comments_stddev_pop_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by stddev_pop() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_stddev_pop_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_social_feed_test_comments_stddev_samp_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by stddev_samp() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_stddev_samp_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""
+Streaming cursor of the table "darunrs_near_social_feed_test_comments"
+"""
+input darunrs_near_social_feed_test_comments_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_social_feed_test_comments_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_social_feed_test_comments_stream_cursor_value_input {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  content: String
+  id: Int
+  post_id: Int
+  receipt_id: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_social_feed_test_comments_sum_fields {
+  block_height: numeric
+  block_timestamp: numeric
+  id: Int
+  post_id: Int
+}
+
+"""
+order by sum() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_sum_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_social_feed_test_comments_var_pop_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by var_pop() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_var_pop_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_social_feed_test_comments_var_samp_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by var_samp() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_var_samp_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_social_feed_test_comments_variance_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  post_id: Float
+}
+
+"""
+order by variance() on columns of table "darunrs_near_social_feed_test.comments"
+"""
+input darunrs_near_social_feed_test_comments_variance_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  id: order_by
+  post_id: order_by
+}
+
+"""
+columns and relationships of "darunrs_near_social_feed_test.post_likes"
+"""
+type darunrs_near_social_feed_test_post_likes {
+  account_id: String!
+  block_height: numeric
+  block_timestamp: numeric!
+
+  """An object relationship"""
+  post: darunrs_near_social_feed_test_posts!
+  post_id: Int!
+  receipt_id: String!
+}
+
+"""
+aggregated selection of "darunrs_near_social_feed_test.post_likes"
+"""
+type darunrs_near_social_feed_test_post_likes_aggregate {
+  aggregate: darunrs_near_social_feed_test_post_likes_aggregate_fields
+  nodes: [darunrs_near_social_feed_test_post_likes!]!
+}
+
+input darunrs_near_social_feed_test_post_likes_aggregate_bool_exp {
+  count: darunrs_near_social_feed_test_post_likes_aggregate_bool_exp_count
+}
+
+input darunrs_near_social_feed_test_post_likes_aggregate_bool_exp_count {
+  arguments: [darunrs_near_social_feed_test_post_likes_select_column!]
+  distinct: Boolean
+  filter: darunrs_near_social_feed_test_post_likes_bool_exp
+  predicate: Int_comparison_exp!
+}
+
+"""
+aggregate fields of "darunrs_near_social_feed_test.post_likes"
+"""
+type darunrs_near_social_feed_test_post_likes_aggregate_fields {
+  avg: darunrs_near_social_feed_test_post_likes_avg_fields
+  count(columns: [darunrs_near_social_feed_test_post_likes_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_social_feed_test_post_likes_max_fields
+  min: darunrs_near_social_feed_test_post_likes_min_fields
+  stddev: darunrs_near_social_feed_test_post_likes_stddev_fields
+  stddev_pop: darunrs_near_social_feed_test_post_likes_stddev_pop_fields
+  stddev_samp: darunrs_near_social_feed_test_post_likes_stddev_samp_fields
+  sum: darunrs_near_social_feed_test_post_likes_sum_fields
+  var_pop: darunrs_near_social_feed_test_post_likes_var_pop_fields
+  var_samp: darunrs_near_social_feed_test_post_likes_var_samp_fields
+  variance: darunrs_near_social_feed_test_post_likes_variance_fields
+}
+
+"""
+order by aggregate values of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_aggregate_order_by {
+  avg: darunrs_near_social_feed_test_post_likes_avg_order_by
+  count: order_by
+  max: darunrs_near_social_feed_test_post_likes_max_order_by
+  min: darunrs_near_social_feed_test_post_likes_min_order_by
+  stddev: darunrs_near_social_feed_test_post_likes_stddev_order_by
+  stddev_pop: darunrs_near_social_feed_test_post_likes_stddev_pop_order_by
+  stddev_samp: darunrs_near_social_feed_test_post_likes_stddev_samp_order_by
+  sum: darunrs_near_social_feed_test_post_likes_sum_order_by
+  var_pop: darunrs_near_social_feed_test_post_likes_var_pop_order_by
+  var_samp: darunrs_near_social_feed_test_post_likes_var_samp_order_by
+  variance: darunrs_near_social_feed_test_post_likes_variance_order_by
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_social_feed_test_post_likes_avg_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by avg() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_avg_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_social_feed_test.post_likes". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_social_feed_test_post_likes_bool_exp {
+  _and: [darunrs_near_social_feed_test_post_likes_bool_exp!]
+  _not: darunrs_near_social_feed_test_post_likes_bool_exp
+  _or: [darunrs_near_social_feed_test_post_likes_bool_exp!]
+  account_id: String_comparison_exp
+  block_height: numeric_comparison_exp
+  block_timestamp: numeric_comparison_exp
+  post: darunrs_near_social_feed_test_posts_bool_exp
+  post_id: Int_comparison_exp
+  receipt_id: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_social_feed_test_post_likes_max_fields {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  post_id: Int
+  receipt_id: String
+}
+
+"""
+order by max() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_max_order_by {
+  account_id: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+  receipt_id: order_by
+}
+
+"""aggregate min on columns"""
+type darunrs_near_social_feed_test_post_likes_min_fields {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  post_id: Int
+  receipt_id: String
+}
+
+"""
+order by min() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_min_order_by {
+  account_id: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+  receipt_id: order_by
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_social_feed_test.post_likes".
+"""
+input darunrs_near_social_feed_test_post_likes_order_by {
+  account_id: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  post: darunrs_near_social_feed_test_posts_order_by
+  post_id: order_by
+  receipt_id: order_by
+}
+
+"""
+select columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+enum darunrs_near_social_feed_test_post_likes_select_column {
+  """column name"""
+  account_id
+
+  """column name"""
+  block_height
+
+  """column name"""
+  block_timestamp
+
+  """column name"""
+  post_id
+
+  """column name"""
+  receipt_id
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_social_feed_test_post_likes_stddev_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by stddev() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_stddev_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_social_feed_test_post_likes_stddev_pop_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by stddev_pop() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_stddev_pop_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_social_feed_test_post_likes_stddev_samp_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by stddev_samp() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_stddev_samp_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""
+Streaming cursor of the table "darunrs_near_social_feed_test_post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_social_feed_test_post_likes_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_social_feed_test_post_likes_stream_cursor_value_input {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  post_id: Int
+  receipt_id: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_social_feed_test_post_likes_sum_fields {
+  block_height: numeric
+  block_timestamp: numeric
+  post_id: Int
+}
+
+"""
+order by sum() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_sum_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_social_feed_test_post_likes_var_pop_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by var_pop() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_var_pop_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_social_feed_test_post_likes_var_samp_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by var_samp() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_var_samp_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_social_feed_test_post_likes_variance_fields {
+  block_height: Float
+  block_timestamp: Float
+  post_id: Float
+}
+
+"""
+order by variance() on columns of table "darunrs_near_social_feed_test.post_likes"
+"""
+input darunrs_near_social_feed_test_post_likes_variance_order_by {
+  block_height: order_by
+  block_timestamp: order_by
+  post_id: order_by
+}
+
+"""
+columns and relationships of "darunrs_near_social_feed_test.posts"
+"""
+type darunrs_near_social_feed_test_posts {
+  account_id: String!
+  accounts_liked(
+    """JSON select path"""
+    path: String
+  ): jsonb!
+  block_height: numeric!
+  block_timestamp: numeric!
+
+  """An array relationship"""
+  comments(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_comments_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_comments_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): [darunrs_near_social_feed_test_comments!]!
+
+  """An aggregate relationship"""
+  comments_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_comments_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_comments_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): darunrs_near_social_feed_test_comments_aggregate!
+  content: String!
+  id: Int!
+  last_comment_timestamp: numeric
+
+  """An array relationship"""
+  post_likes(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_post_likes_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_post_likes_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): [darunrs_near_social_feed_test_post_likes!]!
+
+  """An aggregate relationship"""
+  post_likes_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_post_likes_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_post_likes_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): darunrs_near_social_feed_test_post_likes_aggregate!
+  receipt_id: String!
+}
+
+"""
+aggregated selection of "darunrs_near_social_feed_test.posts"
+"""
+type darunrs_near_social_feed_test_posts_aggregate {
+  aggregate: darunrs_near_social_feed_test_posts_aggregate_fields
+  nodes: [darunrs_near_social_feed_test_posts!]!
+}
+
+"""
+aggregate fields of "darunrs_near_social_feed_test.posts"
+"""
+type darunrs_near_social_feed_test_posts_aggregate_fields {
+  avg: darunrs_near_social_feed_test_posts_avg_fields
+  count(columns: [darunrs_near_social_feed_test_posts_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_social_feed_test_posts_max_fields
+  min: darunrs_near_social_feed_test_posts_min_fields
+  stddev: darunrs_near_social_feed_test_posts_stddev_fields
+  stddev_pop: darunrs_near_social_feed_test_posts_stddev_pop_fields
+  stddev_samp: darunrs_near_social_feed_test_posts_stddev_samp_fields
+  sum: darunrs_near_social_feed_test_posts_sum_fields
+  var_pop: darunrs_near_social_feed_test_posts_var_pop_fields
+  var_samp: darunrs_near_social_feed_test_posts_var_samp_fields
+  variance: darunrs_near_social_feed_test_posts_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_social_feed_test_posts_avg_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_social_feed_test.posts". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_social_feed_test_posts_bool_exp {
+  _and: [darunrs_near_social_feed_test_posts_bool_exp!]
+  _not: darunrs_near_social_feed_test_posts_bool_exp
+  _or: [darunrs_near_social_feed_test_posts_bool_exp!]
+  account_id: String_comparison_exp
+  accounts_liked: jsonb_comparison_exp
+  block_height: numeric_comparison_exp
+  block_timestamp: numeric_comparison_exp
+  comments: darunrs_near_social_feed_test_comments_bool_exp
+  comments_aggregate: darunrs_near_social_feed_test_comments_aggregate_bool_exp
+  content: String_comparison_exp
+  id: Int_comparison_exp
+  last_comment_timestamp: numeric_comparison_exp
+  post_likes: darunrs_near_social_feed_test_post_likes_bool_exp
+  post_likes_aggregate: darunrs_near_social_feed_test_post_likes_aggregate_bool_exp
+  receipt_id: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_social_feed_test_posts_max_fields {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  content: String
+  id: Int
+  last_comment_timestamp: numeric
+  receipt_id: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_social_feed_test_posts_min_fields {
+  account_id: String
+  block_height: numeric
+  block_timestamp: numeric
+  content: String
+  id: Int
+  last_comment_timestamp: numeric
+  receipt_id: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_social_feed_test.posts".
+"""
+input darunrs_near_social_feed_test_posts_order_by {
+  account_id: order_by
+  accounts_liked: order_by
+  block_height: order_by
+  block_timestamp: order_by
+  comments_aggregate: darunrs_near_social_feed_test_comments_aggregate_order_by
+  content: order_by
+  id: order_by
+  last_comment_timestamp: order_by
+  post_likes_aggregate: darunrs_near_social_feed_test_post_likes_aggregate_order_by
+  receipt_id: order_by
+}
+
+"""
+select columns of table "darunrs_near_social_feed_test.posts"
+"""
+enum darunrs_near_social_feed_test_posts_select_column {
+  """column name"""
+  account_id
+
+  """column name"""
+  accounts_liked
+
+  """column name"""
+  block_height
+
+  """column name"""
+  block_timestamp
+
+  """column name"""
+  content
+
+  """column name"""
+  id
+
+  """column name"""
+  last_comment_timestamp
+
+  """column name"""
+  receipt_id
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_social_feed_test_posts_stddev_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_social_feed_test_posts_stddev_pop_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_social_feed_test_posts_stddev_samp_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_social_feed_test_posts"
+"""
+input darunrs_near_social_feed_test_posts_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_social_feed_test_posts_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_social_feed_test_posts_stream_cursor_value_input {
+  account_id: String
+  accounts_liked: jsonb
+  block_height: numeric
+  block_timestamp: numeric
+  content: String
+  id: Int
+  last_comment_timestamp: numeric
+  receipt_id: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_social_feed_test_posts_sum_fields {
+  block_height: numeric
+  block_timestamp: numeric
+  id: Int
+  last_comment_timestamp: numeric
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_social_feed_test_posts_var_pop_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_social_feed_test_posts_var_samp_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_social_feed_test_posts_variance_fields {
+  block_height: Float
+  block_timestamp: Float
+  id: Float
+  last_comment_timestamp: Float
+}
+
+"""
+columns and relationships of "darunrs_near_social_feed_test.sys_logs"
+"""
+type darunrs_near_social_feed_test_sys_logs {
+  block_height: numeric
+  date: date!
+  id: bigint!
+  level: String!
+  message: String!
+  timestamp: timestamp!
+  type: String!
+}
+
+"""
+aggregated selection of "darunrs_near_social_feed_test.sys_logs"
+"""
+type darunrs_near_social_feed_test_sys_logs_aggregate {
+  aggregate: darunrs_near_social_feed_test_sys_logs_aggregate_fields
+  nodes: [darunrs_near_social_feed_test_sys_logs!]!
+}
+
+"""
+aggregate fields of "darunrs_near_social_feed_test.sys_logs"
+"""
+type darunrs_near_social_feed_test_sys_logs_aggregate_fields {
+  avg: darunrs_near_social_feed_test_sys_logs_avg_fields
+  count(columns: [darunrs_near_social_feed_test_sys_logs_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_social_feed_test_sys_logs_max_fields
+  min: darunrs_near_social_feed_test_sys_logs_min_fields
+  stddev: darunrs_near_social_feed_test_sys_logs_stddev_fields
+  stddev_pop: darunrs_near_social_feed_test_sys_logs_stddev_pop_fields
+  stddev_samp: darunrs_near_social_feed_test_sys_logs_stddev_samp_fields
+  sum: darunrs_near_social_feed_test_sys_logs_sum_fields
+  var_pop: darunrs_near_social_feed_test_sys_logs_var_pop_fields
+  var_samp: darunrs_near_social_feed_test_sys_logs_var_samp_fields
+  variance: darunrs_near_social_feed_test_sys_logs_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_social_feed_test_sys_logs_avg_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_social_feed_test.sys_logs". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_social_feed_test_sys_logs_bool_exp {
+  _and: [darunrs_near_social_feed_test_sys_logs_bool_exp!]
+  _not: darunrs_near_social_feed_test_sys_logs_bool_exp
+  _or: [darunrs_near_social_feed_test_sys_logs_bool_exp!]
+  block_height: numeric_comparison_exp
+  date: date_comparison_exp
+  id: bigint_comparison_exp
+  level: String_comparison_exp
+  message: String_comparison_exp
+  timestamp: timestamp_comparison_exp
+  type: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_social_feed_test_sys_logs_max_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_social_feed_test_sys_logs_min_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_social_feed_test.sys_logs".
+"""
+input darunrs_near_social_feed_test_sys_logs_order_by {
+  block_height: order_by
+  date: order_by
+  id: order_by
+  level: order_by
+  message: order_by
+  timestamp: order_by
+  type: order_by
+}
+
+"""
+select columns of table "darunrs_near_social_feed_test.sys_logs"
+"""
+enum darunrs_near_social_feed_test_sys_logs_select_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_social_feed_test_sys_logs_stddev_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_social_feed_test_sys_logs_stddev_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_social_feed_test_sys_logs_stddev_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_social_feed_test_sys_logs"
+"""
+input darunrs_near_social_feed_test_sys_logs_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_social_feed_test_sys_logs_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_social_feed_test_sys_logs_stream_cursor_value_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_social_feed_test_sys_logs_sum_fields {
+  block_height: numeric
+  id: bigint
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_social_feed_test_sys_logs_var_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_social_feed_test_sys_logs_var_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_social_feed_test_sys_logs_variance_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+columns and relationships of "darunrs_near_social_feed_test.sys_metadata"
+"""
+type darunrs_near_social_feed_test_sys_metadata {
+  attribute: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_social_feed_test.sys_metadata"
+"""
+type darunrs_near_social_feed_test_sys_metadata_aggregate {
+  aggregate: darunrs_near_social_feed_test_sys_metadata_aggregate_fields
+  nodes: [darunrs_near_social_feed_test_sys_metadata!]!
+}
+
+"""
+aggregate fields of "darunrs_near_social_feed_test.sys_metadata"
+"""
+type darunrs_near_social_feed_test_sys_metadata_aggregate_fields {
+  count(columns: [darunrs_near_social_feed_test_sys_metadata_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_social_feed_test_sys_metadata_max_fields
+  min: darunrs_near_social_feed_test_sys_metadata_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_social_feed_test.sys_metadata". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_social_feed_test_sys_metadata_bool_exp {
+  _and: [darunrs_near_social_feed_test_sys_metadata_bool_exp!]
+  _not: darunrs_near_social_feed_test_sys_metadata_bool_exp
+  _or: [darunrs_near_social_feed_test_sys_metadata_bool_exp!]
+  attribute: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""aggregate max on columns"""
+type darunrs_near_social_feed_test_sys_metadata_max_fields {
+  attribute: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_social_feed_test_sys_metadata_min_fields {
+  attribute: String
+  value: String
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_social_feed_test.sys_metadata".
+"""
+input darunrs_near_social_feed_test_sys_metadata_order_by {
+  attribute: order_by
+  value: order_by
+}
+
+"""
+select columns of table "darunrs_near_social_feed_test.sys_metadata"
+"""
+enum darunrs_near_social_feed_test_sys_metadata_select_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+"""
+Streaming cursor of the table "darunrs_near_social_feed_test_sys_metadata"
+"""
+input darunrs_near_social_feed_test_sys_metadata_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_social_feed_test_sys_metadata_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_social_feed_test_sys_metadata_stream_cursor_value_input {
+  attribute: String
+  value: String
+}
+
+"""
+columns and relationships of "darunrs_near_test_fork.indexer_storage"
+"""
+type darunrs_near_test_fork_indexer_storage {
+  function_name: String!
+  key_name: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_test_fork.indexer_storage"
+"""
+type darunrs_near_test_fork_indexer_storage_aggregate {
+  aggregate: darunrs_near_test_fork_indexer_storage_aggregate_fields
+  nodes: [darunrs_near_test_fork_indexer_storage!]!
+}
+
+"""
+aggregate fields of "darunrs_near_test_fork.indexer_storage"
+"""
+type darunrs_near_test_fork_indexer_storage_aggregate_fields {
+  count(columns: [darunrs_near_test_fork_indexer_storage_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_test_fork_indexer_storage_max_fields
+  min: darunrs_near_test_fork_indexer_storage_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_test_fork.indexer_storage". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_test_fork_indexer_storage_bool_exp {
+  _and: [darunrs_near_test_fork_indexer_storage_bool_exp!]
+  _not: darunrs_near_test_fork_indexer_storage_bool_exp
+  _or: [darunrs_near_test_fork_indexer_storage_bool_exp!]
+  function_name: String_comparison_exp
+  key_name: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""
+unique or primary key constraints on table "darunrs_near_test_fork.indexer_storage"
+"""
+enum darunrs_near_test_fork_indexer_storage_constraint {
+  """
+  unique or primary key constraint on columns "function_name", "key_name"
+  """
+  indexer_storage_pkey
+}
+
+"""
+input type for inserting data into table "darunrs_near_test_fork.indexer_storage"
+"""
+input darunrs_near_test_fork_indexer_storage_insert_input {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""aggregate max on columns"""
+type darunrs_near_test_fork_indexer_storage_max_fields {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_test_fork_indexer_storage_min_fields {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""
+response of any mutation on the table "darunrs_near_test_fork.indexer_storage"
+"""
+type darunrs_near_test_fork_indexer_storage_mutation_response {
+  """number of rows affected by the mutation"""
+  affected_rows: Int!
+
+  """data from the rows affected by the mutation"""
+  returning: [darunrs_near_test_fork_indexer_storage!]!
+}
+
+"""
+on_conflict condition type for table "darunrs_near_test_fork.indexer_storage"
+"""
+input darunrs_near_test_fork_indexer_storage_on_conflict {
+  constraint: darunrs_near_test_fork_indexer_storage_constraint!
+  update_columns: [darunrs_near_test_fork_indexer_storage_update_column!]! = []
+  where: darunrs_near_test_fork_indexer_storage_bool_exp
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_test_fork.indexer_storage".
+"""
+input darunrs_near_test_fork_indexer_storage_order_by {
+  function_name: order_by
+  key_name: order_by
+  value: order_by
+}
+
+"""
+primary key columns input for table: darunrs_near_test_fork.indexer_storage
+"""
+input darunrs_near_test_fork_indexer_storage_pk_columns_input {
+  function_name: String!
+  key_name: String!
+}
+
+"""
+select columns of table "darunrs_near_test_fork.indexer_storage"
+"""
+enum darunrs_near_test_fork_indexer_storage_select_column {
+  """column name"""
+  function_name
+
+  """column name"""
+  key_name
+
+  """column name"""
+  value
+}
+
+"""
+input type for updating data in table "darunrs_near_test_fork.indexer_storage"
+"""
+input darunrs_near_test_fork_indexer_storage_set_input {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""
+Streaming cursor of the table "darunrs_near_test_fork_indexer_storage"
+"""
+input darunrs_near_test_fork_indexer_storage_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_test_fork_indexer_storage_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_test_fork_indexer_storage_stream_cursor_value_input {
+  function_name: String
+  key_name: String
+  value: String
+}
+
+"""
+update columns of table "darunrs_near_test_fork.indexer_storage"
+"""
+enum darunrs_near_test_fork_indexer_storage_update_column {
+  """column name"""
+  function_name
+
+  """column name"""
+  key_name
+
+  """column name"""
+  value
+}
+
+input darunrs_near_test_fork_indexer_storage_updates {
+  """sets the columns of the filtered rows to the given values"""
+  _set: darunrs_near_test_fork_indexer_storage_set_input
+
+  """filter the rows which have to be updated"""
+  where: darunrs_near_test_fork_indexer_storage_bool_exp!
+}
+
+"""
+columns and relationships of "darunrs_near_test_fork.sys_logs"
+"""
+type darunrs_near_test_fork_sys_logs {
+  block_height: numeric
+  date: date!
+  id: bigint!
+  level: String!
+  message: String!
+  timestamp: timestamp!
+  type: String!
+}
+
+"""
+aggregated selection of "darunrs_near_test_fork.sys_logs"
+"""
+type darunrs_near_test_fork_sys_logs_aggregate {
+  aggregate: darunrs_near_test_fork_sys_logs_aggregate_fields
+  nodes: [darunrs_near_test_fork_sys_logs!]!
+}
+
+"""
+aggregate fields of "darunrs_near_test_fork.sys_logs"
+"""
+type darunrs_near_test_fork_sys_logs_aggregate_fields {
+  avg: darunrs_near_test_fork_sys_logs_avg_fields
+  count(columns: [darunrs_near_test_fork_sys_logs_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_test_fork_sys_logs_max_fields
+  min: darunrs_near_test_fork_sys_logs_min_fields
+  stddev: darunrs_near_test_fork_sys_logs_stddev_fields
+  stddev_pop: darunrs_near_test_fork_sys_logs_stddev_pop_fields
+  stddev_samp: darunrs_near_test_fork_sys_logs_stddev_samp_fields
+  sum: darunrs_near_test_fork_sys_logs_sum_fields
+  var_pop: darunrs_near_test_fork_sys_logs_var_pop_fields
+  var_samp: darunrs_near_test_fork_sys_logs_var_samp_fields
+  variance: darunrs_near_test_fork_sys_logs_variance_fields
+}
+
+"""aggregate avg on columns"""
+type darunrs_near_test_fork_sys_logs_avg_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_test_fork.sys_logs". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_test_fork_sys_logs_bool_exp {
+  _and: [darunrs_near_test_fork_sys_logs_bool_exp!]
+  _not: darunrs_near_test_fork_sys_logs_bool_exp
+  _or: [darunrs_near_test_fork_sys_logs_bool_exp!]
+  block_height: numeric_comparison_exp
+  date: date_comparison_exp
+  id: bigint_comparison_exp
+  level: String_comparison_exp
+  message: String_comparison_exp
+  timestamp: timestamp_comparison_exp
+  type: String_comparison_exp
+}
+
+"""
+unique or primary key constraints on table "darunrs_near_test_fork.sys_logs"
+"""
+enum darunrs_near_test_fork_sys_logs_constraint {
+  """
+  unique or primary key constraint on columns "id", "date"
+  """
+  sys_logs_pkey
+}
+
+"""
+input type for incrementing numeric columns in table "darunrs_near_test_fork.sys_logs"
+"""
+input darunrs_near_test_fork_sys_logs_inc_input {
+  block_height: numeric
+  id: bigint
+}
+
+"""
+input type for inserting data into table "darunrs_near_test_fork.sys_logs"
+"""
+input darunrs_near_test_fork_sys_logs_insert_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate max on columns"""
+type darunrs_near_test_fork_sys_logs_max_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_test_fork_sys_logs_min_fields {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""
+response of any mutation on the table "darunrs_near_test_fork.sys_logs"
+"""
+type darunrs_near_test_fork_sys_logs_mutation_response {
+  """number of rows affected by the mutation"""
+  affected_rows: Int!
+
+  """data from the rows affected by the mutation"""
+  returning: [darunrs_near_test_fork_sys_logs!]!
+}
+
+"""
+on_conflict condition type for table "darunrs_near_test_fork.sys_logs"
+"""
+input darunrs_near_test_fork_sys_logs_on_conflict {
+  constraint: darunrs_near_test_fork_sys_logs_constraint!
+  update_columns: [darunrs_near_test_fork_sys_logs_update_column!]! = []
+  where: darunrs_near_test_fork_sys_logs_bool_exp
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_test_fork.sys_logs".
+"""
+input darunrs_near_test_fork_sys_logs_order_by {
+  block_height: order_by
+  date: order_by
+  id: order_by
+  level: order_by
+  message: order_by
+  timestamp: order_by
+  type: order_by
+}
+
+"""primary key columns input for table: darunrs_near_test_fork.sys_logs"""
+input darunrs_near_test_fork_sys_logs_pk_columns_input {
+  date: date!
+  id: bigint!
+}
+
+"""
+select columns of table "darunrs_near_test_fork.sys_logs"
+"""
+enum darunrs_near_test_fork_sys_logs_select_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+"""
+input type for updating data in table "darunrs_near_test_fork.sys_logs"
+"""
+input darunrs_near_test_fork_sys_logs_set_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate stddev on columns"""
+type darunrs_near_test_fork_sys_logs_stddev_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_pop on columns"""
+type darunrs_near_test_fork_sys_logs_stddev_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate stddev_samp on columns"""
+type darunrs_near_test_fork_sys_logs_stddev_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+Streaming cursor of the table "darunrs_near_test_fork_sys_logs"
+"""
+input darunrs_near_test_fork_sys_logs_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_test_fork_sys_logs_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_test_fork_sys_logs_stream_cursor_value_input {
+  block_height: numeric
+  date: date
+  id: bigint
+  level: String
+  message: String
+  timestamp: timestamp
+  type: String
+}
+
+"""aggregate sum on columns"""
+type darunrs_near_test_fork_sys_logs_sum_fields {
+  block_height: numeric
+  id: bigint
+}
+
+"""
+update columns of table "darunrs_near_test_fork.sys_logs"
+"""
+enum darunrs_near_test_fork_sys_logs_update_column {
+  """column name"""
+  block_height
+
+  """column name"""
+  date
+
+  """column name"""
+  id
+
+  """column name"""
+  level
+
+  """column name"""
+  message
+
+  """column name"""
+  timestamp
+
+  """column name"""
+  type
+}
+
+input darunrs_near_test_fork_sys_logs_updates {
+  """increments the numeric columns with given value of the filtered values"""
+  _inc: darunrs_near_test_fork_sys_logs_inc_input
+
+  """sets the columns of the filtered rows to the given values"""
+  _set: darunrs_near_test_fork_sys_logs_set_input
+
+  """filter the rows which have to be updated"""
+  where: darunrs_near_test_fork_sys_logs_bool_exp!
+}
+
+"""aggregate var_pop on columns"""
+type darunrs_near_test_fork_sys_logs_var_pop_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate var_samp on columns"""
+type darunrs_near_test_fork_sys_logs_var_samp_fields {
+  block_height: Float
+  id: Float
+}
+
+"""aggregate variance on columns"""
+type darunrs_near_test_fork_sys_logs_variance_fields {
+  block_height: Float
+  id: Float
+}
+
+"""
+columns and relationships of "darunrs_near_test_fork.sys_metadata"
+"""
+type darunrs_near_test_fork_sys_metadata {
+  attribute: String!
+  value: String!
+}
+
+"""
+aggregated selection of "darunrs_near_test_fork.sys_metadata"
+"""
+type darunrs_near_test_fork_sys_metadata_aggregate {
+  aggregate: darunrs_near_test_fork_sys_metadata_aggregate_fields
+  nodes: [darunrs_near_test_fork_sys_metadata!]!
+}
+
+"""
+aggregate fields of "darunrs_near_test_fork.sys_metadata"
+"""
+type darunrs_near_test_fork_sys_metadata_aggregate_fields {
+  count(columns: [darunrs_near_test_fork_sys_metadata_select_column!], distinct: Boolean): Int!
+  max: darunrs_near_test_fork_sys_metadata_max_fields
+  min: darunrs_near_test_fork_sys_metadata_min_fields
+}
+
+"""
+Boolean expression to filter rows from the table "darunrs_near_test_fork.sys_metadata". All fields are combined with a logical 'AND'.
+"""
+input darunrs_near_test_fork_sys_metadata_bool_exp {
+  _and: [darunrs_near_test_fork_sys_metadata_bool_exp!]
+  _not: darunrs_near_test_fork_sys_metadata_bool_exp
+  _or: [darunrs_near_test_fork_sys_metadata_bool_exp!]
+  attribute: String_comparison_exp
+  value: String_comparison_exp
+}
+
+"""
+unique or primary key constraints on table "darunrs_near_test_fork.sys_metadata"
+"""
+enum darunrs_near_test_fork_sys_metadata_constraint {
+  """
+  unique or primary key constraint on columns "attribute"
+  """
+  sys_metadata_pkey
+}
+
+"""
+input type for inserting data into table "darunrs_near_test_fork.sys_metadata"
+"""
+input darunrs_near_test_fork_sys_metadata_insert_input {
+  attribute: String
+  value: String
+}
+
+"""aggregate max on columns"""
+type darunrs_near_test_fork_sys_metadata_max_fields {
+  attribute: String
+  value: String
+}
+
+"""aggregate min on columns"""
+type darunrs_near_test_fork_sys_metadata_min_fields {
+  attribute: String
+  value: String
+}
+
+"""
+response of any mutation on the table "darunrs_near_test_fork.sys_metadata"
+"""
+type darunrs_near_test_fork_sys_metadata_mutation_response {
+  """number of rows affected by the mutation"""
+  affected_rows: Int!
+
+  """data from the rows affected by the mutation"""
+  returning: [darunrs_near_test_fork_sys_metadata!]!
+}
+
+"""
+on_conflict condition type for table "darunrs_near_test_fork.sys_metadata"
+"""
+input darunrs_near_test_fork_sys_metadata_on_conflict {
+  constraint: darunrs_near_test_fork_sys_metadata_constraint!
+  update_columns: [darunrs_near_test_fork_sys_metadata_update_column!]! = []
+  where: darunrs_near_test_fork_sys_metadata_bool_exp
+}
+
+"""
+Ordering options when selecting data from "darunrs_near_test_fork.sys_metadata".
+"""
+input darunrs_near_test_fork_sys_metadata_order_by {
+  attribute: order_by
+  value: order_by
+}
+
+"""
+primary key columns input for table: darunrs_near_test_fork.sys_metadata
+"""
+input darunrs_near_test_fork_sys_metadata_pk_columns_input {
+  attribute: String!
+}
+
+"""
+select columns of table "darunrs_near_test_fork.sys_metadata"
+"""
+enum darunrs_near_test_fork_sys_metadata_select_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+"""
+input type for updating data in table "darunrs_near_test_fork.sys_metadata"
+"""
+input darunrs_near_test_fork_sys_metadata_set_input {
+  attribute: String
+  value: String
+}
+
+"""
+Streaming cursor of the table "darunrs_near_test_fork_sys_metadata"
+"""
+input darunrs_near_test_fork_sys_metadata_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: darunrs_near_test_fork_sys_metadata_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input darunrs_near_test_fork_sys_metadata_stream_cursor_value_input {
+  attribute: String
+  value: String
+}
+
+"""
+update columns of table "darunrs_near_test_fork.sys_metadata"
+"""
+enum darunrs_near_test_fork_sys_metadata_update_column {
+  """column name"""
+  attribute
+
+  """column name"""
+  value
+}
+
+input darunrs_near_test_fork_sys_metadata_updates {
+  """sets the columns of the filtered rows to the given values"""
+  _set: darunrs_near_test_fork_sys_metadata_set_input
+
+  """filter the rows which have to be updated"""
+  where: darunrs_near_test_fork_sys_metadata_bool_exp!
+}
+
+scalar date
+
+"""
+Boolean expression to compare columns of type "date". All fields are combined with logical 'AND'.
+"""
+input date_comparison_exp {
+  _eq: date
+  _gt: date
+  _gte: date
+  _in: [date!]
+  _is_null: Boolean
+  _lt: date
+  _lte: date
+  _neq: date
+  _nin: [date!]
+}
+
+scalar jsonb
+
+input jsonb_cast_exp {
+  String: String_comparison_exp
+}
+
+"""
+Boolean expression to compare columns of type "jsonb". All fields are combined with logical 'AND'.
+"""
+input jsonb_comparison_exp {
+  _cast: jsonb_cast_exp
+
+  """is the column contained in the given json value"""
+  _contained_in: jsonb
+
+  """does the column contain the given json value at the top level"""
+  _contains: jsonb
+  _eq: jsonb
+  _gt: jsonb
+  _gte: jsonb
+
+  """does the string exist as a top-level key in the column"""
+  _has_key: String
+
+  """do all of these strings exist as top-level keys in the column"""
+  _has_keys_all: [String!]
+
+  """do any of these strings exist as top-level keys in the column"""
+  _has_keys_any: [String!]
+  _in: [jsonb!]
+  _is_null: Boolean
+  _lt: jsonb
+  _lte: jsonb
+  _neq: jsonb
+  _nin: [jsonb!]
+}
+
+"""mutation root"""
+type mutation_root {
+  """
+  delete data from the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  delete_darunrs_near_bitmap_v3_actions_index(
+    """filter the rows which have to be deleted"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp!
+  ): darunrs_near_bitmap_v3_actions_index_mutation_response
+
+  """
+  delete single row from the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  delete_darunrs_near_bitmap_v3_actions_index_by_pk(block_date: String!, receiver_id: String!): darunrs_near_bitmap_v3_actions_index
+
+  """
+  delete data from the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  delete_darunrs_near_bitmap_v3_sys_logs(
+    """filter the rows which have to be deleted"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp!
+  ): darunrs_near_bitmap_v3_sys_logs_mutation_response
+
+  """
+  delete single row from the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  delete_darunrs_near_bitmap_v3_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_bitmap_v3_sys_logs
+
+  """
+  delete data from the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  delete_darunrs_near_bitmap_v3_sys_metadata(
+    """filter the rows which have to be deleted"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp!
+  ): darunrs_near_bitmap_v3_sys_metadata_mutation_response
+
+  """
+  delete single row from the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  delete_darunrs_near_bitmap_v3_sys_metadata_by_pk(attribute: String!): darunrs_near_bitmap_v3_sys_metadata
+
+  """
+  delete data from the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  delete_darunrs_near_test_fork_indexer_storage(
+    """filter the rows which have to be deleted"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp!
+  ): darunrs_near_test_fork_indexer_storage_mutation_response
+
+  """
+  delete single row from the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  delete_darunrs_near_test_fork_indexer_storage_by_pk(function_name: String!, key_name: String!): darunrs_near_test_fork_indexer_storage
+
+  """
+  delete data from the table: "darunrs_near_test_fork.sys_logs"
+  """
+  delete_darunrs_near_test_fork_sys_logs(
+    """filter the rows which have to be deleted"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp!
+  ): darunrs_near_test_fork_sys_logs_mutation_response
+
+  """
+  delete single row from the table: "darunrs_near_test_fork.sys_logs"
+  """
+  delete_darunrs_near_test_fork_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_test_fork_sys_logs
+
+  """
+  delete data from the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  delete_darunrs_near_test_fork_sys_metadata(
+    """filter the rows which have to be deleted"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp!
+  ): darunrs_near_test_fork_sys_metadata_mutation_response
+
+  """
+  delete single row from the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  delete_darunrs_near_test_fork_sys_metadata_by_pk(attribute: String!): darunrs_near_test_fork_sys_metadata
+
+  """
+  insert data into the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  insert_darunrs_near_bitmap_v3_actions_index(
+    """the rows to be inserted"""
+    objects: [darunrs_near_bitmap_v3_actions_index_insert_input!]!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_bitmap_v3_actions_index_on_conflict
+  ): darunrs_near_bitmap_v3_actions_index_mutation_response
+
+  """
+  insert a single row into the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  insert_darunrs_near_bitmap_v3_actions_index_one(
+    """the row to be inserted"""
+    object: darunrs_near_bitmap_v3_actions_index_insert_input!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_bitmap_v3_actions_index_on_conflict
+  ): darunrs_near_bitmap_v3_actions_index
+
+  """
+  insert data into the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  insert_darunrs_near_bitmap_v3_sys_logs(
+    """the rows to be inserted"""
+    objects: [darunrs_near_bitmap_v3_sys_logs_insert_input!]!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_bitmap_v3_sys_logs_on_conflict
+  ): darunrs_near_bitmap_v3_sys_logs_mutation_response
+
+  """
+  insert a single row into the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  insert_darunrs_near_bitmap_v3_sys_logs_one(
+    """the row to be inserted"""
+    object: darunrs_near_bitmap_v3_sys_logs_insert_input!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_bitmap_v3_sys_logs_on_conflict
+  ): darunrs_near_bitmap_v3_sys_logs
+
+  """
+  insert data into the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  insert_darunrs_near_bitmap_v3_sys_metadata(
+    """the rows to be inserted"""
+    objects: [darunrs_near_bitmap_v3_sys_metadata_insert_input!]!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_bitmap_v3_sys_metadata_on_conflict
+  ): darunrs_near_bitmap_v3_sys_metadata_mutation_response
+
+  """
+  insert a single row into the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  insert_darunrs_near_bitmap_v3_sys_metadata_one(
+    """the row to be inserted"""
+    object: darunrs_near_bitmap_v3_sys_metadata_insert_input!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_bitmap_v3_sys_metadata_on_conflict
+  ): darunrs_near_bitmap_v3_sys_metadata
+
+  """
+  insert data into the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  insert_darunrs_near_test_fork_indexer_storage(
+    """the rows to be inserted"""
+    objects: [darunrs_near_test_fork_indexer_storage_insert_input!]!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_test_fork_indexer_storage_on_conflict
+  ): darunrs_near_test_fork_indexer_storage_mutation_response
+
+  """
+  insert a single row into the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  insert_darunrs_near_test_fork_indexer_storage_one(
+    """the row to be inserted"""
+    object: darunrs_near_test_fork_indexer_storage_insert_input!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_test_fork_indexer_storage_on_conflict
+  ): darunrs_near_test_fork_indexer_storage
+
+  """
+  insert data into the table: "darunrs_near_test_fork.sys_logs"
+  """
+  insert_darunrs_near_test_fork_sys_logs(
+    """the rows to be inserted"""
+    objects: [darunrs_near_test_fork_sys_logs_insert_input!]!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_test_fork_sys_logs_on_conflict
+  ): darunrs_near_test_fork_sys_logs_mutation_response
+
+  """
+  insert a single row into the table: "darunrs_near_test_fork.sys_logs"
+  """
+  insert_darunrs_near_test_fork_sys_logs_one(
+    """the row to be inserted"""
+    object: darunrs_near_test_fork_sys_logs_insert_input!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_test_fork_sys_logs_on_conflict
+  ): darunrs_near_test_fork_sys_logs
+
+  """
+  insert data into the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  insert_darunrs_near_test_fork_sys_metadata(
+    """the rows to be inserted"""
+    objects: [darunrs_near_test_fork_sys_metadata_insert_input!]!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_test_fork_sys_metadata_on_conflict
+  ): darunrs_near_test_fork_sys_metadata_mutation_response
+
+  """
+  insert a single row into the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  insert_darunrs_near_test_fork_sys_metadata_one(
+    """the row to be inserted"""
+    object: darunrs_near_test_fork_sys_metadata_insert_input!
+
+    """upsert condition"""
+    on_conflict: darunrs_near_test_fork_sys_metadata_on_conflict
+  ): darunrs_near_test_fork_sys_metadata
+
+  """
+  update data of the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  update_darunrs_near_bitmap_v3_actions_index(
+    """increments the numeric columns with given value of the filtered values"""
+    _inc: darunrs_near_bitmap_v3_actions_index_inc_input
+
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_bitmap_v3_actions_index_set_input
+
+    """filter the rows which have to be updated"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp!
+  ): darunrs_near_bitmap_v3_actions_index_mutation_response
+
+  """
+  update single row of the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  update_darunrs_near_bitmap_v3_actions_index_by_pk(
+    """increments the numeric columns with given value of the filtered values"""
+    _inc: darunrs_near_bitmap_v3_actions_index_inc_input
+
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_bitmap_v3_actions_index_set_input
+    pk_columns: darunrs_near_bitmap_v3_actions_index_pk_columns_input!
+  ): darunrs_near_bitmap_v3_actions_index
+
+  """
+  update multiples rows of table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  update_darunrs_near_bitmap_v3_actions_index_many(
+    """updates to execute, in order"""
+    updates: [darunrs_near_bitmap_v3_actions_index_updates!]!
+  ): [darunrs_near_bitmap_v3_actions_index_mutation_response]
+
+  """
+  update data of the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  update_darunrs_near_bitmap_v3_sys_logs(
+    """increments the numeric columns with given value of the filtered values"""
+    _inc: darunrs_near_bitmap_v3_sys_logs_inc_input
+
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_bitmap_v3_sys_logs_set_input
+
+    """filter the rows which have to be updated"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp!
+  ): darunrs_near_bitmap_v3_sys_logs_mutation_response
+
+  """
+  update single row of the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  update_darunrs_near_bitmap_v3_sys_logs_by_pk(
+    """increments the numeric columns with given value of the filtered values"""
+    _inc: darunrs_near_bitmap_v3_sys_logs_inc_input
+
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_bitmap_v3_sys_logs_set_input
+    pk_columns: darunrs_near_bitmap_v3_sys_logs_pk_columns_input!
+  ): darunrs_near_bitmap_v3_sys_logs
+
+  """
+  update multiples rows of table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  update_darunrs_near_bitmap_v3_sys_logs_many(
+    """updates to execute, in order"""
+    updates: [darunrs_near_bitmap_v3_sys_logs_updates!]!
+  ): [darunrs_near_bitmap_v3_sys_logs_mutation_response]
+
+  """
+  update data of the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  update_darunrs_near_bitmap_v3_sys_metadata(
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_bitmap_v3_sys_metadata_set_input
+
+    """filter the rows which have to be updated"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp!
+  ): darunrs_near_bitmap_v3_sys_metadata_mutation_response
+
+  """
+  update single row of the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  update_darunrs_near_bitmap_v3_sys_metadata_by_pk(
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_bitmap_v3_sys_metadata_set_input
+    pk_columns: darunrs_near_bitmap_v3_sys_metadata_pk_columns_input!
+  ): darunrs_near_bitmap_v3_sys_metadata
+
+  """
+  update multiples rows of table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  update_darunrs_near_bitmap_v3_sys_metadata_many(
+    """updates to execute, in order"""
+    updates: [darunrs_near_bitmap_v3_sys_metadata_updates!]!
+  ): [darunrs_near_bitmap_v3_sys_metadata_mutation_response]
+
+  """
+  update data of the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  update_darunrs_near_test_fork_indexer_storage(
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_test_fork_indexer_storage_set_input
+
+    """filter the rows which have to be updated"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp!
+  ): darunrs_near_test_fork_indexer_storage_mutation_response
+
+  """
+  update single row of the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  update_darunrs_near_test_fork_indexer_storage_by_pk(
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_test_fork_indexer_storage_set_input
+    pk_columns: darunrs_near_test_fork_indexer_storage_pk_columns_input!
+  ): darunrs_near_test_fork_indexer_storage
+
+  """
+  update multiples rows of table: "darunrs_near_test_fork.indexer_storage"
+  """
+  update_darunrs_near_test_fork_indexer_storage_many(
+    """updates to execute, in order"""
+    updates: [darunrs_near_test_fork_indexer_storage_updates!]!
+  ): [darunrs_near_test_fork_indexer_storage_mutation_response]
+
+  """
+  update data of the table: "darunrs_near_test_fork.sys_logs"
+  """
+  update_darunrs_near_test_fork_sys_logs(
+    """increments the numeric columns with given value of the filtered values"""
+    _inc: darunrs_near_test_fork_sys_logs_inc_input
+
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_test_fork_sys_logs_set_input
+
+    """filter the rows which have to be updated"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp!
+  ): darunrs_near_test_fork_sys_logs_mutation_response
+
+  """
+  update single row of the table: "darunrs_near_test_fork.sys_logs"
+  """
+  update_darunrs_near_test_fork_sys_logs_by_pk(
+    """increments the numeric columns with given value of the filtered values"""
+    _inc: darunrs_near_test_fork_sys_logs_inc_input
+
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_test_fork_sys_logs_set_input
+    pk_columns: darunrs_near_test_fork_sys_logs_pk_columns_input!
+  ): darunrs_near_test_fork_sys_logs
+
+  """
+  update multiples rows of table: "darunrs_near_test_fork.sys_logs"
+  """
+  update_darunrs_near_test_fork_sys_logs_many(
+    """updates to execute, in order"""
+    updates: [darunrs_near_test_fork_sys_logs_updates!]!
+  ): [darunrs_near_test_fork_sys_logs_mutation_response]
+
+  """
+  update data of the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  update_darunrs_near_test_fork_sys_metadata(
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_test_fork_sys_metadata_set_input
+
+    """filter the rows which have to be updated"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp!
+  ): darunrs_near_test_fork_sys_metadata_mutation_response
+
+  """
+  update single row of the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  update_darunrs_near_test_fork_sys_metadata_by_pk(
+    """sets the columns of the filtered rows to the given values"""
+    _set: darunrs_near_test_fork_sys_metadata_set_input
+    pk_columns: darunrs_near_test_fork_sys_metadata_pk_columns_input!
+  ): darunrs_near_test_fork_sys_metadata
+
+  """
+  update multiples rows of table: "darunrs_near_test_fork.sys_metadata"
+  """
+  update_darunrs_near_test_fork_sys_metadata_many(
+    """updates to execute, in order"""
+    updates: [darunrs_near_test_fork_sys_metadata_updates!]!
+  ): [darunrs_near_test_fork_sys_metadata_mutation_response]
+}
+
+scalar numeric
+
+"""
+Boolean expression to compare columns of type "numeric". All fields are combined with logical 'AND'.
+"""
+input numeric_comparison_exp {
+  _eq: numeric
+  _gt: numeric
+  _gte: numeric
+  _in: [numeric!]
+  _is_null: Boolean
+  _lt: numeric
+  _lte: numeric
+  _neq: numeric
+  _nin: [numeric!]
+}
+
+"""column ordering options"""
+enum order_by {
+  """in ascending order, nulls last"""
+  asc
+
+  """in ascending order, nulls first"""
+  asc_nulls_first
+
+  """in ascending order, nulls last"""
+  asc_nulls_last
+
+  """in descending order, nulls first"""
+  desc
+
+  """in descending order, nulls first"""
+  desc_nulls_first
+
+  """in descending order, nulls last"""
+  desc_nulls_last
+}
+
+type query_root {
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.indexer_storage"
+  """
+  darunrs_near_benchmark_indexer_indexer_storage(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_indexer_storage_bool_exp
+  ): [darunrs_near_benchmark_indexer_indexer_storage!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_benchmark_indexer.indexer_storage"
+  """
+  darunrs_near_benchmark_indexer_indexer_storage_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_indexer_storage_bool_exp
+  ): darunrs_near_benchmark_indexer_indexer_storage_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.indexer_storage" using primary key columns
+  """
+  darunrs_near_benchmark_indexer_indexer_storage_by_pk(function_name: String!, key_name: String!): darunrs_near_benchmark_indexer_indexer_storage
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_logs"
+  """
+  darunrs_near_benchmark_indexer_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_logs_bool_exp
+  ): [darunrs_near_benchmark_indexer_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_benchmark_indexer.sys_logs"
+  """
+  darunrs_near_benchmark_indexer_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_logs_bool_exp
+  ): darunrs_near_benchmark_indexer_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_logs" using primary key columns
+  """
+  darunrs_near_benchmark_indexer_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_benchmark_indexer_sys_logs
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_metadata"
+  """
+  darunrs_near_benchmark_indexer_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_metadata_bool_exp
+  ): [darunrs_near_benchmark_indexer_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_benchmark_indexer.sys_metadata"
+  """
+  darunrs_near_benchmark_indexer_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_metadata_bool_exp
+  ): darunrs_near_benchmark_indexer_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_metadata" using primary key columns
+  """
+  darunrs_near_benchmark_indexer_sys_metadata_by_pk(attribute: String!): darunrs_near_benchmark_indexer_sys_metadata
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  darunrs_near_bitmap_v3_actions_index(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v3_actions_index!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  darunrs_near_bitmap_v3_actions_index_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp
+  ): darunrs_near_bitmap_v3_actions_index_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.actions_index" using primary key columns
+  """
+  darunrs_near_bitmap_v3_actions_index_by_pk(block_date: String!, receiver_id: String!): darunrs_near_bitmap_v3_actions_index
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  darunrs_near_bitmap_v3_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp
+  ): [darunrs_near_bitmap_v3_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  darunrs_near_bitmap_v3_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp
+  ): darunrs_near_bitmap_v3_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_logs" using primary key columns
+  """
+  darunrs_near_bitmap_v3_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_bitmap_v3_sys_logs
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  darunrs_near_bitmap_v3_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+  ): [darunrs_near_bitmap_v3_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  darunrs_near_bitmap_v3_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+  ): darunrs_near_bitmap_v3_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_metadata" using primary key columns
+  """
+  darunrs_near_bitmap_v3_sys_metadata_by_pk(attribute: String!): darunrs_near_bitmap_v3_sys_metadata
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.actions_index"
+  """
+  darunrs_near_bitmap_v5_actions_index(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v5_actions_index!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.actions_index"
+  """
+  darunrs_near_bitmap_v5_actions_index_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): darunrs_near_bitmap_v5_actions_index_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.actions_index" using primary key columns
+  """
+  darunrs_near_bitmap_v5_actions_index_by_pk(block_date: date!, receiver_id: bigint!): darunrs_near_bitmap_v5_actions_index
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.receivers"
+  """
+  darunrs_near_bitmap_v5_receivers(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_receivers_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_receivers_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_receivers_bool_exp
+  ): [darunrs_near_bitmap_v5_receivers!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.receivers"
+  """
+  darunrs_near_bitmap_v5_receivers_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_receivers_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_receivers_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_receivers_bool_exp
+  ): darunrs_near_bitmap_v5_receivers_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.receivers" using primary key columns
+  """
+  darunrs_near_bitmap_v5_receivers_by_pk(id: bigint!): darunrs_near_bitmap_v5_receivers
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_logs"
+  """
+  darunrs_near_bitmap_v5_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_logs_bool_exp
+  ): [darunrs_near_bitmap_v5_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.sys_logs"
+  """
+  darunrs_near_bitmap_v5_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_logs_bool_exp
+  ): darunrs_near_bitmap_v5_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_logs" using primary key columns
+  """
+  darunrs_near_bitmap_v5_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_bitmap_v5_sys_logs
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_metadata"
+  """
+  darunrs_near_bitmap_v5_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_metadata_bool_exp
+  ): [darunrs_near_bitmap_v5_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.sys_metadata"
+  """
+  darunrs_near_bitmap_v5_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_metadata_bool_exp
+  ): darunrs_near_bitmap_v5_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_metadata" using primary key columns
+  """
+  darunrs_near_bitmap_v5_sys_metadata_by_pk(attribute: String!): darunrs_near_bitmap_v5_sys_metadata
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.comments"
+  """
+  darunrs_near_social_feed_test_comments(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_comments_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_comments_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): [darunrs_near_social_feed_test_comments!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.comments"
+  """
+  darunrs_near_social_feed_test_comments_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_comments_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_comments_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): darunrs_near_social_feed_test_comments_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.comments" using primary key columns
+  """
+  darunrs_near_social_feed_test_comments_by_pk(id: Int!): darunrs_near_social_feed_test_comments
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.post_likes"
+  """
+  darunrs_near_social_feed_test_post_likes(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_post_likes_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_post_likes_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): [darunrs_near_social_feed_test_post_likes!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.post_likes"
+  """
+  darunrs_near_social_feed_test_post_likes_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_post_likes_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_post_likes_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): darunrs_near_social_feed_test_post_likes_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.post_likes" using primary key columns
+  """
+  darunrs_near_social_feed_test_post_likes_by_pk(account_id: String!, post_id: Int!): darunrs_near_social_feed_test_post_likes
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.posts"
+  """
+  darunrs_near_social_feed_test_posts(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_posts_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_posts_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_posts_bool_exp
+  ): [darunrs_near_social_feed_test_posts!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.posts"
+  """
+  darunrs_near_social_feed_test_posts_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_posts_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_posts_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_posts_bool_exp
+  ): darunrs_near_social_feed_test_posts_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.posts" using primary key columns
+  """
+  darunrs_near_social_feed_test_posts_by_pk(id: Int!): darunrs_near_social_feed_test_posts
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_logs"
+  """
+  darunrs_near_social_feed_test_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_logs_bool_exp
+  ): [darunrs_near_social_feed_test_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.sys_logs"
+  """
+  darunrs_near_social_feed_test_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_logs_bool_exp
+  ): darunrs_near_social_feed_test_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_logs" using primary key columns
+  """
+  darunrs_near_social_feed_test_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_social_feed_test_sys_logs
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_metadata"
+  """
+  darunrs_near_social_feed_test_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_metadata_bool_exp
+  ): [darunrs_near_social_feed_test_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.sys_metadata"
+  """
+  darunrs_near_social_feed_test_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_metadata_bool_exp
+  ): darunrs_near_social_feed_test_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_metadata" using primary key columns
+  """
+  darunrs_near_social_feed_test_sys_metadata_by_pk(attribute: String!): darunrs_near_social_feed_test_sys_metadata
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  darunrs_near_test_fork_indexer_storage(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp
+  ): [darunrs_near_test_fork_indexer_storage!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  darunrs_near_test_fork_indexer_storage_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp
+  ): darunrs_near_test_fork_indexer_storage_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.indexer_storage" using primary key columns
+  """
+  darunrs_near_test_fork_indexer_storage_by_pk(function_name: String!, key_name: String!): darunrs_near_test_fork_indexer_storage
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_logs"
+  """
+  darunrs_near_test_fork_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp
+  ): [darunrs_near_test_fork_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_test_fork.sys_logs"
+  """
+  darunrs_near_test_fork_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp
+  ): darunrs_near_test_fork_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_logs" using primary key columns
+  """
+  darunrs_near_test_fork_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_test_fork_sys_logs
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  darunrs_near_test_fork_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp
+  ): [darunrs_near_test_fork_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  darunrs_near_test_fork_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp
+  ): darunrs_near_test_fork_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_metadata" using primary key columns
+  """
+  darunrs_near_test_fork_sys_metadata_by_pk(attribute: String!): darunrs_near_test_fork_sys_metadata
+}
+
+type subscription_root {
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.indexer_storage"
+  """
+  darunrs_near_benchmark_indexer_indexer_storage(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_indexer_storage_bool_exp
+  ): [darunrs_near_benchmark_indexer_indexer_storage!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_benchmark_indexer.indexer_storage"
+  """
+  darunrs_near_benchmark_indexer_indexer_storage_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_indexer_storage_bool_exp
+  ): darunrs_near_benchmark_indexer_indexer_storage_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.indexer_storage" using primary key columns
+  """
+  darunrs_near_benchmark_indexer_indexer_storage_by_pk(function_name: String!, key_name: String!): darunrs_near_benchmark_indexer_indexer_storage
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_benchmark_indexer.indexer_storage"
+  """
+  darunrs_near_benchmark_indexer_indexer_storage_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_benchmark_indexer_indexer_storage_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_indexer_storage_bool_exp
+  ): [darunrs_near_benchmark_indexer_indexer_storage!]!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_logs"
+  """
+  darunrs_near_benchmark_indexer_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_logs_bool_exp
+  ): [darunrs_near_benchmark_indexer_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_benchmark_indexer.sys_logs"
+  """
+  darunrs_near_benchmark_indexer_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_logs_bool_exp
+  ): darunrs_near_benchmark_indexer_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_logs" using primary key columns
+  """
+  darunrs_near_benchmark_indexer_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_benchmark_indexer_sys_logs
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_benchmark_indexer.sys_logs"
+  """
+  darunrs_near_benchmark_indexer_sys_logs_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_benchmark_indexer_sys_logs_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_logs_bool_exp
+  ): [darunrs_near_benchmark_indexer_sys_logs!]!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_metadata"
+  """
+  darunrs_near_benchmark_indexer_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_metadata_bool_exp
+  ): [darunrs_near_benchmark_indexer_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_benchmark_indexer.sys_metadata"
+  """
+  darunrs_near_benchmark_indexer_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_benchmark_indexer_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_benchmark_indexer_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_metadata_bool_exp
+  ): darunrs_near_benchmark_indexer_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_benchmark_indexer.sys_metadata" using primary key columns
+  """
+  darunrs_near_benchmark_indexer_sys_metadata_by_pk(attribute: String!): darunrs_near_benchmark_indexer_sys_metadata
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_benchmark_indexer.sys_metadata"
+  """
+  darunrs_near_benchmark_indexer_sys_metadata_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_benchmark_indexer_sys_metadata_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_benchmark_indexer_sys_metadata_bool_exp
+  ): [darunrs_near_benchmark_indexer_sys_metadata!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  darunrs_near_bitmap_v3_actions_index(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v3_actions_index!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v3.actions_index"
+  """
+  darunrs_near_bitmap_v3_actions_index_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp
+  ): darunrs_near_bitmap_v3_actions_index_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.actions_index" using primary key columns
+  """
+  darunrs_near_bitmap_v3_actions_index_by_pk(block_date: String!, receiver_id: String!): darunrs_near_bitmap_v3_actions_index
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v3.actions_index"
+  """
+  darunrs_near_bitmap_v3_actions_index_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v3_actions_index_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v3_actions_index!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  darunrs_near_bitmap_v3_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp
+  ): [darunrs_near_bitmap_v3_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  darunrs_near_bitmap_v3_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp
+  ): darunrs_near_bitmap_v3_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_logs" using primary key columns
+  """
+  darunrs_near_bitmap_v3_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_bitmap_v3_sys_logs
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v3.sys_logs"
+  """
+  darunrs_near_bitmap_v3_sys_logs_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v3_sys_logs_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_logs_bool_exp
+  ): [darunrs_near_bitmap_v3_sys_logs!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  darunrs_near_bitmap_v3_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+  ): [darunrs_near_bitmap_v3_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  darunrs_near_bitmap_v3_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v3_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v3_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+  ): darunrs_near_bitmap_v3_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v3.sys_metadata" using primary key columns
+  """
+  darunrs_near_bitmap_v3_sys_metadata_by_pk(attribute: String!): darunrs_near_bitmap_v3_sys_metadata
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v3.sys_metadata"
+  """
+  darunrs_near_bitmap_v3_sys_metadata_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v3_sys_metadata_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v3_sys_metadata_bool_exp
+  ): [darunrs_near_bitmap_v3_sys_metadata!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.actions_index"
+  """
+  darunrs_near_bitmap_v5_actions_index(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v5_actions_index!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.actions_index"
+  """
+  darunrs_near_bitmap_v5_actions_index_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_actions_index_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_actions_index_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): darunrs_near_bitmap_v5_actions_index_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.actions_index" using primary key columns
+  """
+  darunrs_near_bitmap_v5_actions_index_by_pk(block_date: date!, receiver_id: bigint!): darunrs_near_bitmap_v5_actions_index
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v5.actions_index"
+  """
+  darunrs_near_bitmap_v5_actions_index_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v5_actions_index_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_actions_index_bool_exp
+  ): [darunrs_near_bitmap_v5_actions_index!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.receivers"
+  """
+  darunrs_near_bitmap_v5_receivers(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_receivers_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_receivers_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_receivers_bool_exp
+  ): [darunrs_near_bitmap_v5_receivers!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.receivers"
+  """
+  darunrs_near_bitmap_v5_receivers_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_receivers_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_receivers_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_receivers_bool_exp
+  ): darunrs_near_bitmap_v5_receivers_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.receivers" using primary key columns
+  """
+  darunrs_near_bitmap_v5_receivers_by_pk(id: bigint!): darunrs_near_bitmap_v5_receivers
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v5.receivers"
+  """
+  darunrs_near_bitmap_v5_receivers_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v5_receivers_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_receivers_bool_exp
+  ): [darunrs_near_bitmap_v5_receivers!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_logs"
+  """
+  darunrs_near_bitmap_v5_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_logs_bool_exp
+  ): [darunrs_near_bitmap_v5_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.sys_logs"
+  """
+  darunrs_near_bitmap_v5_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_logs_bool_exp
+  ): darunrs_near_bitmap_v5_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_logs" using primary key columns
+  """
+  darunrs_near_bitmap_v5_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_bitmap_v5_sys_logs
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v5.sys_logs"
+  """
+  darunrs_near_bitmap_v5_sys_logs_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v5_sys_logs_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_logs_bool_exp
+  ): [darunrs_near_bitmap_v5_sys_logs!]!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_metadata"
+  """
+  darunrs_near_bitmap_v5_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_metadata_bool_exp
+  ): [darunrs_near_bitmap_v5_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_bitmap_v5.sys_metadata"
+  """
+  darunrs_near_bitmap_v5_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_bitmap_v5_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_bitmap_v5_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_metadata_bool_exp
+  ): darunrs_near_bitmap_v5_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_bitmap_v5.sys_metadata" using primary key columns
+  """
+  darunrs_near_bitmap_v5_sys_metadata_by_pk(attribute: String!): darunrs_near_bitmap_v5_sys_metadata
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_bitmap_v5.sys_metadata"
+  """
+  darunrs_near_bitmap_v5_sys_metadata_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_bitmap_v5_sys_metadata_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_bitmap_v5_sys_metadata_bool_exp
+  ): [darunrs_near_bitmap_v5_sys_metadata!]!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.comments"
+  """
+  darunrs_near_social_feed_test_comments(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_comments_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_comments_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): [darunrs_near_social_feed_test_comments!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.comments"
+  """
+  darunrs_near_social_feed_test_comments_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_comments_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_comments_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): darunrs_near_social_feed_test_comments_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.comments" using primary key columns
+  """
+  darunrs_near_social_feed_test_comments_by_pk(id: Int!): darunrs_near_social_feed_test_comments
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_social_feed_test.comments"
+  """
+  darunrs_near_social_feed_test_comments_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_social_feed_test_comments_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_comments_bool_exp
+  ): [darunrs_near_social_feed_test_comments!]!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.post_likes"
+  """
+  darunrs_near_social_feed_test_post_likes(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_post_likes_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_post_likes_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): [darunrs_near_social_feed_test_post_likes!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.post_likes"
+  """
+  darunrs_near_social_feed_test_post_likes_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_post_likes_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_post_likes_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): darunrs_near_social_feed_test_post_likes_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.post_likes" using primary key columns
+  """
+  darunrs_near_social_feed_test_post_likes_by_pk(account_id: String!, post_id: Int!): darunrs_near_social_feed_test_post_likes
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_social_feed_test.post_likes"
+  """
+  darunrs_near_social_feed_test_post_likes_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_social_feed_test_post_likes_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_post_likes_bool_exp
+  ): [darunrs_near_social_feed_test_post_likes!]!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.posts"
+  """
+  darunrs_near_social_feed_test_posts(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_posts_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_posts_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_posts_bool_exp
+  ): [darunrs_near_social_feed_test_posts!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.posts"
+  """
+  darunrs_near_social_feed_test_posts_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_posts_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_posts_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_posts_bool_exp
+  ): darunrs_near_social_feed_test_posts_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.posts" using primary key columns
+  """
+  darunrs_near_social_feed_test_posts_by_pk(id: Int!): darunrs_near_social_feed_test_posts
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_social_feed_test.posts"
+  """
+  darunrs_near_social_feed_test_posts_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_social_feed_test_posts_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_posts_bool_exp
+  ): [darunrs_near_social_feed_test_posts!]!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_logs"
+  """
+  darunrs_near_social_feed_test_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_logs_bool_exp
+  ): [darunrs_near_social_feed_test_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.sys_logs"
+  """
+  darunrs_near_social_feed_test_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_logs_bool_exp
+  ): darunrs_near_social_feed_test_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_logs" using primary key columns
+  """
+  darunrs_near_social_feed_test_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_social_feed_test_sys_logs
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_social_feed_test.sys_logs"
+  """
+  darunrs_near_social_feed_test_sys_logs_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_social_feed_test_sys_logs_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_logs_bool_exp
+  ): [darunrs_near_social_feed_test_sys_logs!]!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_metadata"
+  """
+  darunrs_near_social_feed_test_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_metadata_bool_exp
+  ): [darunrs_near_social_feed_test_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_social_feed_test.sys_metadata"
+  """
+  darunrs_near_social_feed_test_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_social_feed_test_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_social_feed_test_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_metadata_bool_exp
+  ): darunrs_near_social_feed_test_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_social_feed_test.sys_metadata" using primary key columns
+  """
+  darunrs_near_social_feed_test_sys_metadata_by_pk(attribute: String!): darunrs_near_social_feed_test_sys_metadata
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_social_feed_test.sys_metadata"
+  """
+  darunrs_near_social_feed_test_sys_metadata_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_social_feed_test_sys_metadata_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_social_feed_test_sys_metadata_bool_exp
+  ): [darunrs_near_social_feed_test_sys_metadata!]!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  darunrs_near_test_fork_indexer_storage(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp
+  ): [darunrs_near_test_fork_indexer_storage!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_test_fork.indexer_storage"
+  """
+  darunrs_near_test_fork_indexer_storage_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_indexer_storage_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_indexer_storage_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp
+  ): darunrs_near_test_fork_indexer_storage_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.indexer_storage" using primary key columns
+  """
+  darunrs_near_test_fork_indexer_storage_by_pk(function_name: String!, key_name: String!): darunrs_near_test_fork_indexer_storage
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_test_fork.indexer_storage"
+  """
+  darunrs_near_test_fork_indexer_storage_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_test_fork_indexer_storage_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_indexer_storage_bool_exp
+  ): [darunrs_near_test_fork_indexer_storage!]!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_logs"
+  """
+  darunrs_near_test_fork_sys_logs(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp
+  ): [darunrs_near_test_fork_sys_logs!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_test_fork.sys_logs"
+  """
+  darunrs_near_test_fork_sys_logs_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_logs_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_logs_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp
+  ): darunrs_near_test_fork_sys_logs_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_logs" using primary key columns
+  """
+  darunrs_near_test_fork_sys_logs_by_pk(date: date!, id: bigint!): darunrs_near_test_fork_sys_logs
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_test_fork.sys_logs"
+  """
+  darunrs_near_test_fork_sys_logs_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_test_fork_sys_logs_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_logs_bool_exp
+  ): [darunrs_near_test_fork_sys_logs!]!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  darunrs_near_test_fork_sys_metadata(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp
+  ): [darunrs_near_test_fork_sys_metadata!]!
+
+  """
+  fetch aggregated fields from the table: "darunrs_near_test_fork.sys_metadata"
+  """
+  darunrs_near_test_fork_sys_metadata_aggregate(
+    """distinct select on columns"""
+    distinct_on: [darunrs_near_test_fork_sys_metadata_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [darunrs_near_test_fork_sys_metadata_order_by!]
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp
+  ): darunrs_near_test_fork_sys_metadata_aggregate!
+
+  """
+  fetch data from the table: "darunrs_near_test_fork.sys_metadata" using primary key columns
+  """
+  darunrs_near_test_fork_sys_metadata_by_pk(attribute: String!): darunrs_near_test_fork_sys_metadata
+
+  """
+  fetch data from the table in a streaming manner: "darunrs_near_test_fork.sys_metadata"
+  """
+  darunrs_near_test_fork_sys_metadata_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [darunrs_near_test_fork_sys_metadata_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: darunrs_near_test_fork_sys_metadata_bool_exp
+  ): [darunrs_near_test_fork_sys_metadata!]!
+}
+
+scalar timestamp
+
+"""
+Boolean expression to compare columns of type "timestamp". All fields are combined with logical 'AND'.
+"""
+input timestamp_comparison_exp {
+  _eq: timestamp
+  _gt: timestamp
+  _gte: timestamp
+  _in: [timestamp!]
+  _is_null: Boolean
+  _lt: timestamp
+  _lte: timestamp
+  _neq: timestamp
+  _nin: [timestamp!]
+}

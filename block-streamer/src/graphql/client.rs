@@ -1,5 +1,3 @@
-use crate::graphql::queries::get_bitmaps_exact::{get_bitmaps_exact, GetBitmapsExact};
-use crate::graphql::queries::get_bitmaps_wildcard::{get_bitmaps_wildcard, GetBitmapsWildcard};
 use ::reqwest;
 use graphql_client::{GraphQLQuery, Response};
 use std::error::Error;
@@ -7,13 +5,45 @@ use std::error::Error;
 // TODO: Use Dataplatform account
 const HASURA_ACCOUNT: &str = "darunrs_near";
 
-pub struct GraphqlClient {
+#[allow(clippy::upper_case_acronyms)]
+type Date = String;
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/darunrs_near/schema.graphql",
+    query_path = "graphql/darunrs_near/get_bitmaps_exact.graphql",
+    response_derives = "Debug",
+    normalization = "rust"
+)]
+struct GetBitmapsExact;
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "graphql/darunrs_near/schema.graphql",
+    query_path = "graphql/darunrs_near/get_bitmaps_wildcard.graphql",
+    response_derives = "Debug",
+    normalization = "rust"
+)]
+struct GetBitmapsWildcard;
+
+pub struct GraphQLClient {
     client: reqwest::Client,
     graphql_endpoint: String,
 }
 
+/// Use the provided reqwest::Client to post a GraphQL request.
+pub async fn post_graphql<Q: GraphQLQuery, U: reqwest::IntoUrl>(
+    client: &reqwest::Client,
+    url: U,
+    variables: Q::Variables,
+) -> Result<Response<Q::ResponseData>, reqwest::Error> {
+    let body = Q::build_query(variables);
+    let reqwest_response = client.post(url).header("x-hasura-role", HASURA_ACCOUNT).json(&body).send().await?;
+
+    reqwest_response.json().await
+}
+
 #[cfg_attr(test, mockall::automock)]
-impl GraphqlClient {
+impl GraphQLClient {
     pub fn new(graphql_endpoint: String) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -27,30 +57,22 @@ impl GraphqlClient {
         block_date: String,
         limit: i64,
         offset: i64,
-    ) -> Result<
-        Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>,
-        Box<dyn Error>,
-    > {
-        let variables = get_bitmaps_exact::Variables {
-            receiver_ids: Some(receiver_ids),
-            block_date: Some(block_date),
-            limit: Some(limit),
-            offset: Some(offset),
-        };
-        let request_body = GetBitmapsExact::build_query(variables);
-        let res = self
-            .client
-            .post(&self.graphql_endpoint)
-            .header("x-hasura-role", HASURA_ACCOUNT)
-            .json(&request_body)
-            .send()
-            .await
-            .expect("Failed to query bitmaps for list of exact receivers");
-        let response_body: Response<get_bitmaps_exact::ResponseData> = res.json().await?;
-        match response_body.data {
-            Some(data) => Ok(data.darunrs_near_bitmap_v5_actions_index),
-            None => Ok([].into()),
-        }
+    ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>> {
+        post_graphql::<GetBitmapsExact, _>(
+            &self.client,
+            &self.graphql_endpoint,
+            get_bitmaps_exact::Variables {
+                receiver_ids: Some(receiver_ids),
+                block_date: Some(block_date),
+                limit: Some(limit),
+                offset: Some(offset),
+            },
+        )
+        .await
+        .expect("Failed to query bitmaps for list of exact receivers")
+        .data
+        .ok_or(anyhow::anyhow!("No bitmaps were returned"))
+        .map(|data| data.darunrs_near_bitmap_v5_actions_index)
     }
 
     pub async fn get_bitmaps_wildcard(
@@ -59,30 +81,22 @@ impl GraphqlClient {
         block_date: String,
         limit: i64,
         offset: i64,
-    ) -> Result<
-        Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>,
-        Box<dyn Error>,
-    > {
-        let variables = get_bitmaps_wildcard::Variables {
-            receiver_ids: Some(receiver_ids),
-            block_date: Some(block_date),
-            limit: Some(limit),
-            offset: Some(offset),
-        };
-        let request_body = GetBitmapsWildcard::build_query(variables);
-        let res = self
-            .client
-            .post(&self.graphql_endpoint)
-            .header("x-hasura-role", HASURA_ACCOUNT)
-            .json(&request_body)
-            .send()
-            .await
-            .expect("Failed to query bitmaps for wildcard receivers");
-        let response_body: Response<get_bitmaps_wildcard::ResponseData> = res.json().await?;
-        match response_body.data {
-            Some(data) => Ok(data.darunrs_near_bitmap_v5_actions_index),
-            None => Ok([].into()),
-        }
+    ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>> {
+        post_graphql::<GetBitmapsWildcard, _>(
+            &self.client,
+            &self.graphql_endpoint,
+            get_bitmaps_wildcard::Variables {
+                receiver_ids: Some(receiver_ids),
+                block_date: Some(block_date),
+                limit: Some(limit),
+                offset: Some(offset),
+            },
+        )
+        .await
+        .expect("Failed to query bitmaps for list of wildcard receivers")
+        .data
+        .ok_or(anyhow::anyhow!("No bitmaps were returned"))
+        .map(|data| data.darunrs_near_bitmap_v5_actions_index)
     }
 }
 
@@ -96,7 +110,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_bitmaps_exact() {
-        let client = GraphqlClient::new(HASURA_ENDPOINT.to_string());
+        let client = GraphQLClient::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = vec!["app.nearcrowd.near".to_string()];
         let block_date = "2024-03-21".to_string();
         let limit = 10;
@@ -112,7 +126,7 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn test_get_bitmaps_wildcard() {
-        let client = GraphqlClient::new(HASURA_ENDPOINT.to_string());
+        let client = GraphQLClient::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = "app.nearcrowd.near".to_string();
         let block_date = "2024-03-21".to_string();
         let limit = 10;

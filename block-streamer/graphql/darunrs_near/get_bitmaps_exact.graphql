@@ -1,0 +1,6 @@
+query GetBitmapsExact($block_date: date, $receiver_ids: [String!], $limit: Int, $offset: Int) {
+  darunrs_near_bitmap_v5_actions_index(limit: $limit, offset: $offset, where: {block_date: {_eq: $block_date}, receiver: {receiver: {_in: $receiver_ids}}}) {
+    bitmap
+    first_block_height
+  }
+}
