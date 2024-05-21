@@ -26,7 +26,7 @@ const CustomAccordianWrapper = styled.div`
 const LogFieldCardView = ({ severity, handleSeverityChange, logType, handleLogTypeChange, dateFilter, handleDateFilter }) => {
     return (
         <Card className="text-black">
-            <Card.Header className="bg-white p-3">Log Fields</Card.Header>
+            <Card.Header className="bg-white p-3">Filters</Card.Header>
             <CustomAccordianWrapper>
                 <Accordion defaultActiveKey={["0", "1", "2"]} alwaysOpen>
 
