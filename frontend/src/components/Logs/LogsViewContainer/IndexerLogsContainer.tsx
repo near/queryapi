@@ -7,6 +7,7 @@ import { Grid } from "gridjs";
 
 import { getIndexerLogsQueryDefinition } from "../GraphQL/getIndexerLogsQueryDefinition";
 import { getSearchLogsQueryDefinition } from "../GraphQL/getSearchLogsQueryDefinition";
+import { formatTimestamp } from "@/utils/formatTimestamp";
 interface GridConfig {
     columns: string[];
     search: any;
@@ -22,7 +23,7 @@ interface InitialPayload {
 
 const DEV_ENV: string = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql';
 const PROD_ENV: string = 'https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql';
-const LOGS_PER_PAGE: number = 50;
+const LOGS_PER_PAGE: number = 75;
 
 const IndexerLogsContainer: React.FC = () => {
     const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
@@ -43,7 +44,7 @@ const IndexerLogsContainer: React.FC = () => {
     const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<Grid | null>(null);
 
-    const getIndexerLogsConfig = () => {
+    const getIndexerLogsConfig: any = () => {
         return {
             url: DEV_ENV,
             method: 'POST',
@@ -55,12 +56,20 @@ const IndexerLogsContainer: React.FC = () => {
                 query: getIndexerLogsQueryDefinition(tableName, severity, logType, startTime),
                 variables: { limit: LOGS_PER_PAGE, offset: 0 },
             }),
-            then: ({ data }: any) => (data[tableName]),
+            then: ({ data }: any) => (
+                data[tableName].map((log: any) => [
+                    log.level,
+                    log.type,
+                    formatTimestamp(log.timestamp) ?? log.timestamp,
+                    log.block_height,
+                    log.message
+                ])
+            ),
             total: ({ data }: any) => (data[`${tableName}_aggregate`].aggregate.count),
         };
     };
 
-    const getSearchConfig = () => {
+    const getSearchConfig: any = () => {
         return {
             debounceTimeout: 500,
             server: {
@@ -77,7 +86,7 @@ const IndexerLogsContainer: React.FC = () => {
         };
     };
 
-    const getPaginationConfig = () => {
+    const getPaginationConfig: any = () => {
         return {
             prevButton: false,
             nextButton: false,
@@ -86,24 +95,36 @@ const IndexerLogsContainer: React.FC = () => {
         };
     };
 
-    const getGridStyle = () => {
+    const getGridStyle: any = () => {
         return {
             container: {
                 fontFamily: "Roboto Mono, monospace",
             },
-            table: {},
+            table: {
+                borderCollapse: "collapse",
+                width: "100%",
+            },
             th: {
-                width: "auto",
+                backgroundColor: "#f8f8f8",
                 fontSize: "14px",
-                textAlign: "center",
+                textAlign: "left",
+                fontWeight: "bold",
             },
             td: {
-                width: "auto",
-                fontSize: "12px",
-                padding: "5px",
+                padding: "2px 10px",
+                textAlign: "left",
+                fontSize: "14px",
             },
         };
     };
+
+    const getLanguageConfig: any = () => {
+        return {
+            search: {
+                'placeholder': '🔍 Search by Message or Block Height',
+            },
+        };
+    }
 
     const renderGrid = () => {
         const gridConfig: GridConfig = getGridConfig();
@@ -112,14 +133,21 @@ const IndexerLogsContainer: React.FC = () => {
         gridRef.current = grid;
     };
 
-    const getGridConfig = () => {
+    const getGridConfig: any = () => {
         return {
-            columns: ['block_height', 'level', 'message', 'timestamp', 'type'],
+            columns: [
+                { name: 'LEVEL', width: '100px' },
+                { name: 'TYPE', width: '100px' },
+                { name: 'TIMESTAMP', width: '225px' },
+                { name: 'HEIGHT', width: '100px' },
+                { name: 'MESSAGE', width: 'auto' },
+            ],
             search: getSearchConfig(),
             pagination: getPaginationConfig(),
             server: getIndexerLogsConfig(),
             style: getGridStyle(),
-            sort: true,
+            language: getLanguageConfig(),
+            // sort: true,
         };
     };
 
