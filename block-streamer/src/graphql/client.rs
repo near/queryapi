@@ -37,7 +37,12 @@ async fn post_graphql<Q: GraphQLQuery, U: reqwest::IntoUrl>(
     variables: Q::Variables,
 ) -> Result<Response<Q::ResponseData>, reqwest::Error> {
     let body = Q::build_query(variables);
-    let reqwest_response = client.post(url).header("x-hasura-role", HASURA_ACCOUNT).json(&body).send().await?;
+    let reqwest_response = client
+        .post(url)
+        .header("x-hasura-role", HASURA_ACCOUNT)
+        .json(&body)
+        .send()
+        .await?;
 
     reqwest_response.json().await
 }
@@ -57,7 +62,8 @@ impl GraphQLClient {
         block_date: String,
         limit: i64,
         offset: i64,
-    ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>> {
+    ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>>
+    {
         post_graphql::<GetBitmapsExact, _>(
             &self.client,
             &self.graphql_endpoint,
@@ -81,7 +87,8 @@ impl GraphQLClient {
         block_date: String,
         limit: i64,
         offset: i64,
-    ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>> {
+    ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>>
+    {
         post_graphql::<GetBitmapsWildcard, _>(
             &self.client,
             &self.graphql_endpoint,
