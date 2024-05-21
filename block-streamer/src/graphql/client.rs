@@ -7,6 +7,7 @@ const HASURA_ACCOUNT: &str = "darunrs_near";
 
 #[allow(clippy::upper_case_acronyms)]
 type Date = String;
+
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "graphql/darunrs_near/schema.graphql",
@@ -30,8 +31,7 @@ pub struct GraphQLClient {
     graphql_endpoint: String,
 }
 
-/// Use the provided reqwest::Client to post a GraphQL request.
-pub async fn post_graphql<Q: GraphQLQuery, U: reqwest::IntoUrl>(
+async fn post_graphql<Q: GraphQLQuery, U: reqwest::IntoUrl>(
     client: &reqwest::Client,
     url: U,
     variables: Q::Variables,
