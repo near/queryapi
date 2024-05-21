@@ -34,6 +34,7 @@ services:
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       RUST_LOG: info
       RPC_URL: https://archival-rpc.mainnet.near.org
+      GRPC_PORT: 9003
 
   runner:
     build:

@@ -15,32 +15,31 @@ pub async fn synchronise_block_streams(
 ) -> anyhow::Result<()> {
     let mut active_block_streams = block_streams_handler.list().await?;
 
-    for (account_id, indexers) in indexer_registry.iter() {
-        for (function_name, indexer_config) in indexers.iter() {
-            let active_block_stream = active_block_streams
-                .iter()
-                .position(|stream| {
-                    stream.account_id == *account_id && &stream.function_name == function_name
-                })
-                .map(|index| active_block_streams.swap_remove(index));
+    for indexer_config in indexer_registry.iter() {
+        let active_block_stream = active_block_streams
+            .iter()
+            .position(|stream| {
+                stream.account_id == *indexer_config.account_id
+                    && stream.function_name == indexer_config.function_name
+            })
+            .map(|index| active_block_streams.swap_remove(index));
 
-            let _ = synchronise_block_stream(
-                active_block_stream,
-                indexer_config,
-                indexer_manager,
-                redis_client,
-                block_streams_handler,
+        let _ = synchronise_block_stream(
+            active_block_stream,
+            indexer_config,
+            indexer_manager,
+            redis_client,
+            block_streams_handler,
+        )
+        .await
+        .map_err(|err| {
+            tracing::error!(
+                account_id = indexer_config.account_id.as_str(),
+                function_name = indexer_config.function_name,
+                version = indexer_config.get_registry_version(),
+                "failed to sync block stream: {err:?}"
             )
-            .await
-            .map_err(|err| {
-                tracing::error!(
-                    account_id = account_id.as_str(),
-                    function_name,
-                    version = indexer_config.get_registry_version(),
-                    "failed to sync block stream: {err:?}"
-                )
-            });
-        }
+        });
     }
 
     for unregistered_block_stream in active_block_streams {
@@ -98,11 +97,6 @@ async fn synchronise_block_stream(
     let start_block_height =
         determine_start_block_height(&sync_status, indexer_config, redis_client).await?;
 
-    tracing::info!(
-        "Starting new block stream starting at block {}",
-        start_block_height
-    );
-
     block_streams_handler
         .start(start_block_height, indexer_config)
         .await?;
@@ -136,16 +130,22 @@ async fn determine_start_block_height(
     redis_client: &RedisClient,
 ) -> anyhow::Result<u64> {
     if sync_status == &SyncStatus::Synced {
-        tracing::info!("Resuming block stream");
+        let height = get_continuation_block_height(indexer_config, redis_client).await?;
 
-        return get_continuation_block_height(indexer_config, redis_client).await;
+        tracing::info!(height, "Resuming block stream");
+
+        return Ok(height);
     }
 
-    match indexer_config.start_block {
+    let height = match indexer_config.start_block {
         StartBlock::Latest => Ok(indexer_config.get_registry_version()),
         StartBlock::Height(height) => Ok(height),
         StartBlock::Continue => get_continuation_block_height(indexer_config, redis_client).await,
-    }
+    }?;
+
+    tracing::info!(height, "Starting block stream");
+
+    Ok(height)
 }
 
 async fn get_continuation_block_height(
@@ -184,7 +184,7 @@ mod tests {
             start_block: StartBlock::Height(100),
         };
 
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -242,7 +242,7 @@ mod tests {
             start_block: StartBlock::Latest,
         };
 
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -299,7 +299,7 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Height(100),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -356,7 +356,7 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Continue,
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -400,7 +400,7 @@ mod tests {
 
     #[tokio::test]
     async fn stops_stream_not_in_registry() {
-        let indexer_registry = HashMap::from([]);
+        let indexer_registry = IndexerRegistry::from(&[]);
 
         let redis_client = RedisClient::default();
 
@@ -446,7 +446,7 @@ mod tests {
             updated_at_block_height: None,
             start_block: StartBlock::Latest,
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -496,7 +496,7 @@ mod tests {
             updated_at_block_height: Some(199),
             start_block: StartBlock::Height(1000),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -564,7 +564,7 @@ mod tests {
             updated_at_block_height: Some(200),
             start_block: StartBlock::Continue,
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
@@ -612,7 +612,7 @@ mod tests {
             updated_at_block_height: None,
             start_block: StartBlock::Height(50),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry::from(&[(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
         )]);
