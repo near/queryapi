@@ -26,7 +26,7 @@ impl GraphqlClient {
         block_date: String,
         limit: i64,
         offset: i64,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Response<get_bitmaps_exact::ResponseData>, Box<dyn Error>> {
         let variables = get_bitmaps_exact::Variables {
             receiver_ids: Some(receiver_ids),
             block_date: Some(block_date),
@@ -40,10 +40,10 @@ impl GraphqlClient {
             .header("x-hasura-role", HASURA_ACCOUNT)
             .json(&request_body)
             .send()
-            .await?;
+            .await
+            .expect("Failed to query bitmaps for list of exact receivers");
         let response_body: Response<get_bitmaps_exact::ResponseData> = res.json().await?;
-        println!("{:#?}", response_body);
-        Ok(())
+        Ok(response_body)
     }
 
     pub async fn get_bitmaps_wildcard(
@@ -52,7 +52,7 @@ impl GraphqlClient {
         block_date: String,
         limit: i64,
         offset: i64,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Response<get_bitmaps_wildcard::ResponseData>, Box<dyn Error>> {
         let variables = get_bitmaps_wildcard::Variables {
             receiver_ids: Some(receiver_ids),
             block_date: Some(block_date),
@@ -66,10 +66,10 @@ impl GraphqlClient {
             .header("x-hasura-role", HASURA_ACCOUNT)
             .json(&request_body)
             .send()
-            .await?;
+            .await
+            .expect("Failed to query bitmaps for wildcard receivers");
         let response_body: Response<get_bitmaps_wildcard::ResponseData> = res.json().await?;
-        println!("{:#?}", response_body);
-        Ok(())
+        Ok(response_body)
     }
 }
 
