@@ -31,22 +31,6 @@ pub struct GraphQLClient {
     graphql_endpoint: String,
 }
 
-async fn post_graphql<Q: GraphQLQuery, U: reqwest::IntoUrl>(
-    client: &reqwest::Client,
-    url: U,
-    variables: Q::Variables,
-) -> Result<Response<Q::ResponseData>, reqwest::Error> {
-    let body = Q::build_query(variables);
-    let reqwest_response = client
-        .post(url)
-        .header("x-hasura-role", HASURA_ACCOUNT)
-        .json(&body)
-        .send()
-        .await?;
-
-    reqwest_response.json().await
-}
-
 #[cfg_attr(test, mockall::automock)]
 impl GraphQLClient {
     pub fn new(graphql_endpoint: String) -> Self {
@@ -54,6 +38,22 @@ impl GraphQLClient {
             client: reqwest::Client::new(),
             graphql_endpoint,
         }
+    }
+
+    async fn post_graphql<Q: GraphQLQuery + 'static>(
+        &self,
+        variables: Q::Variables,
+    ) -> Result<Response<Q::ResponseData>, reqwest::Error> {
+        let body = Q::build_query(variables);
+        let reqwest_response = self
+            .client
+            .post(&self.graphql_endpoint)
+            .header("x-hasura-role", HASURA_ACCOUNT)
+            .json(&body)
+            .send()
+            .await?;
+
+        reqwest_response.json().await
     }
 
     pub async fn get_bitmaps_exact(
@@ -64,18 +64,13 @@ impl GraphQLClient {
         offset: i64,
     ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>>
     {
-        post_graphql::<GetBitmapsExact, _>(
-            &self.client,
-            &self.graphql_endpoint,
-            get_bitmaps_exact::Variables {
-                receiver_ids: Some(receiver_ids),
-                block_date: Some(block_date),
-                limit: Some(limit),
-                offset: Some(offset),
-            },
-        )
-        .await
-        .expect("Failed to query bitmaps for list of exact receivers")
+        self.post_graphql::<GetBitmapsExact>(get_bitmaps_exact::Variables {
+            receiver_ids: Some(receiver_ids),
+            block_date: Some(block_date),
+            limit: Some(limit),
+            offset: Some(offset),
+        })
+        .await?
         .data
         .ok_or(anyhow::anyhow!("No bitmaps were returned"))
         .map(|data| data.darunrs_near_bitmap_v5_actions_index)
@@ -89,18 +84,13 @@ impl GraphQLClient {
         offset: i64,
     ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>>
     {
-        post_graphql::<GetBitmapsWildcard, _>(
-            &self.client,
-            &self.graphql_endpoint,
-            get_bitmaps_wildcard::Variables {
-                receiver_ids: Some(receiver_ids),
-                block_date: Some(block_date),
-                limit: Some(limit),
-                offset: Some(offset),
-            },
-        )
-        .await
-        .expect("Failed to query bitmaps for list of wildcard receivers")
+        self.post_graphql::<GetBitmapsWildcard>(get_bitmaps_wildcard::Variables {
+            receiver_ids: Some(receiver_ids),
+            block_date: Some(block_date),
+            limit: Some(limit),
+            offset: Some(offset),
+        })
+        .await?
         .data
         .ok_or(anyhow::anyhow!("No bitmaps were returned"))
         .map(|data| data.darunrs_near_bitmap_v5_actions_index)
