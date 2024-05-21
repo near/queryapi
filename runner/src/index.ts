@@ -34,9 +34,9 @@ interface WorkerContext {
 }
 
 const indexerConfigData = {
-  redisStreamKey: 'morgs.near/firecracker:block_stream',
+  redisStreamKey: 'morgs.near/katacontainers:block_stream',
   accountId: 'morgs.near',
-  functionName: 'firecracker',
+  functionName: 'katacontainers',
   version: 1,
   code: 'console.log("Hello World")',
   schema: `
