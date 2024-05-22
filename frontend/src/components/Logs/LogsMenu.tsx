@@ -98,11 +98,11 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
           <span className="text-secondary text-sm">
             Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? "UNKNOWN"}</strong>
           </span>
-          {debugMode && (
+          {/* {debugMode && (
             <span className="text-secondary cursor-pointer text-sm" onClick={() => removeHeight(0)}>
               Debug Mode: {mode}
             </span>
-          )}
+          )} */}
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
           <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={handleReload}>

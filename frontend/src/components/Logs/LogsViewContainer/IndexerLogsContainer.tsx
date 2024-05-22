@@ -5,9 +5,10 @@ import { IndexerDetailsContext } from "../../../contexts/IndexerDetailsContext";
 import IndexerLogsView from "../LogsView/IndexerLogsView";
 import { Grid } from "gridjs";
 
-import { getIndexerLogsQueryDefinition } from "../GraphQL/getIndexerLogsQueryDefinition";
-import { getSearchLogsQueryDefinition } from "../GraphQL/getSearchLogsQueryDefinition";
+import { QueryValidation } from "../GraphQL/QueryValidation";
+import { Query } from '../GraphQL/Query'
 import { formatTimestamp } from "@/utils/formatTimestamp";
+
 interface GridConfig {
     columns: string[];
     search: any;
@@ -53,8 +54,8 @@ const IndexerLogsContainer: React.FC = () => {
                 ['Content-Type']: 'application/json',
             },
             body: JSON.stringify({
-                query: getIndexerLogsQueryDefinition(tableName, severity, logType, startTime),
-                variables: { limit: LOGS_PER_PAGE, offset: 0 },
+                query: Query(tableName),
+                variables: QueryValidation({ limit: LOGS_PER_PAGE, offset: 0, order_by_timestamp: 'desc', level: severity, type: logType, timestamp: startTime })
             }),
             then: ({ data }: any) => (
                 data[tableName].map((log: any) => [
@@ -76,11 +77,19 @@ const IndexerLogsContainer: React.FC = () => {
                 url: (prev: string, keyword: string) => prev,
                 body: (prev: string, keyword: string) => {
                     return JSON.stringify({
-                        query: getSearchLogsQueryDefinition(tableName, keyword, severity, logType, startTime),
-                        variables: { limit: LOGS_PER_PAGE, offset: 0 },
+                        query: Query(tableName),
+                        variables: QueryValidation({ limit: LOGS_PER_PAGE, offset: 0, order_by_timestamp: 'desc', level: severity, type: logType, timestamp: startTime, keyword: keyword })
                     });
                 },
-                then: ({ data }: any) => (data[tableName]),
+                then: ({ data }: any) => (
+                    data[tableName].map((log: any) => [
+                        log.level,
+                        log.type,
+                        formatTimestamp(log.timestamp) ?? log.timestamp,
+                        log.block_height,
+                        log.message
+                    ])
+                ),
                 total: ({ data }: any) => (data[`${tableName}_aggregate`].aggregate.count),
             },
         };
@@ -177,7 +186,6 @@ const IndexerLogsContainer: React.FC = () => {
             latestHeight={latestHeight}
             currentIndexerDetails={indexerDetails}
             currentUserAccountId={currentUserAccountId}
-            getIndexerLogsQueryDefinition={getIndexerLogsQueryDefinition}
             getIndexerLogsConfig={getIndexerLogsConfig}
             getSearchConfig={getSearchConfig}
             getPaginationConfig={getPaginationConfig}

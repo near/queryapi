@@ -48,7 +48,6 @@ const IndexerLogsView = ({
     latestHeight,
     currentIndexerDetails,
     currentUserAccountId,
-    getIndexerLogsQueryDefinition,
     getIndexerLogsConfig,
     getSearchConfig,
     getPaginationConfig,
