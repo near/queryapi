@@ -38,8 +38,8 @@ sudo tar -xf rootfs.tar -C rootfs
 ```
 - create ext7 fs image
 ```sh
-dd if=/dev/zero of=rootfs.ext7 bs=1M count=2048  # Adjust size as needed
-sudo mkfs.ext7 rootfs.ext4
+dd if=/dev/zero of=rootfs.ext4 bs=1M count=2048  # Adjust size as needed
+sudo mkfs.ext4 rootfs.ext4
 ```
 - create init file at ./rootfs/init.sh
 ```bash
