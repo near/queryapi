@@ -34,17 +34,22 @@ impl BitmapOperator {
     fn get_bit_in_byte_array(&self, decompressed_bytes: &[u8], bit_index: usize) -> bool {
         let byte_index: usize = bit_index / 8;
         let bit_index_in_byte: usize = bit_index % 8;
-        return (decompressed_bytes[byte_index] & (1 << (7 - bit_index_in_byte))) > 0;
+        return (decompressed_bytes[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0;
     }
 
-    // fn set_bit_in_byte_array(
-    //     &self,
-    //     decompressed_bytes: &mut [u8],
-    //     bit_index: i32,
-    //     bit_value: bool,
-    //     write_zero: Option<bool>,
-    // ) -> bool {
-    // }
+    fn set_bit_in_byte_array(
+        &self,
+        decompressed_bytes: &mut [u8],
+        bit_index: usize,
+        bit_value: bool,
+        write_zero: Option<bool>,
+    ) {
+        if !bit_value && write_zero.unwrap_or(false) {
+            decompressed_bytes[bit_index / 8] &= !(1u8 << (7 - (bit_index % 8)));
+        } else if bit_value {
+            decompressed_bytes[bit_index / 8] |= 1u8 << (7 - (bit_index % 8));
+        }
+    }
     //
     // fn decode_elias_gamma_entry_from_bytes(
     //     &self,
@@ -72,5 +77,17 @@ mod tests {
             results,
             [true, false, false, false, false, true, false, true]
         );
+    }
+
+    #[test]
+    fn test_setting_bit_in_array() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let correct_byte_array: &[u8; 3] = &[0x01, 0x00, 0x09]; // 0000 0001 0000 0000 0000 1001
+        let test_byte_array: &mut [u8; 3] = &mut [0x80, 0x80, 0x09]; // 1000 0000 1000 0000 0000 1001
+        operator.set_bit_in_byte_array(test_byte_array, 0, false, Some(true));
+        operator.set_bit_in_byte_array(test_byte_array, 7, true, Some(true));
+        operator.set_bit_in_byte_array(test_byte_array, 8, false, Some(true));
+        operator.set_bit_in_byte_array(test_byte_array, 12, false, None);
+        assert_eq!(correct_byte_array, test_byte_array);
     }
 }
