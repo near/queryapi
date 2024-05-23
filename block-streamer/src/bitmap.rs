@@ -1,8 +1,16 @@
+use anyhow::anyhow;
+
 const BLOCK_HEIGHTS_IN_DAY: usize = 86000;
 
 pub struct Bitmap {
-    pub start_block_height: i32,
+    pub start_block_height: usize,
     pub bitmap: [u8; BLOCK_HEIGHTS_IN_DAY / 8],
+    pub bitmap_last_index: usize,
+}
+
+struct EliasGammaDecoded {
+    pub value: u32,
+    pub last_bit_index: usize,
 }
 
 pub struct BitmapOperator {}
@@ -12,51 +20,102 @@ impl BitmapOperator {
     pub fn new() -> Self {
         Self {}
     }
-    // pub fn add_compressed_bitmap(&self, base_bitmap: &mut Bitmap, add_bitmap: &Bitmap) -> () {}
-    //
-    // fn decompress_bitmap(&self, compressed_bitmap: &Bitmap) -> Bitmap {}
-    //
-    // fn index_of_first_bit_in_byte_array(
-    //     &self,
-    //     decompressed_bytes: &[u8],
-    //     start_bit_index: i32,
-    // ) -> i32 {
-    // }
-    //
-    // fn get_number_between_bits(
-    //     &self,
-    //     decompressed_bytes: &[u8],
-    //     start_bit_index: i32,
-    //     end_bit_index: i32,
-    // ) -> i32 {
-    // }
 
-    fn get_bit_in_byte_array(&self, decompressed_bytes: &[u8], bit_index: usize) -> bool {
+    fn get_bit_in_byte_array(&self, byte_array: &[u8], bit_index: usize) -> bool {
         let byte_index: usize = bit_index / 8;
         let bit_index_in_byte: usize = bit_index % 8;
-        return (decompressed_bytes[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0;
+        return (byte_array[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0;
     }
 
     fn set_bit_in_byte_array(
         &self,
-        decompressed_bytes: &mut [u8],
+        byte_array: &mut [u8],
         bit_index: usize,
         bit_value: bool,
         write_zero: Option<bool>,
     ) {
         if !bit_value && write_zero.unwrap_or(false) {
-            decompressed_bytes[bit_index / 8] &= !(1u8 << (7 - (bit_index % 8)));
+            byte_array[bit_index / 8] &= !(1u8 << (7 - (bit_index % 8)));
         } else if bit_value {
-            decompressed_bytes[bit_index / 8] |= 1u8 << (7 - (bit_index % 8));
+            byte_array[bit_index / 8] |= 1u8 << (7 - (bit_index % 8));
         }
     }
-    //
-    // fn decode_elias_gamma_entry_from_bytes(
-    //     &self,
-    //     decompressed_bytes: &[u8],
-    //     start_bit: Option<i32>,
-    // ) -> &[u8] {
-    // }
+
+    fn get_number_between_bits(
+        &self,
+        byte_array: &[u8],
+        start_bit_index: usize,
+        end_bit_index: usize,
+    ) -> u32 {
+        let mut number: u32 = 0;
+        // Read bits from right to left
+        for curr_bit_index in (start_bit_index..=end_bit_index).rev() {
+            if self.get_bit_in_byte_array(byte_array, curr_bit_index) {
+                number |= 1u32 << (end_bit_index - curr_bit_index);
+            }
+        }
+        number
+    }
+
+    fn index_of_first_bit(
+        &self,
+        byte_array: &[u8],
+        start_bit_index: usize,
+    ) -> anyhow::Result<usize> {
+        let mut first_bit_index: usize = start_bit_index % 8;
+        for byte_index in (start_bit_index / 8)..byte_array.len() {
+            if byte_array[byte_index] > 0 {
+                for bit_index in first_bit_index..=7 {
+                    if byte_array[byte_index] & (1u8 << (7 - bit_index)) > 0 {
+                        return Ok(byte_index * 8 + bit_index);
+                    }
+                }
+            }
+            first_bit_index = 0;
+        }
+        return Err(anyhow!("Failed to find a bit with value 1 in byte array"));
+    }
+
+    fn decode_elias_gamma_entry(
+        &self,
+        byte_array: &[u8],
+        start_bit_index: Option<usize>,
+    ) -> EliasGammaDecoded {
+        if byte_array.len() == 0 {
+            return EliasGammaDecoded {
+                value: 0,
+                last_bit_index: 0,
+            };
+        }
+        let first_bit_index =
+            match self.index_of_first_bit(byte_array, start_bit_index.unwrap_or(0)) {
+                Ok(index) => index,
+                Err(_) => {
+                    return EliasGammaDecoded {
+                        value: 0,
+                        last_bit_index: 0,
+                    }
+                }
+            };
+        let zero_count: usize = first_bit_index - start_bit_index.unwrap_or(0);
+        let remainder: u32 = if zero_count == 0 {
+            0
+        } else {
+            self.get_number_between_bits(
+                byte_array,
+                first_bit_index + 1,
+                first_bit_index + zero_count,
+            )
+        };
+        return EliasGammaDecoded {
+            value: 2_u32.pow(zero_count.try_into().unwrap()) + remainder,
+            last_bit_index: first_bit_index + zero_count,
+        };
+    }
+
+    // fn decompress_bitmap(&self, compressed_bitmap: &Bitmap) -> Bitmap {}
+
+    // pub fn add_compressed_bitmap(&self, base_bitmap: &mut Bitmap, add_bitmap: &Bitmap) -> () {}
 }
 
 #[cfg(test)]
@@ -66,7 +125,7 @@ mod tests {
     #[test]
     fn test_getting_bit_from_array() {
         let operator: BitmapOperator = BitmapOperator::new();
-        let byte_array: &[u8; 3] = &[0x01, 0x00, 0x09]; // 0000 0001 0000 0000 0000 1001
+        let byte_array: &[u8; 3] = &[0b00000001, 0b00000000, 0b00001001];
         let results: Vec<bool> = [7, 8, 9, 15, 19, 20, 22, 23]
             .iter()
             .map(|index| {
@@ -82,12 +141,54 @@ mod tests {
     #[test]
     fn test_setting_bit_in_array() {
         let operator: BitmapOperator = BitmapOperator::new();
-        let correct_byte_array: &[u8; 3] = &[0x01, 0x00, 0x09]; // 0000 0001 0000 0000 0000 1001
-        let test_byte_array: &mut [u8; 3] = &mut [0x80, 0x80, 0x09]; // 1000 0000 1000 0000 0000 1001
+        let correct_byte_array: &[u8; 3] = &[0b00000001, 0b00000000, 0b00001001];
+        let test_byte_array: &mut [u8; 3] = &mut [0b10000000, 0b10000000, 0b00001001];
         operator.set_bit_in_byte_array(test_byte_array, 0, false, Some(true));
         operator.set_bit_in_byte_array(test_byte_array, 7, true, Some(true));
         operator.set_bit_in_byte_array(test_byte_array, 8, false, Some(true));
         operator.set_bit_in_byte_array(test_byte_array, 12, false, None);
         assert_eq!(correct_byte_array, test_byte_array);
+    }
+
+    #[test]
+    fn test_getting_number_from_bita() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let byte_array: &[u8; 3] = &[0b11111110, 0b10010100, 0b10001101];
+        assert_eq!(operator.get_number_between_bits(byte_array, 6, 16), 1321);
+    }
+
+    #[test]
+    fn test_getting_index_of_first_bit() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let byte_array: &[u8; 3] = &[0b00000001, 0b10000000, 0b00000001];
+        assert_eq!(
+            operator.index_of_first_bit(byte_array, 4).unwrap(),
+            7,
+            "Should get index 7 when starting from 4",
+        );
+        assert_eq!(
+            operator.index_of_first_bit(byte_array, 7).unwrap(),
+            7,
+            "Should get index 7 when starting from 7",
+        );
+        assert_eq!(
+            operator.index_of_first_bit(byte_array, 8).unwrap(),
+            8,
+            "Should get index 8 when starting from 8",
+        );
+        assert_eq!(
+            operator.index_of_first_bit(byte_array, 17).unwrap(),
+            23,
+            "Should get index 23 when starting gtom 17",
+        );
+    }
+
+    #[test]
+    fn test_decoding_elias_gamma() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let byte_array: &[u8; 2] = &[0b00000000, 0b00110110];
+        let decoded_eg: EliasGammaDecoded = operator.decode_elias_gamma_entry(byte_array, Some(6));
+        assert_eq!(decoded_eg.value, 27);
+        assert_eq!(decoded_eg.last_bit_index, 14);
     }
 }
