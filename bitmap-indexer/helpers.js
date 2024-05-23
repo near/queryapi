@@ -59,19 +59,19 @@ function indexArrayToBitmapString(arr) {
 }
 
 // example: "0101" -> [1,3]
-function bitmapStringToIndexArray(strBits) {
+function bitmapStringToIndexArray(strBits, startBlockHeight) {
   const result = [];
   for (let i = 0; i < strBits.length; i++) {
     if (strBits[i] === "1") {
-      result.push(i);
+      result.push(i + startBlockHeight);
     }
   }
   return result;
 }
 
-function indexArrayFromCompressedBase64(compressedBase64) {
+function indexArrayFromCompressedBase64(compressedBase64, startBlockHeight = 0) {
   const decompressedBase64 = decompressBase64(compressedBase64);
-  return bitmapStringToIndexArray(decompressedBase64);
+  return bitmapStringToIndexArray(decompressedBase64, startBlockHeight);
 }
 
 // returns first number x and corresponding coded string length of the first occurrence of
