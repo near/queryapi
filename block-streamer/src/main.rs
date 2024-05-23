@@ -1,5 +1,6 @@
 use tracing_subscriber::prelude::*;
 
+mod bitmap;
 mod block_stream;
 mod delta_lake_client;
 mod graphql;
