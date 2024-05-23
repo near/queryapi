@@ -1,39 +1,46 @@
-import {
-    LAST_15_SECONDS,
-    LAST_30_SECONDS,
-    LAST_1_MINUTE,
-    LAST_5_MINUTES,
-    LAST_10_MINUTES,
-    LAST_15_MINUTES,
-    LAST_30_MINUTES,
-    LAST_45_MINUTES,
-    LAST_1_HOUR,
-    LAST_3_HOURS,
-    LAST_6_HOURS,
-    LAST_12_HOURS,
-    LAST_1_DAY,
-    LAST_2_DAYS,
-    LAST_7_DAYS,
-    LAST_14_DAYS,
-    LAST_30_DAYS
-} from './TimeIntervals'
+export const TIME_INTERVALS_MAP = new Map([
+    ["15s", "Last 15 seconds (15s)"],
+    ["30s", "Last 30 seconds (30s)"],
+    ["1m", "Last 1 minute (1m)"],
+    ["5m", "Last 5 minutes (5m)"],
+    ["10m", "Last 10 minutes (10m)"],
+    ["15m", "Last 15 minutes (15m)"],
+    ["30m", "Last 30 minutes (30m)"],
+    ["45m", "Last 45 minutes (45m)"],
+    ["1h", "Last 1 hour (1h)"],
+    ["3h", "Last 3 hours (3h)"],
+    ["6h", "Last 6 hours (6h)"],
+    ["12h", "Last 12 hours (12h)"],
+    ["1d", "Last 1 day (1d)"],
+    ["2d", "Last 2 days (2d)"],
+    ["7d", "Last 7 days (7d)"],
+    ["14d", "Last 14 days (14d)"],
+    ["30d", "Last 30 days (30d)"]
+]);
 
-export const DURATION_MAP: { [key: string]: number } = {
-    [LAST_15_SECONDS]: 15 * 1000,
-    [LAST_30_SECONDS]: 30 * 1000,
-    [LAST_1_MINUTE]: 60 * 1000,
-    [LAST_5_MINUTES]: 5 * 60 * 1000,
-    [LAST_10_MINUTES]: 10 * 60 * 1000,
-    [LAST_15_MINUTES]: 15 * 60 * 1000,
-    [LAST_30_MINUTES]: 30 * 60 * 1000,
-    [LAST_45_MINUTES]: 45 * 60 * 1000,
-    [LAST_1_HOUR]: 60 * 60 * 1000,
-    [LAST_3_HOURS]: 3 * 60 * 60 * 1000,
-    [LAST_6_HOURS]: 6 * 60 * 60 * 1000,
-    [LAST_12_HOURS]: 12 * 60 * 60 * 1000,
-    [LAST_1_DAY]: 24 * 60 * 60 * 1000,
-    [LAST_2_DAYS]: 2 * 24 * 60 * 60 * 1000,
-    [LAST_7_DAYS]: 7 * 24 * 60 * 60 * 1000,
-    [LAST_14_DAYS]: 14 * 24 * 60 * 60 * 1000,
-    [LAST_30_DAYS]: 30 * 24 * 60 * 60 * 1000
-};
+export const DURATION_MAP: { [key: string]: number } = {};
+
+TIME_INTERVALS_MAP.forEach((description: string, key: string) => {
+    let duration: number;
+    const unit: string = key.slice(-1);
+    const value: number = parseInt(key.slice(0, -1), 10);
+
+    switch (unit) {
+        case 's':
+            duration = value * 1000;
+            break;
+        case 'm':
+            duration = value * 60 * 1000;
+            break;
+        case 'h':
+            duration = value * 60 * 60 * 1000;
+            break;
+        case 'd':
+            duration = value * 24 * 60 * 60 * 1000;
+            break;
+        default:
+            throw new Error(`Unknown unit: ${unit}`);
+    }
+
+    DURATION_MAP[description] = duration;
+});
