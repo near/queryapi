@@ -1,8 +1,6 @@
 use anyhow::anyhow;
 use base64::{engine::general_purpose, Engine as _};
 
-// const BLOCK_HEIGHTS_IN_DAY: usize = 86000;
-
 pub struct Base64Bitmap {
     pub start_block_height: usize,
     pub base64: String,
