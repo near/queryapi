@@ -20,10 +20,11 @@ impl BitmapOperator {
         Self {}
     }
 
-    fn get_bit(&self, byte_array: &[u8], bit_index: usize) -> bool {
+    pub fn get_bit(&self, byte_array: &[u8], bit_index: usize) -> bool {
         let byte_index: usize = bit_index / 8;
         let bit_index_in_byte: usize = bit_index % 8;
-        return (byte_array[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0;
+
+        (byte_array[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0
     }
 
     fn set_bit(
@@ -53,6 +54,7 @@ impl BitmapOperator {
                 number |= 1u32 << (end_bit_index - curr_bit_index);
             }
         }
+
         number
     }
 
@@ -72,7 +74,8 @@ impl BitmapOperator {
             }
             first_bit_index = 0;
         }
-        return Err(anyhow!("Failed to find a bit with value 1 in byte array"));
+
+        Err(anyhow!("Failed to find a bit with value 1 in byte array"))
     }
 
     fn decode_elias_gamma_entry(
@@ -107,10 +110,11 @@ impl BitmapOperator {
             .try_into()
             .unwrap()
         };
-        return EliasGammaDecoded {
+
+        EliasGammaDecoded {
             value: 2_usize.pow(zero_count.try_into().unwrap()) + remainder,
             last_bit_index: first_bit_index + zero_count,
-        };
+        }
     }
 
     fn decompress_bitmap(&self, compressed_bitmap: &[u8]) -> Vec<u8> {
@@ -148,10 +152,48 @@ impl BitmapOperator {
             decompressed_bit_index += decoded_elias_gamma.value;
             current_bit_value = !current_bit_value;
         }
-        return decompressed_byte_array;
+        decompressed_byte_array
     }
 
-    // pub fn add_compressed_bitmap(&self, base_bitmap: &mut Bitmap, add_bitmap: &Bitmap) -> () {}
+    fn merge_compressed_bitmap_into_base_bitmap(
+        &self,
+        base_bitmap: &mut Bitmap,
+        compressed_bitmap: &Bitmap,
+    ) -> () {
+        let decompressed_add_bitmap: Vec<u8> = self.decompress_bitmap(&compressed_bitmap.bitmap);
+        let start_bit_index: usize =
+            compressed_bitmap.start_block_height - base_bitmap.start_block_height;
+
+        for bit_index_offset in 0..(decompressed_add_bitmap.len() * 8) {
+            let decompressed_bit_value = self.get_bit(&decompressed_add_bitmap, bit_index_offset);
+            while start_bit_index + bit_index_offset >= base_bitmap.bitmap.len() * 8 {
+                base_bitmap.bitmap.push(0b00000000);
+            }
+
+            self.set_bit(
+                &mut base_bitmap.bitmap,
+                start_bit_index + bit_index_offset,
+                decompressed_bit_value,
+                Some(false),
+            );
+        }
+    }
+
+    pub fn get_merged_bitmap(
+        &self,
+        bitmaps_to_merge: &Vec<Bitmap>,
+        smallest_start_block_height: usize,
+    ) -> Bitmap {
+        let mut merged_bitmap: Bitmap = Bitmap {
+            bitmap: Vec::new(),
+            start_block_height: smallest_start_block_height,
+        };
+
+        for compressed_bitmap in bitmaps_to_merge {
+            self.merge_compressed_bitmap_into_base_bitmap(&mut merged_bitmap, compressed_bitmap);
+        }
+        merged_bitmap
+    }
 }
 
 #[cfg(test)]
@@ -261,5 +303,44 @@ mod tests {
                 0b00001110
             ]
         );
+    }
+
+    #[test]
+    fn test_merge_compressed_bitmap_into_base_bitmap() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let mut base_bitmap: Bitmap = Bitmap {
+            bitmap: vec![0b11001010, 0b10001111],
+            start_block_height: 10,
+        };
+        let compressed_bitmap: Bitmap = Bitmap {
+            bitmap: vec![0b10110010, 0b01000000], // Decompresses to 11100001
+            start_block_height: 14,
+        };
+
+        operator.merge_compressed_bitmap_into_base_bitmap(&mut base_bitmap, &compressed_bitmap);
+        assert_eq!(base_bitmap.bitmap, vec![0b11001110, 0b10011111]);
+    }
+
+    #[test]
+    fn test_get_merged_bitmap() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let test_bitmaps_to_merge: Vec<Bitmap> = vec![
+            Bitmap {
+                bitmap: vec![0b10100000],
+                start_block_height: 10,
+            },
+            Bitmap {
+                bitmap: vec![0b10100000],
+                start_block_height: 14,
+            },
+            Bitmap {
+                bitmap: vec![0b10100000],
+                start_block_height: 18,
+            },
+        ];
+
+        let merged_bitmap = operator.get_merged_bitmap(&test_bitmaps_to_merge, 10);
+        assert_eq!(merged_bitmap.bitmap, vec![0b11001100, 0b11000000]);
+        assert_eq!(merged_bitmap.start_block_height, 10);
     }
 }
