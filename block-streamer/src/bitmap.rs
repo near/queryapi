@@ -113,10 +113,9 @@ impl BitmapOperator {
         };
     }
 
-    fn decompress_bitmap(&self, compressed_bitmap: &Bitmap) -> Bitmap {
-        let compressed_bit_length: usize = compressed_bitmap.bitmap.len() * 8;
-        let mut current_bit_value: bool = (compressed_bitmap.bitmap[0] & 0b10000000) > 0;
-        let compressed_byte_array = &compressed_bitmap.bitmap;
+    fn decompress_bitmap(&self, compressed_bitmap: &[u8]) -> Vec<u8> {
+        let compressed_bit_length: usize = compressed_bitmap.len() * 8;
+        let mut current_bit_value: bool = (compressed_bitmap[0] & 0b10000000) > 0;
         let mut decompressed_byte_array: Vec<u8> = Vec::new();
 
         let mut compressed_bit_index = 1;
@@ -124,7 +123,7 @@ impl BitmapOperator {
 
         while compressed_bit_index < compressed_bit_length {
             let decoded_elias_gamma =
-                self.decode_elias_gamma_entry(compressed_byte_array, compressed_bit_index);
+                self.decode_elias_gamma_entry(compressed_bitmap, compressed_bit_index);
             if decoded_elias_gamma.value == 0 {
                 break;
             }
@@ -132,7 +131,9 @@ impl BitmapOperator {
             compressed_bit_index = decoded_elias_gamma.last_bit_index + 1;
             let mut bit_index_offset: usize = 0;
             while current_bit_value && (bit_index_offset < decoded_elias_gamma.value) {
-                if decompressed_bit_index + bit_index_offset >= decompressed_byte_array.len() {
+                while decompressed_bit_index + bit_index_offset
+                    >= (decompressed_byte_array.len() * 8)
+                {
                     decompressed_byte_array.push(0b00000000);
                 }
                 self.set_bit(
@@ -147,11 +148,7 @@ impl BitmapOperator {
             decompressed_bit_index += decoded_elias_gamma.value;
             current_bit_value = !current_bit_value;
         }
-
-        Bitmap {
-            bitmap: decompressed_byte_array,
-            start_block_height: compressed_bitmap.start_block_height,
-        }
+        return decompressed_byte_array;
     }
 
     // pub fn add_compressed_bitmap(&self, base_bitmap: &mut Bitmap, add_bitmap: &Bitmap) -> () {}
@@ -231,7 +228,38 @@ mod tests {
         assert_eq!(decoded_eg.last_bit_index, 14);
     }
 
-    /* #[test]
+    #[test]
     fn test_decoding_compressed_bitmap() {
-    } */
+        let operator: BitmapOperator = BitmapOperator::new();
+        assert_eq!(operator.decompress_bitmap(&[0b10100000]), &[0b11000000]);
+        assert_eq!(operator.decompress_bitmap(&[0b00100100]), &[0b00110000]);
+        assert_eq!(operator.decompress_bitmap(&[0b10010000]), &[0b11110000]);
+        assert_eq!(
+            operator.decompress_bitmap(&[0b10110010, 0b01000000]),
+            &[0b11100001]
+        );
+        assert_eq!(
+            operator.decompress_bitmap(&[0b01010001, 0b01010000]),
+            &[0b01100000, 0b11000000]
+        );
+        assert_eq!(
+            operator.decompress_bitmap(&[0b01111111, 0b11111111, 0b11111000]),
+            &[0b01010101, 0b01010101, 0b01010000]
+        );
+        assert_eq!(
+            operator.decompress_bitmap(&[0b11010101, 0b11010101, 0b11010100]),
+            &[0b10010001, 0b00100010, 0b01000000]
+        );
+        assert_eq!(
+            operator.decompress_bitmap(&[0b00000111, 0b11100000]),
+            &[0b00000000, 0b00000000, 0b00000000, 0b00000001]
+        );
+        assert_eq!(
+            operator.decompress_bitmap(&[0b11000001, 0b11011011]),
+            &[
+                0b10000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000,
+                0b00001110
+            ]
+        );
+    }
 }
