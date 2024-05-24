@@ -1,6 +1,12 @@
 use anyhow::anyhow;
+use base64::{engine::general_purpose, Engine as _};
 
 // const BLOCK_HEIGHTS_IN_DAY: usize = 86000;
+
+pub struct Base64Bitmap {
+    pub start_block_height: usize,
+    pub base64: String,
+}
 
 pub struct Bitmap {
     pub start_block_height: usize,
@@ -187,7 +193,7 @@ impl BitmapOperator {
 
     pub fn get_merged_bitmap(
         &self,
-        bitmaps_to_merge: &Vec<Bitmap>,
+        bitmaps_to_merge: &Vec<Base64Bitmap>,
         smallest_start_block_height: usize,
     ) -> anyhow::Result<Bitmap> {
         let mut merged_bitmap: Bitmap = Bitmap {
@@ -195,8 +201,14 @@ impl BitmapOperator {
             start_block_height: smallest_start_block_height,
         };
 
-        for compressed_bitmap in bitmaps_to_merge {
-            self.merge_compressed_bitmap_into_base_bitmap(&mut merged_bitmap, compressed_bitmap)?;
+        for compressed_base64_bitmap in bitmaps_to_merge {
+            let decoded_bitmap: Vec<u8> =
+                general_purpose::STANDARD.decode(compressed_base64_bitmap.base64.clone())?;
+            let compressed_bitmap: Bitmap = Bitmap {
+                bitmap: decoded_bitmap,
+                start_block_height: compressed_base64_bitmap.start_block_height,
+            };
+            self.merge_compressed_bitmap_into_base_bitmap(&mut merged_bitmap, &compressed_bitmap)?;
         }
 
         Ok(merged_bitmap)
@@ -333,17 +345,17 @@ mod tests {
     #[test]
     fn test_get_merged_bitmap() {
         let operator: BitmapOperator = BitmapOperator::new();
-        let test_bitmaps_to_merge: Vec<Bitmap> = vec![
-            Bitmap {
-                bitmap: vec![0b10100000], // Decompresses to 11000000
+        let test_bitmaps_to_merge: Vec<Base64Bitmap> = vec![
+            Base64Bitmap {
+                base64: "oA==".to_string(), // Decompresses to 11000000
                 start_block_height: 10,
             },
-            Bitmap {
-                bitmap: vec![0b10100000],
+            Base64Bitmap {
+                base64: "oA==".to_string(),
                 start_block_height: 14,
             },
-            Bitmap {
-                bitmap: vec![0b10100000],
+            Base64Bitmap {
+                base64: "oA==".to_string(),
                 start_block_height: 18,
             },
         ];

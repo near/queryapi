@@ -33,6 +33,7 @@ tonic = "0.10.2"
 wildmatch = "2.1.1"
 
 registry-types = { path = "../registry/types" }
+base64 = "0.22.1"
 
 [build-dependencies]
 tonic-build = "0.10"
