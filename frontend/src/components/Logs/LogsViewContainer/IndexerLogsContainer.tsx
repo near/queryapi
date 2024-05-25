@@ -22,8 +22,8 @@ interface InitialPayload {
     currentUserAccountId: string;
 }
 
-const DEV_ENV: string = 'https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql';
-const PROD_ENV: string = 'https://queryapi-hasura-graphql-24ktefolwq-ew.a.run.app/v1/graphql';
+const GRAPHQL_ENDPOINT: string | undefined = `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql`;
+
 const LOGS_PER_PAGE: number = 75;
 
 const IndexerLogsContainer: React.FC = () => {
@@ -47,7 +47,7 @@ const IndexerLogsContainer: React.FC = () => {
 
     const getIndexerLogsConfig: any = () => {
         return {
-            url: DEV_ENV,
+            url: GRAPHQL_ENDPOINT,
             method: 'POST',
             headers: {
                 ['x-hasura-role']: sanitizedAccountId,
