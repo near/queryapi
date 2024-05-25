@@ -23,7 +23,6 @@ interface InitialPayload {
 }
 
 const GRAPHQL_ENDPOINT: string | undefined = `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql`;
-
 const LOGS_PER_PAGE: number = 75;
 
 const IndexerLogsContainer: React.FC = () => {
