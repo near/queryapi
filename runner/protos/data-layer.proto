@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package data_layer;
+
 // NOTE this will eventually be expanded to handle more granular operations
 // such as truncating the database, or perhaps running migrations
 service DataLayer {

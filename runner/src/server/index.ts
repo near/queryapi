@@ -4,21 +4,26 @@ import assert from 'assert';
 
 import logger from '../logger';
 import { getRunnerService } from './services/runner';
-import { type ProtoGrpcType } from '../generated/runner';
+import { DataLayerService } from './services/data-layer';
+import { type ProtoGrpcType as RunnerProtoGrpcType } from '../generated/runner';
+import { type ProtoGrpcType as DataLayerProtoGrpcType } from '../generated/data-layer';
 import type StreamHandler from '../stream-handler/stream-handler';
-
-const PROTO_PATH = 'protos/runner.proto';
 
 const executors = new Map<string, StreamHandler>();
 
 export function startServer (): grpc.Server {
-  const packageDefinition = protoLoader.loadSync(PROTO_PATH);
-  const runnerProto = (grpc.loadPackageDefinition(
-    packageDefinition
-  ) as unknown) as ProtoGrpcType;
-
   const server = new grpc.Server();
+
+  const runnerProto = (grpc.loadPackageDefinition(
+    protoLoader.loadSync('protos/runner.proto')
+  ) as unknown) as RunnerProtoGrpcType;
   server.addService(runnerProto.runner.Runner.service, getRunnerService(executors));
+
+  const dataLayerProto = (grpc.loadPackageDefinition(
+    protoLoader.loadSync('protos/data-layer.proto')
+  ) as unknown) as DataLayerProtoGrpcType;
+  server.addService(dataLayerProto.data_layer.DataLayer.service, new DataLayerService());
+
   const credentials = grpc.ServerCredentials;
 
   assert(process.env.GRPC_SERVER_PORT, 'GRPC_SERVER_PORT is not defined');
