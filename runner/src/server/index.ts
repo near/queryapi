@@ -9,7 +9,9 @@ import type StreamHandler from '../stream-handler/stream-handler';
 
 const PROTO_PATH = 'protos/runner.proto';
 
-export function startServer (executors: Map<string, StreamHandler>): grpc.Server {
+const executors = new Map<string, StreamHandler>();
+
+export function startServer (): grpc.Server {
   const packageDefinition = protoLoader.loadSync(PROTO_PATH);
   const runnerProto = (grpc.loadPackageDefinition(
     packageDefinition
