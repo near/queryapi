@@ -31,9 +31,9 @@ export function startServer (): grpc.Server {
         logger.error('gRPC server error', err);
       } else {
         logger.info(`gRPC server bound on: 0.0.0.0:${port}`);
-        server.start();
       }
     }
   );
+
   return server;
 }
