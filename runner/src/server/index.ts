@@ -4,7 +4,7 @@ import assert from 'assert';
 
 import logger from '../logger';
 import { getRunnerService } from './services/runner';
-import { DataLayerService } from './services/data-layer';
+import { createDataLayerService } from './services/data-layer';
 import { type ProtoGrpcType as RunnerProtoGrpcType } from '../generated/runner';
 import { type ProtoGrpcType as DataLayerProtoGrpcType } from '../generated/data-layer';
 import type StreamHandler from '../stream-handler/stream-handler';
@@ -22,7 +22,7 @@ export function startServer (): grpc.Server {
   const dataLayerProto = (grpc.loadPackageDefinition(
     protoLoader.loadSync('protos/data-layer.proto')
   ) as unknown) as DataLayerProtoGrpcType;
-  server.addService(dataLayerProto.data_layer.DataLayer.service, new DataLayerService());
+  server.addService(dataLayerProto.data_layer.DataLayer.service, createDataLayerService());
 
   const credentials = grpc.ServerCredentials;
 

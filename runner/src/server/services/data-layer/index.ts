@@ -1,1 +1,1 @@
-export { DataLayerService } from './data-layer-service';
+export { createDataLayerService } from './data-layer-service';
