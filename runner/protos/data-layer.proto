@@ -36,9 +36,10 @@ message CheckProvisioningStatusRequest {
 }
 
 enum ProvisioningStatus {
-    PENDING = 0;
-    COMPLETE = 1;
-    FAILED = 2;
+    UNSPECIFIED = 0;
+    PENDING = 1;
+    COMPLETE = 2;
+    FAILED = 3;
 }
 
 message ProvisionResponse {
