@@ -324,8 +324,8 @@ const selectIndexerPage = (viewName) => {
   });
 };
 const indexerView = (accountId, indexerName) => {
-  const editUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
-  const statusUrl = `https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
+  const editUrl = `https://dev.near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
+  const statusUrl = `https://dev.near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
   const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
     ".",
     "_"
@@ -406,7 +406,7 @@ return (
     <Main>
       <Section active={state.activeTab === "explore"}>
         <NavBarLogo
-          href={`https://near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App`}
+          href={`https://dev.near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App`}
           title="QueryApi"
           onClick={() => selectTab("explore")}
         >
