@@ -254,7 +254,7 @@ return (
         </H2>
         <H2>
           To learn more about QueryAPI, visit
-          <TextLink target="_blank" href="https://docs.near.org/bos/community/indexers" as="a" bold>
+          <TextLink target="_blank" href="https://docs.near.org/build/data-infrastructure/query-api/indexers" as="a" bold>
             QueryAPI Docs
           </TextLink>
         </H2>
