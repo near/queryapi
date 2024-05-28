@@ -68,11 +68,26 @@ async fn main() -> anyhow::Result<()> {
             .migrate_state_if_needed(&indexer_registry)
             .await?;
 
+        // NOTE Rather than filtering them here, we can pass `IndexerState` to the sync methods,
+        // and let them decide what to do. That would be a bit cleaner?
+        //
+        // This will also allow us to determine when an Indexer has been deleted, rather than
+        // implicitly relying on the existance of executors/block_streams. This is going to be
+        // important for deprovisioning.
         let indexer_registry = indexer_state_manager
             .filter_disabled_indexers(&indexer_registry)
             .await?;
 
         tokio::try_join!(
+            // NOTE this may need to be regactored in to a combined "synchronise" function.
+            // The addition of DataLayer provisioning makes the process a bit more stateful, i.e.
+            // we need to do provisioning first, wait till it completes, and can then kick off
+            // executor/block_stream sync processes
+            //
+            // It's probably still helpful to encapsulate the block_stream/executor sync methods,
+            // as they are quite involved, but call them from an overall synchronise method
+            //
+            // We'll need to store the `ProvisioningStatus` in Redis, so we know when to poll
             synchronise_executors(&indexer_registry, &executors_handler),
             synchronise_block_streams(
                 &indexer_registry,
