@@ -4,6 +4,8 @@
     // "plugin:react/recommended",
     // "plugin:react-hooks/recommended",
     // "next/core-web-vitals"
+    // "eslint:recommended",
+    // "plugin:@typescript-eslint/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "env": {

@@ -3,7 +3,7 @@ import Editor from "../../components/Editor";
 import { withRouter } from 'next/router'
 import { Alert } from 'react-bootstrap';
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import IndexerLogs from "../../components/Logs/IndexerLogs";
+import IndexerLogsContainer from '../../components/Logs/LogsViewContainer/IndexerLogsContainer'
 
 const QueryApiEditorPage = ({ router }) => {
   const { accountId, indexerName } = router.query
@@ -29,7 +29,7 @@ const QueryApiEditorPage = ({ router }) => {
   return (
     <>
       {showLogsView ? (
-        <IndexerLogs />
+        <IndexerLogsContainer />
       ) : (
         <Editor actionButtonText="Publish" onLoadErrorText="An error occurred while trying to query indexer function details from registry." />
       )}
