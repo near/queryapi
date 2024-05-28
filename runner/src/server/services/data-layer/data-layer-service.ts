@@ -39,11 +39,16 @@ export function createDataLayerService (
   return {
     CheckProvisioningStatus (call: ServerUnaryCall<CheckProvisioningStatusRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
       const { accountId, functionName } = call.request;
+      // TODO dont do this manually
       const task = tasks[`${accountId}/${functionName}`];
 
       if (!task) {
-        const notFound = new StatusBuilder().withCode(status.NOT_FOUND).withDetails('Provisioning task does not exist').build();
+        const notFound = new StatusBuilder()
+          .withCode(status.NOT_FOUND)
+          .withDetails('Provisioning task does not exist')
+          .build();
         callback(notFound);
+
         return;
       }
 
@@ -61,8 +66,6 @@ export function createDataLayerService (
     },
 
     Provision (call: ServerUnaryCall<ProvisionRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
-      // TODO exit if already provisioned
-
       const indexerConfig = new IndexerConfig(
         'redisStreamKey',
         call.request.accountId,
@@ -73,9 +76,37 @@ export function createDataLayerService (
         5
       );
 
-      tasks[indexerConfig.fullName()] = new ProvisioningTask(provisioner.provisionUserApi(indexerConfig));
+      const task = tasks[indexerConfig.fullName()];
 
-      callback(null, { status: ProvisioningStatus.PENDING });
+      if (task?.pending) {
+        const exists = new StatusBuilder()
+          .withCode(status.ALREADY_EXISTS)
+          .withDetails('Provisioning task already exists')
+          .build();
+        callback(exists);
+
+        return;
+      };
+
+      provisioner.fetchUserApiProvisioningStatus(indexerConfig).then((isProvisioned) => {
+        if (isProvisioned) {
+          const exists = new StatusBuilder()
+            .withCode(status.ALREADY_EXISTS)
+            .withDetails('Provisioning task has already completed')
+            .build();
+          callback(exists);
+        }
+
+        tasks[indexerConfig.fullName()] = new ProvisioningTask(provisioner.provisionUserApi(indexerConfig));
+
+        callback(null, { status: ProvisioningStatus.PENDING });
+      }).catch((error) => {
+        const internalError = new StatusBuilder()
+          .withCode(status.INTERNAL)
+          .withDetails(error.message)
+          .build();
+        callback(internalError);
+      });
     }
   };
 }
