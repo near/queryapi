@@ -5,14 +5,11 @@ import { wrapError, wrapSpan } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient, {
   type HasuraDatabaseConnectionParameters,
-  type HasuraPermission,
-  type HasuraTableMetadata,
-  type HasuraRolePermission
 } from '../hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
-import type IndexerConfig from '../indexer-config/indexer-config';
+import { type ProvisioningConfig } from '../indexer-config/indexer-config';
 import { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus } from '../indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
@@ -42,9 +39,6 @@ interface Config {
   postgresPort: number
 }
 
-type TableName = string;
-type TrackedTablePermissions = Map<TableName, HasuraTableMetadata>;
-
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
   pgBouncerHost: process.env.PGHOST_PGBOUNCER ?? process.env.PGHOST,
@@ -57,7 +51,6 @@ export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
   #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
   #hasLogsMetadataBeenProvisioned: Record<string, Record<string, boolean>> = {};
-  #hasuraConsistentState: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -87,11 +80,6 @@ export default class Provisioner {
   private setProvisioned (accountId: string, functionName: string): void {
     this.#hasBeenProvisioned[accountId] ??= {};
     this.#hasBeenProvisioned[accountId][functionName] = true;
-  }
-
-  private setConsistentState (accountId: string, functionName: string): void {
-    this.#hasuraConsistentState[accountId] ??= {};
-    this.#hasuraConsistentState[accountId][functionName] = true;
   }
 
   async createDatabase (name: string): Promise<void> {
@@ -169,7 +157,7 @@ export default class Provisioner {
     );
   }
 
-  async fetchUserApiProvisioningStatus (indexerConfig: IndexerConfig): Promise<boolean> {
+  async fetchUserApiProvisioningStatus (indexerConfig: ProvisioningConfig): Promise<boolean> {
     const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
     if (this.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)) {
       checkProvisioningSpan.end();
@@ -229,7 +217,7 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, tableNames, databaseName), 'Failed to track tables');
   }
 
-  async addPermissionsToTables (indexerSchema: IndexerConfig, tableNames: string[], permissions: string[]): Promise<void> {
+  async addPermissionsToTables (indexerSchema: ProvisioningConfig, tableNames: string[], permissions: string[]): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.addPermissionsToTables(
       indexerSchema.schemaName(),
       indexerSchema.databaseName(),
@@ -252,7 +240,7 @@ export default class Provisioner {
     * other resources provisioned.
     *
     * */
-  async provisionLogsAndMetadataIfNeeded (indexerConfig: IndexerConfig): Promise<void> {
+  async provisionLogsAndMetadataIfNeeded (indexerConfig: ProvisioningConfig): Promise<void> {
     if (this.#hasLogsMetadataBeenProvisioned[indexerConfig.accountId]?.[indexerConfig.functionName]) {
       return;
     }
@@ -282,80 +270,80 @@ export default class Provisioner {
     * Tracks and adds permissions for successfully created sys_logs and sys_metadata tables in schema which lack tracking and/or permissions.
     *
     * */
-  async ensureConsistentHasuraState (indexerConfig: IndexerConfig): Promise<void> {
-    if (this.#hasuraConsistentState[indexerConfig.accountId]?.[indexerConfig.functionName]) {
-      return;
-    }
-    await wrapError(
-      async () => {
-        const tableNamesToCheck = ['sys_logs', 'sys_metadata'];
-        const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
+  // async ensureConsistentHasuraState (indexerConfig: IndexerConfig): Promise<void> {
+  //   if (this.#hasuraConsistentState[indexerConfig.accountId]?.[indexerConfig.functionName]) {
+  //     return;
+  //   }
+  //   await wrapError(
+  //     async () => {
+  //       const tableNamesToCheck = ['sys_logs', 'sys_metadata'];
+  //       const permissionsToAdd: HasuraPermission[] = ['select', 'insert', 'update', 'delete'];
+  //
+  //       const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
+  //       const untrackedTables = this.getUntrackedTables(tableNamesToCheck, hasuraTablesMetadata);
+  //       const tablesWithoutPermissions = this.getTablesWithoutRole(
+  //         indexerConfig.hasuraRoleName(),
+  //         tableNamesToCheck,
+  //         hasuraTablesMetadata,
+  //         permissionsToAdd
+  //       );
+  //
+  //       if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
+  //         this.setConsistentState(indexerConfig.accountId, indexerConfig.functionName);
+  //         return;
+  //       }
+  //       if (untrackedTables.length > 0) {
+  //         await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
+  //       }
+  //       if (tablesWithoutPermissions.length > 0) {
+  //         await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
+  //       }
+  //     }, 'Failed to ensure consistent Hasura state');
+  // }
+  //
+  // async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {
+  //   const trackedTables: HasuraTableMetadata[] = await this.hasuraClient.getTrackedTablePermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
+  //   const trackedTablePermissions: TrackedTablePermissions = new Map();
+  //
+  //   trackedTables.forEach((tableMetadata: HasuraTableMetadata) => {
+  //     trackedTablePermissions.set(tableMetadata.table.name, tableMetadata);
+  //   });
+  //
+  //   return trackedTablePermissions;
+  // }
+  //
+  // private getUntrackedTables (allTables: string[], tableMetadata: Map<string, any>): string[] {
+  //   return allTables.filter((tableName: string) => !tableMetadata.has(tableName));
+  // }
+  //
+  // private getTablesWithoutRole (
+  //   roleName: string,
+  //   allTables: string[],
+  //   tableMetadata: Map<string, HasuraTableMetadata>,
+  //   permissionsToCheck: HasuraPermission[]
+  // ): string[] {
+  //   return allTables.filter((tableName: string) => {
+  //     const tablePermissionsMetadata = tableMetadata.get(tableName);
+  //     if (!tablePermissionsMetadata) {
+  //       return true;
+  //     }
+  //
+  //     return this.tablePermissionsLackRole(roleName, tablePermissionsMetadata, permissionsToCheck);
+  //   });
+  // }
+  //
+  // private tablePermissionsLackRole (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
+  //   return permissionsToCheck.some((permission: string) => {
+  //     const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
+  //     return this.permissionLacksRole(roleName, tablePermissionsMetadata[permissionAttribute]);
+  //   });
+  // }
+  //
+  // private permissionLacksRole (roleName: string, tablePermission: HasuraRolePermission[] | undefined): boolean {
+  //   return !tablePermission?.some((roleWithPermission: { role: string }) => roleWithPermission.role === roleName);
+  // }
 
-        const hasuraTablesMetadata = await this.getTrackedTablesWithPermissions(indexerConfig);
-        const untrackedTables = this.getUntrackedTables(tableNamesToCheck, hasuraTablesMetadata);
-        const tablesWithoutPermissions = this.getTablesWithoutRole(
-          indexerConfig.hasuraRoleName(),
-          tableNamesToCheck,
-          hasuraTablesMetadata,
-          permissionsToAdd
-        );
-
-        if (untrackedTables.length === 0 && tablesWithoutPermissions.length === 0) {
-          this.setConsistentState(indexerConfig.accountId, indexerConfig.functionName);
-          return;
-        }
-        if (untrackedTables.length > 0) {
-          await this.trackTables(indexerConfig.schemaName(), untrackedTables, indexerConfig.databaseName());
-        }
-        if (tablesWithoutPermissions.length > 0) {
-          await this.addPermissionsToTables(indexerConfig, tablesWithoutPermissions, permissionsToAdd);
-        }
-      }, 'Failed to ensure consistent Hasura state');
-  }
-
-  async getTrackedTablesWithPermissions (indexerConfig: IndexerConfig): Promise<TrackedTablePermissions> {
-    const trackedTables: HasuraTableMetadata[] = await this.hasuraClient.getTrackedTablePermissions(indexerConfig.databaseName(), indexerConfig.schemaName());
-    const trackedTablePermissions: TrackedTablePermissions = new Map();
-
-    trackedTables.forEach((tableMetadata: HasuraTableMetadata) => {
-      trackedTablePermissions.set(tableMetadata.table.name, tableMetadata);
-    });
-
-    return trackedTablePermissions;
-  }
-
-  private getUntrackedTables (allTables: string[], tableMetadata: Map<string, any>): string[] {
-    return allTables.filter((tableName: string) => !tableMetadata.has(tableName));
-  }
-
-  private getTablesWithoutRole (
-    roleName: string,
-    allTables: string[],
-    tableMetadata: Map<string, HasuraTableMetadata>,
-    permissionsToCheck: HasuraPermission[]
-  ): string[] {
-    return allTables.filter((tableName: string) => {
-      const tablePermissionsMetadata = tableMetadata.get(tableName);
-      if (!tablePermissionsMetadata) {
-        return true;
-      }
-
-      return this.tablePermissionsLackRole(roleName, tablePermissionsMetadata, permissionsToCheck);
-    });
-  }
-
-  private tablePermissionsLackRole (roleName: string, tablePermissionsMetadata: HasuraTableMetadata, permissionsToCheck: HasuraPermission[]): boolean {
-    return permissionsToCheck.some((permission: string) => {
-      const permissionAttribute = `${permission}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
-      return this.permissionLacksRole(roleName, tablePermissionsMetadata[permissionAttribute]);
-    });
-  }
-
-  private permissionLacksRole (roleName: string, tablePermission: HasuraRolePermission[] | undefined): boolean {
-    return !tablePermission?.some((roleWithPermission: { role: string }) => roleWithPermission.role === roleName);
-  }
-
-  async provisionUserApi (indexerConfig: IndexerConfig): Promise<void> { // replace any with actual type
+  async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();

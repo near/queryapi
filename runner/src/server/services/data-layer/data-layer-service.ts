@@ -1,7 +1,7 @@
 import { type ServerUnaryCall, type sendUnaryData, status, StatusBuilder } from '@grpc/grpc-js';
 
 import Provisioner from '../../../provisioner';
-import IndexerConfig from '../../../indexer-config';
+import { ProvisioningConfig } from '../../../indexer-config/indexer-config';
 
 import { type CheckProvisioningStatusRequest__Output } from '../../../generated/CheckProvisioningStatusRequest';
 import { type DataLayerHandlers } from '../../../generated/DataLayer';
@@ -32,6 +32,8 @@ class ProvisioningTask {
 
 type ProvisioningTasks = Record<string, ProvisioningTask>;
 
+const generateTaskId = (accountId: string, functionName: string): string => `${accountId}:${functionName}`;
+
 export function createDataLayerService (
   provisioner: Provisioner = new Provisioner(),
   tasks: ProvisioningTasks = {}
@@ -39,8 +41,8 @@ export function createDataLayerService (
   return {
     CheckProvisioningStatus (call: ServerUnaryCall<CheckProvisioningStatusRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
       const { accountId, functionName } = call.request;
-      // TODO dont do this manually
-      const task = tasks[`${accountId}/${functionName}`];
+
+      const task = tasks[generateTaskId(accountId, functionName)];
 
       if (!task) {
         const notFound = new StatusBuilder()
@@ -66,17 +68,11 @@ export function createDataLayerService (
     },
 
     Provision (call: ServerUnaryCall<ProvisionRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
-      const indexerConfig = new IndexerConfig(
-        'redisStreamKey',
-        call.request.accountId,
-        call.request.functionName,
-        0,
-        'code',
-        call.request.schema,
-        5
-      );
+      const { accountId, functionName, schema } = call.request;
 
-      const task = tasks[indexerConfig.fullName()];
+      const provisioningConfig = new ProvisioningConfig(accountId, functionName, schema);
+
+      const task = tasks[generateTaskId(accountId, functionName)];
 
       if (task?.pending) {
         const exists = new StatusBuilder()
@@ -88,7 +84,7 @@ export function createDataLayerService (
         return;
       };
 
-      provisioner.fetchUserApiProvisioningStatus(indexerConfig).then((isProvisioned) => {
+      provisioner.fetchUserApiProvisioningStatus(provisioningConfig).then((isProvisioned) => {
         if (isProvisioned) {
           const exists = new StatusBuilder()
             .withCode(status.ALREADY_EXISTS)
@@ -97,7 +93,7 @@ export function createDataLayerService (
           callback(exists);
         }
 
-        tasks[indexerConfig.fullName()] = new ProvisioningTask(provisioner.provisionUserApi(indexerConfig));
+        tasks[generateTaskId(accountId, functionName)] = new ProvisioningTask(provisioner.provisionUserApi(provisioningConfig));
 
         callback(null, { status: ProvisioningStatus.PENDING });
       }).catch((error) => {
