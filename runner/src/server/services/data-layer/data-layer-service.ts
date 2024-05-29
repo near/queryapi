@@ -91,6 +91,8 @@ export function createDataLayerService (
             .withDetails('Provisioning task has already completed')
             .build();
           callback(exists);
+
+          return;
         }
 
         tasks[generateTaskId(accountId, functionName)] = new ProvisioningTask(provisioner.provisionUserApi(provisioningConfig));
