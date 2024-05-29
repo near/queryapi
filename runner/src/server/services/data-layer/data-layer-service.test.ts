@@ -1,6 +1,6 @@
 import { type ServerUnaryCall, status } from '@grpc/grpc-js';
 
-import { createDataLayerService, type ProvisioningTask } from './data-layer-service'; // Adjust this path accordingly
+import { createDataLayerService, type ProvisioningTask } from './data-layer-service';
 import { ProvisioningStatus } from '../../../generated/ProvisioningStatus';
 import type Provisioner from '../../../provisioner';
 

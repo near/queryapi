@@ -2,19 +2,7 @@ syntax = "proto3";
 
 package data_layer;
 
-// NOTE this will eventually be expanded to handle more granular operations
-// such as truncating the database, or perhaps running migrations
 service DataLayer {
-    // NOTE As this process can take a while, we need to handle this asynchronously.
-    // Therefore, this will trigger the provisioning process and return immediately.
-    // The client can then poll the CheckProvisioningStatus method to determine when the
-    // provisioning process has completed.
-    //
-    // Maybe we should call this TriggerProvisioning instead of Provision?
-    //
-    // Need to figure out how this process will actually be kicked off asynchronously,
-    // can we just fire a promise or do we need worker threads?
-
     // Provisions the data layer (PostgreSQL + Hasura)
     rpc Provision (ProvisionRequest) returns (ProvisionResponse);
 
@@ -23,8 +11,6 @@ service DataLayer {
 }
 
 message ProvisionRequest {
-    // TODO This is only a partial `IndexerConfig`, which may pose an issue as
-    // all the provisioning methods expect a full `IndexerConfig`
     string account_id = 1;
     string function_name = 2;
     string schema = 3;

@@ -1,7 +1,0 @@
-- Implement `DataLayerService` gRPC, to provide control over provisioning, ignoring de-provisioning for now
-- Remove implicit provisioning from execution
-- Refactor Coordinator executor/block_stream synchronization so that it is a single stateful process?
-- Integrate `DataLayerService` in to Coordinator and add synchronization step to manage this
-- Add gRPC method to deprovision data layer
-- Refactor Coordinator synchronization so that we capture indexer "removals"
-- Add de-provisioning to Coordinator synchronization

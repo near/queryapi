@@ -48,9 +48,6 @@ const defaultConfig: Config = {
   hasuraEndpoint: process.env.HASURA_ENDPOINT,
 };
 
-// NOTE We need to remove provisioning from here,
-// I'm thinking we remove knowledge of it entirely? and just inject he db parameters
-// in from `StreamHandler`? Maybe a good opportunity to rename `StreamHandler` in to something more appropriate
 export default class Indexer {
   DEFAULT_HASURA_ROLE: string;
   IS_FIRST_EXECUTION: boolean = true;
