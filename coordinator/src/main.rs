@@ -63,10 +63,13 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         let indexer_registry = registry.fetch().await?;
-
-        indexer_state_manager
-            .migrate_state_if_needed(&indexer_registry)
-            .await?;
+        // fetch state
+        // fetch executors
+        // fetch block streams
+        //
+        // iterate over the longest of state/registry
+        // pass Option of each to sync method
+        // sync method decides what to do
 
         // NOTE Rather than filtering them here, we can pass `IndexerState` to the sync methods,
         // and let them decide what to do. That would be a bit cleaner?
