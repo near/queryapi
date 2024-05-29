@@ -9,7 +9,7 @@ import { type ProvisionRequest__Output } from '../../../generated/ProvisionReque
 import { type ProvisionResponse } from '../../../generated/ProvisionResponse';
 import { ProvisioningStatus } from '../../../generated/ProvisioningStatus';
 
-class ProvisioningTask {
+export class ProvisioningTask {
   public failed: boolean;
   public pending: boolean;
   public completed: boolean;
