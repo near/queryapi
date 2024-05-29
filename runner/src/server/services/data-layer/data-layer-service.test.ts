@@ -90,10 +90,7 @@ describe('DataLayerService', () => {
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
       } as unknown as ServerUnaryCall<any, any>;
-      console.log('hi');
       const callback = (error: any): void => {
-        console.log(error);
-        console.log(status.ALREADY_EXISTS, error.code);
         expect(error.code).toBe(status.ALREADY_EXISTS);
         expect(error.details).toBe('Provisioning task has already completed');
         done();
