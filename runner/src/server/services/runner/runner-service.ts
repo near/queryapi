@@ -14,7 +14,10 @@ import { type ListExecutorsRequest__Output } from '../../../generated/runner/Lis
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../../../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../../../generated/runner/ExecutorInfo';
 
-export function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
+export function getRunnerService (
+  executors: Map<string, StreamHandler> = new Map<string, StreamHandler>(),
+  StreamHandlerType: typeof StreamHandler = StreamHandler
+): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
       // Validate request

@@ -7,9 +7,6 @@ import { getRunnerService } from './services/runner';
 import { createDataLayerService } from './services/data-layer';
 import { type ProtoGrpcType as RunnerProtoGrpcType } from '../generated/runner';
 import { type ProtoGrpcType as DataLayerProtoGrpcType } from '../generated/data-layer';
-import type StreamHandler from '../stream-handler/stream-handler';
-
-const executors = new Map<string, StreamHandler>();
 
 export function startServer (): grpc.Server {
   const server = new grpc.Server();
@@ -17,7 +14,7 @@ export function startServer (): grpc.Server {
   const runnerProto = (grpc.loadPackageDefinition(
     protoLoader.loadSync('protos/runner.proto')
   ) as unknown) as RunnerProtoGrpcType;
-  server.addService(runnerProto.runner.Runner.service, getRunnerService(executors));
+  server.addService(runnerProto.runner.Runner.service, getRunnerService());
 
   const dataLayerProto = (grpc.loadPackageDefinition(
     protoLoader.loadSync('protos/data-layer.proto')
