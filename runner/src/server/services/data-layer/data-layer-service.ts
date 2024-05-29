@@ -3,11 +3,11 @@ import { type ServerUnaryCall, type sendUnaryData, status, StatusBuilder } from 
 import Provisioner from '../../../provisioner';
 import { ProvisioningConfig } from '../../../indexer-config/indexer-config';
 
-import { type CheckProvisioningStatusRequest__Output } from '../../../generated/CheckProvisioningStatusRequest';
-import { type DataLayerHandlers } from '../../../generated/DataLayer';
-import { type ProvisionRequest__Output } from '../../../generated/ProvisionRequest';
-import { type ProvisionResponse } from '../../../generated/ProvisionResponse';
-import { ProvisioningStatus } from '../../../generated/ProvisioningStatus';
+import { type CheckProvisioningStatusRequest__Output } from '../../../generated/data_layer/CheckProvisioningStatusRequest';
+import { type DataLayerHandlers } from '../../../generated/data_layer/DataLayer';
+import { type ProvisionRequest__Output } from '../../../generated/data_layer/ProvisionRequest';
+import { type ProvisionResponse } from '../../../generated/data_layer/ProvisionResponse';
+import { ProvisioningStatus } from '../../../generated/data_layer/ProvisioningStatus';
 
 export class ProvisioningTask {
   public failed: boolean;
