@@ -18,6 +18,8 @@ struct OldIndexerState {
     block_stream_synced_at: Option<u64>,
 }
 
+// NOTE We'll need to add more fields here - is there a way to gracefully handle non-existant
+// fields during serde deserialization? it's annoying to always have to migrate this
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IndexerState {
     pub block_stream_synced_at: Option<u64>,
@@ -42,6 +44,7 @@ pub struct IndexerStateManagerImpl {
     redis_client: RedisClient,
 }
 
+// NOTE we probably need a "list" method, which means storing all state ids in a Redis set
 #[cfg_attr(test, mockall::automock)]
 impl IndexerStateManagerImpl {
     pub fn new(redis_client: RedisClient) -> Self {
