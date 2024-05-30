@@ -1,6 +1,8 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use near_primitives::types::AccountId;
 use std::cmp::Ordering;
+use std::str::FromStr;
 
 use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
@@ -17,6 +19,9 @@ pub enum SyncStatus {
 // fields during serde deserialization? it's annoying to always have to migrate this
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct IndexerState {
+    // TODO need to migrate existing state
+    pub account_id: AccountId,
+    pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
 }
@@ -24,6 +29,8 @@ pub struct IndexerState {
 impl Default for IndexerState {
     fn default() -> Self {
         Self {
+            account_id: AccountId::from_str("morgs.near").unwrap(),
+            function_name: String::new(),
             block_stream_synced_at: None,
             enabled: true,
         }
@@ -139,6 +146,10 @@ impl IndexerStateManagerImpl {
         self.set_state(indexer_config, indexer_state).await?;
 
         Ok(())
+    }
+
+    pub async fn list(&self) -> anyhow::Result<Vec<IndexerState>> {
+        todo!()
     }
 }
 

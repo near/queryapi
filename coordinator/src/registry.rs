@@ -14,6 +14,7 @@ use registry_types::AllIndexers;
 use crate::indexer_config::IndexerConfig;
 use crate::utils::exponential_retry;
 
+#[derive(Clone)]
 pub struct IndexerRegistry(pub HashMap<AccountId, HashMap<String, IndexerConfig>>);
 
 impl IndexerRegistry {
@@ -31,6 +32,14 @@ impl IndexerRegistry {
             account_iter: self.0.iter(),
             function_iter: None,
         }
+    }
+
+    pub fn get(&self, account_id: &AccountId, function_name: &str) -> Option<&IndexerConfig> {
+        self.0.get(account_id)?.get(function_name)
+    }
+
+    pub fn remove(&mut self, account_id: &AccountId, function_name: &str) -> Option<IndexerConfig> {
+        self.0.get_mut(account_id)?.remove(function_name)
     }
 }
 
