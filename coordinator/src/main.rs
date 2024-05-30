@@ -18,6 +18,7 @@ mod indexer_state;
 mod redis;
 mod registry;
 mod server;
+mod synchroniser;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
