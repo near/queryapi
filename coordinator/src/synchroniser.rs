@@ -56,6 +56,8 @@ impl<'a> Synchroniser<'a> {
             .start(start_block, config)
             .await?;
 
+        // flush state
+
         Ok(())
     }
 
@@ -83,6 +85,33 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
+    async fn get_continuation_block_height(&self, config: &IndexerConfig) -> anyhow::Result<u64> {
+        self.redis_client
+            .get_last_published_block(config)
+            .await?
+            .map(|height| height + 1)
+            .ok_or(anyhow::anyhow!("Indexer has no `last_published_block`"))
+    }
+
+    async fn restart_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        if matches!(
+            config.start_block,
+            StartBlock::Latest | StartBlock::Height(..)
+        ) {
+            self.redis_client.clear_block_stream(config).await?;
+        }
+
+        let height = match config.start_block {
+            StartBlock::Latest => config.get_registry_version(),
+            StartBlock::Height(height) => height,
+            StartBlock::Continue => self.get_continuation_block_height(config).await?,
+        };
+
+        self.block_streams_handler.start(height, config).await?;
+
+        Ok(())
+    }
+
     async fn sync_block_stream(
         &self,
         config: &IndexerConfig,
@@ -102,47 +131,24 @@ impl<'a> Synchroniser<'a> {
             self.block_streams_handler
                 .stop(block_stream.stream_id.clone())
                 .await?;
+
+            self.restart_block_stream(config).await?;
+
+            return Ok(());
         }
 
-        //if let Some(previous_sync_height) = state.block_stream_synced_at {
-        //    if previous_sync_height == config.get_registry_version() {
-        //        return Ok(());
-        //    }
-        //}
+        // state was written before indexer was registered
+        if state.block_stream_synced_at.is_none()
+            || state.block_stream_synced_at.unwrap() != config.get_registry_version()
+        {
+            self.restart_block_stream(config).await?;
 
-        // TODO do we still need to check if it was previously synced? I think so because if block
-        // streamer restarts we dont want to accidently clear the stream
-        //if matches!(
-        //    config.start_block,
-        //    StartBlock::Latest | StartBlock::Height(..)
-        //) {
-        //    self.redis_client.clear_block_stream(config).await?;
-        //}
+            return Ok(());
+        }
 
-        let height = match config.start_block {
-            StartBlock::Latest => Ok(config.get_registry_version()),
-            StartBlock::Height(height) => Ok(height),
-            StartBlock::Continue => self
-                .redis_client
-                .get_last_published_block(config)
-                .await?
-                .map(|height| height + 1)
-                .ok_or(anyhow::anyhow!("Indexer has no `last_published_block`")),
-        }?;
-
-        //let sync_status = self
-        //    .state_manager
-        //    .get_block_stream_sync_status(config)
-        //    .await?;
-
-        //clear_block_stream_if_needed(&sync_status, indexer_config, redis_client).await?;
-        //
-        //let start_block_height =
-        //    determine_start_block_height(&sync_status, indexer_config, redis_client).await?;
+        let height = self.get_continuation_block_height(config).await?;
 
         self.block_streams_handler.start(height, config).await?;
-
-        //self.state_manager.set_block_stream_synced(config).await?;
 
         Ok(())
     }
@@ -155,8 +161,11 @@ impl<'a> Synchroniser<'a> {
         executor: Option<&ExecutorInfo>,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
+        // TODO in parallel
         self.sync_executor(config, executor).await?;
         self.sync_block_stream(config, state, block_stream).await?;
+
+        // TODO flush state
 
         Ok(())
     }
@@ -206,7 +215,7 @@ mod test {
     use mockall::predicate::*;
     use std::collections::HashMap;
 
-    mod new_indexer {
+    mod new {
         use super::*;
 
         #[tokio::test]
@@ -274,7 +283,7 @@ mod test {
         }
     }
 
-    mod existing_indexer {
+    mod existing {
         use super::*;
 
         #[tokio::test]
@@ -398,6 +407,13 @@ mod test {
                 .expect_fetch()
                 .returning(move || Ok(indexer_registry.clone()));
 
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_clear_block_stream()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .once();
+
             let mut state_manager = IndexerStateManager::default();
             state_manager.expect_list().returning(move || {
                 Ok(vec![IndexerState {
@@ -408,8 +424,6 @@ mod test {
                 }])
             });
 
-            let redis_client = RedisClient::default();
-
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
@@ -419,6 +433,92 @@ mod test {
             );
 
             synchroniser.sync().await.unwrap();
+        }
+
+        #[tokio::test]
+        async fn restarts_stopped_and_outdated_block_stream() {
+            let config = IndexerConfig::default();
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version() - 1),
+                enabled: true,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_start()
+                .with(eq(100), eq(config.clone()))
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_clear_block_stream()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let state_manager = IndexerStateManager::default();
+            let executors_handler = ExecutorsHandler::default();
+            let registry = Registry::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_block_stream(&config, &state, None)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn resumes_stopped_and_synced_block_stream() {
+            let config = IndexerConfig::default();
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: true,
+            };
+
+            let last_published_block = 1;
+
+            let mut redis_client = RedisClient::default();
+            redis_client.expect_clear_block_stream().never();
+            redis_client
+                .expect_get_last_published_block()
+                .with(eq(config.clone()))
+                .returning(move |_| Ok(Some(last_published_block)));
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_start()
+                .with(eq(last_published_block + 1), eq(config.clone()))
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let state_manager = IndexerStateManager::default();
+            let executors_handler = ExecutorsHandler::default();
+            let registry = Registry::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_block_stream(&config, &state, None)
+                .await
+                .unwrap();
         }
     }
 }

@@ -22,6 +22,11 @@ pub struct IndexerState {
     // TODO need to migrate existing state
     pub account_id: AccountId,
     pub function_name: String,
+    // TODO this no longer needs to be optional, because the existance of the state object implies
+    // that the stream has been started
+    //
+    // but we might need to write the state object before we register, so therefore may need this
+    // to be none
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
 }
