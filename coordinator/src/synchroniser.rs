@@ -38,7 +38,7 @@ impl<'a> Synchroniser<'a> {
         }
     }
 
-    async fn handle_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    async fn sync_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         self.executors_handler.start(config).await?;
 
         let start_block = match config.start_block {
@@ -61,7 +61,7 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
-    async fn sync_executor(
+    async fn sync_existing_executor(
         &self,
         config: &IndexerConfig,
         executor: Option<&ExecutorInfo>,
@@ -93,7 +93,7 @@ impl<'a> Synchroniser<'a> {
             .ok_or(anyhow::anyhow!("Indexer has no `last_published_block`"))
     }
 
-    async fn restart_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    async fn reconfigure_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         if matches!(
             config.start_block,
             StartBlock::Latest | StartBlock::Height(..)
@@ -112,7 +112,7 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
-    async fn sync_block_stream(
+    async fn sync_existing_block_stream(
         &self,
         config: &IndexerConfig,
         state: &IndexerState,
@@ -132,16 +132,16 @@ impl<'a> Synchroniser<'a> {
                 .stop(block_stream.stream_id.clone())
                 .await?;
 
-            self.restart_block_stream(config).await?;
+            self.reconfigure_block_stream(config).await?;
 
             return Ok(());
         }
 
-        // state was written before indexer was registered
+        // TODO handle state which was written before indexer was registered
         if state.block_stream_synced_at.is_none()
             || state.block_stream_synced_at.unwrap() != config.get_registry_version()
         {
-            self.restart_block_stream(config).await?;
+            self.reconfigure_block_stream(config).await?;
 
             return Ok(());
         }
@@ -153,7 +153,7 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
-    async fn handle_existing_indexer(
+    async fn sync_existing_indexer(
         &self,
         config: &IndexerConfig,
         // TODO handle disabled indexers
@@ -162,8 +162,9 @@ impl<'a> Synchroniser<'a> {
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
         // TODO in parallel
-        self.sync_executor(config, executor).await?;
-        self.sync_block_stream(config, state, block_stream).await?;
+        self.sync_existing_executor(config, executor).await?;
+        self.sync_existing_block_stream(config, state, block_stream)
+            .await?;
 
         // TODO flush state
 
@@ -191,7 +192,7 @@ impl<'a> Synchroniser<'a> {
             if let Some(config) = config {
                 registry.remove(&state.account_id, &state.function_name);
 
-                self.handle_existing_indexer(&config, &state, executor, block_stream)
+                self.sync_existing_indexer(&config, &state, executor, block_stream)
                     .await?;
                 // handle_existing()
             } else {
@@ -201,7 +202,7 @@ impl<'a> Synchroniser<'a> {
 
         for config in registry.iter() {
             // shouldn't be any executor/block_stream
-            self.handle_new_indexer(config).await?;
+            self.sync_new_indexer(config).await?;
         }
 
         Ok(())
@@ -472,7 +473,7 @@ mod test {
             );
 
             synchroniser
-                .sync_block_stream(&config, &state, None)
+                .sync_existing_block_stream(&config, &state, None)
                 .await
                 .unwrap();
         }
@@ -516,7 +517,89 @@ mod test {
             );
 
             synchroniser
-                .sync_block_stream(&config, &state, None)
+                .sync_existing_block_stream(&config, &state, None)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn reconfigures_block_stream() {
+            let config_with_latest = IndexerConfig {
+                start_block: StartBlock::Latest,
+                ..IndexerConfig::default()
+            };
+            let height = 5;
+            let config_with_height = IndexerConfig {
+                start_block: StartBlock::Height(height),
+                ..IndexerConfig::default()
+            };
+            let last_published_block = 1;
+            let config_with_continue = IndexerConfig {
+                start_block: StartBlock::Continue,
+                ..IndexerConfig::default()
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_start()
+                .with(
+                    eq(last_published_block + 1),
+                    eq(config_with_continue.clone()),
+                )
+                .returning(|_, _| Ok(()))
+                .once();
+            block_streams_handler
+                .expect_start()
+                .with(
+                    eq(config_with_latest.get_registry_version()),
+                    eq(config_with_latest.clone()),
+                )
+                .returning(|_, _| Ok(()))
+                .once();
+            block_streams_handler
+                .expect_start()
+                .with(eq(height), eq(config_with_height.clone()))
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_clear_block_stream()
+                .with(eq(config_with_latest.clone()))
+                .returning(|_| Ok(()))
+                .once();
+            redis_client
+                .expect_clear_block_stream()
+                .with(eq(config_with_height.clone()))
+                .returning(|_| Ok(()))
+                .once();
+            redis_client
+                .expect_get_last_published_block()
+                .with(eq(config_with_continue.clone()))
+                .returning(move |_| Ok(Some(last_published_block)));
+
+            let state_manager = IndexerStateManager::default();
+            let executors_handler = ExecutorsHandler::default();
+            let registry = Registry::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .reconfigure_block_stream(&config_with_latest)
+                .await
+                .unwrap();
+            synchroniser
+                .reconfigure_block_stream(&config_with_height)
+                .await
+                .unwrap();
+            synchroniser
+                .reconfigure_block_stream(&config_with_continue)
                 .await
                 .unwrap();
         }
