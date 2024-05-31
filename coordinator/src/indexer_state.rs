@@ -58,6 +58,15 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
+    fn get_default_state(&self, indexer_config: &IndexerConfig) -> IndexerState {
+        IndexerState {
+            account_id: indexer_config.account_id.clone(),
+            function_name: indexer_config.function_name.clone(),
+            block_stream_synced_at: None,
+            enabled: true,
+        }
+    }
+
     pub async fn get_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<IndexerState> {
         let raw_state = self.redis_client.get_indexer_state(indexer_config).await?;
 
@@ -65,7 +74,7 @@ impl IndexerStateManagerImpl {
             return Ok(serde_json::from_str(&raw_state)?);
         }
 
-        Ok(IndexerState::default())
+        Ok(self.get_default_state(indexer_config))
     }
 
     async fn set_state(
@@ -78,6 +87,15 @@ impl IndexerStateManagerImpl {
         self.redis_client
             .set_indexer_state(indexer_config, raw_state)
             .await
+    }
+
+    pub async fn set_synced(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        let mut indexer_state = self.get_state(indexer_config).await?;
+
+        indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
+
+        self.set_state(indexer_config, indexer_state).await?;
+        Ok(())
     }
 
     pub async fn set_enabled(

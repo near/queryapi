@@ -56,7 +56,7 @@ impl<'a> Synchroniser<'a> {
             .start(start_block, config)
             .await?;
 
-        // flush state
+        self.state_manager.set_synced(config).await?;
 
         Ok(())
     }
@@ -78,7 +78,7 @@ impl<'a> Synchroniser<'a> {
                 .await?;
         }
 
-        tracing::info!("Starting new executor");
+        tracing::info!("Starting executor");
 
         self.executors_handler.start(config).await?;
 
@@ -106,6 +106,18 @@ impl<'a> Synchroniser<'a> {
             StartBlock::Height(height) => height,
             StartBlock::Continue => self.get_continuation_block_height(config).await?,
         };
+
+        tracing::info!(height, "Starting block stream");
+
+        self.block_streams_handler.start(height, config).await?;
+
+        Ok(())
+    }
+
+    async fn resume_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        let height = self.get_continuation_block_height(config).await?;
+
+        tracing::info!(height, "Resuming block stream");
 
         self.block_streams_handler.start(height, config).await?;
 
@@ -137,18 +149,19 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        // TODO handle state which was written before indexer was registered
-        if state.block_stream_synced_at.is_none()
-            || state.block_stream_synced_at.unwrap() != config.get_registry_version()
-        {
+        if state.block_stream_synced_at.is_none() {
+            // This would indicate that the state was inisialized before the Indexer was
+            // registered, which is currently not possible, but may be in future
+            anyhow::bail!("Existing Indexer has no `block_stream_synced_at` field")
+        }
+
+        if state.block_stream_synced_at.unwrap() != config.get_registry_version() {
             self.reconfigure_block_stream(config).await?;
 
             return Ok(());
         }
 
-        let height = self.get_continuation_block_height(config).await?;
-
-        self.block_streams_handler.start(height, config).await?;
+        self.resume_block_stream(config).await?;
 
         Ok(())
     }
@@ -161,12 +174,17 @@ impl<'a> Synchroniser<'a> {
         executor: Option<&ExecutorInfo>,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
-        // TODO in parallel
-        self.sync_existing_executor(config, executor).await?;
-        self.sync_existing_block_stream(config, state, block_stream)
-            .await?;
+        let result = tokio::try_join!(
+            self.sync_existing_executor(config, executor),
+            self.sync_existing_block_stream(config, state, block_stream)
+        );
 
-        // TODO flush state
+        if let Err(error) = result {
+            tracing::error!(?error, "Failed to sync Indexer");
+            return Ok(());
+        }
+
+        self.state_manager.set_synced(config).await?;
 
         Ok(())
     }
@@ -253,12 +271,12 @@ mod test {
             executors_handler.expect_list().returning(|| Ok(vec![]));
             executors_handler
                 .expect_start()
-                .with(eq(config1))
+                .with(eq(config1.clone()))
                 .returning(|_| Ok(()))
                 .once();
             executors_handler
                 .expect_start()
-                .with(eq(config2))
+                .with(eq(config2.clone()))
                 .returning(|_| Ok(()))
                 .once();
 
@@ -269,6 +287,16 @@ mod test {
 
             let mut state_manager = IndexerStateManager::default();
             state_manager.expect_list().returning(|| Ok(vec![]));
+            state_manager
+                .expect_set_synced()
+                .with(eq(config1))
+                .returning(|_| Ok(()))
+                .once();
+            state_manager
+                .expect_set_synced()
+                .with(eq(config2))
+                .returning(|_| Ok(()))
+                .once();
 
             let redis_client = RedisClient::default();
 
@@ -329,6 +357,11 @@ mod test {
                 .returning(move || Ok(indexer_registry.clone()));
 
             let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_set_synced()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .once();
             state_manager.expect_list().returning(move || {
                 Ok(vec![IndexerState {
                     account_id: config.account_id.clone(),
@@ -416,6 +449,11 @@ mod test {
                 .once();
 
             let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_set_synced()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .once();
             state_manager.expect_list().returning(move || {
                 Ok(vec![IndexerState {
                     account_id: config.account_id.clone(),
@@ -603,5 +641,15 @@ mod test {
                 .await
                 .unwrap();
         }
+
+        #[tokio::test]
+        async fn handles_synchronisation_failures() {}
+
+        #[tokio::test]
+        async fn stops_disabled_indexers() {}
+        #[tokio::test]
+        async fn ignores_disabled_indexers() {}
+        #[tokio::test]
+        async fn flushes_state_after_synchronisation() {}
     }
 }

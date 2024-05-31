@@ -82,7 +82,10 @@ impl RedisClientImpl {
     }
 
     pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
-        self.del(indexer_config.get_redis_stream_key()).await
+        let stream_key = indexer_config.get_redis_stream_key();
+        self.del(stream_key.clone())
+            .await
+            .context(format!("Failed to clear Redis Stream: {}", stream_key))
     }
 
     pub async fn get_indexer_state(
