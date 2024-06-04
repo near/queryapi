@@ -24,6 +24,6 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx"
-  ],
+, "src/components/Editor/EditorViewContainer/EditorMenuContainer.jsx"  ],
   "exclude": ["node_modules"]
 }

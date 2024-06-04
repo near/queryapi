@@ -501,6 +501,11 @@ const Editor = ({ actionButtonText }) => {
               latestHeight={height}
               isUserIndexer={indexerDetails.accountId === currentUserAccountId}
               handleDeleteIndexer={handleDeleteIndexer}
+
+              fileName={fileName}
+              setFileName={setFileName}
+              diffView={diffView}
+              setDiffView={setDiffView}
             />
 
             <ResetChangesModal handleReload={handleReload} />

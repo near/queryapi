@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowCounterclockwise, Justify, Code, X } from "react-bootstrap-icons";
+import { ArrowCounterclockwise, Justify, Code } from "react-bootstrap-icons";
 import BlockPickerContainer from "../EditorViewContainer/BlockPickerContainer";
 
 const DeveloperToolsView = ({
@@ -7,6 +7,7 @@ const DeveloperToolsView = ({
     handleCodeGen,
     setShowResetCodeModel,
     debugMode,
+    setDebugMode,
     heights,
     setHeights,
     latestHeight,
@@ -14,11 +15,13 @@ const DeveloperToolsView = ({
     stopExecution,
     removeHeight,
     executeIndexerFunction,
+    diffView,
+    setDiffView,
 }) => {
     const [hoveredIndex, setHoveredIndex] = useState(null);
 
     return (
-        <div className="bg-gray-100 rounded-lg p-2 mb-4 mx-2">
+        <div className="bg-gray-100 rounded-lg p-2 mb-0 mx-2" >
             <div className="text-center mb-1">
                 <span className="text-xs font-medium">Developer Tools</span>
             </div>
@@ -36,7 +39,32 @@ const DeveloperToolsView = ({
                         <Code className="mr-1" size={20} />
                         Type Generation
                     </button>
+
+                    <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${diffView ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
+                        <span className="px-3">Diff View</span>
+                        <input
+                            type="checkbox"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            checked={diffView}
+                            onChange={(e) => {
+                                setDiffView(e.target.checked);
+                            }}
+                        />
+                    </div>
+                    <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${debugMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
+                        <span className="px-3">Debug Mode</span>
+                        <input
+                            type="checkbox"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            checked={debugMode}
+                            onChange={(e) => {
+                                setDebugMode(e.target.checked);
+                            }}
+                        />
+                    </div>
+
                 </div>
+
                 <div className="flex flex-col items-center space-y-4">
                     {debugMode && (
                         <>

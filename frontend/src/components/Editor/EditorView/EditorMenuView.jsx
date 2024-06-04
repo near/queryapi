@@ -16,7 +16,7 @@ const EditorMenuView = ({
   error
 }) => {
   return (
-    <Navbar bg="white" variant="light" className="shadow-sm p-3 mb-4 bg-white rounded">
+    <Navbar bg="white" variant="light" className="shadow-sm p-3 bg-white rounded">
       <Container fluid className="d-flex flex-wrap justify-content-between align-items-center">
         <div className="d-flex flex-wrap align-items-center">
           <span className="me-4 font-weight-bold text-secondary text-sm">
