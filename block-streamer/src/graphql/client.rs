@@ -1,6 +1,5 @@
 use ::reqwest;
 use graphql_client::{GraphQLQuery, Response};
-use std::error::Error;
 
 // TODO: Use Dataplatform account
 const HASURA_ACCOUNT: &str = "darunrs_near";

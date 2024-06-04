@@ -12,4 +12,4 @@ export const formatTimestamp = (timestamp: string): string => {
     const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
 
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
-}
+};
