@@ -11,6 +11,7 @@ pub struct Bitmap {
     pub bitmap: Vec<u8>,
 }
 
+#[derive(Default)]
 struct EliasGammaDecoded {
     pub value: usize,
     pub last_bit_index: usize,
@@ -24,11 +25,11 @@ impl BitmapOperator {
         Self {}
     }
 
-    pub fn get_bit(&self, byte_array: &[u8], bit_index: usize) -> bool {
+    pub fn get_bit(&self, bytes: &[u8], bit_index: usize) -> bool {
         let byte_index: usize = bit_index / 8;
         let bit_index_in_byte: usize = bit_index % 8;
 
-        (byte_array[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0
+        (bytes[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0
     }
 
     fn set_bit(&self, byte_array: &mut [u8], bit_index: usize, bit_value: bool, write_zero: bool) {
@@ -39,7 +40,7 @@ impl BitmapOperator {
         }
     }
 
-    fn get_number_between_bits(
+    fn read_integer_from_binary(
         &self,
         byte_array: &[u8],
         start_bit_index: usize,
@@ -56,24 +57,20 @@ impl BitmapOperator {
         number
     }
 
-    fn index_of_first_bit(
-        &self,
-        byte_array: &[u8],
-        start_bit_index: usize,
-    ) -> anyhow::Result<usize> {
+    fn index_of_first_set_bit(&self, byte_array: &[u8], start_bit_index: usize) -> Option<usize> {
         let mut first_bit_index: usize = start_bit_index % 8;
-        for byte_index in (start_bit_index / 8)..byte_array.len() {
-            if byte_array[byte_index] > 0 {
+        for (byte_index, byte) in byte_array.iter().enumerate().skip(start_bit_index / 8) {
+            if *byte > 0 {
                 for bit_index in first_bit_index..=7 {
-                    if byte_array[byte_index] & (1u8 << (7 - bit_index)) > 0 {
-                        return Ok(byte_index * 8 + bit_index);
+                    if *byte & (1u8 << (7 - bit_index)) > 0 {
+                        return Some(byte_index * 8 + bit_index);
                     }
                 }
             }
             first_bit_index = 0;
         }
 
-        Err(anyhow!("Failed to find a bit with value 1 in byte array"))
+        None
     }
 
     fn decode_elias_gamma_entry(
@@ -81,26 +78,20 @@ impl BitmapOperator {
         byte_array: &[u8],
         start_bit_index: usize,
     ) -> EliasGammaDecoded {
-        if byte_array.len() == 0 {
-            return EliasGammaDecoded {
-                value: 0,
-                last_bit_index: 0,
-            };
+        if byte_array.is_empty() {
+            return EliasGammaDecoded::default();
         }
-        let first_bit_index = match self.index_of_first_bit(byte_array, start_bit_index) {
-            Ok(index) => index,
-            Err(_) => {
-                return EliasGammaDecoded {
-                    value: 0,
-                    last_bit_index: 0,
-                }
+        let first_bit_index = match self.index_of_first_set_bit(byte_array, start_bit_index) {
+            Some(index) => index,
+            None => {
+                return EliasGammaDecoded::default();
             }
         };
         let zero_count: usize = first_bit_index - start_bit_index;
         let remainder: usize = if zero_count == 0 {
             0
         } else {
-            self.get_number_between_bits(
+            self.read_integer_from_binary(
                 byte_array,
                 first_bit_index + 1,
                 first_bit_index + zero_count,
@@ -144,7 +135,7 @@ impl BitmapOperator {
                     true,
                     true,
                 );
-                bit_index_offset = bit_index_offset + 1;
+                bit_index_offset += 1;
             }
 
             decompressed_bit_index += decoded_elias_gamma.value;
@@ -154,15 +145,14 @@ impl BitmapOperator {
         decompressed_byte_array
     }
 
-    fn merge_compressed_bitmap_into_base_bitmap(
+    fn merge_bitmap(
         &self,
-        base_bitmap: &mut Bitmap,
-        compressed_bitmap: &Bitmap,
+        bitmap_to_update: &mut Bitmap,
+        bitmap_to_merge: &Bitmap,
     ) -> anyhow::Result<()> {
-        let decompressed_add_bitmap: Vec<u8> = self.decompress_bitmap(&compressed_bitmap.bitmap);
-        let start_bit_index: usize = match compressed_bitmap
+        let start_bit_index: usize = match bitmap_to_merge
             .start_block_height
-            .checked_sub(base_bitmap.start_block_height)
+            .checked_sub(bitmap_to_update.start_block_height)
         {
             Some(result) => result,
             None => {
@@ -172,14 +162,14 @@ impl BitmapOperator {
             }
         };
 
-        for bit_index_offset in 0..(decompressed_add_bitmap.len() * 8) {
-            let decompressed_bit_value = self.get_bit(&decompressed_add_bitmap, bit_index_offset);
-            while start_bit_index + bit_index_offset >= base_bitmap.bitmap.len() * 8 {
-                base_bitmap.bitmap.push(0b00000000);
+        for bit_index_offset in 0..(bitmap_to_merge.bitmap.len() * 8) {
+            let decompressed_bit_value = self.get_bit(&bitmap_to_merge.bitmap, bit_index_offset);
+            while start_bit_index + bit_index_offset >= bitmap_to_update.bitmap.len() * 8 {
+                bitmap_to_update.bitmap.push(0b00000000);
             }
 
             self.set_bit(
-                &mut base_bitmap.bitmap,
+                &mut bitmap_to_update.bitmap,
                 start_bit_index + bit_index_offset,
                 decompressed_bit_value,
                 false,
@@ -189,7 +179,7 @@ impl BitmapOperator {
         Ok(())
     }
 
-    pub fn get_merged_bitmap(
+    pub fn merge_bitmaps(
         &self,
         bitmaps_to_merge: &Vec<Base64Bitmap>,
         smallest_start_block_height: usize,
@@ -202,11 +192,11 @@ impl BitmapOperator {
         for compressed_base64_bitmap in bitmaps_to_merge {
             let decoded_bitmap: Vec<u8> =
                 general_purpose::STANDARD.decode(compressed_base64_bitmap.base64.clone())?;
-            let compressed_bitmap: Bitmap = Bitmap {
-                bitmap: decoded_bitmap,
+            let decompressed_bitmap: Bitmap = Bitmap {
+                bitmap: self.decompress_bitmap(&decoded_bitmap),
                 start_block_height: compressed_base64_bitmap.start_block_height,
             };
-            self.merge_compressed_bitmap_into_base_bitmap(&mut merged_bitmap, &compressed_bitmap)?;
+            self.merge_bitmap(&mut merged_bitmap, &decompressed_bitmap)?;
         }
 
         Ok(merged_bitmap)
@@ -218,7 +208,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_getting_bit_from_array() {
+    fn get_bit_from_byte_array() {
         let operator: BitmapOperator = BitmapOperator::new();
         let byte_array: &[u8; 3] = &[0b00000001, 0b00000000, 0b00001001];
         let results: Vec<bool> = [7, 8, 9, 15, 19, 20, 22, 23]
@@ -234,7 +224,7 @@ mod tests {
     }
 
     #[test]
-    fn test_setting_bit_in_array() {
+    fn set_bit_in_byte_array() {
         let operator: BitmapOperator = BitmapOperator::new();
         let correct_byte_array: &[u8; 3] = &[0b00000001, 0b00000000, 0b00001001];
         let test_byte_array: &mut [u8; 3] = &mut [0b10000000, 0b10000000, 0b00001001];
@@ -246,40 +236,44 @@ mod tests {
     }
 
     #[test]
-    fn test_getting_number_from_bita() {
+    fn get_unsigned_integer_from_binary_sequence() {
         let operator: BitmapOperator = BitmapOperator::new();
         let byte_array: &[u8; 3] = &[0b11111110, 0b10010100, 0b10001101];
-        assert_eq!(operator.get_number_between_bits(byte_array, 6, 16), 1321);
+        assert_eq!(operator.read_integer_from_binary(byte_array, 6, 16), 1321);
     }
 
     #[test]
-    fn test_getting_index_of_first_bit() {
+    fn get_index_of_first_set_bit() {
         let operator: BitmapOperator = BitmapOperator::new();
-        let byte_array: &[u8; 3] = &[0b00000001, 0b10000000, 0b00000001];
+        let byte_array: &[u8; 4] = &[0b00000001, 0b10000000, 0b00000001, 0b00000000];
         assert_eq!(
-            operator.index_of_first_bit(byte_array, 4).unwrap(),
+            operator.index_of_first_set_bit(byte_array, 4).unwrap(),
             7,
             "Should get index 7 when starting from 4",
         );
         assert_eq!(
-            operator.index_of_first_bit(byte_array, 7).unwrap(),
+            operator.index_of_first_set_bit(byte_array, 7).unwrap(),
             7,
             "Should get index 7 when starting from 7",
         );
         assert_eq!(
-            operator.index_of_first_bit(byte_array, 8).unwrap(),
+            operator.index_of_first_set_bit(byte_array, 8).unwrap(),
             8,
             "Should get index 8 when starting from 8",
         );
         assert_eq!(
-            operator.index_of_first_bit(byte_array, 17).unwrap(),
+            operator.index_of_first_set_bit(byte_array, 17).unwrap(),
             23,
-            "Should get index 23 when starting gtom 17",
+            "Should get index 23 when starting from 17",
+        );
+        assert!(
+            operator.index_of_first_set_bit(byte_array, 25).is_none(),
+            "Should get None when starting from 25",
         );
     }
 
     #[test]
-    fn test_decoding_elias_gamma() {
+    fn decode_elias_gamma() {
         let operator: BitmapOperator = BitmapOperator::new();
         let byte_array: &[u8; 2] = &[0b00000000, 0b00110110];
         let decoded_eg: EliasGammaDecoded = operator.decode_elias_gamma_entry(byte_array, 6);
@@ -288,7 +282,16 @@ mod tests {
     }
 
     #[test]
-    fn test_decoding_compressed_bitmap() {
+    fn decode_empty_elias_gamma() {
+        let operator: BitmapOperator = BitmapOperator::new();
+        let byte_array: &[u8; 2] = &[0b00000000, 0b00000000];
+        let decoded_eg: EliasGammaDecoded = operator.decode_elias_gamma_entry(byte_array, 0);
+        assert_eq!(decoded_eg.value, 0);
+        assert_eq!(decoded_eg.last_bit_index, 0);
+    }
+
+    #[test]
+    fn decode_compressed_bitmap() {
         let operator: BitmapOperator = BitmapOperator::new();
         assert_eq!(operator.decompress_bitmap(&[0b10100000]), &[0b11000000]);
         assert_eq!(operator.decompress_bitmap(&[0b00100100]), &[0b00110000]);
@@ -323,25 +326,25 @@ mod tests {
     }
 
     #[test]
-    fn test_merge_compressed_bitmap_into_base_bitmap() {
+    fn merge_two_decompressed_bitmaps() {
         let operator: BitmapOperator = BitmapOperator::new();
         let mut base_bitmap: Bitmap = Bitmap {
             bitmap: vec![0b11001010, 0b10001111],
             start_block_height: 10,
         };
         let compressed_bitmap: Bitmap = Bitmap {
-            bitmap: vec![0b10110010, 0b01000000], // Decompresses to 11100001
+            bitmap: vec![0b11100001], // Decompresses to 11100001
             start_block_height: 14,
         };
 
         assert!(operator
-            .merge_compressed_bitmap_into_base_bitmap(&mut base_bitmap, &compressed_bitmap)
+            .merge_bitmap(&mut base_bitmap, &compressed_bitmap)
             .is_ok());
         assert_eq!(base_bitmap.bitmap, vec![0b11001110, 0b10011111]);
     }
 
     #[test]
-    fn test_get_merged_bitmap() {
+    fn merge_multiple_bitmaps_together() {
         let operator: BitmapOperator = BitmapOperator::new();
         let test_bitmaps_to_merge: Vec<Base64Bitmap> = vec![
             Base64Bitmap {
@@ -358,9 +361,7 @@ mod tests {
             },
         ];
 
-        let merged_bitmap = operator
-            .get_merged_bitmap(&test_bitmaps_to_merge, 10)
-            .unwrap();
+        let merged_bitmap = operator.merge_bitmaps(&test_bitmaps_to_merge, 10).unwrap();
         assert_eq!(merged_bitmap.bitmap, vec![0b11001100, 0b11000000]);
         assert_eq!(merged_bitmap.start_block_height, 10);
     }
