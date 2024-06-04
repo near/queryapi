@@ -17,7 +17,8 @@ import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
-import EditorButtons from "./EditorButtons";
+import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer"
+import DeveloperToolsView from "./EditorView/DeveloperToolsView";
 import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
@@ -199,7 +200,7 @@ const Editor = ({ actionButtonText }) => {
       if (newDisposable != null) {
         console.log("Types successfully imported to Editor");
       }
-      
+
       disposableRef.current = newDisposable;
     }
   };
@@ -234,17 +235,17 @@ const Editor = ({ actionButtonText }) => {
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     indexerName = indexerName.replaceAll(" ", "_");
-    let forkedFrom = 
+    let forkedFrom =
       (indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName)
-      ? { account_id: indexerDetails.forkedAccountId, function_name: indexerDetails.forkedIndexerName }
-      : null;
+        ? { account_id: indexerDetails.forkedAccountId, function_name: indexerDetails.forkedIndexerName }
+        : null;
 
     const startBlock =
-    indexerConfig.startBlock === "startBlockHeight"
-      ? { HEIGHT: indexerConfig.height }
-      : indexerConfig.startBlock === "startBlockLatest"
-      ? "LATEST"
-      : "CONTINUE";  
+      indexerConfig.startBlock === "startBlockHeight"
+        ? { HEIGHT: indexerConfig.height }
+        : indexerConfig.startBlock === "startBlockLatest"
+          ? "LATEST"
+          : "CONTINUE";
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
@@ -471,7 +472,7 @@ const Editor = ({ actionButtonText }) => {
         )}
         {(indexerDetails.code || isCreateNewIndexer) && (
           <>
-            <EditorButtons
+            <EditorMenuContainer
               handleFormating={handleFormating}
               handleCodeGen={handleCodeGen}
               error={error}
@@ -485,6 +486,21 @@ const Editor = ({ actionButtonText }) => {
               isUserIndexer={indexerDetails.accountId === currentUserAccountId}
               handleDeleteIndexer={handleDeleteIndexer}
             />
+            <DeveloperToolsView
+              handleFormating={handleFormating}
+              handleCodeGen={handleCodeGen}
+              error={error}
+              executeIndexerFunction={executeIndexerFunction}
+              heights={heights}
+              setHeights={setHeights}
+              isCreateNewIndexer={isCreateNewIndexer}
+              isExecuting={isExecutingIndexerFunction}
+              stopExecution={() => indexerRunner.stop()}
+              latestHeight={height}
+              isUserIndexer={indexerDetails.accountId === currentUserAccountId}
+              handleDeleteIndexer={handleDeleteIndexer}
+            />
+
             <ResetChangesModal handleReload={handleReload} />
             <PublishModal
               registerFunction={registerFunction}
