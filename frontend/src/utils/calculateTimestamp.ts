@@ -1,4 +1,4 @@
-import { DURATION_MAP } from '../constants/DurationMap'
+import { DURATION_MAP } from '../constants/DurationMap';
 
 export const calculateTimestamp = (selectedOption: string): string => {
     const currentTime: number = Date.now();
@@ -9,4 +9,4 @@ export const calculateTimestamp = (selectedOption: string): string => {
         console.log('invalid option');
         return "";
     }
-}
+};
