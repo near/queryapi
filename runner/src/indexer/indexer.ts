@@ -169,7 +169,7 @@ export default class Indexer {
     return allMutations;
   }
 
-  buildContext (blockHeight: number, logEntries: LogEntry[]): Context {
+  public buildContext (blockHeight: number, logEntries: LogEntry[]): Context {
     return {
       graphql: async (operation, variables) => {
         return await wrapSpan(async () => {

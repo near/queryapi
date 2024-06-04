@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "eslint": "^8.46.0",
     "eslint-config-prettier": "^8.9.0",
     "eslint-config-standard-with-typescript": "^37.0.0",
@@ -28,6 +29,9 @@
     "@near-lake/primitives": "^0.4.0",
     "console": "^0.7.2",
     "csv-parse": "^5.5.6",
-    "csv-writer": "^1.6.0"
+    "csv-writer": "^1.6.0",
+    "pg-mem": "^2.8.1",
+    "testcontainers": "^10.9.0",
+    "ts-jest": "^29.1.3"
   }
 }
