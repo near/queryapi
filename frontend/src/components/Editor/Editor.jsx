@@ -18,7 +18,8 @@ import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer"
-import DeveloperToolsView from "./EditorView/DeveloperToolsView";
+import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
+
 import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
@@ -32,6 +33,7 @@ import {
 import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
 import { GlyphContainer } from "./GlyphContainer";
+
 
 const Editor = ({ actionButtonText }) => {
   const {
@@ -486,7 +488,7 @@ const Editor = ({ actionButtonText }) => {
               isUserIndexer={indexerDetails.accountId === currentUserAccountId}
               handleDeleteIndexer={handleDeleteIndexer}
             />
-            <DeveloperToolsView
+            <DeveloperToolsContainer
               handleFormating={handleFormating}
               handleCodeGen={handleCodeGen}
               error={error}

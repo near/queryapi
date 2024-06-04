@@ -2,8 +2,8 @@ import React, { useContext } from "react";
 import DeveloperToolsView from "../EditorView/DeveloperToolsView";
 import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
 
-const DeveloperToolsContainer = (props) => {
-    const {
+const DeveloperToolsContainer = (
+    {
         handleFormating,
         handleCodeGen,
         executeIndexerFunction,
@@ -14,7 +14,13 @@ const DeveloperToolsContainer = (props) => {
         latestHeight,
         isUserIndexer,
         handleDeleteIndexer,
-        error,
+        error
+    }
+) => {
+    const {
+        indexerName,
+        accountId,
+        indexerDetails,
         setShowPublishModal,
         setShowResetCodeModel,
         setShowForkIndexerModal,
@@ -26,9 +32,10 @@ const DeveloperToolsContainer = (props) => {
     const removeHeight = (index) => {
         setHeights(heights.filter((_, i) => i !== index));
     };
+    console.log(heights)
 
     return (
-        <DeveloperToolsView {...props} {...{
+        <DeveloperToolsView {...{
             handleFormating,
             handleCodeGen,
             setShowResetCodeModel,
@@ -38,7 +45,9 @@ const DeveloperToolsContainer = (props) => {
             latestHeight,
             isExecuting,
             stopExecution,
-            removeHeight
+            removeHeight,
+            executeIndexerFunction,
+            setHeights,
         }} />
     );
 };
