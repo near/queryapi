@@ -79,7 +79,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
       console.error('Error reloading data:', error);
     }
   };
-  
+
   return (
     <Navbar bg="white" variant="light" className="shadow-sm p-3 mb-4 bg-white rounded">
       <Container fluid className="d-flex flex-wrap justify-content-between align-items-center">
