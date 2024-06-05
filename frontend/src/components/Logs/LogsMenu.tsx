@@ -79,10 +79,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
       console.error('Error reloading data:', error);
     }
   };
-
-  const removeHeight = (index: number) => setHeights(heights.filter((_, i) => i !== index));
-  const mode = debugMode ? "ON" : "OFF";
-
+  
   return (
     <Navbar bg="white" variant="light" className="shadow-sm p-3 mb-4 bg-white rounded">
       <Container fluid className="d-flex flex-wrap justify-content-between align-items-center">
@@ -99,7 +96,6 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
           <span className="me-4 text-secondary text-sm">
             Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? "UNKNOWN"}</strong>
           </span>
-
           {!loading && blockHeight && latestHeight && (
             <div className="bg-gray-100 border border-gray-300 rounded p-1 text-xs text-gray-700">
               <span className="text-secondary">
@@ -107,11 +103,6 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
               </span>
             </div>
           )}
-          {/* {debugMode && (
-            <span className="text-secondary cursor-pointer text-sm" onClick={() => removeHeight(0)}>
-              Debug Mode: {mode}
-            </span>
-          )} */}
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
           <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={handleReload}>
