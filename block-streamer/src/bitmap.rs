@@ -1,11 +1,16 @@
 use anyhow::anyhow;
 use base64::{engine::general_purpose, Engine as _};
+use std::convert::TryFrom;
 
+use crate::graphql::client::{get_bitmaps_exact, get_bitmaps_wildcard};
+
+#[derive(Debug, Default, PartialEq)]
 pub struct Base64Bitmap {
     pub start_block_height: usize,
     pub base64: String,
 }
 
+#[derive(Debug, Default, PartialEq)]
 pub struct Bitmap {
     pub start_block_height: usize,
     pub bitmap: Vec<u8>,
@@ -18,6 +23,26 @@ struct EliasGammaDecoded {
 }
 
 pub struct BitmapOperator {}
+
+impl Base64Bitmap {
+    pub fn from_exact_query(
+        query_item: get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
+    ) -> Self {
+        Self {
+            base64: query_item.bitmap,
+            start_block_height: usize::try_from(query_item.first_block_height).unwrap(),
+        }
+    }
+
+    pub fn from_wildcard_query(
+        query_item: get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+    ) -> Self {
+        Self {
+            base64: query_item.bitmap,
+            start_block_height: usize::try_from(query_item.first_block_height).unwrap(),
+        }
+    }
+}
 
 #[cfg_attr(test, mockall::automock)]
 impl BitmapOperator {

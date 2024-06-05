@@ -14,7 +14,7 @@ type Date = String;
     response_derives = "Debug",
     normalization = "rust"
 )]
-struct GetBitmapsExact;
+pub struct GetBitmapsExact;
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -23,7 +23,7 @@ struct GetBitmapsExact;
     response_derives = "Debug",
     normalization = "rust"
 )]
-struct GetBitmapsWildcard;
+pub struct GetBitmapsWildcard;
 
 pub struct GraphQLClient {
     client: reqwest::Client,

@@ -964,6 +964,7 @@ version = "0.1.0"
 dependencies = [
  "actix-web",
  "anyhow",
+ "async-stream",
  "async-trait",
  "aws-config",
  "aws-sdk-s3",
