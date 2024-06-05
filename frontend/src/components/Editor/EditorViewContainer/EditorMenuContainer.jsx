@@ -4,6 +4,20 @@ import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
 
 const EditorMenuContainer = (props) => {
     const {
+        handleFormating,
+        handleCodeGen,
+        error,
+        executeIndexerFunction,
+        heights,
+        setHeights,
+        isCreateNewIndexer,
+        isExecuting,
+        stopExecution,
+        latestHeight,
+        isUserIndexer,
+        handleDeleteIndexer,
+    } = props;
+    const {
         indexerName,
         accountId,
         indexerDetails,
@@ -11,7 +25,6 @@ const EditorMenuContainer = (props) => {
         setShowResetCodeModel,
         setShowForkIndexerModal,
         debugMode,
-        isCreateNewIndexer,
         setShowLogsView,
     } = useContext(IndexerDetailsContext);
 
@@ -25,7 +38,8 @@ const EditorMenuContainer = (props) => {
             setShowForkIndexerModal,
             debugMode,
             isCreateNewIndexer,
-            setShowLogsView
+            setShowLogsView,
+            handleDeleteIndexer
         }} />
     );
 };

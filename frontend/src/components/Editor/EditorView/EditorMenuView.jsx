@@ -1,6 +1,6 @@
 import React from "react";
 import { Navbar, Container, InputGroup, Form, ButtonGroup, Button } from 'react-bootstrap';
-import { Braces, ArrowCounterclockwise, FileText } from 'react-bootstrap-icons';
+import { Braces, ArrowCounterclockwise, FileText, TrashFill, NodePlus } from 'react-bootstrap-icons';
 
 const EditorMenuView = ({
   indexerName,
@@ -9,6 +9,7 @@ const EditorMenuView = ({
   setShowPublishModal,
   setShowResetCodeModel,
   setShowForkIndexerModal,
+  handleDeleteIndexer,
   debugMode,
   isCreateNewIndexer,
   setShowLogsView,
@@ -32,6 +33,19 @@ const EditorMenuView = ({
           </span>
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
+          {isUserIndexer && !isCreateNewIndexer && (
+            <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => handleDeleteIndexer()}>
+              <TrashFill size={20} />
+              Trash
+            </Button>
+          )}
+          {isUserIndexer && !isCreateNewIndexer && (
+            <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => setShowForkIndexerModal(true)}>
+              <Braces className="me-2" size={20} />
+              Fork Indexer
+            </Button>
+          )}
+
           {!isUserIndexer && !isCreateNewIndexer ? (
             <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => { setShowForkIndexerModal(true) }}>
               <Braces className="me-2" size={20} />

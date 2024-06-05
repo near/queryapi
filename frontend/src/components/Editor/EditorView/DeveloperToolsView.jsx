@@ -40,7 +40,10 @@ const DeveloperToolsView = ({
                         Type Generation
                     </button>
 
-                    <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${diffView ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
+
+                    <div class="h-full border-r border-gray-300 mx-4"></div>
+
+                    <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${diffView ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
                         <span className="px-3">Diff View</span>
                         <input
                             type="checkbox"
@@ -51,7 +54,7 @@ const DeveloperToolsView = ({
                             }}
                         />
                     </div>
-                    <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${debugMode ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
+                    <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${debugMode ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
                         <span className="px-3">Debug Mode</span>
                         <input
                             type="checkbox"
@@ -62,7 +65,6 @@ const DeveloperToolsView = ({
                             }}
                         />
                     </div>
-
                 </div>
 
                 <div className="flex flex-col items-center space-y-4">

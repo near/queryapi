@@ -467,10 +467,13 @@ const Editor = ({ actionButtonText }) => {
         }}
       >
         {!indexerDetails.code && !isCreateNewIndexer && (
-          <Alert className="px-3 pt-3" variant="danger">
-            Indexer Function could not be found. Are you sure this indexer
-            exists?
+          <Alert
+            className="px-4 py-3 mb-4 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
+            variant="danger"
+          >
+            Indexer Function could not be found. Are you sure this indexer exists?
           </Alert>
+
         )}
         {(indexerDetails.code || isCreateNewIndexer) && (
           <>
@@ -529,7 +532,7 @@ const Editor = ({ actionButtonText }) => {
                 <Alert
                   dismissible="true"
                   onClose={() => setError()}
-                  className="px-3 pt-3"
+                  className="px-4 py-3 mb-4 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
                   variant="danger"
                 >
                   {error}
@@ -537,13 +540,12 @@ const Editor = ({ actionButtonText }) => {
               )}
               {debugMode && !debugModeInfoDisabled && (
                 <Alert
-                  className="px-3 pt-3"
+                  className="px-4 py-3 mb-4 font-semibold text-gray-700 text-sm text-center border border-blue-300 bg-blue-50 rounded-lg shadow-md"
                   dismissible="true"
                   onClose={() => setDebugModeInfoDisabled(true)}
                   variant="info"
                 >
-                  To debug, you will need to open your browser console window in
-                  order to see the logs.
+                  To debug, you will need to open your browser console window in order to see the logs.
                 </Alert>
               )}
               <FileSwitcher

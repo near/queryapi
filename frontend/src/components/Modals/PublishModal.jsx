@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { Button, Modal, Alert } from "react-bootstrap";
-import IndexerConfigOptions from "../Form/IndexerConfigOptionsInputGroup";
+import PublishFormContainer from "./ModalsContainer/PublishFormContainer"
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractIds } from "../../utils/validators";
 
@@ -24,12 +24,12 @@ export const PublishModal = ({
 
   const register = async () => {
     if (indexerName === undefined || indexerName === "") {
-      setError( () => "Please provide an Indexer Name")
+      setError(() => "Please provide an Indexer Name")
       return
     }
 
     if (!validateContractIds(indexerConfig.filter)) {
-      setError( () => "Please provide a valid contract name")
+      setError(() => "Please provide a valid contract name")
       return
     }
     setError(null)
@@ -42,24 +42,37 @@ export const PublishModal = ({
       centered={true}
       show={showPublishModal}
       onHide={() => setShowPublishModal(false)}
+      className="bg-gray-50"
     >
-      <Modal.Header closeButton>
-        <Modal.Title> Enter Indexer Details</Modal.Title>
+      <Modal.Header closeButton className="border-b border-gray-300">
+        <Modal.Title className="text-lg font-semibold text-gray-800">
+          Enter Indexer Details
+        </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        <IndexerConfigOptions updateConfig={updateConfig} />
+      <Modal.Body className="p-4">
+        <PublishFormContainer updateConfig={updateConfig} />
         {error && (
-          <Alert className="px-3 mt-3" variant="danger">
+          <Alert
+            className="px-4 py-2 mt-3 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
+            variant="danger"
+          >
             {error}
           </Alert>
         )}
       </Modal.Body>
-      <Modal.Footer>
-
-        <Button variant="secondary" onClick={() => setShowPublishModal(false)}>
+      <Modal.Footer className="border-t border-gray-300">
+        <Button
+          variant="secondary"
+          onClick={() => setShowPublishModal(false)}
+          className="bg-gray-500 text-white hover:bg-gray-600"
+        >
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => register()}>
+        <Button
+          variant="primary"
+          onClick={() => register()}
+          className="bg-blue-600 text-white hover:bg-blue-700"
+        >
           {actionButtonText}
         </Button>
       </Modal.Footer>
