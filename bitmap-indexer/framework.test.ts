@@ -16,24 +16,28 @@ describe('framework', () => {
             schema: 'schema.sql',
             filter: '*'
         }, db);
+
+        // Does work
         const schema = db.createSchema('someone_near');
-        console.log(schema);
-        console.log('query', schema.query(`CREATE TABLE
+
+        // Does not work
+        schema.query(`CREATE TABLE
         "receivers" (
           "id" BIGSERIAL NOT NULL PRIMARY KEY,
           "receiver" TEXT NOT NULL
-        );`));
-        // console.log(schema.getTable('receivers'));
-        console.log('declare', schema.declareTable({
+        );`);
+        for (const table of schema.listTables()) {
+            console.log('table', table);
+        }
+
+        // Does work
+        schema.declareTable({
             name: 'receivers',
             fields: [{ name: 'id', type: DataType.bigint }, { name: 'receiver', type: DataType.text }],
             constraints: [{ type: 'primary key',  constraintName: { name: 'primary_key_id'} , columns: [{ name: 'id' } ] }]
-        }));
+        });
         console.log(schema.getTable('receivers'));
 
-        for (const table of schema.listTables()) {
-            console.log(table);
-        }
         // await bitmapIndexer.runOn([115162795, 115151417, 115130289]);
         // const {receiver_id} = (await bitmapIndexer.context.db.Receivers.select({receiver: 'agilevoyce4597263841.u.arkana.near'}))[0];
         // const {first_block_height} = (await bitmapIndexer.context.db.ActionsIndex.select({receiver_id: receiver_id}))[0];
