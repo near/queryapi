@@ -89,6 +89,7 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
             setBlockHeight={setBlockHeight}
             handleSetContractFilter={handleSetContractFilter}
             updateConfig={updateConfig}
+            indexerDetails={indexerDetails}
         />
     );
 };

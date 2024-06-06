@@ -15,6 +15,7 @@ const PublishFormView = ({
     setBlockHeight,
     handleSetContractFilter,
     updateConfig,
+    indexerDetails,
 }) => (
     <div className="space-y-6">
         <div className="flex flex-col">
