@@ -91,10 +91,10 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
             Filter: {indexerDetails.rule.affected_account_id}
           </span>
           <span className="me-4 text-secondary text-sm">
-            Height: <strong>{loading ? <Spinner animation="border" size="sm" /> : blockHeight ?? "N/A"}</strong>
+            Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? "UNKNOWN"}</strong>
           </span>
           <span className="me-4 text-secondary text-sm">
-            Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? "UNKNOWN"}</strong>
+            Height: <strong>{loading ? <Spinner animation="border" size="sm" /> : blockHeight ?? "N/A"}</strong>
           </span>
           {!loading && blockHeight && latestHeight && (
             <div className="bg-gray-100 border border-gray-300 rounded p-1 text-xs text-gray-700">
