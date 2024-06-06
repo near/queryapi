@@ -41,7 +41,7 @@ const DeveloperToolsView = ({
                     </button>
 
 
-                    <div class="h-full border-r border-gray-300 mx-4"></div>
+                    <div className="h-full border-r border-gray-300 mx-4"></div>
 
                     <div className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${diffView ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300'}`} onClick={handleCodeGen}>
                         <span className="px-3">Diff View</span>
