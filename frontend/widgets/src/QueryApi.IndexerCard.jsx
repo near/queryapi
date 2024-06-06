@@ -176,11 +176,10 @@ return (
       <ButtonLink
         primary
         href={editUrl}
-        onClick={() => {
+        onClick={() =>
           State.update({
             activeTab: "editor",
           })
-        }
         }
       >
         View Indexer
