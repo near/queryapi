@@ -15,7 +15,7 @@ export function FileSwitcher({
           } border-r border-gray-400 last:border-r-0`}
         onClick={() => setFileName("indexingLogic.js")}
       >
-        App.js
+        Indexer.js
       </button>
       <button
         className={`flex-1 px-4 py-2 text-base text-xs font-medium ${fileName === "schema.sql"
