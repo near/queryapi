@@ -26,19 +26,19 @@ pub struct BitmapOperator {}
 
 impl Base64Bitmap {
     pub fn from_exact_query(
-        query_item: get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
+        query_item: &get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
     ) -> Self {
         Self {
-            base64: query_item.bitmap,
+            base64: query_item.bitmap.clone(),
             start_block_height: usize::try_from(query_item.first_block_height).unwrap(),
         }
     }
 
     pub fn from_wildcard_query(
-        query_item: get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+        query_item: &get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
     ) -> Self {
         Self {
-            base64: query_item.bitmap,
+            base64: query_item.bitmap.clone(),
             start_block_height: usize::try_from(query_item.first_block_height).unwrap(),
         }
     }
