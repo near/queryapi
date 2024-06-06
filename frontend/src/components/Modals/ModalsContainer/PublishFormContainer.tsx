@@ -71,7 +71,7 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
         }
         setBlockHeightError(null);
         updateConfig(indexerNameField, contractFilter, blockHeight, startBlock);
-    }, [indexerNameField, contractFilter, startBlock, blockHeight, latestHeight, updateConfig]);
+    }, [indexerNameField, contractFilter, startBlock, blockHeight, latestHeight]);
 
     return (
         <PublishFormView
