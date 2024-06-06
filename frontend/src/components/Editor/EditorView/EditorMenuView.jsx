@@ -1,6 +1,7 @@
 import React from "react";
 import { Navbar, Container, InputGroup, Form, ButtonGroup, Button } from 'react-bootstrap';
 import { Braces, ArrowCounterclockwise, FileText, TrashFill, NodePlus } from 'react-bootstrap-icons';
+import CustomTooltip, { TooltipDirection } from "../../Common/CustomTooltip";
 
 const EditorMenuView = ({
   indexerName,
@@ -34,10 +35,12 @@ const EditorMenuView = ({
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
           {isUserIndexer && !isCreateNewIndexer && (
-            <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => handleDeleteIndexer()}>
-              <TrashFill size={20} />
-              Trash
-            </Button>
+            <CustomTooltip message="Delete Indexer Code" direction={TooltipDirection.Bottom} >
+              <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => handleDeleteIndexer()}>
+                <TrashFill size={20} />
+                Delete
+              </Button>
+            </CustomTooltip>
           )}
           {isUserIndexer && !isCreateNewIndexer && (
             <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => setShowForkIndexerModal(true)}>
