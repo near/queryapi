@@ -99,7 +99,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
           {!loading && blockHeight && latestHeight && (
             <div className="bg-gray-100 border border-gray-300 rounded p-1 text-xs text-gray-700">
               <span className="text-secondary">
-                NEAR's current height: {latestHeight}. Your indexer lags by {Number(latestHeight) - Number(blockHeight)} blocks or {calculateBlockTimeDifference(Number(latestHeight), Number(blockHeight))}.
+                Indexer is {Number(latestHeight) - Number(blockHeight)} blocks or {calculateBlockTimeDifference(Number(latestHeight), Number(blockHeight))} behind tip.
               </span>
             </div>
           )}

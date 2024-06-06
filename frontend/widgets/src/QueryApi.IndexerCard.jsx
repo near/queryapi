@@ -1,7 +1,7 @@
 const accountId = props.accountId || context.accountId;
 const indexerName = props.indexerName;
-const editUrl = `https://dev.near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
-const statusUrl = `https://dev.near.org/#/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
+const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
+const statusUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
 const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
   ".",
   "_"
@@ -176,10 +176,11 @@ return (
       <ButtonLink
         primary
         href={editUrl}
-        onClick={() =>
+        onClick={() => {
           State.update({
             activeTab: "editor",
           })
+        }
         }
       >
         View Indexer
