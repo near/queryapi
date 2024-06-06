@@ -17,7 +17,9 @@ import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
-import EditorButtons from "./EditorButtons";
+import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer"
+import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
+
 import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
@@ -31,6 +33,7 @@ import {
 import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
 import { GlyphContainer } from "./GlyphContainer";
+
 
 const Editor = ({ actionButtonText }) => {
   const {
@@ -199,7 +202,7 @@ const Editor = ({ actionButtonText }) => {
       if (newDisposable != null) {
         console.log("Types successfully imported to Editor");
       }
-      
+
       disposableRef.current = newDisposable;
     }
   };
@@ -234,13 +237,17 @@ const Editor = ({ actionButtonText }) => {
       /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
     )[1];
     indexerName = indexerName.replaceAll(" ", "_");
+    let forkedFrom =
+      (indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName)
+        ? { account_id: indexerDetails.forkedAccountId, function_name: indexerDetails.forkedIndexerName }
+        : null;
 
     const startBlock =
-    indexerConfig.startBlock === "startBlockHeight"
-      ? { HEIGHT: indexerConfig.height }
-      : indexerConfig.startBlock === "startBlockLatest"
-      ? "LATEST"
-      : "CONTINUE";  
+      indexerConfig.startBlock === "startBlockHeight"
+        ? { HEIGHT: indexerConfig.height }
+        : indexerConfig.startBlock === "startBlockLatest"
+          ? "LATEST"
+          : "CONTINUE";
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
@@ -252,6 +259,7 @@ const Editor = ({ actionButtonText }) => {
         schema: validatedSchema,
         startBlock,
         contractFilter: indexerConfig.filter,
+        forkedFrom,
       });
       return;
     }
@@ -262,6 +270,7 @@ const Editor = ({ actionButtonText }) => {
       schema: validatedSchema,
       startBlock,
       contractFilter: indexerConfig.filter,
+      ...(forkedFrom && { forkedFrom })
     });
 
     setShowPublishModal(false);
@@ -458,14 +467,17 @@ const Editor = ({ actionButtonText }) => {
         }}
       >
         {!indexerDetails.code && !isCreateNewIndexer && (
-          <Alert className="px-3 pt-3" variant="danger">
-            Indexer Function could not be found. Are you sure this indexer
-            exists?
+          <Alert
+            className="px-4 py-3 mb-4 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
+            variant="danger"
+          >
+            Indexer Function could not be found. Are you sure this indexer exists?
           </Alert>
+
         )}
         {(indexerDetails.code || isCreateNewIndexer) && (
           <>
-            <EditorButtons
+            <EditorMenuContainer
               handleFormating={handleFormating}
               handleCodeGen={handleCodeGen}
               error={error}
@@ -479,6 +491,26 @@ const Editor = ({ actionButtonText }) => {
               isUserIndexer={indexerDetails.accountId === currentUserAccountId}
               handleDeleteIndexer={handleDeleteIndexer}
             />
+            <DeveloperToolsContainer
+              handleFormating={handleFormating}
+              handleCodeGen={handleCodeGen}
+              error={error}
+              executeIndexerFunction={executeIndexerFunction}
+              heights={heights}
+              setHeights={setHeights}
+              isCreateNewIndexer={isCreateNewIndexer}
+              isExecuting={isExecutingIndexerFunction}
+              stopExecution={() => indexerRunner.stop()}
+              latestHeight={height}
+              isUserIndexer={indexerDetails.accountId === currentUserAccountId}
+              handleDeleteIndexer={handleDeleteIndexer}
+
+              fileName={fileName}
+              setFileName={setFileName}
+              diffView={diffView}
+              setDiffView={setDiffView}
+            />
+
             <ResetChangesModal handleReload={handleReload} />
             <PublishModal
               registerFunction={registerFunction}
@@ -500,7 +532,7 @@ const Editor = ({ actionButtonText }) => {
                 <Alert
                   dismissible="true"
                   onClose={() => setError()}
-                  className="px-3 pt-3"
+                  className="px-4 py-3 mb-4 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
                   variant="danger"
                 >
                   {error}
@@ -508,13 +540,12 @@ const Editor = ({ actionButtonText }) => {
               )}
               {debugMode && !debugModeInfoDisabled && (
                 <Alert
-                  className="px-3 pt-3"
+                  className="px-4 py-3 mb-4 font-semibold text-gray-700 text-sm text-center border border-blue-300 bg-blue-50 rounded-lg shadow-md"
                   dismissible="true"
                   onClose={() => setDebugModeInfoDisabled(true)}
                   variant="info"
                 >
-                  To debug, you will need to open your browser console window in
-                  order to see the logs.
+                  To debug, you will need to open your browser console window in order to see the logs.
                 </Alert>
               )}
               <FileSwitcher

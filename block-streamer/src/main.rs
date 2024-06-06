@@ -1,7 +1,9 @@
 use tracing_subscriber::prelude::*;
 
+mod bitmap;
 mod block_stream;
 mod delta_lake_client;
+mod graphql;
 mod indexer_config;
 mod lake_s3_client;
 mod metrics;

@@ -3,40 +3,31 @@ use crate::registry::IndexerRegistry;
 
 use super::handler::{ExecutorInfo, ExecutorsHandler};
 
-const V1_EXECUTOR_VERSION: u64 = 0;
-
 pub async fn synchronise_executors(
     indexer_registry: &IndexerRegistry,
     executors_handler: &ExecutorsHandler,
 ) -> anyhow::Result<()> {
-    let active_executors = executors_handler.list().await?;
+    let mut active_executors = executors_handler.list().await?;
 
-    // Ignore V1 executors
-    let mut active_executors: Vec<_> = active_executors
-        .into_iter()
-        .filter(|executor| executor.version != V1_EXECUTOR_VERSION)
-        .collect();
+    for indexer_config in indexer_registry.iter() {
+        let active_executor = active_executors
+            .iter()
+            .position(|stream| {
+                stream.account_id == *indexer_config.account_id
+                    && stream.function_name == indexer_config.function_name
+            })
+            .map(|index| active_executors.swap_remove(index));
 
-    for (account_id, indexers) in indexer_registry.iter() {
-        for (function_name, indexer_config) in indexers.iter() {
-            let active_executor = active_executors
-                .iter()
-                .position(|stream| {
-                    stream.account_id == *account_id && &stream.function_name == function_name
-                })
-                .map(|index| active_executors.swap_remove(index));
-
-            let _ = synchronise_executor(active_executor, indexer_config, executors_handler)
-                .await
-                .map_err(|err| {
-                    tracing::error!(
-                        account_id = account_id.as_str(),
-                        function_name,
-                        version = indexer_config.get_registry_version(),
-                        "failed to sync executor: {err:?}"
-                    )
-                });
-        }
+        let _ = synchronise_executor(active_executor, indexer_config, executors_handler)
+            .await
+            .map_err(|err| {
+                tracing::error!(
+                    account_id = indexer_config.account_id.as_str(),
+                    function_name = indexer_config.function_name,
+                    version = indexer_config.get_registry_version(),
+                    "failed to sync executor: {err:?}"
+                )
+            });
     }
 
     for unregistered_executor in active_executors {
@@ -113,10 +104,10 @@ mod tests {
             updated_at_block_height: None,
             start_block: StartBlock::Height(100),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
-        )]);
+        )]));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| Ok(vec![]));
@@ -146,10 +137,10 @@ mod tests {
             updated_at_block_height: Some(2),
             start_block: StartBlock::Height(100),
         };
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([("test".to_string(), indexer_config.clone())]),
-        )]);
+        )]));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| {
@@ -180,7 +171,7 @@ mod tests {
 
     #[tokio::test]
     async fn ignores_executor_with_matching_registry_version() {
-        let indexer_registry = HashMap::from([(
+        let indexer_registry = IndexerRegistry(HashMap::from([(
             "morgs.near".parse().unwrap(),
             HashMap::from([(
                 "test".to_string(),
@@ -198,7 +189,7 @@ mod tests {
                     start_block: StartBlock::Height(100),
                 },
             )]),
-        )]);
+        )]));
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| {
@@ -221,7 +212,7 @@ mod tests {
 
     #[tokio::test]
     async fn stops_executor_not_in_registry() {
-        let indexer_registry = HashMap::from([]);
+        let indexer_registry = IndexerRegistry::from(&[]);
 
         let mut executors_handler = ExecutorsHandler::default();
         executors_handler.expect_list().returning(|| {

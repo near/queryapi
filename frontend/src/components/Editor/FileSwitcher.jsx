@@ -1,80 +1,43 @@
-import React, { useContext, useState } from "react";
-import { InputGroup, ToggleButtonGroup, ToggleButton } from "react-bootstrap";
-import Switch from "react-switch";
+import React, { useContext } from "react";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 
 export function FileSwitcher({
   fileName,
   setFileName,
-  diffView,
-  setDiffView,
 }) {
-  const { debugMode, setDebugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+  const { isCreateNewIndexer } = useContext(IndexerDetailsContext);
   return (
-    <>
-      <ToggleButtonGroup
-        type="radio"
-        style={{ backgroundColor: "white" }}
-        name="options"
-        defaultValue={"indexingLogic.js"}
+    <div className="flex bg-gray-100 rounded-md overflow-hidden shadow-md font-sans">
+      <button
+        className={`flex-1 px-4 py-2 text-base text-xs font-medium ${fileName === "indexingLogic.js"
+          ? "bg-gray-700 text-gray-100"
+          : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+          } border-r border-gray-400 last:border-r-0`}
+        onClick={() => setFileName("indexingLogic.js")}
       >
-        <ToggleButton
-          id="tbg-radio-1"
-          style={{
-            backgroundColor: fileName === "indexingLogic.js" ? "blue" : "grey",
-            borderRadius: "0px",
-          }}
-          value={"indexingLogic.js"}
-          onClick={() => setFileName("indexingLogic.js")}
+        App.js
+      </button>
+      <button
+        className={`flex-1 px-4 py-2 text-base text-xs font-medium ${fileName === "schema.sql"
+          ? "bg-gray-700 text-gray-100"
+          : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+          } border-r border-gray-400 last:border-r-0`}
+        onClick={() => setFileName("schema.sql")}
+      >
+        Schema.sql
+      </button>
+      {!isCreateNewIndexer && (
+        <button
+          className={`flex-1 px-4 py-2 text-base text-xs font-medium ${fileName === "GraphiQL"
+            ? "bg-gray-700 text-gray-100"
+            : "bg-gray-300 text-gray-700 hover:bg-gray-400"
+            }`}
+          onClick={() => setFileName("GraphiQL")}
         >
-          indexingLogic.js
-        </ToggleButton>
-        <ToggleButton
-          id="tbg-radio-2"
-          style={{
-            backgroundColor: fileName === "schema.sql" ? "blue" : "grey",
-            borderRadius: "0px",
-          }}
-          value={"schema.sql"}
-          onClick={() => setFileName("schema.sql")}
-        >
-          schema.sql
-        </ToggleButton>
-        {!isCreateNewIndexer &&
-          <ToggleButton
-            id="tbg-radio-3"
-            style={{
-              backgroundColor: fileName === "GraphiQL" ? "blue" : "grey",
-              borderRadius: "0px",
-            }}
-            value={"GraphiQL"}
-            onClick={() => setFileName("GraphiQL")}
-          >
-            GraphiQL
-          </ToggleButton>}
-        <InputGroup>
-          <InputGroup.Text className="px-3">
-            Diff View
-            <Switch
-              className="px-1"
-              checked={diffView}
-              onChange={(checked) => {
-                setDiffView(checked);
-              }}
-            />
-          </InputGroup.Text>
-          <InputGroup.Text className="px-3">
-            Debug Mode
-            <Switch
-              className="px-1"
-              checked={debugMode}
-              onChange={(checked) => {
-                setDebugMode(checked);
-              }}
-            />
-          </InputGroup.Text>
-        </InputGroup>
-      </ToggleButtonGroup>
-    </>
+          GraphiQL
+        </button>
+      )}
+    </div>
+
   );
 }

@@ -4,6 +4,8 @@
     // "plugin:react/recommended",
     // "plugin:react-hooks/recommended",
     // "next/core-web-vitals"
+    // "eslint:recommended",
+    // "plugin:@typescript-eslint/recommended"
   ],
   "parser": "@typescript-eslint/parser",
   "env": {
@@ -24,8 +26,8 @@
         "project": "./tsconfig.json"
       },
       "rules": {
-        "@typescript-eslint/semi": ["error", "always"],
-        "@typescript-eslint/comma-dangle": ["error", "only-multiline"],
+        // "@typescript-eslint/semi": ["error", "always"],
+        // "@typescript-eslint/comma-dangle": ["error", "only-multiline"],
         "@typescript-eslint/strict-boolean-expressions": "off"
       }
     }

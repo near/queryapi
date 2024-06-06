@@ -21,7 +21,7 @@ if (props.tab && props.tab !== state.selectedTab) {
   });
 }
 
-const activityUrl = `/#/${APP_OWNER}/widget/QueryApi.Feed`;
+const activityUrl = `/${APP_OWNER}/widget/QueryApi.Feed`;
 
 const Wrapper = styled.div`
   margin-top: calc(var(--body-top-padding) * -1);

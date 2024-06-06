@@ -30,6 +30,10 @@ impl IndexerConfig {
         format!("{}:version", self.get_redis_stream_key())
     }
 
+    pub fn get_state_key(&self) -> String {
+        format!("{}:state", self.get_full_name())
+    }
+
     pub fn get_registry_version(&self) -> u64 {
         self.updated_at_block_height
             .unwrap_or(self.created_at_block_height)

@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package indexer;
+
+// The IndexerManager service provides RPCs to manage Indexer instances
+service IndexerManager {
+    // Re-enable an existing Indexer
+    rpc Enable (IndexerRequest) returns (EnableIndexerResponse);
+
+    // Disable an Indexer, preventing it from running
+    rpc Disable (IndexerRequest) returns (DisableIndexerResponse);
+
+    // List all Indexer with their state
+    rpc List (Empty) returns (ListIndexersResponse);
+}
+
+// Request message for managing Indexers
+message IndexerRequest {
+    // Account ID which the indexer is defined under
+    string account_id = 1;
+    // Name of the indexer
+    string function_name = 2;
+}
+
+// Response message for enabling Indexer
+message EnableIndexerResponse {
+  bool success = 1;
+}
+
+// Response message for disabling Indexer
+message DisableIndexerResponse {
+  bool success = 1;
+}
+
+// Reponse message for listing Indexers
+message ListIndexersResponse {
+    repeated IndexerState indexers = 1;
+}
+
+// Persisted state relevant to Indexer
+message IndexerState {
+    string account_id = 1;
+    string function_name = 2;
+    bool enabled = 3;
+}
+
+message Empty {}

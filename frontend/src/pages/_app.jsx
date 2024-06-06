@@ -10,9 +10,10 @@ import { IndexerDetailsProvider } from '../contexts/IndexerDetailsContext';
 import 'regenerator-runtime/runtime';
 import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
 overrideLocalStorage();
+import "./global.css";
 
 export default function App({ Component, pageProps }) {
-
+  
   const client = new ApolloClient({
     uri: `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql`,
     cache: new InMemoryCache()
