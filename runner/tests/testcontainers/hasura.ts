@@ -11,7 +11,7 @@ export class HasuraGraphQLContainer {
 
   private constructor (private readonly container: GenericContainer) {
     container.withExposedPorts(this.PORT)
-      .withWaitStrategy(Wait.forLogMessage(/.*starting API server*/, 2))
+      .withWaitStrategy(Wait.forLogMessage(/.*Starting API server.*/, 2))
       .withLogConsumer(logConsumer)
       .withStartupTimeout(120_000);
   }
