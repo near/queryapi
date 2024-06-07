@@ -1,5 +1,6 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "near-social-bridge/near-social-bridge.css";
+import React from 'react';
 import { Spinner } from "near-social-bridge";
 import {
   overrideLocalStorage,
@@ -13,7 +14,7 @@ overrideLocalStorage();
 import "./global.css";
 
 export default function App({ Component, pageProps }) {
-  
+
   const client = new ApolloClient({
     uri: `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql`,
     cache: new InMemoryCache()

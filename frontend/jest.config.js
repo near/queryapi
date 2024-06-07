@@ -1,15 +1,16 @@
-/* eslint-disable */
 module.exports = {
+  preset: 'ts-jest',
   testEnvironment: 'node',
+  moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json"],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  extensionsToTreatAsEsm: ['.jsx'],
   transform: {
-    '^.+\\.[jt]sx?$': 'babel-jest',
+    '^.+\\.tsx?$': 'ts-jest',
   },
-  testPathIgnorePatterns: [
-    '/formatters\\.test\\.js',
-    '/Editor\\.test\\.js',
-  ],
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.json',
+    },
+  },
 };

@@ -1,10 +1,13 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2018",
     "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
+      "es2021"
+    ],
+    "module": "commonjs",
+    "rootDirs": [
+      "./src",
+      "./tests"
     ],
     "allowJs": true,
     "skipLibCheck": true,
@@ -12,11 +15,10 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "module": "esnext",
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "preserve", // Ensure this line is present and set to "react"
     "incremental": true,
     "baseUrl": ".",
     "paths": {
@@ -32,7 +34,7 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx"
-  ],
+, "src/utils/validator.test.js"  ],
   "exclude": [
     "node_modules"
   ]
