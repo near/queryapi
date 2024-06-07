@@ -10,20 +10,6 @@ pub struct Base64Bitmap {
     pub base64: String,
 }
 
-#[derive(Debug, Default, PartialEq)]
-pub struct Bitmap {
-    pub start_block_height: usize,
-    pub bitmap: Vec<u8>,
-}
-
-#[derive(Default)]
-struct EliasGammaDecoded {
-    pub value: usize,
-    pub last_bit_index: usize,
-}
-
-pub struct BitmapOperator {}
-
 impl Base64Bitmap {
     pub fn from_exact_query(
         query_item: &get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
@@ -44,8 +30,27 @@ impl Base64Bitmap {
     }
 }
 
+#[derive(Debug, Default, PartialEq)]
+pub struct Bitmap {
+    pub start_block_height: usize,
+    pub bitmap: Vec<u8>,
+}
+
+#[derive(Default)]
+struct EliasGammaDecoded {
+    pub value: usize,
+    pub last_bit_index: usize,
+}
+
+#[cfg(not(test))]
+pub use BitmapOperatorImpl as BitmapOperator;
+#[cfg(test)]
+pub use MockBitmapOperatorImpl as BitmapOperator;
+
+pub struct BitmapOperatorImpl {}
+
 #[cfg_attr(test, mockall::automock)]
-impl BitmapOperator {
+impl BitmapOperatorImpl {
     pub fn new() -> Self {
         Self {}
     }
@@ -224,7 +229,7 @@ mod tests {
 
     #[test]
     fn get_bit_from_bytes() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let bytes: &[u8; 3] = &[0b00000001, 0b00000000, 0b00001001];
         let results: Vec<bool> = [7, 8, 9, 15, 19, 20, 22, 23]
             .iter()
@@ -240,7 +245,7 @@ mod tests {
 
     #[test]
     fn set_bit_in_bytes() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let correct_bytes: &[u8; 3] = &[0b00000001, 0b00000000, 0b00001001];
         let test_bytes: &mut [u8; 3] = &mut [0b10000000, 0b10000000, 0b00001001];
         operator.set_bit(test_bytes, 0, false, true);
@@ -252,14 +257,14 @@ mod tests {
 
     #[test]
     fn get_unsigned_integer_from_binary_sequence() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let bytes: &[u8; 3] = &[0b11111110, 0b10010100, 0b10001101];
         assert_eq!(operator.read_integer_from_binary(bytes, 6, 16), 1321);
     }
 
     #[test]
     fn get_index_of_first_set_bit() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let bytes: &[u8; 4] = &[0b00000001, 0b10000000, 0b00000001, 0b00000000];
         assert_eq!(
             operator.index_of_first_set_bit(bytes, 4).unwrap(),
@@ -289,7 +294,7 @@ mod tests {
 
     #[test]
     fn decode_elias_gamma() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let bytes: &[u8; 2] = &[0b00000000, 0b00110110];
         let decoded_eg: EliasGammaDecoded = operator.decode_elias_gamma_entry(bytes, 6);
         assert_eq!(decoded_eg.value, 27);
@@ -298,7 +303,7 @@ mod tests {
 
     #[test]
     fn decode_empty_elias_gamma() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let bytes: &[u8; 2] = &[0b00000000, 0b00000000];
         let decoded_eg: EliasGammaDecoded = operator.decode_elias_gamma_entry(bytes, 0);
         assert_eq!(decoded_eg.value, 0);
@@ -307,7 +312,7 @@ mod tests {
 
     #[test]
     fn decode_compressed_bitmap() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         assert_eq!(operator.decompress_bitmap(&[0b10100000]), &[0b11000000]);
         assert_eq!(operator.decompress_bitmap(&[0b00100100]), &[0b00110000]);
         assert_eq!(operator.decompress_bitmap(&[0b10010000]), &[0b11110000]);
@@ -342,7 +347,7 @@ mod tests {
 
     #[test]
     fn merge_two_decompressed_bitmaps() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let mut base_bitmap: Bitmap = Bitmap {
             bitmap: vec![0b11001010, 0b10001111],
             start_block_height: 10,
@@ -360,7 +365,7 @@ mod tests {
 
     #[test]
     fn merge_multiple_bitmaps_together() {
-        let operator: BitmapOperator = BitmapOperator::new();
+        let operator = BitmapOperatorImpl::new();
         let test_bitmaps_to_merge: Vec<Base64Bitmap> = vec![
             Base64Bitmap {
                 base64: "oA==".to_string(), // Decompresses to 11000000

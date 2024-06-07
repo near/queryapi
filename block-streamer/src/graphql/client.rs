@@ -25,13 +25,18 @@ pub struct GetBitmapsExact;
 )]
 pub struct GetBitmapsWildcard;
 
-pub struct GraphQLClient {
+#[cfg(not(test))]
+pub use GraphQLClientImpl as GraphQLClient;
+#[cfg(test)]
+pub use MockGraphQLClientImpl as GraphQLClient;
+
+pub struct GraphQLClientImpl {
     client: reqwest::Client,
     graphql_endpoint: String,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl GraphQLClient {
+impl GraphQLClientImpl {
     pub fn new(graphql_endpoint: String) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -106,7 +111,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_bitmaps_exact() {
-        let client = GraphQLClient::new(HASURA_ENDPOINT.to_string());
+        let client = GraphQLClientImpl::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = vec!["app.nearcrowd.near".to_string()];
         let block_date = "2024-03-21".to_string();
         let limit = 10;
@@ -122,7 +127,7 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn test_get_bitmaps_wildcard() {
-        let client = GraphQLClient::new(HASURA_ENDPOINT.to_string());
+        let client = GraphQLClientImpl::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = "app.nearcrowd.near".to_string();
         let block_date = "2024-03-21".to_string();
         let limit = 10;

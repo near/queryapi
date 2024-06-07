@@ -16,7 +16,12 @@ enum ContractPatternType {
     Wildcard(String),
 }
 
-pub struct BlockHeightStream {
+#[cfg(not(test))]
+pub use BlockHeightStreamImpl as BlockHeightStream;
+#[cfg(test)]
+pub use MockBlockHeightStreamImpl as BlockHeightStream;
+
+pub struct BlockHeightStreamImpl {
     graphql_client: GraphQLClient,
     bitmap_operator: BitmapOperator,
     s3_client: crate::s3_client::S3Client,
@@ -24,13 +29,17 @@ pub struct BlockHeightStream {
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl BlockHeightStream {
-    pub fn new(graphql_endpoint: String, s3_client: crate::s3_client::S3Client) -> Self {
+impl BlockHeightStreamImpl {
+    pub fn new(
+        graphql_client: GraphQLClient,
+        bitmap_operator: BitmapOperator,
+        s3_client: crate::s3_client::S3Client,
+    ) -> Self {
         Self {
-            graphql_client: GraphQLClient::new(graphql_endpoint),
-            bitmap_operator: BitmapOperator::new(),
+            graphql_client,
+            bitmap_operator,
             s3_client,
-            chain_id: ChainId::Mainnet, // Hardcoded mainnet for now
+            chain_id: ChainId::Mainnet,
         }
     }
 
@@ -214,8 +223,10 @@ mod tests {
     #[test]
     fn parse_exact_contract_patterns() {
         let mock_s3_client = crate::s3_client::S3Client::default();
+        let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+        let mock_bitmap_operator = crate::bitmap::BitmapOperator::default();
         let block_height_stream =
-            BlockHeightStream::new(HASURA_ENDPOINT.to_owned(), mock_s3_client);
+            BlockHeightStreamImpl::new(mock_graphql_client, mock_bitmap_operator, mock_s3_client);
         let sample_patterns = vec![
             "near",
             "near, someone.tg",
@@ -244,8 +255,10 @@ mod tests {
     #[test]
     fn parse_wildcard_contract_patterns() {
         let mock_s3_client = crate::s3_client::S3Client::default();
+        let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+        let mock_bitmap_operator = crate::bitmap::BitmapOperator::default();
         let block_height_stream =
-            BlockHeightStream::new(HASURA_ENDPOINT.to_owned(), mock_s3_client);
+            BlockHeightStreamImpl::new(mock_graphql_client, mock_bitmap_operator, mock_s3_client);
         let sample_patterns = vec![
             "*.near",
             "near, someone.*.tg",
@@ -272,8 +285,10 @@ mod tests {
         mock_s3_client
             .expect_get_text_file()
             .returning(|_, _| Ok(generate_block_with_timestamp("2024-06-07")));
+        let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+        let mock_bitmap_operator = crate::bitmap::BitmapOperator::default();
         let block_height_stream =
-            BlockHeightStream::new(HASURA_ENDPOINT.to_string(), mock_s3_client);
+            BlockHeightStreamImpl::new(mock_graphql_client, mock_bitmap_operator, mock_s3_client);
 
         let mut stream = block_height_stream
             .list_matching_block_heights(120200447, "*.paras.near")
