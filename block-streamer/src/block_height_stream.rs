@@ -165,9 +165,31 @@ impl BlockHeightStreamImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::predicate;
 
     const HASURA_ENDPOINT: &str =
         "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql";
+
+    fn exact_query_result(
+        first_block_height: i64,
+        bitmap: &str,
+    ) -> crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex
+    {
+        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex {
+            first_block_height,
+            bitmap: bitmap.to_string(),
+        }
+    }
+
+    fn wildcard_query_result(
+        first_block_height: i64,
+        bitmap: &str
+    ) -> crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex{
+        crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex {
+            first_block_height,
+            bitmap: bitmap.to_string(),
+        }
+    }
 
     fn generate_block_with_timestamp(date: &str) -> String {
         let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
@@ -224,9 +246,9 @@ mod tests {
     fn parse_exact_contract_patterns() {
         let mock_s3_client = crate::s3_client::S3Client::default();
         let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let mock_bitmap_operator = crate::bitmap::BitmapOperator::default();
+        let bitmap_operator = crate::bitmap::BitmapOperator::new();
         let block_height_stream =
-            BlockHeightStreamImpl::new(mock_graphql_client, mock_bitmap_operator, mock_s3_client);
+            BlockHeightStreamImpl::new(mock_graphql_client, bitmap_operator, mock_s3_client);
         let sample_patterns = vec![
             "near",
             "near, someone.tg",
@@ -256,9 +278,9 @@ mod tests {
     fn parse_wildcard_contract_patterns() {
         let mock_s3_client = crate::s3_client::S3Client::default();
         let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let mock_bitmap_operator = crate::bitmap::BitmapOperator::default();
+        let bitmap_operator = crate::bitmap::BitmapOperator::new();
         let block_height_stream =
-            BlockHeightStreamImpl::new(mock_graphql_client, mock_bitmap_operator, mock_s3_client);
+            BlockHeightStreamImpl::new(mock_graphql_client, bitmap_operator, mock_s3_client);
         let sample_patterns = vec![
             "*.near",
             "near, someone.*.tg",
@@ -280,25 +302,128 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn collect_three_block_heights_from_one_bitmap() {
+    async fn collect_block_heights_from_one_day() {
         let mut mock_s3_client = crate::s3_client::S3Client::default();
         mock_s3_client
             .expect_get_text_file()
-            .returning(|_, _| Ok(generate_block_with_timestamp("2024-06-07")));
-        let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let mock_bitmap_operator = crate::bitmap::BitmapOperator::default();
-        let block_height_stream =
-            BlockHeightStreamImpl::new(mock_graphql_client, mock_bitmap_operator, mock_s3_client);
+            .returning(move |_, _| {
+                Ok(generate_block_with_timestamp(
+                    &Utc::now().format("%Y-%m-%d").to_string(),
+                ))
+            });
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+        let mock_query_result_item = exact_query_result(1, "wA==");
+        let mock_query_result = vec![mock_query_result_item];
+        mock_graphql_client
+            .expect_get_bitmaps_exact()
+            .with(
+                predicate::eq(vec!["someone.near".to_string()]),
+                predicate::eq(Utc::now().format("%Y-%m-%d").to_string()),
+                predicate::eq(100),
+                predicate::eq(0),
+            )
+            .times(1)
+            .returning(move |_, _, _, _| Ok(mock_query_result.clone()));
+
+        let block_height_stream = BlockHeightStreamImpl::new(
+            mock_graphql_client,
+            crate::bitmap::BitmapOperator::new(),
+            mock_s3_client,
+        );
 
         let mut stream = block_height_stream
-            .list_matching_block_heights(120200447, "*.paras.near")
+            .list_matching_block_heights(0, "someone.near")
             .await
             .unwrap();
+        let mut result_heights = vec![];
         while let Some(height) = stream.next().await {
-            println!("Block Height: {}", height);
+            result_heights.push(height);
         }
+        assert_eq!(result_heights, vec![1]);
     }
 
-    #[test]
-    fn collect_three_block_heights_from_two_bitmaps() {}
+    #[tokio::test]
+    async fn collect_block_heights_from_past_three_days() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+        mock_s3_client
+            .expect_get_text_file()
+            .returning(move |_, _| {
+                Ok(generate_block_with_timestamp(
+                    &(Utc::now() - Duration::days(2))
+                        .format("%Y-%m-%d")
+                        .to_string(),
+                ))
+            });
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+        mock_graphql_client
+            .expect_get_bitmaps_wildcard()
+            .with(
+                predicate::eq(".*\\.someone\\.near".to_string()),
+                predicate::eq(
+                    (Utc::now() - Duration::days(2))
+                        .format("%Y-%m-%d")
+                        .to_string(),
+                ),
+                predicate::eq(100),
+                predicate::eq(0),
+            )
+            .times(1)
+            .returning(move |_, _, _, _| {
+                Ok(vec![
+                    wildcard_query_result(1, "wA=="),
+                    wildcard_query_result(5, "wA=="),
+                ])
+            });
+        mock_graphql_client
+            .expect_get_bitmaps_wildcard()
+            .with(
+                predicate::eq(".*\\.someone\\.near".to_string()),
+                predicate::eq(
+                    (Utc::now() - Duration::days(1))
+                        .format("%Y-%m-%d")
+                        .to_string(),
+                ),
+                predicate::eq(100),
+                predicate::eq(0),
+            )
+            .times(1)
+            .returning(move |_, _, _, _| {
+                Ok(vec![
+                    wildcard_query_result(10, "wA=="),
+                    wildcard_query_result(15, "wA=="),
+                ])
+            });
+        mock_graphql_client
+            .expect_get_bitmaps_wildcard()
+            .with(
+                predicate::eq(".*\\.someone\\.near".to_string()),
+                predicate::eq(Utc::now().format("%Y-%m-%d").to_string()),
+                predicate::eq(100),
+                predicate::eq(0),
+            )
+            .times(1)
+            .returning(move |_, _, _, _| {
+                Ok(vec![
+                    wildcard_query_result(100, "wA=="),
+                    wildcard_query_result(105, "wA=="),
+                ])
+            });
+        let block_height_stream = BlockHeightStreamImpl::new(
+            mock_graphql_client,
+            crate::bitmap::BitmapOperator::new(),
+            mock_s3_client,
+        );
+
+        let mut stream = block_height_stream
+            .list_matching_block_heights(0, "*.someone.near")
+            .await
+            .unwrap();
+        let mut result_heights = vec![];
+        while let Some(height) = stream.next().await {
+            result_heights.push(height);
+        }
+        assert_eq!(result_heights, vec![1, 5, 10, 15, 100, 105]);
+    }
 }

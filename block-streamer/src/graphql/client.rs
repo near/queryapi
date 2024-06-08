@@ -11,7 +11,7 @@ type Date = String;
 #[graphql(
     schema_path = "graphql/darunrs_near/schema.graphql",
     query_path = "graphql/darunrs_near/get_bitmaps_exact.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     normalization = "rust"
 )]
 pub struct GetBitmapsExact;
@@ -20,7 +20,7 @@ pub struct GetBitmapsExact;
 #[graphql(
     schema_path = "graphql/darunrs_near/schema.graphql",
     query_path = "graphql/darunrs_near/get_bitmaps_wildcard.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     normalization = "rust"
 )]
 pub struct GetBitmapsWildcard;
