@@ -983,6 +983,7 @@ dependencies = [
  "prometheus",
  "prost 0.12.4",
  "redis",
+ "regex",
  "registry-types",
  "reqwest",
  "serde",

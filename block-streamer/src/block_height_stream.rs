@@ -7,6 +7,7 @@ use chrono::{DateTime, Duration, TimeZone, Utc};
 use futures::stream::{BoxStream, Stream};
 use futures::StreamExt;
 use near_lake_framework::near_indexer_primitives;
+use regex::Regex;
 
 const MAX_S3_RETRY_COUNT: u8 = 20;
 
@@ -94,20 +95,38 @@ impl BlockHeightStreamImpl {
         date + Duration::days(1)
     }
 
+    fn strip_wildcard_if_root_account(&self, receiver_id: String) -> String {
+        let wildcard_root_account_regex = Regex::new(r"^\*\.([a-zA-Z0-9]+)$").unwrap();
+        if wildcard_root_account_regex.is_match(&receiver_id) {
+            return receiver_id
+                .split('.')
+                .nth(1)
+                .unwrap_or(&receiver_id)
+                .to_string();
+        }
+        receiver_id
+    }
+
     fn parse_contract_pattern(&self, contract_pattern: &str) -> ContractPatternType {
-        let trimmed_contract_pattern: String = contract_pattern
-            .chars()
-            .filter(|c| !c.is_whitespace())
-            .collect();
-        if contract_pattern.chars().any(|c| c == '*') {
-            let wildcard_pattern = trimmed_contract_pattern
+        // If receiver_id is of pattern *.SOME_ROOT_ACCOUNT such as *.near, we can reduce this to
+        // "near" as we store bitmaps for root accounts like near ,tg, and so on.
+        let cleaned_contract_pattern: String = contract_pattern
+            .split(',')
+            .map(|receiver| receiver.trim())
+            .map(str::to_string)
+            .map(|receiver| self.strip_wildcard_if_root_account(receiver))
+            .collect::<Vec<String>>()
+            .join(",");
+
+        if cleaned_contract_pattern.chars().any(|c| c == '*') {
+            let wildcard_pattern = cleaned_contract_pattern
                 .replace(',', "|")
                 .replace('.', "\\.")
                 .replace('*', ".*");
             return ContractPatternType::Wildcard(wildcard_pattern);
         }
 
-        let exact_pattern = trimmed_contract_pattern
+        let exact_pattern = cleaned_contract_pattern
             .split(',')
             .map(str::to_string)
             .collect();
@@ -250,7 +269,9 @@ mod tests {
             BlockHeightStreamImpl::new(mock_graphql_client, bitmap_operator, mock_s3_client);
         let sample_patterns = vec![
             "near",
+            "*.near",
             "near, someone.tg",
+            "*.near, someone.tg, *.tg",
             "a.near, b.near, a.b, a.b.c.near",
         ];
 
@@ -260,10 +281,22 @@ mod tests {
         );
         assert_eq!(
             block_height_stream.parse_contract_pattern(sample_patterns[1]),
-            ContractPatternType::Exact(vec!["near".to_string(), "someone.tg".to_string()],)
+            ContractPatternType::Exact(vec!["near".to_string()])
         );
         assert_eq!(
             block_height_stream.parse_contract_pattern(sample_patterns[2]),
+            ContractPatternType::Exact(vec!["near".to_string(), "someone.tg".to_string()],)
+        );
+        assert_eq!(
+            block_height_stream.parse_contract_pattern(sample_patterns[3]),
+            ContractPatternType::Exact(vec![
+                "near".to_string(),
+                "someone.tg".to_string(),
+                "tg".to_string()
+            ],)
+        );
+        assert_eq!(
+            block_height_stream.parse_contract_pattern(sample_patterns[4]),
             ContractPatternType::Exact(vec![
                 "a.near".to_string(),
                 "b.near".to_string(),
@@ -281,14 +314,14 @@ mod tests {
         let block_height_stream =
             BlockHeightStreamImpl::new(mock_graphql_client, bitmap_operator, mock_s3_client);
         let sample_patterns = vec![
-            "*.near",
+            "*.someone.near",
             "near, someone.*.tg",
             "a.near, b.*, *.b, a.*.c.near",
         ];
 
         assert_eq!(
             block_height_stream.parse_contract_pattern(sample_patterns[0]),
-            ContractPatternType::Wildcard(".*\\.near".to_string())
+            ContractPatternType::Wildcard(".*\\.someone\\.near".to_string())
         );
         assert_eq!(
             block_height_stream.parse_contract_pattern(sample_patterns[1]),
@@ -296,7 +329,7 @@ mod tests {
         );
         assert_eq!(
             block_height_stream.parse_contract_pattern(sample_patterns[2]),
-            ContractPatternType::Wildcard("a\\.near|b\\..*|.*\\.b|a\\..*\\.c\\.near".to_string())
+            ContractPatternType::Wildcard("a\\.near|b\\..*|b|a\\..*\\.c\\.near".to_string())
         );
     }
 

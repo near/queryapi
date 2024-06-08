@@ -35,6 +35,7 @@ wildmatch = "2.1.1"
 registry-types = { path = "../registry/types" }
 base64 = "0.22.1"
 async-stream = "0.3.5"
+regex = "1.10.4"
 
 [build-dependencies]
 tonic-build = "0.10"
