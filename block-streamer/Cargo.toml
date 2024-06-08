@@ -6,9 +6,11 @@ edition = "2021"
 [dependencies]
 actix-web = "4.5.1"
 anyhow = "1.0.57"
+async-stream = "0.3.5"
 async-trait = "0.1.74"
 aws-config = { version = "1.1.3", features = ["behavior-version-latest"] }
 aws-sdk-s3 = "1.13.0"
+base64 = "0.22.1"
 borsh = "0.10.2"
 cached = "0.49.3"
 chrono = "0.4.25"
@@ -20,6 +22,7 @@ near-lake-framework = "0.7.8"
 prometheus = "0.13.3"
 prost = "0.12.3"
 redis = { version = "0.21.5", features = ["tokio-comp", "connection-manager"] }
+regex = "1.10.4"
 reqwest = { version = "^0.11.0", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.55"
@@ -33,9 +36,6 @@ tonic = "0.10.2"
 wildmatch = "2.1.1"
 
 registry-types = { path = "../registry/types" }
-base64 = "0.22.1"
-async-stream = "0.3.5"
-regex = "1.10.4"
 
 [build-dependencies]
 tonic-build = "0.10"
