@@ -124,13 +124,12 @@ impl BlockHeightStreamImpl {
             while current_date <= Utc::now() {
                 let current_date_string = current_date.format("%Y-%m-%d").to_string();
                 let bitmaps_from_query: Vec<Base64Bitmap> = match contract_pattern_type {
-                    // TODO: Implement pagination of query
                     ContractPatternType::Exact(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), current_date_string.clone(), 100, 0).await.unwrap();
+                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), current_date_string.clone()).await.unwrap();
                         query_result.iter().map(|result_item| Base64Bitmap::from_exact_query(result_item)).collect()
                     },
                     ContractPatternType::Wildcard(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), current_date_string.clone(), 100, 0).await.unwrap();
+                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), current_date_string.clone()).await.unwrap();
                         query_result.iter().map(|result_item| Base64Bitmap::from_wildcard_query(result_item)).collect()
 
                     },
@@ -320,11 +319,9 @@ mod tests {
             .with(
                 predicate::eq(vec!["someone.near".to_string()]),
                 predicate::eq(Utc::now().format("%Y-%m-%d").to_string()),
-                predicate::eq(100),
-                predicate::eq(0),
             )
             .times(1)
-            .returning(move |_, _, _, _| Ok(mock_query_result.clone()));
+            .returning(move |_, _| Ok(mock_query_result.clone()));
 
         let block_height_stream = BlockHeightStreamImpl::new(
             mock_graphql_client,
@@ -366,11 +363,9 @@ mod tests {
                         .format("%Y-%m-%d")
                         .to_string(),
                 ),
-                predicate::eq(100),
-                predicate::eq(0),
             )
             .times(1)
-            .returning(move |_, _, _, _| {
+            .returning(move |_, _| {
                 Ok(vec![
                     wildcard_query_result(1, "wA=="),
                     wildcard_query_result(5, "wA=="),
@@ -385,11 +380,9 @@ mod tests {
                         .format("%Y-%m-%d")
                         .to_string(),
                 ),
-                predicate::eq(100),
-                predicate::eq(0),
             )
             .times(1)
-            .returning(move |_, _, _, _| {
+            .returning(move |_, _| {
                 Ok(vec![
                     wildcard_query_result(10, "wA=="),
                     wildcard_query_result(15, "wA=="),
@@ -400,11 +393,9 @@ mod tests {
             .with(
                 predicate::eq(".*\\.someone\\.near".to_string()),
                 predicate::eq(Utc::now().format("%Y-%m-%d").to_string()),
-                predicate::eq(100),
-                predicate::eq(0),
             )
             .times(1)
-            .returning(move |_, _, _, _| {
+            .returning(move |_, _| {
                 Ok(vec![
                     wildcard_query_result(100, "wA=="),
                     wildcard_query_result(105, "wA=="),

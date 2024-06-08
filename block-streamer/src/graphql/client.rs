@@ -3,6 +3,7 @@ use graphql_client::{GraphQLQuery, Response};
 
 // TODO: Use Dataplatform account
 const HASURA_ACCOUNT: &str = "darunrs_near";
+const QUERY_LIMIT: i64 = 1000;
 
 #[allow(clippy::upper_case_acronyms)]
 type Date = String;
@@ -64,40 +65,66 @@ impl GraphQLClientImpl {
         &self,
         receiver_ids: Vec<String>,
         block_date: String,
-        limit: i64,
-        offset: i64,
     ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>>
     {
-        self.post_graphql::<GetBitmapsExact>(get_bitmaps_exact::Variables {
-            receiver_ids: Some(receiver_ids),
-            block_date: Some(block_date),
-            limit: Some(limit),
-            offset: Some(offset),
-        })
-        .await?
-        .data
-        .ok_or(anyhow::anyhow!("No bitmaps were returned"))
-        .map(|data| data.darunrs_near_bitmap_v5_actions_index)
+        let mut all_query_results: Vec<
+            get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
+        > = vec![];
+        let mut offset = 0;
+        let mut has_more = true;
+        while has_more {
+            let mut query_result = self
+                .post_graphql::<GetBitmapsExact>(get_bitmaps_exact::Variables {
+                    receiver_ids: Some(receiver_ids.clone()),
+                    block_date: Some(block_date.clone()),
+                    limit: Some(QUERY_LIMIT),
+                    offset: Some(offset),
+                })
+                .await?
+                .data
+                .ok_or(anyhow::anyhow!("No bitmaps were returned"))
+                .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
+
+            has_more = query_result.len() >= QUERY_LIMIT as usize;
+            offset += QUERY_LIMIT;
+
+            all_query_results.append(&mut query_result);
+        }
+
+        Ok(all_query_results)
     }
 
     pub async fn get_bitmaps_wildcard(
         &self,
         receiver_ids: String,
         block_date: String,
-        limit: i64,
-        offset: i64,
     ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>>
     {
-        self.post_graphql::<GetBitmapsWildcard>(get_bitmaps_wildcard::Variables {
-            receiver_ids: Some(receiver_ids),
-            block_date: Some(block_date),
-            limit: Some(limit),
-            offset: Some(offset),
-        })
-        .await?
-        .data
-        .ok_or(anyhow::anyhow!("No bitmaps were returned"))
-        .map(|data| data.darunrs_near_bitmap_v5_actions_index)
+        let mut all_query_results: Vec<
+            get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+        > = vec![];
+        let mut offset = 0;
+        let mut has_more = true;
+        while has_more {
+            let mut query_result = self
+                .post_graphql::<GetBitmapsWildcard>(get_bitmaps_wildcard::Variables {
+                    receiver_ids: Some(receiver_ids.clone()),
+                    block_date: Some(block_date.clone()),
+                    limit: Some(QUERY_LIMIT),
+                    offset: Some(offset),
+                })
+                .await?
+                .data
+                .ok_or(anyhow::anyhow!("No bitmaps were returned"))
+                .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
+
+            has_more = query_result.len() >= QUERY_LIMIT as usize;
+            offset += QUERY_LIMIT;
+
+            all_query_results.append(&mut query_result);
+        }
+
+        Ok(all_query_results)
     }
 }
 
@@ -114,10 +141,8 @@ mod tests {
         let client = GraphQLClientImpl::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = vec!["app.nearcrowd.near".to_string()];
         let block_date = "2024-03-21".to_string();
-        let limit = 10;
-        let offset = 0;
         let response = client
-            .get_bitmaps_exact(receiver_ids, block_date, limit, offset)
+            .get_bitmaps_exact(receiver_ids, block_date)
             .await
             .unwrap();
         assert_eq!(response[0].first_block_height, 115130287);
@@ -130,10 +155,8 @@ mod tests {
         let client = GraphQLClientImpl::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = "app.nearcrowd.near".to_string();
         let block_date = "2024-03-21".to_string();
-        let limit = 10;
-        let offset = 0;
         let response = client
-            .get_bitmaps_wildcard(receiver_ids, block_date, limit, offset)
+            .get_bitmaps_wildcard(receiver_ids, block_date)
             .await
             .unwrap();
         assert_eq!(response[0].first_block_height, 115130287);
