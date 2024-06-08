@@ -82,7 +82,9 @@ impl GraphQLClientImpl {
                 })
                 .await?
                 .data
-                .ok_or(anyhow::anyhow!("No bitmaps were returned"))
+                .ok_or(anyhow::anyhow!(
+                    "Query response is malformed. Missing data field."
+                ))
                 .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
 
             has_more = query_result.len() >= QUERY_LIMIT as usize;
@@ -115,7 +117,9 @@ impl GraphQLClientImpl {
                 })
                 .await?
                 .data
-                .ok_or(anyhow::anyhow!("No bitmaps were returned"))
+                .ok_or(anyhow::anyhow!(
+                    "Query response is malformed. Missing data field."
+                ))
                 .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
 
             has_more = query_result.len() >= QUERY_LIMIT as usize;
