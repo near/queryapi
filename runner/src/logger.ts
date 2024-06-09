@@ -23,17 +23,16 @@ const logger = winston.createLogger({
   transports: [new LogCounter()],
 });
 
-if (process.env.NODE_ENV !== 'test') {
-  if (process.env.GCP_LOGGING_ENABLED) {
-    logger.add(new LoggingWinston({ redirectToStdout: true }));
-  } else {
-    logger.add(new transports.Console({
-      format: format.combine(
-        format.colorize(),
-        format.simple(),
-      ),
-    }));
-  }
+if (process.env.GCP_LOGGING_ENABLED) {
+  logger.add(new LoggingWinston({ redirectToStdout: true }));
+} else {
+  logger.add(new transports.Console({
+    format: format.combine(
+      format.colorize(),
+      format.simple(),
+    ),
+    silent: process.env.NODE_ENV === 'test'
+  }));
 }
 
 export default logger;
