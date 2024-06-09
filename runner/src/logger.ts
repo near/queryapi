@@ -31,6 +31,7 @@ if (process.env.GCP_LOGGING_ENABLED) {
       format.colorize(),
       format.simple(),
     ),
+    silent: process.env.NODE_ENV === 'test'
   }));
 }
 
