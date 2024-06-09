@@ -9,7 +9,7 @@ use crate::{
     indexer_config::IndexerConfig,
     indexer_state::{IndexerState, IndexerStateManager},
     redis::RedisClient,
-    registry::{IndexerRegistry, Registry},
+    registry::Registry,
 };
 
 pub struct Synchroniser<'a> {
@@ -69,8 +69,21 @@ impl<'a> Synchroniser<'a> {
     async fn sync_existing_executor(
         &self,
         config: &IndexerConfig,
+        state: &IndexerState,
         executor: Option<&ExecutorInfo>,
     ) -> anyhow::Result<()> {
+        if !state.enabled {
+            if let Some(executor) = executor {
+                tracing::info!("Stopping disabled executor");
+
+                self.executors_handler
+                    .stop(executor.executor_id.clone())
+                    .await?;
+            }
+
+            return Ok(());
+        }
+
         if let Some(executor) = executor {
             if executor.version == config.get_registry_version() {
                 return Ok(());
@@ -135,6 +148,18 @@ impl<'a> Synchroniser<'a> {
         state: &IndexerState,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
+        if !state.enabled {
+            if let Some(block_stream) = block_stream {
+                tracing::info!("Stopping disabled block stream");
+
+                self.block_streams_handler
+                    .stop(block_stream.stream_id.clone())
+                    .await?;
+            }
+
+            return Ok(());
+        }
+
         if let Some(block_stream) = block_stream {
             if block_stream.version == config.get_registry_version() {
                 return Ok(());
@@ -179,7 +204,7 @@ impl<'a> Synchroniser<'a> {
         executor: Option<&ExecutorInfo>,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
-        if let Err(error) = self.sync_existing_executor(config, executor).await {
+        if let Err(error) = self.sync_existing_executor(config, state, executor).await {
             tracing::error!(?error, "Failed to sync executor");
             return Ok(());
         }
@@ -192,8 +217,10 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        // TODO handle failures
-        self.state_manager.set_synced(config).await?;
+        if state.enabled {
+            // TODO handle failures
+            self.state_manager.set_synced(config).await?;
+        }
 
         Ok(())
     }
@@ -221,7 +248,6 @@ impl<'a> Synchroniser<'a> {
 
                 self.sync_existing_indexer(&config, &state, executor, block_stream)
                     .await?;
-                // handle_existing()
             } else {
                 // handle_deleted()
             }
@@ -242,6 +268,8 @@ mod test {
 
     use mockall::predicate::*;
     use std::collections::HashMap;
+
+    use crate::registry::IndexerRegistry;
 
     mod new {
         use super::*;
@@ -789,82 +817,72 @@ mod test {
                 .unwrap();
         }
 
-        //#[tokio::test]
-        //async fn handles_synchronisation_failures() {
-        //    let config = IndexerConfig::default();
-        //    let state = IndexerState {
-        //        account_id: config.account_id.clone(),
-        //        function_name: config.function_name.clone(),
-        //        block_stream_synced_at: Some(config.get_registry_version()),
-        //        enabled: true,
-        //    };
-        //
-        //    let mut executors_handler = ExecutorsHandler::default();
-        //    executors_handler
-        //        .expect_stop()
-        //        .with(always())
-        //        .returning(|_| anyhow::bail!(""))
-        //        .once();
-        //    executors_handler
-        //        .expect_stop()
-        //        .with(always())
-        //        .returning(|_| Ok(()));
-        //    executors_handler
-        //        .expect_start()
-        //        .with(eq(config.clone()))
-        //        .returning(|_| anyhow::bail!(""))
-        //        .once();
-        //    executors_handler
-        //        .expect_start()
-        //        .with(eq(config.clone()))
-        //        .returning(|_| Ok(()));
-        //
-        //    let mut block_streams_handler = BlockStreamsHandler::default();
-        //    block_streams_handler
-        //        .expect_start()
-        //        .with(eq(100), eq(config.clone()))
-        //        .returning(|_, _| anyhow::bail!(""))
-        //        .once();
-        //    block_streams_handler
-        //        .expect_start()
-        //        .with(eq(100), eq(config.clone()))
-        //        .returning(|_, _| Ok(()))
-        //        .once();
-        //
-        //    let mut state_manager = IndexerStateManager::default();
-        //    state_manager
-        //        .expect_set_synced()
-        //        .with(eq(config.clone()))
-        //        .returning(|_| Ok(()))
-        //        .once();
-        //
-        //    let redis_client = RedisClient::default();
-        //    let registry = Registry::default();
-        //
-        //    let synchroniser = Synchroniser::new(
-        //        &block_streams_handler,
-        //        &executors_handler,
-        //        &registry,
-        //        &state_manager,
-        //        &redis_client,
-        //    );
-        //
-        //    synchroniser
-        //        .sync_existing_indexer(&config, &state)
-        //        .await
-        //        .unwrap(); // fail
-        //    synchroniser
-        //        .sync_existing_indexer(&config, &state)
-        //        .await
-        //        .unwrap(); // fail
-        //    synchroniser
-        //        .sync_existing_indexer(&config, &state)
-        //        .await
-        //        .unwrap(); // success
-        //}
-
         #[tokio::test]
-        async fn stops_disabled_indexers() {}
+        async fn stops_disabled_indexers() {
+            let config = IndexerConfig::default();
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: false,
+            };
+            let executor = ExecutorInfo {
+                executor_id: "executor_id".to_string(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                version: config.get_registry_version(),
+                status: "running".to_string(),
+            };
+            let block_stream = StreamInfo {
+                stream_id: "stream_id".to_string(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                version: config.get_registry_version(),
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_stop()
+                .with(eq("stream_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler
+                .expect_stop()
+                .with(eq("executor_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_set_synced()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .never();
+
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_existing_indexer(&config, &state, Some(&executor), Some(&block_stream))
+                .await
+                .unwrap();
+            // Simulate second run, start/stop etc should not be called
+            synchroniser
+                .sync_existing_indexer(&config, &state, None, None)
+                .await
+                .unwrap();
+        }
+
         #[tokio::test]
         async fn ignores_disabled_indexers() {}
         #[tokio::test]

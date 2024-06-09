@@ -95,6 +95,7 @@ impl IndexerStateManagerImpl {
         indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
 
         self.set_state(indexer_config, indexer_state).await?;
+
         Ok(())
     }
 
