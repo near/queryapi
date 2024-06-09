@@ -3,7 +3,7 @@ import { type ServerUnaryCall, type sendUnaryData, status, StatusBuilder } from 
 import Provisioner from '../../../provisioner';
 import { ProvisioningConfig } from '../../../indexer-config/indexer-config';
 
-import { type CheckProvisioningStatusRequest__Output } from '../../../generated/data_layer/CheckProvisioningStatusRequest';
+import { type CheckProvisioningTaskStatusRequest__Output } from '../../../generated/data_layer/CheckProvisioningTaskStatusRequest';
 import { type DataLayerHandlers } from '../../../generated/data_layer/DataLayer';
 import { type ProvisionRequest__Output } from '../../../generated/data_layer/ProvisionRequest';
 import { type ProvisionResponse } from '../../../generated/data_layer/ProvisionResponse';
@@ -39,7 +39,7 @@ export function createDataLayerService (
   tasks: ProvisioningTasks = {}
 ): DataLayerHandlers {
   return {
-    CheckProvisioningStatus (call: ServerUnaryCall<CheckProvisioningStatusRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
+    CheckProvisioningTaskStatus (call: ServerUnaryCall<CheckProvisioningTaskStatusRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
       const { accountId, functionName } = call.request;
 
       const task = tasks[generateTaskId(accountId, functionName)];

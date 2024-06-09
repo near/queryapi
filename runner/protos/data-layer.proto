@@ -7,7 +7,7 @@ service DataLayer {
     rpc Provision (ProvisionRequest) returns (ProvisionResponse);
 
     // Checks the provisioning status
-    rpc CheckProvisioningStatus (CheckProvisioningStatusRequest) returns (ProvisionResponse);
+    rpc CheckProvisioningTaskStatus (CheckProvisioningTaskStatusRequest) returns (ProvisionResponse);
 }
 
 message ProvisionRequest {
@@ -16,7 +16,7 @@ message ProvisionRequest {
     string schema = 3;
 }
 
-message CheckProvisioningStatusRequest {
+message CheckProvisioningTaskStatusRequest {
     string account_id = 1;
     string function_name = 2;
 }

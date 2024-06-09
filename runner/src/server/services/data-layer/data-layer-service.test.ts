@@ -5,7 +5,7 @@ import { ProvisioningStatus } from '../../../generated/data_layer/ProvisioningSt
 import type Provisioner from '../../../provisioner';
 
 describe('DataLayerService', () => {
-  describe('CheckProvisioningStatus', () => {
+  describe('CheckProvisioningTaskStatus', () => {
     it('should return NOT_FOUND if the task does not exist', (done) => {
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction' }
@@ -17,7 +17,7 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService().CheckProvisioningStatus(call, callback);
+      createDataLayerService().CheckProvisioningTaskStatus(call, callback);
     });
 
     it('should return PENDING if the task is pending', (done) => {
@@ -32,7 +32,7 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService(undefined, tasks).CheckProvisioningStatus(call, callback);
+      createDataLayerService(undefined, tasks).CheckProvisioningTaskStatus(call, callback);
     });
 
     it('should return COMPLETE if the task is completed', (done) => {
@@ -47,7 +47,7 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService(undefined, tasks).CheckProvisioningStatus(call, callback);
+      createDataLayerService(undefined, tasks).CheckProvisioningTaskStatus(call, callback);
     });
 
     it('should return FAILED if the task has failed', (done) => {
@@ -62,7 +62,7 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService(undefined, tasks).CheckProvisioningStatus(call, callback);
+      createDataLayerService(undefined, tasks).CheckProvisioningTaskStatus(call, callback);
     });
   });
 
