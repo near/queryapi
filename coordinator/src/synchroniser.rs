@@ -2,6 +2,7 @@
 use block_streamer::StreamInfo;
 use registry_types::StartBlock;
 use runner::ExecutorInfo;
+use tracing::instrument;
 
 use crate::{
     block_streams::BlockStreamsHandler,
@@ -50,6 +51,14 @@ impl<'a> Synchroniser<'a> {
         }
     }
 
+    #[instrument(
+        skip_all,
+        fields(
+            account_id = config.account_id.to_string(),
+            function_name = config.function_name,
+            version = config.get_registry_version()
+        )
+    )]
     async fn sync_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         if let Err(err) = self.executors_handler.start(config).await {
             tracing::error!(?err, "Failed to start Executor");
@@ -83,18 +92,6 @@ impl<'a> Synchroniser<'a> {
         state: &IndexerState,
         executor: Option<&ExecutorInfo>,
     ) -> anyhow::Result<()> {
-        if !state.enabled {
-            if let Some(executor) = executor {
-                tracing::info!("Stopping disabled executor");
-
-                self.executors_handler
-                    .stop(executor.executor_id.clone())
-                    .await?;
-            }
-
-            return Ok(());
-        }
-
         if let Some(executor) = executor {
             if executor.version == config.get_registry_version() {
                 return Ok(());
@@ -159,18 +156,6 @@ impl<'a> Synchroniser<'a> {
         state: &IndexerState,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
-        if !state.enabled {
-            if let Some(block_stream) = block_stream {
-                tracing::info!("Stopping disabled block stream");
-
-                self.block_streams_handler
-                    .stop(block_stream.stream_id.clone())
-                    .await?;
-            }
-
-            return Ok(());
-        }
-
         if let Some(block_stream) = block_stream {
             if block_stream.version == config.get_registry_version() {
                 return Ok(());
@@ -207,14 +192,37 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
+    #[instrument(
+        skip_all,
+        fields(
+            account_id = config.account_id.to_string(),
+            function_name = config.function_name,
+            version = config.get_registry_version()
+        )
+    )]
     async fn sync_existing_indexer(
         &self,
         config: &IndexerConfig,
-        // TODO handle disabled indexers
         state: &IndexerState,
         executor: Option<&ExecutorInfo>,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
+        if !state.enabled {
+            if let Some(executor) = executor {
+                self.executors_handler
+                    .stop(executor.executor_id.clone())
+                    .await?;
+            }
+
+            if let Some(block_stream) = block_stream {
+                self.block_streams_handler
+                    .stop(block_stream.stream_id.clone())
+                    .await?;
+            }
+
+            return Ok(());
+        }
+
         if let Err(error) = self.sync_existing_executor(config, state, executor).await {
             tracing::error!(?error, "Failed to sync executor");
             return Ok(());
@@ -228,10 +236,8 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        if state.enabled {
-            // TODO handle failures
-            self.state_manager.set_synced(config).await?;
-        }
+        // TODO handle failures
+        self.state_manager.set_synced(config).await?;
 
         Ok(())
     }
