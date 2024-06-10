@@ -221,10 +221,14 @@ impl IndexerStateManagerImpl {
             .list_indexer_states()
             .await?
             .iter()
-            .try_fold(Vec::new(), |mut acc, state| {
-                acc.push(serde_json::from_str(state)?);
-                Ok(acc)
+            .try_fold(Vec::new(), |mut acc, raw_state| {
+                acc.push(
+                    serde_json::from_str(raw_state)
+                        .context(format!("failed to deserailize {raw_state}"))?,
+                );
+                anyhow::Ok(acc)
             })
+            .context("Failed to deserialize indexer states")
     }
 }
 

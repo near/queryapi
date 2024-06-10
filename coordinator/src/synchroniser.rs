@@ -13,6 +13,7 @@ use crate::{
 };
 
 #[allow(clippy::large_enum_variant)]
+#[derive(Debug)]
 pub enum SynchronisationState {
     New(IndexerConfig),
     Existing(

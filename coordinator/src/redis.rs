@@ -154,7 +154,23 @@ impl RedisClientImpl {
     }
 
     pub async fn list_indexer_states(&self) -> anyhow::Result<Vec<String>> {
-        self.smembers(Self::INDEXER_STATES_SET).await
+        let mut states = vec![];
+
+        for state_key in self.smembers(Self::INDEXER_STATES_SET).await? {
+            let state = self.get(state_key.clone()).await?;
+
+            if state.is_none() {
+                anyhow::bail!(
+                    "Key: {} from Set: {} set, does not exist",
+                    state_key,
+                    Self::INDEXER_STATES_SET
+                );
+            }
+
+            states.push(state.unwrap());
+        }
+
+        Ok(states)
     }
 }
 
