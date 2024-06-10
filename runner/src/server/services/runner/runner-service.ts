@@ -1,19 +1,23 @@
 import { type ServerUnaryCall, type sendUnaryData } from '@grpc/grpc-js';
 import * as grpc from '@grpc/grpc-js';
 
-import { type RunnerHandlers } from '../generated/runner/Runner';
-import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../generated/runner/StartExecutorResponse';
-import { type StartExecutorRequest__Output } from '../generated/runner/StartExecutorRequest';
-import { type StopExecutorRequest__Output } from '../generated/runner/StopExecutorRequest';
-import { type StopExecutorResponse__Output, type StopExecutorResponse } from '../generated/runner/StopExecutorResponse';
-import { type ListExecutorsRequest__Output } from '../generated/runner/ListExecutorsRequest';
-import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../generated/runner/ListExecutorsResponse';
-import { type ExecutorInfo__Output } from '../generated/runner/ExecutorInfo';
-import StreamHandler from '../stream-handler';
-import IndexerConfig from '../indexer-config';
-import parentLogger from '../logger';
+import StreamHandler from '../../../stream-handler';
+import IndexerConfig from '../../../indexer-config';
+import parentLogger from '../../../logger';
 
-function getRunnerService (executors: Map<string, StreamHandler>, StreamHandlerType: typeof StreamHandler = StreamHandler): RunnerHandlers {
+import { type RunnerHandlers } from '../../../generated/runner/Runner';
+import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../../../generated/runner/StartExecutorResponse';
+import { type StartExecutorRequest__Output } from '../../../generated/runner/StartExecutorRequest';
+import { type StopExecutorRequest__Output } from '../../../generated/runner/StopExecutorRequest';
+import { type StopExecutorResponse__Output, type StopExecutorResponse } from '../../../generated/runner/StopExecutorResponse';
+import { type ListExecutorsRequest__Output } from '../../../generated/runner/ListExecutorsRequest';
+import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../../../generated/runner/ListExecutorsResponse';
+import { type ExecutorInfo__Output } from '../../../generated/runner/ExecutorInfo';
+
+export function getRunnerService (
+  executors: Map<string, StreamHandler> = new Map<string, StreamHandler>(),
+  StreamHandlerType: typeof StreamHandler = StreamHandler
+): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
       // Validate request
