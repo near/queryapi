@@ -12,6 +12,17 @@ use crate::{
     registry::Registry,
 };
 
+pub enum SynchronisationState {
+    New(IndexerConfig),
+    Existing(
+        IndexerConfig,
+        IndexerState,
+        Option<ExecutorInfo>,
+        Option<StreamInfo>,
+    ),
+    Deleted(IndexerState, Option<ExecutorInfo>, Option<StreamInfo>),
+}
+
 pub struct Synchroniser<'a> {
     block_streams_handler: &'a BlockStreamsHandler,
     executors_handler: &'a ExecutorsHandler,
@@ -225,37 +236,65 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
-    pub async fn sync(&self) -> anyhow::Result<()> {
+    async fn generate_synchronisation_states(&self) -> anyhow::Result<Vec<SynchronisationState>> {
         let states = self.state_manager.list().await?;
         let mut registry = self.registry.fetch().await?;
-        // TODO get instead of list?
-        let executors = self.executors_handler.list().await?;
-        let block_streams = self.block_streams_handler.list().await?;
+        let mut executors_iter = self.executors_handler.list().await?.into_iter();
+        let mut block_streams_iter = self.block_streams_handler.list().await?.into_iter();
+
+        let mut contexts = vec![];
 
         for state in states {
-            let config = registry
-                .get(&state.account_id, &state.function_name)
-                .cloned();
-            let executor = executors.iter().find(|e| {
-                e.account_id == state.account_id && e.function_name == state.function_name
+            let config = registry.remove(&state.account_id, &state.function_name);
+            let executor = executors_iter.find(|executor| {
+                executor.account_id == state.account_id
+                    && executor.function_name == state.function_name
             });
-            let block_stream = block_streams.iter().find(|b| {
-                b.account_id == state.account_id && b.function_name == state.function_name
+            let block_stream = block_streams_iter.find(|block_stream| {
+                block_stream.account_id == state.account_id
+                    && block_stream.function_name == state.function_name
             });
 
             if let Some(config) = config {
-                registry.remove(&state.account_id, &state.function_name);
-
-                self.sync_existing_indexer(&config, &state, executor, block_stream)
-                    .await?;
+                contexts.push(SynchronisationState::Existing(
+                    config,
+                    state,
+                    executor,
+                    block_stream,
+                ))
             } else {
-                // handle_deleted()
+                contexts.push(SynchronisationState::Deleted(state, executor, block_stream))
             }
         }
 
         for config in registry.iter() {
-            // shouldn't be any executor/block_stream
-            self.sync_new_indexer(config).await?;
+            contexts.push(SynchronisationState::New(config.clone()));
+        }
+
+        Ok(contexts)
+    }
+
+    pub async fn sync(&self) -> anyhow::Result<()> {
+        let sync_states = self.generate_synchronisation_states().await?;
+
+        for sync_state in sync_states {
+            match sync_state {
+                SynchronisationState::New(config) => {
+                    self.sync_new_indexer(&config).await?;
+                }
+                SynchronisationState::Existing(config, state, executor, block_stream) => {
+                    self.sync_existing_indexer(
+                        &config,
+                        &state,
+                        executor.as_ref(),
+                        block_stream.as_ref(),
+                    )
+                    .await?;
+                }
+                SynchronisationState::Deleted(..) => {
+                    // handle deleted
+                }
+            }
         }
 
         Ok(())
