@@ -3,7 +3,7 @@ import { useQuery, gql } from "@apollo/client";
 import { Button, Navbar, Container, ButtonGroup, Spinner } from "react-bootstrap";
 import { ArrowCounterclockwise, Code } from "react-bootstrap-icons";
 import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
-import { calculateBlockTimeDifference } from "@/utils/calculateBlockTimeDifference";
+import LatestBlock from "../Common/LatestBlock"
 
 interface LogsMenuProps {
   currentUserAccountId: string;
@@ -99,7 +99,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
           {!loading && blockHeight && latestHeight && (
             <div className="bg-gray-100 border border-gray-300 rounded p-1 text-xs text-gray-700">
               <span className="text-secondary">
-                Indexer is {Number(latestHeight) - Number(blockHeight)} blocks or {calculateBlockTimeDifference(Number(latestHeight), Number(blockHeight))} behind the blockchain tip.
+                <LatestBlock indexerBlockHeight={Number(blockHeight)} />
               </span>
             </div>
           )}
