@@ -112,11 +112,18 @@ impl<'a> Synchroniser<'a> {
     }
 
     async fn get_continuation_block_height(&self, config: &IndexerConfig) -> anyhow::Result<u64> {
-        self.redis_client
+        let height = self
+            .redis_client
             .get_last_published_block(config)
             .await?
             .map(|height| height + 1)
-            .ok_or(anyhow::anyhow!("Indexer has no `last_published_block`"))
+            .unwrap_or_else(|| {
+                tracing::warn!("Failed to get continuation block height, using registry version");
+
+                config.get_registry_version()
+            });
+
+        Ok(height)
     }
 
     async fn reconfigure_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
