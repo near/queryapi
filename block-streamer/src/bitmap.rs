@@ -10,8 +10,8 @@ pub struct Base64Bitmap {
     pub base64: String,
 }
 
-impl Base64Bitmap {
-    pub fn from_exact_query(
+impl From<&get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex> for Base64Bitmap {
+    fn from(
         query_item: &get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
     ) -> Self {
         Self {
@@ -19,8 +19,12 @@ impl Base64Bitmap {
             start_block_height: usize::try_from(query_item.first_block_height).unwrap(),
         }
     }
+}
 
-    pub fn from_wildcard_query(
+impl From<&get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>
+    for Base64Bitmap
+{
+    fn from(
         query_item: &get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
     ) -> Self {
         Self {

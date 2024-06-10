@@ -145,15 +145,13 @@ impl BlockHeightStreamImpl {
                 let bitmaps_from_query: Vec<Base64Bitmap> = match contract_pattern_type {
                     ContractPatternType::Exact(ref pattern) => {
                         let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), current_date_string.clone()).await.unwrap();
-                        query_result.iter().map(|result_item| Base64Bitmap::from_exact_query(result_item)).collect()
+                        query_result.iter().map(|result_item| Base64Bitmap::from(result_item)).collect()
                     },
                     ContractPatternType::Wildcard(ref pattern) => {
                         let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), current_date_string.clone()).await.unwrap();
-                        query_result.iter().map(|result_item| Base64Bitmap::from_wildcard_query(result_item)).collect()
-
+                        query_result.iter().map(|result_item| Base64Bitmap::from(result_item)).collect()
                     },
                 };
-                println!("date: {}, num of matched receivers: {}", &current_date_string, bitmaps_from_query.len());
                 if !bitmaps_from_query.is_empty() {
                     let starting_block_height = bitmaps_from_query.iter().map(|item| item.start_block_height).min().unwrap();
                     let bitmap_for_day = self.bitmap_operator.merge_bitmaps(&bitmaps_from_query, starting_block_height).unwrap();
