@@ -61,6 +61,7 @@ const Status = styled.div`
 `;
 
 const Wrapper = styled.div`
+  margin-inline: 12px;
   margin-top: calc(var(--body-top-padding) * -1);
 `;
 
