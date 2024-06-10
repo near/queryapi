@@ -239,39 +239,43 @@ impl<'a> Synchroniser<'a> {
     async fn generate_synchronisation_states(&self) -> anyhow::Result<Vec<SynchronisationState>> {
         let states = self.state_manager.list().await?;
         let mut registry = self.registry.fetch().await?;
-        let mut executors_iter = self.executors_handler.list().await?.into_iter();
-        let mut block_streams_iter = self.block_streams_handler.list().await?.into_iter();
+        let executors = self.executors_handler.list().await?;
+        let block_streams = self.block_streams_handler.list().await?;
 
-        let mut contexts = vec![];
+        let mut sync_states = vec![];
 
         for state in states {
             let config = registry.remove(&state.account_id, &state.function_name);
-            let executor = executors_iter.find(|executor| {
+            let executor = executors.iter().find(|executor| {
                 executor.account_id == state.account_id
                     && executor.function_name == state.function_name
             });
-            let block_stream = block_streams_iter.find(|block_stream| {
+            let block_stream = block_streams.iter().find(|block_stream| {
                 block_stream.account_id == state.account_id
                     && block_stream.function_name == state.function_name
             });
 
             if let Some(config) = config {
-                contexts.push(SynchronisationState::Existing(
+                sync_states.push(SynchronisationState::Existing(
                     config,
                     state,
-                    executor,
-                    block_stream,
+                    executor.cloned(),
+                    block_stream.cloned(),
                 ))
             } else {
-                contexts.push(SynchronisationState::Deleted(state, executor, block_stream))
+                sync_states.push(SynchronisationState::Deleted(
+                    state,
+                    executor.cloned(),
+                    block_stream.cloned(),
+                ))
             }
         }
 
         for config in registry.iter() {
-            contexts.push(SynchronisationState::New(config.clone()));
+            sync_states.push(SynchronisationState::New(config.clone()));
         }
 
-        Ok(contexts)
+        Ok(sync_states)
     }
 
     pub async fn sync(&self) -> anyhow::Result<()> {
