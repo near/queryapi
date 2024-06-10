@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowCounterclockwise, Justify, Code } from "react-bootstrap-icons";
 import BlockPickerContainer from "../EditorViewContainer/BlockPickerContainer";
-import CustomTooltip, { TooltipDirection } from "../../Common/CustomTooltip";
+import CustomTooltip, { TooltipDirection } from "@/components/Common/CustomTooltip";
 
 const DeveloperToolsView = ({
     handleFormating,

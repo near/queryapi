@@ -1,5 +1,5 @@
 import React, { useContext } from "react";
-import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
 export function FileSwitcher({
   fileName,

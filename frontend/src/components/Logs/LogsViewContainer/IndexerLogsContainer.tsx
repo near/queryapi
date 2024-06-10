@@ -1,7 +1,7 @@
 import React, { useContext, useState, useEffect, useRef } from "react";
 import { useInitialPayload } from "near-social-bridge";
-import { sanitizeString } from "../../../utils/helpers";
-import { IndexerDetailsContext } from "../../../contexts/IndexerDetailsContext";
+import { sanitizeString } from "@/utils/helpers";
+import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
 import IndexerLogsView from "../LogsView/IndexerLogsView";
 import { Grid } from "gridjs";
 

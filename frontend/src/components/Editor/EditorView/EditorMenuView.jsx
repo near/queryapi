@@ -1,7 +1,7 @@
 import React from "react";
 import { Navbar, Container, InputGroup, Form, ButtonGroup, Button } from 'react-bootstrap';
-import { Braces, ArrowCounterclockwise, FileText, TrashFill, NodePlus } from 'react-bootstrap-icons';
-import CustomTooltip, { TooltipDirection } from "../../Common/CustomTooltip";
+import { Braces, ArrowCounterclockwise, FileText, TrashFill } from 'react-bootstrap-icons';
+import CustomTooltip, { TooltipDirection } from "@/components/Common/CustomTooltip";
 
 const EditorMenuView = ({
   indexerName,

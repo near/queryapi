@@ -2,8 +2,8 @@ import React, { useState, useEffect, useContext } from "react";
 import { useQuery, gql } from "@apollo/client";
 import { Button, Navbar, Container, ButtonGroup, Spinner } from "react-bootstrap";
 import { ArrowCounterclockwise, Code } from "react-bootstrap-icons";
-import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
-import { calculateBlockTimeDifference } from "../../utils/calculateBlockTimeDifference";
+import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
+import { calculateBlockTimeDifference } from "@/utils/calculateBlockTimeDifference";
 
 interface LogsMenuProps {
   currentUserAccountId: string;
