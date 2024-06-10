@@ -1,5 +1,6 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use anyhow::Context;
 use near_primitives::types::AccountId;
 use std::cmp::Ordering;
 use std::str::FromStr;
@@ -13,6 +14,12 @@ pub enum SyncStatus {
     Synced,
     Outdated,
     New,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct OldIndexerState {
+    pub block_stream_synced_at: Option<u64>,
+    pub enabled: bool,
 }
 
 // NOTE We'll need to add more fields here - is there a way to gracefully handle non-existant
@@ -51,11 +58,48 @@ pub struct IndexerStateManagerImpl {
     redis_client: RedisClient,
 }
 
-// NOTE we probably need a "list" method, which means storing all state ids in a Redis set
 #[cfg_attr(test, mockall::automock)]
 impl IndexerStateManagerImpl {
     pub fn new(redis_client: RedisClient) -> Self {
         Self { redis_client }
+    }
+
+    pub async fn migrate(&self, registry: &IndexerRegistry) -> anyhow::Result<()> {
+        if self.redis_client.indexer_states_set_exists().await? {
+            return Ok(());
+        }
+
+        tracing::info!("Migrating indexer state");
+
+        for config in registry.iter() {
+            let raw_state = self.redis_client.get_indexer_state(config).await?;
+
+            let state = if let Some(raw_state) = raw_state {
+                let old_state: OldIndexerState =
+                    serde_json::from_str(&raw_state).context(format!(
+                        "Failed to deserialize OldIndexerState for {}",
+                        config.get_full_name()
+                    ))?;
+
+                IndexerState {
+                    account_id: config.account_id.clone(),
+                    function_name: config.function_name.clone(),
+                    block_stream_synced_at: old_state.block_stream_synced_at,
+                    enabled: old_state.enabled,
+                }
+            } else {
+                self.get_default_state(config)
+            };
+
+            self.set_state(config, state).await.context(format!(
+                "Failed to set state for {}",
+                config.get_full_name()
+            ))?;
+        }
+
+        tracing::info!("Migration complete");
+
+        Ok(())
     }
 
     fn get_default_state(&self, indexer_config: &IndexerConfig) -> IndexerState {
@@ -185,6 +229,72 @@ mod tests {
 
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn migrate() {
+        let config1 = IndexerConfig::default();
+        let config2 = IndexerConfig {
+            account_id: "darunrs.near".parse().unwrap(),
+            function_name: "test".to_string(),
+            ..Default::default()
+        };
+
+        let registry = IndexerRegistry::from(&[
+            (
+                "morgs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), config1.clone())]),
+            ),
+            (
+                "darunrs.near".parse().unwrap(),
+                HashMap::from([("test".to_string(), config2.clone())]),
+            ),
+        ]);
+
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_indexer_states_set_exists()
+            .returning(|| Ok(false))
+            .once();
+        mock_redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(config1.clone()))
+            .returning(|_| {
+                Ok(Some(
+                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": false })
+                        .to_string(),
+                ))
+            })
+            .once();
+        mock_redis_client
+            .expect_get_indexer_state()
+            .with(predicate::eq(config2.clone()))
+            .returning(|_| Ok(None))
+            .once();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(config1),
+                predicate::eq(
+                    "{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":200,\"enabled\":false}".to_string(),
+                ),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        mock_redis_client
+            .expect_set_indexer_state()
+            .with(
+                predicate::eq(config2),
+                predicate::eq(
+                    "{\"account_id\":\"darunrs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":null,\"enabled\":true}".to_string()
+                ),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+
+        indexer_manager.migrate(&registry).await.unwrap();
+    }
 
     #[tokio::test]
     async fn filters_disabled_indexers() {

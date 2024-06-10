@@ -18,6 +18,8 @@ pub struct RedisClientImpl {
 }
 
 impl RedisClientImpl {
+    const INDEXER_STATES_SET: &'static str = "indexer_states";
+
     pub async fn connect(redis_url: &str) -> anyhow::Result<Self> {
         let connection = redis::Client::open(redis_url)?
             .get_connection_manager()
@@ -73,6 +75,38 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    pub async fn sadd<S, V>(&self, set: S, value: V) -> anyhow::Result<()>
+    where
+        S: ToRedisArgs + Debug + Send + Sync + 'static,
+        V: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("SADD {set:?} {value:?}");
+
+        redis::cmd("SADD")
+            .arg(&set)
+            .arg(&value)
+            .query_async(&mut self.connection.clone())
+            .await
+            .context(format!("SADD {set:?} {value:?}"))
+    }
+
+    pub async fn exists<K>(&self, key: K) -> anyhow::Result<bool>
+    where
+        K: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("EXISTS {key:?}");
+
+        redis::cmd("EXISTS")
+            .arg(&key)
+            .query_async(&mut self.connection.clone())
+            .await
+            .context(format!("EXISTS {key:?}"))
+    }
+
+    pub async fn indexer_states_set_exists(&self) -> anyhow::Result<bool> {
+        self.exists(Self::INDEXER_STATES_SET).await
+    }
+
     pub async fn get_last_published_block(
         &self,
         indexer_config: &IndexerConfig,
@@ -100,7 +134,10 @@ impl RedisClientImpl {
         indexer_config: &IndexerConfig,
         state: String,
     ) -> anyhow::Result<()> {
-        self.set(indexer_config.get_state_key(), state).await
+        self.set(indexer_config.get_state_key(), state).await?;
+
+        self.sadd(Self::INDEXER_STATES_SET, indexer_config.get_state_key())
+            .await
     }
 }
 
@@ -132,6 +169,13 @@ mockall::mock! {
         pub async fn set<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
         where
             K: ToRedisArgs + Debug + Send + Sync + 'static,
+            V: ToRedisArgs + Debug + Send + Sync + 'static;
+
+        pub async fn indexer_states_set_exists(&self) -> anyhow::Result<bool>;
+
+        pub async fn sadd<S, V>(&self, set: S, value: V) -> anyhow::Result<()>
+        where
+            S: ToRedisArgs + Debug + Send + Sync + 'static,
             V: ToRedisArgs + Debug + Send + Sync + 'static;
     }
 

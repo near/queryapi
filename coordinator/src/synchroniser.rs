@@ -12,6 +12,7 @@ use crate::{
     registry::Registry,
 };
 
+#[allow(clippy::large_enum_variant)]
 pub enum SynchronisationState {
     New(IndexerConfig),
     Existing(
@@ -32,7 +33,6 @@ pub struct Synchroniser<'a> {
 }
 
 impl<'a> Synchroniser<'a> {
-    // TODO use builder?
     pub fn new(
         block_streams_handler: &'a BlockStreamsHandler,
         executors_handler: &'a ExecutorsHandler,
@@ -71,7 +71,6 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        // TODO handle failures
         self.state_manager.set_synced(config).await?;
 
         Ok(())
@@ -921,10 +920,5 @@ mod test {
                 .await
                 .unwrap();
         }
-
-        #[tokio::test]
-        async fn ignores_disabled_indexers() {}
-        #[tokio::test]
-        async fn flushes_state_after_synchronisation() {}
     }
 }

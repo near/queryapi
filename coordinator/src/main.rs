@@ -78,9 +78,7 @@ async fn main() -> anyhow::Result<()> {
         // This will also allow us to determine when an Indexer has been deleted, rather than
         // implicitly relying on the existance of executors/block_streams. This is going to be
         // important for deprovisioning.
-        let indexer_registry = indexer_state_manager
-            .filter_disabled_indexers(&indexer_registry)
-            .await?;
+        indexer_state_manager.migrate(&indexer_registry).await?;
 
         tokio::try_join!(
             // NOTE this may need to be regactored in to a combined "synchronise" function.
