@@ -1,9 +1,9 @@
 import React, { useEffect, useContext } from "react";
-import Editor from "../../components/Editor";
-import { withRouter } from 'next/router'
+import { withRouter } from 'next/router';
 import { Alert } from 'react-bootstrap';
-import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import IndexerLogsContainer from '../../components/Logs/LogsViewContainer/IndexerLogsContainer'
+import Editor from "@/components/Editor";
+import IndexerLogsContainer from '@/components/Logs/LogsViewContainer/IndexerLogsContainer';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
 const QueryApiEditorPage = ({ router }) => {
   const { accountId, indexerName } = router.query
