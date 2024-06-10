@@ -1,17 +1,17 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "near-social-bridge/near-social-bridge.css";
-import React from 'react';
-import { Spinner } from "near-social-bridge";
-import {
-  overrideLocalStorage,
-  NearSocialBridgeProvider,
-} from "near-social-bridge";
-import { ModalProvider } from '@/contexts/ModalContext';
-import { IndexerDetailsProvider } from '../contexts/IndexerDetailsContext';
-import 'regenerator-runtime/runtime';
-import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
-overrideLocalStorage();
 import "./global.css";
+import 'regenerator-runtime/runtime';
+
+import React from 'react';
+
+import { Spinner } from "near-social-bridge";
+import { overrideLocalStorage, NearSocialBridgeProvider } from "near-social-bridge";
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
+import { ModalProvider } from '@/contexts/ModalContext';
+import { IndexerDetailsProvider } from '@/contexts/IndexerDetailsContext';
+
+overrideLocalStorage();
 
 export default function App({ Component, pageProps }) {
 
