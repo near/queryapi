@@ -217,7 +217,14 @@ impl IndexerStateManagerImpl {
     }
 
     pub async fn list(&self) -> anyhow::Result<Vec<IndexerState>> {
-        todo!()
+        self.redis_client
+            .list_indexer_states()
+            .await?
+            .iter()
+            .try_fold(Vec::new(), |mut acc, state| {
+                acc.push(serde_json::from_str(state)?);
+                Ok(acc)
+            })
     }
 }
 
@@ -229,6 +236,24 @@ mod tests {
 
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn list_indexer_states() {
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_list_indexer_states()
+            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true }).to_string()]))
+            .once();
+        mock_redis_client
+            .expect_list_indexer_states()
+            .returning(|| Ok(vec![serde_json::json!({}).to_string()]))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+
+        assert_eq!(indexer_manager.list().await.unwrap().len(), 1);
+        assert!(indexer_manager.list().await.is_err());
+    }
 
     #[tokio::test]
     async fn migrate() {

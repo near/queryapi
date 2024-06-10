@@ -75,6 +75,19 @@ impl RedisClientImpl {
         Ok(())
     }
 
+    pub async fn smembers<S>(&self, set: S) -> anyhow::Result<Vec<String>>
+    where
+        S: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("SMEMBERS {set:?}");
+
+        redis::cmd("SMEMBERS")
+            .arg(&set)
+            .query_async(&mut self.connection.clone())
+            .await
+            .context(format!("SMEMBERS {set:?}"))
+    }
+
     pub async fn sadd<S, V>(&self, set: S, value: V) -> anyhow::Result<()>
     where
         S: ToRedisArgs + Debug + Send + Sync + 'static,
@@ -139,6 +152,10 @@ impl RedisClientImpl {
         self.sadd(Self::INDEXER_STATES_SET, indexer_config.get_state_key())
             .await
     }
+
+    pub async fn list_indexer_states(&self) -> anyhow::Result<Vec<String>> {
+        self.smembers(Self::INDEXER_STATES_SET).await
+    }
 }
 
 #[cfg(test)]
@@ -177,6 +194,8 @@ mockall::mock! {
         where
             S: ToRedisArgs + Debug + Send + Sync + 'static,
             V: ToRedisArgs + Debug + Send + Sync + 'static;
+
+        pub async fn list_indexer_states(&self) -> anyhow::Result<Vec<String>>;
     }
 
     impl Clone for RedisClientImpl {
