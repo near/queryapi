@@ -65,13 +65,10 @@ impl ExecutorsHandlerImpl {
             .clone()
             .start_executor(Request::new(request.clone()))
             .await
-            .map_err(|error| {
-                tracing::error!(
-                    account_id = indexer_config.account_id.as_str(),
-                    function_name = indexer_config.function_name,
-                    "Failed to start executor\n{error:?}"
-                );
-            });
+            .context(format!(
+                "Failed to start executor: {}",
+                indexer_config.get_full_name()
+            ))?;
 
         tracing::debug!(
             account_id = indexer_config.account_id.as_str(),
