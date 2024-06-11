@@ -1,10 +1,9 @@
-FROM node:16-alpine as dependencies
+FROM node:18-alpine as dependencies
 WORKDIR ./
-COPY package.json yarn.lock ./
+COPY package.json package-lock.json ./
 RUN npm install 
 
-
-FROM node:16-alpine as builder
+FROM node:18-alpine as builder
 # Set build arguments and environment variables
 ARG NEXT_PUBLIC_REGISTRY_CONTRACT_ID
 ARG NEXT_PUBLIC_HASURA_ENDPOINT
@@ -16,7 +15,7 @@ COPY . .
 COPY --from=dependencies ./node_modules ./node_modules
 RUN npm run build
 
-FROM node:16-alpine as runner
+FROM node:18-alpine as runner
 WORKDIR ./
 ENV NODE_ENV production
 
@@ -25,4 +24,4 @@ COPY --from=builder ./node_modules ./node_modules
 COPY --from=builder ./package.json ./package.json
 
 EXPOSE 3000
-CMD ["npm", "run","start"]
+CMD ["npm", "run", "start"]
