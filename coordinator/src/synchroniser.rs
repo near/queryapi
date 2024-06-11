@@ -5,8 +5,8 @@ use runner::ExecutorInfo;
 use tracing::instrument;
 
 use crate::{
-    block_streams::BlockStreamsHandler,
-    executors::ExecutorsHandler,
+    block_streams_handler::BlockStreamsHandler,
+    executors_handler::ExecutorsHandler,
     indexer_config::IndexerConfig,
     indexer_state::{IndexerState, IndexerStateManager},
     redis::RedisClient,
