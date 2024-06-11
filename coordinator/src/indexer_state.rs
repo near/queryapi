@@ -121,7 +121,6 @@ impl IndexerStateManagerImpl {
         state: IndexerState,
     ) -> anyhow::Result<()> {
         let raw_state = serde_json::to_string(&state)?;
-        eprintln!("raw_state = {:#?}", raw_state);
 
         self.redis_client
             .set_indexer_state(indexer_config, raw_state)
