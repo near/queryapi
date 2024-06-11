@@ -5,11 +5,12 @@ use near_primitives::types::AccountId;
 use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
-use crate::block_streams::{synchronise_block_streams, BlockStreamsHandler};
-use crate::executors::{synchronise_executors, ExecutorsHandler};
+use crate::block_streams::BlockStreamsHandler;
+use crate::executors::ExecutorsHandler;
 use crate::indexer_state::IndexerStateManager;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
+use crate::synchroniser::Synchroniser;
 
 mod block_streams;
 mod executors;
@@ -55,6 +56,13 @@ async fn main() -> anyhow::Result<()> {
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
     let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));
+    let synchroniser = Synchroniser::new(
+        &block_streams_handler,
+        &executors_handler,
+        &registry,
+        &indexer_state_manager,
+        &redis_client,
+    );
 
     tokio::spawn({
         let indexer_state_manager = indexer_state_manager.clone();
@@ -64,43 +72,11 @@ async fn main() -> anyhow::Result<()> {
 
     loop {
         let indexer_registry = registry.fetch().await?;
-        // fetch state
-        // fetch executors
-        // fetch block streams
-        //
-        // iterate over the longest of state/registry
-        // pass Option of each to sync method
-        // sync method decides what to do
-
-        // NOTE Rather than filtering them here, we can pass `IndexerState` to the sync methods,
-        // and let them decide what to do. That would be a bit cleaner?
-        //
-        // This will also allow us to determine when an Indexer has been deleted, rather than
-        // implicitly relying on the existance of executors/block_streams. This is going to be
-        // important for deprovisioning.
         indexer_state_manager.migrate(&indexer_registry).await?;
 
-        tokio::try_join!(
-            // NOTE this may need to be regactored in to a combined "synchronise" function.
-            // The addition of DataLayer provisioning makes the process a bit more stateful, i.e.
-            // we need to do provisioning first, wait till it completes, and can then kick off
-            // executor/block_stream sync processes
-            //
-            // It's probably still helpful to encapsulate the block_stream/executor sync methods,
-            // as they are quite involved, but call them from an overall synchronise method
-            //
-            // We'll need to store the `ProvisioningStatus` in Redis, so we know when to poll
-            synchronise_executors(&indexer_registry, &executors_handler),
-            synchronise_block_streams(
-                &indexer_registry,
-                &indexer_state_manager,
-                &redis_client,
-                &block_streams_handler
-            ),
-            async {
-                sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
-                Ok(())
-            }
-        )?;
+        tokio::try_join!(synchroniser.sync(), async {
+            sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
+            Ok(())
+        })?;
     }
 }
