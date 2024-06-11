@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use anyhow::Context;
 use redis::{aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
-use crate::indexer_config::IndexerConfig;
+use crate::{indexer_config::IndexerConfig, indexer_state::IndexerState};
 
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
@@ -89,19 +89,34 @@ impl RedisClientImpl {
             .context(format!("SMEMBERS {set:?}"))
     }
 
-    pub async fn sadd<S, V>(&self, set: S, value: V) -> anyhow::Result<()>
+    pub async fn sadd<S, M>(&self, set: S, member: M) -> anyhow::Result<()>
     where
         S: ToRedisArgs + Debug + Send + Sync + 'static,
-        V: ToRedisArgs + Debug + Send + Sync + 'static,
+        M: ToRedisArgs + Debug + Send + Sync + 'static,
     {
-        tracing::debug!("SADD {set:?} {value:?}");
+        tracing::debug!("SADD {set:?} {member:?}");
 
         redis::cmd("SADD")
             .arg(&set)
-            .arg(&value)
+            .arg(&member)
             .query_async(&mut self.connection.clone())
             .await
-            .context(format!("SADD {set:?} {value:?}"))
+            .context(format!("SADD {set:?} {member:?}"))
+    }
+
+    pub async fn srem<S, M>(&self, set: S, member: M) -> anyhow::Result<()>
+    where
+        S: ToRedisArgs + Debug + Send + Sync + 'static,
+        M: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("SADD {set:?} {member:?}");
+
+        redis::cmd("SREM")
+            .arg(&set)
+            .arg(&member)
+            .query_async(&mut self.connection.clone())
+            .await
+            .context(format!("SADD {set:?} {member:?}"))
     }
 
     pub async fn exists<K>(&self, key: K) -> anyhow::Result<bool>
@@ -151,6 +166,13 @@ impl RedisClientImpl {
         self.set(indexer_config.get_state_key(), state).await?;
 
         self.sadd(Self::INDEXER_STATES_SET, indexer_config.get_state_key())
+            .await
+    }
+
+    pub async fn delete_indexer_state(&self, state: &IndexerState) -> anyhow::Result<()> {
+        self.del(state.get_state_key()).await?;
+
+        self.srem(Self::INDEXER_STATES_SET, state.get_state_key())
             .await
     }
 
@@ -213,6 +235,8 @@ mockall::mock! {
             V: ToRedisArgs + Debug + Send + Sync + 'static;
 
         pub async fn list_indexer_states(&self) -> anyhow::Result<Vec<String>>;
+
+        pub async fn delete_indexer_state(&self, state: &IndexerState) -> anyhow::Result<()>;
     }
 
     impl Clone for RedisClientImpl {

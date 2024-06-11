@@ -259,6 +259,29 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
+    async fn sync_deleted_indexer(
+        &self,
+        state: &IndexerState,
+        executor: Option<&ExecutorInfo>,
+        block_stream: Option<&StreamInfo>,
+    ) -> anyhow::Result<()> {
+        if let Some(executor) = executor {
+            self.executors_handler
+                .stop(executor.executor_id.clone())
+                .await?;
+        }
+
+        if let Some(block_stream) = block_stream {
+            self.block_streams_handler
+                .stop(block_stream.stream_id.clone())
+                .await?;
+        }
+
+        self.state_manager.delete_state(state).await?;
+
+        Ok(())
+    }
+
     async fn generate_synchronisation_states(&self) -> anyhow::Result<Vec<SynchronisationState>> {
         let states = self.state_manager.list().await?;
         let executors = self.executors_handler.list().await?;
@@ -318,8 +341,9 @@ impl<'a> Synchroniser<'a> {
                     )
                     .await?;
                 }
-                SynchronisationState::Deleted(..) => {
-                    // handle deleted
+                SynchronisationState::Deleted(state, executor, block_stream) => {
+                    self.sync_deleted_indexer(&state, executor.as_ref(), block_stream.as_ref())
+                        .await?;
                 }
             }
         }
@@ -498,140 +522,6 @@ mod test {
         assert_eq!(new_count, 6);
         assert_eq!(existing_count, 20);
         assert_eq!(deleted_count, 4);
-    }
-
-    #[tokio::test]
-    async fn handles_various_configurations() {
-        let new_indexer = IndexerConfig::default();
-        let existing_indexer1 = IndexerConfig {
-            function_name: "test2".to_string(),
-            start_block: StartBlock::Latest,
-            ..Default::default()
-        };
-        let existing_indexer2 = IndexerConfig {
-            account_id: "darunrs.near".parse().unwrap(),
-            function_name: "test1".to_string(),
-            start_block: StartBlock::Latest,
-            ..Default::default()
-        };
-
-        let indexer_registry = IndexerRegistry::from(&[(
-            new_indexer.account_id.clone(),
-            HashMap::from([
-                (new_indexer.function_name.clone(), new_indexer.clone()),
-                (
-                    existing_indexer1.function_name.clone(),
-                    existing_indexer1.clone(),
-                ),
-                (
-                    existing_indexer2.function_name.clone(),
-                    existing_indexer2.clone(),
-                ),
-            ]),
-        )]);
-
-        let mut block_streams_handler = BlockStreamsHandler::default();
-        let existing_block_stream1 = StreamInfo {
-            stream_id: "stream_id1".to_string(),
-            account_id: existing_indexer1.account_id.to_string(),
-            function_name: existing_indexer1.function_name.clone(),
-            version: existing_indexer1.get_registry_version(),
-        };
-        block_streams_handler
-            .expect_list()
-            .returning(move || Ok(vec![existing_block_stream1.clone()]));
-        block_streams_handler
-            .expect_start()
-            .with(eq(100), eq(new_indexer.clone()))
-            .returning(|_, _| Ok(()))
-            .once();
-        block_streams_handler
-            .expect_start()
-            .with(always(), eq(existing_indexer1.clone()))
-            .never();
-        block_streams_handler
-            .expect_start()
-            .with(
-                eq(existing_indexer2.get_registry_version()),
-                eq(existing_indexer2.clone()),
-            )
-            .returning(|_, _| Ok(()))
-            .once();
-
-        let mut executors_handler = ExecutorsHandler::default();
-        let existing_executor1 = ExecutorInfo {
-            executor_id: "executor_id1".to_string(),
-            account_id: existing_indexer1.account_id.to_string(),
-            function_name: existing_indexer1.function_name.clone(),
-            version: existing_indexer1.get_registry_version(),
-            status: "running".to_string(),
-        };
-        executors_handler
-            .expect_list()
-            .returning(move || Ok(vec![existing_executor1.clone()]));
-        executors_handler
-            .expect_start()
-            .with(eq(new_indexer.clone()))
-            .returning(|_| Ok(()))
-            .once();
-        executors_handler
-            .expect_start()
-            .with(eq(existing_indexer1.clone()))
-            .never();
-        executors_handler
-            .expect_start()
-            .with(eq(existing_indexer2.clone()))
-            .returning(|_| Ok(()))
-            .once();
-
-        let mut registry = Registry::default();
-        registry
-            .expect_fetch()
-            .returning(move || Ok(indexer_registry.clone()));
-
-        let mut state_manager = IndexerStateManager::default();
-        let existing_state1 = IndexerState {
-            account_id: existing_indexer1.account_id.clone(),
-            function_name: existing_indexer1.function_name.clone(),
-            block_stream_synced_at: Some(existing_indexer1.get_registry_version()),
-            enabled: true,
-        };
-        let existing_state2 = IndexerState {
-            account_id: existing_indexer2.account_id.clone(),
-            function_name: existing_indexer2.function_name.clone(),
-            block_stream_synced_at: Some(existing_indexer2.get_registry_version()),
-            enabled: true,
-        };
-        state_manager
-            .expect_list()
-            .returning(move || Ok(vec![existing_state1.clone(), existing_state2.clone()]));
-        state_manager
-            .expect_set_synced()
-            .with(eq(new_indexer))
-            .returning(|_| Ok(()))
-            .once();
-        state_manager
-            .expect_set_synced()
-            .with(eq(existing_indexer1))
-            .returning(|_| Ok(()))
-            .once();
-        state_manager
-            .expect_set_synced()
-            .with(eq(existing_indexer2))
-            .returning(|_| Ok(()))
-            .once();
-
-        let redis_client = RedisClient::default();
-
-        let synchroniser = Synchroniser::new(
-            &block_streams_handler,
-            &executors_handler,
-            &registry,
-            &state_manager,
-            &redis_client,
-        );
-
-        synchroniser.sync().await.unwrap();
     }
 
     mod new {
@@ -1227,6 +1117,71 @@ mod test {
             // Simulate second run, start/stop etc should not be called
             synchroniser
                 .sync_existing_indexer(&config, &state, None, None)
+                .await
+                .unwrap();
+        }
+    }
+
+    mod deleted {
+        use super::*;
+
+        #[tokio::test]
+        async fn stops_and_deletes() {
+            let config = IndexerConfig::default();
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: false,
+            };
+            let executor = ExecutorInfo {
+                executor_id: "executor_id".to_string(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                version: config.get_registry_version(),
+                status: "running".to_string(),
+            };
+            let block_stream = StreamInfo {
+                stream_id: "stream_id".to_string(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                version: config.get_registry_version(),
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_stop()
+                .with(eq("stream_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler
+                .expect_stop()
+                .with(eq("executor_id".to_string()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_delete_state()
+                .with(eq(state.clone()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_deleted_indexer(&state, Some(&executor), Some(&block_stream))
                 .await
                 .unwrap();
         }

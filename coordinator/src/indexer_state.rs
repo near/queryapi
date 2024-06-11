@@ -24,7 +24,7 @@ pub struct OldIndexerState {
 
 // NOTE We'll need to add more fields here - is there a way to gracefully handle non-existant
 // fields during serde deserialization? it's annoying to always have to migrate this
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct IndexerState {
     pub account_id: AccountId,
     pub function_name: String,
@@ -36,6 +36,15 @@ pub struct IndexerState {
     // best to keep it optional
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
+}
+
+impl IndexerState {
+    // FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
+    // construct the state key without it. But, this isn't ideal as we now have two places which
+    // define this key - we need to consolidate these somehow.
+    pub fn get_state_key(&self) -> String {
+        format!("{}/{}:state", self.account_id, self.function_name)
+    }
 }
 
 impl Default for IndexerState {
@@ -127,6 +136,10 @@ impl IndexerStateManagerImpl {
         }
 
         Ok(self.get_default_state(indexer_config))
+    }
+
+    pub async fn delete_state(&self, indexer_state: &IndexerState) -> anyhow::Result<()> {
+        self.redis_client.delete_indexer_state(indexer_state).await
     }
 
     async fn set_state(
