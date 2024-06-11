@@ -1,12 +1,9 @@
-// TODO re-export these from handler
-use block_streamer::StreamInfo;
 use registry_types::StartBlock;
-use runner::ExecutorInfo;
 use tracing::instrument;
 
 use crate::{
-    block_streams_handler::BlockStreamsHandler,
-    executors_handler::ExecutorsHandler,
+    block_streams_handler::{BlockStreamsHandler, StreamInfo},
+    executors_handler::{ExecutorInfo, ExecutorsHandler},
     indexer_config::IndexerConfig,
     indexer_state::{IndexerState, IndexerStateManager},
     redis::RedisClient,
