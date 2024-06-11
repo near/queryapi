@@ -23,6 +23,9 @@ pub struct IndexerState {
 }
 
 impl IndexerState {
+    // FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
+    // construct the state key without it. But, this isn't ideal as we now have two places which
+    // define this key - we need to consolidate these somehow.
     pub fn get_state_key(&self) -> String {
         format!("{}/{}:state", self.account_id, self.function_name)
     }
