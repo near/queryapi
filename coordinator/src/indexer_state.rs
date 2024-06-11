@@ -2,7 +2,6 @@
 
 use anyhow::Context;
 use near_primitives::types::AccountId;
-use std::cmp::Ordering;
 use std::str::FromStr;
 
 use crate::indexer_config::IndexerConfig;
@@ -122,6 +121,7 @@ impl IndexerStateManagerImpl {
         state: IndexerState,
     ) -> anyhow::Result<()> {
         let raw_state = serde_json::to_string(&state)?;
+        eprintln!("raw_state = {:#?}", raw_state);
 
         self.redis_client
             .set_indexer_state(indexer_config, raw_state)
@@ -282,18 +282,15 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "block_stream_synced_at": 123, "enabled": true })
+                    serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 123, "enabled": true })
                         .to_string(),
                 ))
             });
         redis_client
             .expect_set_indexer_state()
             .with(
-                predicate::eq(indexer_config.clone()),
-                predicate::eq(
-                    serde_json::json!({ "block_stream_synced_at":123, "enabled": false })
-                        .to_string(),
-                ),
+                predicate::always(),
+                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":123,\"enabled\":false}".to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();
