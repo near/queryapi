@@ -51,6 +51,21 @@ impl<'a> Synchroniser<'a> {
         }
     }
 
+    async fn start_new_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        let start_block = match config.start_block {
+            StartBlock::Height(height) => height,
+            StartBlock::Latest => config.get_registry_version(),
+            StartBlock::Continue => {
+                tracing::warn!(
+                    "Attempted to start new Block Stream with CONTINUE, using LATEST instead"
+                );
+                config.get_registry_version()
+            }
+        };
+
+        self.block_streams_handler.start(start_block, config).await
+    }
+
     #[instrument(
         skip_all,
         fields(
@@ -65,18 +80,9 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        let start_block = match config.start_block {
-            StartBlock::Height(height) => height,
-            StartBlock::Latest => config.get_registry_version(),
-            StartBlock::Continue => {
-                tracing::warn!(
-                    "Attempted to start new Block Stream with CONTINUE, using LATEST instead"
-                );
-                config.get_registry_version()
-            }
-        };
-
-        if let Err(err) = self.block_streams_handler.start(start_block, config).await {
+        // FIX if this fails, then subsequent control loops will perpetually fail since the
+        // above will error with ALREADY_EXISTS
+        if let Err(err) = self.start_new_block_stream(config).await {
             tracing::error!(?err, "Failed to start Block Stream");
             return Ok(());
         }
@@ -89,7 +95,6 @@ impl<'a> Synchroniser<'a> {
     async fn sync_existing_executor(
         &self,
         config: &IndexerConfig,
-        state: &IndexerState,
         executor: Option<&ExecutorInfo>,
     ) -> anyhow::Result<()> {
         if let Some(executor) = executor {
@@ -118,7 +123,9 @@ impl<'a> Synchroniser<'a> {
             .await?
             .map(|height| height + 1)
             .unwrap_or_else(|| {
-                tracing::warn!("Failed to get continuation block height, using registry version");
+                tracing::warn!(
+                    "Failed to get continuation block height, using registry version instead"
+                );
 
                 config.get_registry_version()
             });
@@ -183,9 +190,13 @@ impl<'a> Synchroniser<'a> {
         }
 
         if state.block_stream_synced_at.is_none() {
-            // This would indicate that the state was inisialized before the Indexer was
-            // registered, which is currently not possible, but may be in future
-            anyhow::bail!("Existing Indexer has no `block_stream_synced_at` field")
+            // NOTE: A value of `None` would suggest that `state` was created before initialisation,
+            // which is currently not possible, but may be in future
+            tracing::warn!("Existing block stream has no previous sync state, treating as new");
+
+            self.start_new_block_stream(config).await?;
+
+            return Ok(());
         }
 
         if state.block_stream_synced_at.unwrap() != config.get_registry_version() {
@@ -230,7 +241,7 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        if let Err(error) = self.sync_existing_executor(config, state, executor).await {
+        if let Err(error) = self.sync_existing_executor(config, executor).await {
             tracing::error!(?error, "Failed to sync executor");
             return Ok(());
         }
@@ -243,7 +254,6 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
-        // TODO handle failures
         self.state_manager.set_synced(config).await?;
 
         Ok(())
@@ -259,6 +269,8 @@ impl<'a> Synchroniser<'a> {
 
         for state in states {
             let config = registry.remove(&state.account_id, &state.function_name);
+            // TODO find a way to create the iterator once outside of the loop? previous attempts
+            // created weird behaviour with finding results
             let executor = executors.iter().find(|executor| {
                 executor.account_id == state.account_id
                     && executor.function_name == state.function_name

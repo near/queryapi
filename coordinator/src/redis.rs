@@ -53,11 +53,12 @@ impl RedisClientImpl {
     {
         tracing::debug!("SET: {:?}, {:?}", key, value);
 
-        let mut cmd = redis::cmd("SET");
-        cmd.arg(key).arg(value);
-        cmd.query_async(&mut self.connection.clone()).await?;
-
-        Ok(())
+        redis::cmd("SET")
+            .arg(&key)
+            .arg(&value)
+            .query_async(&mut self.connection.clone())
+            .await
+            .context(format!("SET: {key:?} {value:?}"))
     }
 
     pub async fn del<K>(&self, key: K) -> anyhow::Result<()>
