@@ -89,7 +89,8 @@ impl ExecutorsHandlerImpl {
             .client
             .clone()
             .stop_executor(Request::new(request.clone()))
-            .await?;
+            .await
+            .context(format!("Failed to stop executor: {executor_id}"))?;
 
         tracing::debug!(executor_id, "Stop executor response: {:#?}", response);
 
