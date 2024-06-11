@@ -69,6 +69,12 @@ impl<'a> Iterator for IndexerRegistryIter<'a> {
     }
 }
 
+impl std::ops::DerefMut for IndexerRegistry {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl std::ops::Deref for IndexerRegistry {
     type Target = HashMap<AccountId, HashMap<String, IndexerConfig>>;
     fn deref(&self) -> &Self::Target {

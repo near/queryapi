@@ -261,16 +261,14 @@ impl<'a> Synchroniser<'a> {
 
     async fn generate_synchronisation_states(&self) -> anyhow::Result<Vec<SynchronisationState>> {
         let states = self.state_manager.list().await?;
-        let mut registry = self.registry.fetch().await?;
         let executors = self.executors_handler.list().await?;
         let block_streams = self.block_streams_handler.list().await?;
+        let mut registry = self.registry.fetch().await?;
 
         let mut sync_states = vec![];
 
         for state in states {
             let config = registry.remove(&state.account_id, &state.function_name);
-            // TODO find a way to create the iterator once outside of the loop? previous attempts
-            // created weird behaviour with finding results
             let executor = executors.iter().find(|executor| {
                 executor.account_id == state.account_id
                     && executor.function_name == state.function_name
@@ -338,6 +336,303 @@ mod test {
     use std::collections::HashMap;
 
     use crate::registry::IndexerRegistry;
+
+    #[tokio::test]
+    async fn generates_sync_states() {
+        let existing_account_ids = vec![
+            "account1.near".to_string(),
+            "account2.near".to_string(),
+            "account3.near".to_string(),
+            "account4.near".to_string(),
+        ];
+        let new_account_ids = vec![
+            "new_account1.near".to_string(),
+            "new_account2.near".to_string(),
+        ];
+        let deleted_account_ids = vec![
+            "deleted_account1.near".to_string(),
+            "deleted_account2.near".to_string(),
+        ];
+
+        let mut existing_indexer_configs: Vec<IndexerConfig> = Vec::new();
+        for (i, account_id) in existing_account_ids.iter().enumerate() {
+            for j in 1..=5 {
+                existing_indexer_configs.push(IndexerConfig {
+                    account_id: account_id.parse().unwrap(),
+                    function_name: format!("existing_indexer{}_{}", i + 1, j),
+                    ..Default::default()
+                });
+            }
+        }
+
+        let mut new_indexer_configs: Vec<IndexerConfig> = Vec::new();
+        for (i, account_id) in new_account_ids.iter().enumerate() {
+            for j in 1..=3 {
+                new_indexer_configs.push(IndexerConfig {
+                    account_id: account_id.parse().unwrap(),
+                    function_name: format!("new_indexer{}_{}", i + 1, j),
+                    ..Default::default()
+                });
+            }
+        }
+
+        let mut deleted_indexer_configs: Vec<IndexerConfig> = Vec::new();
+        for (i, account_id) in deleted_account_ids.iter().enumerate() {
+            for j in 1..=2 {
+                deleted_indexer_configs.push(IndexerConfig {
+                    account_id: account_id.parse().unwrap(),
+                    function_name: format!("deleted_indexer{}_{}", i + 1, j),
+                    ..Default::default()
+                });
+            }
+        }
+
+        let mut indexer_registry = IndexerRegistry::new();
+        for indexer in existing_indexer_configs
+            .iter()
+            .chain(new_indexer_configs.iter())
+        {
+            indexer_registry
+                .entry(indexer.account_id.clone())
+                .or_default()
+                .insert(indexer.function_name.clone(), indexer.clone());
+        }
+
+        let mut block_streams_handler = BlockStreamsHandler::default();
+        let block_streams: Vec<StreamInfo> = existing_indexer_configs
+            .iter()
+            // generate some "randomness"
+            .rev()
+            .enumerate()
+            .map(|(i, indexer)| StreamInfo {
+                stream_id: format!("stream_id{}", i + 1),
+                account_id: indexer.account_id.to_string(),
+                function_name: indexer.function_name.clone(),
+                version: indexer.get_registry_version(),
+            })
+            .collect();
+        block_streams_handler
+            .expect_list()
+            .returning(move || Ok(block_streams.clone()));
+
+        let mut executors_handler = ExecutorsHandler::default();
+        let executors: Vec<ExecutorInfo> = existing_indexer_configs
+            .iter()
+            // generate some "randomness"
+            .rev()
+            .enumerate()
+            .map(|(i, indexer)| ExecutorInfo {
+                executor_id: format!("executor_id{}", i + 1),
+                account_id: indexer.account_id.to_string(),
+                function_name: indexer.function_name.clone(),
+                version: indexer.get_registry_version(),
+                status: "running".to_string(),
+            })
+            .collect();
+
+        executors_handler
+            .expect_list()
+            .returning(move || Ok(executors.clone()));
+
+        let mut registry = Registry::default();
+        registry
+            .expect_fetch()
+            .returning(move || Ok(indexer_registry.clone()));
+
+        let mut state_manager = IndexerStateManager::default();
+        let states: Vec<IndexerState> = existing_indexer_configs
+            .iter()
+            .map(|indexer| IndexerState {
+                account_id: indexer.account_id.clone(),
+                function_name: indexer.function_name.clone(),
+                block_stream_synced_at: Some(indexer.get_registry_version()),
+                enabled: true,
+            })
+            .chain(deleted_indexer_configs.iter().map(|indexer| IndexerState {
+                account_id: indexer.account_id.clone(),
+                function_name: indexer.function_name.clone(),
+                block_stream_synced_at: Some(indexer.get_registry_version()),
+                enabled: true,
+            }))
+            .collect();
+        state_manager
+            .expect_list()
+            .returning(move || Ok(states.clone()));
+
+        let redis_client = RedisClient::default();
+
+        let synchroniser = Synchroniser::new(
+            &block_streams_handler,
+            &executors_handler,
+            &registry,
+            &state_manager,
+            &redis_client,
+        );
+
+        let synchronisation_states = synchroniser
+            .generate_synchronisation_states()
+            .await
+            .unwrap();
+
+        let mut new_count = 0;
+        let mut existing_count = 0;
+        let mut deleted_count = 0;
+
+        for state in &synchronisation_states {
+            match state {
+                SynchronisationState::New(_) => new_count += 1,
+                SynchronisationState::Existing(_, _, executor, block_stream) => {
+                    assert!(executor.is_some(), "Executor should exist for the indexer");
+                    assert!(
+                        block_stream.is_some(),
+                        "Block stream should exist for the indexer"
+                    );
+                    existing_count += 1;
+                }
+                SynchronisationState::Deleted(_, _, _) => {
+                    deleted_count += 1;
+                }
+            }
+        }
+
+        assert_eq!(new_count, 6);
+        assert_eq!(existing_count, 20);
+        assert_eq!(deleted_count, 4);
+    }
+
+    #[tokio::test]
+    async fn handles_various_configurations() {
+        let new_indexer = IndexerConfig::default();
+        let existing_indexer1 = IndexerConfig {
+            function_name: "test2".to_string(),
+            start_block: StartBlock::Latest,
+            ..Default::default()
+        };
+        let existing_indexer2 = IndexerConfig {
+            account_id: "darunrs.near".parse().unwrap(),
+            function_name: "test1".to_string(),
+            start_block: StartBlock::Latest,
+            ..Default::default()
+        };
+
+        let indexer_registry = IndexerRegistry::from(&[(
+            new_indexer.account_id.clone(),
+            HashMap::from([
+                (new_indexer.function_name.clone(), new_indexer.clone()),
+                (
+                    existing_indexer1.function_name.clone(),
+                    existing_indexer1.clone(),
+                ),
+                (
+                    existing_indexer2.function_name.clone(),
+                    existing_indexer2.clone(),
+                ),
+            ]),
+        )]);
+
+        let mut block_streams_handler = BlockStreamsHandler::default();
+        let existing_block_stream1 = StreamInfo {
+            stream_id: "stream_id1".to_string(),
+            account_id: existing_indexer1.account_id.to_string(),
+            function_name: existing_indexer1.function_name.clone(),
+            version: existing_indexer1.get_registry_version(),
+        };
+        block_streams_handler
+            .expect_list()
+            .returning(move || Ok(vec![existing_block_stream1.clone()]));
+        block_streams_handler
+            .expect_start()
+            .with(eq(100), eq(new_indexer.clone()))
+            .returning(|_, _| Ok(()))
+            .once();
+        block_streams_handler
+            .expect_start()
+            .with(always(), eq(existing_indexer1.clone()))
+            .never();
+        block_streams_handler
+            .expect_start()
+            .with(
+                eq(existing_indexer2.get_registry_version()),
+                eq(existing_indexer2.clone()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let mut executors_handler = ExecutorsHandler::default();
+        let existing_executor1 = ExecutorInfo {
+            executor_id: "executor_id1".to_string(),
+            account_id: existing_indexer1.account_id.to_string(),
+            function_name: existing_indexer1.function_name.clone(),
+            version: existing_indexer1.get_registry_version(),
+            status: "running".to_string(),
+        };
+        executors_handler
+            .expect_list()
+            .returning(move || Ok(vec![existing_executor1.clone()]));
+        executors_handler
+            .expect_start()
+            .with(eq(new_indexer.clone()))
+            .returning(|_| Ok(()))
+            .once();
+        executors_handler
+            .expect_start()
+            .with(eq(existing_indexer1.clone()))
+            .never();
+        executors_handler
+            .expect_start()
+            .with(eq(existing_indexer2.clone()))
+            .returning(|_| Ok(()))
+            .once();
+
+        let mut registry = Registry::default();
+        registry
+            .expect_fetch()
+            .returning(move || Ok(indexer_registry.clone()));
+
+        let mut state_manager = IndexerStateManager::default();
+        let existing_state1 = IndexerState {
+            account_id: existing_indexer1.account_id.clone(),
+            function_name: existing_indexer1.function_name.clone(),
+            block_stream_synced_at: Some(existing_indexer1.get_registry_version()),
+            enabled: true,
+        };
+        let existing_state2 = IndexerState {
+            account_id: existing_indexer2.account_id.clone(),
+            function_name: existing_indexer2.function_name.clone(),
+            block_stream_synced_at: Some(existing_indexer2.get_registry_version()),
+            enabled: true,
+        };
+        state_manager
+            .expect_list()
+            .returning(move || Ok(vec![existing_state1.clone(), existing_state2.clone()]));
+        state_manager
+            .expect_set_synced()
+            .with(eq(new_indexer))
+            .returning(|_| Ok(()))
+            .once();
+        state_manager
+            .expect_set_synced()
+            .with(eq(existing_indexer1))
+            .returning(|_| Ok(()))
+            .once();
+        state_manager
+            .expect_set_synced()
+            .with(eq(existing_indexer2))
+            .returning(|_| Ok(()))
+            .once();
+
+        let redis_client = RedisClient::default();
+
+        let synchroniser = Synchroniser::new(
+            &block_streams_handler,
+            &executors_handler,
+            &registry,
+            &state_manager,
+            &redis_client,
+        );
+
+        synchroniser.sync().await.unwrap();
+    }
 
     mod new {
         use super::*;
@@ -502,57 +797,6 @@ mod test {
                 .await
                 .unwrap();
         }
-
-        #[tokio::test]
-        async fn handles_synchronisation_failures() {
-            let config = IndexerConfig::default();
-
-            let mut executors_handler = ExecutorsHandler::default();
-            executors_handler
-                .expect_start()
-                .with(eq(config.clone()))
-                .returning(|_| anyhow::bail!(""))
-                .once();
-            executors_handler
-                .expect_start()
-                .with(eq(config.clone()))
-                .returning(|_| Ok(()))
-                .times(2);
-
-            let mut block_streams_handler = BlockStreamsHandler::default();
-            block_streams_handler
-                .expect_start()
-                .with(eq(100), eq(config.clone()))
-                .returning(|_, _| anyhow::bail!(""))
-                .once();
-            block_streams_handler
-                .expect_start()
-                .with(eq(100), eq(config.clone()))
-                .returning(|_, _| Ok(()))
-                .once();
-
-            let mut state_manager = IndexerStateManager::default();
-            state_manager
-                .expect_set_synced()
-                .with(eq(config.clone()))
-                .returning(|_| Ok(()))
-                .once();
-
-            let redis_client = RedisClient::default();
-            let registry = Registry::default();
-
-            let synchroniser = Synchroniser::new(
-                &block_streams_handler,
-                &executors_handler,
-                &registry,
-                &state_manager,
-                &redis_client,
-            );
-
-            synchroniser.sync_new_indexer(&config).await.unwrap(); // fail
-            synchroniser.sync_new_indexer(&config).await.unwrap(); // fail
-            synchroniser.sync_new_indexer(&config).await.unwrap(); // success
-        }
     }
 
     mod existing {
@@ -715,6 +959,42 @@ mod test {
             );
 
             synchroniser.sync().await.unwrap();
+        }
+
+        #[tokio::test]
+        async fn treats_unsynced_blocks_streams_as_new() {
+            let config = IndexerConfig::default();
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: None,
+                enabled: true,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_start()
+                .with(eq(100), eq(config.clone()))
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let redis_client = RedisClient::default();
+            let state_manager = IndexerStateManager::default();
+            let executors_handler = ExecutorsHandler::default();
+            let registry = Registry::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_existing_block_stream(&config, &state, None)
+                .await
+                .unwrap();
         }
 
         #[tokio::test]
