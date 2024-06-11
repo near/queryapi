@@ -1,4 +1,3 @@
-export {}
 const CONTRACT_NAME_REGEX = RegExp(/^(([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*\.([a-z\d]+)|([a-z\d]+))$/);
 const WILD_CARD_REGEX = RegExp(/^\*\./);
 const WILD_CARD = '*';

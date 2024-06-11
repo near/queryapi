@@ -35,7 +35,7 @@ const EditorMenuView = ({
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
           {isUserIndexer && !isCreateNewIndexer && (
-            <CustomTooltip message="Delete Indexer Code" direction={TooltipDirection.Bottom} >
+            <CustomTooltip message="Deletes Indexer from QueryAPI" direction={TooltipDirection.Bottom} >
               <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => handleDeleteIndexer()}>
                 <TrashFill size={20} />
                 Delete

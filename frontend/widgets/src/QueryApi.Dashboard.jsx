@@ -426,7 +426,7 @@ return (
         </NavBarLogo>
 
         <SignUpLink target="_blank" href={`https://docs.near.org/build/data-infrastructure/query-api/intro`}>
-          (Read The Docs)
+          (Documentation)
         </SignUpLink>
         <div>
           <ButtonLink
