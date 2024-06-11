@@ -40,8 +40,6 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
             .parse()
             .map_err(|_| Status::invalid_argument("Invalid account ID"))?;
 
-        // NOTE we probably need a way to write the state before publishing, so that we can trigger
-        // features before it starts
         let indexer_config = self
             .registry
             .fetch_indexer(account_id, request.function_name)

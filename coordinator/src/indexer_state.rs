@@ -22,26 +22,15 @@ pub struct OldIndexerState {
     pub enabled: bool,
 }
 
-// NOTE We'll need to add more fields here - is there a way to gracefully handle non-existant
-// fields during serde deserialization? it's annoying to always have to migrate this
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct IndexerState {
     pub account_id: AccountId,
     pub function_name: String,
-    // NOTE this no longer needs to be optional, because the existance of the state object implies
-    // that the stream has been started
-    //
-    // but we might need to write the state object before we register, so therefore may need this
-    // to be none, or we might create state before synchronisation for other reasons, so maybe its
-    // best to keep it optional
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
 }
 
 impl IndexerState {
-    // FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
-    // construct the state key without it. But, this isn't ideal as we now have two places which
-    // define this key - we need to consolidate these somehow.
     pub fn get_state_key(&self) -> String {
         format!("{}/{}:state", self.account_id, self.function_name)
     }
@@ -73,14 +62,6 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
-    // NOTE the synchronisation logic uses the existence of state to signify "existing", so by
-    // using the current registry we assume that all current indexers have be "seen" before, and
-    // can therefore be treated as "existing", but if an indexer is registered during deployment of
-    // this, we will incorrectly treat a "new" indexer as "existing".
-    //
-    // So what does this mean, we'll miss the "new" flow, which eventually include provisioning,
-    // but since it does not yet, I think this is actually fine. The "existing" flow will just
-    // start the indexer as is.
     pub async fn migrate(&self, registry: &IndexerRegistry) -> anyhow::Result<()> {
         if self.redis_client.indexer_states_set_exists().await? {
             return Ok(());

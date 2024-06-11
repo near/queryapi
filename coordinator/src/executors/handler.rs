@@ -32,7 +32,6 @@ impl ExecutorsHandlerImpl {
     }
 
     pub async fn list(&self) -> anyhow::Result<Vec<ExecutorInfo>> {
-        // TODO remove retry logic and just let it propogate up to the main loop
         exponential_retry(|| async {
             let response = self
                 .client
