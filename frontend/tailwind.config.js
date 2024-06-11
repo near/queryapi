@@ -35,6 +35,7 @@ module.exports = {
         serif: ['Georgia', 'serif'],
       },
       fontSize: {
+        xxs: '0.60rem',
         xs: '0.75rem',
         sm: '0.875rem',
         base: '1rem',

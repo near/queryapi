@@ -1,16 +1,16 @@
 const CONTRACT_NAME_REGEX = RegExp(/^(([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*\.([a-z\d]+)|([a-z\d]+))$/);
 const WILD_CARD_REGEX = RegExp(/^\*\./);
 const WILD_CARD = '*';
-// const INVALID_ACCOUNT = 'system';
 
-function validateContractId(accountId) {
+// const INVALID_ACCOUNT = 'system';
+function validateContractId(accountId: string): boolean {
   accountId = accountId.trim();
-  if(accountId === WILD_CARD) return true;
+  if (accountId === WILD_CARD) return true;
 
   const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
   if (!isLengthValid) return false;
 
-  //test if the string starts with a '*.' and remove it if it does
+  // Test if the string starts with '*.' and remove it if it does
   const isWildCard = WILD_CARD_REGEX.test(accountId);
   accountId = isWildCard ? accountId.slice(2) : accountId;
 
@@ -18,7 +18,7 @@ function validateContractId(accountId) {
   return isRegexValid;
 }
 
-function validateContractIds(accountIds) {
+function validateContractIds(accountIds: string): boolean {
   const ids = accountIds.split(',').map(id => id.trim());
   return ids.every(accountId => validateContractId(accountId));
 }

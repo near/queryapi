@@ -1,7 +1,7 @@
 import { DiffEditorComponent } from "./DiffEditorComponent";
 import { MonacoEditorComponent } from "./MonacoEditorComponent";
-import { defaultCode, defaultSchema } from "../../utils/formatters";
-import { useDragResize } from "../../utils/resize";
+import { defaultCode, defaultSchema } from "@/utils/formatters";
+import { useDragResize } from "@/utils/resize";
 import GraphqlPlayground from "./../Playground";
 
 const containerStyle = {

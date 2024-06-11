@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowCounterclockwise, Justify, Code } from "react-bootstrap-icons";
 import BlockPickerContainer from "../EditorViewContainer/BlockPickerContainer";
+import CustomTooltip, { TooltipDirection } from "@/components/Common/CustomTooltip";
 
 const DeveloperToolsView = ({
     handleFormating,
@@ -35,10 +36,13 @@ const DeveloperToolsView = ({
                         <Justify className="mr-1" size={20} />
                         Format Code
                     </button>
-                    <button className="flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded" onClick={handleCodeGen}>
-                        <Code className="mr-1" size={20} />
-                        Type Generation
-                    </button>
+
+                    <CustomTooltip message="Regenerate Context.db Types" direction={TooltipDirection.Top}>
+                        <button className="flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded" onClick={handleCodeGen}>
+                            <Code className="mr-1" size={20} />
+                            Type Generation
+                        </button>
+                    </CustomTooltip>
 
 
                     <div className="h-full border-r border-gray-300 mx-4"></div>

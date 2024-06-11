@@ -1,4 +1,4 @@
-import { calculateTimestamp } from '../../../utils/calculateTimestamp';
+import { calculateTimestamp } from '@/utils/calculateTimestamp';
 
 interface Variables {
     limit: number;
