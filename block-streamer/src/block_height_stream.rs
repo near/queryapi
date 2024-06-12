@@ -2,7 +2,7 @@ use crate::bitmap::{Base64Bitmap, BitmapOperator};
 use crate::graphql::client::GraphQLClient;
 use crate::rules::types::ChainId;
 use anyhow::Context;
-use async_stream::stream;
+use async_stream::try_stream;
 use chrono::{DateTime, Duration, TimeZone, Utc};
 use futures::stream::{BoxStream, Stream};
 use futures::StreamExt;
@@ -137,19 +137,19 @@ impl BlockHeightStreamImpl {
         &'a self,
         start_date: DateTime<Utc>,
         contract_pattern_type: ContractPatternType,
-    ) -> BoxStream<'a, usize> {
-        Box::pin(stream! {
+    ) -> BoxStream<'a, anyhow::Result<u64>> {
+        Box::pin(try_stream! {
             let mut current_date = start_date;
             while current_date <= Utc::now() {
                 let current_date_string = current_date.format("%Y-%m-%d").to_string();
                 let bitmaps_from_query: Vec<Base64Bitmap> = match contract_pattern_type {
                     ContractPatternType::Exact(ref pattern) => {
                         let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), current_date_string.clone()).await.unwrap();
-                        query_result.iter().map(|result_item| Base64Bitmap::from(result_item)).collect()
+                        query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
                     },
                     ContractPatternType::Wildcard(ref pattern) => {
                         let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), current_date_string.clone()).await.unwrap();
-                        query_result.iter().map(|result_item| Base64Bitmap::from(result_item)).collect()
+                        query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
                     },
                 };
                 if !bitmaps_from_query.is_empty() {
@@ -157,7 +157,7 @@ impl BlockHeightStreamImpl {
                     let bitmap_for_day = self.bitmap_operator.merge_bitmaps(&bitmaps_from_query, starting_block_height).unwrap();
                     for index in 0..(bitmap_for_day.bitmap.len() * 8) {
                         if self.bitmap_operator.get_bit(&bitmap_for_day.bitmap, index) {
-                            yield starting_block_height + index;
+                            yield starting_block_height + u64::try_from(index)?;
                         }
                     }
                 }
@@ -170,7 +170,7 @@ impl BlockHeightStreamImpl {
         &'a self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
         contract_pattern: &str,
-    ) -> anyhow::Result<BoxStream<'a, usize>> {
+    ) -> anyhow::Result<BoxStream<'a, anyhow::Result<u64>>> {
         let start_date = self.get_nearest_block_date(start_block_height).await?;
         let contract_pattern_type = self.parse_contract_pattern(contract_pattern);
 
@@ -365,7 +365,7 @@ mod tests {
             .await
             .unwrap();
         let mut result_heights = vec![];
-        while let Some(height) = stream.next().await {
+        while let Some(Ok(height)) = stream.next().await {
             result_heights.push(height);
         }
         assert_eq!(result_heights, vec![1]);
@@ -443,7 +443,7 @@ mod tests {
             .await
             .unwrap();
         let mut result_heights = vec![];
-        while let Some(height) = stream.next().await {
+        while let Some(Ok(height)) = stream.next().await {
             result_heights.push(height);
         }
         assert_eq!(result_heights, vec![1, 5, 10, 15, 100, 105]);
