@@ -72,10 +72,14 @@ impl<'a> Synchroniser<'a> {
         )
     )]
     async fn sync_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        tracing::info!("Starting executor");
+
         if let Err(err) = self.executors_handler.start(config).await {
             tracing::error!(?err, "Failed to start Executor");
             return Ok(());
         }
+
+        tracing::info!("Starting block stream");
 
         // FIX if this fails, then subsequent control loops will perpetually fail since the
         // above will error with ALREADY_EXISTS
