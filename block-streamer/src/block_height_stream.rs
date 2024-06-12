@@ -141,14 +141,13 @@ impl BlockHeightStreamImpl {
         Box::pin(try_stream! {
             let mut current_date = start_date;
             while current_date <= Utc::now() {
-                let current_date_string = current_date.format("%Y-%m-%d").to_string();
                 let bitmaps_from_query: Vec<Base64Bitmap> = match contract_pattern_type {
                     ContractPatternType::Exact(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), current_date_string.clone()).await.unwrap();
+                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), &current_date).await.unwrap();
                         query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
                     },
                     ContractPatternType::Wildcard(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), current_date_string.clone()).await.unwrap();
+                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), &current_date).await.unwrap();
                         query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
                     },
                 };
@@ -349,7 +348,9 @@ mod tests {
             .expect_get_bitmaps_exact()
             .with(
                 predicate::eq(vec!["someone.near".to_string()]),
-                predicate::eq(Utc::now().format("%Y-%m-%d").to_string()),
+                predicate::function(|date: &DateTime<Utc>| {
+                    date.date_naive() == Utc::now().date_naive()
+                }),
             )
             .times(1)
             .returning(move |_, _| Ok(mock_query_result.clone()));
@@ -389,11 +390,9 @@ mod tests {
             .expect_get_bitmaps_wildcard()
             .with(
                 predicate::eq(".*\\.someone\\.near".to_string()),
-                predicate::eq(
-                    (Utc::now() - Duration::days(2))
-                        .format("%Y-%m-%d")
-                        .to_string(),
-                ),
+                predicate::function(|date: &DateTime<Utc>| {
+                    date.date_naive() == (Utc::now() - Duration::days(2)).date_naive()
+                }),
             )
             .times(1)
             .returning(move |_, _| {
@@ -406,11 +405,9 @@ mod tests {
             .expect_get_bitmaps_wildcard()
             .with(
                 predicate::eq(".*\\.someone\\.near".to_string()),
-                predicate::eq(
-                    (Utc::now() - Duration::days(1))
-                        .format("%Y-%m-%d")
-                        .to_string(),
-                ),
+                predicate::function(|date: &DateTime<Utc>| {
+                    date.date_naive() == (Utc::now() - Duration::days(1)).date_naive()
+                }),
             )
             .times(1)
             .returning(move |_, _| {
@@ -423,7 +420,9 @@ mod tests {
             .expect_get_bitmaps_wildcard()
             .with(
                 predicate::eq(".*\\.someone\\.near".to_string()),
-                predicate::eq(Utc::now().format("%Y-%m-%d").to_string()),
+                predicate::function(|date: &DateTime<Utc>| {
+                    date.date_naive() == Utc::now().date_naive()
+                }),
             )
             .times(1)
             .returning(move |_, _| {
