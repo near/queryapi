@@ -2,25 +2,32 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use near_primitives::types::AccountId;
-use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
-use crate::block_streams::{synchronise_block_streams, BlockStreamsHandler};
-use crate::executors::{synchronise_executors, ExecutorsHandler};
+use crate::block_streams_handler::BlockStreamsHandler;
+use crate::executors_handler::ExecutorsHandler;
 use crate::indexer_state::IndexerStateManager;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
+use crate::synchroniser::Synchroniser;
 
-mod block_streams;
-mod executors;
+mod block_streams_handler;
+mod executors_handler;
 mod indexer_config;
 mod indexer_state;
 mod redis;
 mod registry;
 mod server;
+mod synchroniser;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
+
+async fn sleep(duration: Duration) -> anyhow::Result<()> {
+    tokio::time::sleep(duration).await;
+
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -54,6 +61,13 @@ async fn main() -> anyhow::Result<()> {
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
     let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));
+    let synchroniser = Synchroniser::new(
+        &block_streams_handler,
+        &executors_handler,
+        &registry,
+        &indexer_state_manager,
+        &redis_client,
+    );
 
     tokio::spawn({
         let indexer_state_manager = indexer_state_manager.clone();
@@ -61,29 +75,10 @@ async fn main() -> anyhow::Result<()> {
         async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
+    let indexer_registry = registry.fetch().await?;
+    indexer_state_manager.migrate(&indexer_registry).await?;
+
     loop {
-        let indexer_registry = registry.fetch().await?;
-
-        indexer_state_manager
-            .migrate_state_if_needed(&indexer_registry)
-            .await?;
-
-        let indexer_registry = indexer_state_manager
-            .filter_disabled_indexers(&indexer_registry)
-            .await?;
-
-        tokio::try_join!(
-            synchronise_executors(&indexer_registry, &executors_handler),
-            synchronise_block_streams(
-                &indexer_registry,
-                &indexer_state_manager,
-                &redis_client,
-                &block_streams_handler
-            ),
-            async {
-                sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
-                Ok(())
-            }
-        )?;
+        tokio::try_join!(synchroniser.sync(), sleep(CONTROL_LOOP_THROTTLE_SECONDS))?;
     }
 }
