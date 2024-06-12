@@ -2,7 +2,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use near_primitives::types::AccountId;
-use tokio::time::sleep;
 use tracing_subscriber::prelude::*;
 
 use crate::block_streams_handler::BlockStreamsHandler;
@@ -23,6 +22,12 @@ mod synchroniser;
 mod utils;
 
 const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
+
+async fn sleep(duration: Duration) -> anyhow::Result<()> {
+    tokio::time::sleep(duration).await;
+
+    Ok(())
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -70,13 +75,10 @@ async fn main() -> anyhow::Result<()> {
         async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
-    loop {
-        let indexer_registry = registry.fetch().await?;
-        indexer_state_manager.migrate(&indexer_registry).await?;
+    let indexer_registry = registry.fetch().await?;
+    indexer_state_manager.migrate(&indexer_registry).await?;
 
-        tokio::try_join!(synchroniser.sync(), async {
-            sleep(CONTROL_LOOP_THROTTLE_SECONDS).await;
-            Ok(())
-        })?;
+    loop {
+        tokio::try_join!(synchroniser.sync(), sleep(CONTROL_LOOP_THROTTLE_SECONDS))?;
     }
 }
