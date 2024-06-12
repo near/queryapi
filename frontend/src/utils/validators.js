@@ -48,9 +48,9 @@ export function validateSQLSchema(schema) {
   if (formattedSchema) {
     try {
       pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
-      return { data: formattedSchema, error: null }
+      return { data: formattedSchema, error: null };
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location };
     }
   }
@@ -68,10 +68,10 @@ export function validateJSCode(code) {
 
   try {
     const formattedCode = formatIndexingCode(code);
-    return { data: formattedCode, error: null }
+    return { data: formattedCode, error: null };
 
   } catch (error) {
-    console.error(error.message)
+    console.error(error.message);
     return { data: code, error };
   }
 }

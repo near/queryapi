@@ -40,7 +40,7 @@ export const IndexerDetailsContext = React.createContext({
   indexerName: undefined,
   setIndexerName: () => { },
   forkedAccountId: undefined,
-  setForkedAccountId: () => { }, 
+  setForkedAccountId: () => { },
   forkedIndexerName: undefined,
   setForkedIndexerName: () => { },
   setIndexerDetails: () => { },
@@ -53,7 +53,7 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [indexerName, setIndexerName] = useState(undefined);
   const [forkedAccountId, setForkedAccountId] = useState(undefined);
   const [forkedIndexerName, setForkedIndexerName] = useState(undefined);
-  const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: accountId, indexerName: indexerName, forkedAccountId: forkedAccountId, forkedIndexerName: forkedIndexerName })
+  const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: accountId, indexerName: indexerName, forkedAccountId: forkedAccountId, forkedIndexerName: forkedIndexerName });
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showForkIndexerModal, setShowForkIndexerModal] = useState(false);
@@ -65,8 +65,8 @@ export const IndexerDetailsProvider = ({ children }) => {
   const { activeView } = useInitialPayload();
 
   useEffect(() => {
-    if (activeView == 'status') setShowLogsView(true)
-  }, [])
+    if (activeView == 'status') setShowLogsView(true);
+  }, []);
 
   const requestIndexerDetails = async () => {
     const data = await queryIndexerFunctionDetails(accountId, indexerName);
@@ -80,16 +80,16 @@ export const IndexerDetailsProvider = ({ children }) => {
         schema: data.schema,
         startBlock: data.start_block,
         rule: data.rule
-      }
-      return details
+      };
+      return details;
     }
-  }
+  };
   useEffect(() => {
     (async () => {
-      const latestHeight = await getLatestBlockHeight()
-      setLatestHeight(latestHeight)
-    })()
-  }, [])
+      const latestHeight = await getLatestBlockHeight();
+      setLatestHeight(latestHeight);
+    })();
+  }, []);
 
   useEffect(() => {
     if (isCreateNewIndexer || !accountId || !indexerName) {
@@ -100,10 +100,10 @@ export const IndexerDetailsProvider = ({ children }) => {
         forkedAccountId: forkedAccountId,
         forkedIndexerName: forkedIndexerName,
       }));
-      return
+      return;
     }
     (async () => {
-      const indexer = await requestIndexerDetails()
+      const indexer = await requestIndexerDetails();
       const details = {
         accountId: indexer.accountId,
         indexerName: indexer.indexerName,
@@ -113,7 +113,7 @@ export const IndexerDetailsProvider = ({ children }) => {
         schema: indexer.schema,
         startBlock: indexer.startBlock,
         rule: indexer.rule
-      }
+      };
       setIndexerDetails(details);
     })();
 
@@ -134,7 +134,7 @@ export const IndexerDetailsProvider = ({ children }) => {
         showPublishModal,
         setShowPublishModal,
         showForkIndexerModal,
-        setShowForkIndexerModal,   
+        setShowForkIndexerModal,
         debugMode,
         setDebugMode,
         latestHeight,

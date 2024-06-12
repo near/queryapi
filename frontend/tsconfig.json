@@ -34,9 +34,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "src/utils/validator.test.js"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
   ]
 }

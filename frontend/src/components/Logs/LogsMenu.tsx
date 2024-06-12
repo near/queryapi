@@ -1,19 +1,19 @@
-import React, { useState, useEffect, useContext } from "react";
-import { useQuery, gql } from "@apollo/client";
-import { Button, Navbar, Container, ButtonGroup, Spinner } from "react-bootstrap";
-import { ArrowCounterclockwise, Code } from "react-bootstrap-icons";
-import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
-import LatestBlock from "../Common/LatestBlock"
+import React, { useState, useEffect, useContext } from 'react';
+import { useQuery, gql } from '@apollo/client';
+import { Button, Navbar, Container, ButtonGroup, Spinner } from 'react-bootstrap';
+import { ArrowCounterclockwise, Code } from 'react-bootstrap-icons';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+import LatestBlock from '../Common/LatestBlock';
 
 interface LogsMenuProps {
-  currentUserAccountId: string;
-  heights: any[];
-  setHeights: React.Dispatch<React.SetStateAction<any[]>>;
-  latestHeight: string;
-  isUserIndexer: boolean;
-  accountId: string;
-  reloadData: () => void;
-  functionName: string;
+  currentUserAccountId: string
+  heights: any[]
+  setHeights: React.Dispatch<React.SetStateAction<any[]>>
+  latestHeight: string
+  isUserIndexer: boolean
+  accountId: string
+  reloadData: () => void
+  functionName: string
 }
 
 const LogsMenu: React.FC<LogsMenuProps> = ({
@@ -42,7 +42,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
   const { loading, error, data, refetch } = useQuery(GET_METADATA, {
     context: {
       headers: {
-        "x-hasura-role": hasuraRole,
+        'x-hasura-role': hasuraRole,
       },
     },
   });
@@ -59,15 +59,15 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
   }, [data, queryName, loading]);
 
   useEffect(() => {
-    if (attributeMap.has("LAST_PROCESSED_BLOCK_HEIGHT")) {
-      setBlockHeight(attributeMap.get("LAST_PROCESSED_BLOCK_HEIGHT") ?? "N/A");
+    if (attributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
+      setBlockHeight(attributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
     }
-    if (attributeMap.has("STATUS")) {
-      setStatus(attributeMap.get("STATUS") ?? "UNKNOWN");
+    if (attributeMap.has('STATUS')) {
+      setStatus(attributeMap.get('STATUS') ?? 'UNKNOWN');
     }
   }, [attributeMap]);
 
-  const handleReload = async () => {
+  const handleReload = async (): Promise<void> => {
     try {
       const { data: refetchedData } = await refetch();
       if (refetchedData) {
@@ -91,10 +91,10 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
             Filter: {indexerDetails.rule.affected_account_id}
           </span>
           <span className="me-4 text-secondary text-sm">
-            Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? "UNKNOWN"}</strong>
+            Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? 'UNKNOWN'}</strong>
           </span>
           <span className="me-4 text-secondary text-sm">
-            Height: <strong>{loading ? <Spinner animation="border" size="sm" /> : blockHeight ?? "N/A"}</strong>
+            Height: <strong>{loading ? <Spinner animation="border" size="sm" /> : blockHeight ?? 'N/A'}</strong>
           </span>
           {!loading && blockHeight && latestHeight && (
             <div className="bg-gray-100 border border-gray-300 rounded p-1 text-xs text-gray-700">
@@ -105,17 +105,18 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
           )}
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
+          {/* eslint-disable-next-line */}
           <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={handleReload}>
             <ArrowCounterclockwise className="me-2" size={20} />
             Reload
           </Button>
-          <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={() => setShowLogsView()}>
+          <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={() => { setShowLogsView(); }}>
             <Code className="me-2" size={20} />
             Go To Editor
           </Button>
         </ButtonGroup>
       </Container>
-    </Navbar>
+    </Navbar >
   );
 };
 

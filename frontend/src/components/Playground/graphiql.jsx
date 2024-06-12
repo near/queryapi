@@ -44,8 +44,8 @@ const bosQuerySnippet = (accountId) => {
     generate: arg => {
       const { operationDataList } = arg;
       const { query } = operationDataList[0];
-      const queryName = extractQueryName(query)
-      const tableName = extractTableName(query)
+      const queryName = extractQueryName(query);
+      const tableName = extractTableName(query);
       const formattedQuery = query.replace(/\n/g, `\n` + ` `.repeat(2));
       return `
 const QUERYAPI_ENDPOINT = \`${HASURA_ENDPOINT}\`;
@@ -95,7 +95,7 @@ return (
   </>
 );`;
     }
-  }
+  };
 };
 
 
@@ -103,8 +103,8 @@ const explorer = explorerPlugin();
 
 export const GraphqlPlayground = () => {
   const { indexerDetails } = useContext(IndexerDetailsContext);
-  const snippets = useMemo(()=>[bosQuerySnippet(indexerDetails.accountId)], [indexerDetails.accountId]);
-  const exporter = useMemo(()=> codeExporterPlugin({snippets}), [snippets])
+  const snippets = useMemo(() => [bosQuerySnippet(indexerDetails.accountId)], [indexerDetails.accountId]);
+  const exporter = useMemo(() => codeExporterPlugin({ snippets }), [snippets]);
 
   return (
     <div style={{ width: "100%", height: "75vh" }}>

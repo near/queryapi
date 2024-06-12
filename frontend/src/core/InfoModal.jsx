@@ -14,14 +14,14 @@ export const InfoModal = ({
 
     const handleClose = () => {
         if (onClose) {
-            onClose()
+            onClose();
         }
-    }
+    };
 
     const handleOnOkButtonPressed = () => {
-        onOkButtonPressed()
-        onClose()
-    }
+        onOkButtonPressed();
+        onClose();
+    };
 
     return (
         <Modal

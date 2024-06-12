@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, Accordion } from 'react-bootstrap';
 import SeveritySelectorContainer from '../LogsViewContainer/SeveritySelectorContainer';
 import LogTypeSelectorContainer from '../LogsViewContainer/LogTypeSelectorContainer';
-import DateSelectorContainer from '../LogsViewContainer/DateSelectorContainer'
+import DateSelectorContainer from '../LogsViewContainer/DateSelectorContainer';
 import styled from 'styled-components';
 
 const CustomAccordianWrapper = styled.div`

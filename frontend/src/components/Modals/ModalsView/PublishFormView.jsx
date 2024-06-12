@@ -107,7 +107,7 @@ const PublishFormView = ({
             )}
             {startBlock === "startBlockContinue" && (
                 <div className="mt-2 text-sm text-yellow-600">
-                    Contract filter cannot be changed for "Continue" option.
+                    Contract filter cannot be changed for &quot;Continue&quot; option.
                 </div>
             )}
         </div>

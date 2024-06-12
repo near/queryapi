@@ -17,7 +17,7 @@ import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
-import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer"
+import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer";
 import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
 
 import { PublishModal } from "../Modals/PublishModal";
@@ -95,6 +95,7 @@ const Editor = ({ actionButtonText }) => {
       [decorations],
       [
         {
+          // eslint-disable-next-line no-undef
           range: new monaco.Range(startLine, startColumn, endLine, endColumn),
           options: {
             isWholeLine: true,
@@ -104,7 +105,7 @@ const Editor = ({ actionButtonText }) => {
         },
       ]
     );
-  }
+  };
 
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema) => {
     const { error, location } = validateSQLSchema(_schema);
@@ -198,6 +199,7 @@ const Editor = ({ actionButtonText }) => {
 
     if (window.monaco) {
       // Add generated types to monaco and store disposable to clear them later
+      // eslint-disable-next-line no-undef
       const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
       if (newDisposable != null) {
         console.log("Types successfully imported to Editor");
@@ -401,7 +403,7 @@ const Editor = ({ actionButtonText }) => {
     const schemaName = indexerDetails.accountId
       .concat("_", indexerDetails.indexerName)
       .replace(/[^a-zA-Z0-9]/g, "_");
-
+    let latestHeight;
     switch (option) {
       case "debugList":
         await indexerRunner.executeIndexerFunctionOnHeights(
@@ -429,7 +431,7 @@ const Editor = ({ actionButtonText }) => {
         );
         break;
       case "latest":
-        const latestHeight = await getLatestBlockHeight();
+        latestHeight = await getLatestBlockHeight();
         if (latestHeight)
           await indexerRunner.start(
             latestHeight - 10,

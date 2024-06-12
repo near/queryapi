@@ -1,9 +1,9 @@
-const CONTRACT_NAME_REGEX = RegExp(/^(([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*\.([a-z\d]+)|([a-z\d]+))$/);
-const WILD_CARD_REGEX = RegExp(/^\*\./);
+const CONTRACT_NAME_REGEX = /^(([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*\.([a-z\d]+)|([a-z\d]+))$/;
+const WILD_CARD_REGEX = /^\*\./;
 const WILD_CARD = '*';
 
 // const INVALID_ACCOUNT = 'system';
-function validateContractId(accountId: string): boolean {
+function validateContractId (accountId: string): boolean {
   accountId = accountId.trim();
   if (accountId === WILD_CARD) return true;
 
@@ -18,7 +18,7 @@ function validateContractId(accountId: string): boolean {
   return isRegexValid;
 }
 
-function validateContractIds(accountIds: string): boolean {
+function validateContractIds (accountIds: string): boolean {
   const ids = accountIds.split(',').map(id => id.trim());
   return ids.every(accountId => validateContractId(accountId));
 }
@@ -101,7 +101,7 @@ describe('validateContractId', () => {
     expect(validateContractId(hyphenEndId)).toBe(false);
   });
 
-  //test on nomicon - https://nomicon.io/DataStructures/Account
+  // test on nomicon - https://nomicon.io/DataStructures/Account
   test('it should return false for string with whitespace characters', () => {
     const invalidWhitespace = 'not ok';
     expect(validateContractId(invalidWhitespace)).toBe(false);
@@ -182,7 +182,6 @@ describe('validateContractId', () => {
     const validId = '*';
     expect(validateContractId(validId)).toBe(true);
   });
-
 });
 
 describe('validateContractIds', () => {
