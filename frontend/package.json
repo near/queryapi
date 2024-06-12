@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "test": "jest --watch --config jest.config.js",
+    "test": "jest --config jest.config.js",
     "serve:widgets": "bos-loader dataplatform.near --path widgets/src -r replacement.mainnet.json",
     "serve:widgets:local": "bos-loader dataplatform.near --path widgets/src -r replacement.local.json",
     "serve:widgets:dev": "bos-loader dev-queryapi.dataplatform.near --path widgets/src -r replacement.dev.json",

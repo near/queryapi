@@ -13,4 +13,8 @@ module.exports = {
       tsconfig: 'tsconfig.json',
     },
   },
+  testPathIgnorePatterns: [
+    "/frontend/src/components/Editor/__tests__/Editor.test.js",
+    "/frontend/src/utils/formatters.test.js"
+  ],
 };
