@@ -256,6 +256,13 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
+    #[instrument(
+        skip_all,
+        fields(
+            account_id = state.account_id.to_string(),
+            function_name = state.function_name
+        )
+    )]
     async fn sync_deleted_indexer(
         &self,
         state: &IndexerState,
@@ -263,12 +270,16 @@ impl<'a> Synchroniser<'a> {
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
         if let Some(executor) = executor {
+            tracing::info!("Stopping executor");
+
             self.executors_handler
                 .stop(executor.executor_id.clone())
                 .await?;
         }
 
         if let Some(block_stream) = block_stream {
+            tracing::info!("Stopping block stream");
+
             self.block_streams_handler
                 .stop(block_stream.stream_id.clone())
                 .await?;
