@@ -1,4 +1,4 @@
-use crate::bitmap::{Base64Bitmap, BitmapOperator};
+use crate::bitmap::{Base64Bitmap, CompressedBitmap, DecompressedBitmap};
 use crate::graphql::client::GraphQLClient;
 use crate::rules::types::ChainId;
 use anyhow::Context;
@@ -21,20 +21,14 @@ pub use BlockHeightStreamImpl as BlockHeightStream;
 
 pub struct BlockHeightStreamImpl {
     graphql_client: GraphQLClient,
-    bitmap_operator: BitmapOperator,
     s3_client: crate::s3_client::S3Client,
     chain_id: ChainId,
 }
 
 impl BlockHeightStreamImpl {
-    pub fn new(
-        graphql_client: GraphQLClient,
-        bitmap_operator: BitmapOperator,
-        s3_client: crate::s3_client::S3Client,
-    ) -> Self {
+    pub fn new(graphql_client: GraphQLClient, s3_client: crate::s3_client::S3Client) -> Self {
         Self {
             graphql_client,
-            bitmap_operator,
             s3_client,
             chain_id: ChainId::Mainnet,
         }
@@ -139,28 +133,29 @@ impl BlockHeightStreamImpl {
             let contract_pattern_type = self.parse_contract_pattern(&contract_pattern);
             let mut current_date = start_date;
             while current_date <= Utc::now() {
-                let bitmaps_from_query: Vec<Base64Bitmap> = match contract_pattern_type {
+                let base_64_bitmaps: Vec<Base64Bitmap> = match contract_pattern_type {
                     ContractPatternType::Exact(ref pattern) => {
                         let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), &current_date).await.unwrap();
-                        query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
+                        query_result.iter().map(Base64Bitmap::try_from).collect()?
                     },
                     ContractPatternType::Wildcard(ref pattern) => {
                         let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), &current_date).await.unwrap();
-                        query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
+                        query_result.iter().map(Base64Bitmap::try_from).collect()?
                     },
                 };
-                // convert to base64
-                // convert to compressed
-                // convert to decompressed
-                // merge
-                if !bitmaps_from_query.is_empty() {
-                    let starting_block_height = bitmaps_from_query.iter().map(|item| item.start_block_height).min().unwrap();
-                    let bitmap_for_day = self.bitmap_operator.merge_bitmaps(&bitmaps_from_query, starting_block_height).unwrap();
-                    for index in 0..(bitmap_for_day.bitmap.len() * 8) {
-                        if self.bitmap_operator.get_bit(&bitmap_for_day.bitmap, index) {
-                            yield starting_block_height + u64::try_from(index)?;
-                        }
-                    }
+
+                let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
+                let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect();
+
+                let starting_block_height = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap();
+                let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
+                for mut bitmap in decompressed_bitmaps {
+                    let _ = bitmap_for_day.merge(&mut bitmap);
+                }
+
+                let mut bitmap_iter = bitmap_for_day.iter();
+                while let Some(block_height) = bitmap_iter.next() {
+                    yield block_height;
                 }
                 current_date = self.next_day(current_date);
             }
@@ -252,9 +247,7 @@ mod tests {
     fn parse_exact_contract_patterns() {
         let mock_s3_client = crate::s3_client::S3Client::default();
         let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let bitmap_operator = crate::bitmap::BitmapOperator::new();
-        let block_height_stream =
-            BlockHeightStreamImpl::new(mock_graphql_client, bitmap_operator, mock_s3_client);
+        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
         let sample_patterns = vec![
             "near",
             "*.near",
@@ -298,9 +291,7 @@ mod tests {
     fn parse_wildcard_contract_patterns() {
         let mock_s3_client = crate::s3_client::S3Client::default();
         let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let bitmap_operator = crate::bitmap::BitmapOperator::new();
-        let block_height_stream =
-            BlockHeightStreamImpl::new(mock_graphql_client, bitmap_operator, mock_s3_client);
+        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
         let sample_patterns = vec![
             "*.someone.near",
             "near, someone.*.tg",
@@ -346,11 +337,7 @@ mod tests {
             .times(1)
             .returning(move |_, _| Ok(mock_query_result.clone()));
 
-        let block_height_stream = BlockHeightStreamImpl::new(
-            mock_graphql_client,
-            crate::bitmap::BitmapOperator::new(),
-            mock_s3_client,
-        );
+        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
 
         let stream =
             block_height_stream.stream_matching_block_heights(0, "someone.near".to_owned());
@@ -421,11 +408,7 @@ mod tests {
                     wildcard_query_result(105, "wA=="),
                 ])
             });
-        let block_height_stream = BlockHeightStreamImpl::new(
-            mock_graphql_client,
-            crate::bitmap::BitmapOperator::new(),
-            mock_s3_client,
-        );
+        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
 
         let stream =
             block_height_stream.stream_matching_block_heights(0, "*.someone.near".to_string());
