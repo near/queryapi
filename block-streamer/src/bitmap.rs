@@ -292,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn decompressed_iterator() {
+    fn iterate_decompressed_bitmap() {
         let bytes = vec![0b00000001, 0b00000000, 0b00001001];
         let bitmap = DecompressedBitmap::new(0, Some(bytes));
         let results: Vec<u64> = bitmap.iter().collect();
@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn decode_compressed_bitmap() {
+    fn decompress_many_compressed_bitmaps() {
         assert_eq!(
             CompressedBitmap::new(0, vec![0b10100000])
                 .decompress()
