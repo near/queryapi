@@ -2,8 +2,8 @@ use registry_types::StartBlock;
 use tracing::instrument;
 
 use crate::{
-    block_streams_handler::{BlockStreamsHandler, StreamInfo},
-    executors_handler::{ExecutorInfo, ExecutorsHandler},
+    handlers::block_streams::{BlockStreamsHandler, StreamInfo},
+    handlers::executors::{ExecutorInfo, ExecutorsHandler},
     indexer_config::IndexerConfig,
     indexer_state::{IndexerState, IndexerStateManager},
     redis::RedisClient,
