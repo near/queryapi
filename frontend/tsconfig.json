@@ -30,7 +30,7 @@
   "include": [
     "next-env.d.ts",
     "**/*.ts",
-    "**/*.tsx",
+    "**/*.tsx", "src/utils/validators.js",
   ],
   "exclude": [
     "node_modules",

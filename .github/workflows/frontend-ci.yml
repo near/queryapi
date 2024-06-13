@@ -6,25 +6,25 @@ on:
       - "frontend/**"
 
 jobs:
-  # test:
-  #   runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-  #     - name: Setup Node
-  #       uses: actions/setup-node@v3
-  #       with:
-  #         node-version: '18.x'
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
 
-  #     - name: Install Node Dependencies
-  #       run: npm install
-  #       working-directory: ./frontend
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./frontend
 
-  #     - name: Test
-  #       run: npm test
-  #       working-directory: ./frontend
+      - name: Test
+        run: npm test
+        working-directory: ./frontend
   lint:
     runs-on: ubuntu-latest
     steps:
