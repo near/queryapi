@@ -1,6 +1,6 @@
 import React from 'react';
 import DateSelectorView from '../LogsView/DateSelectorView';
-import { TIME_INTERVALS_MAP } from '../../../constants/DurationMap';
+import { TIME_INTERVALS_MAP } from '@/constants/DurationMap';
 
 interface DateSelectorProps {
     selectedDate: string;

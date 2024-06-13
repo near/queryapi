@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package data_layer;
+
+service DataLayer {
+    // Provisions the data layer (PostgreSQL + Hasura)
+    rpc Provision (ProvisionRequest) returns (ProvisionResponse);
+
+    // Checks the provisioning status
+    rpc CheckProvisioningTaskStatus (CheckProvisioningTaskStatusRequest) returns (ProvisionResponse);
+}
+
+message ProvisionRequest {
+    string account_id = 1;
+    string function_name = 2;
+    string schema = 3;
+}
+
+message CheckProvisioningTaskStatusRequest {
+    string account_id = 1;
+    string function_name = 2;
+}
+
+enum ProvisioningStatus {
+    UNSPECIFIED = 0;
+    PENDING = 1;
+    COMPLETE = 2;
+    FAILED = 3;
+}
+
+message ProvisionResponse {
+    ProvisioningStatus status = 1;
+}

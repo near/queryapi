@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { queryIndexerFunctionDetails } from "../utils/queryIndexerFunction";
+import { queryIndexerFunctionDetails } from "@/utils/queryIndexerFunction";
 import {
   defaultCode,
   defaultSchema,
@@ -7,7 +7,7 @@ import {
 } from "../utils/formatters";
 
 import { useInitialPayload } from "near-social-bridge";
-import { getLatestBlockHeight } from "../utils/getLatestBlockHeight";
+import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
 // interface IndexerDetails {
 //   accountId: String,
 //   indexerName: String,

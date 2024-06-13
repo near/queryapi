@@ -1,13 +1,11 @@
-
-import React, { useContext, useEffect} from "react";
-
-import CreateNewIndexer from "../../components/CreateNewIndexer";
-import { withRouter } from 'next/router'
+import React, { useContext, useEffect } from "react";
+import { withRouter } from 'next/router';
 import { Alert } from 'react-bootstrap';
-import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+import CreateNewIndexer from "@/components/CreateNewIndexer";
+
 const CreateNewIndexerPage = ({ router }) => {
   const { accountId } = router.query
-
   const { setAccountId, setIsCreateNewIndexer } = useContext(IndexerDetailsContext);
 
   useEffect(() => {

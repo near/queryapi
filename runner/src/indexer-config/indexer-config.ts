@@ -2,6 +2,53 @@ import crypto from 'crypto';
 import { type StartExecutorRequest__Output } from '../generated/runner/StartExecutorRequest';
 import { LogLevel } from '../indexer-meta/log-entry';
 
+class BaseConfig {
+  constructor (
+    public readonly accountId: string,
+    public readonly functionName: string,
+  ) {}
+
+  fullName (): string {
+    return `${this.accountId}/${this.functionName}`;
+  }
+}
+
+export class ProvisioningConfig extends BaseConfig {
+  constructor (
+    public readonly accountId: string,
+    public readonly functionName: string,
+    public readonly schema: string
+  ) {
+    super(accountId, functionName);
+  }
+
+  private sanitizeNameForDatabase (name: string): string {
+    return name
+      .replace(/[^a-zA-Z0-9]/g, '_') // Replace all non-alphanumeric characters with underscores
+      .replace(/^([0-9])/, '_$1'); // Add underscore if first character is a number
+  }
+
+  hasuraRoleName (): string {
+    return this.sanitizeNameForDatabase(this.accountId);
+  }
+
+  hasuraFunctionName (): string {
+    return this.sanitizeNameForDatabase(this.functionName);
+  }
+
+  userName (): string {
+    return this.sanitizeNameForDatabase(this.accountId);
+  }
+
+  databaseName (): string {
+    return this.sanitizeNameForDatabase(this.accountId);
+  }
+
+  schemaName (): string {
+    return this.sanitizeNameForDatabase(this.fullName());
+  }
+}
+
 interface IndexerConfigData {
   redisStreamKey: string
   accountId: string
@@ -12,7 +59,7 @@ interface IndexerConfigData {
   logLevel: LogLevel
 }
 
-export default class IndexerConfig {
+export default class IndexerConfig extends ProvisioningConfig {
   public readonly executorId: string;
 
   constructor (
@@ -24,6 +71,7 @@ export default class IndexerConfig {
     public readonly schema: string,
     public readonly logLevel: LogLevel
   ) {
+    super(accountId, functionName, schema);
     const hash = crypto.createHash('sha256');
     hash.update(`${accountId}/${functionName}`);
     this.executorId = hash.digest('hex');
@@ -63,35 +111,5 @@ export default class IndexerConfig {
       schema: this.schema,
       logLevel: this.logLevel
     };
-  }
-
-  private sanitizeNameForDatabase (name: string): string {
-    return name
-      .replace(/[^a-zA-Z0-9]/g, '_') // Replace all non-alphanumeric characters with underscores
-      .replace(/^([0-9])/, '_$1'); // Add underscore if first character is a number
-  }
-
-  fullName (): string {
-    return `${this.accountId}/${this.functionName}`;
-  }
-
-  hasuraRoleName (): string {
-    return this.sanitizeNameForDatabase(this.accountId);
-  }
-
-  hasuraFunctionName (): string {
-    return this.sanitizeNameForDatabase(this.functionName);
-  }
-
-  userName (): string {
-    return this.sanitizeNameForDatabase(this.accountId);
-  }
-
-  databaseName (): string {
-    return this.sanitizeNameForDatabase(this.accountId);
-  }
-
-  schemaName (): string {
-    return this.sanitizeNameForDatabase(this.fullName());
   }
 }

@@ -1,9 +1,10 @@
-import type StreamHandler from '../stream-handler/stream-handler';
-import { IndexerStatus } from '../indexer-meta/indexer-meta';
-import { LogLevel } from '../indexer-meta/log-entry';
-import getRunnerService from './runner-service';
 import * as grpc from '@grpc/grpc-js';
-import IndexerConfig from '../indexer-config/indexer-config';
+
+import type StreamHandler from '../../../stream-handler/stream-handler';
+import { IndexerStatus } from '../../../indexer-meta/indexer-meta';
+import { LogLevel } from '../../../indexer-meta/log-entry';
+import getRunnerService from './runner-service';
+import IndexerConfig from '../../../indexer-config/indexer-config';
 
 const BASIC_REDIS_STREAM = 'test-redis-stream';
 const BASIC_ACCOUNT_ID = 'test-account-id';

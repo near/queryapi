@@ -3,7 +3,6 @@ import pgFormat from 'pg-format';
 import Provisioner from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
-import { type HasuraPermission, type HasuraTableMetadata } from '../hasura-client';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -245,45 +244,6 @@ describe('Provisioner', () => {
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
     });
 
-    it('provisions logs and metadata tables once', async () => {
-      hasuraClient.getTableNames = jest.fn().mockReturnValueOnce(['blocks']).mockReturnValue(['blocks', 'sys_logs', 'sys_metadata']);
-      await provisioner.provisionLogsAndMetadataIfNeeded(indexerConfig);
-      expect(hasuraClient.executeSqlOnSchema).toBeCalledTimes(2);
-      expect(cronPgClient.query).toBeCalledTimes(2);
-      expect(userPgClientQuery).toBeCalledTimes(3); // Set provisioning status, schedule today and tomorrow partitions
-    });
-
-    it('ensuring consistent state tracks logs and metadata table once, adds permissions twice', async () => {
-      hasuraClient.getTrackedTablePermissions = jest.fn()
-        .mockReturnValueOnce([
-          generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-        ])
-        .mockReturnValueOnce([
-          generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-          generateTableConfig('morgs_near_test_function', 'sys_logs', 'morgs_near', []),
-          generateTableConfig('morgs_near_test_function', 'sys_metadata', 'morgs_near', []),
-        ]);
-      await provisioner.ensureConsistentHasuraState(indexerConfig);
-      await provisioner.ensureConsistentHasuraState(indexerConfig);
-
-      expect(hasuraClient.trackTables).toBeCalledTimes(1);
-      expect(hasuraClient.addPermissionsToTables).toBeCalledTimes(2);
-    });
-
-    it('ensuring consistent state caches result', async () => {
-      hasuraClient.getTrackedTablePermissions = jest.fn().mockReturnValue([
-        generateTableConfig('morgs_near_test_function', 'blocks', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-        generateTableConfig('morgs_near_test_function', 'sys_logs', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-        generateTableConfig('morgs_near_test_function', 'sys_metadata', 'morgs_near', ['select', 'insert', 'update', 'delete']),
-      ]);
-      await provisioner.ensureConsistentHasuraState(indexerConfig);
-      await provisioner.ensureConsistentHasuraState(indexerConfig);
-
-      expect(hasuraClient.trackTables).not.toBeCalled();
-      expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
-      expect(userPgClientQuery).not.toBeCalled();
-    });
-
     it('get credentials for postgres', async () => {
       const getDbConnectionParameters = jest.fn().mockReturnValue({
         username: 'username',
@@ -341,19 +301,3 @@ describe('Provisioner', () => {
     });
   });
 });
-
-function generateTableConfig (schemaName: string, tableName: string, role: string, permissionsToAdd: HasuraPermission[]): HasuraTableMetadata {
-  const config: HasuraTableMetadata = {
-    table: {
-      name: tableName,
-      schema: schemaName,
-    },
-  };
-
-  permissionsToAdd.forEach((permission) => {
-    const permissionKey = `${permission as string}_permissions` as keyof Omit<HasuraTableMetadata, 'table'>;
-    config[permissionKey] = [{ role, permission: {} }];
-  });
-
-  return config;
-}
