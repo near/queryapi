@@ -88,7 +88,7 @@ export function createDataLayerService (
         if (isProvisioned) {
           const exists = new StatusBuilder()
             .withCode(status.ALREADY_EXISTS)
-            .withDetails('Provisioning task has already completed')
+            .withDetails('Indexer has already been provisioned')
             .build();
           callback(exists);
 
