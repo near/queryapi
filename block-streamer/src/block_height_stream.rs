@@ -17,15 +17,58 @@ enum ContractPatternType {
     Wildcard(String),
 }
 
-pub use BlockHeightStreamImpl as BlockHeightStream;
+impl ContractPatternType {
+    fn strip_wildcard_if_root_account(receiver_id: String) -> anyhow::Result<String> {
+        let wildcard_root_account_regex = Regex::new(r"^\*\.([a-zA-Z0-9]+)$")?;
+        if wildcard_root_account_regex.is_match(&receiver_id) {
+            return Ok(receiver_id
+                .split('.')
+                .nth(1)
+                .unwrap_or(&receiver_id)
+                .to_string());
+        }
+        Ok(receiver_id)
+    }
+}
 
-pub struct BlockHeightStreamImpl {
+impl From<&str> for ContractPatternType {
+    fn from(contract_pattern: &str) -> Self {
+        // If receiver_id is of pattern *.SOME_ROOT_ACCOUNT such as *.near, we can reduce this to
+        // "near" as we store bitmaps for root accounts like near ,tg, and so on.
+        let cleaned_contract_pattern: String = contract_pattern
+            .split(',')
+            .map(|receiver| receiver.trim())
+            .map(str::to_string)
+            .map(|receiver| {
+                ContractPatternType::strip_wildcard_if_root_account(receiver.clone())
+                    .unwrap_or(receiver)
+            })
+            .collect::<Vec<String>>()
+            .join(",");
+
+        if cleaned_contract_pattern.chars().any(|c| c == '*') {
+            let wildcard_pattern = cleaned_contract_pattern
+                .replace(',', "|")
+                .replace('.', "\\.")
+                .replace('*', ".*");
+            return ContractPatternType::Wildcard(wildcard_pattern);
+        }
+
+        let exact_pattern = cleaned_contract_pattern
+            .split(',')
+            .map(str::to_string)
+            .collect();
+        ContractPatternType::Exact(exact_pattern)
+    }
+}
+
+pub struct BitmapProcessor {
     graphql_client: GraphQLClient,
     s3_client: crate::s3_client::S3Client,
     chain_id: ChainId,
 }
 
-impl BlockHeightStreamImpl {
+impl BitmapProcessor {
     pub fn new(graphql_client: GraphQLClient, s3_client: crate::s3_client::S3Client) -> Self {
         Self {
             graphql_client,
@@ -85,44 +128,6 @@ impl BlockHeightStreamImpl {
         date + Duration::days(1)
     }
 
-    fn strip_wildcard_if_root_account(&self, receiver_id: String) -> String {
-        let wildcard_root_account_regex = Regex::new(r"^\*\.([a-zA-Z0-9]+)$").unwrap();
-        if wildcard_root_account_regex.is_match(&receiver_id) {
-            return receiver_id
-                .split('.')
-                .nth(1)
-                .unwrap_or(&receiver_id)
-                .to_string();
-        }
-        receiver_id
-    }
-
-    fn parse_contract_pattern(&self, contract_pattern: &str) -> ContractPatternType {
-        // If receiver_id is of pattern *.SOME_ROOT_ACCOUNT such as *.near, we can reduce this to
-        // "near" as we store bitmaps for root accounts like near ,tg, and so on.
-        let cleaned_contract_pattern: String = contract_pattern
-            .split(',')
-            .map(|receiver| receiver.trim())
-            .map(str::to_string)
-            .map(|receiver| self.strip_wildcard_if_root_account(receiver))
-            .collect::<Vec<String>>()
-            .join(",");
-
-        if cleaned_contract_pattern.chars().any(|c| c == '*') {
-            let wildcard_pattern = cleaned_contract_pattern
-                .replace(',', "|")
-                .replace('.', "\\.")
-                .replace('*', ".*");
-            return ContractPatternType::Wildcard(wildcard_pattern);
-        }
-
-        let exact_pattern = cleaned_contract_pattern
-            .split(',')
-            .map(str::to_string)
-            .collect();
-        ContractPatternType::Exact(exact_pattern)
-    }
-
     fn stream_matching_block_heights<'b, 'a: 'b>(
         &'a self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
@@ -130,24 +135,24 @@ impl BlockHeightStreamImpl {
     ) -> impl futures::Stream<Item = anyhow::Result<u64>> + 'b {
         try_stream! {
             let start_date = self.get_nearest_block_date(start_block_height).await?;
-            let contract_pattern_type = self.parse_contract_pattern(&contract_pattern);
+            let contract_pattern_type = ContractPatternType::from(contract_pattern.as_str());
             let mut current_date = start_date;
             while current_date <= Utc::now() {
                 let base_64_bitmaps: Vec<Base64Bitmap> = match contract_pattern_type {
                     ContractPatternType::Exact(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), &current_date).await.unwrap();
+                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), &current_date).await?;
                         query_result.iter().map(Base64Bitmap::try_from).collect()?
                     },
                     ContractPatternType::Wildcard(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), &current_date).await.unwrap();
+                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), &current_date).await?;
                         query_result.iter().map(Base64Bitmap::try_from).collect()?
                     },
                 };
 
                 let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
-                let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect();
+                let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
 
-                let starting_block_height = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap();
+                let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
                 let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
                 for mut bitmap in decompressed_bitmaps {
                     let _ = bitmap_for_day.merge(&mut bitmap);
@@ -167,9 +172,6 @@ impl BlockHeightStreamImpl {
 mod tests {
     use super::*;
     use mockall::predicate;
-
-    const HASURA_ENDPOINT: &str =
-        "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql";
 
     fn exact_query_result(
         first_block_height: i64,
@@ -245,9 +247,6 @@ mod tests {
 
     #[test]
     fn parse_exact_contract_patterns() {
-        let mock_s3_client = crate::s3_client::S3Client::default();
-        let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
         let sample_patterns = vec![
             "near",
             "*.near",
@@ -257,19 +256,19 @@ mod tests {
         ];
 
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[0]),
+            ContractPatternType::from(sample_patterns[0]),
             ContractPatternType::Exact(vec!["near".to_string()])
         );
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[1]),
+            ContractPatternType::from(sample_patterns[1]),
             ContractPatternType::Exact(vec!["near".to_string()])
         );
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[2]),
+            ContractPatternType::from(sample_patterns[2]),
             ContractPatternType::Exact(vec!["near".to_string(), "someone.tg".to_string()],)
         );
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[3]),
+            ContractPatternType::from(sample_patterns[3]),
             ContractPatternType::Exact(vec![
                 "near".to_string(),
                 "someone.tg".to_string(),
@@ -277,7 +276,7 @@ mod tests {
             ],)
         );
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[4]),
+            ContractPatternType::from(sample_patterns[4]),
             ContractPatternType::Exact(vec![
                 "a.near".to_string(),
                 "b.near".to_string(),
@@ -289,9 +288,6 @@ mod tests {
 
     #[test]
     fn parse_wildcard_contract_patterns() {
-        let mock_s3_client = crate::s3_client::S3Client::default();
-        let mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
         let sample_patterns = vec![
             "*.someone.near",
             "near, someone.*.tg",
@@ -299,15 +295,15 @@ mod tests {
         ];
 
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[0]),
+            ContractPatternType::from(sample_patterns[0]),
             ContractPatternType::Wildcard(".*\\.someone\\.near".to_string())
         );
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[1]),
+            ContractPatternType::from(sample_patterns[1]),
             ContractPatternType::Wildcard("near|someone\\..*\\.tg".to_string())
         );
         assert_eq!(
-            block_height_stream.parse_contract_pattern(sample_patterns[2]),
+            ContractPatternType::from(sample_patterns[2]),
             ContractPatternType::Wildcard("a\\.near|b\\..*|b|a\\..*\\.c\\.near".to_string())
         );
     }
@@ -337,7 +333,7 @@ mod tests {
             .times(1)
             .returning(move |_, _| Ok(mock_query_result.clone()));
 
-        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
+        let block_height_stream = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
 
         let stream =
             block_height_stream.stream_matching_block_heights(0, "someone.near".to_owned());
@@ -408,7 +404,7 @@ mod tests {
                     wildcard_query_result(105, "wA=="),
                 ])
             });
-        let block_height_stream = BlockHeightStreamImpl::new(mock_graphql_client, mock_s3_client);
+        let block_height_stream = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
 
         let stream =
             block_height_stream.stream_matching_block_heights(0, "*.someone.near".to_string());

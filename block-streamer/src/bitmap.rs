@@ -130,12 +130,12 @@ impl CompressedBitmap {
         };
 
         Ok(EliasGammaDecoded {
-            value: 2_u64.pow(zero_count.try_into().unwrap()) + remainder,
+            value: 2_u64.pow(zero_count.try_into()?) + remainder,
             last_bit_index: first_bit_index + zero_count,
         })
     }
 
-    pub fn decompress(&self) -> DecompressedBitmap {
+    pub fn decompress(&self) -> anyhow::Result<DecompressedBitmap> {
         let compressed_bit_length: usize = self.bitmap.len() * 8;
         let mut current_bit_value: bool = (self.bitmap[0] & 0b10000000) > 0;
         let mut decompressed: DecompressedBitmap =
@@ -145,7 +145,7 @@ impl CompressedBitmap {
         let mut decompressed_bit_index = 0;
 
         while compressed_bit_index < compressed_bit_length {
-            let decoded_elias_gamma = self.decode_elias_gamma_entry(compressed_bit_index).unwrap();
+            let decoded_elias_gamma = self.decode_elias_gamma_entry(compressed_bit_index)?;
             if decoded_elias_gamma.value == 0 {
                 break;
             }
@@ -153,7 +153,7 @@ impl CompressedBitmap {
             compressed_bit_index = decoded_elias_gamma.last_bit_index + 1;
             let mut bit_index_offset: usize = 0;
             while current_bit_value
-                && (bit_index_offset < usize::try_from(decoded_elias_gamma.value).unwrap())
+                && (bit_index_offset < usize::try_from(decoded_elias_gamma.value)?)
             {
                 while decompressed_bit_index + bit_index_offset >= (decompressed.bitmap.len() * 8) {
                     decompressed.bitmap.push(0b00000000);
@@ -162,11 +162,11 @@ impl CompressedBitmap {
                 bit_index_offset += 1;
             }
 
-            decompressed_bit_index += usize::try_from(decoded_elias_gamma.value).unwrap();
+            decompressed_bit_index += usize::try_from(decoded_elias_gamma.value)?;
             current_bit_value = !current_bit_value;
         }
 
-        decompressed
+        Ok(decompressed)
     }
 }
 
@@ -371,54 +371,63 @@ mod tests {
         assert_eq!(
             CompressedBitmap::new(0, vec![0b10100000])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b11000000]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b00100100])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b00110000]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b10010000])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b11110000]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b10110010, 0b01000000])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b11100001]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b01010001, 0b01010000])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b01100000, 0b11000000]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b01111111, 0b11111111, 0b11111000])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b01010101, 0b01010101, 0b01010000]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b11010101, 0b11010101, 0b11010100])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b10010001, 0b00100010, 0b01000000]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b00000111, 0b11100000])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![0b00000000, 0b00000000, 0b00000000, 0b00000001]
         );
         assert_eq!(
             CompressedBitmap::new(0, vec![0b11000001, 0b11011011])
                 .decompress()
+                .unwrap()
                 .bitmap,
             vec![
                 0b10000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000, 0b00000000,
