@@ -17,10 +17,7 @@ enum ContractPatternType {
     Wildcard(String),
 }
 
-#[cfg(not(test))]
 pub use BlockHeightStreamImpl as BlockHeightStream;
-#[cfg(test)]
-pub use MockBlockHeightStreamImpl as BlockHeightStream;
 
 pub struct BlockHeightStreamImpl {
     graphql_client: GraphQLClient,
@@ -29,7 +26,6 @@ pub struct BlockHeightStreamImpl {
     chain_id: ChainId,
 }
 
-#[cfg_attr(test, mockall::automock)]
 impl BlockHeightStreamImpl {
     pub fn new(
         graphql_client: GraphQLClient,
@@ -133,12 +129,14 @@ impl BlockHeightStreamImpl {
         ContractPatternType::Exact(exact_pattern)
     }
 
-    fn generate_block_height_stream<'a>(
+    fn stream_matching_block_heights<'b, 'a: 'b>(
         &'a self,
-        start_date: DateTime<Utc>,
-        contract_pattern_type: ContractPatternType,
-    ) -> BoxStream<'a, anyhow::Result<u64>> {
-        Box::pin(try_stream! {
+        start_block_height: near_indexer_primitives::types::BlockHeight,
+        contract_pattern: String,
+    ) -> impl futures::Stream<Item = anyhow::Result<u64>> + 'b {
+        try_stream! {
+            let start_date = self.get_nearest_block_date(start_block_height).await?;
+            let contract_pattern_type = self.parse_contract_pattern(&contract_pattern);
             let mut current_date = start_date;
             while current_date <= Utc::now() {
                 let bitmaps_from_query: Vec<Base64Bitmap> = match contract_pattern_type {
@@ -151,6 +149,10 @@ impl BlockHeightStreamImpl {
                         query_result.iter().map(|result_item| Base64Bitmap::try_from(result_item).unwrap()).collect()
                     },
                 };
+                // convert to base64
+                // convert to compressed
+                // convert to decompressed
+                // merge
                 if !bitmaps_from_query.is_empty() {
                     let starting_block_height = bitmaps_from_query.iter().map(|item| item.start_block_height).min().unwrap();
                     let bitmap_for_day = self.bitmap_operator.merge_bitmaps(&bitmaps_from_query, starting_block_height).unwrap();
@@ -162,18 +164,7 @@ impl BlockHeightStreamImpl {
                 }
                 current_date = self.next_day(current_date);
             }
-        })
-    }
-
-    pub async fn list_matching_block_heights<'a>(
-        &'a self,
-        start_block_height: near_indexer_primitives::types::BlockHeight,
-        contract_pattern: &str,
-    ) -> anyhow::Result<BoxStream<'a, anyhow::Result<u64>>> {
-        let start_date = self.get_nearest_block_date(start_block_height).await?;
-        let contract_pattern_type = self.parse_contract_pattern(contract_pattern);
-
-        Ok(self.generate_block_height_stream(start_date, contract_pattern_type))
+        }
     }
 }
 
@@ -361,10 +352,9 @@ mod tests {
             mock_s3_client,
         );
 
-        let mut stream = block_height_stream
-            .list_matching_block_heights(0, "someone.near")
-            .await
-            .unwrap();
+        let stream =
+            block_height_stream.stream_matching_block_heights(0, "someone.near".to_owned());
+        tokio::pin!(stream);
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
             result_heights.push(height);
@@ -437,10 +427,9 @@ mod tests {
             mock_s3_client,
         );
 
-        let mut stream = block_height_stream
-            .list_matching_block_heights(0, "*.someone.near")
-            .await
-            .unwrap();
+        let stream =
+            block_height_stream.stream_matching_block_heights(0, "*.someone.near".to_string());
+        tokio::pin!(stream);
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
             result_heights.push(height);
