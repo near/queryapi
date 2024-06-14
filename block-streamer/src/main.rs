@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
-    let graphql_url = std::env::var("GRAPHQL_URL").expect("GRAPHQL_URL is not set");
+    let graphql_url = "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql";
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
     let metrics_port = std::env::var("METRICS_PORT")
         .expect("METRICS_PORT is not set")
@@ -52,11 +52,11 @@ async fn main() -> anyhow::Result<()> {
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
     let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
-    let graphql_client = graphql::client::GraphQLClient::new(graphql_url);
+    let graphql_client = graphql::client::GraphQLClient::new(graphql_url.to_string());
 
     let bitmap_processor = std::sync::Arc::new(crate::bitmap_processor::BitmapProcessor::new(
         graphql_client,
-        s3_client,
+        s3_client.clone(),
     ));
     let delta_lake_client =
         std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));

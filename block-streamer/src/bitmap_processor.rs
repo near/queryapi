@@ -157,7 +157,7 @@ impl BitmapProcessor {
         }
     }
 
-    fn stream_matching_block_heights<'b, 'a: 'b>(
+    pub fn stream_matching_block_heights<'b, 'a: 'b>(
         &'a self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
         contract_pattern: String,
@@ -168,18 +168,20 @@ impl BitmapProcessor {
             let mut current_date = start_date;
             while current_date <= Utc::now() {
                 let base_64_bitmaps: Vec<Base64Bitmap> = self.query_base_64_bitmaps(&contract_pattern_type, &current_date).await?;
-                let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
-                let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
+                if !base_64_bitmaps.is_empty() {
+                    let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
+                    let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
 
-                let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
-                let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
-                for bitmap in decompressed_bitmaps {
-                    bitmap_for_day.merge(bitmap)?;
-                }
+                    let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
+                    let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
+                    for bitmap in decompressed_bitmaps {
+                        bitmap_for_day.merge(bitmap)?;
+                    }
 
-                let mut bitmap_iter = bitmap_for_day.iter();
-                while let Some(block_height) = bitmap_iter.next() {
-                    yield block_height;
+                    let mut bitmap_iter = bitmap_for_day.iter();
+                    while let Some(block_height) = bitmap_iter.next() {
+                        yield block_height;
+                    }
                 }
                 current_date = self.next_day(current_date);
             }

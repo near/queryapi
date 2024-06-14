@@ -152,7 +152,9 @@ pub(crate) async fn start_block_stream(
         redis_client.clone(),
         indexer,
         redis_stream.clone(),
-    );
+    )
+    .await
+    .context("Failed while fetching and streaming bitmap indexer blocks")?;
 
     let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
