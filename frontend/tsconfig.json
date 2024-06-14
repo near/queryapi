@@ -30,7 +30,7 @@
   "include": [
     "next-env.d.ts",
     "**/*.ts",
-    "**/*.tsx", "src/components/Modals/ForkIndexerModal.tsx", "src/contexts/IndexerDetailsContext.js",
+    "**/*.tsx", "src/components/Modals/ForkIndexerModal.tsx", "src/contexts/IndexerDetailsContext.js", "src/utils/validators.ts",
   ],
   "exclude": [
     "node_modules",

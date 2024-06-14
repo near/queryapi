@@ -26,7 +26,7 @@ export const IndexerDetailsContext = React.createContext({
   showResetCodeModel: false,
   setShowResetCodeModel: (bool) => { },
   showPublishModal: false,
-  setShowPublishModal: () => { },
+  setShowPublishModal: (bool) => { },
   showForkIndexerModal: false,
   setShowForkIndexerModal: (bool) => { },
   debugMode: false,

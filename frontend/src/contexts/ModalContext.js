@@ -4,7 +4,7 @@ const ModalContext = createContext({
     openModal: false,
     message: "",
     data: {},
-    showModal: () => { },
+    showModal: (err, obj) => { },
     hideModal: () => { }
 });
 

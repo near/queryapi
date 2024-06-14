@@ -2,7 +2,7 @@ import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
 import React, { useContext } from "react";
 import { Button, Modal } from "react-bootstrap";
 export const ResetChangesModal = ({
-  handleReload,
+  handleResetCodeChanges,
 }) => {
   const {
     showResetCodeModel,
@@ -27,7 +27,7 @@ export const ResetChangesModal = ({
         >
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => handleReload()}>
+        <Button variant="primary" onClick={() => handleResetCodeChanges()}>
           Reload
         </Button>
       </Modal.Footer>

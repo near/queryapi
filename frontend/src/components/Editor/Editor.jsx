@@ -9,25 +9,23 @@ import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer";
 import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
-import { PublishModal } from "../Modals/PublishModal";
 import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
 import { PgSchemaTypeGen } from "@/utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR } from "../../constants/Strings";
+import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR } from "@/constants/Strings";
 import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
 import { GlyphContainer } from "./GlyphContainer";
 
 const Editor = ({ actionButtonText }) => {
-  const { indexerDetails, setShowPublishModal, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+  const { indexerDetails, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_TAB_NAME = "schema.sql";
-  const [blockHeightError, setBlockHeightError] = useState(undefined);
   const [error, setError] = useState();
 
   const [fileName, setFileName] = useState("indexingLogic.js");
@@ -185,71 +183,11 @@ const Editor = ({ actionButtonText }) => {
     }
   };
 
-  const registerFunction = async (indexerName, indexerConfig) => {
-    const { data: validatedSchema, error: schemaValidationError } =
-      validateSQLSchema(schema);
-    const { data: validatedCode, error: codeValidationError } =
-      validateJSCode(indexingCode);
-
-    if (codeValidationError) {
-      setError(CODE_FORMATTING_ERROR_MESSAGE);
-      return;
-    }
-
-    let innerCode = validatedCode.match(
-      /getBlock\s*\([^)]*\)\s*{([\s\S]*)}/
-    )[1];
-    indexerName = indexerName.replaceAll(" ", "_");
-    let forkedFrom =
-      (indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName)
-        ? { account_id: indexerDetails.forkedAccountId, function_name: indexerDetails.forkedIndexerName }
-        : null;
-
-    const startBlock =
-      indexerConfig.startBlock === "startBlockHeight"
-        ? { HEIGHT: indexerConfig.height }
-        : indexerConfig.startBlock === "startBlockLatest"
-          ? "LATEST"
-          : "CONTINUE";
-
-    if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-      return;
-    } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
-      showModal(INDEXER_REGISTER_TYPE_GENERATION_ERROR, {
-        indexerName,
-        code: innerCode,
-        schema: validatedSchema,
-        startBlock,
-        contractFilter: indexerConfig.filter,
-        forkedFrom,
-      });
-      return;
-    }
-
-    request("register-function", {
-      indexerName: indexerName,
-      code: innerCode,
-      schema: validatedSchema,
-      startBlock,
-      contractFilter: indexerConfig.filter,
-      ...(forkedFrom && { forkedFrom })
-    });
-
-    setShowPublishModal(false);
-  };
-
   const handleDeleteIndexer = () => {
     request("delete-indexer", {
       accountId: indexerDetails.accountId,
       indexerName: indexerDetails.indexerName,
     });
-  };
-
-  const getActionButtonText = () => {
-    const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
-    if (isCreateNewIndexer) return "Create New Indexer";
-    return isUserIndexer ? actionButtonText : "Fork Indexer";
   };
 
   const reformatAll = (indexingCode, schema) => {
@@ -411,6 +349,11 @@ const Editor = ({ actionButtonText }) => {
               setSchemaTypes={setSchemaTypes}
               setOriginalIndexingCode={setOriginalIndexingCode}
               setOriginalSQLCode={setOriginalSQLCode}
+              //Publish Modal
+              actionButtonText={actionButtonText}
+              schema={schema}
+              setError={setError}
+              showModal={showModal}
             />
             <DeveloperToolsContainer
               handleFormating={handleFormating}
@@ -424,13 +367,6 @@ const Editor = ({ actionButtonText }) => {
               diffView={diffView}
               setDiffView={setDiffView}
             />
-
-            <PublishModal
-              registerFunction={registerFunction}
-              actionButtonText={getActionButtonText()}
-              blockHeightError={blockHeightError}
-            />
-
             <div
               className="mt-2"
               style={{

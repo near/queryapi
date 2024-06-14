@@ -1,10 +1,24 @@
 import React, { useContext } from 'react';
 import EditorMenuView from '../EditorView/EditorMenuView';
+
 import { ForkIndexerModal } from '../../Modals/ForkIndexerModal';
 import { ResetChangesModal } from '../../Modals/ResetChanges';
+import { PublishModal } from '../../Modals/PublishModal';
+
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { sanitizeIndexerName, sanitizeAccountId } from '@/utils/helpers';
 import { queryIndexerFunctionDetails as PreviousSavedCode } from '@/utils/queryIndexerFunction';
+
+import { request } from 'near-social-bridge';
+import { validateJSCode, validateSQLSchema } from '@/utils/validators';
+
+import {
+  CODE_FORMATTING_ERROR_MESSAGE,
+  SCHEMA_FORMATTING_ERROR_MESSAGE,
+  FORMATTING_ERROR_TYPE,
+  TYPE_GENERATION_ERROR_TYPE,
+  INDEXER_REGISTER_TYPE_GENERATION_ERROR,
+} from '@/constants/Strings';
 
 import {
   defaultCode,
@@ -28,6 +42,11 @@ interface EditorMenuContainerProps {
   setSchemaTypes: (schemaTypes: string) => void;
   setOriginalIndexingCode: (code: string) => void;
   setOriginalSQLCode: (code: string) => void;
+  //publish
+  actionButtonText: string;
+  schema: string;
+  setError: (error: string) => void;
+  showModal: (modalName: string, modalProps: any) => void;
 }
 
 const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
@@ -43,17 +62,23 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   setSchemaTypes,
   setOriginalIndexingCode,
   setOriginalSQLCode,
+  //publish
+  actionButtonText,
+  schema,
+  setError,
+  showModal,
 }) => {
   const {
     indexerName,
     accountId,
     indexerDetails,
-    setShowPublishModal,
     setShowForkIndexerModal,
     setShowLogsView,
     setAccountId,
     //reset code
     setShowResetCodeModel,
+    //publish
+    setShowPublishModal,
   } = useContext(IndexerDetailsContext);
 
   const forkIndexer = async (indexerName: string): Promise<void> => {
@@ -70,7 +95,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     setIndexingCode(sanitizedCode);
   };
 
-  const handleReload = async () => {
+  const handleResetCodeChanges = async () => {
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
       setIndexingCode(formatIndexingCode(defaultCode));
@@ -100,10 +125,70 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
           setOriginalSQLCode(unformatted_schema);
           setSchema(unformatted_schema);
         }
+        //todo add reformatting (reformatAll)....
       }
     } catch (error) {
       console.error('Error loading data:', error);
     }
+  };
+
+  const registerFunction = async (indexerName: string, indexerConfig: any) => {
+    const { data: validatedSchema, error: schemaValidationError } = validateSQLSchema(schema);
+    const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
+
+    if (codeValidationError) {
+      setError(CODE_FORMATTING_ERROR_MESSAGE);
+      return;
+    }
+
+    let innerCode = validatedCode?.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)?.[1] || '';
+    indexerName = indexerName.replaceAll(' ', '_');
+    let forkedFrom =
+      indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName
+        ? {
+            account_id: indexerDetails.forkedAccountId,
+            function_name: indexerDetails.forkedIndexerName,
+          }
+        : null;
+
+    const startBlock =
+      indexerConfig.startBlock === 'startBlockHeight'
+        ? { HEIGHT: indexerConfig.height }
+        : indexerConfig.startBlock === 'startBlockLatest'
+        ? 'LATEST'
+        : 'CONTINUE';
+
+    if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
+      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+      return;
+    } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
+      showModal(INDEXER_REGISTER_TYPE_GENERATION_ERROR, {
+        indexerName,
+        code: innerCode,
+        schema: validatedSchema,
+        startBlock,
+        contractFilter: indexerConfig.filter,
+        forkedFrom,
+      });
+      return;
+    }
+
+    request('register-function', {
+      indexerName: indexerName,
+      code: innerCode,
+      schema: validatedSchema,
+      startBlock,
+      contractFilter: indexerConfig.filter,
+      ...(forkedFrom && { forkedFrom }),
+    });
+
+    setShowPublishModal(false);
+  };
+
+  const getActionButtonText = () => {
+    const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
+    if (isCreateNewIndexer) return 'Create New Indexer';
+    return isUserIndexer ? actionButtonText : 'Fork Indexer';
   };
 
   return (
@@ -125,7 +210,8 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
         }}
       />
       <ForkIndexerModal forkIndexer={forkIndexer} />
-      <ResetChangesModal handleReload={handleReload} />
+      <ResetChangesModal handleResetCodeChanges={handleResetCodeChanges} />
+      <PublishModal registerFunction={registerFunction} actionButtonText={getActionButtonText()} />
     </>
   );
 };
