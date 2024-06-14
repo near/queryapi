@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useRef, useMemo, useContext } from "react";
 import { defaultCode, defaultSchema, defaultSchemaTypes, formatSQL, formatIndexingCode, wrapCode } from "@/utils/formatters";
 import { Alert } from "react-bootstrap";
-import { queryIndexerFunctionDetails } from "@/utils/queryIndexerFunction";
 import primitives from "!!raw-loader!./primitives.d.ts";
 import { request, useInitialPayload } from "near-social-bridge";
 import IndexerRunner from "@/utils/indexerRunner";
 import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
-import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer";
 import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
@@ -23,7 +21,7 @@ import { useModal } from "@/contexts/ModalContext";
 import { GlyphContainer } from "./GlyphContainer";
 
 const Editor = ({ actionButtonText }) => {
-  const { indexerDetails, setShowResetCodeModel, setShowPublishModal, debugMode, isCreateNewIndexer, setAccountId } = useContext(IndexerDetailsContext);
+  const { indexerDetails, setShowPublishModal, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
@@ -248,49 +246,6 @@ const Editor = ({ actionButtonText }) => {
     });
   };
 
-  const handleReload = async () => {
-    if (isCreateNewIndexer) {
-      setShowResetCodeModel(false);
-      setIndexingCode(originalIndexingCode);
-      setSchema(originalSQLCode);
-      setSchemaTypes(defaultSchemaTypes);
-      return;
-    }
-
-    const data = await queryIndexerFunctionDetails(
-      indexerDetails.accountId,
-      indexerDetails.indexerName
-    );
-    if (data == null) {
-      setIndexingCode(defaultCode);
-      setSchema(defaultSchema);
-      setSchemaTypes(defaultSchemaTypes);
-    } else {
-      try {
-        let unformatted_wrapped_indexing_code = wrapCode(data.code);
-        let unformatted_schema = data.schema;
-        if (unformatted_wrapped_indexing_code !== null) {
-          setOriginalIndexingCode(() => unformatted_wrapped_indexing_code);
-          setIndexingCode(() => unformatted_wrapped_indexing_code);
-        }
-        if (unformatted_schema !== null) {
-          setOriginalSQLCode(unformatted_schema);
-          setSchema(unformatted_schema);
-        }
-
-        const { formattedCode, formattedSchema } = reformatAll(
-          unformatted_wrapped_indexing_code,
-          unformatted_schema
-        );
-        setIndexingCode(formattedCode);
-        setSchema(formattedSchema);
-      } catch (formattingError) {
-        console.log(formattingError);
-      }
-    }
-    setShowResetCodeModel(false);
-  };
-
   const getActionButtonText = () => {
     const isUserIndexer = indexerDetails.accountId === currentUserAccountId;
     if (isCreateNewIndexer) return "Create New Indexer";
@@ -451,6 +406,11 @@ const Editor = ({ actionButtonText }) => {
               indexingCode={indexingCode}
               setIndexingCode={setIndexingCode}
               currentUserAccountId={currentUserAccountId}
+              //Reset Indexer Modal
+              setSchema={setSchema}
+              setSchemaTypes={setSchemaTypes}
+              setOriginalIndexingCode={setOriginalIndexingCode}
+              setOriginalSQLCode={setOriginalSQLCode}
             />
             <DeveloperToolsContainer
               handleFormating={handleFormating}
@@ -465,7 +425,6 @@ const Editor = ({ actionButtonText }) => {
               setDiffView={setDiffView}
             />
 
-            <ResetChangesModal handleReload={handleReload} />
             <PublishModal
               registerFunction={registerFunction}
               actionButtonText={getActionButtonText()}

@@ -24,7 +24,7 @@ import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
 export const IndexerDetailsContext = React.createContext({
   indexerDetails: { code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: "", indexerName: "", forkedAccountId: null, forkedIndexerName: null },
   showResetCodeModel: false,
-  setShowResetCodeModel: () => { },
+  setShowResetCodeModel: (bool) => { },
   showPublishModal: false,
   setShowPublishModal: () => { },
   showForkIndexerModal: false,
