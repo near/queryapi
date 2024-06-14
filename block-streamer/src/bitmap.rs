@@ -50,7 +50,7 @@ pub struct CompressedBitmap {
 
 impl TryFrom<&Base64Bitmap> for CompressedBitmap {
     type Error = anyhow::Error;
-    fn try_from(value: &Base64Bitmap) -> Result<Self, Self::Error> {
+    fn try_from(value: &Base64Bitmap) -> anyhow::Result<Self, Self::Error> {
         Ok(Self {
             bitmap: general_purpose::STANDARD.decode(value.base64.clone())?,
             start_block_height: value.start_block_height,
@@ -203,7 +203,7 @@ impl DecompressedBitmap {
         }
     }
 
-    pub fn merge(&mut self, to_merge: &mut DecompressedBitmap) -> anyhow::Result<&mut Self> {
+    pub fn merge(&mut self, mut to_merge: DecompressedBitmap) -> anyhow::Result<&mut Self> {
         if to_merge.start_block_height < self.start_block_height {
             std::mem::swap(&mut self.bitmap, &mut to_merge.bitmap);
             std::mem::swap(
@@ -211,10 +211,7 @@ impl DecompressedBitmap {
                 &mut to_merge.start_block_height,
             );
         }
-        let block_height_difference = to_merge
-            .start_block_height
-            .checked_sub(self.start_block_height)
-            .ok_or_else(|| anyhow!("Caller of merge should have smaller start block height",))?;
+        let block_height_difference = to_merge.start_block_height - self.start_block_height;
         let start_bit_index: usize = usize::try_from(block_height_difference)?;
 
         for bit_index_offset in 0..(to_merge.bitmap.len() * 8) {
@@ -248,9 +245,7 @@ impl Iterator for DecompressedBitmapIter<'_> {
         while self.bit_index < self.data.bitmap.len() * 8 {
             if self.data.get_bit(self.bit_index) {
                 self.bit_index += 1;
-                return Some(
-                    self.data.start_block_height + u64::try_from(self.bit_index - 1).ok()?,
-                );
+                return Some(self.data.start_block_height + (self.bit_index as u64) - 1);
             }
             self.bit_index += 1;
         }
@@ -447,7 +442,7 @@ mod tests {
             start_block_height: 14,
         };
 
-        assert!(base_bitmap.merge(&mut to_merge).is_ok());
+        assert!(base_bitmap.merge(to_merge).is_ok());
         assert_eq!(base_bitmap.bitmap, vec![0b11001110, 0b10011111]);
     }
 
@@ -462,7 +457,7 @@ mod tests {
             start_block_height: 14,
         };
 
-        assert!(base_bitmap.merge(&mut to_merge).is_ok());
+        assert!(base_bitmap.merge(to_merge).is_ok());
         assert_eq!(base_bitmap.bitmap, vec![0b11001110, 0b10011111]);
     }
 
@@ -483,11 +478,11 @@ mod tests {
         };
 
         base_bitmap
-            .merge(&mut bitmap_a)
+            .merge(bitmap_a)
             .unwrap()
-            .merge(&mut bitmap_b)
+            .merge(bitmap_b)
             .unwrap()
-            .merge(&mut bitmap_c)
+            .merge(bitmap_c)
             .unwrap();
         assert_eq!(base_bitmap.bitmap, vec![0b11001100, 0b11000000]);
         assert_eq!(base_bitmap.start_block_height, 10);

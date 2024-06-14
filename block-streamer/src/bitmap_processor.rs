@@ -128,6 +128,35 @@ impl BitmapProcessor {
         date + Duration::days(1)
     }
 
+    async fn query_base_64_bitmaps(
+        &self,
+        contract_pattern_type: &ContractPatternType,
+        current_date: &DateTime<Utc>,
+    ) -> anyhow::Result<Vec<Base64Bitmap>> {
+        match contract_pattern_type {
+            ContractPatternType::Exact(ref pattern) => {
+                let query_result: Vec<_> = self
+                    .graphql_client
+                    .get_bitmaps_exact(pattern.clone(), &current_date)
+                    .await?;
+                Ok(query_result
+                    .iter()
+                    .map(Base64Bitmap::try_from)
+                    .collect::<anyhow::Result<Vec<_>>>()?)
+            }
+            ContractPatternType::Wildcard(ref pattern) => {
+                let query_result: Vec<_> = self
+                    .graphql_client
+                    .get_bitmaps_wildcard(pattern.clone(), &current_date)
+                    .await?;
+                Ok(query_result
+                    .iter()
+                    .map(Base64Bitmap::try_from)
+                    .collect::<anyhow::Result<Vec<_>>>()?)
+            }
+        }
+    }
+
     fn stream_matching_block_heights<'b, 'a: 'b>(
         &'a self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
@@ -138,24 +167,14 @@ impl BitmapProcessor {
             let contract_pattern_type = ContractPatternType::from(contract_pattern.as_str());
             let mut current_date = start_date;
             while current_date <= Utc::now() {
-                let base_64_bitmaps: Vec<Base64Bitmap> = match contract_pattern_type {
-                    ContractPatternType::Exact(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_exact(pattern.clone(), &current_date).await?;
-                        query_result.iter().map(Base64Bitmap::try_from).collect()?
-                    },
-                    ContractPatternType::Wildcard(ref pattern) => {
-                        let query_result: Vec<_> = self.graphql_client.get_bitmaps_wildcard(pattern.clone(), &current_date).await?;
-                        query_result.iter().map(Base64Bitmap::try_from).collect()?
-                    },
-                };
-
+                let base_64_bitmaps: Vec<Base64Bitmap> = self.query_base_64_bitmaps(&contract_pattern_type, &current_date).await?;
                 let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
                 let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
 
                 let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
                 let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
-                for mut bitmap in decompressed_bitmaps {
-                    let _ = bitmap_for_day.merge(&mut bitmap);
+                for bitmap in decompressed_bitmaps {
+                    bitmap_for_day.merge(bitmap)?;
                 }
 
                 let mut bitmap_iter = bitmap_for_day.iter();
