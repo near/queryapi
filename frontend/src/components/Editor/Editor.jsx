@@ -12,7 +12,6 @@ import { FileSwitcher } from "./FileSwitcher";
 import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer";
 import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
 import { PublishModal } from "../Modals/PublishModal";
-import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
 import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
 import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
 import { PgSchemaTypeGen } from "@/utils/pgSchemaTypeGen";
@@ -186,21 +185,6 @@ const Editor = ({ actionButtonText }) => {
 
       disposableRef.current = newDisposable;
     }
-  };
-
-  const forkIndexer = async (indexerName) => {
-    let code = indexingCode;
-    setAccountId(currentUserAccountId);
-    let prevAccountId = indexerDetails.accountId.replaceAll(".", "_");
-    let newAccountId = currentUserAccountId.replaceAll(".", "_");
-    let prevIndexerName = indexerDetails.indexerName
-      .replaceAll("-", "_")
-      .trim()
-      .toLowerCase();
-    let newIndexerName = indexerName.replaceAll("-", "_").trim().toLowerCase();
-    code = code.replaceAll(prevAccountId, newAccountId);
-    code = code.replaceAll(prevIndexerName, newIndexerName);
-    setIndexingCode(formatIndexingCode(code));
   };
 
   const registerFunction = async (indexerName, indexerConfig) => {
@@ -463,6 +447,10 @@ const Editor = ({ actionButtonText }) => {
               handleDeleteIndexer={handleDeleteIndexer}
               isCreateNewIndexer={isCreateNewIndexer}
               error={error}
+              //Fork Indexer Modal
+              indexingCode={indexingCode}
+              setIndexingCode={setIndexingCode}
+              currentUserAccountId={currentUserAccountId}
             />
             <DeveloperToolsContainer
               handleFormating={handleFormating}
@@ -483,7 +471,6 @@ const Editor = ({ actionButtonText }) => {
               actionButtonText={getActionButtonText()}
               blockHeightError={blockHeightError}
             />
-            <ForkIndexerModal forkIndexer={forkIndexer} />
 
             <div
               className="mt-2"
