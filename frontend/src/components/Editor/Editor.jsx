@@ -459,18 +459,10 @@ const Editor = ({ actionButtonText }) => {
         {(indexerDetails.code || isCreateNewIndexer) && (
           <>
             <EditorMenuContainer
-              handleFormating={handleFormating}
-              handleCodeGen={handleCodeGen}
-              error={error}
-              executeIndexerFunction={executeIndexerFunction}
-              heights={heights}
-              setHeights={setHeights}
-              isCreateNewIndexer={isCreateNewIndexer}
-              isExecuting={isExecutingIndexerFunction}
-              stopExecution={() => indexerRunner.stop()}
-              latestHeight={height}
               isUserIndexer={indexerDetails.accountId === currentUserAccountId}
               handleDeleteIndexer={handleDeleteIndexer}
+              isCreateNewIndexer={isCreateNewIndexer}
+              error={error}
             />
             <DeveloperToolsContainer
               handleFormating={handleFormating}
@@ -528,9 +520,7 @@ const Editor = ({ actionButtonText }) => {
                 diffView={diffView}
                 setDiffView={setDiffView}
               />
-              <GlyphContainer
-                style={{ height: "100%", width: "100%" }}
-              >
+              <GlyphContainer style={{ height: "100%", width: "100%" }}>
                 <ResizableLayoutEditor
                   fileName={fileName}
                   indexingCode={indexingCode}
