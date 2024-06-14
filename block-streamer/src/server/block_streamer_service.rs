@@ -7,13 +7,14 @@ use tonic::{Request, Response, Status};
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
 
-use crate::block_stream;
 use crate::server::blockstreamer;
+use crate::{bitmap_processor, block_stream};
 
 use blockstreamer::*;
 
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
@@ -23,12 +24,14 @@ pub struct BlockStreamerService {
 impl BlockStreamerService {
     pub fn new(
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
+        bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
         Self {
             redis_client,
             delta_lake_client,
+            bitmap_processor,
             lake_s3_client,
             chain_id: ChainId::Mainnet,
             block_streams: Mutex::new(HashMap::new()),
@@ -114,6 +117,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .start(
                 request.start_block_height,
                 self.redis_client.clone(),
+                self.bitmap_processor.clone(),
                 self.delta_lake_client.clone(),
                 self.lake_s3_client.clone(),
             )

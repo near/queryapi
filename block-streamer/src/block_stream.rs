@@ -3,8 +3,9 @@ use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
-use crate::metrics;
 use crate::rules::types::ChainId;
+use crate::{bitmap_processor, metrics};
+use futures::StreamExt;
 use registry_types::Rule;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
@@ -46,6 +47,7 @@ impl BlockStream {
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
+        bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> anyhow::Result<()> {
@@ -75,6 +77,7 @@ impl BlockStream {
                     start_block_height,
                     &indexer_config,
                     redis_client,
+                    bitmap_processor,
                     delta_lake_client,
                     lake_s3_client,
                     &chain_id,
@@ -130,6 +133,7 @@ pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: &ChainId,
@@ -141,6 +145,14 @@ pub(crate) async fn start_block_stream(
     metrics::PUBLISHED_BLOCKS_COUNT
         .with_label_values(&[&indexer.get_full_name()])
         .reset();
+
+    process_bitmap_indexer_blocks(
+        start_block_height,
+        bitmap_processor,
+        redis_client.clone(),
+        indexer,
+        redis_stream.clone(),
+    );
 
     let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
@@ -170,6 +182,51 @@ pub(crate) async fn start_block_stream(
     );
 
     Ok(())
+}
+
+async fn process_bitmap_indexer_blocks(
+    start_block_height: near_indexer_primitives::types::BlockHeight,
+    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
+    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    indexer: &IndexerConfig,
+    redis_stream: String,
+) -> anyhow::Result<u64> {
+    let mut last_block_height: u64 = start_block_height;
+
+    let contract_pattern: String = match &indexer.rule {
+        Rule::ActionAny {
+            affected_account_id,
+            ..
+        } => {
+            tracing::debug!(
+                "Fetching block heights starting from {} from Bitmap Indexer",
+                start_block_height,
+            );
+
+            anyhow::Ok(affected_account_id.to_owned())
+        }
+        Rule::ActionFunctionCall { .. } => {
+            tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+            Ok("".to_string())
+        }
+        Rule::Event { .. } => {
+            tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+            Ok("".to_string())
+        }
+    }?;
+
+    if contract_pattern == "".to_string() {
+        return Ok(start_block_height);
+    }
+
+    let matching_block_heights =
+        bitmap_processor.stream_matching_block_heights(start_block_height, contract_pattern);
+    tokio::pin!(matching_block_heights);
+    while let Some(Ok(block_height)) = matching_block_heights.next().await {
+        last_block_height = block_height;
+        println!("{}", block_height);
+    }
+    Ok(last_block_height)
 }
 
 async fn process_delta_lake_blocks(
