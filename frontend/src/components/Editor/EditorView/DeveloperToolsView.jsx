@@ -4,20 +4,23 @@ import BlockPickerContainer from "../EditorViewContainer/BlockPickerContainer";
 import CustomTooltip, { TooltipDirection } from "@/components/Common/CustomTooltip";
 
 const DeveloperToolsView = ({
+    // Props
     handleFormating,
     handleCodeGen,
-    setShowResetCodeModel,
-    debugMode,
-    setDebugMode,
+    executeIndexerFunction,
+    isExecuting,
+    stopExecution,
     heights,
     setHeights,
     latestHeight,
-    isExecuting,
-    stopExecution,
-    removeHeight,
-    executeIndexerFunction,
     diffView,
     setDiffView,
+    // Context
+    setShowResetCodeModel,
+    debugMode,
+    setDebugMode,
+    // Functions
+    removeHeight,
 }) => {
     const [hoveredIndex, setHoveredIndex] = useState(null);
 

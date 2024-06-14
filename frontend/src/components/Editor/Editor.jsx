@@ -1,50 +1,30 @@
 import React, { useEffect, useState, useRef, useMemo, useContext } from "react";
-import {
-  formatSQL,
-  formatIndexingCode,
-  wrapCode,
-  defaultCode,
-  defaultSchema,
-  defaultSchemaTypes,
-} from "../../utils/formatters";
+import { defaultCode, defaultSchema, defaultSchemaTypes, formatSQL, formatIndexingCode, wrapCode } from "@/utils/formatters";
 import { Alert } from "react-bootstrap";
-import { queryIndexerFunctionDetails } from "../../utils/queryIndexerFunction";
-
-import primitives from "!!raw-loader!../../../primitives.d.ts";
+import { queryIndexerFunctionDetails } from "@/utils/queryIndexerFunction";
+import primitives from "!!raw-loader!./primitives.d.ts";
 import { request, useInitialPayload } from "near-social-bridge";
-import IndexerRunner from "../../utils/indexerRunner";
+import IndexerRunner from "@/utils/indexerRunner";
 import { block_details } from "./block_details";
 import ResizableLayoutEditor from "./ResizableLayoutEditor";
 import { ResetChangesModal } from "../Modals/resetChanges";
 import { FileSwitcher } from "./FileSwitcher";
 import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer";
 import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
-
 import { PublishModal } from "../Modals/PublishModal";
 import { ForkIndexerModal } from "../Modals/ForkIndexerModal";
-import { getLatestBlockHeight } from "../../utils/getLatestBlockHeight";
-import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
-import { PgSchemaTypeGen } from "../../utils/pgSchemaTypeGen";
+import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
+import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
+import { PgSchemaTypeGen } from "@/utils/pgSchemaTypeGen";
 import { validateJSCode, validateSQLSchema } from "@/utils/validators";
 import { useDebouncedCallback } from "use-debounce";
-import {
-  CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR,
-} from "../../constants/Strings";
+import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR } from "../../constants/Strings";
 import { InfoModal } from "@/core/InfoModal";
 import { useModal } from "@/contexts/ModalContext";
 import { GlyphContainer } from "./GlyphContainer";
 
-
 const Editor = ({ actionButtonText }) => {
-  const {
-    indexerDetails,
-    setShowResetCodeModel,
-    setShowPublishModal,
-    debugMode,
-    isCreateNewIndexer,
-    setAccountId,
-  } = useContext(IndexerDetailsContext);
-
+  const { indexerDetails, setShowResetCodeModel, setShowPublishModal, debugMode, isCreateNewIndexer, setAccountId } = useContext(IndexerDetailsContext);
   const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
   const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
@@ -84,7 +64,6 @@ const Editor = ({ actionButtonText }) => {
   const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef(null);
   const monacoEditorRef = useRef(null);
-
 
   const parseGlyphError = (error, line) => {
     const { line: startLine, column: startColumn } = line?.start || { line: 1, column: 1 };
@@ -496,19 +475,12 @@ const Editor = ({ actionButtonText }) => {
             <DeveloperToolsContainer
               handleFormating={handleFormating}
               handleCodeGen={handleCodeGen}
-              error={error}
+              isExecuting={isExecutingIndexerFunction}
               executeIndexerFunction={executeIndexerFunction}
               heights={heights}
               setHeights={setHeights}
-              isCreateNewIndexer={isCreateNewIndexer}
-              isExecuting={isExecutingIndexerFunction}
               stopExecution={() => indexerRunner.stop()}
               latestHeight={height}
-              isUserIndexer={indexerDetails.accountId === currentUserAccountId}
-              handleDeleteIndexer={handleDeleteIndexer}
-
-              fileName={fileName}
-              setFileName={setFileName}
               diffView={diffView}
               setDiffView={setDiffView}
             />
