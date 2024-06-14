@@ -352,10 +352,9 @@ mod tests {
             .times(1)
             .returning(move |_, _| Ok(mock_query_result.clone()));
 
-        let block_height_stream = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let bitmap_processor = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
 
-        let stream =
-            block_height_stream.stream_matching_block_heights(0, "someone.near".to_owned());
+        let stream = bitmap_processor.stream_matching_block_heights(0, "someone.near".to_owned());
         tokio::pin!(stream);
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
@@ -423,10 +422,10 @@ mod tests {
                     wildcard_query_result(105, "wA=="),
                 ])
             });
-        let block_height_stream = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let bitmap_processor = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
 
         let stream =
-            block_height_stream.stream_matching_block_heights(0, "*.someone.near".to_string());
+            bitmap_processor.stream_matching_block_heights(0, "*.someone.near".to_string());
         tokio::pin!(stream);
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
