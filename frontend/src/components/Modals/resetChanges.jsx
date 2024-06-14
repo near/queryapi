@@ -4,7 +4,7 @@ import { Button, Modal } from "react-bootstrap";
 export const ResetChangesModal = ({
   handleReload,
 }) => {
-  const { 
+  const {
     showResetCodeModel,
     setShowResetCodeModel,
   } = useContext(IndexerDetailsContext);

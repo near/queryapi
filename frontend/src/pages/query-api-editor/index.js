@@ -6,7 +6,7 @@ import IndexerLogsContainer from '@/components/Logs/LogsViewContainer/IndexerLog
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
 const QueryApiEditorPage = ({ router }) => {
-  const { accountId, indexerName } = router.query
+  const { accountId, indexerName } = router.query;
   const { setAccountId, setIndexerName, showLogsView } = useContext(IndexerDetailsContext);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ const QueryApiEditorPage = ({ router }) => {
           Both accountId and IndexerName need to be specified in the URL.
         </Alert>
       </>
-    )
+    );
   }
   return (
     <>

@@ -1,6 +1,6 @@
 import React, { useContext, useState } from "react";
 import { Button, Modal, Alert } from "react-bootstrap";
-import PublishFormContainer from "./ModalsContainer/PublishFormContainer"
+import PublishFormContainer from "./ModalsContainer/PublishFormContainer";
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { validateContractIds } from "../../utils/validators";
 
@@ -13,29 +13,29 @@ export const PublishModal = ({
     showPublishModal,
     setShowPublishModal,
   } = useContext(IndexerDetailsContext);
-  const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null })
-  const [indexerName, setIndexerName] = useState("")
-  const [error, setError] = useState(null)
+  const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null });
+  const [indexerName, setIndexerName] = useState("");
+  const [error, setError] = useState(null);
 
   const updateConfig = (indexerName, filter, height, startBlock) => {
-    setIndexerConfig({ filter, startBlock, height })
-    setIndexerName(indexerName)
-  }
+    setIndexerConfig({ filter, startBlock, height });
+    setIndexerName(indexerName);
+  };
 
   const register = async () => {
     if (indexerName === undefined || indexerName === "") {
-      setError(() => "Please provide an Indexer Name")
-      return
+      setError(() => "Please provide an Indexer Name");
+      return;
     }
 
     if (!validateContractIds(indexerConfig.filter)) {
-      setError(() => "Please provide a valid contract name")
-      return
+      setError(() => "Please provide a valid contract name");
+      return;
     }
-    setError(null)
-    registerFunction(indexerName, indexerConfig)
-    setShowPublishModal(false)
-  }
+    setError(null);
+    registerFunction(indexerName, indexerConfig);
+    setShowPublishModal(false);
+  };
 
   return (
     <Modal

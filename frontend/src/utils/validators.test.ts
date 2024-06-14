@@ -1,27 +1,5 @@
-const CONTRACT_NAME_REGEX = RegExp(/^(([a-z\d]+[-_])*[a-z\d]+(\.([a-z\d]+[-_])*[a-z\d]+)*\.([a-z\d]+)|([a-z\d]+))$/);
-const WILD_CARD_REGEX = RegExp(/^\*\./);
-const WILD_CARD = '*';
-
-// const INVALID_ACCOUNT = 'system';
-function validateContractId(accountId: string): boolean {
-  accountId = accountId.trim();
-  if (accountId === WILD_CARD) return true;
-
-  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
-  if (!isLengthValid) return false;
-
-  // Test if the string starts with '*.' and remove it if it does
-  const isWildCard = WILD_CARD_REGEX.test(accountId);
-  accountId = isWildCard ? accountId.slice(2) : accountId;
-
-  const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
-  return isRegexValid;
-}
-
-function validateContractIds(accountIds: string): boolean {
-  const ids = accountIds.split(',').map(id => id.trim());
-  return ids.every(accountId => validateContractId(accountId));
-}
+import * as Validator from './validators';
+const { validateContractId, validateContractIds } = Validator;
 
 describe('validateContractId', () => {
   test('it should return true for valid contract ID', () => {
@@ -101,7 +79,7 @@ describe('validateContractId', () => {
     expect(validateContractId(hyphenEndId)).toBe(false);
   });
 
-  //test on nomicon - https://nomicon.io/DataStructures/Account
+  // test on nomicon - https://nomicon.io/DataStructures/Account
   test('it should return false for string with whitespace characters', () => {
     const invalidWhitespace = 'not ok';
     expect(validateContractId(invalidWhitespace)).toBe(false);
@@ -182,7 +160,6 @@ describe('validateContractId', () => {
     const validId = '*';
     expect(validateContractId(validId)).toBe(true);
   });
-
 });
 
 describe('validateContractIds', () => {

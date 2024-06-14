@@ -5,7 +5,7 @@ import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import CreateNewIndexer from "@/components/CreateNewIndexer";
 
 const CreateNewIndexerPage = ({ router }) => {
-  const { accountId } = router.query
+  const { accountId } = router.query;
   const { setAccountId, setIsCreateNewIndexer } = useContext(IndexerDetailsContext);
 
   useEffect(() => {
@@ -20,7 +20,7 @@ const CreateNewIndexerPage = ({ router }) => {
           AccountId needs to be specified in the URL
         </Alert>
       </>
-    )
+    );
   }
 
   return (<CreateNewIndexer />);
