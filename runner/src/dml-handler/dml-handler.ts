@@ -9,12 +9,19 @@ import { type QueryResult } from 'pg';
 type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
 type WhereClauseSingle = Record<string, (string | number)>;
 
-export default class DmlHandler {
+export interface DmlHandlerI {
+  insert: (tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]) => Promise<any[]>
+  select: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null) => Promise<any[]>
+  update: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any) => Promise<any[]>
+  upsert: (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]) => Promise<any[]>
+  delete: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti) => Promise<any[]>
+}
+export default class DmlHandler implements DmlHandlerI {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   pgClient: PgClient;
   tracer: Tracer;
 
-  constructor (
+  constructor(
     databaseConnectionParameters: PostgresConnectionParams,
     private readonly indexerConfig: IndexerConfig,
     pgClientInstance: PgClient | undefined = undefined,
@@ -23,7 +30,7 @@ export default class DmlHandler {
     this.tracer = trace.getTracer('queryapi-runner-dml-handler');
   }
 
-  private async query (query: string, queryVars: Array<string | number>, tableName: string, operation: string): Promise<QueryResult<any>> {
+  private async query(query: string, queryVars: Array<string | number>, tableName: string, operation: string): Promise<QueryResult<any>> {
     return await this.tracer.startActiveSpan(`context db ${operation}`, async (operationSpan: Span) => {
       operationSpan.setAttribute('sql query', query);
       try {
@@ -34,7 +41,7 @@ export default class DmlHandler {
     });
   }
 
-  private getWhereClause (whereObject: WhereClauseMulti, columnLookup: Map<string, string>): { queryVars: Array<string | number>, whereClause: string } {
+  private getWhereClause(whereObject: WhereClauseMulti, columnLookup: Map<string, string>): { queryVars: Array<string | number>, whereClause: string } {
     const columns = Object.keys(whereObject);
     const queryVars: Array<string | number> = [];
     const whereClause = columns.map((colName) => {
@@ -53,7 +60,7 @@ export default class DmlHandler {
     return { queryVars, whereClause };
   }
 
-  async insert (tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
+  async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
     if (!rowsToInsert?.length) {
       return [];
     }
@@ -67,7 +74,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async select (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
+  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
     const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
     let query = `SELECT * FROM ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} WHERE ${whereClause}`;
     if (limit !== null) {
@@ -78,7 +85,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async update (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
+  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
     const updateKeys = Object.keys(updateObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
     const whereKeys = Object.keys(whereObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
@@ -91,7 +98,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async upsert (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
+  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
     if (!rowsToUpsert?.length) {
       return [];
     }
@@ -108,7 +115,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async delete (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
+  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
     const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
     const query = `DELETE FROM ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} WHERE ${whereClause} RETURNING *`;
 
