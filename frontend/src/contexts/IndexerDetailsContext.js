@@ -1,5 +1,5 @@
 import { useInitialPayload } from 'near-social-bridge';
-import React, { useEffect,useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import { queryIndexerFunctionDetails } from '@/utils/queryIndexerFunction';
@@ -30,28 +30,28 @@ export const IndexerDetailsContext = React.createContext({
     forkedIndexerName: null,
   },
   showResetCodeModel: false,
-  setShowResetCodeModel: (bool) => {},
+  setShowResetCodeModel: (bool) => { },
   showPublishModal: false,
-  setShowPublishModal: (bool) => {},
+  setShowPublishModal: (bool) => { },
   showForkIndexerModal: false,
-  setShowForkIndexerModal: (bool) => {},
+  setShowForkIndexerModal: (bool) => { },
   debugMode: false,
-  setDebugMode: () => {},
+  setDebugMode: () => { },
   latestHeight: 0,
-  setLatestHeight: () => {},
+  setLatestHeight: () => { },
   isCreateNewIndexer: false,
-  setIsCreateNewIndexer: (bool) => {},
+  setIsCreateNewIndexer: (bool) => { },
   accountId: undefined,
-  setAccountId: (accountId) => {},
+  setAccountId: (accountId) => { },
   indexerName: '',
-  setIndexerName: (indexerName) => {},
+  setIndexerName: (indexerName) => { },
   forkedAccountId: undefined,
-  setForkedAccountId: (accountId) => {},
+  setForkedAccountId: (accountId) => { },
   forkedIndexerName: undefined,
-  setForkedIndexerName: (indexerName) => {},
-  setIndexerDetails: () => {},
+  setForkedIndexerName: (indexerName) => { },
+  setIndexerDetails: () => { },
   showLogsView: false,
-  setShowLogsView: () => {},
+  setShowLogsView: () => { },
 });
 
 export const IndexerDetailsProvider = ({ children }) => {

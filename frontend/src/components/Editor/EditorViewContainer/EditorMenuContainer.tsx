@@ -17,7 +17,7 @@ import {
   formatSQL,
   wrapCode,
 } from '@/utils/formatters';
-import { sanitizeAccountId,sanitizeIndexerName } from '@/utils/helpers';
+import { sanitizeAccountId, sanitizeIndexerName } from '@/utils/helpers';
 import { queryIndexerFunctionDetails as PreviousSavedCode } from '@/utils/queryIndexerFunction';
 import { validateJSCode, validateSQLSchema } from '@/utils/validators';
 
@@ -124,7 +124,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
           setOriginalSQLCode(unformattedSchemaCode);
           setSchema(unformattedSchemaCode);
         }
-        // todo add reformatting (reformatAll)....
+        // todo add reformatting (reformatAll)
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -145,17 +145,17 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const forkedFrom =
       indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName
         ? {
-            account_id: indexerDetails.forkedAccountId,
-            function_name: indexerDetails.forkedIndexerName,
-          }
+          account_id: indexerDetails.forkedAccountId,
+          function_name: indexerDetails.forkedIndexerName,
+        }
         : null;
 
     const startBlock =
       indexerConfig.startBlock === 'startBlockHeight'
         ? { HEIGHT: indexerConfig.height }
         : indexerConfig.startBlock === 'startBlockLatest'
-        ? 'LATEST'
-        : 'CONTINUE';
+          ? 'LATEST'
+          : 'CONTINUE';
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);

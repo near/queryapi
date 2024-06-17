@@ -1,12 +1,11 @@
-import { gql,useQuery } from '@apollo/client';
-import React, { useContext,useEffect, useState } from 'react';
+import { gql, useQuery } from '@apollo/client';
+import React, { useContext, useEffect, useState } from 'react';
 import { Button, ButtonGroup, Container, Navbar, Spinner } from 'react-bootstrap';
 import { ArrowCounterclockwise, Code } from 'react-bootstrap-icons';
 
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
 import LatestBlock from '../Common/LatestBlock';
-
 interface LogsMenuProps {
   currentUserAccountId: string;
   heights: any[];

@@ -36,18 +36,17 @@ import { GlyphContainer } from './GlyphContainer';
 
 const Editor = ({ actionButtonText }) => {
   const { indexerDetails, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${
-    indexerDetails.indexerName || 'new'
-  }`;
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'
+    }`;
   const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'}`;
-  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${
-    indexerDetails.indexerName || 'new'
-  }`;
+  const CURSOR_POSITION_KEY = `QueryAPI:CursorPosition:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'}`;
+  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'
+    }`;
   const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'}`;
   const SCHEMA_TAB_NAME = 'schema.sql';
   const [error, setError] = useState();
 
-  const [fileName, setFileName] = useState('indexingLogic.js');
+  const [fileName, setFileName] = useState('indexer.js');
 
   const [originalSQLCode, setOriginalSQLCode] = useState(formatSQL(defaultSchema));
   const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(defaultCode));
@@ -151,21 +150,39 @@ const Editor = ({ actionButtonText }) => {
       handleCodeGen();
     }
     if (fileName === SCHEMA_TAB_NAME) debouncedValidateSQLSchema(schema);
+    if (fileName === 'indexer.js') {
+      console.log('setting cursor postiong code');
+      const savedCursorPosition = JSON.parse(localStorage.getItem(CURSOR_POSITION_KEY));
+
+      if (savedCursorPosition && monacoEditorRef.current) {
+        monacoEditorRef.current.setPosition(savedCursorPosition);
+
+        const editorDomNode = monacoEditorRef.current._domElement;
+        if (editorDomNode) {
+          editorDomNode.focus();
+        }
+      }
+    }
   }, [fileName]);
 
   useEffect(() => {
-    const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
     const savedCode = localStorage.getItem(CODE_STORAGE_KEY);
-
-    if (savedSchema) {
-      setSchema(savedSchema);
-    }
+    const savedSchema = localStorage.getItem(SCHEMA_STORAGE_KEY);
+    if (savedSchema) setSchema(savedSchema);
     if (savedCode) setIndexingCode(savedCode);
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
+
 
   useEffect(() => {
     localStorage.setItem(SCHEMA_STORAGE_KEY, schema);
     localStorage.setItem(CODE_STORAGE_KEY, indexingCode);
+    if (monacoEditorRef.current) {
+      const cursorPosition = monacoEditorRef.current.getPosition();
+      console.log('monacoEditor cursor position', cursorPosition);
+      localStorage.setItem(CURSOR_POSITION_KEY, JSON.stringify(cursorPosition));
+      console.log(CURSOR_POSITION_KEY, JSON.stringify(cursorPosition))
+      console.log('cursor position saved');
+    }
   }, [schema, indexingCode]);
 
   useEffect(() => {

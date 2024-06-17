@@ -11,9 +11,8 @@ const OptionSelectorView = ({ options, selectedOption, onOptionChange, handleOpt
           <Col key={index} xs={12} md={12}>
             <div
               variant="light"
-              className={`w-100 p-2 d-flex justify-content-between align-items-center ${
-                selectedOption === option ? 'bg-gray-100' : 'bg-white'
-              }`}
+              className={`w-100 p-2 d-flex justify-content-between align-items-center ${selectedOption === option ? 'bg-gray-100' : 'bg-white'
+                }`}
               onClick={() => handleOptionChange(option)}
             >
               <span className="text-left font-inherit px-3 py-0 flex gap-x-2">

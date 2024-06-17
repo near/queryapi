@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react';
 import { DiffEditorComponent } from './DiffEditorComponent';
 import { MonacoEditorComponent } from './MonacoEditorComponent';
 import { defaultCode, defaultSchema } from '@/utils/formatters';
@@ -51,7 +52,7 @@ const ResizableEditor = ({
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground />,
-    'indexingLogic.js': () =>
+    'indexer.js': () =>
       diffView ? (
         <DiffEditorComponent
           key="code-diff"
@@ -145,6 +146,7 @@ export default function ResizableLayoutEditor({
   indexingCode,
   onMount,
   isCreateNewIndexer,
+  monacoEditorRef,
 }) {
   const {
     dragBarRef: dragBarRefConsole,
