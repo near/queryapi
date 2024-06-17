@@ -15,7 +15,6 @@ use blockstreamer::*;
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
     bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
-    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
@@ -25,12 +24,10 @@ impl BlockStreamerService {
     pub fn new(
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
         bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
-        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
         Self {
             redis_client,
-            delta_lake_client,
             bitmap_processor,
             lake_s3_client,
             chain_id: ChainId::Mainnet,
@@ -186,132 +183,140 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     use blockstreamer::block_streamer_server::BlockStreamer;
-//
-//     fn create_block_streamer_service() -> BlockStreamerService {
-//         let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-//         mock_delta_lake_client
-//             .expect_get_latest_block_metadata()
-//             .returning(|| {
-//                 Ok(crate::delta_lake_client::LatestBlockMetadata {
-//                     last_indexed_block: "107503703".to_string(),
-//                     processed_at_utc: "".to_string(),
-//                     first_indexed_block: "".to_string(),
-//                     last_indexed_block_date: "".to_string(),
-//                     first_indexed_block_date: "".to_string(),
-//                 })
-//             });
-//         mock_delta_lake_client
-//             .expect_list_matching_block_heights()
-//             .returning(|_, _| Ok(vec![]));
-//
-//         let mut mock_redis_client = crate::redis::RedisClient::default();
-//         mock_redis_client
-//             .expect_xadd::<String, u64>()
-//             .returning(|_, _| Ok(()));
-//
-//         let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
-//         mock_lake_s3_client
-//             .expect_clone()
-//             .returning(crate::lake_s3_client::SharedLakeS3Client::default);
-//
-//         BlockStreamerService::new(
-//             std::sync::Arc::new(mock_redis_client),
-//             std::sync::Arc::new(mock_delta_lake_client),
-//             mock_lake_s3_client,
-//         )
-//     }
-//
-//     #[tokio::test]
-//     async fn starts_a_block_stream() {
-//         let block_streamer_service = create_block_streamer_service();
-//
-//         {
-//             let lock = block_streamer_service.get_block_streams_lock().unwrap();
-//             assert_eq!(lock.len(), 0);
-//         }
-//
-//         block_streamer_service
-//             .start_stream(Request::new(StartStreamRequest {
-//                 start_block_height: 0,
-//                 account_id: "morgs.near".to_string(),
-//                 function_name: "test".to_string(),
-//                 version: 0,
-//                 redis_stream: "stream".to_string(),
-//                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
-//                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-//                     status: 1,
-//                 })),
-//             }))
-//             .await
-//             .unwrap();
-//
-//         let lock = block_streamer_service.get_block_streams_lock().unwrap();
-//         assert_eq!(lock.len(), 1);
-//     }
-//
-//     #[tokio::test]
-//     async fn stops_a_block_stream() {
-//         let block_streamer_service = create_block_streamer_service();
-//
-//         assert_eq!(
-//             block_streamer_service
-//                 .list_streams(Request::new(ListStreamsRequest {}))
-//                 .await
-//                 .unwrap()
-//                 .into_inner()
-//                 .streams
-//                 .len(),
-//             0
-//         );
-//
-//         block_streamer_service
-//             .start_stream(Request::new(StartStreamRequest {
-//                 start_block_height: 0,
-//                 account_id: "morgs.near".to_string(),
-//                 function_name: "test".to_string(),
-//                 version: 0,
-//                 redis_stream: "stream".to_string(),
-//                 rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
-//                     affected_account_id: "queryapi.dataplatform.near".to_string(),
-//                     status: 1,
-//                 })),
-//             }))
-//             .await
-//             .unwrap();
-//
-//         assert_eq!(
-//             block_streamer_service
-//                 .list_streams(Request::new(ListStreamsRequest {}))
-//                 .await
-//                 .unwrap()
-//                 .into_inner()
-//                 .streams
-//                 .len(),
-//             1
-//         );
-//
-//         block_streamer_service
-//             .stop_stream(Request::new(StopStreamRequest {
-//                 // ID for indexer morgs.near/test
-//                 stream_id: "16210176318434468568".to_string(),
-//             }))
-//             .await
-//             .unwrap();
-//
-//         assert_eq!(
-//             block_streamer_service
-//                 .list_streams(Request::new(ListStreamsRequest {}))
-//                 .await
-//                 .unwrap()
-//                 .into_inner()
-//                 .streams
-//                 .len(),
-//             0
-//         );
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use blockstreamer::block_streamer_server::BlockStreamer;
+    use mockall::predicate;
+
+    fn create_block_streamer_service() -> BlockStreamerService {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet".to_string()),
+                predicate::always(),
+            )
+            .returning(move |_, _| {
+                Ok(crate::test_utils::generate_block_with_timestamp(
+                    &chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                ))
+            });
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client
+            .expect_get_bitmaps_exact()
+            .returning(|_, _| Ok(vec![]));
+
+        let mock_bitmap_processor =
+            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+
+        let mut mock_redis_client = crate::redis::RedisClient::default();
+        mock_redis_client
+            .expect_xadd::<String, u64>()
+            .returning(|_, _| Ok(()));
+
+        let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
+        mock_lake_s3_client
+            .expect_clone()
+            .returning(crate::lake_s3_client::SharedLakeS3Client::default);
+
+        BlockStreamerService::new(
+            std::sync::Arc::new(mock_redis_client),
+            std::sync::Arc::new(mock_bitmap_processor),
+            mock_lake_s3_client,
+        )
+    }
+
+    #[tokio::test]
+    async fn starts_a_block_stream() {
+        let block_streamer_service = create_block_streamer_service();
+
+        {
+            let lock = block_streamer_service.get_block_streams_lock().unwrap();
+            assert_eq!(lock.len(), 0);
+        }
+
+        block_streamer_service
+            .start_stream(Request::new(StartStreamRequest {
+                start_block_height: 0,
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+                version: 0,
+                redis_stream: "stream".to_string(),
+                rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: 1,
+                })),
+            }))
+            .await
+            .unwrap();
+
+        let lock = block_streamer_service.get_block_streams_lock().unwrap();
+        assert_eq!(lock.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn stops_a_block_stream() {
+        let block_streamer_service = create_block_streamer_service();
+
+        assert_eq!(
+            block_streamer_service
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .unwrap()
+                .into_inner()
+                .streams
+                .len(),
+            0
+        );
+
+        block_streamer_service
+            .start_stream(Request::new(StartStreamRequest {
+                start_block_height: 0,
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+                version: 0,
+                redis_stream: "stream".to_string(),
+                rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: 1,
+                })),
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            block_streamer_service
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .unwrap()
+                .into_inner()
+                .streams
+                .len(),
+            1
+        );
+
+        block_streamer_service
+            .stop_stream(Request::new(StopStreamRequest {
+                // ID for indexer morgs.near/test
+                stream_id: "16210176318434468568".to_string(),
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            block_streamer_service
+                .list_streams(Request::new(ListStreamsRequest {}))
+                .await
+                .unwrap()
+                .into_inner()
+                .streams
+                .len(),
+            0
+        );
+    }
+}

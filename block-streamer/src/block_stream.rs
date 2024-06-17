@@ -289,11 +289,6 @@ async fn process_near_lake_blocks(
                 .publish_block(indexer, redis_stream.clone(), block_height)
                 .await?;
         }
-
-        if block_height == 107503705 {
-            drop(sender);
-            return Ok(last_indexed_block);
-        }
     }
 
     drop(sender);
@@ -310,66 +305,6 @@ mod tests {
     use chrono::TimeZone;
     use mockall::predicate;
     use near_lake_framework::s3_client::GetObjectBytesError;
-
-    fn utc_date_time_from_date_string(date: &str) -> chrono::DateTime<chrono::Utc> {
-        let naive_date_time: chrono::NaiveDateTime =
-            chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
-                .unwrap()
-                .and_hms_opt(0, 0, 0)
-                .unwrap();
-        chrono::TimeZone::from_utc_datetime(&chrono::Utc, &naive_date_time)
-    }
-
-    fn generate_block_with_timestamp(date: &str) -> String {
-        let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap();
-
-        let date_time_utc = chrono::Utc.from_utc_datetime(&naive_date).timestamp() * 1_000_000_000;
-
-        format!(
-            r#"{{
-                "author": "someone",
-                "header": {{
-                  "approvals": [],
-                  "block_merkle_root": "ERiC7AJ2zbVz1HJHThR5NWDDN9vByhwdjcVfivmpY5B",
-                  "block_ordinal": 92102682,
-                  "challenges_result": [],
-                  "challenges_root": "11111111111111111111111111111111",
-                  "chunk_headers_root": "MDiJxDyvUQaZRKmUwa5jgQuV6XjwVvnm4tDrajCxwvz",
-                  "chunk_mask": [],
-                  "chunk_receipts_root": "n84wEo7kTKTCJsyqBZ2jndhjrAMeJAXMwKvnJR7vCuy",
-                  "chunk_tx_root": "D8j64GMKBMvUfvnuHtWUyDtMHM5mJ2pA4G5VmYYJvo5G",
-                  "chunks_included": 4,
-                  "epoch_id": "2RMQiomr6CSSwUWpmB62YohxHbfadrHfcsaa3FVb4J9x",
-                  "epoch_sync_data_hash": null,
-                  "gas_price": "100000000",
-                  "hash": "FA1z9RVm9fX3g3mgP3NToZGwWeeXYn8bvZs4nwwTgCpD",
-                  "height": 102162333,
-                  "last_ds_final_block": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
-                  "last_final_block": "8xkwjn6Lb6UhMBhxcbVQBf3318GafkdaXoHA8Jako1nn",
-                  "latest_protocol_version": 62,
-                  "next_bp_hash": "dmW84aEj2iVJMLwJodJwTfAyeA1LJaHEthvnoAsvTPt",
-                  "next_epoch_id": "C9TDDYthANoduoTBZS7WYDsBSe9XCm4M2F9hRoVXVXWY",
-                  "outcome_root": "6WxzWLVp4b4bFbxHzu18apVfXLvHGKY7CHoqD2Eq3TFJ",
-                  "prev_hash": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
-                  "prev_height": 102162332,
-                  "prev_state_root": "Aq2ndkyDiwroUWN69Ema9hHtnr6dPHoEBRNyfmd8v4gB",
-                  "random_value": "7ruuMyDhGtTkYaCGYMy7PirPiM79DXa8GhVzQW1pHRoz",
-                  "rent_paid": "0",
-                  "signature": "ed25519:5gYYaWHkAEK5etB8tDpw7fmehkoYSprUxKPygaNqmhVDFCMkA1n379AtL1BBkQswLAPxWs1BZvypFnnLvBtHRknm",
-                  "timestamp": 1695921400989555700,
-                  "timestamp_nanosec": "{}",
-                  "total_supply": "1155783047679681223245725102954966",
-                  "validator_proposals": [],
-                  "validator_reward": "0"
-                }},
-                "chunks": []
-            }}"#,
-            date_time_utc
-        )
-    }
 
     fn exact_query_result(
         first_block_height: i64,
@@ -421,8 +356,8 @@ mod tests {
                 predicate::eq("000091940840/block.json"),
             )
             .returning(move |_, _| {
-                Ok(generate_block_with_timestamp(
-                    &chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                Ok(crate::test_utils::generate_block_with_timestamp(
+                    "2023-12-09",
                 ))
             });
 
@@ -432,13 +367,15 @@ mod tests {
             .expect_get_bitmaps_exact()
             .with(
                 predicate::eq(vec![contract_filter.to_owned()]),
-                predicate::eq(utc_date_time_from_date_string("2023-12-09")),
+                predicate::eq(crate::test_utils::utc_date_time_from_date_string(
+                    "2023-12-09",
+                )),
             )
             .returning(|_, _| Ok(vec![exact_query_result(107503702, "oA==")]));
 
         mock_graphql_client
             .expect_get_bitmaps_exact()
-            .returning(|_, _| Ok(vec![exact_query_result(107503702, "oA==")]));
+            .returning(|_, _| Ok(vec![]));
 
         let mock_bitmap_processor =
             crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
@@ -524,7 +461,7 @@ mod tests {
                 predicate::eq("000107503704/block.json"),
             )
             .returning(move |_, _| {
-                Ok(generate_block_with_timestamp(
+                Ok(crate::test_utils::generate_block_with_timestamp(
                     &chrono::Utc::now().format("%Y-%m-%d").to_string(),
                 ))
             });

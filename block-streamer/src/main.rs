@@ -58,21 +58,12 @@ async fn main() -> anyhow::Result<()> {
         graphql_client,
         s3_client.clone(),
     ));
-    let delta_lake_client =
-        std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
 
     let lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::from_conf(s3_config);
 
     tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 
-    server::init(
-        &grpc_port,
-        redis_client,
-        bitmap_processor,
-        delta_lake_client,
-        lake_s3_client,
-    )
-    .await?;
+    server::init(&grpc_port, redis_client, bitmap_processor, lake_s3_client).await?;
 
     Ok(())
 }
