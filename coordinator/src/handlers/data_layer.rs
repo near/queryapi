@@ -1,5 +1,7 @@
 #![cfg_attr(test, allow(dead_code))]
 
+pub use runner::data_layer::ProvisioningStatus;
+
 use anyhow::Context;
 use runner::data_layer::data_layer_client::DataLayerClient;
 use runner::data_layer::{CheckProvisioningTaskStatusRequest, ProvisionRequest};
@@ -48,17 +50,25 @@ impl DataLayerHandlerImpl {
     pub async fn check_provisioning_task_status(
         &self,
         indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ProvisioningStatus> {
         let request = CheckProvisioningTaskStatusRequest {
             account_id: indexer_config.account_id.to_string(),
             function_name: indexer_config.function_name.clone(),
         };
 
-        self.client
+        let response = self
+            .client
             .clone()
             .check_provisioning_task_status(Request::new(request))
             .await?;
 
-        Ok(())
+        let status = match response.into_inner().status {
+            1 => ProvisioningStatus::Pending,
+            2 => ProvisioningStatus::Complete,
+            3 => ProvisioningStatus::Failed,
+            _ => ProvisioningStatus::Unspecified,
+        };
+
+        Ok(status)
     }
 }
