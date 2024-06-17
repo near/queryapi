@@ -74,8 +74,7 @@ async fn main() -> anyhow::Result<()> {
         async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
-    let indexer_registry = registry.fetch().await?;
-    indexer_state_manager.migrate(&indexer_registry).await?;
+    indexer_state_manager.migrate().await?;
 
     loop {
         tokio::try_join!(synchroniser.sync(), sleep(CONTROL_LOOP_THROTTLE_SECONDS))?;
