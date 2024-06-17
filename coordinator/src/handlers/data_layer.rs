@@ -6,7 +6,7 @@ use anyhow::Context;
 use runner::data_layer::data_layer_client::DataLayerClient;
 use runner::data_layer::{CheckProvisioningTaskStatusRequest, ProvisionRequest};
 use tonic::transport::channel::Channel;
-use tonic::Request;
+use tonic::{Request, Status};
 
 use crate::indexer_config::IndexerConfig;
 
@@ -35,16 +35,38 @@ impl DataLayerHandlerImpl {
         Ok(Self { client })
     }
 
-    pub async fn provision(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn start_provisioning_task(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<ProvisioningStatus> {
         let request = ProvisionRequest {
             account_id: indexer_config.account_id.to_string(),
             function_name: indexer_config.function_name.clone(),
             schema: indexer_config.schema.clone(),
         };
 
-        self.client.clone().provision(Request::new(request)).await?;
+        let response = self
+            .client
+            .clone()
+            .start_provisioning_task(Request::new(request))
+            .await;
 
-        Ok(())
+        if let Err(error) = response {
+            if error.code() == tonic::Code::AlreadyExists {
+                return Ok(ProvisioningStatus::Pending);
+            }
+
+            return Err(error.into());
+        }
+
+        let status = match response.unwrap().into_inner().status {
+            1 => ProvisioningStatus::Pending,
+            2 => ProvisioningStatus::Complete,
+            3 => ProvisioningStatus::Failed,
+            _ => ProvisioningStatus::Unspecified,
+        };
+
+        Ok(status)
     }
 
     pub async fn check_provisioning_task_status(

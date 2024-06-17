@@ -80,11 +80,11 @@ impl<'a> Synchroniser<'a> {
         )
     )]
     async fn sync_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        tracing::info!("Provisioning data layer");
+        tracing::info!("Starting data layer provisioning");
 
-        // TODO handle errors, i.e. handle ALREADY_EXISTS
-        self.data_layer_handler.provision(config).await?;
-        self.state_manager.set_provisioning(config).await?;
+        self.data_layer_handler
+            .start_provisioning_task(config)
+            .await?;
 
         Ok(())
     }
