@@ -65,7 +65,7 @@ const IndexerLogsView = ({
                 accountId={currentIndexerDetails.accountId}
                 functionName={functionName}
             />
-       
+
             <Container fluid
                 className='w-100 h-screen'
             >

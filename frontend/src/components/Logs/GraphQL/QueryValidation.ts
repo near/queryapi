@@ -1,46 +1,47 @@
 import { calculateTimestamp } from '@/utils/calculateTimestamp';
 
 interface Variables {
-    limit: number;
-    offset: number;
-    order_by_timestamp: 'asc' | 'desc';
-    level?: string;
-    type?: string;
-    timestamp?: string;
-    keyword?: string;
+  limit: number
+  offset: number
+  order_by_timestamp: 'asc' | 'desc'
+  level?: string
+  type?: string
+  timestamp?: string
+  keyword?: string
 }
 
 interface QueryFilter {
-    _eq?: string | number;
-    _ilike?: string;
-    _gte?: string;
+  _eq?: string | number
+  _ilike?: string
+  _gte?: string
 }
+interface QueryValidationResult {
+  limit: number
+  offset: number
+  order_by_timestamp: 'asc' | 'desc'
+  level?: QueryFilter
+  type?: QueryFilter
+  timestamp?: QueryFilter
+  keyword?: string
+  message?: { _ilike: string }
+  block_height?: { _eq: number }
+}
+/* eslint-disable-next-line */
+export const QueryValidation = ({ limit, offset, order_by_timestamp, level, type, timestamp, keyword }: Variables): QueryValidationResult => {
+  const levelFormat: { level?: QueryFilter } = level ? { level: { _eq: level } } : {};
+  const typeFormat: { type?: QueryFilter } = type ? { type: { _eq: type } } : {};
+  const timestampFormat: { timestamp?: QueryFilter } = timestamp ? { timestamp: { _gte: calculateTimestamp(timestamp) } } : {};
+  const messageFormat = keyword ? { message: { _ilike: `%${keyword}%` } } : {};
+  const blockHeightFormat = keyword && !isNaN(Number(keyword)) ? { block_height: { _eq: Number(keyword) } } : {};
 
-type LevelFormat = { level: QueryFilter };
-type TypeFormat = { type: QueryFilter };
-type TimestampFormat = { timestamp: QueryFilter };
-
-export const QueryValidation = ({ limit, offset, order_by_timestamp, level, type, timestamp, keyword }: Variables) => {
-
-    const levelFormat: LevelFormat | undefined = level ? { level: { _eq: level } } as const : undefined;
-    const typeFormat: TypeFormat | undefined = type ? { type: { _eq: type } } as const : undefined;
-    const timestampFormat: TimestampFormat | undefined = timestamp
-        ? { timestamp: { _gte: calculateTimestamp(timestamp) } } as const
-        : undefined;
-
-    const messageFormat = keyword ? { message: { _ilike: `%${keyword}%` } } as const : undefined;
-    const blockHeightFormat = keyword && !isNaN(Number(keyword))
-        ? { block_height: { _eq: Number(keyword) } } as const
-        : undefined;
-
-    return {
-        limit,
-        offset,
-        order_by_timestamp,
-        ...levelFormat,
-        ...typeFormat,
-        ...timestampFormat,
-        ...messageFormat,
-        ...blockHeightFormat,
-    };
+  return {
+    limit,
+    offset,
+    order_by_timestamp,
+    ...levelFormat,
+    ...typeFormat,
+    ...timestampFormat,
+    ...messageFormat,
+    ...blockHeightFormat,
+  };
 };

@@ -15,37 +15,37 @@ export default class IndexerRunner {
   async start(startingHeight, indexingCode, schema, schemaName, option) {
     this.currentHeight = startingHeight;
     this.shouldStop = false;
-    console.clear()
+    console.clear();
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
     if (option == "specific" && !Number(startingHeight)) {
-      console.log("No Start Block Height Provided to Stream Blocks From")
-      this.stop()
-      console.groupEnd()
-      return
+      console.log("No Start Block Height Provided to Stream Blocks From");
+      this.stop();
+      console.groupEnd();
+      return;
     }
-    console.log(`Streaming Blocks Starting from ${option} Block #${this.currentHeight}`)
+    console.log(`Streaming Blocks Starting from ${option} Block #${this.currentHeight}`);
     while (!this.shouldStop) {
-      console.group(`Block Height #${this.currentHeight}`)
+      console.group(`Block Height #${this.currentHeight}`);
       let blockDetails;
       try {
         blockDetails = await fetchBlockDetails(this.currentHeight);
       } catch (error) {
-        console.log(error)
-        this.stop()
+        console.log(error);
+        this.stop();
       }
       if (blockDetails) {
         await this.executeIndexerFunction(this.currentHeight, blockDetails, indexingCode, schema, schemaName);
         this.currentHeight++;
         await this.delay(1000);
       }
-      console.groupEnd()
+      console.groupEnd();
 
     }
   }
 
   stop() {
     this.shouldStop = true;
-    console.log("%c Stopping Block Processing", 'color: white; background-color: red; padding: 5px;')
+    console.log("%c Stopping Block Processing", 'color: white; background-color: red; padding: 5px;');
   }
 
   delay(ms) {
@@ -56,37 +56,37 @@ export default class IndexerRunner {
     let innerCode = indexingCode.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)[1];
     if (blockDetails) {
       const block = Block.fromStreamerMessage(blockDetails);
-      block.actions()
-      block.receipts()
-      block.events()
+      block.actions();
+      block.receipts();
+      block.events();
 
-      console.log(block)
+      console.log(block);
       await this.runFunction(blockDetails, height, innerCode, schemaName, schema);
     }
   }
 
   async executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName) {
-    console.clear()
+    console.clear();
     console.group('%c Welcome! Lets test your indexing logic on some Near Blocks!', 'color: white; background-color: navy; padding: 5px;');
     if (heights.length === 0) {
-      console.warn("No Block Heights Selected")
-      return
+      console.warn("No Block Heights Selected");
+      return;
     }
-    console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.")
+    console.log("Note: GraphQL Mutations & Queries will not be executed on your database. They will simply return an empty object. Please keep this in mind as this may cause unintended behavior of your indexer function.");
     for await (const height of heights) {
-      console.group(`Block Height #${height}`)
+      console.group(`Block Height #${height}`);
       let blockDetails;
       try {
         blockDetails = await fetchBlockDetails(height);
       } catch (error) {
-        console.log(error)
+        console.log(error);
       }
-      console.time('Indexing Execution Complete')
-      this.executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName)
-      console.timeEnd('Indexing Execution Complete')
-      console.groupEnd()
+      console.time('Indexing Execution Complete');
+      this.executeIndexerFunction(height, blockDetails, indexingCode, schema, schemaName);
+      console.timeEnd('Indexing Execution Complete');
+      console.groupEnd();
     }
-    console.groupEnd()
+    console.groupEnd();
   }
 
   async runFunction(streamerMessage, blockHeight, indexerCode, schemaName, schema) {
@@ -126,7 +126,7 @@ export default class IndexerRunner {
           blockHeight,
           "",
           () => {
-            let operationType, operationName
+            let operationType, operationName;
             const match = query.match(/(query|mutation)\s+(\w+)\s*(\(.*?\))?\s*\{([\s\S]*)\}/);
             if (match) {
               operationType = match[1];
@@ -138,7 +138,7 @@ export default class IndexerRunner {
             console.dir(mutationData); 
             console.groupEnd();
             console.group(`Data returned by ${operationType}`);
-            console.log({})
+            console.log({});
             console.groupEnd();
             console.groupEnd();
           }

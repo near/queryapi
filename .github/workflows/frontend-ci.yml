@@ -1,0 +1,81 @@
+name: frontend CI
+
+on:
+  pull_request:
+    paths:
+      - "frontend/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./frontend
+
+      - name: Test
+        run: npm test
+        working-directory: ./frontend
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: ./frontend
+  type-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./frontend
+
+      - name: Type Check
+        run: npm run type-check
+        working-directory: ./frontend
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install Node Dependencies
+        run: npm install
+        working-directory: ./frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: ./frontend

@@ -35,8 +35,8 @@ export const formatSQL = (schema) => {
 export const wrapCode = (code) => {
   code = code.replace(/(?:\\[n])+/g, "\r\n");
   const wrappedCode = wrap_code(code);
-  return wrappedCode
-}
+  return wrappedCode;
+};
 
 export const formatIndexingCode = (code) => {
   return prettier.format(code, {
@@ -84,4 +84,4 @@ declare const context: {
 			},
   }
 };
-`
+`;

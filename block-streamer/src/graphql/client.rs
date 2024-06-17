@@ -1,8 +1,10 @@
 use ::reqwest;
+use chrono::{DateTime, Utc};
 use graphql_client::{GraphQLQuery, Response};
 
 // TODO: Use Dataplatform account
 const HASURA_ACCOUNT: &str = "darunrs_near";
+const QUERY_LIMIT: i64 = 1000;
 
 #[allow(clippy::upper_case_acronyms)]
 type Date = String;
@@ -11,27 +13,32 @@ type Date = String;
 #[graphql(
     schema_path = "graphql/darunrs_near/schema.graphql",
     query_path = "graphql/darunrs_near/get_bitmaps_exact.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     normalization = "rust"
 )]
-struct GetBitmapsExact;
+pub struct GetBitmapsExact;
 
 #[derive(GraphQLQuery)]
 #[graphql(
     schema_path = "graphql/darunrs_near/schema.graphql",
     query_path = "graphql/darunrs_near/get_bitmaps_wildcard.graphql",
-    response_derives = "Debug",
+    response_derives = "Debug,Clone",
     normalization = "rust"
 )]
-struct GetBitmapsWildcard;
+pub struct GetBitmapsWildcard;
 
-pub struct GraphQLClient {
+#[cfg(not(test))]
+pub use GraphQLClientImpl as GraphQLClient;
+#[cfg(test)]
+pub use MockGraphQLClientImpl as GraphQLClient;
+
+pub struct GraphQLClientImpl {
     client: reqwest::Client,
     graphql_endpoint: String,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl GraphQLClient {
+impl GraphQLClientImpl {
     pub fn new(graphql_endpoint: String) -> Self {
         Self {
             client: reqwest::Client::new(),
@@ -58,61 +65,99 @@ impl GraphQLClient {
     pub async fn get_bitmaps_exact(
         &self,
         receiver_ids: Vec<String>,
-        block_date: String,
-        limit: i64,
-        offset: i64,
+        block_date: &DateTime<Utc>,
     ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>>
     {
-        self.post_graphql::<GetBitmapsExact>(get_bitmaps_exact::Variables {
-            receiver_ids: Some(receiver_ids),
-            block_date: Some(block_date),
-            limit: Some(limit),
-            offset: Some(offset),
-        })
-        .await?
-        .data
-        .ok_or(anyhow::anyhow!("No bitmaps were returned"))
-        .map(|data| data.darunrs_near_bitmap_v5_actions_index)
+        let mut all_query_results: Vec<
+            get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
+        > = vec![];
+        let mut offset = 0;
+        let mut has_more = true;
+        while has_more {
+            let mut query_result = self
+                .post_graphql::<GetBitmapsExact>(get_bitmaps_exact::Variables {
+                    receiver_ids: Some(receiver_ids.clone()),
+                    block_date: Some(block_date.format("%Y-%m-%d").to_string()),
+                    limit: Some(QUERY_LIMIT),
+                    offset: Some(offset),
+                })
+                .await?
+                .data
+                .ok_or(anyhow::anyhow!(
+                    "Query response is malformed. Missing data field."
+                ))
+                .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
+
+            has_more = query_result.len() >= QUERY_LIMIT as usize;
+            offset += QUERY_LIMIT;
+
+            all_query_results.append(&mut query_result);
+        }
+
+        Ok(all_query_results)
     }
 
     pub async fn get_bitmaps_wildcard(
         &self,
         receiver_ids: String,
-        block_date: String,
-        limit: i64,
-        offset: i64,
+        block_date: &DateTime<Utc>,
     ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>>
     {
-        self.post_graphql::<GetBitmapsWildcard>(get_bitmaps_wildcard::Variables {
-            receiver_ids: Some(receiver_ids),
-            block_date: Some(block_date),
-            limit: Some(limit),
-            offset: Some(offset),
-        })
-        .await?
-        .data
-        .ok_or(anyhow::anyhow!("No bitmaps were returned"))
-        .map(|data| data.darunrs_near_bitmap_v5_actions_index)
+        let mut all_query_results: Vec<
+            get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+        > = vec![];
+        let mut offset = 0;
+        let mut has_more = true;
+        while has_more {
+            let mut query_result = self
+                .post_graphql::<GetBitmapsWildcard>(get_bitmaps_wildcard::Variables {
+                    receiver_ids: Some(receiver_ids.clone()),
+                    block_date: Some(block_date.format("%Y-%m-%d").to_string()),
+                    limit: Some(QUERY_LIMIT),
+                    offset: Some(offset),
+                })
+                .await?
+                .data
+                .ok_or(anyhow::anyhow!(
+                    "Query response is malformed. Missing data field."
+                ))
+                .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
+
+            has_more = query_result.len() >= QUERY_LIMIT as usize;
+            offset += QUERY_LIMIT;
+
+            all_query_results.append(&mut query_result);
+        }
+
+        Ok(all_query_results)
     }
 }
 
 // TODO: Remove Unit tests after bitmap query is integrated into the main application
 #[cfg(test)]
 mod tests {
+    use chrono::{NaiveDateTime, TimeZone};
+
     use super::*;
 
     const HASURA_ENDPOINT: &str =
         "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql";
 
+    fn utc_date_time_from_date_string(date: &str) -> DateTime<Utc> {
+        let naive_date_time: NaiveDateTime = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap();
+        TimeZone::from_utc_datetime(&chrono::Utc, &naive_date_time)
+    }
+
     #[tokio::test]
     async fn test_get_bitmaps_exact() {
-        let client = GraphQLClient::new(HASURA_ENDPOINT.to_string());
+        let client = GraphQLClientImpl::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = vec!["app.nearcrowd.near".to_string()];
-        let block_date = "2024-03-21".to_string();
-        let limit = 10;
-        let offset = 0;
+        let block_date: DateTime<Utc> = utc_date_time_from_date_string("2024-03-21");
         let response = client
-            .get_bitmaps_exact(receiver_ids, block_date, limit, offset)
+            .get_bitmaps_exact(receiver_ids, &block_date)
             .await
             .unwrap();
         assert_eq!(response[0].first_block_height, 115130287);
@@ -122,13 +167,11 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn test_get_bitmaps_wildcard() {
-        let client = GraphQLClient::new(HASURA_ENDPOINT.to_string());
+        let client = GraphQLClientImpl::new(HASURA_ENDPOINT.to_string());
         let receiver_ids = "app.nearcrowd.near".to_string();
-        let block_date = "2024-03-21".to_string();
-        let limit = 10;
-        let offset = 0;
+        let block_date: DateTime<Utc> = utc_date_time_from_date_string("2024-03-21");
         let response = client
-            .get_bitmaps_wildcard(receiver_ids, block_date, limit, offset)
+            .get_bitmaps_wildcard(receiver_ids, &block_date)
             .await
             .unwrap();
         assert_eq!(response[0].first_block_height, 115130287);
