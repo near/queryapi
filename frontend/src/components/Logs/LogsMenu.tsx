@@ -1,19 +1,21 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useQuery, gql } from '@apollo/client';
-import { Button, Navbar, Container, ButtonGroup, Spinner } from 'react-bootstrap';
+import { gql,useQuery } from '@apollo/client';
+import React, { useContext,useEffect, useState } from 'react';
+import { Button, ButtonGroup, Container, Navbar, Spinner } from 'react-bootstrap';
 import { ArrowCounterclockwise, Code } from 'react-bootstrap-icons';
+
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+
 import LatestBlock from '../Common/LatestBlock';
 
 interface LogsMenuProps {
-  currentUserAccountId: string
-  heights: any[]
-  setHeights: React.Dispatch<React.SetStateAction<any[]>>
-  latestHeight: string
-  isUserIndexer: boolean
-  accountId: string
-  reloadData: () => void
-  functionName: string
+  currentUserAccountId: string;
+  heights: any[];
+  setHeights: React.Dispatch<React.SetStateAction<any[]>>;
+  latestHeight: string;
+  isUserIndexer: boolean;
+  accountId: string;
+  reloadData: () => void;
+  functionName: string;
 }
 
 const LogsMenu: React.FC<LogsMenuProps> = ({
@@ -71,7 +73,9 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
     try {
       const { data: refetchedData } = await refetch();
       if (refetchedData) {
-        const newAttributeMap = new Map<string, string>(refetchedData[queryName].map((item: any) => [item.attribute, item.value]));
+        const newAttributeMap = new Map<string, string>(
+          refetchedData[queryName].map((item: any) => [item.attribute, item.value]),
+        );
         setAttributeMap(newAttributeMap);
       }
       reloadDataProp();
@@ -84,14 +88,12 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
     <Navbar bg="white" variant="light" className="shadow-sm p-3 mb-4 bg-white rounded">
       <Container fluid className="d-flex flex-wrap justify-content-between align-items-center">
         <div className="d-flex flex-wrap align-items-center">
-          <span className="me-4 font-weight-bold text-secondary text-sm">
-            Indexer: {functionName}
-          </span>
+          <span className="me-4 font-weight-bold text-secondary text-sm">Indexer: {functionName}</span>
           <span className="me-4 font-weight-bold text-secondary text-sm">
             Filter: {indexerDetails.rule.affected_account_id}
           </span>
           <span className="me-4 text-secondary text-sm">
-            Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? 'UNKNOWN'}</strong>
+            Status: <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? 'UNKNOWN'}</strong>
           </span>
           <span className="me-4 text-secondary text-sm">
             Height: <strong>{loading ? <Spinner animation="border" size="sm" /> : blockHeight ?? 'N/A'}</strong>
@@ -105,18 +107,24 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
           )}
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
-          {/* eslint-disable-next-line */}
           <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={handleReload}>
             <ArrowCounterclockwise className="me-2" size={20} />
             Reload
           </Button>
-          <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={() => { setShowLogsView(); }}>
+          <Button
+            size="sm"
+            variant="outline-primary"
+            className="d-flex align-items-center"
+            onClick={() => {
+              setShowLogsView();
+            }}
+          >
             <Code className="me-2" size={20} />
             Go To Editor
           </Button>
         </ButtonGroup>
       </Container>
-    </Navbar >
+    </Navbar>
   );
 };
 

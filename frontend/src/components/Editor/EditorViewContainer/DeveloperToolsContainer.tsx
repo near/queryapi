@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
-import DeveloperToolsView from '../EditorView/DeveloperToolsView';
+
 import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
+import DeveloperToolsView from '../EditorView/DeveloperToolsView';
 
 interface DeveloperToolsContainerProps {
   handleFormating: () => void;

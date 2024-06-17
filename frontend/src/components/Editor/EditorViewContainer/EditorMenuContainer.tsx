@@ -1,33 +1,30 @@
-import React, { useContext } from 'react';
-import EditorMenuView from '../EditorView/EditorMenuView';
-
-import { ForkIndexerModal } from '../../Modals/ForkIndexerModal';
-import { ResetChangesModal } from '../../Modals/ResetChanges';
-import { PublishModal } from '../../Modals/PublishModal';
-
-import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
-import { sanitizeIndexerName, sanitizeAccountId } from '@/utils/helpers';
-import { queryIndexerFunctionDetails as PreviousSavedCode } from '@/utils/queryIndexerFunction';
-
 import { request } from 'near-social-bridge';
-import { validateJSCode, validateSQLSchema } from '@/utils/validators';
+import React, { useContext } from 'react';
 
 import {
   CODE_FORMATTING_ERROR_MESSAGE,
-  SCHEMA_FORMATTING_ERROR_MESSAGE,
   FORMATTING_ERROR_TYPE,
-  TYPE_GENERATION_ERROR_TYPE,
   INDEXER_REGISTER_TYPE_GENERATION_ERROR,
+  SCHEMA_FORMATTING_ERROR_MESSAGE,
+  TYPE_GENERATION_ERROR_TYPE,
 } from '@/constants/Strings';
-
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import {
   defaultCode,
   defaultSchema,
   defaultSchemaTypes,
-  formatSQL,
   formatIndexingCode,
+  formatSQL,
   wrapCode,
 } from '@/utils/formatters';
+import { sanitizeAccountId,sanitizeIndexerName } from '@/utils/helpers';
+import { queryIndexerFunctionDetails as PreviousSavedCode } from '@/utils/queryIndexerFunction';
+import { validateJSCode, validateSQLSchema } from '@/utils/validators';
+
+import { ForkIndexerModal } from '../../Modals/ForkIndexerModal';
+import { PublishModal } from '../../Modals/PublishModal';
+import { ResetChangesModal } from '../../Modals/ResetChangesModal';
+import EditorMenuView from '../EditorView/EditorMenuView';
 
 interface EditorMenuContainerProps {
   isUserIndexer: boolean;
@@ -37,12 +34,12 @@ interface EditorMenuContainerProps {
   indexingCode: string;
   setIndexingCode: (code: string) => void;
   currentUserAccountId: string;
-  //reset code
+  // reset code
   setSchema: (schema: string) => void;
   setSchemaTypes: (schemaTypes: string) => void;
   setOriginalIndexingCode: (code: string) => void;
   setOriginalSQLCode: (code: string) => void;
-  //publish
+  // publish
   actionButtonText: string;
   schema: string;
   setError: (error: string) => void;
@@ -57,12 +54,12 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   indexingCode,
   setIndexingCode,
   currentUserAccountId,
-  //reset code
+  // reset code
   setSchema,
   setSchemaTypes,
   setOriginalIndexingCode,
   setOriginalSQLCode,
-  //publish
+  // publish
   actionButtonText,
   schema,
   setError,
@@ -75,9 +72,9 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     setShowForkIndexerModal,
     setShowLogsView,
     setAccountId,
-    //reset code
+    // reset code
     setShowResetCodeModel,
-    //publish
+    // publish
     setShowPublishModal,
   } = useContext(IndexerDetailsContext);
 
@@ -87,7 +84,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const sanitizedIndexerNameInput = sanitizeIndexerName(indexerName);
     const sanitizedCurrentAccountId = sanitizeAccountId(currentUserAccountId);
 
-    let sanitizedCode = indexingCode
+    const sanitizedCode = indexingCode
       .replaceAll(sanitizedForkedFromAccountId, sanitizedCurrentAccountId)
       .replaceAll(sanitizedForkedFromIndexerName, sanitizedIndexerNameInput);
 
@@ -95,7 +92,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     setIndexingCode(sanitizedCode);
   };
 
-  const handleResetCodeChanges = async () => {
+  const handleResetCodeChanges = async (): Promise<void> => {
     if (isCreateNewIndexer) {
       setShowResetCodeModel(false);
       setIndexingCode(formatIndexingCode(defaultCode));
@@ -103,11 +100,13 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
       setSchemaTypes(defaultSchemaTypes);
       return;
     }
-    loadDataFromPreviousSaved();
+    loadDataFromPreviousSaved().catch((err) => {
+      console.log(err);
+    });
     setShowResetCodeModel(false);
   };
 
-  const loadDataFromPreviousSaved = async () => {
+  const loadDataFromPreviousSaved = async (): Promise<void> => {
     try {
       const data = await PreviousSavedCode(indexerDetails.accountId, indexerDetails.indexerName);
       if (data == null) {
@@ -115,24 +114,24 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
         setSchema(defaultSchema);
         setSchemaTypes(defaultSchemaTypes);
       } else {
-        let unformatted_wrapped_indexing_code = wrapCode(data.code);
-        let unformatted_schema = data.schema;
-        if (unformatted_wrapped_indexing_code !== null) {
-          setOriginalIndexingCode(unformatted_wrapped_indexing_code);
-          setIndexingCode(unformatted_wrapped_indexing_code);
+        const unformattedIndexerCode = wrapCode(data.code);
+        const unformattedSchemaCode = data.schema;
+        if (unformattedIndexerCode !== null) {
+          setOriginalIndexingCode(unformattedIndexerCode);
+          setIndexingCode(unformattedIndexerCode);
         }
-        if (unformatted_schema !== null) {
-          setOriginalSQLCode(unformatted_schema);
-          setSchema(unformatted_schema);
+        if (unformattedSchemaCode !== null) {
+          setOriginalSQLCode(unformattedSchemaCode);
+          setSchema(unformattedSchemaCode);
         }
-        //todo add reformatting (reformatAll)....
+        // todo add reformatting (reformatAll)....
       }
     } catch (error) {
       console.error('Error loading data:', error);
     }
   };
 
-  const registerFunction = async (indexerName: string, indexerConfig: any) => {
+  const registerFunction = async (indexerName: string, indexerConfig: any): Promise<void> => {
     const { data: validatedSchema, error: schemaValidationError } = validateSQLSchema(schema);
     const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
 
@@ -141,9 +140,9 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
       return;
     }
 
-    let innerCode = validatedCode?.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)?.[1] || '';
+    const innerCode = validatedCode?.match(/getBlock\s*\([^)]*\)\s*{([\s\S]*)}/)?.[1] || '';
     indexerName = indexerName.replaceAll(' ', '_');
-    let forkedFrom =
+    const forkedFrom =
       indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName
         ? {
             account_id: indexerDetails.forkedAccountId,
@@ -174,7 +173,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     }
 
     request('register-function', {
-      indexerName: indexerName,
+      indexerName,
       code: innerCode,
       schema: validatedSchema,
       startBlock,

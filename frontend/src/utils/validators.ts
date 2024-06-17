@@ -1,8 +1,8 @@
-import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
-import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
-import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from "../constants/RegexExp";
 import { ValidationError } from '../classes/ValidationError';
-import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "../constants/Strings";
+import { CONTRACT_NAME_REGEX, WILD_CARD,WILD_CARD_REGEX } from '../constants/RegexExp';
+import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../constants/Strings';
+import { defaultSchema, formatIndexingCode, formatSQL } from './formatters';
+import { PgSchemaTypeGen } from './pgSchemaTypeGen';
 
 export const validateContractId = (accountId: string): boolean => {
   accountId = accountId.trim();
@@ -19,11 +19,11 @@ export const validateContractId = (accountId: string): boolean => {
 };
 
 export const validateContractIds = (accountIds: string): boolean => {
-  const ids = accountIds.split(',').map(id => id.trim());
-  return ids.every(accountId => validateContractId(accountId));
+  const ids = accountIds.split(',').map((id) => id.trim());
+  return ids.every((accountId) => validateContractId(accountId));
 };
 
-export function validateSQLSchema(schema: string): { data: string | null, error: ValidationError | null } {
+export function validateSQLSchema(schema: string): { data: string | null; error: ValidationError | null } {
   if (!schema) return { data: null, error: null };
   if (schema === formatSQL(defaultSchema)) return { data: schema, error: null };
 
@@ -49,7 +49,7 @@ export function validateSQLSchema(schema: string): { data: string | null, error:
   return { data: schema, error: null };
 }
 
-export function validateJSCode(code: string): { data: string | null, error: Error | null } {
+export function validateJSCode(code: string): { data: string | null; error: Error | null } {
   if (!code) return { data: null, error: null };
 
   try {
@@ -60,4 +60,3 @@ export function validateJSCode(code: string): { data: string | null, error: Erro
     return { data: code, error };
   }
 }
-

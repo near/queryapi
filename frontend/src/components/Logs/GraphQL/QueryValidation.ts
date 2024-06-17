@@ -1,36 +1,46 @@
 import { calculateTimestamp } from '@/utils/calculateTimestamp';
 
 interface Variables {
-  limit: number
-  offset: number
-  order_by_timestamp: 'asc' | 'desc'
-  level?: string
-  type?: string
-  timestamp?: string
-  keyword?: string
+  limit: number;
+  offset: number;
+  order_by_timestamp: 'asc' | 'desc';
+  level?: string;
+  type?: string;
+  timestamp?: string;
+  keyword?: string;
 }
 
 interface QueryFilter {
-  _eq?: string | number
-  _ilike?: string
-  _gte?: string
+  _eq?: string | number;
+  _ilike?: string;
+  _gte?: string;
 }
 interface QueryValidationResult {
-  limit: number
-  offset: number
-  order_by_timestamp: 'asc' | 'desc'
-  level?: QueryFilter
-  type?: QueryFilter
-  timestamp?: QueryFilter
-  keyword?: string
-  message?: { _ilike: string }
-  block_height?: { _eq: number }
+  limit: number;
+  offset: number;
+  order_by_timestamp: 'asc' | 'desc';
+  level?: QueryFilter;
+  type?: QueryFilter;
+  timestamp?: QueryFilter;
+  keyword?: string;
+  message?: { _ilike: string };
+  block_height?: { _eq: number };
 }
-/* eslint-disable-next-line */
-export const QueryValidation = ({ limit, offset, order_by_timestamp, level, type, timestamp, keyword }: Variables): QueryValidationResult => {
+
+export const QueryValidation = ({
+  limit,
+  offset,
+  order_by_timestamp,
+  level,
+  type,
+  timestamp,
+  keyword,
+}: Variables): QueryValidationResult => {
   const levelFormat: { level?: QueryFilter } = level ? { level: { _eq: level } } : {};
   const typeFormat: { type?: QueryFilter } = type ? { type: { _eq: type } } : {};
-  const timestampFormat: { timestamp?: QueryFilter } = timestamp ? { timestamp: { _gte: calculateTimestamp(timestamp) } } : {};
+  const timestampFormat: { timestamp?: QueryFilter } = timestamp
+    ? { timestamp: { _gte: calculateTimestamp(timestamp) } }
+    : {};
   const messageFormat = keyword ? { message: { _ilike: `%${keyword}%` } } : {};
   const blockHeightFormat = keyword && !isNaN(Number(keyword)) ? { block_height: { _eq: Number(keyword) } } : {};
 

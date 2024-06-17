@@ -1,13 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { queryIndexerFunctionDetails } from "@/utils/queryIndexerFunction";
-import {
-  defaultCode,
-  defaultSchema,
-  wrapCode,
-} from "../utils/formatters";
+import { useInitialPayload } from 'near-social-bridge';
+import React, { useEffect,useState } from 'react';
 
-import { useInitialPayload } from "near-social-bridge";
-import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
+import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
+import { queryIndexerFunctionDetails } from '@/utils/queryIndexerFunction';
+
+import { defaultCode, defaultSchema, wrapCode } from '../utils/formatters';
 // interface IndexerDetails {
 //   accountId: String,
 //   indexerName: String,
@@ -22,30 +19,39 @@ import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
 // }
 
 export const IndexerDetailsContext = React.createContext({
-  indexerDetails: { code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: "", indexerName: "", forkedAccountId: null, forkedIndexerName: null },
+  indexerDetails: {
+    code: undefined,
+    schema: undefined,
+    rule: { affected_account_id: 'social.near' },
+    startBlock: 'LATEST',
+    accountId: '',
+    indexerName: '',
+    forkedAccountId: null,
+    forkedIndexerName: null,
+  },
   showResetCodeModel: false,
-  setShowResetCodeModel: (bool) => { },
+  setShowResetCodeModel: (bool) => {},
   showPublishModal: false,
-  setShowPublishModal: (bool) => { },
+  setShowPublishModal: (bool) => {},
   showForkIndexerModal: false,
-  setShowForkIndexerModal: (bool) => { },
+  setShowForkIndexerModal: (bool) => {},
   debugMode: false,
-  setDebugMode: () => { },
+  setDebugMode: () => {},
   latestHeight: 0,
-  setLatestHeight: () => { },
+  setLatestHeight: () => {},
   isCreateNewIndexer: false,
-  setIsCreateNewIndexer: (bool) => { },
+  setIsCreateNewIndexer: (bool) => {},
   accountId: undefined,
-  setAccountId: (accountId) => { },
+  setAccountId: (accountId) => {},
   indexerName: '',
-  setIndexerName: (indexerName) => { },
+  setIndexerName: (indexerName) => {},
   forkedAccountId: undefined,
-  setForkedAccountId: (accountId) => { },
+  setForkedAccountId: (accountId) => {},
   forkedIndexerName: undefined,
-  setForkedIndexerName: (indexerName) => { },
-  setIndexerDetails: () => { },
+  setForkedIndexerName: (indexerName) => {},
+  setIndexerDetails: () => {},
   showLogsView: false,
-  setShowLogsView: () => { },
+  setShowLogsView: () => {},
 });
 
 export const IndexerDetailsProvider = ({ children }) => {
@@ -53,7 +59,16 @@ export const IndexerDetailsProvider = ({ children }) => {
   const [indexerName, setIndexerName] = useState(undefined);
   const [forkedAccountId, setForkedAccountId] = useState(undefined);
   const [forkedIndexerName, setForkedIndexerName] = useState(undefined);
-  const [indexerDetails, setIndexerDetails] = useState({ code: undefined, schema: undefined, rule: { affected_account_id: "social.near" }, startBlock: "LATEST", accountId: accountId, indexerName: indexerName, forkedAccountId: forkedAccountId, forkedIndexerName: forkedIndexerName });
+  const [indexerDetails, setIndexerDetails] = useState({
+    code: undefined,
+    schema: undefined,
+    rule: { affected_account_id: 'social.near' },
+    startBlock: 'LATEST',
+    accountId: accountId,
+    indexerName: indexerName,
+    forkedAccountId: forkedAccountId,
+    forkedIndexerName: forkedIndexerName,
+  });
   const [showResetCodeModel, setShowResetCodeModel] = useState(false);
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showForkIndexerModal, setShowForkIndexerModal] = useState(false);
@@ -79,7 +94,7 @@ export const IndexerDetailsProvider = ({ children }) => {
         code: wrapCode(data.code),
         schema: data.schema,
         startBlock: data.start_block,
-        rule: data.rule
+        rule: data.rule,
       };
       return details;
     }
@@ -93,7 +108,7 @@ export const IndexerDetailsProvider = ({ children }) => {
 
   useEffect(() => {
     if (isCreateNewIndexer || !accountId || !indexerName) {
-      setIndexerDetails(prevDetails => ({
+      setIndexerDetails((prevDetails) => ({
         ...prevDetails,
         accountId: accountId,
         indexerName: indexerName,
@@ -112,11 +127,10 @@ export const IndexerDetailsProvider = ({ children }) => {
         code: indexer.code,
         schema: indexer.schema,
         startBlock: indexer.startBlock,
-        rule: indexer.rule
+        rule: indexer.rule,
       };
       setIndexerDetails(details);
     })();
-
   }, [accountId, indexerName, forkedAccountId, forkedIndexerName, isCreateNewIndexer]);
 
   return (

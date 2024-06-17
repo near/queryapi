@@ -1,19 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect,useState } from 'react';
+
 import { calculateBlockTimeDifference } from '@/utils/calculateBlockTimeDifference';
 
 interface LatestBlockProps {
-  indexerBlockHeight?: number
+  indexerBlockHeight?: number;
 }
 
 interface BlockResponse {
   result?: {
     header?: {
-      height?: number
-    }
-  }
+      height?: number;
+    };
+  };
   error?: {
-    message?: string
-  }
+    message?: string;
+  };
 }
 
 const LatestBlock: React.FC<LatestBlockProps> = (props) => {
@@ -62,25 +63,28 @@ const LatestBlock: React.FC<LatestBlockProps> = (props) => {
       }
     };
 
-    updateFinalBlock()
-      .catch(error => {
-        console.error('Failed to fetch or process data:', error);
-      });
+    updateFinalBlock().catch((error) => {
+      console.error('Failed to fetch or process data:', error);
+    });
 
     const intervalId = setInterval(() => {
-      updateFinalBlock()
-        .catch(error => {
-          console.error('Failed to update final block:', error);
-        });
+      updateFinalBlock().catch((error) => {
+        console.error('Failed to update final block:', error);
+      });
     }, 1000);
 
-    return () => { clearInterval(intervalId); };
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
 
   return (
     <div>
       {latestFinalBlock !== null && props.indexerBlockHeight !== undefined
-        ? `Indexer is ${latestFinalBlock - props.indexerBlockHeight} blocks or ${calculateBlockTimeDifference(latestFinalBlock, props.indexerBlockHeight)} behind the blockchain tip`
+        ? `Indexer is ${latestFinalBlock - props.indexerBlockHeight} blocks or ${calculateBlockTimeDifference(
+            latestFinalBlock,
+            props.indexerBlockHeight,
+          )} behind the blockchain tip`
         : `Indexer is not yet synced Latest Final Block Height: ${latestFinalBlock as number}`}
       {errors && <div>Error: {errors}</div>}
     </div>

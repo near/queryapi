@@ -1,7 +1,8 @@
-import React, { useEffect, useContext } from "react";
 import { withRouter } from 'next/router';
+import React, { useContext,useEffect } from 'react';
 import { Alert } from 'react-bootstrap';
-import Editor from "@/components/Editor";
+
+import Editor from '@/components/Editor';
 import IndexerLogsContainer from '@/components/Logs/LogsViewContainer/IndexerLogsContainer';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
@@ -31,7 +32,10 @@ const QueryApiEditorPage = ({ router }) => {
       {showLogsView ? (
         <IndexerLogsContainer />
       ) : (
-        <Editor actionButtonText="Publish" onLoadErrorText="An error occurred while trying to query indexer function details from registry." />
+        <Editor
+          actionButtonText="Publish"
+          onLoadErrorText="An error occurred while trying to query indexer function details from registry."
+        />
       )}
     </>
   );

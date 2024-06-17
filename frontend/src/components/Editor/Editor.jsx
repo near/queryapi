@@ -1,34 +1,53 @@
-import React, { useEffect, useState, useRef, useMemo, useContext } from "react";
-import { defaultCode, defaultSchema, defaultSchemaTypes, formatSQL, formatIndexingCode, wrapCode } from "@/utils/formatters";
-import { Alert } from "react-bootstrap";
-import primitives from "!!raw-loader!./primitives.d.ts";
-import { request, useInitialPayload } from "near-social-bridge";
-import IndexerRunner from "@/utils/indexerRunner";
-import { block_details } from "./block_details";
-import ResizableLayoutEditor from "./ResizableLayoutEditor";
-import { FileSwitcher } from "./FileSwitcher";
-import EditorMenuContainer from "./EditorViewContainer/EditorMenuContainer";
-import DeveloperToolsContainer from "./EditorViewContainer/DeveloperToolsContainer";
-import { getLatestBlockHeight } from "@/utils/getLatestBlockHeight";
-import { IndexerDetailsContext } from "@/contexts/IndexerDetailsContext";
-import { PgSchemaTypeGen } from "@/utils/pgSchemaTypeGen";
-import { validateJSCode, validateSQLSchema } from "@/utils/validators";
-import { useDebouncedCallback } from "use-debounce";
-import { CODE_GENERAL_ERROR_MESSAGE, CODE_FORMATTING_ERROR_MESSAGE, SCHEMA_TYPE_GENERATION_ERROR_MESSAGE, SCHEMA_FORMATTING_ERROR_MESSAGE, FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE, INDEXER_REGISTER_TYPE_GENERATION_ERROR } from "@/constants/Strings";
-import { InfoModal } from "@/core/InfoModal";
-import { useModal } from "@/contexts/ModalContext";
-import { GlyphContainer } from "./GlyphContainer";
+import React, { useEffect, useState, useRef, useMemo, useContext } from 'react';
+import {
+  defaultCode,
+  defaultSchema,
+  defaultSchemaTypes,
+  formatSQL,
+  formatIndexingCode,
+  wrapCode,
+} from '@/utils/formatters';
+import { Alert } from 'react-bootstrap';
+import primitives from '!!raw-loader!./primitives.d.ts';
+import { request, useInitialPayload } from 'near-social-bridge';
+import IndexerRunner from '@/utils/indexerRunner';
+import { block_details } from './block_details';
+import ResizableLayoutEditor from './ResizableLayoutEditor';
+import { FileSwitcher } from './FileSwitcher';
+import EditorMenuContainer from './EditorViewContainer/EditorMenuContainer';
+import DeveloperToolsContainer from './EditorViewContainer/DeveloperToolsContainer';
+import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+import { PgSchemaTypeGen } from '@/utils/pgSchemaTypeGen';
+import { validateJSCode, validateSQLSchema } from '@/utils/validators';
+import { useDebouncedCallback } from 'use-debounce';
+import {
+  CODE_GENERAL_ERROR_MESSAGE,
+  CODE_FORMATTING_ERROR_MESSAGE,
+  SCHEMA_TYPE_GENERATION_ERROR_MESSAGE,
+  SCHEMA_FORMATTING_ERROR_MESSAGE,
+  FORMATTING_ERROR_TYPE,
+  TYPE_GENERATION_ERROR_TYPE,
+  INDEXER_REGISTER_TYPE_GENERATION_ERROR,
+} from '@/constants/Strings';
+import { InfoModal } from '@/core/InfoModal';
+import { useModal } from '@/contexts/ModalContext';
+import { GlyphContainer } from './GlyphContainer';
 
 const Editor = ({ actionButtonText }) => {
   const { indexerDetails, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
-  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
-  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
-  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
-  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || "new"}`;
-  const SCHEMA_TAB_NAME = "schema.sql";
+  const DEBUG_LIST_STORAGE_KEY = `QueryAPI:debugList:${indexerDetails.accountId}#${
+    indexerDetails.indexerName || 'new'
+  }`;
+  const SCHEMA_STORAGE_KEY = `QueryAPI:Schema:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'}`;
+  const SCHEMA_TYPES_STORAGE_KEY = `QueryAPI:Schema:Types:${indexerDetails.accountId}#${
+    indexerDetails.indexerName || 'new'
+  }`;
+  const CODE_STORAGE_KEY = `QueryAPI:Code:${indexerDetails.accountId}#${indexerDetails.indexerName || 'new'}`;
+  const SCHEMA_TAB_NAME = 'schema.sql';
   const [error, setError] = useState();
 
-  const [fileName, setFileName] = useState("indexingLogic.js");
+  const [fileName, setFileName] = useState('indexingLogic.js');
 
   const [originalSQLCode, setOriginalSQLCode] = useState(formatSQL(defaultSchema));
   const [originalIndexingCode, setOriginalIndexingCode] = useState(formatIndexingCode(defaultCode));
@@ -69,15 +88,14 @@ const Editor = ({ actionButtonText }) => {
       [decorations],
       [
         {
-          // eslint-disable-next-line no-undef
           range: new monaco.Range(startLine, startColumn, endLine, endColumn),
           options: {
             isWholeLine: true,
-            glyphMarginClassName: error ? "glyphError" : "glyphSuccess",
+            glyphMarginClassName: error ? 'glyphError' : 'glyphSuccess',
             glyphMarginHoverMessage: { value: displayedError },
           },
         },
-      ]
+      ],
     );
   };
 
@@ -94,9 +112,7 @@ const Editor = ({ actionButtonText }) => {
 
   useEffect(() => {
     if (indexerDetails.code != null) {
-      const { data: formattedCode, error: codeError } = validateJSCode(
-        indexerDetails.code
-      );
+      const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code);
 
       if (codeError) {
         setError(CODE_FORMATTING_ERROR_MESSAGE);
@@ -109,9 +125,7 @@ const Editor = ({ actionButtonText }) => {
 
   useEffect(() => {
     if (indexerDetails.schema != null) {
-      const { data: formattedSchema, error: schemaError } = validateSQLSchema(
-        indexerDetails.schema
-      );
+      const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
 
       if (schemaError?.type === FORMATTING_ERROR_TYPE) {
         setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
@@ -137,7 +151,6 @@ const Editor = ({ actionButtonText }) => {
       handleCodeGen();
     }
     if (fileName === SCHEMA_TAB_NAME) debouncedValidateSQLSchema(schema);
-
   }, [fileName]);
 
   useEffect(() => {
@@ -173,10 +186,9 @@ const Editor = ({ actionButtonText }) => {
 
     if (window.monaco) {
       // Add generated types to monaco and store disposable to clear them later
-      // eslint-disable-next-line no-undef
       const newDisposable = monaco.languages.typescript.typescriptDefaults.addExtraLib(schemaTypes);
       if (newDisposable != null) {
-        console.log("Types successfully imported to Editor");
+        console.log('Types successfully imported to Editor');
       }
 
       disposableRef.current = newDisposable;
@@ -184,17 +196,15 @@ const Editor = ({ actionButtonText }) => {
   };
 
   const handleDeleteIndexer = () => {
-    request("delete-indexer", {
+    request('delete-indexer', {
       accountId: indexerDetails.accountId,
       indexerName: indexerDetails.indexerName,
     });
   };
 
   const reformatAll = (indexingCode, schema) => {
-    let { data: formattedCode, error: codeError } =
-      validateJSCode(indexingCode);
-    let { data: formattedSchema, error: schemaError } =
-      validateSQLSchema(schema);
+    let { data: formattedCode, error: codeError } = validateJSCode(indexingCode);
+    let { data: formattedSchema, error: schemaError } = validateSQLSchema(schema);
 
     if (codeError) {
       formattedCode = indexingCode;
@@ -217,85 +227,57 @@ const Editor = ({ actionButtonText }) => {
       setSchemaTypes(pgSchemaTypeGen.generateTypes(schema));
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
     } catch (_error) {
-      console.error("Error generating types for saved schema.\n", _error);
+      console.error('Error generating types for saved schema.\n', _error);
       setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
     }
   }
 
   function handleFormating() {
-    const { formattedCode, formattedSchema } = reformatAll(
-      indexingCode,
-      schema
-    );
+    const { formattedCode, formattedSchema } = reformatAll(indexingCode, schema);
     setIndexingCode(formattedCode);
     setSchema(formattedSchema);
   }
 
   function handleEditorWillMount(editor, monaco) {
     if (!diffView) {
-      const decorations = editor.deltaDecorations([],
+      const decorations = editor.deltaDecorations(
+        [],
         [
           {
             range: new monaco.Range(1, 1, 1, 1),
             options: {},
           },
-        ]
+        ],
       );
       monacoEditorRef.current = editor;
       setDecorations(decorations);
     }
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
-      "file:///node_modules/@near-lake/primitives/index.d.ts"
+      'file:///node_modules/@near-lake/primitives/index.d.ts',
     );
     setMonacoMount(true);
   }
 
-  async function executeIndexerFunction(
-    option = "latest",
-    startingBlockHeight = null
-  ) {
+  async function executeIndexerFunction(option = 'latest', startingBlockHeight = null) {
     setIsExecutingIndexerFunction(() => true);
-    const schemaName = indexerDetails.accountId
-      .concat("_", indexerDetails.indexerName)
-      .replace(/[^a-zA-Z0-9]/g, "_");
+    const schemaName = indexerDetails.accountId.concat('_', indexerDetails.indexerName).replace(/[^a-zA-Z0-9]/g, '_');
     let latestHeight;
     switch (option) {
-      case "debugList":
-        await indexerRunner.executeIndexerFunctionOnHeights(
-          heights,
-          indexingCode,
-          schema,
-          schemaName,
-          option
-        );
+      case 'debugList':
+        await indexerRunner.executeIndexerFunctionOnHeights(heights, indexingCode, schema, schemaName, option);
         break;
-      case "specific":
+      case 'specific':
         if (startingBlockHeight === null && Number(startingBlockHeight) === 0) {
-          console.log(
-            "Invalid Starting Block Height: starting block height is null or 0"
-          );
+          console.log('Invalid Starting Block Height: starting block height is null or 0');
           break;
         }
 
-        await indexerRunner.start(
-          startingBlockHeight,
-          indexingCode,
-          schema,
-          schemaName,
-          option
-        );
+        await indexerRunner.start(startingBlockHeight, indexingCode, schema, schemaName, option);
         break;
-      case "latest":
+      case 'latest':
         latestHeight = await getLatestBlockHeight();
-        if (latestHeight)
-          await indexerRunner.start(
-            latestHeight - 10,
-            indexingCode,
-            schema,
-            schemaName,
-            option
-          );
+        if (latestHeight) await indexerRunner.start(latestHeight - 10, indexingCode, schema, schemaName, option);
     }
     setIsExecutingIndexerFunction(() => false);
   }
@@ -311,17 +293,17 @@ const Editor = ({ actionButtonText }) => {
   }
 
   function handleRegisterIndexerWithErrors(args) {
-    request("register-function", args);
+    request('register-function', args);
   }
 
   return (
     <>
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          width: "100%",
-          height: "85vh",
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100%',
+          height: '85vh',
         }}
       >
         {!indexerDetails.code && !isCreateNewIndexer && (
@@ -331,7 +313,6 @@ const Editor = ({ actionButtonText }) => {
           >
             Indexer Function could not be found. Are you sure this indexer exists?
           </Alert>
-
         )}
         {(indexerDetails.code || isCreateNewIndexer) && (
           <>
@@ -370,10 +351,10 @@ const Editor = ({ actionButtonText }) => {
             <div
               className="mt-2"
               style={{
-                flex: "display",
-                justifyContent: "space-around",
-                width: "100%",
-                height: "100%",
+                flex: 'display',
+                justifyContent: 'space-around',
+                width: '100%',
+                height: '100%',
               }}
             >
               {error && (
@@ -402,7 +383,7 @@ const Editor = ({ actionButtonText }) => {
                 diffView={diffView}
                 setDiffView={setDiffView}
               />
-              <GlyphContainer style={{ height: "100%", width: "100%" }}>
+              <GlyphContainer style={{ height: '100%', width: '100%' }}>
                 <ResizableLayoutEditor
                   fileName={fileName}
                   indexingCode={indexingCode}
