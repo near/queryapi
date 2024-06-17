@@ -35,8 +35,6 @@ exports[`Indexer unit tests Indexer.execute() allows imperative execution of Gra
 
 exports[`Indexer unit tests Indexer.execute() catches errors 1`] = `[]`;
 
-exports[`Indexer unit tests Indexer.execute() logs provisioning failures 1`] = `[]`;
-
 exports[`Indexer unit tests Indexer.execute() should execute all functions against the current block 1`] = `
 [
   [
