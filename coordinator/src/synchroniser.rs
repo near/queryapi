@@ -594,17 +594,12 @@ mod test {
 
             let mut state_manager = IndexerStateManager::default();
             state_manager.expect_list().returning(|| Ok(vec![]));
-            state_manager
-                .expect_set_provisioning()
-                .with(eq(config.clone()))
-                .returning(|_| Ok(()))
-                .once();
 
             let mut data_layer_handler = DataLayerHandler::default();
             data_layer_handler
-                .expect_provision()
+                .expect_start_provisioning_task()
                 .with(eq(config))
-                .returning(|_| Ok(()))
+                .returning(|_| Ok(ProvisioningStatus::Pending))
                 .once();
 
             let redis_client = RedisClient::default();

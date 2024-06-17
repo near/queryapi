@@ -207,7 +207,7 @@ mod tests {
         let mut mock_redis_client = RedisClient::default();
         mock_redis_client
             .expect_list_indexer_states()
-            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true }).to_string()]))
+            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true, "provisioned_state": "Provisioned" }).to_string()]))
             .once();
         mock_redis_client
             .expect_list_indexer_states()
@@ -242,7 +242,7 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 123, "enabled": true })
+                    serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 123, "enabled": true, "provisioned_state": "Provisioned" })
                         .to_string(),
                 ))
             });
@@ -250,7 +250,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::always(),
-                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":123,\"enabled\":false}".to_string()),
+                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":123,\"enabled\":false,\"provisioned_state\":\"Provisioned\"}".to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();
