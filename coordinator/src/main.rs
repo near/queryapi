@@ -5,6 +5,7 @@ use near_primitives::types::AccountId;
 use tracing_subscriber::prelude::*;
 
 use crate::handlers::block_streams::BlockStreamsHandler;
+use crate::handlers::data_layer::DataLayerHandler;
 use crate::handlers::executors::ExecutorsHandler;
 use crate::indexer_state::IndexerStateManager;
 use crate::redis::RedisClient;
@@ -59,10 +60,12 @@ async fn main() -> anyhow::Result<()> {
     let redis_client = RedisClient::connect(&redis_url).await?;
     let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
+    let data_layer_handler = DataLayerHandler::connect(&runner_url)?;
     let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));
     let synchroniser = Synchroniser::new(
         &block_streams_handler,
         &executors_handler,
+        &data_layer_handler,
         &registry,
         &indexer_state_manager,
         &redis_client,
