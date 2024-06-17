@@ -67,14 +67,14 @@ export function createDataLayerService (
       callback(null, { status: ProvisioningStatus.PENDING });
     },
 
-    Provision (call: ServerUnaryCall<ProvisionRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
+    StartProvisioningTask (call: ServerUnaryCall<ProvisionRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
       const { accountId, functionName, schema } = call.request;
 
       const provisioningConfig = new ProvisioningConfig(accountId, functionName, schema);
 
       const task = tasks[generateTaskId(accountId, functionName)];
 
-      if (task?.pending) {
+      if (task) {
         const exists = new StatusBuilder()
           .withCode(status.ALREADY_EXISTS)
           .withDetails('Provisioning task already exists')
@@ -86,11 +86,7 @@ export function createDataLayerService (
 
       provisioner.fetchUserApiProvisioningStatus(provisioningConfig).then((isProvisioned) => {
         if (isProvisioned) {
-          const exists = new StatusBuilder()
-            .withCode(status.ALREADY_EXISTS)
-            .withDetails('Indexer has already been provisioned')
-            .build();
-          callback(exists);
+          callback(null, { status: ProvisioningStatus.COMPLETE });
 
           return;
         }

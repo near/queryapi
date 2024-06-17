@@ -3,8 +3,8 @@ syntax = "proto3";
 package data_layer;
 
 service DataLayer {
-    // Provisions the data layer (PostgreSQL + Hasura)
-    rpc Provision (ProvisionRequest) returns (ProvisionResponse);
+    // Starts async provisioning task
+    rpc StartProvisioningTask (ProvisionRequest) returns (ProvisionResponse);
 
     // Checks the provisioning status
     rpc CheckProvisioningTaskStatus (CheckProvisioningTaskStatusRequest) returns (ProvisionResponse);
