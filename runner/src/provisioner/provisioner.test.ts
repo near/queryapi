@@ -86,7 +86,7 @@ describe('Provisioner', () => {
         ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
-        ['SELECT schema_name FROM information_schema.schemata WHERE schema_name = morgs_near'],
+        ["SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'morgs_near'"],
       ]);
     });
 
@@ -103,7 +103,7 @@ describe('Provisioner', () => {
         ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
-        ['SELECT schema_name FROM information_schema.schemata WHERE schema_name = morgs_near'],
+        ["SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'morgs_near'"],
       ]);
       expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
       expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near FORCE');

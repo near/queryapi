@@ -280,7 +280,7 @@ export default class Provisioner {
       const userPgClient = new this.PgClient(userDbConnectionParameters);
 
       const result = await userPgClient.query(
-        this.pgFormat('SELECT schema_name FROM information_schema.schemata WHERE schema_name = %I', userName)
+        this.pgFormat('SELECT schema_name FROM information_schema.schemata WHERE schema_name = %L', userName)
       );
       console.log({ result });
 
