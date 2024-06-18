@@ -4,10 +4,18 @@ package data_layer;
 
 service DataLayer {
     // Starts async provisioning task
-    rpc StartProvisioningTask (ProvisionRequest) returns (ProvisionResponse);
+    rpc StartProvisioningTask (ProvisionRequest) returns (StartTaskResponse);
 
-    // Checks the provisioning status
-    rpc CheckProvisioningTaskStatus (CheckProvisioningTaskStatusRequest) returns (ProvisionResponse);
+    // Start async deprovisioning task
+    // rpc StartDeprovisioningTask (DeprovisionRequest) returns (StartTaskResponse);
+
+    // Checks the status of provisioning/deprovisioning
+    rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusResponse);
+
+}
+
+message StartTaskResponse {
+    string task_id = 1;
 }
 
 message ProvisionRequest {
@@ -16,18 +24,23 @@ message ProvisionRequest {
     string schema = 3;
 }
 
-message CheckProvisioningTaskStatusRequest {
+message DeprovisionRequest {
     string account_id = 1;
     string function_name = 2;
 }
 
-enum ProvisioningStatus {
+
+message GetTaskStatusRequest {
+    string task_id = 1;
+}
+
+enum TaskStatus {
     UNSPECIFIED = 0;
     PENDING = 1;
     COMPLETE = 2;
     FAILED = 3;
 }
 
-message ProvisionResponse {
-    ProvisioningStatus status = 1;
+message GetTaskStatusResponse {
+    TaskStatus status = 1;
 }
