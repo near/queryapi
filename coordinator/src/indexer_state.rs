@@ -11,6 +11,7 @@ pub enum ProvisionedState {
     Unprovisioned,
     Provisioning { task_id: String },
     Provisioned,
+    Deprovisioning { task_id: String },
     Failed,
 }
 
@@ -130,6 +131,22 @@ impl IndexerStateManagerImpl {
         indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
 
         self.set_state(indexer_config, indexer_state).await?;
+
+        Ok(())
+    }
+
+    pub async fn set_deprovisioning(
+        &self,
+        indexer_state: &IndexerState,
+        task_id: String,
+    ) -> anyhow::Result<()> {
+        let mut state = indexer_state.clone();
+
+        state.provisioned_state = ProvisionedState::Deprovisioning { task_id };
+
+        self.redis_client
+            .set(state.get_state_key(), serde_json::to_string(&state)?)
+            .await?;
 
         Ok(())
     }

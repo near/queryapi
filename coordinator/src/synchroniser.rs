@@ -257,7 +257,7 @@ impl<'a> Synchroniser<'a> {
             }
             ProvisionedState::Failed => return Ok(()),
             ProvisionedState::Provisioned => {}
-            ProvisionedState::Unprovisioned => todo!(),
+            ProvisionedState::Unprovisioned | ProvisionedState::Deprovisioning { .. } => todo!(),
         }
 
         if !state.enabled {
@@ -321,6 +321,36 @@ impl<'a> Synchroniser<'a> {
             self.block_streams_handler
                 .stop(block_stream.stream_id.clone())
                 .await?;
+        }
+
+        if let ProvisionedState::Deprovisioning { task_id } = &state.provisioned_state {
+            match self
+                .data_layer_handler
+                .get_task_status(task_id.clone())
+                .await?
+            {
+                TaskStatus::Complete => {
+                    tracing::info!("Data layer deprovisioning complete");
+                }
+                TaskStatus::Failed => {
+                    tracing::info!("Data layer deprovisioning failed");
+                }
+                TaskStatus::Unspecified => {
+                    tracing::info!("Encountered unspecified deprovisioning task status");
+                }
+                TaskStatus::Pending => return Ok(()),
+            }
+        } else {
+            let task_id = self
+                .data_layer_handler
+                .start_deprovisioning_task(state.account_id.clone(), state.function_name.clone())
+                .await?;
+
+            self.state_manager
+                .set_deprovisioning(state, task_id.clone())
+                .await?;
+
+            return Ok(());
         }
 
         self.state_manager.delete_state(state).await?;
@@ -1207,14 +1237,16 @@ mod test {
         use super::*;
 
         #[tokio::test]
-        async fn stops_and_deletes() {
+        async fn stops_block_stream_and_executor() {
             let config = IndexerConfig::default();
             let state = IndexerState {
                 account_id: config.account_id.clone(),
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version()),
                 enabled: false,
-                provisioned_state: ProvisionedState::Provisioned,
+                provisioned_state: ProvisionedState::Deprovisioning {
+                    task_id: "task_id".to_string(),
+                },
             };
             let executor = ExecutorInfo {
                 executor_id: "executor_id".to_string(),
@@ -1245,15 +1277,16 @@ mod test {
                 .once();
 
             let mut state_manager = IndexerStateManager::default();
-            state_manager
-                .expect_delete_state()
-                .with(eq(state.clone()))
-                .returning(|_| Ok(()))
-                .once();
+            state_manager.expect_delete_state().never();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_get_task_status()
+                .with(eq("task_id".to_string()))
+                .returning(|_| Ok(TaskStatus::Pending));
 
             let registry = Registry::default();
             let redis_client = RedisClient::default();
-            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
@@ -1266,6 +1299,71 @@ mod test {
 
             synchroniser
                 .sync_deleted_indexer(&state, Some(&executor), Some(&block_stream))
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn deprovisions_data_layer() {
+            let config = IndexerConfig::default();
+            let provisioned_state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: false,
+                provisioned_state: ProvisionedState::Provisioned,
+            };
+            let deprovisioning_state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: false,
+                provisioned_state: ProvisionedState::Deprovisioning {
+                    task_id: "task_id".to_string(),
+                },
+            };
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_set_deprovisioning()
+                .with(eq(provisioned_state.clone()), eq("task_id".to_string()))
+                .returning(|_, _| Ok(()));
+            state_manager
+                .expect_delete_state()
+                .with(eq(deprovisioning_state.clone()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_start_deprovisioning_task()
+                .with(eq(config.account_id), eq(config.function_name))
+                .returning(|_, _| Ok("task_id".to_string()));
+            data_layer_handler
+                .expect_get_task_status()
+                .with(eq("task_id".to_string()))
+                .returning(|_| Ok(TaskStatus::Complete));
+
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_deleted_indexer(&provisioned_state, None, None)
+                .await
+                .unwrap();
+            synchroniser
+                .sync_deleted_indexer(&deprovisioning_state, None, None)
                 .await
                 .unwrap();
         }

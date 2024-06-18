@@ -1,10 +1,12 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use near_primitives::types::AccountId;
+
 pub use runner::data_layer::TaskStatus;
 
 use anyhow::Context;
 use runner::data_layer::data_layer_client::DataLayerClient;
-use runner::data_layer::{GetTaskStatusRequest, ProvisionRequest};
+use runner::data_layer::{DeprovisionRequest, GetTaskStatusRequest, ProvisionRequest};
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
@@ -46,6 +48,25 @@ impl DataLayerHandlerImpl {
             .client
             .clone()
             .start_provisioning_task(Request::new(request))
+            .await?;
+
+        Ok(response.into_inner().task_id)
+    }
+
+    pub async fn start_deprovisioning_task(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<TaskId> {
+        let request = DeprovisionRequest {
+            account_id: account_id.to_string(),
+            function_name,
+        };
+
+        let response = self
+            .client
+            .clone()
+            .start_deprovisioning_task(Request::new(request))
             .await?;
 
         Ok(response.into_inner().task_id)
