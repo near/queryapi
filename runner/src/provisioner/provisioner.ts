@@ -302,6 +302,12 @@ export default class Provisioner {
     }, 'Failed to drop datasource');
   }
 
+  async dropRole (userName: string): Promise<void> {
+    await wrapError(async () => {
+      await this.adminDefaultPgClient.query(this.pgFormat('DROP ROLE IF EXISTS %I', userName));
+    }, 'Failed to drop role');
+  }
+
   public async deprovision (config: ProvisioningConfig): Promise<void> {
     await wrapError(async () => {
       await this.dropSchema(config.userName(), config.schemaName());
@@ -312,9 +318,9 @@ export default class Provisioner {
       if (schemas.length === 0) {
         await this.dropDatasource(config.databaseName());
         await this.dropDatabase(config.databaseName());
+        await this.dropRole(config.userName());
       }
     }, 'Failed to deprovision');
-    // drop role
   }
 
   async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type

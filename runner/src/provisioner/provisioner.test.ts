@@ -107,9 +107,24 @@ describe('Provisioner', () => {
       ]);
       expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
       expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near FORCE');
+      expect(adminPgClient.query).toBeCalledWith('DROP ROLE IF EXISTS morgs_near');
     });
 
-    it('handles drop databas failures', async () => {
+    it('handles drop role failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // drop schema
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      adminPgClient.query = jest.fn()
+        .mockResolvedValueOnce(null)
+        .mockRejectedValue(new Error('failed to drop role'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop role: failed to drop role');
+    });
+
+    it('handles drop database failures', async () => {
       userPgClientQuery = jest.fn()
         .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
