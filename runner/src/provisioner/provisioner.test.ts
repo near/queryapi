@@ -107,7 +107,22 @@ describe('Provisioner', () => {
       ]);
       expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
       expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near (FORCE)');
+      expect(cronPgClient.query).toBeCalledWith('REVOKE USAGE ON SCHEMA cron FROM morgs_near CASCADE');
+      expect(cronPgClient.query).toBeCalledWith('REVOKE EXECUTE ON FUNCTION cron.schedule_in_database FROM morgs_near;');
       expect(adminPgClient.query).toBeCalledWith('DROP ROLE IF EXISTS morgs_near');
+    });
+
+    it('handles revoke cron failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // drop schema
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      cronPgClient.query = jest.fn()
+        .mockRejectedValue(new Error('failed revoke'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to revoke cron access: failed revoke');
     });
 
     it('handles drop role failures', async () => {

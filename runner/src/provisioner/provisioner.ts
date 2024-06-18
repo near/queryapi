@@ -308,6 +308,16 @@ export default class Provisioner {
     }, 'Failed to drop role');
   }
 
+  async revokeCronAccess (userName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        await this.adminCronPgClient.query(this.pgFormat('REVOKE USAGE ON SCHEMA cron FROM %I CASCADE', userName));
+        await this.adminCronPgClient.query(this.pgFormat('REVOKE EXECUTE ON FUNCTION cron.schedule_in_database FROM %I;', userName));
+      },
+      'Failed to revoke cron access'
+    );
+  }
+
   public async deprovision (config: ProvisioningConfig): Promise<void> {
     await wrapError(async () => {
       await this.dropSchema(config.userName(), config.schemaName());
@@ -318,6 +328,7 @@ export default class Provisioner {
       if (schemas.length === 0) {
         await this.dropDatasource(config.databaseName());
         await this.dropDatabase(config.databaseName());
+        await this.revokeCronAccess(config.userName());
         await this.dropRole(config.userName());
       }
     }, 'Failed to deprovision');
