@@ -352,36 +352,36 @@ declare class Receipt implements Events {
      */
     readonly logs: string[];
     constructor(
-    /**
-     * Defined the type of the `Receipt`: `Action` or `Data` representing the `ActionReceipt` and `DataReceipt`.
-     */
-    receiptKind: ReceiptKind, 
-    /**
-     * The ID of the `Receipt` of the `CryptoHash` type.
-     */
-    receiptId: string, 
-    /**
-     * The receiver account id of the `Receipt`.
-     */
-    receiverId: string, 
-    /**
-     * The predecessor account id of the `Receipt`.
-     */
-    predecessorId: string, 
-    /**
-     * Represents the status of `ExecutionOutcome` of the `Receipt`.
-     */
-    status: ExecutionStatus, 
-    /**
-     * The id of the `ExecutionOutcome` for the `Receipt`. Returns `null` if the `Receipt` isn’t executed yet and has a postponed status.
-     */
-    executionOutcomeId?: string | undefined, 
-    /**
-     * The original logs of the corresponding `ExecutionOutcome` of the `Receipt`.
-     *
-     * **Note:** not all of the logs might be parsed as JSON Events (`Events`).
-     */
-    logs?: string[]);
+        /**
+         * Defined the type of the `Receipt`: `Action` or `Data` representing the `ActionReceipt` and `DataReceipt`.
+         */
+        receiptKind: ReceiptKind,
+        /**
+         * The ID of the `Receipt` of the `CryptoHash` type.
+         */
+        receiptId: string,
+        /**
+         * The receiver account id of the `Receipt`.
+         */
+        receiverId: string,
+        /**
+         * The predecessor account id of the `Receipt`.
+         */
+        predecessorId: string,
+        /**
+         * Represents the status of `ExecutionOutcome` of the `Receipt`.
+         */
+        status: ExecutionStatus,
+        /**
+         * The id of the `ExecutionOutcome` for the `Receipt`. Returns `null` if the `Receipt` isn’t executed yet and has a postponed status.
+         */
+        executionOutcomeId?: string | undefined,
+        /**
+         * The original logs of the corresponding `ExecutionOutcome` of the `Receipt`.
+         *
+         * **Note:** not all of the logs might be parsed as JSON Events (`Events`).
+         */
+        logs?: string[]);
     /**
      * Returns an Array of `Events` for the `Receipt`, if any. This might be empty if the `logs` field is empty or doesn’t contain JSON Events compatible log records.
      */
@@ -428,32 +428,32 @@ declare class Action {
      */
     readonly operations: Operation[];
     constructor(
-    /**
-     * The id of the corresponding `Receipt`
-     */
-    receiptId: string, 
-    /**
-     * The predecessor account id of the corresponding `Receipt`.
-     * This field is a piece of denormalization of the structures (`Receipt` and `Action`).
-     */
-    predecessorId: string, 
-    /**
-     * The receiver account id of the corresponding `Receipt`.
-     * This field is a piece of denormalization of the structures (`Receipt` and `Action`).
-     */
-    receiverId: string, 
-    /**
-     * The signer account id of the corresponding `Receipt`
-     */
-    signerId: string, 
-    /**
-     * The signer’s PublicKey for the corresponding `Receipt`
-     */
-    signerPublicKey: string, 
-    /**
-     * An array of `Operation` for this `ActionReceipt`
-     */
-    operations: Operation[]);
+        /**
+         * The id of the corresponding `Receipt`
+         */
+        receiptId: string,
+        /**
+         * The predecessor account id of the corresponding `Receipt`.
+         * This field is a piece of denormalization of the structures (`Receipt` and `Action`).
+         */
+        predecessorId: string,
+        /**
+         * The receiver account id of the corresponding `Receipt`.
+         * This field is a piece of denormalization of the structures (`Receipt` and `Action`).
+         */
+        receiverId: string,
+        /**
+         * The signer account id of the corresponding `Receipt`
+         */
+        signerId: string,
+        /**
+         * The signer’s PublicKey for the corresponding `Receipt`
+         */
+        signerPublicKey: string,
+        /**
+         * An array of `Operation` for this `ActionReceipt`
+         */
+        operations: Operation[]);
     static isActionReceipt: (receipt: ReceiptView) => boolean;
     static fromReceiptView: (receipt: ReceiptView) => Action | null;
 }
@@ -545,38 +545,38 @@ declare class Transaction {
      */
     readonly operations: Operation[];
     constructor(
-    /**
-     * Returns the hash of the `Transaction` in `CryptoHash`.
-     */
-    transactionHash: string, 
-    /**
-     * Returns the signer account id of the `Transaction`.
-     */
-    signerId: string, 
-    /**
-     * Returns the `PublicKey` of the signer of the `Transaction`.
-     */
-    signerPublicKey: string, 
-    /**
-     * Returns the `Signature` the `Transaction` was signed with.
-     */
-    signature: string, 
-    /**
-     * Returns the receiver account id of the `Transaction`.
-     */
-    receiverId: string, 
-    /**
-     * Returns the status of the `Transaction` as `ExecutionStatus`.
-     */
-    status: ExecutionStatus, 
-    /**
-     * Returns the id of the `ExecutionOutcome` for the `Transaction`.
-     */
-    executionOutcomeId: string, 
-    /**
-     * Returns an Array of `Operation` for the `Transaction`.
-     */
-    operations: Operation[]);
+        /**
+         * Returns the hash of the `Transaction` in `CryptoHash`.
+         */
+        transactionHash: string,
+        /**
+         * Returns the signer account id of the `Transaction`.
+         */
+        signerId: string,
+        /**
+         * Returns the `PublicKey` of the signer of the `Transaction`.
+         */
+        signerPublicKey: string,
+        /**
+         * Returns the `Signature` the `Transaction` was signed with.
+         */
+        signature: string,
+        /**
+         * Returns the receiver account id of the `Transaction`.
+         */
+        receiverId: string,
+        /**
+         * Returns the status of the `Transaction` as `ExecutionStatus`.
+         */
+        status: ExecutionStatus,
+        /**
+         * Returns the id of the `ExecutionOutcome` for the `Transaction`.
+         */
+        executionOutcomeId: string,
+        /**
+         * Returns an Array of `Operation` for the `Transaction`.
+         */
+        operations: Operation[]);
 }
 
 /**
@@ -592,14 +592,14 @@ declare class StateChange {
      */
     readonly value: StateChangeValue;
     constructor(
-    /**
-     * Returns the `cause` of the `StateChange`.
-     */
-    cause: StateChangeCause, 
-    /**
-     * Returns the `value` of the `StateChange`.
-     */
-    value: StateChangeValue);
+        /**
+         * Returns the `cause` of the `StateChange`.
+         */
+        cause: StateChangeCause,
+        /**
+         * Returns the `value` of the `StateChange`.
+         */
+        value: StateChangeValue);
     /**
      * Returns the account id of the `StateChange`.
      */
@@ -704,22 +704,22 @@ declare class Block {
     private _events;
     private _stateChanges;
     constructor(
-    /**
-     * Low-level structure for backward compatibility.
-     * As implemented in previous versions of [`near-lake-framework`](https://www.npmjs.com/package/near-lake-framework).
-     */
-    streamerMessage: StreamerMessage, executedReceipts: Receipt[], 
-    /**
-     * Receipts included on the chain but not executed yet marked as “postponed”: they are represented by the same structure `Receipt` (see the corresponding section in this doc for more details).
-     */
-    postponedReceipts: Receipt[], 
-    /**
-     * List of included `Transactions`, converted into `Receipts`.
-     *
-     * **_NOTE_:** Heads up! You might want to know about `Transactions` to know where the action chain has begun. Unlike Ethereum, where a Transaction contains everything you may want to know about a particular interaction on  the Ethereum blockchain, Near Protocol because of its asynchronous nature converts a `Transaction` into a `Receipt` before executing it. Thus, On NEAR, `Receipts` are more important for figuring out what happened on-chain as a result of a Transaction signed by a user. Read more about [Transactions on Near](https://nomicon.io/RuntimeSpec/Transactions) here.
-     *
-     */
-    transactions: Transaction[], _actions: Map<string, Action>, _events: Map<string, Event[]>, _stateChanges: StateChange[]);
+        /**
+         * Low-level structure for backward compatibility.
+         * As implemented in previous versions of [`near-lake-framework`](https://www.npmjs.com/package/near-lake-framework).
+         */
+        streamerMessage: StreamerMessage, executedReceipts: Receipt[],
+        /**
+         * Receipts included on the chain but not executed yet marked as “postponed”: they are represented by the same structure `Receipt` (see the corresponding section in this doc for more details).
+         */
+        postponedReceipts: Receipt[],
+        /**
+         * List of included `Transactions`, converted into `Receipts`.
+         *
+         * **_NOTE_:** Heads up! You might want to know about `Transactions` to know where the action chain has begun. Unlike Ethereum, where a Transaction contains everything you may want to know about a particular interaction on  the Ethereum blockchain, Near Protocol because of its asynchronous nature converts a `Transaction` into a `Receipt` before executing it. Thus, On NEAR, `Receipts` are more important for figuring out what happened on-chain as a result of a Transaction signed by a user. Read more about [Transactions on Near](https://nomicon.io/RuntimeSpec/Transactions) here.
+         *
+         */
+        transactions: Transaction[], _actions: Map<string, Action>, _events: Map<string, Event[]>, _stateChanges: StateChange[]);
     /**
      * Returns the block hash. A shortcut to get the data from the block header.
      */

@@ -1,10 +1,10 @@
 import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
 import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
-import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from '@/constants/RegexExp';
-import { ValidationError } from '@/classes/ValidationError';
-import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "@/constants/Strings";
+import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from "../constants/RegexExp";
+import { ValidationError } from '../classes/ValidationError';
+import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "../constants/Strings";
 
-function validateContractId(accountId) {
+export const validateContractId = (accountId) => {
   accountId = accountId.trim();
   if (accountId === WILD_CARD) return true;
 
@@ -18,12 +18,12 @@ function validateContractId(accountId) {
   //test if rest of string is valid accounting for/not isWildCard
   const isRegexValid = CONTRACT_NAME_REGEX.test(accountId);
   return isRegexValid;
-}
+};
 
-export function validateContractIds(accountIds) {
+export const validateContractIds = (accountIds) => {
   const ids = accountIds.split(',').map(id => id.trim());
   return ids.every(accountId => validateContractId(accountId));
-}
+};
 
 /**
  * Validates formatting and type generation from a SQL schema.
@@ -48,9 +48,9 @@ export function validateSQLSchema(schema) {
   if (formattedSchema) {
     try {
       pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
-      return { data: formattedSchema, error: null }
+      return { data: formattedSchema, error: null };
     } catch (error) {
-      console.log(error)
+      console.log(error);
       return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location };
     }
   }
@@ -68,10 +68,10 @@ export function validateJSCode(code) {
 
   try {
     const formattedCode = formatIndexingCode(code);
-    return { data: formattedCode, error: null }
+    return { data: formattedCode, error: null };
 
   } catch (error) {
-    console.error(error.message)
+    console.error(error.message);
     return { data: code, error };
   }
 }

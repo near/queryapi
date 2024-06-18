@@ -1,4 +1,4 @@
-export const Query = (tableName: string) => `
+export const Query = (tableName: string): string => `
   query getLogsQuery(
       $limit: Int,
       $offset: Int,
@@ -52,4 +52,3 @@ export const Query = (tableName: string) => `
       }
     }
 `;
-

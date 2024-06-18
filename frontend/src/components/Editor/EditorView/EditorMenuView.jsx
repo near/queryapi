@@ -50,7 +50,7 @@ const EditorMenuView = ({
           )}
 
           {!isUserIndexer && !isCreateNewIndexer ? (
-            <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => { setShowForkIndexerModal(true) }}>
+            <Button variant="outline-primary" size="sm" className="d-flex align-items-center" onClick={() => { setShowForkIndexerModal(true); }}>
               <Braces className="me-2" size={20} />
               Fork Indexer
             </Button>

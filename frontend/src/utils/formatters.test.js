@@ -20,7 +20,7 @@ const inputSQL2 = `CREATE INVALID TABLE indexer_storage"`;
 test("Formatting invalid SQL input returns the invalid unformatted input", () => {
   console.log(formatSQL(inputSQL2));
   expect(formatSQL(inputSQL2)).toEqual(inputSQL2);
-})
+});
 
 const inputJS2 = "\n  const h = block.header().height;\n  console.log(\"About to write demo_blockheight\", h);\n  await context.set(\"demo_height\", h);\n";
 const expectedOutput2 = `const h = block.header().height;

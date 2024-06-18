@@ -62,9 +62,7 @@ impl BlockStreamsHandlerImpl {
             .clone()
             .stop_stream(Request::new(request.clone()))
             .await
-            .map_err(|e| {
-                tracing::error!(stream_id, "Failed to stop stream\n{e:?}");
-            });
+            .context(format!("Failed to stop stream: {stream_id}"))?;
 
         tracing::debug!(stream_id, "Stop stream response: {:#?}", response);
 
@@ -125,13 +123,10 @@ impl BlockStreamsHandlerImpl {
             .clone()
             .start_stream(Request::new(request.clone()))
             .await
-            .map_err(|error| {
-                tracing::error!(
-                    account_id = indexer_config.account_id.as_str(),
-                    function_name = indexer_config.function_name,
-                    "Failed to start stream\n{error:?}"
-                );
-            });
+            .context(format!(
+                "Failed to start stream: {}",
+                indexer_config.get_full_name()
+            ))?;
 
         tracing::debug!(
             account_id = indexer_config.account_id.as_str(),

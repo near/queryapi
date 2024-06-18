@@ -15,4 +15,4 @@ export const getLatestBlockHeight = async () => {
         finality: "final"
     });
     return latestBlock.header.height;
-}
+};

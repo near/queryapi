@@ -9,6 +9,6 @@ const LogTypeSelectorView = ({ options, selectedOption, onOptionChange }) => {
             onOptionChange={onOptionChange}
         />
     );
-}
+};
 
 export default LogTypeSelectorView;
