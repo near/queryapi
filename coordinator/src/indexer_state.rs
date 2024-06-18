@@ -9,7 +9,7 @@ use crate::redis::RedisClient;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum ProvisionedState {
     Unprovisioned,
-    Provisioning,
+    Provisioning { task_id: String },
     Provisioned,
     Failed,
 }
@@ -134,10 +134,14 @@ impl IndexerStateManagerImpl {
         Ok(())
     }
 
-    pub async fn set_provisioning(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn set_provisioning(
+        &self,
+        indexer_config: &IndexerConfig,
+        task_id: String,
+    ) -> anyhow::Result<()> {
         let mut indexer_state = self.get_state(indexer_config).await?;
 
-        indexer_state.provisioned_state = ProvisionedState::Provisioning;
+        indexer_state.provisioned_state = ProvisionedState::Provisioning { task_id };
 
         self.set_state(indexer_config, indexer_state).await?;
 

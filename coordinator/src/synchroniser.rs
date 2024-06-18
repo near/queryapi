@@ -4,7 +4,7 @@ use tracing::instrument;
 use crate::{
     handlers::{
         block_streams::{BlockStreamsHandler, StreamInfo},
-        data_layer::{DataLayerHandler, ProvisioningStatus},
+        data_layer::{DataLayerHandler, TaskStatus},
         executors::{ExecutorInfo, ExecutorsHandler},
     },
     indexer_config::IndexerConfig,
@@ -82,17 +82,12 @@ impl<'a> Synchroniser<'a> {
     async fn sync_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         tracing::info!("Starting data layer provisioning");
 
-        self.data_layer_handler
+        let task_id = self
+            .data_layer_handler
             .start_provisioning_task(config)
             .await?;
 
-        self.state_manager
-            .set_provisioning(config)
-            .await
-            .map_err(|err| {
-                tracing::warn!(?err, "Failed to set provisioning state");
-                err
-            })?;
+        self.state_manager.set_provisioning(config, task_id).await?;
 
         Ok(())
     }
@@ -211,11 +206,12 @@ impl<'a> Synchroniser<'a> {
         Ok(())
     }
 
-    async fn handle_provisioning(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        let task_status_result = self
-            .data_layer_handler
-            .check_provisioning_task_status(config)
-            .await;
+    async fn ensure_provisioned(
+        &self,
+        config: &IndexerConfig,
+        task_id: String,
+    ) -> anyhow::Result<()> {
+        let task_status_result = self.data_layer_handler.get_task_status(task_id).await;
 
         if let Err(error) = task_status_result {
             tracing::warn!(?error, "Failed to check provisioning task status");
@@ -224,11 +220,11 @@ impl<'a> Synchroniser<'a> {
         };
 
         let _ = match task_status_result.unwrap() {
-            ProvisioningStatus::Complete => {
+            TaskStatus::Complete => {
                 tracing::info!("Data layer provisioning complete");
                 self.state_manager.set_provisioned(config).await
             }
-            ProvisioningStatus::Pending => Ok(()),
+            TaskStatus::Pending => Ok(()),
             _ => {
                 tracing::info!("Data layer provisioning failed");
                 self.state_manager.set_provisioning_failure(config).await
@@ -254,13 +250,14 @@ impl<'a> Synchroniser<'a> {
         executor: Option<&ExecutorInfo>,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
-        match state.provisioned_state {
-            ProvisionedState::Unprovisioned | ProvisionedState::Provisioning => {
-                self.handle_provisioning(config).await?;
+        match &state.provisioned_state {
+            ProvisionedState::Provisioning { task_id } => {
+                self.ensure_provisioned(config, task_id.clone()).await?;
                 return Ok(());
             }
             ProvisionedState::Failed => return Ok(()),
             ProvisionedState::Provisioned => {}
+            ProvisionedState::Unprovisioned => todo!(),
         }
 
         if !state.enabled {
@@ -612,7 +609,7 @@ mod test {
             data_layer_handler
                 .expect_start_provisioning_task()
                 .with(eq(config))
-                .returning(|_| Ok(ProvisioningStatus::Pending))
+                .returning(|_| Ok("task_id".to_string()))
                 .once();
 
             let redis_client = RedisClient::default();
@@ -642,12 +639,16 @@ mod test {
                 HashMap::from([(config.function_name.clone(), config.clone())]),
             )]);
 
+            let task_id = "task_id".to_string();
+
             let state = IndexerState {
                 account_id: config.account_id.clone(),
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version()),
                 enabled: true,
-                provisioned_state: ProvisionedState::Provisioning,
+                provisioned_state: ProvisionedState::Provisioning {
+                    task_id: task_id.clone().to_string(),
+                },
             };
 
             let mut registry = Registry::default();
@@ -664,9 +665,9 @@ mod test {
 
             let mut data_layer_handler = DataLayerHandler::default();
             data_layer_handler
-                .expect_check_provisioning_task_status()
-                .with(eq(config.clone()))
-                .returning(|_| Ok(ProvisioningStatus::Complete));
+                .expect_get_task_status()
+                .with(eq(task_id))
+                .returning(|_| Ok(TaskStatus::Complete));
 
             let mut block_streams_handler = BlockStreamsHandler::default();
             block_streams_handler.expect_start().never();
@@ -705,7 +706,9 @@ mod test {
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version()),
                 enabled: true,
-                provisioned_state: ProvisionedState::Provisioning,
+                provisioned_state: ProvisionedState::Provisioning {
+                    task_id: "task_id".to_string(),
+                },
             };
 
             let mut registry = Registry::default();
@@ -722,9 +725,9 @@ mod test {
 
             let mut data_layer_handler = DataLayerHandler::default();
             data_layer_handler
-                .expect_check_provisioning_task_status()
-                .with(eq(config.clone()))
-                .returning(|_| Ok(ProvisioningStatus::Failed));
+                .expect_get_task_status()
+                .with(eq("task_id".to_string()))
+                .returning(|_| Ok(TaskStatus::Failed));
 
             let mut block_streams_handler = BlockStreamsHandler::default();
             block_streams_handler.expect_start().never();
