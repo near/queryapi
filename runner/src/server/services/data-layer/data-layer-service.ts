@@ -11,6 +11,7 @@ import { type GetTaskStatusResponse } from '../../../generated/data_layer/GetTas
 import { type DataLayerHandlers } from '../../../generated/data_layer/DataLayer';
 import { type StartTaskResponse } from '../../../generated/data_layer/StartTaskResponse';
 import { type ProvisionRequest__Output } from '../../../generated/data_layer/ProvisionRequest';
+import { type DeprovisionRequest__Output } from '../../../generated/data_layer/DeprovisionRequest';
 import { TaskStatus } from '../../../generated/data_layer/TaskStatus';
 
 export class AsyncTask {
@@ -37,6 +38,11 @@ export class AsyncTask {
 }
 
 type AsyncTasks = Record<string, AsyncTask | undefined>;
+
+enum TaskType {
+  PROVISION = 'PROVISION',
+  DEPROVISION = 'DEPROVISION'
+}
 
 const hash = (...args: string[]): string => {
   const hash = crypto.createHash('sha256');
@@ -92,7 +98,7 @@ export function createDataLayerService (
 
       const logger = createLogger(provisioningConfig);
 
-      const taskId = hash(accountId, functionName, schema);
+      const taskId = hash(accountId, functionName, schema, TaskType.PROVISION);
 
       const task = tasks[taskId];
 
@@ -106,7 +112,7 @@ export function createDataLayerService (
         return;
       };
 
-      logger.info('Starting provisioning task');
+      logger.info(`Starting provisioning task: ${taskId}`);
 
       tasks[taskId] = new AsyncTask(
         provisioner
@@ -119,6 +125,34 @@ export function createDataLayerService (
             throw err;
           })
       );
+
+      callback(null, { taskId });
+    },
+
+    StartDeprovisioningTask (call: ServerUnaryCall<DeprovisionRequest__Output, StartTaskResponse>, callback: sendUnaryData<StartTaskResponse>): void {
+      const { accountId, functionName } = call.request;
+
+      const provisioningConfig = new ProvisioningConfig(accountId, functionName, 'todo');
+
+      const logger = createLogger(provisioningConfig);
+
+      const taskId = hash(accountId, functionName, TaskType.DEPROVISION);
+
+      const task = tasks[taskId];
+
+      if (task) {
+        const exists = new StatusBuilder()
+          .withCode(status.ALREADY_EXISTS)
+          .withDetails('Deprovisioning task already exists')
+          .build();
+        callback(exists);
+
+        return;
+      };
+
+      logger.info(`Starting deprovisioning task: ${taskId}`);
+
+      tasks[taskId] = new AsyncTask(provisioner.deprovision(provisioningConfig));
 
       callback(null, { taskId });
     }

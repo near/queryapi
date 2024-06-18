@@ -7,7 +7,7 @@ service DataLayer {
     rpc StartProvisioningTask (ProvisionRequest) returns (StartTaskResponse);
 
     // Start async deprovisioning task
-    // rpc StartDeprovisioningTask (DeprovisionRequest) returns (StartTaskResponse);
+    rpc StartDeprovisioningTask (DeprovisionRequest) returns (StartTaskResponse);
 
     // Checks the status of provisioning/deprovisioning
     rpc GetTaskStatus (GetTaskStatusRequest) returns (GetTaskStatusResponse);

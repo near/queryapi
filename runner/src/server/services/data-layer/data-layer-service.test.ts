@@ -69,7 +69,7 @@ describe('DataLayerService', () => {
   describe('StartProvisioningTask', () => {
     it('should return ALREADY_EXISTS if the task exists', (done) => {
       const tasks = {
-        '9e74d55766d685e8a47363befebaf532e56e1484e19407ec77f18130f4fc9499': { pending: true, completed: false, failed: false } as unknown as AsyncTask
+        '8291150845651941809f8f3db28eeb7fd8acdfeb422cb07c10178020070836b8': { pending: true, completed: false, failed: false } as unknown as AsyncTask
       };
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'schema' }
@@ -86,7 +86,6 @@ describe('DataLayerService', () => {
     it('should start a new provisioning task', (done) => {
       const tasks: Record<any, any> = {};
       const provisioner = {
-        fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(false),
         provisionUserApi: jest.fn().mockResolvedValue(null)
       } as unknown as Provisioner;
       const call = {
@@ -99,6 +98,41 @@ describe('DataLayerService', () => {
       };
 
       createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
+    });
+  });
+
+  describe('StartDeprovisioningTask', () => {
+    it('should return ALREADY_EXISTS if the task exists', (done) => {
+      const tasks = {
+        f92a9f97d2609849e6837b483d8210c7b308c6f615a691449087ec00db1eef06: { pending: true, completed: false, failed: false } as unknown as AsyncTask
+      };
+      const call = {
+        request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'schema' }
+      } as unknown as ServerUnaryCall<any, any>;
+      const callback = (error: any): void => {
+        expect(error.code).toBe(status.ALREADY_EXISTS);
+        expect(error.details).toBe('Deprovisioning task already exists');
+        done();
+      };
+
+      createDataLayerService(undefined, tasks).StartDeprovisioningTask(call, callback);
+    });
+
+    it('should start a new deprovisioning task', (done) => {
+      const tasks: Record<any, any> = {};
+      const provisioner = {
+        deprovision: jest.fn().mockResolvedValue(null)
+      } as unknown as Provisioner;
+      const call = {
+        request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
+      } as unknown as ServerUnaryCall<any, any>;
+      const callback = (_error: any, response: any): void => {
+        expect(tasks[response.taskId]).toBeDefined();
+        expect(tasks[response.taskId].pending).toBe(true);
+        done();
+      };
+
+      createDataLayerService(provisioner, tasks).StartDeprovisioningTask(call, callback);
     });
   });
 });
