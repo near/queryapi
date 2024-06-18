@@ -206,17 +206,13 @@ async fn process_bitmap_indexer_blocks(
         }
         Rule::ActionFunctionCall { .. } => {
             tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
-            Ok("".to_string())
+            return Ok(start_block_height);
         }
         Rule::Event { .. } => {
             tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
-            Ok("".to_string())
+            return Ok(start_block_height);
         }
     }?;
-
-    if contract_pattern == "".to_string() {
-        return Ok(start_block_height);
-    }
 
     let matching_block_heights =
         bitmap_processor.stream_matching_block_heights(start_block_height, contract_pattern);
@@ -300,32 +296,9 @@ async fn process_near_lake_blocks(
 mod tests {
     use super::*;
 
-    use std::sync::Arc;
-
-    use chrono::TimeZone;
     use mockall::predicate;
     use near_lake_framework::s3_client::GetObjectBytesError;
-
-    fn exact_query_result(
-        first_block_height: i64,
-        bitmap: &str,
-    ) -> crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex
-    {
-        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex {
-            first_block_height,
-            bitmap: bitmap.to_string(),
-        }
-    }
-
-    fn wildcard_query_result(
-        first_block_height: i64,
-        bitmap: &str
-    ) -> crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex{
-        crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex {
-            first_block_height,
-            bitmap: bitmap.to_string(),
-        }
-    }
+    use std::sync::Arc;
 
     // FIX: near lake framework now infinitely retires - we need a way to stop it to allow the test
     // to finish
@@ -371,7 +344,14 @@ mod tests {
                     "2023-12-09",
                 )),
             )
-            .returning(|_, _| Ok(vec![exact_query_result(107503702, "oA==")]));
+            .returning(|_, _| {
+                Ok(vec![
+        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex {
+            first_block_height: 107503702,
+            bitmap: "oA==".to_string(),
+        }
+])
+            });
 
         mock_graphql_client
             .expect_get_bitmaps_exact()
