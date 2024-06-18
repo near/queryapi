@@ -106,6 +106,19 @@ describe('Provisioner', () => {
         ['SELECT schema_name FROM information_schema.schemata WHERE schema_name = morgs_near'],
       ]);
       expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
+      expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near FORCE');
+    });
+
+    it('handles drop databas failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // drop schema
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      adminPgClient.query = jest.fn().mockRejectedValue(new Error('failed to drop db'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop database: failed to drop db');
     });
 
     it('handles drop datasource failures', async () => {

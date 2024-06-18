@@ -290,6 +290,12 @@ export default class Provisioner {
     }, 'Failed to list schemas');
   }
 
+  async dropDatabase (databaseName: string): Promise<void> {
+    await wrapError(async () => {
+      await this.adminDefaultPgClient.query(this.pgFormat('DROP DATABASE IF EXISTS %I FORCE', databaseName));
+    }, 'Failed to drop database');
+  }
+
   async dropDatasource (databaseName: string): Promise<void> {
     await wrapError(async () => {
       await this.hasuraClient.dropDatasource(databaseName);
@@ -305,9 +311,9 @@ export default class Provisioner {
 
       if (schemas.length === 0) {
         await this.dropDatasource(config.databaseName());
+        await this.dropDatabase(config.databaseName());
       }
     }, 'Failed to deprovision');
-    // drop database
     // drop role
   }
 
