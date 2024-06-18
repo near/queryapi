@@ -245,6 +245,21 @@ describe('Indexer integration', () => {
     const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(queryAllRows);
     expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
+
+  it('deprovisions', async () => {
+    const indexerConfig = new IndexerConfig(
+      'test:stream',
+      'morgs.near',
+      'test-provisioning',
+      0,
+      '',
+      'CREATE TABLE blocks (height numeric)',
+      LogLevel.INFO
+    );
+
+    await provisioner.provisionUserApi(indexerConfig);
+    await provisioner.deprovision(indexerConfig);
+  });
 });
 
 async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
