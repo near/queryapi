@@ -69,7 +69,7 @@ describe('DataLayerService', () => {
   describe('StartProvisioningTask', () => {
     it('should return ALREADY_EXISTS if the task exists', (done) => {
       const tasks = {
-        'testAccount:testFunction': { pending: true, completed: false, failed: false } as unknown as AsyncTask
+        '9e74d55766d685e8a47363befebaf532e56e1484e19407ec77f18130f4fc9499': { pending: true, completed: false, failed: false } as unknown as AsyncTask
       };
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'schema' }

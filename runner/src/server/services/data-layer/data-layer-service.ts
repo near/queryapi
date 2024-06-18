@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 import { type ServerUnaryCall, type sendUnaryData, status, StatusBuilder } from '@grpc/grpc-js';
 
 import Provisioner from '../../../provisioner';
@@ -35,6 +37,12 @@ export class AsyncTask {
 }
 
 type AsyncTasks = Record<string, AsyncTask | undefined>;
+
+const hash = (...args: string[]): string => {
+  const hash = crypto.createHash('sha256');
+  hash.update(args.join(':'));
+  return hash.digest('hex');
+};
 
 const createLogger = (config: ProvisioningConfig): typeof parentLogger => {
   const logger = parentLogger.child({
@@ -84,7 +92,7 @@ export function createDataLayerService (
 
       const logger = createLogger(provisioningConfig);
 
-      const taskId = `${accountId}:${functionName}`;
+      const taskId = hash(accountId, functionName, schema);
 
       const task = tasks[taskId];
 
