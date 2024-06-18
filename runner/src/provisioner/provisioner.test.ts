@@ -106,7 +106,7 @@ describe('Provisioner', () => {
         ["SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'morgs_near'"],
       ]);
       expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
-      expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near FORCE');
+      expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near (FORCE)');
       expect(adminPgClient.query).toBeCalledWith('DROP ROLE IF EXISTS morgs_near');
     });
 

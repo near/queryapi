@@ -292,7 +292,7 @@ export default class Provisioner {
 
   async dropDatabase (databaseName: string): Promise<void> {
     await wrapError(async () => {
-      await this.adminDefaultPgClient.query(this.pgFormat('DROP DATABASE IF EXISTS %I FORCE', databaseName));
+      await this.adminDefaultPgClient.query(this.pgFormat('DROP DATABASE IF EXISTS %I (FORCE)', databaseName));
     }, 'Failed to drop database');
   }
 
