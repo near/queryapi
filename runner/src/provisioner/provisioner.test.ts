@@ -72,16 +72,23 @@ describe('Provisioner', () => {
   });
 
   describe('deprovision', () => {
-    it('drops the schema', async () => {
+    it('removes schema level resources', async () => {
       await provisioner.deprovision(indexerConfig);
       expect(userPgClientQuery.mock.calls).toEqual([
-        ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE']
+        ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
       ]);
     });
 
     it('handles drop schema failures', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValue(new Error('no'));
-      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop schema: no');
+      userPgClientQuery = jest.fn().mockRejectedValue(new Error('failed to drop'));
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop schema: failed to drop');
+    });
+
+    it('handles remove log job failures', async () => {
+      userPgClientQuery = jest.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(new Error('failed to remove jobs'));
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to unschedule log partition jobs: failed to remove jobs');
     });
   });
 

@@ -246,11 +246,40 @@ export default class Provisioner {
     }, 'Failed to drop schema');
   }
 
+  async removeLogPartitionJobs (userName: string, schemaName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        const userCronConnectionParameters = {
+          ...(await this.getPostgresConnectionParameters(userName)),
+          database: this.config.cronDatabase
+        };
+
+        const userCronPgClient = new this.PgClient(userCronConnectionParameters);
+
+        await userCronPgClient.query(
+          this.pgFormat(
+            "SELECT cron.unschedule('%I_sys_logs_create_partition');",
+            schemaName,
+          )
+        );
+        await userCronPgClient.query(
+          this.pgFormat(
+            "SELECT cron.unschedule('%I_sys_logs_delete_partition');",
+            schemaName,
+          )
+        );
+
+        await userCronPgClient.end();
+      },
+      'Failed to unschedule log partition jobs'
+    );
+  }
+
   public async deprovision (config: ProvisioningConfig): Promise<void> {
     await wrapError(async () => {
       await this.dropSchema(config.userName(), config.schemaName());
+      await this.removeLogPartitionJobs(config.userName(), config.schemaName());
     }, 'Failed to deprovision');
-    // remove cron
     // remove source if needed
     // drop database
     // drop role
