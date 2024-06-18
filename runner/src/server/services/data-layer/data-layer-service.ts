@@ -35,6 +35,16 @@ type ProvisioningTasks = Record<string, ProvisioningTask>;
 
 const generateTaskId = (accountId: string, functionName: string): string => `${accountId}:${functionName}`;
 
+const createLogger = (config: ProvisioningConfig): typeof parentLogger => {
+  const logger = parentLogger.child({
+    accountId: config.accountId,
+    functionName: config.functionName,
+    service: 'DataLayerService'
+  });
+
+  return logger;
+};
+
 export function createDataLayerService (
   provisioner: Provisioner = new Provisioner(),
   tasks: ProvisioningTasks = {}
@@ -73,11 +83,7 @@ export function createDataLayerService (
 
       const provisioningConfig = new ProvisioningConfig(accountId, functionName, schema);
 
-      const logger = parentLogger.child({
-        service: 'DataLayerService',
-        accountId: provisioningConfig.accountId,
-        functionName: provisioningConfig.functionName,
-      });
+      const logger = createLogger(provisioningConfig);
 
       const task = tasks[generateTaskId(accountId, functionName)];
 
@@ -90,6 +96,8 @@ export function createDataLayerService (
 
         return;
       };
+
+      logger.info('Starting provisioning task');
 
       provisioner.fetchUserApiProvisioningStatus(provisioningConfig).then((isProvisioned) => {
         if (isProvisioned) {
