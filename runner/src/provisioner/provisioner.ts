@@ -253,7 +253,6 @@ export default class Provisioner {
           ...(await this.getPostgresConnectionParameters(userName)),
           database: this.config.cronDatabase
         };
-
         const userCronPgClient = new this.PgClient(userCronConnectionParameters);
 
         await userCronPgClient.query(
@@ -275,12 +274,39 @@ export default class Provisioner {
     );
   }
 
+  async listSchemaNames (userName: string): Promise<string[]> {
+    return await wrapError(async () => {
+      const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
+      const userPgClient = new this.PgClient(userDbConnectionParameters);
+
+      const result = await userPgClient.query(
+        this.pgFormat('SELECT schema_name FROM information_schema.schemata WHERE schema_name = %I', userName)
+      );
+      console.log({ result });
+
+      await userPgClient.end();
+
+      return result.rows.map((row) => row.schema_name);
+    }, 'Failed to list schemas');
+  }
+
+  async dropDatasource (databaseName: string): Promise<void> {
+    await wrapError(async () => {
+      await this.hasuraClient.dropDatasource(databaseName);
+    }, 'Failed to drop datasource');
+  }
+
   public async deprovision (config: ProvisioningConfig): Promise<void> {
     await wrapError(async () => {
       await this.dropSchema(config.userName(), config.schemaName());
       await this.removeLogPartitionJobs(config.userName(), config.schemaName());
+
+      const schemas = await this.listSchemaNames(config.userName());
+
+      if (schemas.length === 0) {
+        await this.dropDatasource(config.databaseName());
+      }
     }, 'Failed to deprovision');
-    // remove source if needed
     // drop database
     // drop role
   }

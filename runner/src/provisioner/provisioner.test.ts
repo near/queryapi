@@ -40,6 +40,7 @@ describe('Provisioner', () => {
       trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(null),
       addPermissionsToTables: jest.fn().mockReturnValueOnce(null),
       addDatasource: jest.fn().mockReturnValueOnce(null),
+      dropDatasource: jest.fn().mockReturnValueOnce(null),
       executeSqlOnSchema: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
@@ -73,12 +74,50 @@ describe('Provisioner', () => {
 
   describe('deprovision', () => {
     it('removes schema level resources', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // drop schema
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [{ schema_name: 'another_one' }] }); // list schemas
+
       await provisioner.deprovision(indexerConfig);
+
       expect(userPgClientQuery.mock.calls).toEqual([
         ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
+        ['SELECT schema_name FROM information_schema.schemata WHERE schema_name = morgs_near'],
       ]);
+    });
+
+    it('removes database level resources', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // drop schema
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      await provisioner.deprovision(indexerConfig);
+
+      expect(userPgClientQuery.mock.calls).toEqual([
+        ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
+        ['SELECT schema_name FROM information_schema.schemata WHERE schema_name = morgs_near'],
+      ]);
+      expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
+    });
+
+    it('handles drop datasource failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // drop schema
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      hasuraClient.dropDatasource = jest.fn().mockRejectedValue(new Error('failed to drop datasource'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop datasource: failed to drop');
     });
 
     it('handles drop schema failures', async () => {

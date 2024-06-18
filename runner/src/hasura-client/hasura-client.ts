@@ -443,4 +443,11 @@ export default class HasuraClient {
       },
     });
   }
+
+  async dropDatasource (databaseName: string): Promise<void> {
+    return await this.executeMetadataRequest('pg_drop_source', {
+      name: databaseName,
+      cascade: true,
+    });
+  }
 }

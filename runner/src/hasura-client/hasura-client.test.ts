@@ -172,6 +172,21 @@ describe('HasuraClient', () => {
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
   });
 
+  it('drops a datasource', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValue({
+        status: 200,
+        text: () => JSON.stringify({})
+      });
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+
+    await client.dropDatasource('morgs_near');
+
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
+  });
+
   it('adds a datasource', async () => {
     const mockFetch = jest
       .fn()

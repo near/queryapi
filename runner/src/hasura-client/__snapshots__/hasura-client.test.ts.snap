@@ -212,6 +212,16 @@ exports[`HasuraClient creates a schema 1`] = `
 ]
 `;
 
+exports[`HasuraClient drops a datasource 1`] = `
+{
+  "args": {
+    "cascade": true,
+    "name": "morgs_near",
+  },
+  "type": "pg_drop_source",
+}
+`;
+
 exports[`HasuraClient gets table names within a schema 1`] = `
 {
   "args": {
