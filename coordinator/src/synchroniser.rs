@@ -257,7 +257,9 @@ impl<'a> Synchroniser<'a> {
             }
             ProvisionedState::Failed => return Ok(()),
             ProvisionedState::Provisioned => {}
-            ProvisionedState::Unprovisioned | ProvisionedState::Deprovisioning { .. } => todo!(),
+            ProvisionedState::Unprovisioned | ProvisionedState::Deprovisioning { .. } => {
+                anyhow::bail!("Provisioning task should have been started")
+            }
         }
 
         if !state.enabled {
