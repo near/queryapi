@@ -67,16 +67,16 @@ describe('DataLayerService', () => {
   });
 
   describe('StartProvisioningTask', () => {
-    it('should return ALREADY_EXISTS if the task exists', (done) => {
-      const tasks = {
-        '8291150845651941809f8f3db28eeb7fd8acdfeb422cb07c10178020070836b8': { pending: true, completed: false, failed: false } as unknown as AsyncTask
+    it('should return the current task if it exists', (done) => {
+      const tasks: Record<any, any> = {
+        '8291150845651941809f8f3db28eeb7fd8acdfeb422cb07c10178020070836b8': { pending: false, completed: true, failed: false } as unknown as AsyncTask
       };
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'schema' }
       } as unknown as ServerUnaryCall<any, any>;
-      const callback = (error: any): void => {
-        expect(error.code).toBe(status.ALREADY_EXISTS);
-        expect(error.details).toBe('Provisioning task already exists');
+      const callback = (_error: any, response: any): void => {
+        expect(tasks[response.taskId]).toBeDefined();
+        expect(tasks[response.taskId].completed).toBe(true);
         done();
       };
 

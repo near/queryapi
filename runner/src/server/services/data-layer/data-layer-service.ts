@@ -103,11 +103,7 @@ export function createDataLayerService (
       const task = tasks[taskId];
 
       if (task) {
-        const exists = new StatusBuilder()
-          .withCode(status.ALREADY_EXISTS)
-          .withDetails('Provisioning task already exists')
-          .build();
-        callback(exists);
+        callback(null, { taskId });
 
         return;
       };
