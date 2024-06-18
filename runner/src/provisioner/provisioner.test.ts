@@ -71,6 +71,20 @@ describe('Provisioner', () => {
     indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
   });
 
+  describe('deprovision', () => {
+    it('drops the schema', async () => {
+      await provisioner.deprovision(indexerConfig);
+      expect(userPgClientQuery.mock.calls).toEqual([
+        ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE']
+      ]);
+    });
+
+    it('handles drop schema failures', async () => {
+      userPgClientQuery = jest.fn().mockRejectedValue(new Error('no'));
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop schema: no');
+    });
+  });
+
   describe('isUserApiProvisioned', () => {
     it('returns false if datasource doesnt exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);

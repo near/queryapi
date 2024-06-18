@@ -234,6 +234,28 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.addDatasource(userName, password, databaseName), 'Failed to add datasource');
   }
 
+  async dropSchema (userName: string, schemaName: string): Promise<void> {
+    await wrapError(async () => {
+      const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
+
+      const userPgClient = new this.PgClient(userDbConnectionParameters);
+
+      await userPgClient.query(this.pgFormat('DROP SCHEMA IF EXISTS %I CASCADE', schemaName));
+
+      await userPgClient.end();
+    }, 'Failed to drop schema');
+  }
+
+  public async deprovision (config: ProvisioningConfig): Promise<void> {
+    await wrapError(async () => {
+      await this.dropSchema(config.userName(), config.schemaName());
+    }, 'Failed to deprovision');
+    // remove cron
+    // remove source if needed
+    // drop database
+    // drop role
+  }
+
   async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
