@@ -355,6 +355,8 @@ impl<'a> Synchroniser<'a> {
             return Ok(());
         }
 
+        self.redis_client.del(state.get_redis_stream_key()).await?;
+
         self.state_manager.delete_state(state).await?;
 
         Ok(())
@@ -1306,7 +1308,7 @@ mod test {
         }
 
         #[tokio::test]
-        async fn deprovisions_data_layer() {
+        async fn cleans_indexer_resources() {
             let config = IndexerConfig::default();
             let provisioned_state = IndexerState {
                 account_id: config.account_id.clone(),
@@ -1339,15 +1341,24 @@ mod test {
             let mut data_layer_handler = DataLayerHandler::default();
             data_layer_handler
                 .expect_start_deprovisioning_task()
-                .with(eq(config.account_id), eq(config.function_name))
+                .with(
+                    eq(config.clone().account_id),
+                    eq(config.clone().function_name),
+                )
                 .returning(|_, _| Ok("task_id".to_string()));
             data_layer_handler
                 .expect_get_task_status()
                 .with(eq("task_id".to_string()))
                 .returning(|_| Ok(TaskStatus::Complete));
 
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_del::<String>()
+                .with(eq(config.get_redis_stream_key()))
+                .returning(|_| Ok(()))
+                .once();
+
             let registry = Registry::default();
-            let redis_client = RedisClient::default();
             let block_streams_handler = BlockStreamsHandler::default();
             let executors_handler = ExecutorsHandler::default();
 

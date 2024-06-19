@@ -227,6 +227,10 @@ mockall::mock! {
             K: ToRedisArgs + Debug + Send + Sync + 'static,
             V: ToRedisArgs + Debug + Send + Sync + 'static;
 
+        pub async fn del<K>(&self, key: K) -> anyhow::Result<()>
+        where
+            K: ToRedisArgs + Debug + Send + Sync + 'static;
+
         pub async fn indexer_states_set_exists(&self) -> anyhow::Result<bool>;
 
         pub async fn sadd<S, V>(&self, set: S, value: V) -> anyhow::Result<()>
