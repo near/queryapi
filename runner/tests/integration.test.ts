@@ -126,6 +126,8 @@ describe('Indexer integration', () => {
       }
     );
 
+    await provisioner.provisionUserApi(indexerConfig);
+
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
 
     const firstHeight = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
@@ -139,7 +141,7 @@ describe('Indexer integration', () => {
     expect(secondHeight.value).toEqual('115185109');
 
     const logs: any = await indexerLogsQuery('morgs_near_test', graphqlClient);
-    expect(logs.length).toEqual(4);
+    expect(logs.length).toEqual(2);
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(blocksIndexerQuery);
     expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
@@ -231,6 +233,8 @@ describe('Indexer integration', () => {
         hasuraEndpoint: hasuraContainer.getEndpoint(),
       }
     );
+
+    await provisioner.provisionUserApi(indexerConfig);
 
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
     await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));

@@ -67,7 +67,7 @@ describe('DataLayerService', () => {
   });
 
   describe('Provision', () => {
-    it('should return ALREADY_EXISTS if the task is already pending', (done) => {
+    it('should return ALREADY_EXISTS if the task exists', (done) => {
       const tasks = {
         'testAccount:testFunction': { pending: true, completed: false, failed: false } as unknown as ProvisioningTask
       };
@@ -80,23 +80,23 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService(undefined, tasks).Provision(call, callback);
+      createDataLayerService(undefined, tasks).StartProvisioningTask(call, callback);
     });
 
-    it('should return ALREADY_EXISTS if the task has already completed', (done) => {
+    it('should return Complete if the task has already completed', (done) => {
+      const tasks: Record<any, any> = {};
       const provisioner = {
         fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true)
       } as unknown as Provisioner;
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
       } as unknown as ServerUnaryCall<any, any>;
-      const callback = (error: any): void => {
-        expect(error.code).toBe(status.ALREADY_EXISTS);
-        expect(error.details).toBe('Provisioning task has already completed');
+      const callback = (_error: any, response: any): void => {
+        expect(response.status).toBe(ProvisioningStatus.COMPLETE);
         done();
       };
 
-      createDataLayerService(provisioner).Provision(call, callback);
+      createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
     });
 
     it('should start a new provisioning task and return PENDING', (done) => {
@@ -115,7 +115,7 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService(provisioner, tasks).Provision(call, callback);
+      createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
     });
 
     it('should return INTERNAL error if checking provisioning status fails', (done) => {
@@ -132,7 +132,7 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService(provisioner, tasks).Provision(call, callback);
+      createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
     });
   });
 });
