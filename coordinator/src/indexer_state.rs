@@ -70,7 +70,7 @@ impl IndexerStateManagerImpl {
 
             tracing::info!("Migrating {}", raw_state);
 
-            let old_state: IndexerState = serde_json::from_str(&raw_state)?;
+            let old_state: OldIndexerState = serde_json::from_str(&raw_state)?;
 
             let state = IndexerState {
                 account_id: old_state.account_id,
@@ -201,6 +201,28 @@ mod tests {
 
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn migrate() {
+        let config = IndexerConfig::default();
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_list_indexer_states()
+            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true }).to_string()]))
+            .once();
+        mock_redis_client
+            .expect_set::<String, String>()
+            .with(
+                predicate::eq(config.get_state_key()),
+                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":200,\"enabled\":true,\"provisioned_state\":\"Provisioned\"}".to_string()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+
+        indexer_manager.migrate().await.unwrap();
+    }
 
     #[tokio::test]
     async fn list_indexer_states() {
