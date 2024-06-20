@@ -69,4 +69,36 @@ describe('DML Handler Fixture Tests', () => {
     const result = await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
     expect(result).toEqual(correctResult);
   });
+
+  test('select rows', async () => {
+    const inputObj = [{
+      account_id: 'morgs_near',
+      block_height: 1,
+      receipt_id: 'abc',
+      content: "some content",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    },
+    {
+      account_id: 'morgs_near',
+      block_height: 2,
+      receipt_id: 'abc',
+      content: "some content",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+
+    const selectA = await dmlHandler.select(TABLE_DEFINITION_NAMES, { id: 1 });
+    expect(selectA[0].id).toEqual(1);
+
+    const selectB = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near', block_height: [1, 2] });
+    expect(selectB[0].account_id).toEqual('morgs_near');
+    expect(selectB[1].account_id).toEqual('morgs_near');
+    expect(selectB[0].block_height).toEqual(1);
+    expect(selectB[1].block_height).toEqual(2);
+  });
 });

@@ -1,5 +1,6 @@
 import { AST, Parser } from "node-sql-parser";
 import { TableDefinitionNames } from "../indexer";
+import { WhereClauseMulti } from "./dml-handler";
 // import { DmlHandlerI } from "./dml-handler";
 
 type IndexerData = Map<string, DataRow[]>;
@@ -109,6 +110,31 @@ class InMemoryIndexerData {
     return undefined;
   }
 
+  findRows(tableName: string, criteria: WhereClauseMulti, limit: number | null): DataRow[] {
+    const results = [];
+    const data = this.data.get(tableName) ?? [];
+    for (const existingRow of data) {
+      let match = true;
+      for (const attribute of Object.keys(criteria)) {
+        const matchValues = criteria[attribute];
+        if (Array.isArray(matchValues)) {
+          if (!(matchValues.includes(existingRow.data[attribute]))) {
+            match = false;
+          }
+        } else if (existingRow.data[attribute] !== criteria[attribute]) {
+          match = false;
+        }
+      }
+      if (match) {
+        results.push(existingRow.data);
+        if (limit && results.length >= limit) {
+          return results;
+        }
+      }
+    }
+    return results;
+  }
+
   insertRow(tableName: string, row: any): DataRow {
     const tableSpec = this.tableSpecs.get(tableName) as TableSpecification;
     for (const serialKey of tableSpec.serialKeys) {
@@ -136,6 +162,10 @@ class InMemoryIndexerData {
     }
     return rowsToInsert;
   }
+
+  public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): any[] {
+    return this.findRows(tableName, criteria, limit);
+  }
 }
 
 export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
@@ -154,6 +184,10 @@ export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
     }
 
     return this.indexerData.insert(tableDefinitionNames.originalTableName, rowsToInsert);
+  }
+
+  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
+    return this.indexerData.select(tableDefinitionNames.originalTableName, whereObject, limit);
   }
 }
 
