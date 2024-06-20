@@ -41,6 +41,20 @@ describe('HasuraClient', () => {
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
+  it('drops a schema', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValue({
+        status: 200,
+        text: () => JSON.stringify({})
+      });
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+
+    await client.dropSchema('dbName', 'schemaName');
+
+    expect(mockFetch.mock.calls).toMatchSnapshot();
+  });
+
   it('checks if a schema exists within source', async () => {
     const mockFetch = jest
       .fn()

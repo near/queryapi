@@ -222,6 +222,21 @@ exports[`HasuraClient drops a datasource 1`] = `
 }
 `;
 
+exports[`HasuraClient drops a schema 1`] = `
+[
+  [
+    "mock-hasura-endpoint/v2/query",
+    {
+      "body": "{"type":"run_sql","args":{"sql":"DROP schema IF EXISTS schemaName CASCADE","read_only":false,"source":"dbName"}}",
+      "headers": {
+        "X-Hasura-Admin-Secret": "mock-hasura-admin-secret",
+      },
+      "method": "POST",
+    },
+  ],
+]
+`;
+
 exports[`HasuraClient gets table names within a schema 1`] = `
 {
   "args": {

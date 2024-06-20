@@ -234,15 +234,10 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.addDatasource(userName, password, databaseName), 'Failed to add datasource');
   }
 
-  async dropSchema (userName: string, schemaName: string): Promise<void> {
+  async dropSchemaAndMetadata (databaseName: string, schemaName: string): Promise<void> {
     await wrapError(async () => {
-      const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
-
-      const userPgClient = new this.PgClient(userDbConnectionParameters);
-
-      await userPgClient.query(this.pgFormat('DROP SCHEMA IF EXISTS %I CASCADE', schemaName));
-
-      await userPgClient.end();
+      // Need to drop via Hasura to ensure metadata is cleaned up
+      await this.hasuraClient.dropSchema(databaseName, schemaName);
     }, 'Failed to drop schema');
   }
 
@@ -319,7 +314,7 @@ export default class Provisioner {
 
   public async deprovision (config: ProvisioningConfig): Promise<void> {
     await wrapError(async () => {
-      await this.dropSchema(config.userName(), config.schemaName());
+      await this.dropSchemaAndMetadata(config.userName(), config.schemaName());
       await this.removeLogPartitionJobs(config.userName(), config.schemaName());
 
       const schemas = await this.listUserOwnedSchemas(config.userName());

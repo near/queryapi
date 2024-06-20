@@ -43,6 +43,7 @@ describe('Provisioner', () => {
       dropDatasource: jest.fn().mockReturnValueOnce(null),
       executeSqlOnSchema: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
+      dropSchema: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
       doesSchemaExist: jest.fn().mockReturnValueOnce(false),
       untrackTables: jest.fn().mockReturnValueOnce(null),
@@ -75,15 +76,14 @@ describe('Provisioner', () => {
   describe('deprovision', () => {
     it('removes schema level resources', async () => {
       userPgClientQuery = jest.fn()
-        .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
         .mockResolvedValueOnce(null) // unschedule delete partition job
         .mockResolvedValueOnce({ rows: [{ schema_name: 'another_one' }] }); // list schemas
 
       await provisioner.deprovision(indexerConfig);
 
+      expect(hasuraClient.dropSchema).toBeCalledWith(indexerConfig.databaseName(), indexerConfig.schemaName());
       expect(userPgClientQuery.mock.calls).toEqual([
-        ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
         ["SELECT schema_name FROM information_schema.schemata WHERE schema_owner = 'morgs_near'"],
@@ -92,15 +92,14 @@ describe('Provisioner', () => {
 
     it('removes database level resources', async () => {
       userPgClientQuery = jest.fn()
-        .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
         .mockResolvedValueOnce(null) // unschedule delete partition job
         .mockResolvedValueOnce({ rows: [] }); // list schemas
 
       await provisioner.deprovision(indexerConfig);
 
+      expect(hasuraClient.dropSchema).toBeCalledWith(indexerConfig.databaseName(), indexerConfig.schemaName());
       expect(userPgClientQuery.mock.calls).toEqual([
-        ['DROP SCHEMA IF EXISTS morgs_near_test_function CASCADE'],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
         ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
         ["SELECT schema_name FROM information_schema.schemata WHERE schema_owner = 'morgs_near'"],
@@ -114,7 +113,6 @@ describe('Provisioner', () => {
 
     it('handles revoke cron failures', async () => {
       userPgClientQuery = jest.fn()
-        .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
         .mockResolvedValueOnce(null) // unschedule delete partition job
         .mockResolvedValueOnce({ rows: [] }); // list schemas
@@ -127,7 +125,6 @@ describe('Provisioner', () => {
 
     it('handles drop role failures', async () => {
       userPgClientQuery = jest.fn()
-        .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
         .mockResolvedValueOnce(null) // unschedule delete partition job
         .mockResolvedValueOnce({ rows: [] }); // list schemas
@@ -141,7 +138,6 @@ describe('Provisioner', () => {
 
     it('handles drop database failures', async () => {
       userPgClientQuery = jest.fn()
-        .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
         .mockResolvedValueOnce(null) // unschedule delete partition job
         .mockResolvedValueOnce({ rows: [] }); // list schemas
@@ -153,7 +149,6 @@ describe('Provisioner', () => {
 
     it('handles drop datasource failures', async () => {
       userPgClientQuery = jest.fn()
-        .mockResolvedValueOnce(null) // drop schema
         .mockResolvedValueOnce(null) // unschedule create partition job
         .mockResolvedValueOnce(null) // unschedule delete partition job
         .mockResolvedValueOnce({ rows: [] }); // list schemas
@@ -164,7 +159,7 @@ describe('Provisioner', () => {
     });
 
     it('handles drop schema failures', async () => {
-      userPgClientQuery = jest.fn().mockRejectedValue(new Error('failed to drop'));
+      hasuraClient.dropSchema = jest.fn().mockRejectedValue(new Error('failed to drop schema'));
       await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop schema: failed to drop');
     });
 
