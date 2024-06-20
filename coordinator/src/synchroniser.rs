@@ -86,6 +86,14 @@ impl<'a> Synchroniser<'a> {
             .start_provisioning_task(config)
             .await?;
 
+        self.state_manager
+            .set_provisioning(config)
+            .await
+            .map_err(|err| {
+                tracing::warn!(?err, "Failed to set provisioning state");
+                err
+            })?;
+
         Ok(())
     }
 
@@ -594,6 +602,11 @@ mod test {
 
             let mut state_manager = IndexerStateManager::default();
             state_manager.expect_list().returning(|| Ok(vec![]));
+            state_manager
+                .expect_set_provisioning()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .once();
 
             let mut data_layer_handler = DataLayerHandler::default();
             data_layer_handler

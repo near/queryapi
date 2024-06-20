@@ -2,6 +2,7 @@ import { type ServerUnaryCall, type sendUnaryData, status, StatusBuilder } from 
 
 import Provisioner from '../../../provisioner';
 import { ProvisioningConfig } from '../../../indexer-config/indexer-config';
+import parentLogger from '../../../logger';
 
 import { type CheckProvisioningTaskStatusRequest__Output } from '../../../generated/data_layer/CheckProvisioningTaskStatusRequest';
 import { type DataLayerHandlers } from '../../../generated/data_layer/DataLayer';
@@ -72,6 +73,12 @@ export function createDataLayerService (
 
       const provisioningConfig = new ProvisioningConfig(accountId, functionName, schema);
 
+      const logger = parentLogger.child({
+        service: 'DataLayerService',
+        accountId: provisioningConfig.accountId,
+        functionName: provisioningConfig.functionName,
+      });
+
       const task = tasks[generateTaskId(accountId, functionName)];
 
       if (task) {
@@ -91,7 +98,19 @@ export function createDataLayerService (
           return;
         }
 
-        tasks[generateTaskId(accountId, functionName)] = new ProvisioningTask(provisioner.provisionUserApi(provisioningConfig));
+        logger.info('Provisioning Data Layer');
+
+        tasks[generateTaskId(accountId, functionName)] = new ProvisioningTask(
+          provisioner
+            .provisionUserApi(provisioningConfig)
+            .then(() => {
+              logger.info('Successfully provisioned Data Layer');
+            })
+            .catch((err) => {
+              logger.error('Failed to provision Data Layer', err);
+              throw err;
+            })
+        );
 
         callback(null, { status: ProvisioningStatus.PENDING });
       }).catch((error) => {
