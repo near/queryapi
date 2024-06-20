@@ -57,15 +57,11 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
     }
   };
 
-  const onChangeContractFilter = (e: ChangeEvent<HTMLInputElement>): void => {
-    setContractFilter(e.target.value);
-    handleSetContractFilter(e.target.value);
-  };
-
-  const handleSetContractFilter = (contractFilter: string): void => {
+  function handleSetContractFilter (contractFilter: string): void {
+    setContractFilter(contractFilter);
     const isContractFilterValid = validateContractIds(contractFilter);
     setIsContractFilterValid(isContractFilterValid);
-  };
+  }
 
   useEffect(() => {
     if (startBlock === START_BLOCK.HEIGHT && parseInt(blockHeight) <= GENESIS_BLOCK_HEIGHT) {
@@ -90,7 +86,6 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
       onChangeStartBlock={onChangeStartBlock}
       setIndexerNameField={setIndexerNameField}
       setBlockHeight={setBlockHeight}
-      onChangeContractFilter={onChangeContractFilter}
       handleSetContractFilter={handleSetContractFilter}
       updateConfig={updateConfig}
       indexerDetails={indexerDetails}
