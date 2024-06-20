@@ -68,10 +68,10 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
   }, [attributeMap]);
 
   useEffect(() => {
-    const fetchBlockHeight = async () => {
+    const fetchBlockHeight = async (): Promise<void> => {
       try {
         const { data: fetchedData } = await refetch();
-        if (fetchedData && fetchedData[queryName]) {
+        if (fetchedData?.[queryName]) {
           const newAttributeMap = new Map<string, string>(fetchedData[queryName].map((item: any) => [item.attribute, item.value]));
           setAttributeMap(newAttributeMap);
           if (newAttributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
@@ -86,7 +86,12 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
       }
     };
 
-    const intervalId = setInterval(fetchBlockHeight, 1000);
+    const intervalId = setInterval(() => {
+      fetchBlockHeight()
+        .catch(error => {
+          console.error('Failed to update indexer block:', error);
+        });
+    }, 1000);
 
     return () => {
       clearInterval(intervalId);
