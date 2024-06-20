@@ -6,8 +6,8 @@ import type IndexerConfig from '../indexer-config/indexer-config';
 import { type Tracer, trace, type Span } from '@opentelemetry/api';
 import { type QueryResult } from 'pg';
 
-type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
-type WhereClauseSingle = Record<string, (string | number)>;
+export type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
+export type WhereClauseSingle = Record<string, (string | number)>;
 
 export interface DmlHandlerI {
   insert: (tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]) => Promise<any[]>
