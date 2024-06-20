@@ -115,7 +115,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
             variant="outline-primary"
             className="d-flex align-items-center"
             onClick={() => {
-              setShowLogsView();
+              setShowLogsView(!showLogsView);
             }}
           >
             <Code className="me-2" size={20} />

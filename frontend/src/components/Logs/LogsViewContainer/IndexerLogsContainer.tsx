@@ -29,8 +29,8 @@ const IndexerLogsContainer: React.FC = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
   const { currentUserAccountId } = useInitialPayload<InitialPayload>();
 
-  const sanitizedAccountId: string = sanitizeString(indexerDetails.accountId);
-  const sanitizedIndexerName: string = sanitizeString(indexerDetails.indexerName);
+  const sanitizedAccountId: string = (indexerDetails.accountId) ? sanitizeString(indexerDetails.accountId) : '';
+  const sanitizedIndexerName: string = (indexerDetails.indexerName) ? sanitizeString(indexerDetails.indexerName) : '';
 
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
   const schemaName = `${sanitizedAccountId}_${sanitizedIndexerName}`;

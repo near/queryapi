@@ -1,4 +1,4 @@
-import React, { createContext, useEffect, useState, ReactNode, FC } from 'react';
+import React, { createContext, useEffect, useState } from 'react';
 import { useInitialPayload } from 'near-social-bridge';
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import { queryIndexerFunctionDetails } from '@/utils/queryIndexerFunction';
@@ -39,7 +39,7 @@ interface IndexerDetailsContextProps {
   setForkedIndexerName: (indexerName?: string) => void;
   setIndexerDetails: (details: IndexerDetails) => void;
   showLogsView: boolean;
-  setShowLogsView: (show: boolean) => void;
+  setShowLogsView: (showLogsView: boolean) => void;
 }
 
 export const IndexerDetailsContext = createContext<IndexerDetailsContextProps>({
@@ -75,10 +75,10 @@ export const IndexerDetailsContext = createContext<IndexerDetailsContextProps>({
 });
 
 interface IndexerDetailsProviderProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
-export const IndexerDetailsProvider: FC<IndexerDetailsProviderProps> = ({ children }) => {
+export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ children }) => {
   const [accountId, setAccountId] = useState<string | undefined>(undefined);
   const [indexerName, setIndexerName] = useState<string | undefined>(undefined);
   const [forkedAccountId, setForkedAccountId] = useState<string | undefined>(undefined);

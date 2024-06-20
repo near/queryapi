@@ -1,4 +1,5 @@
-import { withRouter, NextRouter } from 'next/router';
+import { withRouter } from 'next/router';
+import type { NextRouter } from 'next/router';
 import React, { useContext, useEffect } from 'react';
 import Alert from '@/components/Common/Alert';
 import Editor from '@/components/Editor/Legacy/Editor';
