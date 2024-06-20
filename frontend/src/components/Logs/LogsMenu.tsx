@@ -67,6 +67,32 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
     }
   }, [attributeMap]);
 
+  useEffect(() => {
+    const fetchBlockHeight = async () => {
+      try {
+        const { data: fetchedData } = await refetch();
+        if (fetchedData && fetchedData[queryName]) {
+          const newAttributeMap = new Map<string, string>(fetchedData[queryName].map((item: any) => [item.attribute, item.value]));
+          setAttributeMap(newAttributeMap);
+          if (newAttributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
+            setBlockHeight(newAttributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+          }
+          if (newAttributeMap.has('STATUS')) {
+            setStatus(newAttributeMap.get('STATUS') ?? 'UNKNOWN');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching block height:', error);
+      }
+    };
+
+    const intervalId = setInterval(fetchBlockHeight, 1000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [refetch, queryName]);
+
   const handleReload = async (): Promise<void> => {
     try {
       const { data: refetchedData } = await refetch();
