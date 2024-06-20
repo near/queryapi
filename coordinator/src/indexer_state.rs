@@ -110,6 +110,12 @@ impl IndexerStateManagerImpl {
             return Ok(serde_json::from_str(&raw_state)?);
         }
 
+        tracing::info!(
+            account_id = indexer_config.account_id.to_string(),
+            function_name = indexer_config.function_name.as_str(),
+            "Creating new state using default"
+        );
+
         Ok(self.get_default_state(indexer_config))
     }
 
