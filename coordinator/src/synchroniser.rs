@@ -226,7 +226,7 @@ impl<'a> Synchroniser<'a> {
             }
             TaskStatus::Pending => Ok(()),
             _ => {
-                tracing::info!("Data layer provisioning failed");
+                tracing::warn!("Data layer provisioning failed");
                 self.state_manager.set_provisioning_failure(config).await
             }
         }
