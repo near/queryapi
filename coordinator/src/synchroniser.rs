@@ -635,8 +635,8 @@ mod test {
             state_manager.expect_list().returning(|| Ok(vec![]));
             state_manager
                 .expect_set_provisioning()
-                .with(eq(config.clone()))
-                .returning(|_| Ok(()))
+                .with(eq(config.clone()), eq("task_id".to_string()))
+                .returning(|_, _| Ok(()))
                 .once();
 
             let mut data_layer_handler = DataLayerHandler::default();
