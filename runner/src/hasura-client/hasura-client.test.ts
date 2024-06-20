@@ -41,6 +41,20 @@ describe('HasuraClient', () => {
     expect(mockFetch.mock.calls).toMatchSnapshot();
   });
 
+  it('drops a schema', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValue({
+        status: 200,
+        text: () => JSON.stringify({})
+      });
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+
+    await client.dropSchema('dbName', 'schemaName');
+
+    expect(mockFetch.mock.calls).toMatchSnapshot();
+  });
+
   it('checks if a schema exists within source', async () => {
     const mockFetch = jest
       .fn()
@@ -167,6 +181,21 @@ describe('HasuraClient', () => {
     const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
 
     await client.addPermissionsToTables('schema', 'default', ['height', 'width'], 'role', ['select', 'insert', 'update', 'delete']);
+
+    expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();
+  });
+
+  it('drops a datasource', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValue({
+        status: 200,
+        text: () => JSON.stringify({})
+      });
+    const client = new HasuraClient({ fetch: mockFetch as unknown as typeof fetch }, config);
+
+    await client.dropDatasource('morgs_near');
 
     expect(mockFetch.mock.calls[0][1].headers['X-Hasura-Admin-Secret']).toBe(config.adminSecret);
     expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toMatchSnapshot();

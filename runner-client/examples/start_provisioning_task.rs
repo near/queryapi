@@ -9,8 +9,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let response = client
         .start_provisioning_task(Request::new(ProvisionRequest {
-            account_id: "morgs.near".to_string(),
-            function_name: "test2".to_string(),
+            account_id: "test.near".to_string(),
+            function_name: "data_layer_example".to_string(),
             schema: "create table blocks();".to_string(),
         }))
         .await?;

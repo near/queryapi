@@ -1,14 +1,14 @@
 import { type ServerUnaryCall, status } from '@grpc/grpc-js';
 
-import { createDataLayerService, type ProvisioningTask } from './data-layer-service';
-import { ProvisioningStatus } from '../../../generated/data_layer/ProvisioningStatus';
+import { createDataLayerService, type AsyncTask } from './data-layer-service';
+import { TaskStatus } from '../../../generated/data_layer/TaskStatus';
 import type Provisioner from '../../../provisioner';
 
 describe('DataLayerService', () => {
-  describe('CheckProvisioningTaskStatus', () => {
+  describe('GetTaskStatus', () => {
     it('should return NOT_FOUND if the task does not exist', (done) => {
       const call = {
-        request: { accountId: 'testAccount', functionName: 'testFunction' }
+        request: { taskId: 'id' }
       } as unknown as ServerUnaryCall<any, any>;
 
       const callback = (error: any): void => {
@@ -17,122 +17,122 @@ describe('DataLayerService', () => {
         done();
       };
 
-      createDataLayerService().CheckProvisioningTaskStatus(call, callback);
+      createDataLayerService().GetTaskStatus(call, callback);
     });
 
     it('should return PENDING if the task is pending', (done) => {
       const tasks = {
-        'testAccount:testFunction': { pending: true, completed: false, failed: false } as unknown as ProvisioningTask
+        id: { pending: true, completed: false, failed: false } as unknown as AsyncTask
       };
       const call = {
-        request: { accountId: 'testAccount', functionName: 'testFunction' }
+        request: { taskId: 'id' }
       } as unknown as ServerUnaryCall<any, any>;
       const callback = (_error: any, response: any): void => {
-        expect(response.status).toBe(ProvisioningStatus.PENDING);
+        expect(response.status).toBe(TaskStatus.PENDING);
         done();
       };
 
-      createDataLayerService(undefined, tasks).CheckProvisioningTaskStatus(call, callback);
+      createDataLayerService(undefined, tasks).GetTaskStatus(call, callback);
     });
 
     it('should return COMPLETE if the task is completed', (done) => {
       const tasks = {
-        'testAccount:testFunction': { pending: false, completed: true, failed: false } as unknown as ProvisioningTask
+        id: { pending: false, completed: true, failed: false } as unknown as AsyncTask
       };
       const call = {
-        request: { accountId: 'testAccount', functionName: 'testFunction' }
+        request: { taskId: 'id' }
       } as unknown as ServerUnaryCall<any, any>;
       const callback = (_error: any, response: any): void => {
-        expect(response.status).toBe(ProvisioningStatus.COMPLETE);
+        expect(response.status).toBe(TaskStatus.COMPLETE);
         done();
       };
 
-      createDataLayerService(undefined, tasks).CheckProvisioningTaskStatus(call, callback);
+      createDataLayerService(undefined, tasks).GetTaskStatus(call, callback);
     });
 
     it('should return FAILED if the task has failed', (done) => {
       const tasks = {
-        'testAccount:testFunction': { pending: false, completed: false, failed: true } as unknown as ProvisioningTask
+        id: { pending: false, completed: false, failed: true } as unknown as AsyncTask
       };
       const call = {
-        request: { accountId: 'testAccount', functionName: 'testFunction' }
+        request: { taskId: 'id' }
       } as unknown as ServerUnaryCall<any, any>;
       const callback = (_error: any, response: any): void => {
-        expect(response.status).toBe(ProvisioningStatus.FAILED);
+        expect(response.status).toBe(TaskStatus.FAILED);
         done();
       };
 
-      createDataLayerService(undefined, tasks).CheckProvisioningTaskStatus(call, callback);
+      createDataLayerService(undefined, tasks).GetTaskStatus(call, callback);
     });
   });
 
-  describe('Provision', () => {
-    it('should return ALREADY_EXISTS if the task exists', (done) => {
-      const tasks = {
-        'testAccount:testFunction': { pending: true, completed: false, failed: false } as unknown as ProvisioningTask
+  describe('StartProvisioningTask', () => {
+    it('should return the current task if it exists', (done) => {
+      const tasks: Record<any, any> = {
+        '8291150845651941809f8f3db28eeb7fd8acdfeb422cb07c10178020070836b8': { pending: false, completed: true, failed: false } as unknown as AsyncTask
       };
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'schema' }
       } as unknown as ServerUnaryCall<any, any>;
-      const callback = (error: any): void => {
-        expect(error.code).toBe(status.ALREADY_EXISTS);
-        expect(error.details).toBe('Provisioning task already exists');
+      const callback = (_error: any, response: any): void => {
+        expect(tasks[response.taskId]).toBeDefined();
+        expect(tasks[response.taskId].completed).toBe(true);
         done();
       };
 
       createDataLayerService(undefined, tasks).StartProvisioningTask(call, callback);
     });
 
-    it('should return Complete if the task has already completed', (done) => {
+    it('should start a new provisioning task', (done) => {
       const tasks: Record<any, any> = {};
       const provisioner = {
-        fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true)
-      } as unknown as Provisioner;
-      const call = {
-        request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
-      } as unknown as ServerUnaryCall<any, any>;
-      const callback = (_error: any, response: any): void => {
-        expect(response.status).toBe(ProvisioningStatus.COMPLETE);
-        done();
-      };
-
-      createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
-    });
-
-    it('should start a new provisioning task and return PENDING', (done) => {
-      const tasks: Record<any, any> = {};
-      const provisioner = {
-        fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(false),
         provisionUserApi: jest.fn().mockResolvedValue(null)
       } as unknown as Provisioner;
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
       } as unknown as ServerUnaryCall<any, any>;
       const callback = (_error: any, response: any): void => {
-        expect(response.status).toBe(ProvisioningStatus.PENDING);
-        expect(tasks['testAccount:testFunction']).toBeDefined();
-        expect(tasks['testAccount:testFunction'].pending).toBe(true);
+        expect(tasks[response.taskId]).toBeDefined();
+        expect(tasks[response.taskId].pending).toBe(true);
         done();
       };
 
       createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
     });
+  });
 
-    it('should return INTERNAL error if checking provisioning status fails', (done) => {
+  describe('StartDeprovisioningTask', () => {
+    it('should return ALREADY_EXISTS if the task exists', (done) => {
+      const tasks = {
+        f92a9f97d2609849e6837b483d8210c7b308c6f615a691449087ec00db1eef06: { pending: true, completed: false, failed: false } as unknown as AsyncTask
+      };
+      const call = {
+        request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'schema' }
+      } as unknown as ServerUnaryCall<any, any>;
+      const callback = (error: any): void => {
+        expect(error.code).toBe(status.ALREADY_EXISTS);
+        expect(error.details).toBe('Deprovisioning task already exists');
+        done();
+      };
+
+      createDataLayerService(undefined, tasks).StartDeprovisioningTask(call, callback);
+    });
+
+    it('should start a new deprovisioning task', (done) => {
       const tasks: Record<any, any> = {};
       const provisioner = {
-        fetchUserApiProvisioningStatus: jest.fn().mockRejectedValue(new Error('boom'))
+        deprovision: jest.fn().mockResolvedValue(null)
       } as unknown as Provisioner;
       const call = {
         request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
       } as unknown as ServerUnaryCall<any, any>;
-      const callback = (error: any): void => {
-        expect(error.code).toBe(status.INTERNAL);
-        expect(error.details).toBe('boom');
+      const callback = (_error: any, response: any): void => {
+        expect(tasks[response.taskId]).toBeDefined();
+        expect(tasks[response.taskId].pending).toBe(true);
         done();
       };
 
-      createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
+      createDataLayerService(provisioner, tasks).StartDeprovisioningTask(call, callback);
     });
   });
 });

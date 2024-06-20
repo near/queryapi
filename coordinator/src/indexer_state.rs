@@ -9,8 +9,9 @@ use crate::redis::RedisClient;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum ProvisionedState {
     Unprovisioned,
-    Provisioning,
+    Provisioning { task_id: String },
     Provisioned,
+    Deprovisioning { task_id: String },
     Failed,
 }
 
@@ -31,12 +32,16 @@ pub struct IndexerState {
     pub provisioned_state: ProvisionedState,
 }
 
+// FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
+// construct the state key without it. But, this isn't ideal as we now have two places which
+// define this key - we need to consolidate these somehow.
 impl IndexerState {
-    // FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
-    // construct the state key without it. But, this isn't ideal as we now have two places which
-    // define this key - we need to consolidate these somehow.
     pub fn get_state_key(&self) -> String {
         format!("{}/{}:state", self.account_id, self.function_name)
+    }
+
+    pub fn get_redis_stream_key(&self) -> String {
+        format!("{}/{}:block_stream", self.account_id, self.function_name)
     }
 }
 
@@ -105,6 +110,12 @@ impl IndexerStateManagerImpl {
             return Ok(serde_json::from_str(&raw_state)?);
         }
 
+        tracing::info!(
+            account_id = indexer_config.account_id.to_string(),
+            function_name = indexer_config.function_name.as_str(),
+            "Creating new state using default"
+        );
+
         Ok(self.get_default_state(indexer_config))
     }
 
@@ -134,10 +145,30 @@ impl IndexerStateManagerImpl {
         Ok(())
     }
 
-    pub async fn set_provisioning(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn set_deprovisioning(
+        &self,
+        indexer_state: &IndexerState,
+        task_id: String,
+    ) -> anyhow::Result<()> {
+        let mut state = indexer_state.clone();
+
+        state.provisioned_state = ProvisionedState::Deprovisioning { task_id };
+
+        self.redis_client
+            .set(state.get_state_key(), serde_json::to_string(&state)?)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn set_provisioning(
+        &self,
+        indexer_config: &IndexerConfig,
+        task_id: String,
+    ) -> anyhow::Result<()> {
         let mut indexer_state = self.get_state(indexer_config).await?;
 
-        indexer_state.provisioned_state = ProvisionedState::Provisioning;
+        indexer_state.provisioned_state = ProvisionedState::Provisioning { task_id };
 
         self.set_state(indexer_config, indexer_state).await?;
 

@@ -234,6 +234,100 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.addDatasource(userName, password, databaseName), 'Failed to add datasource');
   }
 
+  async dropSchemaAndMetadata (databaseName: string, schemaName: string): Promise<void> {
+    await wrapError(async () => {
+      // Need to drop via Hasura to ensure metadata is cleaned up
+      await this.hasuraClient.dropSchema(databaseName, schemaName);
+    }, 'Failed to drop schema');
+  }
+
+  async removeLogPartitionJobs (userName: string, schemaName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        const userCronConnectionParameters = {
+          ...(await this.getPostgresConnectionParameters(userName)),
+          database: this.config.cronDatabase
+        };
+        const userCronPgClient = new this.PgClient(userCronConnectionParameters);
+
+        await userCronPgClient.query(
+          this.pgFormat(
+            "SELECT cron.unschedule('%I_sys_logs_create_partition');",
+            schemaName,
+          )
+        );
+        await userCronPgClient.query(
+          this.pgFormat(
+            "SELECT cron.unschedule('%I_sys_logs_delete_partition');",
+            schemaName,
+          )
+        );
+
+        await userCronPgClient.end();
+      },
+      'Failed to unschedule log partition jobs'
+    );
+  }
+
+  async listUserOwnedSchemas (userName: string): Promise<string[]> {
+    return await wrapError(async () => {
+      const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
+      const userPgClient = new this.PgClient(userDbConnectionParameters);
+
+      const result = await userPgClient.query(
+        this.pgFormat('SELECT schema_name FROM information_schema.schemata WHERE schema_owner = %L', userName)
+      );
+
+      await userPgClient.end();
+
+      return result.rows.map((row) => row.schema_name);
+    }, 'Failed to list schemas');
+  }
+
+  async dropDatabase (databaseName: string): Promise<void> {
+    await wrapError(async () => {
+      await this.adminDefaultPgClient.query(this.pgFormat('DROP DATABASE IF EXISTS %I (FORCE)', databaseName));
+    }, 'Failed to drop database');
+  }
+
+  async dropDatasource (databaseName: string): Promise<void> {
+    await wrapError(async () => {
+      await this.hasuraClient.dropDatasource(databaseName);
+    }, 'Failed to drop datasource');
+  }
+
+  async dropRole (userName: string): Promise<void> {
+    await wrapError(async () => {
+      await this.adminDefaultPgClient.query(this.pgFormat('DROP ROLE IF EXISTS %I', userName));
+    }, 'Failed to drop role');
+  }
+
+  async revokeCronAccess (userName: string): Promise<void> {
+    await wrapError(
+      async () => {
+        await this.adminCronPgClient.query(this.pgFormat('REVOKE USAGE ON SCHEMA cron FROM %I CASCADE', userName));
+        await this.adminCronPgClient.query(this.pgFormat('REVOKE EXECUTE ON FUNCTION cron.schedule_in_database FROM %I;', userName));
+      },
+      'Failed to revoke cron access'
+    );
+  }
+
+  public async deprovision (config: ProvisioningConfig): Promise<void> {
+    await wrapError(async () => {
+      await this.dropSchemaAndMetadata(config.userName(), config.schemaName());
+      await this.removeLogPartitionJobs(config.userName(), config.schemaName());
+
+      const schemas = await this.listUserOwnedSchemas(config.userName());
+
+      if (schemas.length === 0) {
+        await this.dropDatasource(config.databaseName());
+        await this.dropDatabase(config.databaseName());
+        await this.revokeCronAccess(config.userName());
+        await this.dropRole(config.userName());
+      }
+    }, 'Failed to deprovision');
+  }
+
   async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
