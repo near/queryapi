@@ -246,10 +246,10 @@ describe('Indexer integration', () => {
     expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
   });
 
-  it('deprovisions', async () => {
+  it('can provision and deprovision', async () => {
     const indexerConfig = new IndexerConfig(
       'test:stream',
-      'morgs.near',
+      'provisioning.near', // must be unique to prevent conflicts with other tests
       'test-provisioning',
       0,
       '',
@@ -258,7 +258,20 @@ describe('Indexer integration', () => {
     );
 
     await provisioner.provisionUserApi(indexerConfig);
+
+    const params = await provisioner.getPostgresConnectionParameters(indexerConfig.userName());
+    const userPgClient = new PgClient(params);
+
+    await expect(pgClient.query('SELECT 1 FROM pg_database WHERE datname = $1', ['provisioning_near']).then(({ rows }) => rows)).resolves.toHaveLength(1);
+    await expect(userPgClient.query('SELECT schema_name FROM information_schema.schemata WHERE schema_name = $1', ['provisioning_near_test_provisioning']).then(({ rows }) => rows)).resolves.toHaveLength(1);
+    await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning_sys_logs%']).then(({ rows }) => rows)).resolves.toHaveLength(2);
+    await expect(hasuraClient.doesSourceExist(indexerConfig.databaseName())).resolves.toBe(true);
+
     await provisioner.deprovision(indexerConfig);
+
+    await expect(pgClient.query('SELECT 1 FROM pg_database WHERE datname = $1', ['provisioning_near']).then(({ rows }) => rows)).resolves.toHaveLength(0);
+    await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning_sys_logs%']).then(({ rows }) => rows)).resolves.toHaveLength(0);
+    await expect(hasuraClient.doesSourceExist(indexerConfig.databaseName())).resolves.toBe(false);
   });
 });
 
