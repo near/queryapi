@@ -1,8 +1,8 @@
+import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
+import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
+import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from "../constants/RegexExp";
 import { ValidationError } from '../classes/ValidationError';
-import { CONTRACT_NAME_REGEX, WILD_CARD,WILD_CARD_REGEX } from '../constants/RegexExp';
-import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../constants/Strings';
-import { defaultSchema, formatIndexingCode, formatSQL } from './formatters';
-import { PgSchemaTypeGen } from './pgSchemaTypeGen';
+import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "../constants/Strings";
 
 export const validateContractId = (accountId: string): boolean => {
   accountId = accountId.trim();
@@ -19,12 +19,13 @@ export const validateContractId = (accountId: string): boolean => {
 };
 
 export const validateContractIds = (accountIds: string): boolean => {
-  const ids = accountIds.split(',').map((id) => id.trim());
-  return ids.every((accountId) => validateContractId(accountId));
+  const ids = accountIds.split(',').map(id => id.trim());
+  return ids.every(accountId => validateContractId(accountId));
 };
 
-export function validateSQLSchema(schema: string): { data: string | null; error: ValidationError | null } {
+export function validateSQLSchema(schema: string): { data: string | null, error: ValidationError | null, location?: string | undefined } {
   if (!schema) return { data: null, error: null };
+
   if (schema === formatSQL(defaultSchema)) return { data: schema, error: null };
 
   const pgSchemaTypeGen = new PgSchemaTypeGen();
@@ -33,30 +34,42 @@ export function validateSQLSchema(schema: string): { data: string | null; error:
   try {
     formattedSchema = formatSQL(schema);
   } catch (error: any) {
-    return { data: schema, error: new ValidationError(error.message, FORMATTING_ERROR_TYPE) };
+    // todo: add error handling for location
+    return { data: schema, error: new ValidationError(error.message, FORMATTING_ERROR_TYPE), location: undefined };
   }
 
   if (formattedSchema) {
     try {
-      pgSchemaTypeGen.generateTypes(formattedSchema);
-      return { data: formattedSchema, error: null };
+      pgSchemaTypeGen.generateTypes(formattedSchema); // Sanity check
+      return { data: formattedSchema, error: null, location: undefined };
     } catch (error: any) {
       console.log(error);
-      return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE) };
+      return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location ? `${error.location.start.line}:${error.location.start.column}-${error.location.end.line}:${error.location.end.column}` : undefined };
     }
   }
 
-  return { data: schema, error: null };
+  return { data: schema, error: null, location: undefined };
 }
 
+
+/**
+ * Asynchronously validates and formats JavaScript code.
+ * 
+ * @param code The JavaScript code to be validated and formatted.
+ * @returns An object containing either the formatted code or an error.
+ */
 export function validateJSCode(code: string): { data: string | null; error: Error | null } {
   if (!code) return { data: null, error: null };
 
   try {
     const formattedCode = formatIndexingCode(code);
     return { data: formattedCode, error: null };
-  } catch (error: any) {
-    console.error(error.message);
-    return { data: code, error };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(error.message);
+      return { data: code, error };
+    } else {
+      throw error;
+    }
   }
 }

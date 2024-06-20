@@ -8,10 +8,10 @@ interface DeveloperToolsContainerProps {
   handleCodeGen: () => void;
   isExecuting: boolean;
   executeIndexerFunction: () => void;
-  heights: string[];
-  setHeights: React.Dispatch<React.SetStateAction<string[]>>;
+  heights: number[];
+  setHeights: React.Dispatch<React.SetStateAction<number[]>>;
   stopExecution: () => void;
-  latestHeight: number;
+  latestHeight: number | undefined;
   diffView: boolean;
   setDiffView: React.Dispatch<React.SetStateAction<boolean>>;
 }

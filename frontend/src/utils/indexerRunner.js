@@ -183,8 +183,7 @@ export default class IndexerRunner {
             select: async (whereObj, limit = null) =>
               await this.dbOperationLog(
                 blockHeight,
-                `Mocking: Selection of objects with the following values from table ${
-                  tableDefinitionNames.originalTableName
+                `Mocking: Selection of objects with the following values from table ${tableDefinitionNames.originalTableName
                 } on schema ${schemaName} with ${limit === null ? 'no' : limit} limit`,
                 whereObj,
               ),

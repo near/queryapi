@@ -16,11 +16,11 @@ function _mergeNamespaces(n, m): any {
             d.get
               ? d
               : {
-                  enumerable: true,
-                  get: function () {
-                    return e[k];
-                  },
+                enumerable: true,
+                get: function () {
+                  return e[k];
                 },
+              },
           );
         }
       });
@@ -28,7 +28,7 @@ function _mergeNamespaces(n, m): any {
   return Object.freeze(n);
 }
 
-declare class LakeContext {}
+declare class LakeContext { }
 
 type BlockHeight = number;
 interface StreamerMessage {
@@ -155,23 +155,23 @@ interface ReceiptView {
  */
 type ExecutionStatus =
   | {
-      /**
-       * Execution succeeded with a value, value is represented by `Uint8Array` and can be anything.
-       */
-      SuccessValue: Uint8Array;
-    }
+    /**
+     * Execution succeeded with a value, value is represented by `Uint8Array` and can be anything.
+     */
+    SuccessValue: Uint8Array;
+  }
   | {
-      /**
-       * Execution succeeded and a result of the execution is a new `Receipt` with the id.
-       */
-      SuccessReceiptId: string;
-    }
+    /**
+     * Execution succeeded and a result of the execution is a new `Receipt` with the id.
+     */
+    SuccessReceiptId: string;
+  }
   | {
-      /**
-       * Execution failed with an error represented by a `String`.
-       */
-      Failure: string;
-    }
+    /**
+     * Execution failed with an error represented by a `String`.
+     */
+    Failure: string;
+  }
   | 'Postponed';
 interface ExecutionProof {
   direction: string;

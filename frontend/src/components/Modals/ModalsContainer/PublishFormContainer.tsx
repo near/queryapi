@@ -1,4 +1,4 @@
-import React, { type ChangeEvent,useContext, useEffect, useState } from 'react';
+import React, { type ChangeEvent, useContext, useEffect, useState } from 'react';
 
 import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
 import { validateContractIds } from '../../../utils/validators';

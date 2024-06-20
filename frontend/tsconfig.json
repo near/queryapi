@@ -30,7 +30,7 @@
   "include": [
     "next-env.d.ts",
     "**/*.ts",
-    "**/*.tsx", "src/components/Modals/ForkIndexerModal.tsx", "src/contexts/IndexerDetailsContext.js", "src/utils/validators.ts",
+    "**/*.tsx", "src/components/Modals/ForkIndexerModal.tsx", "src/contexts/IndexerDetailsContext.tsx", "src/utils/validators.ts", "src/components/Logs/LogsView/LogFieldCardView.jsx", "src/components/Logs/LogsView/SeveritySelectorView.jsx", "src/components/Logs/LogsView/OptionSelectorView.jsx", "src/components/Logs/LogsView/LogTypeSelectorView.jsx", "src/components/Logs/LogsView/IndexerLogsView.jsx", "src/components/Logs/LogsView/ClearButtonView.jsx", "src/components/Logs/LogsView/DateSelectorView.jsx", "src/components/Editor/Legacy/Editor.tsx",
   ],
   "exclude": [
     "node_modules",

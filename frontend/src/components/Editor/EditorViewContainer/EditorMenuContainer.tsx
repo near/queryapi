@@ -33,7 +33,7 @@ interface EditorMenuContainerProps {
   error: string | undefined;
   indexingCode: string;
   setIndexingCode: (code: string) => void;
-  currentUserAccountId: string;
+  currentUserAccountId: string | undefined;
   // reset code
   setSchema: (schema: string) => void;
   setSchemaTypes: (schemaTypes: string) => void;
@@ -79,6 +79,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   } = useContext(IndexerDetailsContext);
 
   const forkIndexer = async (indexerName: string): Promise<void> => {
+    if (!indexerDetails.accountId || !indexerDetails.indexerName || !indexerName || !currentUserAccountId) return;
     const sanitizedForkedFromAccountId = sanitizeAccountId(indexerDetails.accountId);
     const sanitizedForkedFromIndexerName = sanitizeIndexerName(indexerDetails.indexerName);
     const sanitizedIndexerNameInput = sanitizeIndexerName(indexerName);

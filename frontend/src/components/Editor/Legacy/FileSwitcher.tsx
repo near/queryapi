@@ -1,8 +1,14 @@
 import React, { useContext } from 'react';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
-export function FileSwitcher({ fileName, setFileName }) {
+interface FileSwitcherProps {
+  fileName: string;
+  setFileName: React.Dispatch<React.SetStateAction<string>>;
+}
+
+export const FileSwitcher: React.FC<FileSwitcherProps> = ({ fileName, setFileName }) => {
   const { isCreateNewIndexer } = useContext(IndexerDetailsContext);
+
   return (
     <div className="flex bg-gray-100 rounded-md overflow-hidden shadow-md font-sans">
       <button
@@ -30,4 +36,4 @@ export function FileSwitcher({ fileName, setFileName }) {
       )}
     </div>
   );
-}
+};
