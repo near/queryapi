@@ -274,15 +274,14 @@ export default class Provisioner {
     );
   }
 
-  async listSchemaNames (userName: string): Promise<string[]> {
+  async listUserOwnedSchemas (userName: string): Promise<string[]> {
     return await wrapError(async () => {
       const userDbConnectionParameters = await this.getPostgresConnectionParameters(userName);
       const userPgClient = new this.PgClient(userDbConnectionParameters);
 
       const result = await userPgClient.query(
-        this.pgFormat('SELECT schema_name FROM information_schema.schemata WHERE schema_name = %L', userName)
+        this.pgFormat('SELECT schema_name FROM information_schema.schemata WHERE schema_owner = %L', userName)
       );
-      console.log({ result });
 
       await userPgClient.end();
 
@@ -323,7 +322,7 @@ export default class Provisioner {
       await this.dropSchema(config.userName(), config.schemaName());
       await this.removeLogPartitionJobs(config.userName(), config.schemaName());
 
-      const schemas = await this.listSchemaNames(config.userName());
+      const schemas = await this.listUserOwnedSchemas(config.userName());
 
       if (schemas.length === 0) {
         await this.dropDatasource(config.databaseName());
