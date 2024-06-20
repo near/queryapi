@@ -13,6 +13,7 @@ const PublishFormView = ({
     onChangeStartBlock,
     setIndexerNameField,
     setBlockHeight,
+    onChangeContractFilter,
     handleSetContractFilter,
     updateConfig,
     indexerDetails,
@@ -94,11 +95,11 @@ const PublishFormView = ({
                 id="contractFilter"
                 type="text"
                 placeholder="social.near"
-                value={startBlock === "startBlockContinue" ? contractFilter : indexerDetails.rule.affected_account_id}
-                onChange={(e) => handleSetContractFilter(e.target.value)}
-                required
+                value={contractFilter}
+                onChange={onChangeContractFilter}
                 disabled={startBlock === "startBlockContinue"}
                 className={`px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${isContractFilterValid ? 'border-gray-300' : 'border-red-500'}`}
+                required
             />
             {!isContractFilterValid && (
                 <div className="mt-2 text-sm text-red-600">
