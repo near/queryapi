@@ -148,7 +148,17 @@ export function createDataLayerService (
 
       logger.info(`Starting deprovisioning task: ${taskId}`);
 
-      tasks[taskId] = new AsyncTask(provisioner.deprovision(provisioningConfig));
+      tasks[taskId] = new AsyncTask(
+        provisioner
+          .deprovision(provisioningConfig)
+          .then(() => {
+            logger.info('Successfully deprovisioned Data Layer');
+          })
+          .catch((err) => {
+            logger.error('Failed to deprovision Data Layer', err);
+            throw err;
+          })
+      );
 
       callback(null, { taskId });
     }
