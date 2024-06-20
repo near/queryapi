@@ -1,79 +1,151 @@
+import { AST, Parser } from "node-sql-parser";
 import { TableDefinitionNames } from "../indexer";
 // import { DmlHandlerI } from "./dml-handler";
 
-type ColumnDataMatchingRows = Map<any, Set<number>>;
-type SchemaData = Map<string, ColumnDataMatchingRows>;
-type SerializedTableRows = Map<string, number>;
-type SerializedSchemaData = Map<string, SerializedTableRows>;
+type IndexerData = Map<string, DataRow[]>;
+interface TableSpecification {
+  tableName: string
+  columnNames: string[]
+  primaryKeys: string[]
+  serialKeys: string[]
+}
+type IndexerDataSpecification = Map<string, TableSpecification>;
 
-class InMemorySchemaData {
-  rowCounter: number;
-  serializedSchemaData: SerializedSchemaData;
-  schemaData: SchemaData;
+class DataRow {
+  data: any;
+  private primaryKeys: string[];
 
-  constructor(schemaData?: SchemaData) {
-    this.rowCounter = 0;
-    this.serializedSchemaData = new Map();
-    this.schemaData = schemaData ?? new Map();
+  constructor(data: any, primaryKeys: string[]) {
+    this.data = data;
+    this.primaryKeys = primaryKeys.sort();
   }
 
-  serialize(row: any): string {
-    return JSON.stringify(row, Object.keys(row).sort());
-  }
-
-  schemaDataKey(tableName: string, columnName: string): string {
-    return `${tableName}-${columnName}`;
-  }
-
-  checkAllRowsUnique(tableName: string, rows: any[]): boolean {
-    const rowsSerialized = new Set();
-    for (const row in rows) {
-      const serializedRow = this.serialize(row);
-      if (rowsSerialized.has(serializedRow) || this.serializedSchemaData.get(tableName)?.has(serializedRow)) {
-        return false;
-      }
-      rowsSerialized.add(serializedRow);
-    }
-    return true;
-  }
-
-  insertRow(tableName: string, row: any): void {
-    const serializedRow = JSON.stringify(row, Object.keys(row).sort());
-    const rowNumber = this.rowCounter++;
-    const serializedTableData = this.serializedSchemaData.get(tableName) ?? new Map();
-
-    serializedTableData.set(serializedRow, rowNumber);
-    this.serializedSchemaData.set(tableName, serializedTableData);
-
-    for (const [columnName, columnValue] of Object.entries(row)) {
-      const schemaDataKey = this.schemaDataKey(tableName, columnName);
-      const columnDataRowMatch = this.schemaData.get(schemaDataKey) ?? new Map();
-      const matchingRows = columnDataRowMatch.get(columnName) ?? new Set();
-      matchingRows.add(rowNumber);
-      columnDataRowMatch.set(columnValue, matchingRows);
-      this.schemaData.set(schemaDataKey, columnDataRowMatch);
-    }
-  }
-
-  public insert(tableName: string, rowsToInsert: any[]): any[] {
-    // TODO: Check Primary Keys instead of all column values when inserting
-    // TODO: Check types of columns
-    if (this.checkAllRowsUnique(tableName, rowsToInsert)) {
-      for (const row in rowsToInsert) {
-        this.insertRow(tableName, row);
-      }
-      console.log('DONE');
-      return rowsToInsert;
-    }
-    throw new Error('Cannot insert row twice. Please remove duplicate rows from query');
+  primaryKey(): any {
+    return JSON.stringify(
+      this.primaryKeys.reduce((acc, key) => {
+        acc[key] = this.data[key];
+        return acc;
+      }, {} as Record<string, any>)
+    );
   }
 }
 
-export default class DmlHandlerFixture /* implements DmlHandlerI */ {
-  schemaData: InMemorySchemaData;
+class InMemoryIndexerData {
+  data: IndexerData;
+  tableSpecs: IndexerDataSpecification;
+  serialCounter: Map<string, number>;
 
-  constructor() {
-    this.schemaData = new InMemorySchemaData();
+  constructor(schema: AST[], indexerData?: IndexerData, serialCounter?: Map<string, number>) {
+    this.data = indexerData ?? new Map();
+    this.tableSpecs = this.collectTableSpecifications(schema);
+    this.serialCounter = serialCounter ?? new Map();
+  }
+
+  private collectTableSpecifications(schemaAST: AST[]): IndexerDataSpecification {
+    const tableSpecs = new Map();
+    for (const statement of schemaAST) {
+      if (statement.type === "create" && statement.keyword === "table") {
+        const tableSpec = this.createTableSpecification(statement);
+        tableSpecs.set(tableSpec.tableName, tableSpec);
+      }
+    }
+
+    return tableSpecs;
+  }
+
+  private createTableSpecification(createTableStatement: any): TableSpecification {
+    const tableName = createTableStatement.table[0].table;
+    const columnNames = [];
+    const primaryKeys = [];
+    const serialKeys = [];
+
+    for (const columnDefinition of createTableStatement.create_definitions ?? []) {
+      if (columnDefinition.column) {
+        const columnName = this.getColumnName(columnDefinition);
+        columnNames.push(columnName);
+
+        const dataType = columnDefinition.definition.dataType as string;
+        if (dataType.toUpperCase().includes('SERIAL')) {
+          serialKeys.push(columnName);
+        }
+
+      } else if (columnDefinition.constraint && columnDefinition.constraint_type === "primary key") {
+        for (const primaryKey of columnDefinition.definition) {
+          primaryKeys.push(primaryKey.column.expr.value);
+        }
+      }
+    }
+    const tableSpec: TableSpecification = {
+      tableName,
+      columnNames,
+      primaryKeys,
+      serialKeys,
+    };
+
+    return tableSpec;
+  }
+
+  private getColumnName(columnDefinition: any): string {
+    if (columnDefinition.column?.type === 'column_ref') {
+      return columnDefinition.column.column.expr.value;
+    }
+    return "";
+  }
+
+  getSerialValue(tableName: string, columnName: string): number {
+    const serialCounterKey = `${tableName}-${columnName}`;
+    let counterValue = this.serialCounter.get(serialCounterKey) ?? 0;
+    this.serialCounter.set(serialCounterKey, counterValue + 1);
+    return counterValue;
+  }
+
+  findDataRow(tableName: string, row: DataRow): any | undefined {
+    const data = this.data.get(tableName) ?? [];
+    for (const existingRow of data) {
+      if (existingRow.primaryKey() === row.primaryKey()) {
+        return existingRow;
+      }
+    }
+    return undefined;
+  }
+
+  insertRow(tableName: string, row: any): DataRow {
+    const tableSpec = this.tableSpecs.get(tableName) as TableSpecification;
+    for (const serialKey of tableSpec.serialKeys) {
+      if (row[serialKey] === undefined) {
+        row[serialKey] = this.getSerialValue(tableName, serialKey);
+      }
+    }
+
+    const dataRow = new DataRow(row, tableSpec.primaryKeys);
+    if (this.findDataRow(tableName, dataRow)) {
+      throw new Error('Cannot insert row twice into the same table');
+    }
+    const data = this.data.get(tableName) ?? [];
+    data.push(dataRow);
+    this.data.set(tableName, data);
+    return dataRow;
+  }
+
+  public insert(tableName: string, rowsToInsert: any[]): any[] {
+    // TODO: Check types of columns
+    // TODO: Verify columns are correctly named, and have any required values
+    const insertedRows = [];
+    for (const row of rowsToInsert) {
+      insertedRows.push(this.insertRow(tableName, row).data);
+    }
+    return rowsToInsert;
+  }
+}
+
+export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
+  indexerData: InMemoryIndexerData;
+
+  constructor(schema: string) {
+    const parser = new Parser();
+    let schemaAST = parser.astify(schema, { database: 'Postgresql' });
+    schemaAST = Array.isArray(schemaAST) ? schemaAST : [schemaAST]; // Ensure iterable
+    this.indexerData = new InMemoryIndexerData(schemaAST);
   }
 
   async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
@@ -81,7 +153,7 @@ export default class DmlHandlerFixture /* implements DmlHandlerI */ {
       return [];
     }
 
-    return this.schemaData.insert(tableDefinitionNames.originalTableName, rowsToInsert);
+    return this.indexerData.insert(tableDefinitionNames.originalTableName, rowsToInsert);
   }
 }
 
