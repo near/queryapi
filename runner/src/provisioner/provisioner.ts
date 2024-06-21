@@ -49,7 +49,6 @@ const defaultConfig: Config = {
 
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
-  #hasBeenProvisioned: Record<string, Record<string, boolean>> = {};
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -68,17 +67,6 @@ export default class Provisioner {
       .slice(0, length)
       .replace(/\+/g, '0')
       .replace(/\//g, '0');
-  }
-
-  isUserApiProvisioned (accountId: string, functionName: string): boolean {
-    const accountIndexers = this.#hasBeenProvisioned[accountId];
-    if (!accountIndexers) { return false; }
-    return accountIndexers[functionName];
-  }
-
-  private setProvisioned (accountId: string, functionName: string): void {
-    this.#hasBeenProvisioned[accountId] ??= {};
-    this.#hasBeenProvisioned[accountId][functionName] = true;
   }
 
   async createDatabase (name: string): Promise<void> {
@@ -156,12 +144,8 @@ export default class Provisioner {
     );
   }
 
-  async fetchUserApiProvisioningStatus (indexerConfig: ProvisioningConfig): Promise<boolean> {
+  async isProvisioned (indexerConfig: ProvisioningConfig): Promise<boolean> {
     const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
-    if (this.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)) {
-      checkProvisioningSpan.end();
-      return true;
-    }
 
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
@@ -172,10 +156,9 @@ export default class Provisioner {
     }
 
     const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
-    if (schemaExists) {
-      this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
-    }
+
     checkProvisioningSpan.end();
+
     return schemaExists;
   }
 
@@ -356,7 +339,6 @@ export default class Provisioner {
           await this.trackForeignKeyRelationships(schemaName, databaseName);
 
           await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
-          this.setProvisioned(indexerConfig.accountId, indexerConfig.functionName);
         },
         'Failed to provision endpoint'
       );
