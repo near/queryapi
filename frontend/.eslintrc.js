@@ -1,43 +1,17 @@
 module.exports = {
   parser: '@typescript-eslint/parser',
-  env: {
-    es2021: true,
-    jest: true
-  },
   extends: [
-    'eslint:recommended',
-    'plugin:react/recommended',
-    'plugin:react-hooks/recommended',
-    'plugin:@next/next/recommended',
-    'next/core-web-vitals',
-    'plugin:@typescript-eslint/recommended',
+    "plugin:@typescript-eslint/recommended",
+    "next/core-web-vitals", // extended set of recommended rules from Next.js
+    "prettier",
   ],
-  overrides: [
-    {
-      files: ['./src/**/*.js', './src/**/*.jsx'],
-      parser: 'espree',
-      rules: {
-        semi: ['error', 'always'],
-        'comma-dangle': ['error', 'only-multiline'],
-        'eol-last': ['error', 'always'],
-        '@typescript-eslint/no-empty-function': ['warn', { allow: ['methods'] }],
-      },
-    },
-    {
-      files: ['./src/**/*', './tests/**/*', './**/*.json'],
-      excludedFiles: ['./src/**/*.js', './src/**/*.jsx'],
-      parserOptions: {
-        project: './tsconfig.json',
-      },
-      extends: ['standard-with-typescript'],
-      rules: {
-        '@typescript-eslint/semi': ['error', 'always'],
-        '@typescript-eslint/comma-dangle': ['error', 'only-multiline'],
-        '@typescript-eslint/strict-boolean-expressions': 'off',
-        'eol-last': ['error', 'always'],
-        '@typescript-eslint/no-unused-vars': 'warn',
-        '@typescript-eslint/no-empty-function': ['warn', { allow: ['methods'] }],
-      },
-    },
-  ],
+  plugins: ["simple-import-sort", "@typescript-eslint"],
+  root: true,
+  rules: {
+    "simple-import-sort/imports": "warn",
+    "@typescript-eslint/no-explicit-any": "off", // TODO: remove once refactor from JS is complete
+    "@typescript-eslint/consistent-type-imports": "error",
+    "@typescript-eslint/no-unused-vars": ['warn', { argsIgnorePattern: "^_", "varsIgnorePattern": "^_" }],
+    '@typescript-eslint/no-empty-function': ['warn', { allow: ['methods'] }],
+  }
 };
