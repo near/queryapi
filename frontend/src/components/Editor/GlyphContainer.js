@@ -1,12 +1,12 @@
 // Used to render Glyphs in the Editor
-import styled from "styled-components";
+import styled from 'styled-components';
 
 const GlyphContainer = styled.div`
-.glyphSuccess {
+  .glyphSuccess {
     background: transparent;
-  }  
+  }
 
-.glyphError {
+  .glyphError {
     background: red;
   }
 `;

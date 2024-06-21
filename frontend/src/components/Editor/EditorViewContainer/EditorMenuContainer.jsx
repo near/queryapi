@@ -1,23 +1,37 @@
-import React, { useContext } from "react";
-import EditorMenuView from "../EditorView/EditorMenuView";
+import React, { useContext } from 'react';
+import EditorMenuView from '../EditorView/EditorMenuView';
 import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
 
 const EditorMenuContainer = (props) => {
-    const {
-        handleFormating,
-        handleCodeGen,
-        error,
-        executeIndexerFunction,
-        heights,
-        setHeights,
-        isCreateNewIndexer,
-        isExecuting,
-        stopExecution,
-        latestHeight,
-        isUserIndexer,
-        handleDeleteIndexer,
-    } = props;
-    const {
+  const {
+    handleFormating,
+    handleCodeGen,
+    error,
+    executeIndexerFunction,
+    heights,
+    setHeights,
+    isCreateNewIndexer,
+    isExecuting,
+    stopExecution,
+    latestHeight,
+    isUserIndexer,
+    handleDeleteIndexer,
+  } = props;
+  const {
+    indexerName,
+    accountId,
+    indexerDetails,
+    setShowPublishModal,
+    setShowResetCodeModel,
+    setShowForkIndexerModal,
+    debugMode,
+    setShowLogsView,
+  } = useContext(IndexerDetailsContext);
+
+  return (
+    <EditorMenuView
+      {...props}
+      {...{
         indexerName,
         accountId,
         indexerDetails,
@@ -25,23 +39,12 @@ const EditorMenuContainer = (props) => {
         setShowResetCodeModel,
         setShowForkIndexerModal,
         debugMode,
+        isCreateNewIndexer,
         setShowLogsView,
-    } = useContext(IndexerDetailsContext);
-
-    return (
-        <EditorMenuView {...props} {...{
-            indexerName,
-            accountId,
-            indexerDetails,
-            setShowPublishModal,
-            setShowResetCodeModel,
-            setShowForkIndexerModal,
-            debugMode,
-            isCreateNewIndexer,
-            setShowLogsView,
-            handleDeleteIndexer
-        }} />
-    );
+        handleDeleteIndexer,
+      }}
+    />
+  );
 };
 
 export default EditorMenuContainer;

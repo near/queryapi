@@ -1,5 +1,5 @@
-import * as borsh_lib_types_types from 'borsh/lib/types/types';
-import * as borsh from 'borsh';
+import type * as borsh_lib_types_types from 'borsh/lib/types/types';
+import type * as borsh from 'borsh';
 import * as borsher from 'borsher';
 
 function _mergeNamespaces(n, m) {

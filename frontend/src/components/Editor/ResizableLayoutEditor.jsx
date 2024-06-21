@@ -1,27 +1,27 @@
-import { DiffEditorComponent } from "./DiffEditorComponent";
-import { MonacoEditorComponent } from "./MonacoEditorComponent";
-import { defaultCode, defaultSchema } from "@/utils/formatters";
-import { useDragResize } from "@/utils/resize";
-import GraphqlPlayground from "./../Playground";
+import { DiffEditorComponent } from './DiffEditorComponent';
+import { MonacoEditorComponent } from './MonacoEditorComponent';
+import { defaultCode, defaultSchema } from '@/utils/formatters';
+import { useDragResize } from '@/utils/resize';
+import GraphqlPlayground from './../Playground';
 
 const containerStyle = {
-  display: "flex",
-  flexDirection: "row",
-  width: "100%",
-  height: "100%",
+  display: 'flex',
+  flexDirection: 'row',
+  width: '100%',
+  height: '100%',
 };
 
 const editorContainerStyle = {
-  width: "100%",
-  display: "flex",
-  justifyContent: "center",
-  minWidth: "100px",
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'center',
+  minWidth: '100px',
 };
 
 const dragBarStyle = {
-  width: "10px",
-  backgroundColor: "gray",
-  cursor: "col-resize",
+  width: '10px',
+  backgroundColor: 'gray',
+  cursor: 'col-resize',
 };
 
 const ResizableEditor = ({
@@ -41,7 +41,7 @@ const ResizableEditor = ({
   isCreateNewIndexer,
 }) => {
   const { firstRef, secondRef, dragBarRef } = useDragResize({
-    direction: "horizontal",
+    direction: 'horizontal',
     initiallyHidden: null,
     defaultSizeRelation: 3,
     sizeThresholdFirst: 60,
@@ -51,7 +51,7 @@ const ResizableEditor = ({
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground />,
-    "indexingLogic.js": () =>
+    'indexingLogic.js': () =>
       diffView ? (
         <DiffEditorComponent
           key="code-diff"
@@ -72,7 +72,7 @@ const ResizableEditor = ({
           onChange={onChangeCode}
           onMount={onMount}
           options={{
-            wordWrap: "on",
+            wordWrap: 'on',
             minimap: { enabled: false },
             folding: false,
             lineNumberMinChars: 3,
@@ -81,11 +81,11 @@ const ResizableEditor = ({
             formatOnPaste: true,
             definitionLinkOpensInPeek: true,
             // glyphMargin: true,
-            font: 'serif'
+            font: 'serif',
           }}
         />
       ),
-    "schema.sql": () =>
+    'schema.sql': () =>
       diffView ? (
         <DiffEditorComponent
           key="schema-diff"
@@ -105,7 +105,7 @@ const ResizableEditor = ({
           onChange={onChangeSchema}
           onMount={onMount}
           options={{
-            wordWrap: "on",
+            wordWrap: 'on',
             minimap: { enabled: false },
             folding: false,
             lineNumberMinChars: 3,
@@ -114,7 +114,7 @@ const ResizableEditor = ({
             formatOnPaste: true,
             definitionLinkOpensInPeek: true,
             glyphMargin: true,
-            font: 'serif'
+            font: 'serif',
           }}
         />
       ),
@@ -151,17 +151,17 @@ export default function ResizableLayoutEditor({
     firstRef: firstRefEditor,
     secondRef: secondRefConsole,
   } = useDragResize({
-    direction: "vertical",
-    initiallyHidden: "second",
+    direction: 'vertical',
+    initiallyHidden: 'second',
     defaultSizeRelation: 3,
     sizeThresholdFirst: 60,
     sizeThresholdSecond: 20,
   });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Code Editor */}
-      <div ref={firstRefEditor} style={{ overflow: "auto" }}>
+      <div ref={firstRefEditor} style={{ overflow: 'auto' }}>
         <ResizableEditor
           accountId={accountId}
           fileName={fileName}

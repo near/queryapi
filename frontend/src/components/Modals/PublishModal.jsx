@@ -1,20 +1,13 @@
-import React, { useContext, useState } from "react";
-import { Button, Modal, Alert } from "react-bootstrap";
-import PublishFormContainer from "./ModalsContainer/PublishFormContainer";
+import React, { useContext, useState } from 'react';
+import { Button, Modal, Alert } from 'react-bootstrap';
+import PublishFormContainer from './ModalsContainer/PublishFormContainer';
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
-import { validateContractIds } from "../../utils/validators";
+import { validateContractIds } from '../../utils/validators';
 
-export const PublishModal = ({
-  registerFunction,
-  actionButtonText,
-}) => {
-  const {
-    indexerDetails,
-    showPublishModal,
-    setShowPublishModal,
-  } = useContext(IndexerDetailsContext);
-  const [indexerConfig, setIndexerConfig] = useState({ filter: "social.near", startBlockHeight: null });
-  const [indexerName, setIndexerName] = useState("");
+export const PublishModal = ({ registerFunction, actionButtonText }) => {
+  const { indexerDetails, showPublishModal, setShowPublishModal } = useContext(IndexerDetailsContext);
+  const [indexerConfig, setIndexerConfig] = useState({ filter: 'social.near', startBlockHeight: null });
+  const [indexerName, setIndexerName] = useState('');
   const [error, setError] = useState(null);
 
   const updateConfig = (indexerName, filter, height, startBlock) => {
@@ -23,13 +16,13 @@ export const PublishModal = ({
   };
 
   const register = async () => {
-    if (indexerName === undefined || indexerName === "") {
-      setError(() => "Please provide an Indexer Name");
+    if (indexerName === undefined || indexerName === '') {
+      setError(() => 'Please provide an Indexer Name');
       return;
     }
 
     if (!validateContractIds(indexerConfig.filter)) {
-      setError(() => "Please provide a valid contract name");
+      setError(() => 'Please provide a valid contract name');
       return;
     }
     setError(null);
@@ -38,16 +31,9 @@ export const PublishModal = ({
   };
 
   return (
-    <Modal
-      centered={true}
-      show={showPublishModal}
-      onHide={() => setShowPublishModal(false)}
-      className="bg-gray-50"
-    >
+    <Modal centered={true} show={showPublishModal} onHide={() => setShowPublishModal(false)} className="bg-gray-50">
       <Modal.Header closeButton className="border-b border-gray-300">
-        <Modal.Title className="text-lg font-semibold text-gray-800">
-          Enter Indexer Details
-        </Modal.Title>
+        <Modal.Title className="text-lg font-semibold text-gray-800">Enter Indexer Details</Modal.Title>
       </Modal.Header>
       <Modal.Body className="p-4">
         <PublishFormContainer updateConfig={updateConfig} />
@@ -68,11 +54,7 @@ export const PublishModal = ({
         >
           Cancel
         </Button>
-        <Button
-          variant="primary"
-          onClick={() => register()}
-          className="bg-blue-600 text-white hover:bg-blue-700"
-        >
+        <Button variant="primary" onClick={() => register()} className="bg-blue-600 text-white hover:bg-blue-700">
           {actionButtonText}
         </Button>
       </Modal.Footer>

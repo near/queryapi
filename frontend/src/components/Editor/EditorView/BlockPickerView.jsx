@@ -1,4 +1,4 @@
-import { Plus, Play, PersonWalking, Check2, Stop } from "react-bootstrap-icons";
+import { Plus, Play, PersonWalking, Check2, Stop } from 'react-bootstrap-icons';
 
 const BlockPickerView = ({
   heights,
@@ -40,11 +40,11 @@ const BlockPickerView = ({
               className="flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded"
               onClick={() => {
                 if (heights.length > 0) {
-                  executeIndexerFunction("debugList");
+                  executeIndexerFunction('debugList');
                 } else if (inputValue) {
-                  executeIndexerFunction("specific", inputValue);
+                  executeIndexerFunction('specific', inputValue);
                 } else {
-                  executeIndexerFunction("latest");
+                  executeIndexerFunction('latest');
                 }
               }}
             >
@@ -56,7 +56,7 @@ const BlockPickerView = ({
                 className="flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded"
                 onClick={() => {
                   if (!heights.length) return;
-                  executeIndexerFunction("latest");
+                  executeIndexerFunction('latest');
                 }}
                 disabled={!heights.length}
               >
@@ -65,7 +65,7 @@ const BlockPickerView = ({
               </button>
               <button
                 className="flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded"
-                onClick={() => executeIndexerFunction("debugList")}
+                onClick={() => executeIndexerFunction('debugList')}
                 disabled={!heights.length}
               >
                 <Check2 className="mr-1" size={20} />
@@ -77,9 +77,6 @@ const BlockPickerView = ({
       )}
     </div>
   </div>
-
-
-
 );
 
 export default BlockPickerView;

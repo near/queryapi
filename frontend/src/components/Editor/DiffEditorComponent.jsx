@@ -1,13 +1,6 @@
-import { DiffEditor } from "@monaco-editor/react";
+import { DiffEditor } from '@monaco-editor/react';
 
-export const DiffEditorComponent = ({
-  original,
-  modified,
-  language,
-  readOnly,
-  options,
-  onMount,
-}) => (
+export const DiffEditorComponent = ({ original, modified, language, readOnly, options, onMount }) => (
   <DiffEditor
     original={original}
     modified={modified}

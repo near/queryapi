@@ -2,7 +2,7 @@ import React, { type MouseEvent, type FC } from 'react';
 import ClearButtonView from '../LogsView/ClearButtonView';
 
 interface ClearButtonProps {
-  onClick: () => void
+  onClick: () => void;
 }
 
 const ClearButton: FC<ClearButtonProps> = ({ onClick }) => {
