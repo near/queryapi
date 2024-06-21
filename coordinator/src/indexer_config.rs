@@ -1,6 +1,8 @@
 use near_primitives::types::AccountId;
 use registry_types::{Rule, StartBlock};
 
+use crate::redis::KeyProvider;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct IndexerConfig {
     pub account_id: AccountId,
@@ -11,6 +13,16 @@ pub struct IndexerConfig {
     pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+}
+
+impl KeyProvider for IndexerConfig {
+    fn account_id(&self) -> String {
+        self.account_id.to_string()
+    }
+
+    fn function_name(&self) -> String {
+        self.function_name.clone()
+    }
 }
 
 #[cfg(test)]
@@ -35,18 +47,6 @@ impl Default for IndexerConfig {
 impl IndexerConfig {
     pub fn get_full_name(&self) -> String {
         format!("{}/{}", self.account_id, self.function_name)
-    }
-
-    pub fn get_redis_stream_key(&self) -> String {
-        format!("{}:block_stream", self.get_full_name())
-    }
-
-    pub fn get_last_published_block_key(&self) -> String {
-        format!("{}:last_published_block", self.get_full_name())
-    }
-
-    pub fn get_state_key(&self) -> String {
-        format!("{}:state", self.get_full_name())
     }
 
     pub fn get_registry_version(&self) -> u64 {
