@@ -1,5 +1,5 @@
-import * as Validator from './validators';
-const { validateContractId, validateContractIds } = Validator;
+import { validateContractId, validateContractIds, validateSQLSchema } from './validators';
+import { defaultSchema } from './formatters';
 
 describe('validateContractId', () => {
   test('it should return true for valid contract ID', () => {
@@ -216,5 +216,38 @@ describe('validateContractIds', () => {
   test('it should return false for an valid wildcard contract ID followed by invalid contractIDs', () => {
     const validWildCardwithInvalid = '*.invalid.near, *contract1.near, *.near';
     expect(validateContractIds(validWildCardwithInvalid)).toBe(false);
+  });
+});
+
+const formattedDefaultSchema = `CREATE TABLE
+  \"indexer_storage\" (
+    \"function_name\" TEXT NOT NULL,
+    \"key_name\" TEXT NOT NULL,
+    \"value\" TEXT NOT NULL,
+    PRIMARY KEY (\"function_name\", \"key_name\")
+  )\n`;
+
+jest.mock('./validators.ts', () => {
+  const originalModule = jest.requireActual('./validators.ts');
+  return {
+    formatSchema: jest.fn(),
+    generateTypes: jest.fn(),
+    ...originalModule,
+  };
+});
+
+describe('validateSQLSchema', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should return null data and error for empty schema', () => {
+    const result = validateSQLSchema('');
+    expect(result).toEqual({ data: null, error: null });
+  });
+
+  it('should return formatted data and null error for default schema', () => {
+    const result = validateSQLSchema(defaultSchema);
+    expect(result).toEqual({ data: formattedDefaultSchema, error: null });
   });
 });
