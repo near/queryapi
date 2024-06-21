@@ -173,24 +173,21 @@ describe('Provisioner', () => {
     it('returns false if datasource doesnt exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
 
-      await expect(provisioner.fetchUserApiProvisioningStatus(indexerConfig)).resolves.toBe(false);
-      expect(provisioner.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)).toBe(false);
+      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
     });
 
     it('returns false if datasource and schema dont exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
       hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(false);
 
-      await expect(provisioner.fetchUserApiProvisioningStatus(indexerConfig)).resolves.toBe(false);
-      expect(provisioner.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)).toBe(false);
+      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
     });
 
     it('returns true if datasource and schema exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
       hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
 
-      await expect(provisioner.fetchUserApiProvisioningStatus(indexerConfig)).resolves.toBe(true);
-      expect(provisioner.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)).toBe(true);
+      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(true);
     });
   });
 
@@ -233,7 +230,6 @@ describe('Provisioner', () => {
           'delete'
         ]
       );
-      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
     });
 
     it('skips provisioning the datasource if it already exists', async () => {

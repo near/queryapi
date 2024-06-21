@@ -39,17 +39,6 @@ export class AsyncTask {
 
 type AsyncTasks = Record<string, AsyncTask | undefined>;
 
-enum TaskType {
-  PROVISION = 'PROVISION',
-  DEPROVISION = 'DEPROVISION'
-}
-
-const hash = (...args: string[]): string => {
-  const hash = crypto.createHash('sha256');
-  hash.update(args.join(':'));
-  return hash.digest('hex');
-};
-
 const createLogger = (config: ProvisioningConfig): typeof parentLogger => {
   const logger = parentLogger.child({
     accountId: config.accountId,
@@ -98,31 +87,45 @@ export function createDataLayerService (
 
       const logger = createLogger(provisioningConfig);
 
-      const taskId = hash(accountId, functionName, schema, TaskType.PROVISION);
+      provisioner
+        .isProvisioned(provisioningConfig)
+        .then((isProvisioned) => {
+          if (isProvisioned) {
+            const failedPrecondition = new StatusBuilder()
+              .withCode(status.FAILED_PRECONDITION)
+              .withDetails('Data Layer is already provisioned')
+              .build();
 
-      const task = tasks[taskId];
+            callback(failedPrecondition);
 
-      if (task) {
-        callback(null, { taskId });
+            return;
+          }
 
-        return;
-      };
+          const taskId = crypto.randomUUID();
 
-      logger.info(`Starting provisioning task: ${taskId}`);
+          tasks[taskId] = new AsyncTask(
+            provisioner
+              .provisionUserApi(provisioningConfig)
+              .then(() => {
+                logger.info('Successfully deprovisioned Data Layer');
+              })
+              .catch((err) => {
+                logger.error('Failed to deprovision Data Layer', err);
+                throw err;
+              })
+          );
 
-      tasks[taskId] = new AsyncTask(
-        provisioner
-          .provisionUserApi(provisioningConfig)
-          .then(() => {
-            logger.info('Successfully provisioned Data Layer');
-          })
-          .catch((err) => {
-            logger.error('Failed to provision Data Layer', err);
-            throw err;
-          })
-      );
+          callback(null, { taskId });
+        })
+        .catch((err) => {
+          logger.error('Failed to check if Data Layer is provisioned', err);
 
-      callback(null, { taskId });
+          const internal = new StatusBuilder()
+            .withCode(status.INTERNAL)
+            .withDetails('Failed to check Data Layer provisioned status')
+            .build();
+          callback(internal);
+        });
     },
 
     StartDeprovisioningTask (call: ServerUnaryCall<DeprovisionRequest__Output, StartTaskResponse>, callback: sendUnaryData<StartTaskResponse>): void {
@@ -132,19 +135,7 @@ export function createDataLayerService (
 
       const logger = createLogger(provisioningConfig);
 
-      const taskId = hash(accountId, functionName, TaskType.DEPROVISION);
-
-      const task = tasks[taskId];
-
-      if (task) {
-        const exists = new StatusBuilder()
-          .withCode(status.ALREADY_EXISTS)
-          .withDetails('Deprovisioning task already exists')
-          .build();
-        callback(exists);
-
-        return;
-      };
+      const taskId = crypto.randomUUID();
 
       logger.info(`Starting deprovisioning task: ${taskId}`);
 
