@@ -103,14 +103,16 @@ export function createDataLayerService (
 
           const taskId = crypto.randomUUID();
 
+          logger.info(`Starting provisioning task: ${taskId}`);
+
           tasks[taskId] = new AsyncTask(
             provisioner
               .provisionUserApi(provisioningConfig)
               .then(() => {
-                logger.info('Successfully deprovisioned Data Layer');
+                logger.info('Successfully provisioned Data Layer');
               })
               .catch((err) => {
-                logger.error('Failed to deprovision Data Layer', err);
+                logger.error('Failed to provision Data Layer', err);
                 throw err;
               })
           );
