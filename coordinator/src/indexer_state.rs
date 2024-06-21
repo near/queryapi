@@ -4,7 +4,7 @@ use anyhow::Context;
 use near_primitives::types::AccountId;
 
 use crate::indexer_config::IndexerConfig;
-use crate::redis::RedisClient;
+use crate::redis::{KeyProvider, RedisClient};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum ProvisionedState {
@@ -32,16 +32,13 @@ pub struct IndexerState {
     pub provisioned_state: ProvisionedState,
 }
 
-// FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
-// construct the state key without it. But, this isn't ideal as we now have two places which
-// define this key - we need to consolidate these somehow.
-impl IndexerState {
-    pub fn get_state_key(&self) -> String {
-        format!("{}/{}:state", self.account_id, self.function_name)
+impl KeyProvider for IndexerState {
+    fn account_id(&self) -> String {
+        self.account_id.to_string()
     }
 
-    pub fn get_redis_stream_key(&self) -> String {
-        format!("{}/{}:block_stream", self.account_id, self.function_name)
+    fn function_name(&self) -> String {
+        self.function_name.clone()
     }
 }
 
@@ -300,7 +297,7 @@ mod tests {
                 ))
             });
         redis_client
-            .expect_set_indexer_state()
+            .expect_set_indexer_state::<IndexerConfig>()
             .with(
                 predicate::always(),
                 predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":123,\"enabled\":false,\"provisioned_state\":\"Provisioned\"}".to_string()),

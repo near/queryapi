@@ -1050,7 +1050,9 @@ mod test {
             let last_published_block = 1;
 
             let mut redis_client = RedisClient::default();
-            redis_client.expect_clear_block_stream().never();
+            redis_client
+                .expect_clear_block_stream::<IndexerConfig>()
+                .never();
             redis_client
                 .expect_get_last_published_block()
                 .with(eq(config.clone()))
