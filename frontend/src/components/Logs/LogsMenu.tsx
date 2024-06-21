@@ -40,6 +40,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
   `;
 
   const { loading, error, data, refetch } = useQuery(GET_METADATA, {
+    pollInterval: 1000,
     context: {
       headers: {
         'x-hasura-role': hasuraRole,
@@ -49,30 +50,32 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
 
   const [blockHeight, setBlockHeight] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [attributeMap, setAttributeMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
-    if (!loading && data) {
+    if (data) {
       const newAttributeMap = new Map<string, string>(data[queryName].map((item: any) => [item.attribute, item.value]));
-      setAttributeMap(newAttributeMap);
-    }
-  }, [data, queryName, loading]);
 
-  useEffect(() => {
-    if (attributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
-      setBlockHeight(attributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+      if (newAttributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
+        setBlockHeight(newAttributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+      }
+      if (newAttributeMap.has('STATUS')) {
+        setStatus(newAttributeMap.get('STATUS') ?? 'UNKNOWN');
+      }
     }
-    if (attributeMap.has('STATUS')) {
-      setStatus(attributeMap.get('STATUS') ?? 'UNKNOWN');
-    }
-  }, [attributeMap]);
+  }, [data, queryName]);
 
   const handleReload = async (): Promise<void> => {
     try {
       const { data: refetchedData } = await refetch();
       if (refetchedData) {
         const newAttributeMap = new Map<string, string>(refetchedData[queryName].map((item: any) => [item.attribute, item.value]));
-        setAttributeMap(newAttributeMap);
+
+        if (newAttributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
+          setBlockHeight(newAttributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+        }
+        if (newAttributeMap.has('STATUS')) {
+          setStatus(newAttributeMap.get('STATUS') ?? 'UNKNOWN');
+        }
       }
       reloadDataProp();
     } catch (error) {
