@@ -137,7 +137,7 @@ impl BitmapProcessor {
             ContractPatternType::Exact(ref pattern) => {
                 let query_result: Vec<_> = self
                     .graphql_client
-                    .get_bitmaps_exact(pattern.clone(), &current_date)
+                    .get_bitmaps_exact(pattern.clone(), current_date)
                     .await?;
                 Ok(query_result
                     .iter()
@@ -147,7 +147,7 @@ impl BitmapProcessor {
             ContractPatternType::Wildcard(ref pattern) => {
                 let query_result: Vec<_> = self
                     .graphql_client
-                    .get_bitmaps_wildcard(pattern.clone(), &current_date)
+                    .get_bitmaps_wildcard(pattern.clone(), current_date)
                     .await?;
                 Ok(query_result
                     .iter()
@@ -197,9 +197,9 @@ mod tests {
     fn exact_query_result(
         first_block_height: i64,
         bitmap: &str,
-    ) -> crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex
+    ) -> crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps
     {
-        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex {
+        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps {
             first_block_height,
             bitmap: bitmap.to_string(),
         }
@@ -208,8 +208,8 @@ mod tests {
     fn wildcard_query_result(
         first_block_height: i64,
         bitmap: &str
-    ) -> crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex{
-        crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex {
+    ) -> crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps{
+        crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps {
             first_block_height,
             bitmap: bitmap.to_string(),
         }

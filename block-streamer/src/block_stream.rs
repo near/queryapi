@@ -3,8 +3,8 @@ use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
+use crate::metrics;
 use crate::rules::types::ChainId;
-use crate::{bitmap_processor, delta_lake_client, metrics};
 use futures::StreamExt;
 use registry_types::Rule;
 
@@ -12,7 +12,6 @@ use registry_types::Rule;
 /// we need this configurable for testing purposes.
 const LAKE_PREFETCH_SIZE: usize = 100;
 const MAX_STREAM_SIZE_WITH_CACHE: u64 = 100;
-const DELTA_LAKE_SKIP_ACCOUNTS: [&str; 4] = ["*", "*.near", "*.kaiching", "*.tg"];
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
@@ -346,7 +345,7 @@ mod tests {
             )
             .returning(|_, _| {
                 Ok(vec![
-        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex {
+        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps {
             first_block_height: 107503702,
             bitmap: "oA==".to_string(),
         }

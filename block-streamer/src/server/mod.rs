@@ -1,5 +1,3 @@
-use crate::bitmap_processor;
-
 mod block_streamer_service;
 
 pub mod blockstreamer {

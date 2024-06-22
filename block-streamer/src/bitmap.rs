@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use base64::{engine::general_purpose, Engine as _};
 use std::convert::TryFrom;
 
@@ -10,10 +9,12 @@ pub struct Base64Bitmap {
     pub base64: String,
 }
 
-impl TryFrom<&get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex> for Base64Bitmap {
+impl TryFrom<&get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps>
+    for Base64Bitmap
+{
     type Error = anyhow::Error;
     fn try_from(
-        query_item: &get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
+        query_item: &get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             base64: query_item.bitmap.clone(),
@@ -22,12 +23,12 @@ impl TryFrom<&get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>
     }
 }
 
-impl TryFrom<&get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>
+impl TryFrom<&get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps>
     for Base64Bitmap
 {
     type Error = anyhow::Error;
     fn try_from(
-        query_item: &get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+        query_item: &get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             base64: query_item.bitmap.clone(),
@@ -180,7 +181,7 @@ impl DecompressedBitmap {
     pub fn new(start_block_height: u64, bitmap: Option<Vec<u8>>) -> Self {
         Self {
             start_block_height,
-            bitmap: bitmap.unwrap_or(vec![]),
+            bitmap: bitmap.unwrap_or_default(),
         }
     }
 
@@ -437,7 +438,7 @@ mod tests {
             bitmap: vec![0b11001010, 0b10001111],
             start_block_height: 10,
         };
-        let mut to_merge: DecompressedBitmap = DecompressedBitmap {
+        let to_merge: DecompressedBitmap = DecompressedBitmap {
             bitmap: vec![0b11100001],
             start_block_height: 14,
         };
@@ -448,7 +449,7 @@ mod tests {
 
     #[test]
     fn merge_two_bitmaps_with_swap() {
-        let mut to_merge: DecompressedBitmap = DecompressedBitmap {
+        let to_merge: DecompressedBitmap = DecompressedBitmap {
             bitmap: vec![0b11001010, 0b10001111],
             start_block_height: 10,
         };
@@ -464,15 +465,15 @@ mod tests {
     #[test]
     fn merge_multiple_bitmaps_together() {
         let mut base_bitmap = DecompressedBitmap::new(200, None);
-        let mut bitmap_a = DecompressedBitmap {
+        let bitmap_a = DecompressedBitmap {
             bitmap: vec![0b11000000],
             start_block_height: 18,
         };
-        let mut bitmap_b = DecompressedBitmap {
+        let bitmap_b = DecompressedBitmap {
             bitmap: vec![0b11000000],
             start_block_height: 10,
         };
-        let mut bitmap_c = DecompressedBitmap {
+        let bitmap_c = DecompressedBitmap {
             bitmap: vec![0b11000000],
             start_block_height: 14,
         };

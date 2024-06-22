@@ -3,7 +3,6 @@ use tracing_subscriber::prelude::*;
 mod bitmap;
 mod bitmap_processor;
 mod block_stream;
-mod delta_lake_client;
 mod graphql;
 mod indexer_config;
 mod lake_s3_client;
@@ -32,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
-    let graphql_url = "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql";
+    let graphql_url = "https://queryapi-hasura-graphql-mainnet-24ktefolwq-ew.a.run.app/v1/graphql"; // Prod Hasura
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
     let metrics_port = std::env::var("METRICS_PORT")
         .expect("METRICS_PORT is not set")

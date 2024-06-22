@@ -2,8 +2,7 @@ use ::reqwest;
 use chrono::{DateTime, Utc};
 use graphql_client::{GraphQLQuery, Response};
 
-// TODO: Use Dataplatform account
-const HASURA_ACCOUNT: &str = "darunrs_near";
+const HASURA_ACCOUNT: &str = "dataplatform_near";
 const QUERY_LIMIT: i64 = 1000;
 
 #[allow(clippy::upper_case_acronyms)]
@@ -11,8 +10,8 @@ type Date = String;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "graphql/darunrs_near/schema.graphql",
-    query_path = "graphql/darunrs_near/get_bitmaps_exact.graphql",
+    schema_path = "graphql/dataplatform_near/schema.graphql",
+    query_path = "graphql/dataplatform_near/get_bitmaps_exact.graphql",
     response_derives = "Debug,Clone",
     normalization = "rust"
 )]
@@ -20,8 +19,8 @@ pub struct GetBitmapsExact;
 
 #[derive(GraphQLQuery)]
 #[graphql(
-    schema_path = "graphql/darunrs_near/schema.graphql",
-    query_path = "graphql/darunrs_near/get_bitmaps_wildcard.graphql",
+    schema_path = "graphql/dataplatform_near/schema.graphql",
+    query_path = "graphql/dataplatform_near/get_bitmaps_wildcard.graphql",
     response_derives = "Debug,Clone",
     normalization = "rust"
 )]
@@ -66,10 +65,10 @@ impl GraphQLClientImpl {
         &self,
         receiver_ids: Vec<String>,
         block_date: &DateTime<Utc>,
-    ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex>>
+    ) -> anyhow::Result<Vec<get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps>>
     {
         let mut all_query_results: Vec<
-            get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
+            get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps,
         > = vec![];
         let mut offset = 0;
         let mut has_more = true;
@@ -86,7 +85,7 @@ impl GraphQLClientImpl {
                 .ok_or(anyhow::anyhow!(
                     "Query response is malformed. Missing data field."
                 ))
-                .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
+                .map(|data| data.dataplatform_near_receiver_blocks_bitmaps)?;
 
             has_more = query_result.len() >= QUERY_LIMIT as usize;
             offset += QUERY_LIMIT;
@@ -101,10 +100,11 @@ impl GraphQLClientImpl {
         &self,
         receiver_ids: String,
         block_date: &DateTime<Utc>,
-    ) -> anyhow::Result<Vec<get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>>
-    {
+    ) -> anyhow::Result<
+        Vec<get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps>,
+    > {
         let mut all_query_results: Vec<
-            get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+            get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps,
         > = vec![];
         let mut offset = 0;
         let mut has_more = true;
@@ -121,7 +121,7 @@ impl GraphQLClientImpl {
                 .ok_or(anyhow::anyhow!(
                     "Query response is malformed. Missing data field."
                 ))
-                .map(|data| data.darunrs_near_bitmap_v5_actions_index)?;
+                .map(|data| data.dataplatform_near_receiver_blocks_bitmaps)?;
 
             has_more = query_result.len() >= QUERY_LIMIT as usize;
             offset += QUERY_LIMIT;
@@ -141,7 +141,7 @@ mod tests {
     use super::*;
 
     const HASURA_ENDPOINT: &str =
-        "https://queryapi-hasura-graphql-mainnet-vcqilefdcq-ew.a.run.app/v1/graphql";
+        "https://queryapi-hasura-graphql-mainnet-24ktefolwq-ew.a.run.app/v1/graphql";
 
     fn utc_date_time_from_date_string(date: &str) -> DateTime<Utc> {
         let naive_date_time: NaiveDateTime = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
