@@ -13,6 +13,7 @@ import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
+import RpcClient from '../rpc-client/rpc-client';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -96,7 +97,9 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
 async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
   let previousError: string = '';
   const indexerConfig: IndexerConfig = workerContext.indexerConfig;
-  const indexer = new Indexer(indexerConfig);
+  const indexer = new Indexer(indexerConfig, {
+    rpcClient: RpcClient.fromEnv()
+  });
   let streamMessageId = '';
   let currBlockHeight = 0;
 

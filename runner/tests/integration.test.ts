@@ -13,6 +13,7 @@ import block_115185108 from './blocks/00115185108/streamer_message.json';
 import block_115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
+import RpcClient, { type IRpcClient } from '../src/rpc-client/rpc-client';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -25,6 +26,7 @@ describe('Indexer integration', () => {
   let postgresContainer: StartedPostgreSqlContainer;
   let hasuraContainer: StartedHasuraGraphQLContainer;
   let graphqlClient: GraphQLClient;
+  let rpcClient: IRpcClient;
 
   beforeEach(async () => {
     hasuraClient = new HasuraClient({}, {
@@ -56,6 +58,11 @@ describe('Indexer integration', () => {
         pgBouncerPort: Number(postgresContainer.getPort()),
       }
     );
+
+    rpcClient = RpcClient.fromConfig({
+      networkId: 'mainnet',
+      nodeUrl: 'https://beta.rpc.mainnet.near.org',
+    });
   });
 
   beforeAll(async () => {
@@ -117,7 +124,8 @@ describe('Indexer integration', () => {
     const indexer = new Indexer(
       indexerConfig,
       {
-        provisioner
+        provisioner,
+        rpcClient
       },
       undefined,
       {
