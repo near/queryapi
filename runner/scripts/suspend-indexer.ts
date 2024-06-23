@@ -12,11 +12,11 @@
   * 
 */
 
-const assert = require('assert');
-const fs = require('fs');
+import assert from 'assert'
+import * as fs from 'fs'
 
-const grpc = require('@grpc/grpc-js');
-const protoLoader = require( '@grpc/proto-loader');
+import * as grpc from '@grpc/grpc-js'
+import * as protoLoader from '@grpc/proto-loader'
 
 const COORDINATOR_PROTO_PATH = '../../coordinator/proto/indexer_manager.proto';
 
@@ -34,10 +34,10 @@ function main() {
 
   const indexerManager = createIndexerManagerClient();
 
-  indexerManager.diable({ accountId: 'morgs.near', functionName: 'sqs' }, console.log);
+  indexerManager.disable({ accountId: 'morgs.near', functionName: 'sqs' }, console.log);
 }
 
-function exists(path) {
+function exists(path: string): boolean {
   try {
     fs.statSync(path);
     return true;
@@ -48,6 +48,6 @@ function exists(path) {
 
 function createIndexerManagerClient() {
   const packageDefinition = protoLoader.loadSync(COORDINATOR_PROTO_PATH);
-  const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
+  const protoDescriptor: any = grpc.loadPackageDefinition(packageDefinition);
   return new protoDescriptor.indexer.IndexerManager(`localhost:${COORDINATOR_PORT}`, grpc.credentials.createInsecure());
 }
