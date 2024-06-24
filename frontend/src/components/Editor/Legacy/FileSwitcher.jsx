@@ -7,9 +7,9 @@ export function FileSwitcher({ fileName, setFileName }) {
     <div className="flex bg-gray-100 rounded-md overflow-hidden shadow-md font-sans">
       <button
         className={`flex-1 px-4 py-2 text-base text-xs font-medium ${
-          fileName === 'indexingLogic.js' ? 'bg-gray-700 text-gray-100' : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+          fileName === 'indexer.js' ? 'bg-gray-700 text-gray-100' : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
         } border-r border-gray-400 last:border-r-0`}
-        onClick={() => setFileName('indexingLogic.js')}
+        onClick={() => setFileName('indexer.js')}
       >
         Indexer.js
       </button>

@@ -1,5 +1,6 @@
 import { Block } from '@near-lake/primitives';
 import { Buffer } from 'buffer';
+
 import { fetchBlockDetails } from './fetchBlock';
 import { PgSchemaTypeGen } from './pgSchemaTypeGen';
 

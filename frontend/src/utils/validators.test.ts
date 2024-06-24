@@ -1,5 +1,5 @@
-import { validateContractId, validateContractIds, validateSQLSchema } from './validators';
 import { defaultSchema } from './formatters';
+import { validateContractId, validateContractIds, validateSQLSchema } from './validators';
 
 describe('validateContractId', () => {
   test('it should return true for valid contract ID', () => {

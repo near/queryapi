@@ -1,8 +1,8 @@
 import React, { useContext, useState } from 'react';
 import { Button, Modal, Alert, InputGroup, Form } from 'react-bootstrap';
-import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
-export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
+export const ForkIndexerModal = ({ forkIndexer }) => {
   const {
     indexerDetails,
     showForkIndexerModal,
@@ -11,8 +11,6 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
     setIndexerName,
     setForkedAccountId,
     setForkedIndexerName,
-    setIndexerConfig,
-    isCreateNewIndexer,
   } = useContext(IndexerDetailsContext);
   const [indexerName, setIndexerNameField] = useState('');
   const [error, setError] = useState(null);
@@ -38,12 +36,7 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
   };
 
   return (
-    <Modal
-      centered={true}
-      show={showForkIndexerModal}
-      onHide={() => setShowForkIndexerModal(false)}
-      className="bg-gray-50"
-    >
+    <Modal centered show={showForkIndexerModal} onHide={() => setShowForkIndexerModal(false)} className="bg-gray-50">
       <Modal.Header closeButton className="border-b border-gray-300">
         <Modal.Title className="text-lg font-semibold text-gray-800">Enter Indexer Details</Modal.Title>
       </Modal.Header>
@@ -61,8 +54,8 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
         </InputGroup>
         {error && (
           <Alert
-            className="px-4 py-2 mt-3 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
             variant="danger"
+            className="px-4 py-2 mt-3 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
           >
             {error}
           </Alert>

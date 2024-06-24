@@ -1,13 +1,14 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
-import { useInitialPayload } from 'near-social-bridge';
-import { sanitizeString } from '@/utils/helpers';
-import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
-import IndexerLogsView from '../LogsView/IndexerLogsView';
 import { Grid } from 'gridjs';
+import { useInitialPayload } from 'near-social-bridge';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 
-import { QueryValidation } from '../GraphQL/QueryValidation';
-import { Query } from '../GraphQL/Query';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { formatTimestamp } from '@/utils/formatTimestamp';
+import { sanitizeString } from '@/utils/helpers';
+
+import { Query } from '../GraphQL/Query';
+import { QueryValidation } from '../GraphQL/QueryValidation';
+import IndexerLogsView from '../LogsView/IndexerLogsView';
 
 interface GridConfig {
   columns: string[];
@@ -29,8 +30,8 @@ const IndexerLogsContainer: React.FC = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
   const { currentUserAccountId } = useInitialPayload<InitialPayload>();
 
-  const sanitizedAccountId: string = sanitizeString(indexerDetails.accountId);
-  const sanitizedIndexerName: string = sanitizeString(indexerDetails.indexerName);
+  const sanitizedAccountId: string = indexerDetails.accountId ? sanitizeString(indexerDetails.accountId) : '';
+  const sanitizedIndexerName: string = indexerDetails.indexerName ? sanitizeString(indexerDetails.indexerName) : '';
 
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
   const schemaName = `${sanitizedAccountId}_${sanitizedIndexerName}`;

@@ -1,8 +1,8 @@
+import { ValidationError } from '../classes/ValidationError';
+import { CONTRACT_NAME_REGEX, WILD_CARD, WILD_CARD_REGEX } from '../constants/RegexExp';
+import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../constants/Strings';
 import { defaultSchema, formatIndexingCode, formatSQL } from './formatters';
 import { PgSchemaTypeGen } from './pgSchemaTypeGen';
-import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from '../constants/RegexExp';
-import { ValidationError } from '../classes/ValidationError';
-import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../constants/Strings';
 
 interface ValidationResult {
   data: string | null;

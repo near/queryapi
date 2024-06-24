@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+
 import BlockPickerView from '../EditorView/BlockPickerView';
 
 interface BlockPickerContainerProps {
