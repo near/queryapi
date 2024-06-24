@@ -1,8 +1,8 @@
-import { defaultSchema, formatIndexingCode, formatSQL } from "./formatters";
-import { PgSchemaTypeGen } from "./pgSchemaTypeGen";
-import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from "../constants/RegexExp";
+import { defaultSchema, formatIndexingCode, formatSQL } from './formatters';
+import { PgSchemaTypeGen } from './pgSchemaTypeGen';
+import { CONTRACT_NAME_REGEX, WILD_CARD_REGEX, WILD_CARD } from '../constants/RegexExp';
 import { ValidationError } from '../classes/ValidationError';
-import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from "../constants/Strings";
+import { FORMATTING_ERROR_TYPE, TYPE_GENERATION_ERROR_TYPE } from '../constants/Strings';
 
 export const validateContractId = (accountId) => {
   accountId = accountId.trim();
@@ -21,8 +21,8 @@ export const validateContractId = (accountId) => {
 };
 
 export const validateContractIds = (accountIds) => {
-  const ids = accountIds.split(',').map(id => id.trim());
-  return ids.every(accountId => validateContractId(accountId));
+  const ids = accountIds.split(',').map((id) => id.trim());
+  return ids.every((accountId) => validateContractId(accountId));
 };
 
 /**
@@ -51,25 +51,27 @@ export function validateSQLSchema(schema) {
       return { data: formattedSchema, error: null };
     } catch (error) {
       console.log(error);
-      return { data: schema, error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE), location: error.location };
+      return {
+        data: schema,
+        error: new ValidationError(error.message, TYPE_GENERATION_ERROR_TYPE),
+        location: error.location,
+      };
     }
   }
 }
 
 /**
  * Asynchronously validates and formats JavaScript code.
- * 
+ *
  * @param {string} code - The JavaScript code to be validated and formatted.
  * @returns {{ data: string | null, error: string | null }} An object containing either the formatted code or an error.
  */
 export function validateJSCode(code) {
-
   if (!code) return { data: null, error: null };
 
   try {
     const formattedCode = formatIndexingCode(code);
     return { data: formattedCode, error: null };
-
   } catch (error) {
     console.error(error.message);
     return { data: code, error };

@@ -2,14 +2,23 @@
 
 use anyhow::Context;
 use near_primitives::types::AccountId;
-use std::str::FromStr;
 
 use crate::indexer_config::IndexerConfig;
 use crate::redis::RedisClient;
-use crate::registry::IndexerRegistry;
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub enum ProvisionedState {
+    Unprovisioned,
+    Provisioning { task_id: String },
+    Provisioned,
+    Deprovisioning { task_id: String },
+    Failed,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct OldIndexerState {
+    pub account_id: AccountId,
+    pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
 }
@@ -20,25 +29,19 @@ pub struct IndexerState {
     pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
+    pub provisioned_state: ProvisionedState,
 }
 
+// FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
+// construct the state key without it. But, this isn't ideal as we now have two places which
+// define this key - we need to consolidate these somehow.
 impl IndexerState {
-    // FIX `IndexerConfig` does not exist after an Indexer is deleted, and we need a way to
-    // construct the state key without it. But, this isn't ideal as we now have two places which
-    // define this key - we need to consolidate these somehow.
     pub fn get_state_key(&self) -> String {
         format!("{}/{}:state", self.account_id, self.function_name)
     }
-}
 
-impl Default for IndexerState {
-    fn default() -> Self {
-        Self {
-            account_id: AccountId::from_str("morgs.near").unwrap(),
-            function_name: String::new(),
-            block_stream_synced_at: None,
-            enabled: true,
-        }
+    pub fn get_redis_stream_key(&self) -> String {
+        format!("{}/{}:block_stream", self.account_id, self.function_name)
     }
 }
 
@@ -57,40 +60,35 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
-    pub async fn migrate(&self, registry: &IndexerRegistry) -> anyhow::Result<()> {
-        if self.redis_client.indexer_states_set_exists().await? {
-            return Ok(());
-        }
+    pub async fn migrate(&self) -> anyhow::Result<()> {
+        let raw_states = self.redis_client.list_indexer_states().await?;
 
-        tracing::info!("Migrating indexer state");
+        for raw_state in raw_states {
+            if let Ok(state) = serde_json::from_str::<IndexerState>(&raw_state) {
+                tracing::info!(
+                    "{}/{} already migrated, skipping",
+                    state.account_id,
+                    state.function_name
+                );
+                continue;
+            }
 
-        for config in registry.iter() {
-            let raw_state = self.redis_client.get_indexer_state(config).await?;
+            tracing::info!("Migrating {}", raw_state);
 
-            let state = if let Some(raw_state) = raw_state {
-                let old_state: OldIndexerState =
-                    serde_json::from_str(&raw_state).context(format!(
-                        "Failed to deserialize OldIndexerState for {}",
-                        config.get_full_name()
-                    ))?;
+            let old_state: OldIndexerState = serde_json::from_str(&raw_state)?;
 
-                IndexerState {
-                    account_id: config.account_id.clone(),
-                    function_name: config.function_name.clone(),
-                    block_stream_synced_at: old_state.block_stream_synced_at,
-                    enabled: old_state.enabled,
-                }
-            } else {
-                self.get_default_state(config)
+            let state = IndexerState {
+                account_id: old_state.account_id,
+                function_name: old_state.function_name,
+                block_stream_synced_at: old_state.block_stream_synced_at,
+                enabled: old_state.enabled,
+                provisioned_state: ProvisionedState::Provisioned,
             };
 
-            self.set_state(config, state).await.context(format!(
-                "Failed to set state for {}",
-                config.get_full_name()
-            ))?;
+            self.redis_client
+                .set(state.get_state_key(), serde_json::to_string(&state)?)
+                .await?;
         }
-
-        tracing::info!("Migration complete");
 
         Ok(())
     }
@@ -101,6 +99,7 @@ impl IndexerStateManagerImpl {
             function_name: indexer_config.function_name.clone(),
             block_stream_synced_at: None,
             enabled: true,
+            provisioned_state: ProvisionedState::Unprovisioned,
         }
     }
 
@@ -110,6 +109,12 @@ impl IndexerStateManagerImpl {
         if let Some(raw_state) = raw_state {
             return Ok(serde_json::from_str(&raw_state)?);
         }
+
+        tracing::info!(
+            account_id = indexer_config.account_id.to_string(),
+            function_name = indexer_config.function_name.as_str(),
+            "Creating new state using default"
+        );
 
         Ok(self.get_default_state(indexer_config))
     }
@@ -134,6 +139,58 @@ impl IndexerStateManagerImpl {
         let mut indexer_state = self.get_state(indexer_config).await?;
 
         indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
+
+        self.set_state(indexer_config, indexer_state).await?;
+
+        Ok(())
+    }
+
+    pub async fn set_deprovisioning(
+        &self,
+        indexer_state: &IndexerState,
+        task_id: String,
+    ) -> anyhow::Result<()> {
+        let mut state = indexer_state.clone();
+
+        state.provisioned_state = ProvisionedState::Deprovisioning { task_id };
+
+        self.redis_client
+            .set(state.get_state_key(), serde_json::to_string(&state)?)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn set_provisioning(
+        &self,
+        indexer_config: &IndexerConfig,
+        task_id: String,
+    ) -> anyhow::Result<()> {
+        let mut indexer_state = self.get_state(indexer_config).await?;
+
+        indexer_state.provisioned_state = ProvisionedState::Provisioning { task_id };
+
+        self.set_state(indexer_config, indexer_state).await?;
+
+        Ok(())
+    }
+
+    pub async fn set_provisioned(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        let mut indexer_state = self.get_state(indexer_config).await?;
+
+        indexer_state.provisioned_state = ProvisionedState::Provisioned;
+
+        self.set_state(indexer_config, indexer_state).await?;
+
+        Ok(())
+    }
+    pub async fn set_provisioning_failure(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<()> {
+        let mut indexer_state = self.get_state(indexer_config).await?;
+
+        indexer_state.provisioned_state = ProvisionedState::Failed;
 
         self.set_state(indexer_config, indexer_state).await?;
 
@@ -173,17 +230,37 @@ impl IndexerStateManagerImpl {
 mod tests {
     use super::*;
 
-    use std::collections::HashMap;
-
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn migrate() {
+        let config = IndexerConfig::default();
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_list_indexer_states()
+            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true }).to_string()]))
+            .once();
+        mock_redis_client
+            .expect_set::<String, String>()
+            .with(
+                predicate::eq(config.get_state_key()),
+                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":200,\"enabled\":true,\"provisioned_state\":\"Provisioned\"}".to_string()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+
+        indexer_manager.migrate().await.unwrap();
+    }
 
     #[tokio::test]
     async fn list_indexer_states() {
         let mut mock_redis_client = RedisClient::default();
         mock_redis_client
             .expect_list_indexer_states()
-            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true }).to_string()]))
+            .returning(|| Ok(vec![serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 200, "enabled": true, "provisioned_state": "Provisioned" }).to_string()]))
             .once();
         mock_redis_client
             .expect_list_indexer_states()
@@ -194,72 +271,6 @@ mod tests {
 
         assert_eq!(indexer_manager.list().await.unwrap().len(), 1);
         assert!(indexer_manager.list().await.is_err());
-    }
-
-    #[tokio::test]
-    async fn migrate() {
-        let config1 = IndexerConfig::default();
-        let config2 = IndexerConfig {
-            account_id: "darunrs.near".parse().unwrap(),
-            function_name: "test".to_string(),
-            ..Default::default()
-        };
-
-        let registry = IndexerRegistry::from(&[
-            (
-                "morgs.near".parse().unwrap(),
-                HashMap::from([("test".to_string(), config1.clone())]),
-            ),
-            (
-                "darunrs.near".parse().unwrap(),
-                HashMap::from([("test".to_string(), config2.clone())]),
-            ),
-        ]);
-
-        let mut mock_redis_client = RedisClient::default();
-        mock_redis_client
-            .expect_indexer_states_set_exists()
-            .returning(|| Ok(false))
-            .once();
-        mock_redis_client
-            .expect_get_indexer_state()
-            .with(predicate::eq(config1.clone()))
-            .returning(|_| {
-                Ok(Some(
-                    serde_json::json!({ "block_stream_synced_at": 200, "enabled": false })
-                        .to_string(),
-                ))
-            })
-            .once();
-        mock_redis_client
-            .expect_get_indexer_state()
-            .with(predicate::eq(config2.clone()))
-            .returning(|_| Ok(None))
-            .once();
-        mock_redis_client
-            .expect_set_indexer_state()
-            .with(
-                predicate::eq(config1),
-                predicate::eq(
-                    "{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":200,\"enabled\":false}".to_string(),
-                ),
-            )
-            .returning(|_, _| Ok(()))
-            .once();
-        mock_redis_client
-            .expect_set_indexer_state()
-            .with(
-                predicate::eq(config2),
-                predicate::eq(
-                    "{\"account_id\":\"darunrs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":null,\"enabled\":true}".to_string()
-                ),
-            )
-            .returning(|_, _| Ok(()))
-            .once();
-
-        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
-
-        indexer_manager.migrate(&registry).await.unwrap();
     }
 
     #[tokio::test]
@@ -284,7 +295,7 @@ mod tests {
             .with(predicate::eq(indexer_config.clone()))
             .returning(|_| {
                 Ok(Some(
-                    serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 123, "enabled": true })
+                    serde_json::json!({ "account_id": "morgs.near", "function_name": "test", "block_stream_synced_at": 123, "enabled": true, "provisioned_state": "Provisioned" })
                         .to_string(),
                 ))
             });
@@ -292,7 +303,7 @@ mod tests {
             .expect_set_indexer_state()
             .with(
                 predicate::always(),
-                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":123,\"enabled\":false}".to_string()),
+                predicate::eq("{\"account_id\":\"morgs.near\",\"function_name\":\"test\",\"block_stream_synced_at\":123,\"enabled\":false,\"provisioned_state\":\"Provisioned\"}".to_string()),
             )
             .returning(|_, _| Ok(()))
             .once();

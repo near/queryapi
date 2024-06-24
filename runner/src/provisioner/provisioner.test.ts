@@ -40,8 +40,10 @@ describe('Provisioner', () => {
       trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(null),
       addPermissionsToTables: jest.fn().mockReturnValueOnce(null),
       addDatasource: jest.fn().mockReturnValueOnce(null),
+      dropDatasource: jest.fn().mockReturnValueOnce(null),
       executeSqlOnSchema: jest.fn().mockReturnValueOnce(null),
       createSchema: jest.fn().mockReturnValueOnce(null),
+      dropSchema: jest.fn().mockReturnValueOnce(null),
       doesSourceExist: jest.fn().mockReturnValueOnce(false),
       doesSchemaExist: jest.fn().mockReturnValueOnce(false),
       untrackTables: jest.fn().mockReturnValueOnce(null),
@@ -71,28 +73,121 @@ describe('Provisioner', () => {
     indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
   });
 
+  describe('deprovision', () => {
+    it('removes schema level resources', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [{ schema_name: 'another_one' }] }); // list schemas
+
+      await provisioner.deprovision(indexerConfig);
+
+      expect(hasuraClient.dropSchema).toBeCalledWith(indexerConfig.databaseName(), indexerConfig.schemaName());
+      expect(userPgClientQuery.mock.calls).toEqual([
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
+        ["SELECT schema_name FROM information_schema.schemata WHERE schema_owner = 'morgs_near'"],
+      ]);
+    });
+
+    it('removes database level resources', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      await provisioner.deprovision(indexerConfig);
+
+      expect(hasuraClient.dropSchema).toBeCalledWith(indexerConfig.databaseName(), indexerConfig.schemaName());
+      expect(userPgClientQuery.mock.calls).toEqual([
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_create_partition');"],
+        ["SELECT cron.unschedule('morgs_near_test_function_sys_logs_delete_partition');"],
+        ["SELECT schema_name FROM information_schema.schemata WHERE schema_owner = 'morgs_near'"],
+      ]);
+      expect(hasuraClient.dropDatasource).toBeCalledWith(indexerConfig.databaseName());
+      expect(adminPgClient.query).toBeCalledWith('DROP DATABASE IF EXISTS morgs_near (FORCE)');
+      expect(cronPgClient.query).toBeCalledWith('REVOKE USAGE ON SCHEMA cron FROM morgs_near CASCADE');
+      expect(cronPgClient.query).toBeCalledWith('REVOKE EXECUTE ON FUNCTION cron.schedule_in_database FROM morgs_near;');
+      expect(adminPgClient.query).toBeCalledWith('DROP ROLE IF EXISTS morgs_near');
+    });
+
+    it('handles revoke cron failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      cronPgClient.query = jest.fn()
+        .mockRejectedValue(new Error('failed revoke'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to revoke cron access: failed revoke');
+    });
+
+    it('handles drop role failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      adminPgClient.query = jest.fn()
+        .mockResolvedValueOnce(null)
+        .mockRejectedValue(new Error('failed to drop role'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop role: failed to drop role');
+    });
+
+    it('handles drop database failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      adminPgClient.query = jest.fn().mockRejectedValue(new Error('failed to drop db'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop database: failed to drop db');
+    });
+
+    it('handles drop datasource failures', async () => {
+      userPgClientQuery = jest.fn()
+        .mockResolvedValueOnce(null) // unschedule create partition job
+        .mockResolvedValueOnce(null) // unschedule delete partition job
+        .mockResolvedValueOnce({ rows: [] }); // list schemas
+
+      hasuraClient.dropDatasource = jest.fn().mockRejectedValue(new Error('failed to drop datasource'));
+
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop datasource: failed to drop');
+    });
+
+    it('handles drop schema failures', async () => {
+      hasuraClient.dropSchema = jest.fn().mockRejectedValue(new Error('failed to drop schema'));
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to drop schema: failed to drop');
+    });
+
+    it('handles remove log job failures', async () => {
+      userPgClientQuery = jest.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(new Error('failed to remove jobs'));
+      await expect(provisioner.deprovision(indexerConfig)).rejects.toThrow('Failed to deprovision: Failed to unschedule log partition jobs: failed to remove jobs');
+    });
+  });
+
   describe('isUserApiProvisioned', () => {
     it('returns false if datasource doesnt exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
 
-      await expect(provisioner.fetchUserApiProvisioningStatus(indexerConfig)).resolves.toBe(false);
-      expect(provisioner.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)).toBe(false);
+      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
     });
 
     it('returns false if datasource and schema dont exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
       hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(false);
 
-      await expect(provisioner.fetchUserApiProvisioningStatus(indexerConfig)).resolves.toBe(false);
-      expect(provisioner.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)).toBe(false);
+      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
     });
 
     it('returns true if datasource and schema exists', async () => {
       hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
       hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
 
-      await expect(provisioner.fetchUserApiProvisioningStatus(indexerConfig)).resolves.toBe(true);
-      expect(provisioner.isUserApiProvisioned(indexerConfig.accountId, indexerConfig.functionName)).toBe(true);
+      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(true);
     });
   });
 
@@ -135,7 +230,6 @@ describe('Provisioner', () => {
           'delete'
         ]
       );
-      expect(provisioner.isUserApiProvisioned(accountId, functionName)).toBe(true);
     });
 
     it('skips provisioning the datasource if it already exists', async () => {

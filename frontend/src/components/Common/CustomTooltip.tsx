@@ -8,16 +8,20 @@ export enum TooltipDirection {
 }
 
 interface CustomTooltipProps {
-  message: string
-  direction?: TooltipDirection
-  children: React.ReactElement<any>
+  message: string;
+  direction?: TooltipDirection;
+  children: React.ReactElement<any>;
 }
 
 const CustomTooltip: React.FC<CustomTooltipProps> = ({ message, direction = TooltipDirection.Top, children }) => {
   const [visible, setVisible] = useState(false);
 
-  const showTooltip = (): void => { setVisible(true); };
-  const hideTooltip = (): void => { setVisible(false); };
+  const showTooltip = (): void => {
+    setVisible(true);
+  };
+  const hideTooltip = (): void => {
+    setVisible(false);
+  };
 
   const getTooltipPositionClass = (direction: TooltipDirection | undefined): string => {
     switch (direction) {
@@ -46,7 +50,9 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ message, direction = Tool
     'absolute',
     'text-center',
     'w-max',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className="relative inline-block" onMouseEnter={showTooltip} onMouseLeave={hideTooltip}>

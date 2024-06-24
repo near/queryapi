@@ -209,6 +209,13 @@ export default class HasuraClient {
     return result.length > 1;
   }
 
+  async dropSchema (source: string, schemaName: string): Promise<any> {
+    return await this.executeSql(
+      `DROP schema IF EXISTS ${schemaName} CASCADE`,
+      { source, readOnly: false }
+    );
+  }
+
   async createSchema (source: string, schemaName: string): Promise<any> {
     return await this.executeSql(`CREATE schema ${schemaName}`, {
       source,
@@ -441,6 +448,13 @@ export default class HasuraClient {
           },
         },
       },
+    });
+  }
+
+  async dropDatasource (databaseName: string): Promise<void> {
+    return await this.executeMetadataRequest('pg_drop_source', {
+      name: databaseName,
+      cascade: true,
     });
   }
 }

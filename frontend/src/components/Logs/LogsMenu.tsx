@@ -6,14 +6,14 @@ import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import LatestBlock from '../Common/LatestBlock';
 
 interface LogsMenuProps {
-  currentUserAccountId: string
-  heights: any[]
-  setHeights: React.Dispatch<React.SetStateAction<any[]>>
-  latestHeight: string
-  isUserIndexer: boolean
-  accountId: string
-  reloadData: () => void
-  functionName: string
+  currentUserAccountId: string;
+  heights: any[];
+  setHeights: React.Dispatch<React.SetStateAction<any[]>>;
+  latestHeight: string;
+  isUserIndexer: boolean;
+  accountId: string;
+  reloadData: () => void;
+  functionName: string;
 }
 
 const LogsMenu: React.FC<LogsMenuProps> = ({
@@ -40,6 +40,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
   `;
 
   const { loading, error, data, refetch } = useQuery(GET_METADATA, {
+    pollInterval: 1000,
     context: {
       headers: {
         'x-hasura-role': hasuraRole,
@@ -49,30 +50,34 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
 
   const [blockHeight, setBlockHeight] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [attributeMap, setAttributeMap] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
-    if (!loading && data) {
+    if (data) {
       const newAttributeMap = new Map<string, string>(data[queryName].map((item: any) => [item.attribute, item.value]));
-      setAttributeMap(newAttributeMap);
-    }
-  }, [data, queryName, loading]);
 
-  useEffect(() => {
-    if (attributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
-      setBlockHeight(attributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+      if (newAttributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
+        setBlockHeight(newAttributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+      }
+      if (newAttributeMap.has('STATUS')) {
+        setStatus(newAttributeMap.get('STATUS') ?? 'UNKNOWN');
+      }
     }
-    if (attributeMap.has('STATUS')) {
-      setStatus(attributeMap.get('STATUS') ?? 'UNKNOWN');
-    }
-  }, [attributeMap]);
+  }, [data, queryName]);
 
   const handleReload = async (): Promise<void> => {
     try {
       const { data: refetchedData } = await refetch();
       if (refetchedData) {
-        const newAttributeMap = new Map<string, string>(refetchedData[queryName].map((item: any) => [item.attribute, item.value]));
-        setAttributeMap(newAttributeMap);
+        const newAttributeMap = new Map<string, string>(
+          refetchedData[queryName].map((item: any) => [item.attribute, item.value]),
+        );
+
+        if (newAttributeMap.has('LAST_PROCESSED_BLOCK_HEIGHT')) {
+          setBlockHeight(newAttributeMap.get('LAST_PROCESSED_BLOCK_HEIGHT') ?? 'N/A');
+        }
+        if (newAttributeMap.has('STATUS')) {
+          setStatus(newAttributeMap.get('STATUS') ?? 'UNKNOWN');
+        }
       }
       reloadDataProp();
     } catch (error) {
@@ -84,14 +89,12 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
     <Navbar bg="white" variant="light" className="shadow-sm p-3 mb-4 bg-white rounded">
       <Container fluid className="d-flex flex-wrap justify-content-between align-items-center">
         <div className="d-flex flex-wrap align-items-center">
-          <span className="me-4 font-weight-bold text-secondary text-sm">
-            Indexer: {functionName}
-          </span>
+          <span className="me-4 font-weight-bold text-secondary text-sm">Indexer: {functionName}</span>
           <span className="me-4 font-weight-bold text-secondary text-sm">
             Filter: {indexerDetails.rule.affected_account_id}
           </span>
           <span className="me-4 text-secondary text-sm">
-            Status:  <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? 'UNKNOWN'}</strong>
+            Status: <strong>{loading ? <Spinner animation="border" size="sm" /> : status ?? 'UNKNOWN'}</strong>
           </span>
           <span className="me-4 text-secondary text-sm">
             Height: <strong>{loading ? <Spinner animation="border" size="sm" /> : blockHeight ?? 'N/A'}</strong>
@@ -110,13 +113,20 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
             <ArrowCounterclockwise className="me-2" size={20} />
             Reload
           </Button>
-          <Button size="sm" variant="outline-primary" className="d-flex align-items-center" onClick={() => { setShowLogsView(); }}>
+          <Button
+            size="sm"
+            variant="outline-primary"
+            className="d-flex align-items-center"
+            onClick={() => {
+              setShowLogsView();
+            }}
+          >
             <Code className="me-2" size={20} />
             Go To Editor
           </Button>
         </ButtonGroup>
       </Container>
-    </Navbar >
+    </Navbar>
   );
 };
 

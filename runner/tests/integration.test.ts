@@ -126,6 +126,8 @@ describe('Indexer integration', () => {
       }
     );
 
+    await provisioner.provisionUserApi(indexerConfig);
+
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
 
     const firstHeight = await indexerBlockHeightQuery('morgs_near_test', graphqlClient);
@@ -139,7 +141,7 @@ describe('Indexer integration', () => {
     expect(secondHeight.value).toEqual('115185109');
 
     const logs: any = await indexerLogsQuery('morgs_near_test', graphqlClient);
-    expect(logs.length).toEqual(4);
+    expect(logs.length).toEqual(2);
 
     const { morgs_near_test_blocks: blocks }: any = await graphqlClient.request(blocksIndexerQuery);
     expect(blocks.map(({ height }: any) => height)).toEqual([115185108, 115185109]);
@@ -232,6 +234,8 @@ describe('Indexer integration', () => {
       }
     );
 
+    await provisioner.provisionUserApi(indexerConfig);
+
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
     await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
 
@@ -240,6 +244,52 @@ describe('Indexer integration', () => {
 
     const { morgs_near_test_context_db_indexer_storage: totalRows }: any = await graphqlClient.request(queryAllRows);
     expect(totalRows.length).toEqual(3); // Two inserts, and the overwritten upsert
+  });
+
+  it('can provision and deprovision', async () => {
+    const testConfig1 = new IndexerConfig(
+      'test:stream',
+      'provisioning.near', // must be unique to prevent conflicts with other tests
+      'test-provisioning1',
+      0,
+      '',
+      'CREATE TABLE blocks (height numeric)',
+      LogLevel.INFO
+    );
+
+    const testConfig2 = new IndexerConfig(
+      'test:stream',
+      'provisioning.near', // must be unique to prevent conflicts with other tests
+      'test-provisioning2',
+      0,
+      '',
+      'CREATE TABLE blocks (height numeric)',
+      LogLevel.INFO
+    );
+
+    await provisioner.provisionUserApi(testConfig1);
+    await provisioner.provisionUserApi(testConfig2);
+
+    const params = await provisioner.getPostgresConnectionParameters(testConfig1.userName());
+    const userPgClient = new PgClient(params);
+
+    await expect(pgClient.query('SELECT 1 FROM pg_database WHERE datname = $1', ['provisioning_near']).then(({ rows }) => rows)).resolves.toHaveLength(1);
+    await expect(userPgClient.query('SELECT schema_name FROM information_schema.schemata WHERE schema_name like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(2);
+    await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(4);
+    await expect(hasuraClient.doesSourceExist(testConfig1.databaseName())).resolves.toBe(true);
+
+    await provisioner.deprovision(testConfig1);
+
+    await expect(pgClient.query('SELECT 1 FROM pg_database WHERE datname = $1', ['provisioning_near']).then(({ rows }) => rows)).resolves.toHaveLength(1);
+    await expect(userPgClient.query('SELECT schema_name FROM information_schema.schemata WHERE schema_name like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(1);
+    await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(2);
+    await expect(hasuraClient.doesSourceExist(testConfig1.databaseName())).resolves.toBe(true);
+
+    await provisioner.deprovision(testConfig2);
+
+    await expect(pgClient.query('SELECT 1 FROM pg_database WHERE datname = $1', ['provisioning_near']).then(({ rows }) => rows)).resolves.toHaveLength(0);
+    await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(0);
+    await expect(hasuraClient.doesSourceExist(testConfig1.databaseName())).resolves.toBe(false);
   });
 });
 

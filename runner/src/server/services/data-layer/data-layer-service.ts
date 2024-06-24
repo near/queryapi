@@ -1,20 +1,27 @@
+import crypto from 'crypto';
+
 import { type ServerUnaryCall, type sendUnaryData, status, StatusBuilder } from '@grpc/grpc-js';
 
 import Provisioner from '../../../provisioner';
 import { ProvisioningConfig } from '../../../indexer-config/indexer-config';
+import parentLogger from '../../../logger';
 
-import { type CheckProvisioningTaskStatusRequest__Output } from '../../../generated/data_layer/CheckProvisioningTaskStatusRequest';
+import { type GetTaskStatusRequest__Output } from '../../../generated/data_layer/GetTaskStatusRequest';
+import { type GetTaskStatusResponse } from '../../../generated/data_layer/GetTaskStatusResponse';
 import { type DataLayerHandlers } from '../../../generated/data_layer/DataLayer';
+import { type StartTaskResponse } from '../../../generated/data_layer/StartTaskResponse';
 import { type ProvisionRequest__Output } from '../../../generated/data_layer/ProvisionRequest';
-import { type ProvisionResponse } from '../../../generated/data_layer/ProvisionResponse';
-import { ProvisioningStatus } from '../../../generated/data_layer/ProvisioningStatus';
+import { type DeprovisionRequest__Output } from '../../../generated/data_layer/DeprovisionRequest';
+import { TaskStatus } from '../../../generated/data_layer/TaskStatus';
 
-export class ProvisioningTask {
+export class AsyncTask {
   public failed: boolean;
   public pending: boolean;
   public completed: boolean;
 
-  constructor (public readonly promise: Promise<void>) {
+  constructor (
+    public readonly promise: Promise<void>
+  ) {
     promise.then(() => {
       this.completed = true;
     }).catch((error) => {
@@ -30,19 +37,25 @@ export class ProvisioningTask {
   }
 }
 
-type ProvisioningTasks = Record<string, ProvisioningTask>;
+type AsyncTasks = Record<string, AsyncTask | undefined>;
 
-const generateTaskId = (accountId: string, functionName: string): string => `${accountId}:${functionName}`;
+const createLogger = (config: ProvisioningConfig): typeof parentLogger => {
+  const logger = parentLogger.child({
+    accountId: config.accountId,
+    functionName: config.functionName,
+    service: 'DataLayerService'
+  });
+
+  return logger;
+};
 
 export function createDataLayerService (
   provisioner: Provisioner = new Provisioner(),
-  tasks: ProvisioningTasks = {}
+  tasks: AsyncTasks = {}
 ): DataLayerHandlers {
   return {
-    CheckProvisioningTaskStatus (call: ServerUnaryCall<CheckProvisioningTaskStatusRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
-      const { accountId, functionName } = call.request;
-
-      const task = tasks[generateTaskId(accountId, functionName)];
+    GetTaskStatus (call: ServerUnaryCall<GetTaskStatusRequest__Output, GetTaskStatusResponse>, callback: sendUnaryData<GetTaskStatusResponse>): void {
+      const task = tasks[call.request.taskId];
 
       if (!task) {
         const notFound = new StatusBuilder()
@@ -55,56 +68,92 @@ export function createDataLayerService (
       }
 
       if (task.completed) {
-        callback(null, { status: ProvisioningStatus.COMPLETE });
+        callback(null, { status: TaskStatus.COMPLETE });
         return;
       }
 
       if (task.failed) {
-        callback(null, { status: ProvisioningStatus.FAILED });
+        callback(null, { status: TaskStatus.FAILED });
         return;
       }
 
-      callback(null, { status: ProvisioningStatus.PENDING });
+      callback(null, { status: TaskStatus.PENDING });
     },
 
-    Provision (call: ServerUnaryCall<ProvisionRequest__Output, ProvisionResponse>, callback: sendUnaryData<ProvisionResponse>): void {
+    StartProvisioningTask (call: ServerUnaryCall<ProvisionRequest__Output, StartTaskResponse>, callback: sendUnaryData<StartTaskResponse>): void {
       const { accountId, functionName, schema } = call.request;
 
       const provisioningConfig = new ProvisioningConfig(accountId, functionName, schema);
 
-      const task = tasks[generateTaskId(accountId, functionName)];
+      const logger = createLogger(provisioningConfig);
 
-      if (task?.pending) {
-        const exists = new StatusBuilder()
-          .withCode(status.ALREADY_EXISTS)
-          .withDetails('Provisioning task already exists')
-          .build();
-        callback(exists);
+      provisioner
+        .isProvisioned(provisioningConfig)
+        .then((isProvisioned) => {
+          if (isProvisioned) {
+            const failedPrecondition = new StatusBuilder()
+              .withCode(status.FAILED_PRECONDITION)
+              .withDetails('Data Layer is already provisioned')
+              .build();
 
-        return;
-      };
+            callback(failedPrecondition);
 
-      provisioner.fetchUserApiProvisioningStatus(provisioningConfig).then((isProvisioned) => {
-        if (isProvisioned) {
-          const exists = new StatusBuilder()
-            .withCode(status.ALREADY_EXISTS)
-            .withDetails('Provisioning task has already completed')
+            return;
+          }
+
+          const taskId = crypto.randomUUID();
+
+          logger.info(`Starting provisioning task: ${taskId}`);
+
+          tasks[taskId] = new AsyncTask(
+            provisioner
+              .provisionUserApi(provisioningConfig)
+              .then(() => {
+                logger.info('Successfully provisioned Data Layer');
+              })
+              .catch((err) => {
+                logger.error('Failed to provision Data Layer', err);
+                throw err;
+              })
+          );
+
+          callback(null, { taskId });
+        })
+        .catch((err) => {
+          logger.error('Failed to check if Data Layer is provisioned', err);
+
+          const internal = new StatusBuilder()
+            .withCode(status.INTERNAL)
+            .withDetails('Failed to check Data Layer provisioned status')
             .build();
-          callback(exists);
+          callback(internal);
+        });
+    },
 
-          return;
-        }
+    StartDeprovisioningTask (call: ServerUnaryCall<DeprovisionRequest__Output, StartTaskResponse>, callback: sendUnaryData<StartTaskResponse>): void {
+      const { accountId, functionName } = call.request;
 
-        tasks[generateTaskId(accountId, functionName)] = new ProvisioningTask(provisioner.provisionUserApi(provisioningConfig));
+      const provisioningConfig = new ProvisioningConfig(accountId, functionName, 'todo');
 
-        callback(null, { status: ProvisioningStatus.PENDING });
-      }).catch((error) => {
-        const internalError = new StatusBuilder()
-          .withCode(status.INTERNAL)
-          .withDetails(error.message)
-          .build();
-        callback(internalError);
-      });
+      const logger = createLogger(provisioningConfig);
+
+      const taskId = crypto.randomUUID();
+
+      logger.info(`Starting deprovisioning task: ${taskId}`);
+
+      tasks[taskId] = new AsyncTask(
+        provisioner
+          .deprovision(provisioningConfig)
+          .then(() => {
+            logger.info('Successfully deprovisioned Data Layer');
+          })
+          .catch((err) => {
+            logger.error('Failed to deprovision Data Layer', err);
+            throw err;
+          })
+      );
+
+      callback(null, { taskId });
     }
   };
 }

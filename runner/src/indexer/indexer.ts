@@ -92,21 +92,6 @@ export default class Indexer {
     try {
       const runningMessage = `Running function ${this.indexerConfig.fullName()} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
 
-      try {
-        if (!await this.deps.provisioner.fetchUserApiProvisioningStatus(this.indexerConfig)) {
-          logEntries.push(LogEntry.systemInfo('Provisioning endpoint: starting', blockHeight));
-          await this.deps.provisioner.provisionUserApi(this.indexerConfig);
-          logEntries.push(LogEntry.systemInfo('Provisioning endpoint: successful', blockHeight));
-        }
-      } catch (e) {
-        const error = e as Error;
-        if (this.IS_FIRST_EXECUTION) {
-          this.logger.error('Provisioning endpoint: failure', error);
-        }
-        logEntries.push(LogEntry.systemError(`Provisioning endpoint failure: ${error.message}`, blockHeight));
-        throw error;
-      }
-
       logEntries.push(LogEntry.systemInfo(runningMessage, blockHeight));
       // Cache database credentials after provisioning
       await wrapSpan(async () => {

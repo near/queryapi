@@ -2,10 +2,13 @@ use registry_types::StartBlock;
 use tracing::instrument;
 
 use crate::{
-    block_streams_handler::{BlockStreamsHandler, StreamInfo},
-    executors_handler::{ExecutorInfo, ExecutorsHandler},
+    handlers::{
+        block_streams::{BlockStreamsHandler, StreamInfo},
+        data_layer::{DataLayerHandler, TaskStatus},
+        executors::{ExecutorInfo, ExecutorsHandler},
+    },
     indexer_config::IndexerConfig,
-    indexer_state::{IndexerState, IndexerStateManager},
+    indexer_state::{IndexerState, IndexerStateManager, ProvisionedState},
     redis::RedisClient,
     registry::Registry,
 };
@@ -26,6 +29,7 @@ pub enum SynchronisationState {
 pub struct Synchroniser<'a> {
     block_streams_handler: &'a BlockStreamsHandler,
     executors_handler: &'a ExecutorsHandler,
+    data_layer_handler: &'a DataLayerHandler,
     registry: &'a Registry,
     state_manager: &'a IndexerStateManager,
     redis_client: &'a RedisClient,
@@ -35,6 +39,7 @@ impl<'a> Synchroniser<'a> {
     pub fn new(
         block_streams_handler: &'a BlockStreamsHandler,
         executors_handler: &'a ExecutorsHandler,
+        data_layer_handler: &'a DataLayerHandler,
         registry: &'a Registry,
         state_manager: &'a IndexerStateManager,
         redis_client: &'a RedisClient,
@@ -42,6 +47,7 @@ impl<'a> Synchroniser<'a> {
         Self {
             block_streams_handler,
             executors_handler,
+            data_layer_handler,
             registry,
             state_manager,
             redis_client,
@@ -49,7 +55,7 @@ impl<'a> Synchroniser<'a> {
     }
 
     async fn start_new_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        let start_block = match config.start_block {
+        let height = match config.start_block {
             StartBlock::Height(height) => height,
             StartBlock::Latest => config.get_registry_version(),
             StartBlock::Continue => {
@@ -60,7 +66,9 @@ impl<'a> Synchroniser<'a> {
             }
         };
 
-        self.block_streams_handler.start(start_block, config).await
+        tracing::info!(height, "Starting block stream");
+
+        self.block_streams_handler.start(height, config).await
     }
 
     #[instrument(
@@ -72,23 +80,14 @@ impl<'a> Synchroniser<'a> {
         )
     )]
     async fn sync_new_indexer(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        tracing::info!("Starting executor");
+        tracing::info!("Starting data layer provisioning");
 
-        if let Err(err) = self.executors_handler.start(config).await {
-            tracing::error!(?err, "Failed to start Executor");
-            return Ok(());
-        }
+        let task_id = self
+            .data_layer_handler
+            .start_provisioning_task(config)
+            .await?;
 
-        tracing::info!("Starting block stream");
-
-        // FIX if this fails, then subsequent control loops will perpetually fail since the
-        // above will error with ALREADY_EXISTS
-        if let Err(err) = self.start_new_block_stream(config).await {
-            tracing::error!(?err, "Failed to start Block Stream");
-            return Ok(());
-        }
-
-        self.state_manager.set_synced(config).await?;
+        self.state_manager.set_provisioning(config, task_id).await?;
 
         Ok(())
     }
@@ -191,10 +190,6 @@ impl<'a> Synchroniser<'a> {
         }
 
         if state.block_stream_synced_at.is_none() {
-            // NOTE: A value of `None` would suggest that `state` was created before initialisation,
-            // which is currently not possible, but may be in future
-            tracing::warn!("Existing block stream has no previous sync state, treating as new");
-
             self.start_new_block_stream(config).await?;
 
             return Ok(());
@@ -207,6 +202,35 @@ impl<'a> Synchroniser<'a> {
         }
 
         self.resume_block_stream(config).await?;
+
+        Ok(())
+    }
+
+    async fn ensure_provisioned(
+        &self,
+        config: &IndexerConfig,
+        task_id: String,
+    ) -> anyhow::Result<()> {
+        let task_status_result = self.data_layer_handler.get_task_status(task_id).await;
+
+        if let Err(error) = task_status_result {
+            tracing::warn!(?error, "Failed to check provisioning task status");
+
+            return Ok(());
+        };
+
+        let _ = match task_status_result.unwrap() {
+            TaskStatus::Complete => {
+                tracing::info!("Data layer provisioning complete");
+                self.state_manager.set_provisioned(config).await
+            }
+            TaskStatus::Pending => Ok(()),
+            _ => {
+                tracing::warn!("Data layer provisioning failed");
+                self.state_manager.set_provisioning_failure(config).await
+            }
+        }
+        .map_err(|err| tracing::warn!(?err, "Failed to set provisioning state"));
 
         Ok(())
     }
@@ -226,6 +250,18 @@ impl<'a> Synchroniser<'a> {
         executor: Option<&ExecutorInfo>,
         block_stream: Option<&StreamInfo>,
     ) -> anyhow::Result<()> {
+        match &state.provisioned_state {
+            ProvisionedState::Provisioning { task_id } => {
+                self.ensure_provisioned(config, task_id.clone()).await?;
+                return Ok(());
+            }
+            ProvisionedState::Failed => return Ok(()),
+            ProvisionedState::Provisioned => {}
+            ProvisionedState::Unprovisioned | ProvisionedState::Deprovisioning { .. } => {
+                anyhow::bail!("Provisioning task should have been started")
+            }
+        }
+
         if !state.enabled {
             if let Some(executor) = executor {
                 self.executors_handler
@@ -288,6 +324,38 @@ impl<'a> Synchroniser<'a> {
                 .stop(block_stream.stream_id.clone())
                 .await?;
         }
+
+        if let ProvisionedState::Deprovisioning { task_id } = &state.provisioned_state {
+            match self
+                .data_layer_handler
+                .get_task_status(task_id.clone())
+                .await?
+            {
+                TaskStatus::Complete => {
+                    tracing::info!("Data layer deprovisioning complete");
+                }
+                TaskStatus::Failed => {
+                    tracing::info!("Data layer deprovisioning failed");
+                }
+                TaskStatus::Unspecified => {
+                    tracing::info!("Encountered unspecified deprovisioning task status");
+                }
+                TaskStatus::Pending => return Ok(()),
+            }
+        } else {
+            let task_id = self
+                .data_layer_handler
+                .start_deprovisioning_task(state.account_id.clone(), state.function_name.clone())
+                .await?;
+
+            self.state_manager
+                .set_deprovisioning(state, task_id.clone())
+                .await?;
+
+            return Ok(());
+        }
+
+        self.redis_client.del(state.get_redis_stream_key()).await?;
 
         self.state_manager.delete_state(state).await?;
 
@@ -483,12 +551,14 @@ mod test {
                 function_name: indexer.function_name.clone(),
                 block_stream_synced_at: Some(indexer.get_registry_version()),
                 enabled: true,
+                provisioned_state: ProvisionedState::Provisioned,
             })
             .chain(deleted_indexer_configs.iter().map(|indexer| IndexerState {
                 account_id: indexer.account_id.clone(),
                 function_name: indexer.function_name.clone(),
                 block_stream_synced_at: Some(indexer.get_registry_version()),
                 enabled: true,
+                provisioned_state: ProvisionedState::Provisioned,
             }))
             .collect();
         state_manager
@@ -496,10 +566,12 @@ mod test {
             .returning(move || Ok(states.clone()));
 
         let redis_client = RedisClient::default();
+        let data_layer_handler = DataLayerHandler::default();
 
         let synchroniser = Synchroniser::new(
             &block_streams_handler,
             &executors_handler,
+            &data_layer_handler,
             &registry,
             &state_manager,
             &redis_client,
@@ -540,47 +612,19 @@ mod test {
         use super::*;
 
         #[tokio::test]
-        async fn start() {
-            let config1 = IndexerConfig::default();
-            let config2 = IndexerConfig {
-                function_name: "test2".to_string(),
-                start_block: StartBlock::Latest,
-                ..Default::default()
-            };
+        async fn triggers_data_layer_provisioning() {
+            let config = IndexerConfig::default();
 
             let indexer_registry = IndexerRegistry::from(&[(
-                config1.account_id.clone(),
-                HashMap::from([
-                    (config1.function_name.clone(), config1.clone()),
-                    (config2.function_name.clone(), config2.clone()),
-                ]),
+                config.account_id.clone(),
+                HashMap::from([(config.function_name.clone(), config.clone())]),
             )]);
 
             let mut block_streams_handler = BlockStreamsHandler::default();
             block_streams_handler.expect_list().returning(|| Ok(vec![]));
-            block_streams_handler
-                .expect_start()
-                .with(eq(100), eq(config1.clone()))
-                .returning(|_, _| Ok(()))
-                .once();
-            block_streams_handler
-                .expect_start()
-                .with(eq(config2.get_registry_version()), eq(config2.clone()))
-                .returning(|_, _| Ok(()))
-                .once();
 
             let mut executors_handler = ExecutorsHandler::default();
             executors_handler.expect_list().returning(|| Ok(vec![]));
-            executors_handler
-                .expect_start()
-                .with(eq(config1.clone()))
-                .returning(|_| Ok(()))
-                .once();
-            executors_handler
-                .expect_start()
-                .with(eq(config2.clone()))
-                .returning(|_| Ok(()))
-                .once();
 
             let mut registry = Registry::default();
             registry
@@ -590,14 +634,16 @@ mod test {
             let mut state_manager = IndexerStateManager::default();
             state_manager.expect_list().returning(|| Ok(vec![]));
             state_manager
-                .expect_set_synced()
-                .with(eq(config1))
-                .returning(|_| Ok(()))
+                .expect_set_provisioning()
+                .with(eq(config.clone()), eq("task_id".to_string()))
+                .returning(|_, _| Ok(()))
                 .once();
-            state_manager
-                .expect_set_synced()
-                .with(eq(config2))
-                .returning(|_| Ok(()))
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_start_provisioning_task()
+                .with(eq(config))
+                .returning(|_| Ok("task_id".to_string()))
                 .once();
 
             let redis_client = RedisClient::default();
@@ -605,6 +651,7 @@ mod test {
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -612,97 +659,132 @@ mod test {
 
             synchroniser.sync().await.unwrap();
         }
+    }
+
+    mod existing {
+        use super::*;
 
         #[tokio::test]
-        async fn configures_block_stream() {
-            let config_with_latest = IndexerConfig {
-                start_block: StartBlock::Latest,
-                ..IndexerConfig::default()
-            };
-            let height = 5;
-            let config_with_height = IndexerConfig {
-                start_block: StartBlock::Height(height),
-                ..IndexerConfig::default()
-            };
-            let config_with_continue = IndexerConfig {
-                start_block: StartBlock::Continue,
-                ..IndexerConfig::default()
+        async fn waits_for_provisioning_to_complete() {
+            let config = IndexerConfig::default();
+
+            let indexer_registry = IndexerRegistry::from(&[(
+                config.account_id.clone(),
+                HashMap::from([(config.function_name.clone(), config.clone())]),
+            )]);
+
+            let task_id = "task_id".to_string();
+
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: true,
+                provisioned_state: ProvisionedState::Provisioning {
+                    task_id: task_id.clone().to_string(),
+                },
             };
 
-            let mut block_streams_handler = BlockStreamsHandler::default();
-            block_streams_handler
-                .expect_start()
-                .with(
-                    eq(config_with_continue.get_registry_version()),
-                    eq(config_with_continue.clone()),
-                )
-                .returning(|_, _| Ok(()))
-                .once();
-            block_streams_handler
-                .expect_start()
-                .with(
-                    eq(config_with_latest.get_registry_version()),
-                    eq(config_with_latest.clone()),
-                )
-                .returning(|_, _| Ok(()))
-                .once();
-            block_streams_handler
-                .expect_start()
-                .with(eq(height), eq(config_with_height.clone()))
-                .returning(|_, _| Ok(()))
-                .once();
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch()
+                .returning(move || Ok(indexer_registry.clone()));
 
             let mut state_manager = IndexerStateManager::default();
             state_manager
-                .expect_set_synced()
-                .with(eq(config_with_continue.clone()))
+                .expect_set_provisioned()
+                .with(eq(config.clone()))
                 .returning(|_| Ok(()))
                 .once();
-            state_manager
-                .expect_set_synced()
-                .with(eq(config_with_latest.clone()))
-                .returning(|_| Ok(()))
-                .once();
-            state_manager
-                .expect_set_synced()
-                .with(eq(config_with_height.clone()))
-                .returning(|_| Ok(()))
-                .once();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_get_task_status()
+                .with(eq(task_id))
+                .returning(|_| Ok(TaskStatus::Complete));
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler.expect_start().never();
 
             let mut executors_handler = ExecutorsHandler::default();
-            executors_handler
-                .expect_start()
-                .returning(|_| Ok(()))
-                .times(3);
+            executors_handler.expect_start().never();
 
             let redis_client = RedisClient::default();
-            let registry = Registry::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
             );
 
             synchroniser
-                .sync_new_indexer(&config_with_latest)
-                .await
-                .unwrap();
-            synchroniser
-                .sync_new_indexer(&config_with_height)
-                .await
-                .unwrap();
-            synchroniser
-                .sync_new_indexer(&config_with_continue)
+                .sync_existing_indexer(&config, &state, None, None)
                 .await
                 .unwrap();
         }
-    }
 
-    mod existing {
-        use super::*;
+        #[tokio::test]
+        async fn ignores_failed_provisioning() {
+            let config = IndexerConfig::default();
+
+            let indexer_registry = IndexerRegistry::from(&[(
+                config.account_id.clone(),
+                HashMap::from([(config.function_name.clone(), config.clone())]),
+            )]);
+
+            let state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: true,
+                provisioned_state: ProvisionedState::Provisioning {
+                    task_id: "task_id".to_string(),
+                },
+            };
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch()
+                .returning(move || Ok(indexer_registry.clone()));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_set_provisioning_failure()
+                .with(eq(config.clone()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_get_task_status()
+                .with(eq("task_id".to_string()))
+                .returning(|_| Ok(TaskStatus::Failed));
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler.expect_start().never();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_start().never();
+
+            let redis_client = RedisClient::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_existing_indexer(&config, &state, None, None)
+                .await
+                .unwrap();
+        }
 
         #[tokio::test]
         async fn ignores_synced() {
@@ -757,14 +839,17 @@ mod test {
                     function_name: config.function_name.clone(),
                     block_stream_synced_at: Some(config.get_registry_version()),
                     enabled: true,
+                    provisioned_state: ProvisionedState::Provisioned,
                 }])
             });
 
             let redis_client = RedisClient::default();
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -849,12 +934,16 @@ mod test {
                     function_name: config.function_name.clone(),
                     block_stream_synced_at: Some(config.get_registry_version()),
                     enabled: true,
+                    provisioned_state: ProvisionedState::Provisioned,
                 }])
             });
+
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -871,6 +960,7 @@ mod test {
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: None,
                 enabled: true,
+                provisioned_state: ProvisionedState::Provisioned,
             };
 
             let mut block_streams_handler = BlockStreamsHandler::default();
@@ -884,10 +974,12 @@ mod test {
             let state_manager = IndexerStateManager::default();
             let executors_handler = ExecutorsHandler::default();
             let registry = Registry::default();
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -907,6 +999,7 @@ mod test {
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version() - 1),
                 enabled: true,
+                provisioned_state: ProvisionedState::Provisioned,
             };
 
             let mut block_streams_handler = BlockStreamsHandler::default();
@@ -926,10 +1019,12 @@ mod test {
             let state_manager = IndexerStateManager::default();
             let executors_handler = ExecutorsHandler::default();
             let registry = Registry::default();
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -949,6 +1044,7 @@ mod test {
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version()),
                 enabled: true,
+                provisioned_state: ProvisionedState::Provisioned,
             };
 
             let last_published_block = 1;
@@ -970,10 +1066,12 @@ mod test {
             let state_manager = IndexerStateManager::default();
             let executors_handler = ExecutorsHandler::default();
             let registry = Registry::default();
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -1044,10 +1142,12 @@ mod test {
             let state_manager = IndexerStateManager::default();
             let executors_handler = ExecutorsHandler::default();
             let registry = Registry::default();
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -1075,6 +1175,7 @@ mod test {
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version()),
                 enabled: false,
+                provisioned_state: ProvisionedState::Provisioned,
             };
             let executor = ExecutorInfo {
                 executor_id: "executor_id".to_string(),
@@ -1113,10 +1214,12 @@ mod test {
 
             let registry = Registry::default();
             let redis_client = RedisClient::default();
+            let data_layer_handler = DataLayerHandler::default();
 
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -1138,13 +1241,16 @@ mod test {
         use super::*;
 
         #[tokio::test]
-        async fn stops_and_deletes() {
+        async fn stops_block_stream_and_executor() {
             let config = IndexerConfig::default();
             let state = IndexerState {
                 account_id: config.account_id.clone(),
                 function_name: config.function_name.clone(),
                 block_stream_synced_at: Some(config.get_registry_version()),
                 enabled: false,
+                provisioned_state: ProvisionedState::Deprovisioning {
+                    task_id: "task_id".to_string(),
+                },
             };
             let executor = ExecutorInfo {
                 executor_id: "executor_id".to_string(),
@@ -1175,11 +1281,13 @@ mod test {
                 .once();
 
             let mut state_manager = IndexerStateManager::default();
-            state_manager
-                .expect_delete_state()
-                .with(eq(state.clone()))
-                .returning(|_| Ok(()))
-                .once();
+            state_manager.expect_delete_state().never();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_get_task_status()
+                .with(eq("task_id".to_string()))
+                .returning(|_| Ok(TaskStatus::Pending));
 
             let registry = Registry::default();
             let redis_client = RedisClient::default();
@@ -1187,6 +1295,7 @@ mod test {
             let synchroniser = Synchroniser::new(
                 &block_streams_handler,
                 &executors_handler,
+                &data_layer_handler,
                 &registry,
                 &state_manager,
                 &redis_client,
@@ -1194,6 +1303,80 @@ mod test {
 
             synchroniser
                 .sync_deleted_indexer(&state, Some(&executor), Some(&block_stream))
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn cleans_indexer_resources() {
+            let config = IndexerConfig::default();
+            let provisioned_state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: false,
+                provisioned_state: ProvisionedState::Provisioned,
+            };
+            let deprovisioning_state = IndexerState {
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                block_stream_synced_at: Some(config.get_registry_version()),
+                enabled: false,
+                provisioned_state: ProvisionedState::Deprovisioning {
+                    task_id: "task_id".to_string(),
+                },
+            };
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager
+                .expect_set_deprovisioning()
+                .with(eq(provisioned_state.clone()), eq("task_id".to_string()))
+                .returning(|_, _| Ok(()));
+            state_manager
+                .expect_delete_state()
+                .with(eq(deprovisioning_state.clone()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_start_deprovisioning_task()
+                .with(
+                    eq(config.clone().account_id),
+                    eq(config.clone().function_name),
+                )
+                .returning(|_, _| Ok("task_id".to_string()));
+            data_layer_handler
+                .expect_get_task_status()
+                .with(eq("task_id".to_string()))
+                .returning(|_| Ok(TaskStatus::Complete));
+
+            let mut redis_client = RedisClient::default();
+            redis_client
+                .expect_del::<String>()
+                .with(eq(config.get_redis_stream_key()))
+                .returning(|_| Ok(()))
+                .once();
+
+            let registry = Registry::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+
+            let synchroniser = Synchroniser::new(
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            synchroniser
+                .sync_deleted_indexer(&provisioned_state, None, None)
+                .await
+                .unwrap();
+            synchroniser
+                .sync_deleted_indexer(&deprovisioning_state, None, None)
                 .await
                 .unwrap();
         }
