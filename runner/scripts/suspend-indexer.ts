@@ -1,15 +1,27 @@
-// 1. Assert env vars
-// 2. connect to coordinator
-// 3. disable
-// 4. log and set status?
-
 /*
   * This script is used to suspend an indexer for a given account. It will:
   * 1. Call Coordinator to disable the indexer
   * 2. Write to the Indexers logs table to notify of suspension
   *
+  * Note that as Coordinator is in a private network, you must tunnel to the machine to expose the gRPC server.
+  * This can be achieved via running the following in a separate terminal:
+  * ```sh
+  * gcloud compute ssh ubuntu@queryapi-coordinator-mainnet -- -L 9003:0.0.0.0:9003
+  * ```
+  *
+  * The following environment variables are required:
+  * - `HASURA_ADMIN_SECRET`
+  * - `HASURA_ENDPOINT`
+  * - `PGPORT`
+  * - `PGHOST`
+  *
+  * All of which can be found in the Runner compute instance metadata:
+  * ```sh
+  * gcloud compute instances describe queryapi-runner-mainnet
+  * ```
+  *
+  *
   * Usage: npm run script:suspend-indexer -- <accountId> <functionName>
-  * 
 */
 
 import assert from 'assert'
@@ -33,7 +45,7 @@ assert(process.env.PGPORT, 'PGPORT env var is required');
 assert(process.env.PGHOST, 'PGHOST env var is required');
 
 const [_binary, _file, accountId, functionName] = process.argv;
-const { COORDINATOR_PORT } = process.env;
+const { COORDINATOR_PORT = 9003 } = process.env;
 
 main();
 
@@ -47,7 +59,7 @@ async function main() {
 async function logSuspension() {
   console.log('Logging suspension notification');
 
-  const config = new IndexerConfig('redis stream', accountId, functionName, 0, 'code', 'schema', 2);
+  const config = new IndexerConfig('not needed', accountId, functionName, 0, 'not needed', 'not needed', 2);
 
   const pgCredentials = await new Provisioner().getPostgresConnectionParameters(config.userName());
 
