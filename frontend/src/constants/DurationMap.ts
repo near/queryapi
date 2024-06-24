@@ -15,7 +15,7 @@ export const TIME_INTERVALS_MAP = new Map([
   ['2d', 'Last 2 days (2d)'],
   ['7d', 'Last 7 days (7d)'],
   ['14d', 'Last 14 days (14d)'],
-  ['30d', 'Last 30 days (30d)']
+  ['30d', 'Last 30 days (30d)'],
 ]);
 
 export const DURATION_MAP: Record<string, number> = {};

@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import BlockPickerView from '../EditorView/BlockPickerView';
 
 interface BlockPickerContainerProps {
-  heights: string[]
-  setHeights: React.Dispatch<React.SetStateAction<string[]>>
-  executeIndexerFunction: () => void
-  latestHeight: number
-  isExecuting: boolean
-  stopExecution: () => void
+  heights: string[];
+  setHeights: React.Dispatch<React.SetStateAction<string[]>>;
+  executeIndexerFunction: () => void;
+  latestHeight: number;
+  isExecuting: boolean;
+  stopExecution: () => void;
 }
 
 const BlockPickerContainer: React.FC<BlockPickerContainerProps> = ({

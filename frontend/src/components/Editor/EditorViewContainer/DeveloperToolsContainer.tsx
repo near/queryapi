@@ -3,19 +3,19 @@ import DeveloperToolsView from '../EditorView/DeveloperToolsView';
 import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
 
 interface DeveloperToolsContainerProps {
-  handleFormating: () => void
-  handleCodeGen: () => void
-  executeIndexerFunction: () => void
-  isExecuting: boolean
-  stopExecution: () => void
-  heights: string[]
-  setHeights: React.Dispatch<React.SetStateAction<string[]>>
-  latestHeight: number
-  isUserIndexer: boolean
-  handleDeleteIndexer: () => void
-  error: string
-  diffView: boolean
-  setDiffView: React.Dispatch<React.SetStateAction<boolean>>
+  handleFormating: () => void;
+  handleCodeGen: () => void;
+  executeIndexerFunction: () => void;
+  isExecuting: boolean;
+  stopExecution: () => void;
+  heights: string[];
+  setHeights: React.Dispatch<React.SetStateAction<string[]>>;
+  latestHeight: number;
+  isUserIndexer: boolean;
+  handleDeleteIndexer: () => void;
+  error: string;
+  diffView: boolean;
+  setDiffView: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const DeveloperToolsContainer: React.FC<DeveloperToolsContainerProps> = ({
@@ -51,22 +51,24 @@ const DeveloperToolsContainer: React.FC<DeveloperToolsContainerProps> = ({
   };
 
   return (
-    <DeveloperToolsView {...{
-      handleFormating,
-      handleCodeGen,
-      setShowResetCodeModel,
-      debugMode,
-      setDebugMode,
-      heights,
-      setHeights,
-      latestHeight,
-      isExecuting,
-      stopExecution,
-      removeHeight,
-      executeIndexerFunction,
-      diffView,
-      setDiffView,
-    }} />
+    <DeveloperToolsView
+      {...{
+        handleFormating,
+        handleCodeGen,
+        setShowResetCodeModel,
+        debugMode,
+        setDebugMode,
+        heights,
+        setHeights,
+        latestHeight,
+        isExecuting,
+        stopExecution,
+        removeHeight,
+        executeIndexerFunction,
+        diffView,
+        setDiffView,
+      }}
+    />
   );
 };
 

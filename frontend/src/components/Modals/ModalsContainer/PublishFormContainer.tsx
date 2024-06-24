@@ -4,7 +4,7 @@ import { validateContractIds } from '../../../utils/validators';
 import PublishFormView from '../ModalsView/PublishFormView';
 
 interface Props {
-  updateConfig: (indexerName: string, contractFilter: string, blockHeight: string, startBlock: string) => void
+  updateConfig: (indexerName: string, contractFilter: string, blockHeight: string, startBlock: string) => void;
 }
 
 const GENESIS_BLOCK_HEIGHT = 9820210;
@@ -57,7 +57,7 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
     }
   };
 
-  function handleSetContractFilter (contractFilter: string): void {
+  function handleSetContractFilter(contractFilter: string): void {
     setContractFilter(contractFilter);
     const isContractFilterValid = validateContractIds(contractFilter);
     setIsContractFilterValid(isContractFilterValid);
@@ -65,7 +65,9 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
 
   useEffect(() => {
     if (startBlock === START_BLOCK.HEIGHT && parseInt(blockHeight) <= GENESIS_BLOCK_HEIGHT) {
-      setBlockHeightError(`Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`);
+      setBlockHeightError(
+        `Choose a block height greater than the Genesis BlockHeight ${GENESIS_BLOCK_HEIGHT}. Latest Block Height is ${latestHeight}`,
+      );
       return;
     }
     setBlockHeightError(null);
