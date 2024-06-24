@@ -298,7 +298,11 @@ export default class Provisioner {
   public async deprovision (config: ProvisioningConfig): Promise<void> {
     await wrapError(async () => {
       await this.dropSchemaAndMetadata(config.userName(), config.schemaName());
-      await this.removeLogPartitionJobs(config.userName(), config.schemaName());
+      try {
+        await this.removeLogPartitionJobs(config.userName(), config.schemaName());
+      } catch (error) {
+        console.error('failed to remove log jobs: ', error);
+      }
 
       const schemas = await this.listUserOwnedSchemas(config.userName());
 
