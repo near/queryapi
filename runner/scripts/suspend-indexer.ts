@@ -35,29 +35,41 @@ assert(process.env.PGHOST, 'PGHOST env var is required');
 const [_binary, _file, accountId, functionName] = process.argv;
 const { COORDINATOR_PORT } = process.env;
 
-const provisioner = new Provisioner();
-
 main();
 
 async function main() {
+  await suspendIndexer();
+  await logSuspension();
+
+  console.log('Done')
+}
+
+async function logSuspension() {
+  console.log('Logging suspension notification');
+
   const config = new IndexerConfig('redis stream', accountId, functionName, 0, 'code', 'schema', 2);
 
-  console.log(`Suspending indexer: ${accountId}/${functionName}\n`);
+  const pgCredentials = await new Provisioner().getPostgresConnectionParameters(config.userName());
+
+  await new IndexerMeta(config, pgCredentials).writeLogs([
+    LogEntry.systemInfo('Suspending Indexer due to inactivity'),
+  ]);
+}
+
+async function suspendIndexer() {
+  console.log(`Suspending indexer: ${accountId}/${functionName}`);
 
   const indexerManager = createIndexerManagerClient();
 
-  indexerManager.disable({ accountId, functionName }, console.log);
-
-  console.log('Logging suspension notification');
-
-  const pgCredentials = await provisioner.getPostgresConnectionParameters(config.userName());
-  const meta = new IndexerMeta(config, pgCredentials);
-
-  await meta.writeLogs([
-    LogEntry.systemInfo('Suspending Indexer due to inactivity'),
-  ]);
-
-  console.log('Done')
+  return new Promise((resolve, reject) => {
+    indexerManager.disable({ accountId, functionName }, (err: any, response: any) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(response);
+      }
+    });
+  })
 }
 
 function exists(path: string): boolean {
