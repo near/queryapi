@@ -96,7 +96,7 @@ const PublishFormView = ({
         id="contractFilter"
         type="text"
         placeholder="social.near"
-        value={startBlock === 'startBlockContinue' ? contractFilter : indexerDetails.rule.affected_account_id}
+        value={startBlock === 'startBlockContinue' ? indexerDetails.rule.affected_account_id : contractFilter}
         onChange={(e) => handleSetContractFilter(e.target.value)}
         required
         disabled={startBlock === 'startBlockContinue'}
