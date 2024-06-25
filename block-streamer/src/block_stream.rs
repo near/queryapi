@@ -12,6 +12,7 @@ use registry_types::Rule;
 const LAKE_PREFETCH_SIZE: usize = 100;
 const MAX_STREAM_SIZE_WITH_CACHE: u64 = 100;
 const DELTA_LAKE_SKIP_ACCOUNTS: [&str; 4] = ["*", "*.near", "*.kaiching", "*.tg"];
+const MAX_STREAM_SIZE: u64 = 100;
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
@@ -230,8 +231,8 @@ async fn process_delta_lake_blocks(
 
     for block_height in &blocks_from_index {
         let block_height = block_height.to_owned();
-            .publish_block(indexer, redis_stream.clone(), block_height)
         redis
+            .publish_block(indexer, redis_stream.clone(), block_height, MAX_STREAM_SIZE)
             .await?;
         redis
             .set_last_processed_block(indexer, block_height)
@@ -295,8 +296,8 @@ async fn process_near_lake_blocks(
                 }
             }
 
-                .publish_block(indexer, redis_stream.clone(), block_height)
             redis
+                .publish_block(indexer, redis_stream.clone(), block_height, MAX_STREAM_SIZE)
                 .await?;
         }
     }

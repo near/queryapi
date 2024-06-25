@@ -9,12 +9,17 @@ use crate::indexer_config::IndexerConfig;
 use crate::metrics;
 use crate::utils;
 
-struct RedisClient {
+#[cfg(test)]
+pub use MockRedisClientImpl as RedisClient;
+#[cfg(not(test))]
+pub use RedisClientImpl as RedisClient;
+
+pub struct RedisClientImpl {
     connection: ConnectionManager,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl RedisClient {
+impl RedisClientImpl {
     pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
         let connection = redis::Client::open(redis_url)?
             .get_tokio_connection_manager()
@@ -157,7 +162,23 @@ impl RedisWrapperImpl {
         indexer: &IndexerConfig,
         stream: String,
         block_height: u64,
+        max_size: u64,
     ) -> anyhow::Result<()> {
+        loop {
+            let stream_length = self.get_stream_length(stream.clone()).await?;
+
+            if stream_length.is_none() {
+                break;
+            }
+
+            if stream_length.unwrap() < max_size {
+                break;
+            }
+
+            println!("Waiting for stream to be consumed");
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+
         metrics::PUBLISHED_BLOCKS_COUNT
             .with_label_values(&[&indexer.get_full_name()])
             .inc();
@@ -169,5 +190,54 @@ impl RedisWrapperImpl {
             )
             .await
             .context("Failed to add block to Redis Stream")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use mockall::predicate;
+    use near_lake_framework::near_indexer_primitives;
+
+    #[tokio::test]
+    async fn limits_block_stream_length() {
+        let mut mock_redis_client = RedisClient::default();
+        mock_redis_client
+            .expect_xadd::<String, u64>()
+            .with(predicate::eq("stream".to_string()), predicate::always())
+            .returning(|_, _| Ok(()))
+            .once();
+        let mut stream_len = 10;
+        mock_redis_client
+            .expect_xlen::<String>()
+            .with(predicate::eq("stream".to_string()))
+            .returning(move |_| {
+                stream_len -= 1;
+                Ok(Some(stream_len))
+            });
+
+        let redis = RedisWrapperImpl {
+            client: mock_redis_client,
+        };
+
+        let indexer_config = crate::indexer_config::IndexerConfig {
+            account_id: near_indexer_primitives::types::AccountId::try_from(
+                "morgs.near".to_string(),
+            )
+            .unwrap(),
+            function_name: "test".to_string(),
+            rule: registry_types::Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: registry_types::Status::Success,
+            },
+        };
+
+        tokio::time::pause();
+
+        redis
+            .publish_block(&indexer_config, "stream".to_string(), 0, 1)
+            .await
+            .unwrap();
     }
 }
