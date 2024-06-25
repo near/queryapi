@@ -64,7 +64,7 @@ async function logSuspension() {
   const pgCredentials = await new Provisioner().getPostgresConnectionParameters(config.userName());
 
   await new IndexerMeta(config, pgCredentials).writeLogs([
-    LogEntry.systemInfo('Suspending Indexer due to inactivity'),
+    LogEntry.systemInfo('The indexer is suspended due to inactivity.'),
   ]);
 }
 
