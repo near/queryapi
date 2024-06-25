@@ -50,7 +50,7 @@ const Editor: React.FC = (): ReactElement => {
 
   const [indexingCode, setIndexingCode] = useState<string>(originalIndexingCode);
   const [schema, setSchema] = useState<string>(originalSQLCode);
-  const [cursorPostion, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
+  const [cursorPosition, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
     lineNumber: 1,
     column: 1,
   });
@@ -164,17 +164,37 @@ const Editor: React.FC = (): ReactElement => {
   }, [fileName]);
 
   useEffect(() => {
-    const savedCode = storageManager?.getIndexerCode();
-    const savedSchema = storageManager?.getSchemaCode();
-    if (savedSchema) setSchema(savedSchema);
-    if (savedCode) setIndexingCode(savedCode);
+    if (storageManager) {
+      const savedSchema = storageManager.getSchemaCode();
+      const savedIndexingCode = storageManager.getIndexerCode();
+      const savedCursorPosition = storageManager.getCursorPosition();
+
+      if (savedSchema) setSchema(savedSchema);
+      if (savedIndexingCode) setIndexingCode(savedIndexingCode);
+      if (savedCursorPosition) setCursorPosition(savedCursorPosition);
+
+      if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
+        monacoEditorRef.current.setValue(savedIndexingCode || '');
+        monacoEditorRef.current.setPosition(savedCursorPosition || { lineNumber: 1, column: 1 });
+        monacoEditorRef.current.focus();
+      }
+    }
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
   useEffect(() => {
-    storageManager?.setSchemaCode(schema);
-    storageManager?.setIndexerCode(indexingCode);
-    storageManager?.setCursorPosition(cursorPostion);
-  }, [schema, indexingCode, cursorPostion]);
+    cacheToLocal();
+  }, [indexingCode, schema]);
+
+  useEffect(() => {
+    if (!monacoEditorRef.current) return;
+
+    const editorInstance = monacoEditorRef.current;
+    editorInstance.onDidChangeCursorPosition(handleCursorChange);
+
+    return () => {
+      editorInstance.dispose();
+    };
+  }, [monacoEditorRef.current]);
 
   useEffect(() => {
     storageManager?.setSchemaTypes(schemaTypes);
@@ -184,6 +204,23 @@ const Editor: React.FC = (): ReactElement => {
   useEffect(() => {
     storageManager?.setDebugList(heights);
   }, [heights]);
+
+  const cacheToLocal = () => {
+    if (!storageManager || !monacoEditorRef.current) return;
+
+    storageManager.setSchemaCode(schema);
+    storageManager.setIndexerCode(indexingCode);
+
+    const newCursorPosition = monacoEditorRef.current.getPosition();
+    storageManager.setCursorPosition(newCursorPosition);
+  };
+
+  const handleCursorChange = () => {
+    if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
+      const position = monacoEditorRef.current.getPosition();
+      setCursorPosition(position);
+    }
+  };
 
   const attachTypesToMonaco = () => {
     // If types have been added already, dispose of them first
@@ -261,6 +298,9 @@ const Editor: React.FC = (): ReactElement => {
       );
       monacoEditorRef.current = editor;
       setDecorations(decorations);
+
+      editor.setPosition(fileName === INDEXER_TAB_NAME ? cursorPosition : { lineNumber: 1, column: 1 });
+      editor.focus();
     }
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
