@@ -137,7 +137,7 @@ impl BitmapProcessor {
             ContractPatternType::Exact(ref pattern) => {
                 let query_result: Vec<_> = self
                     .graphql_client
-                    .get_bitmaps_exact(pattern.clone(), &current_date)
+                    .get_bitmaps_exact(pattern.clone(), current_date)
                     .await?;
                 Ok(query_result
                     .iter()
@@ -147,7 +147,7 @@ impl BitmapProcessor {
             ContractPatternType::Wildcard(ref pattern) => {
                 let query_result: Vec<_> = self
                     .graphql_client
-                    .get_bitmaps_wildcard(pattern.clone(), &current_date)
+                    .get_bitmaps_wildcard(pattern.clone(), current_date)
                     .await?;
                 Ok(query_result
                     .iter()
@@ -157,7 +157,7 @@ impl BitmapProcessor {
         }
     }
 
-    fn stream_matching_block_heights<'b, 'a: 'b>(
+    pub fn stream_matching_block_heights<'b, 'a: 'b>(
         &'a self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
         contract_pattern: String,
@@ -168,18 +168,20 @@ impl BitmapProcessor {
             let mut current_date = start_date;
             while current_date <= Utc::now() {
                 let base_64_bitmaps: Vec<Base64Bitmap> = self.query_base_64_bitmaps(&contract_pattern_type, &current_date).await?;
-                let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
-                let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
+                if !base_64_bitmaps.is_empty() {
+                    let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
+                    let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
 
-                let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
-                let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
-                for bitmap in decompressed_bitmaps {
-                    bitmap_for_day.merge(bitmap)?;
-                }
+                    let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
+                    let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
+                    for bitmap in decompressed_bitmaps {
+                        bitmap_for_day.merge(bitmap)?;
+                    }
 
-                let mut bitmap_iter = bitmap_for_day.iter();
-                while let Some(block_height) = bitmap_iter.next() {
-                    yield block_height;
+                    let mut bitmap_iter = bitmap_for_day.iter();
+                    while let Some(block_height) = bitmap_iter.next() {
+                        yield block_height;
+                    }
                 }
                 current_date = self.next_day(current_date);
             }
@@ -195,9 +197,9 @@ mod tests {
     fn exact_query_result(
         first_block_height: i64,
         bitmap: &str,
-    ) -> crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex
+    ) -> crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps
     {
-        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex {
+        crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps {
             first_block_height,
             bitmap: bitmap.to_string(),
         }
@@ -206,62 +208,11 @@ mod tests {
     fn wildcard_query_result(
         first_block_height: i64,
         bitmap: &str
-    ) -> crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex{
-        crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex {
+    ) -> crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps{
+        crate::graphql::client::get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps {
             first_block_height,
             bitmap: bitmap.to_string(),
         }
-    }
-
-    fn generate_block_with_timestamp(date: &str) -> String {
-        let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
-            .unwrap()
-            .and_hms_opt(0, 0, 0)
-            .unwrap();
-
-        let date_time_utc = chrono::Utc.from_utc_datetime(&naive_date).timestamp() * 1_000_000_000;
-
-        format!(
-            r#"{{
-                "author": "someone",
-                "header": {{
-                  "approvals": [],
-                  "block_merkle_root": "ERiC7AJ2zbVz1HJHThR5NWDDN9vByhwdjcVfivmpY5B",
-                  "block_ordinal": 92102682,
-                  "challenges_result": [],
-                  "challenges_root": "11111111111111111111111111111111",
-                  "chunk_headers_root": "MDiJxDyvUQaZRKmUwa5jgQuV6XjwVvnm4tDrajCxwvz",
-                  "chunk_mask": [],
-                  "chunk_receipts_root": "n84wEo7kTKTCJsyqBZ2jndhjrAMeJAXMwKvnJR7vCuy",
-                  "chunk_tx_root": "D8j64GMKBMvUfvnuHtWUyDtMHM5mJ2pA4G5VmYYJvo5G",
-                  "chunks_included": 4,
-                  "epoch_id": "2RMQiomr6CSSwUWpmB62YohxHbfadrHfcsaa3FVb4J9x",
-                  "epoch_sync_data_hash": null,
-                  "gas_price": "100000000",
-                  "hash": "FA1z9RVm9fX3g3mgP3NToZGwWeeXYn8bvZs4nwwTgCpD",
-                  "height": 102162333,
-                  "last_ds_final_block": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
-                  "last_final_block": "8xkwjn6Lb6UhMBhxcbVQBf3318GafkdaXoHA8Jako1nn",
-                  "latest_protocol_version": 62,
-                  "next_bp_hash": "dmW84aEj2iVJMLwJodJwTfAyeA1LJaHEthvnoAsvTPt",
-                  "next_epoch_id": "C9TDDYthANoduoTBZS7WYDsBSe9XCm4M2F9hRoVXVXWY",
-                  "outcome_root": "6WxzWLVp4b4bFbxHzu18apVfXLvHGKY7CHoqD2Eq3TFJ",
-                  "prev_hash": "Ax2a3MSYuv2hgybnCbpNJMdYmPrHDHdA2hHTUrBkD915",
-                  "prev_height": 102162332,
-                  "prev_state_root": "Aq2ndkyDiwroUWN69Ema9hHtnr6dPHoEBRNyfmd8v4gB",
-                  "random_value": "7ruuMyDhGtTkYaCGYMy7PirPiM79DXa8GhVzQW1pHRoz",
-                  "rent_paid": "0",
-                  "signature": "ed25519:5gYYaWHkAEK5etB8tDpw7fmehkoYSprUxKPygaNqmhVDFCMkA1n379AtL1BBkQswLAPxWs1BZvypFnnLvBtHRknm",
-                  "timestamp": 1695921400989555700,
-                  "timestamp_nanosec": "{}",
-                  "total_supply": "1155783047679681223245725102954966",
-                  "validator_proposals": [],
-                  "validator_reward": "0"
-                }},
-                "chunks": []
-            }}"#,
-            date_time_utc
-        )
     }
 
     #[test]
@@ -333,7 +284,7 @@ mod tests {
         mock_s3_client
             .expect_get_text_file()
             .returning(move |_, _| {
-                Ok(generate_block_with_timestamp(
+                Ok(crate::test_utils::generate_block_with_timestamp(
                     &Utc::now().format("%Y-%m-%d").to_string(),
                 ))
             });
@@ -369,7 +320,7 @@ mod tests {
         mock_s3_client
             .expect_get_text_file()
             .returning(move |_, _| {
-                Ok(generate_block_with_timestamp(
+                Ok(crate::test_utils::generate_block_with_timestamp(
                     &(Utc::now() - Duration::days(2))
                         .format("%Y-%m-%d")
                         .to_string(),

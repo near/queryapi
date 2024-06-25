@@ -7,7 +7,7 @@ pub mod blockstreamer {
 pub async fn init(
     port: &str,
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
-    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
 ) -> anyhow::Result<()> {
     let addr = format!("0.0.0.0:{}", port).parse()?;
@@ -16,7 +16,7 @@ pub async fn init(
 
     let block_streamer_service = block_streamer_service::BlockStreamerService::new(
         redis_client,
-        delta_lake_client,
+        bitmap_processor,
         lake_s3_client,
     );
 

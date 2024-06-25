@@ -3,7 +3,6 @@ use tracing_subscriber::prelude::*;
 mod bitmap;
 mod bitmap_processor;
 mod block_stream;
-mod delta_lake_client;
 mod graphql;
 mod indexer_config;
 mod lake_s3_client;
@@ -32,6 +31,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
+    let graphql_url = "https://queryapi-hasura-graphql-mainnet-24ktefolwq-ew.a.run.app/v1/graphql"; // Prod Hasura
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
     let metrics_port = std::env::var("METRICS_PORT")
         .expect("METRICS_PORT is not set")
@@ -51,14 +51,18 @@ async fn main() -> anyhow::Result<()> {
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
     let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
-    let delta_lake_client =
-        std::sync::Arc::new(crate::delta_lake_client::DeltaLakeClient::new(s3_client));
+    let graphql_client = graphql::client::GraphQLClient::new(graphql_url.to_string());
+
+    let bitmap_processor = std::sync::Arc::new(crate::bitmap_processor::BitmapProcessor::new(
+        graphql_client,
+        s3_client.clone(),
+    ));
 
     let lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::from_conf(s3_config);
 
     tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 
-    server::init(&grpc_port, redis_client, delta_lake_client, lake_s3_client).await?;
+    server::init(&grpc_port, redis_client, bitmap_processor, lake_s3_client).await?;
 
     Ok(())
 }
