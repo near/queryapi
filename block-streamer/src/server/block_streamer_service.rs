@@ -206,7 +206,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .returning(|_, _| Ok(vec![]));
 
-        let mock_redis_wrapper = crate::redis::RedisClient::default();
+        let mock_redis = crate::redis::RedisClient::default();
 
         let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
         mock_lake_s3_client
@@ -214,7 +214,7 @@ mod tests {
             .returning(crate::lake_s3_client::SharedLakeS3Client::default);
 
         BlockStreamerService::new(
-            std::sync::Arc::new(mock_redis_wrapper),
+            std::sync::Arc::new(mock_redis),
             std::sync::Arc::new(mock_delta_lake_client),
             mock_lake_s3_client,
         )

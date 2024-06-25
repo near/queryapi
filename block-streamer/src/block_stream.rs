@@ -352,8 +352,8 @@ mod tests {
             .expect_list_matching_block_heights()
             .returning(|_, _| Ok(vec![107503702, 107503703]));
 
-        let mut mock_redis_wrapper = crate::redis::RedisClient::default();
-        mock_redis_wrapper
+        let mut mock_redis = crate::redis::RedisClient::default();
+        mock_redis
             .expect_publish_block()
             .with(
                 predicate::always(),
@@ -363,7 +363,7 @@ mod tests {
             )
             .returning(|_, _, _, _| Ok(()))
             .times(3);
-        mock_redis_wrapper
+        mock_redis
             .expect_set_last_processed_block()
             .with(
                 predicate::always(),
@@ -371,11 +371,11 @@ mod tests {
             )
             .returning(|_, _| Ok(()))
             .times(4);
-        mock_redis_wrapper
+        mock_redis
             .expect_cache_streamer_message()
             .with(predicate::always())
             .returning(|_| Ok(()));
-        mock_redis_wrapper
+        mock_redis
             .expect_get_stream_length()
             .with(predicate::eq("stream key".to_string()))
             .returning(|_| Ok(Some(10)));
@@ -395,7 +395,7 @@ mod tests {
         start_block_stream(
             91940840,
             &indexer_config,
-            std::sync::Arc::new(mock_redis_wrapper),
+            std::sync::Arc::new(mock_redis),
             std::sync::Arc::new(mock_delta_lake_client),
             mock_lake_s3_client,
             &ChainId::Mainnet,
