@@ -175,7 +175,6 @@ impl RedisClientImpl {
                 break;
             }
 
-            println!("Waiting for stream to be consumed");
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
 
