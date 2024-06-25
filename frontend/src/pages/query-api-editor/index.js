@@ -2,7 +2,7 @@ import { withRouter } from 'next/router';
 import React, { useContext, useEffect } from 'react';
 import { Alert } from 'react-bootstrap';
 
-import Editor from '@/components/Editor/Legacy/Editor';
+import Editor from '@/components/Editor/EditorComponents/Editor';
 import IndexerLogsContainer from '@/components/Logs/LogsViewContainer/IndexerLogsContainer';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
