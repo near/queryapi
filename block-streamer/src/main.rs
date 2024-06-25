@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
         "Starting Block Streamer"
     );
 
-    let redis = std::sync::Arc::new(redis::RedisWrapper::connect(&redis_url).await?);
+    let redis = std::sync::Arc::new(redis::RedisClient::connect(&redis_url).await?);
 
     let aws_config = aws_config::from_env().load().await;
     let s3_config = aws_sdk_s3::Config::from(&aws_config);

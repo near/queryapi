@@ -10,16 +10,16 @@ use crate::metrics;
 use crate::utils;
 
 #[cfg(test)]
-pub use MockRedisClientImpl as RedisClient;
+use MockRedisCommandsImpl as RedisCommands;
 #[cfg(not(test))]
-pub use RedisClientImpl as RedisClient;
+use RedisCommandsImpl as RedisCommands;
 
-pub struct RedisClientImpl {
+struct RedisCommandsImpl {
     connection: ConnectionManager,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl RedisClientImpl {
+impl RedisCommandsImpl {
     pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
         let connection = redis::Client::open(redis_url)?
             .get_tokio_connection_manager()
@@ -92,22 +92,22 @@ impl RedisClientImpl {
 }
 
 #[cfg(test)]
-pub use MockRedisWrapperImpl as RedisWrapper;
+pub use MockRedisClientImpl as RedisClient;
 #[cfg(not(test))]
-pub use RedisWrapperImpl as RedisWrapper;
+pub use RedisClientImpl as RedisClient;
 
-pub struct RedisWrapperImpl {
-    client: RedisClient,
+pub struct RedisClientImpl {
+    commands: RedisCommands,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl RedisWrapperImpl {
+impl RedisClientImpl {
     const STREAMER_MESSAGE_PREFIX: &'static str = "streamer_message:";
 
     pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
-        let client = RedisClient::connect(redis_url).await?;
+        let commands = RedisCommands::connect(redis_url).await?;
 
-        Ok(Self { client })
+        Ok(Self { commands })
     }
 
     pub async fn set_last_processed_block(
@@ -127,14 +127,14 @@ impl RedisWrapperImpl {
                     .context("Failed to convert block height (u64) to metrics type (i64)")?,
             );
 
-        self.client
+        self.commands
             .set(indexer_config.last_processed_block_key(), height)
             .await
             .context("Failed to set last processed block")
     }
 
     pub async fn get_stream_length(&self, stream: String) -> anyhow::Result<Option<u64>> {
-        self.client.xlen(stream).await
+        self.commands.xlen(stream).await
     }
 
     pub async fn cache_streamer_message(
@@ -147,7 +147,7 @@ impl RedisWrapperImpl {
 
         utils::snake_to_camel(&mut streamer_message);
 
-        self.client
+        self.commands
             .set_ex(
                 format!("{}{}", Self::STREAMER_MESSAGE_PREFIX, height),
                 serde_json::to_string(&streamer_message)?,
@@ -183,7 +183,7 @@ impl RedisWrapperImpl {
             .with_label_values(&[&indexer.get_full_name()])
             .inc();
 
-        self.client
+        self.commands
             .xadd(
                 stream.clone(),
                 &[(String::from("block_height"), block_height)],
@@ -202,14 +202,14 @@ mod test {
 
     #[tokio::test]
     async fn limits_block_stream_length() {
-        let mut mock_redis_client = RedisClient::default();
-        mock_redis_client
+        let mut mock_redis_commands = RedisCommands::default();
+        mock_redis_commands
             .expect_xadd::<String, u64>()
             .with(predicate::eq("stream".to_string()), predicate::always())
             .returning(|_, _| Ok(()))
             .once();
         let mut stream_len = 10;
-        mock_redis_client
+        mock_redis_commands
             .expect_xlen::<String>()
             .with(predicate::eq("stream".to_string()))
             .returning(move |_| {
@@ -217,8 +217,8 @@ mod test {
                 Ok(Some(stream_len))
             });
 
-        let redis = RedisWrapperImpl {
-            client: mock_redis_client,
+        let redis = RedisClientImpl {
+            commands: mock_redis_commands,
         };
 
         let indexer_config = crate::indexer_config::IndexerConfig {

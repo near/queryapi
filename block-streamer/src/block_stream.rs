@@ -46,7 +46,7 @@ impl BlockStream {
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis: std::sync::Arc<crate::redis::RedisWrapper>,
+        redis: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> anyhow::Result<()> {
@@ -130,7 +130,7 @@ impl BlockStream {
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis: std::sync::Arc<crate::redis::RedisWrapper>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: &ChainId,
@@ -176,7 +176,7 @@ pub(crate) async fn start_block_stream(
 async fn process_delta_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    redis: std::sync::Arc<crate::redis::RedisWrapper>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
     indexer: &IndexerConfig,
     redis_stream: String,
 ) -> anyhow::Result<u64> {
@@ -254,7 +254,7 @@ async fn process_near_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     lake_prefetch_size: usize,
-    redis: std::sync::Arc<crate::redis::RedisWrapper>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
     indexer: &IndexerConfig,
     redis_stream: String,
     chain_id: &ChainId,
@@ -352,7 +352,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .returning(|_, _| Ok(vec![107503702, 107503703]));
 
-        let mut mock_redis_wrapper = crate::redis::RedisWrapper::default();
+        let mut mock_redis_wrapper = crate::redis::RedisClient::default();
         mock_redis_wrapper
             .expect_publish_block()
             .with(
@@ -426,7 +426,7 @@ mod tests {
                 })
             });
 
-        let mut mock_redis_client = crate::redis::RedisWrapper::default();
+        let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
             .expect_publish_block()
             .with(
@@ -498,7 +498,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mut mock_redis_client = crate::redis::RedisWrapper::default();
+        let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
         mock_redis_client.expect_set_last_processed_block().never();
 
@@ -543,7 +543,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mut mock_redis_client = crate::redis::RedisWrapper::default();
+        let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
         mock_redis_client.expect_set_last_processed_block().never();
 
@@ -588,7 +588,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mut mock_redis_client = crate::redis::RedisWrapper::default();
+        let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
         mock_redis_client.expect_set_last_processed_block().never();
 

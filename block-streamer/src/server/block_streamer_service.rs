@@ -13,7 +13,7 @@ use crate::server::blockstreamer;
 use blockstreamer::*;
 
 pub struct BlockStreamerService {
-    redis: std::sync::Arc<crate::redis::RedisWrapper>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
@@ -22,7 +22,7 @@ pub struct BlockStreamerService {
 
 impl BlockStreamerService {
     pub fn new(
-        redis: std::sync::Arc<crate::redis::RedisWrapper>,
+        redis: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
@@ -206,7 +206,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .returning(|_, _| Ok(vec![]));
 
-        let mock_redis_wrapper = crate::redis::RedisWrapper::default();
+        let mock_redis_wrapper = crate::redis::RedisClient::default();
 
         let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
         mock_lake_s3_client
