@@ -10,18 +10,16 @@ use crate::metrics;
 use crate::utils;
 
 #[cfg(test)]
-pub use MockRedisClientImpl as RedisClient;
+use MockRedisCommandsImpl as RedisCommands;
 #[cfg(not(test))]
-pub use RedisClientImpl as RedisClient;
+use RedisCommandsImpl as RedisCommands;
 
-pub struct RedisClientImpl {
+struct RedisCommandsImpl {
     connection: ConnectionManager,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl RedisClientImpl {
-    const STREAMER_MESSAGE_PREFIX: &'static str = "streamer_message:";
-
+impl RedisCommandsImpl {
     pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
         let connection = redis::Client::open(redis_url)?
             .get_tokio_connection_manager()
@@ -91,6 +89,26 @@ impl RedisClientImpl {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+pub use MockRedisClientImpl as RedisClient;
+#[cfg(not(test))]
+pub use RedisClientImpl as RedisClient;
+
+pub struct RedisClientImpl {
+    commands: RedisCommands,
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl RedisClientImpl {
+    const STREAMER_MESSAGE_PREFIX: &'static str = "streamer_message:";
+
+    pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
+        let commands = RedisCommands::connect(redis_url).await?;
+
+        Ok(Self { commands })
+    }
 
     pub async fn set_last_processed_block(
         &self,
@@ -109,13 +127,14 @@ impl RedisClientImpl {
                     .context("Failed to convert block height (u64) to metrics type (i64)")?,
             );
 
-        self.set(indexer_config.last_processed_block_key(), height)
+        self.commands
+            .set(indexer_config.last_processed_block_key(), height)
             .await
             .context("Failed to set last processed block")
     }
 
     pub async fn get_stream_length(&self, stream: String) -> anyhow::Result<Option<u64>> {
-        self.xlen(stream).await
+        self.commands.xlen(stream).await
     }
 
     pub async fn cache_streamer_message(
@@ -128,13 +147,14 @@ impl RedisClientImpl {
 
         utils::snake_to_camel(&mut streamer_message);
 
-        self.set_ex(
-            format!("{}{}", Self::STREAMER_MESSAGE_PREFIX, height),
-            serde_json::to_string(&streamer_message)?,
-            60,
-        )
-        .await
-        .context("Failed to cache streamer message")
+        self.commands
+            .set_ex(
+                format!("{}{}", Self::STREAMER_MESSAGE_PREFIX, height),
+                serde_json::to_string(&streamer_message)?,
+                60,
+            )
+            .await
+            .context("Failed to cache streamer message")
     }
 
     pub async fn publish_block(
@@ -142,16 +162,82 @@ impl RedisClientImpl {
         indexer: &IndexerConfig,
         stream: String,
         block_height: u64,
+        max_size: u64,
     ) -> anyhow::Result<()> {
+        loop {
+            let stream_length = self.get_stream_length(stream.clone()).await?;
+
+            if stream_length.is_none() {
+                break;
+            }
+
+            if stream_length.unwrap() < max_size {
+                break;
+            }
+
+            println!("Waiting for stream to be consumed");
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+
         metrics::PUBLISHED_BLOCKS_COUNT
             .with_label_values(&[&indexer.get_full_name()])
             .inc();
 
-        self.xadd(
-            stream.clone(),
-            &[(String::from("block_height"), block_height)],
-        )
-        .await
-        .context("Failed to add block to Redis Stream")
+        self.commands
+            .xadd(
+                stream.clone(),
+                &[(String::from("block_height"), block_height)],
+            )
+            .await
+            .context("Failed to add block to Redis Stream")
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use mockall::predicate;
+    use near_lake_framework::near_indexer_primitives;
+
+    #[tokio::test]
+    async fn limits_block_stream_length() {
+        let mut mock_redis_commands = RedisCommands::default();
+        mock_redis_commands
+            .expect_xadd::<String, u64>()
+            .with(predicate::eq("stream".to_string()), predicate::always())
+            .returning(|_, _| Ok(()))
+            .once();
+        let mut stream_len = 10;
+        mock_redis_commands
+            .expect_xlen::<String>()
+            .with(predicate::eq("stream".to_string()))
+            .returning(move |_| {
+                stream_len -= 1;
+                Ok(Some(stream_len))
+            });
+
+        let redis = RedisClientImpl {
+            commands: mock_redis_commands,
+        };
+
+        let indexer_config = crate::indexer_config::IndexerConfig {
+            account_id: near_indexer_primitives::types::AccountId::try_from(
+                "morgs.near".to_string(),
+            )
+            .unwrap(),
+            function_name: "test".to_string(),
+            rule: registry_types::Rule::ActionAny {
+                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                status: registry_types::Status::Success,
+            },
+        };
+
+        tokio::time::pause();
+
+        redis
+            .publish_block(&indexer_config, "stream".to_string(), 0, 1)
+            .await
+            .unwrap();
     }
 }
