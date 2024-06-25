@@ -45,7 +45,7 @@ impl BlockStream {
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis_client: std::sync::Arc<crate::redis::RedisClient>,
+        redis: std::sync::Arc<crate::redis::RedisWrapper>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> anyhow::Result<()> {
@@ -74,7 +74,7 @@ impl BlockStream {
                 result = start_block_stream(
                     start_block_height,
                     &indexer_config,
-                    redis_client,
+                    redis,
                     delta_lake_client,
                     lake_s3_client,
                     &chain_id,
@@ -129,7 +129,7 @@ impl BlockStream {
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    redis: std::sync::Arc<crate::redis::RedisWrapper>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: &ChainId,
@@ -145,7 +145,7 @@ pub(crate) async fn start_block_stream(
     let last_indexed_delta_lake_block = process_delta_lake_blocks(
         start_block_height,
         delta_lake_client,
-        redis_client.clone(),
+        redis.clone(),
         indexer,
         redis_stream.clone(),
     )
@@ -156,7 +156,7 @@ pub(crate) async fn start_block_stream(
         last_indexed_delta_lake_block,
         lake_s3_client,
         lake_prefetch_size,
-        redis_client,
+        redis,
         indexer,
         redis_stream,
         chain_id,
@@ -175,7 +175,7 @@ pub(crate) async fn start_block_stream(
 async fn process_delta_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    redis: std::sync::Arc<crate::redis::RedisWrapper>,
     indexer: &IndexerConfig,
     redis_stream: String,
 ) -> anyhow::Result<u64> {
@@ -230,10 +230,10 @@ async fn process_delta_lake_blocks(
 
     for block_height in &blocks_from_index {
         let block_height = block_height.to_owned();
-        redis_client
             .publish_block(indexer, redis_stream.clone(), block_height)
+        redis
             .await?;
-        redis_client
+        redis
             .set_last_processed_block(indexer, block_height)
             .await?;
     }
@@ -253,7 +253,7 @@ async fn process_near_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     lake_prefetch_size: usize,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    redis: std::sync::Arc<crate::redis::RedisWrapper>,
     indexer: &IndexerConfig,
     redis_stream: String,
     chain_id: &ChainId,
@@ -278,7 +278,7 @@ async fn process_near_lake_blocks(
         let block_height = streamer_message.block.header.height;
         last_indexed_block = block_height;
 
-        redis_client
+        redis
             .set_last_processed_block(indexer, block_height)
             .await?;
 
@@ -289,18 +289,14 @@ async fn process_near_lake_blocks(
         );
 
         if !matches.is_empty() {
-            if let Ok(Some(stream_length)) =
-                redis_client.get_stream_length(redis_stream.clone()).await
-            {
+            if let Ok(Some(stream_length)) = redis.get_stream_length(redis_stream.clone()).await {
                 if stream_length <= MAX_STREAM_SIZE_WITH_CACHE {
-                    redis_client
-                        .cache_streamer_message(&streamer_message)
-                        .await?;
+                    redis.cache_streamer_message(&streamer_message).await?;
                 }
             }
 
-            redis_client
                 .publish_block(indexer, redis_stream.clone(), block_height)
+            redis
                 .await?;
         }
     }
@@ -355,17 +351,18 @@ mod tests {
             .expect_list_matching_block_heights()
             .returning(|_, _| Ok(vec![107503702, 107503703]));
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
-        mock_redis_client
+        let mut mock_redis_wrapper = crate::redis::RedisWrapper::default();
+        mock_redis_wrapper
             .expect_publish_block()
             .with(
                 predicate::always(),
                 predicate::eq("stream key".to_string()),
                 predicate::in_iter([107503702, 107503703, 107503705]),
+                predicate::always(),
             )
-            .returning(|_, _, _| Ok(()))
+            .returning(|_, _, _, _| Ok(()))
             .times(3);
-        mock_redis_client
+        mock_redis_wrapper
             .expect_set_last_processed_block()
             .with(
                 predicate::always(),
@@ -373,11 +370,11 @@ mod tests {
             )
             .returning(|_, _| Ok(()))
             .times(4);
-        mock_redis_client
+        mock_redis_wrapper
             .expect_cache_streamer_message()
             .with(predicate::always())
             .returning(|_| Ok(()));
-        mock_redis_client
+        mock_redis_wrapper
             .expect_get_stream_length()
             .with(predicate::eq("stream key".to_string()))
             .returning(|_| Ok(Some(10)));
@@ -397,7 +394,7 @@ mod tests {
         start_block_stream(
             91940840,
             &indexer_config,
-            std::sync::Arc::new(mock_redis_client),
+            std::sync::Arc::new(mock_redis_wrapper),
             std::sync::Arc::new(mock_delta_lake_client),
             mock_lake_s3_client,
             &ChainId::Mainnet,
@@ -428,15 +425,16 @@ mod tests {
                 })
             });
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
+        let mut mock_redis_client = crate::redis::RedisWrapper::default();
         mock_redis_client
             .expect_publish_block()
             .with(
                 predicate::always(),
                 predicate::eq("stream key".to_string()),
                 predicate::in_iter([107503705]),
+                predicate::always(),
             )
-            .returning(|_, _, _| Ok(()))
+            .returning(|_, _, _, _| Ok(()))
             .times(1);
         mock_redis_client
             .expect_set_last_processed_block()
@@ -499,7 +497,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
+        let mut mock_redis_client = crate::redis::RedisWrapper::default();
         mock_redis_client.expect_publish_block().never();
         mock_redis_client.expect_set_last_processed_block().never();
 
@@ -544,7 +542,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
+        let mut mock_redis_client = crate::redis::RedisWrapper::default();
         mock_redis_client.expect_publish_block().never();
         mock_redis_client.expect_set_last_processed_block().never();
 
@@ -589,7 +587,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .never();
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
+        let mut mock_redis_client = crate::redis::RedisWrapper::default();
         mock_redis_client.expect_publish_block().never();
         mock_redis_client.expect_set_last_processed_block().never();
 

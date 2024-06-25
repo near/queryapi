@@ -9,19 +9,12 @@ use crate::indexer_config::IndexerConfig;
 use crate::metrics;
 use crate::utils;
 
-#[cfg(test)]
-pub use MockRedisClientImpl as RedisClient;
-#[cfg(not(test))]
-pub use RedisClientImpl as RedisClient;
-
-pub struct RedisClientImpl {
+struct RedisClient {
     connection: ConnectionManager,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl RedisClientImpl {
-    const STREAMER_MESSAGE_PREFIX: &'static str = "streamer_message:";
-
+impl RedisClient {
     pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
         let connection = redis::Client::open(redis_url)?
             .get_tokio_connection_manager()
@@ -91,6 +84,26 @@ impl RedisClientImpl {
 
         Ok(())
     }
+}
+
+#[cfg(test)]
+pub use MockRedisWrapperImpl as RedisWrapper;
+#[cfg(not(test))]
+pub use RedisWrapperImpl as RedisWrapper;
+
+pub struct RedisWrapperImpl {
+    client: RedisClient,
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl RedisWrapperImpl {
+    const STREAMER_MESSAGE_PREFIX: &'static str = "streamer_message:";
+
+    pub async fn connect(redis_url: &str) -> Result<Self, RedisError> {
+        let client = RedisClient::connect(redis_url).await?;
+
+        Ok(Self { client })
+    }
 
     pub async fn set_last_processed_block(
         &self,
@@ -109,13 +122,14 @@ impl RedisClientImpl {
                     .context("Failed to convert block height (u64) to metrics type (i64)")?,
             );
 
-        self.set(indexer_config.last_processed_block_key(), height)
+        self.client
+            .set(indexer_config.last_processed_block_key(), height)
             .await
             .context("Failed to set last processed block")
     }
 
     pub async fn get_stream_length(&self, stream: String) -> anyhow::Result<Option<u64>> {
-        self.xlen(stream).await
+        self.client.xlen(stream).await
     }
 
     pub async fn cache_streamer_message(
@@ -128,13 +142,14 @@ impl RedisClientImpl {
 
         utils::snake_to_camel(&mut streamer_message);
 
-        self.set_ex(
-            format!("{}{}", Self::STREAMER_MESSAGE_PREFIX, height),
-            serde_json::to_string(&streamer_message)?,
-            60,
-        )
-        .await
-        .context("Failed to cache streamer message")
+        self.client
+            .set_ex(
+                format!("{}{}", Self::STREAMER_MESSAGE_PREFIX, height),
+                serde_json::to_string(&streamer_message)?,
+                60,
+            )
+            .await
+            .context("Failed to cache streamer message")
     }
 
     pub async fn publish_block(
@@ -147,11 +162,12 @@ impl RedisClientImpl {
             .with_label_values(&[&indexer.get_full_name()])
             .inc();
 
-        self.xadd(
-            stream.clone(),
-            &[(String::from("block_height"), block_height)],
-        )
-        .await
-        .context("Failed to add block to Redis Stream")
+        self.client
+            .xadd(
+                stream.clone(),
+                &[(String::from("block_height"), block_height)],
+            )
+            .await
+            .context("Failed to add block to Redis Stream")
     }
 }
