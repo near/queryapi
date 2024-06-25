@@ -329,10 +329,7 @@ impl Contract {
                     env::panic_str(&format!("Account ID {} is invalid", account_id));
                 })
             }
-            None => {
-                self.assert_roles(vec![Role::Owner, Role::User]);
-                env::signer_account_id()
-            }
+            None => env::signer_account_id(),
         };
 
         log!(
@@ -1337,8 +1334,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near does not have any roles")]
-    fn anonymous_cannot_remove_functions() {
+    fn anonymous_can_remove_functions() {
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
             env::sha256_array(account_id.as_bytes()),
