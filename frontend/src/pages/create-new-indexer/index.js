@@ -1,8 +1,9 @@
-import React, { useContext, useEffect } from 'react';
 import { withRouter } from 'next/router';
+import React, { useContext, useEffect } from 'react';
 import { Alert } from 'react-bootstrap';
-import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+
 import CreateNewIndexer from '@/components/CreateNewIndexer';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
 const CreateNewIndexerPage = ({ router }) => {
   const { accountId } = router.query;

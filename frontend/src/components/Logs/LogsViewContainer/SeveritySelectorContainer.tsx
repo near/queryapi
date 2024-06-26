@@ -1,4 +1,5 @@
 import React from 'react';
+
 import SeverityRadioButtonGroupView from '../LogsView/SeveritySelectorView';
 
 interface SeveritySelectorProps {

@@ -13,5 +13,9 @@ module.exports = {
     "@typescript-eslint/consistent-type-imports": "error",
     "@typescript-eslint/no-unused-vars": ['warn', { argsIgnorePattern: "^_", "varsIgnorePattern": "^_" }],
     '@typescript-eslint/no-empty-function': ['warn', { allow: ['methods'] }],
+    "@typescript-eslint/ban-ts-comment": ["error", {
+      "ts-ignore": "allow-with-description",
+      "minimumDescriptionLength": 5
+    }],
   }
 };

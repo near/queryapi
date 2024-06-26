@@ -1,6 +1,6 @@
 import React from 'react';
 import { Row, Col, Form, Button } from 'react-bootstrap';
-import { CheckmarkIcon } from './Icons/CheckMarkIcon';
+import { CheckmarkIcon } from '@/components/Common/Icons/CheckMarkIcon';
 import ClearButtonContainer from '../LogsViewContainer/ClearButtonContainer';
 
 const OptionSelectorView = ({ options, selectedOption, onOptionChange, handleOptionChange, handleClearSelection }) => {

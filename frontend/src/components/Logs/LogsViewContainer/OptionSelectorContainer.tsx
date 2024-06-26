@@ -1,4 +1,5 @@
 import React from 'react';
+
 import OptionSelectorView from '../LogsView/OptionSelectorView';
 interface OptionSelectorContainerProps {
   options: string[];

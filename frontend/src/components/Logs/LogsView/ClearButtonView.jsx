@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from 'react-bootstrap';
-import { ClearIcon } from '../LogsView/Icons/ClearIcon';
+import { ClearIcon } from '@/components/Common/Icons/ClearIcon';
 
 const ClearButtonView = ({ onClick }) => {
   return (
