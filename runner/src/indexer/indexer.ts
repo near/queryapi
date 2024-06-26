@@ -107,7 +107,9 @@ export default class Indexer {
       }, this.tracer, 'get database connection parameters');
 
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
-      simultaneousPromises.push(this.setStatus(IndexerStatus.RUNNING));
+      simultaneousPromises.push(this.setStatus(IndexerStatus.RUNNING).catch((e: Error) => {
+        this.logger.error('Failed to set status to RUNNING', e);
+      }));
       const vm = new VM({ allowAsync: true });
       const context = this.buildContext(blockHeight, logEntries);
 
@@ -130,10 +132,14 @@ export default class Indexer {
           runIndexerCodeSpan.end();
         }
       });
-      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight));
+      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight).catch((e: Error) => {
+        this.logger.error('Failed to update block height', e);
+      }));
     } catch (e) {
       // TODO: Prevent unnecesary reruns of set status
-      simultaneousPromises.push(await this.setStatus(IndexerStatus.FAILING));
+      simultaneousPromises.push(await this.setStatus(IndexerStatus.FAILING).catch((e: Error) => {
+        this.logger.error('Failed to set status to FAILING', e);
+      }));
       throw e;
     } finally {
       const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
