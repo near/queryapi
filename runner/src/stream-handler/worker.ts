@@ -101,6 +101,8 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
   let currBlockHeight = 0;
 
   while (true) {
+    METRICS.EXECUTOR_UP.labels({ indexer: indexerConfig.fullName() }).inc();
+
     if (workerContext.queue.length === 0) {
       await sleep(100);
       continue;
@@ -150,9 +152,11 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         executionDurationTimer();
 
+        METRICS.SUCCESSFUL_EXECUTIONS.labels({ indexer: indexerConfig.fullName() }).inc();
         METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerConfig.fullName() }).set(currBlockHeight);
         postRunSpan.end();
       } catch (err) {
+        METRICS.FAILED_EXECUTIONS.labels({ indexer: indexerConfig.fullName() }).inc();
         parentSpan.setAttribute('status', 'failed');
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.FAILING } });
         const error = err as Error;
