@@ -980,6 +980,7 @@ dependencies = [
  "lazy_static",
  "mockall",
  "near-lake-framework",
+ "pin-project",
  "prometheus",
  "prost 0.12.4",
  "redis",
