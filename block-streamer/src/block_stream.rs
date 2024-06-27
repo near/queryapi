@@ -1,3 +1,7 @@
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Poll;
+
 use anyhow::Context;
 use near_lake_framework::near_indexer_primitives;
 use tokio::task::JoinHandle;
@@ -13,6 +17,33 @@ const LAKE_PREFETCH_SIZE: usize = 100;
 const MAX_STREAM_SIZE_WITH_CACHE: u64 = 100;
 const DELTA_LAKE_SKIP_ACCOUNTS: [&str; 4] = ["*", "*.near", "*.kaiching", "*.tg"];
 const MAX_STREAM_SIZE: u64 = 100;
+
+pub struct PollCounter<F> {
+    inner: F,
+    indexer_name: String,
+}
+
+impl<F> PollCounter<F> {
+    pub fn new(inner: F, indexer_name: String) -> Self {
+        Self {
+            inner,
+            indexer_name,
+        }
+    }
+}
+
+impl<F: Future> Future for PollCounter<F> {
+    type Output = F::Output;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        metrics::BLOCK_STREAM_UP
+            .with_label_values(&[&self.indexer_name])
+            .inc();
+
+        let future = unsafe { self.map_unchecked_mut(|s| &mut s.inner) };
+        future.poll(cx)
+    }
+}
 
 pub struct Task {
     handle: JoinHandle<anyhow::Result<()>>,
@@ -55,24 +86,15 @@ impl BlockStream {
         }
 
         let cancellation_token = tokio_util::sync::CancellationToken::new();
-        let cancellation_token_clone = cancellation_token.clone();
 
-        let indexer_config = self.indexer_config.clone();
-        let chain_id = self.chain_id.clone();
-        let redis_stream = self.redis_stream.clone();
+        let handle = tokio::spawn({
+            let cancellation_token = cancellation_token.clone();
+            let indexer_config = self.indexer_config.clone();
+            let chain_id = self.chain_id.clone();
+            let redis_stream = self.redis_stream.clone();
 
-        let handle = tokio::spawn(async move {
-            tokio::select! {
-                _ = cancellation_token_clone.cancelled() => {
-                    tracing::info!(
-                        account_id = indexer_config.account_id.as_str(),
-                        function_name = indexer_config.function_name,
-                        "Cancelling block stream task",
-                    );
-
-                    Ok(())
-                },
-                result = start_block_stream(
+            async move {
+                let block_stream_future = start_block_stream(
                     start_block_height,
                     &indexer_config,
                     redis,
@@ -80,17 +102,33 @@ impl BlockStream {
                     lake_s3_client,
                     &chain_id,
                     LAKE_PREFETCH_SIZE,
-                    redis_stream
-                ) => {
-                    result.map_err(|err| {
-                        tracing::error!(
+                    redis_stream,
+                );
+
+                let block_stream_future =
+                    PollCounter::new(block_stream_future, indexer_config.get_full_name());
+
+                tokio::select! {
+                    _ = cancellation_token.cancelled() => {
+                        tracing::info!(
                             account_id = indexer_config.account_id.as_str(),
                             function_name = indexer_config.function_name,
-                            "Block stream task stopped due to error: {:?}",
-                            err,
+                            "Cancelling block stream task",
                         );
-                        err
-                    })
+
+                        Ok(())
+                    },
+                    result = block_stream_future => {
+                        result.map_err(|err| {
+                            tracing::error!(
+                                account_id = indexer_config.account_id.as_str(),
+                                function_name = indexer_config.function_name,
+                                "Block stream task stopped due to error: {:?}",
+                                err,
+                            );
+                            err
+                        })
+                    }
                 }
             }
         });
