@@ -58,6 +58,7 @@ impl BlockStreamerService {
 
 #[tonic::async_trait]
 impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService {
+    #[tracing::instrument(skip(self))]
     async fn start_stream(
         &self,
         request: Request<blockstreamer::StartStreamRequest>,
@@ -117,7 +118,11 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 self.delta_lake_client.clone(),
                 self.lake_s3_client.clone(),
             )
-            .map_err(|_| Status::internal("Failed to start block stream"))?;
+            .map_err(|err| {
+                tracing::error!(?err, "Failed to start block stream");
+
+                Status::internal("Failed to start block stream")
+            })?;
 
         let mut lock = self.get_block_streams_lock()?;
         lock.insert(indexer_config.get_hash_id(), block_stream);
@@ -127,6 +132,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         }))
     }
 
+    #[tracing::instrument(skip(self))]
     async fn stop_stream(
         &self,
         request: Request<blockstreamer::StopStreamRequest>,
@@ -148,10 +154,10 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 )))
             }
             Some(mut block_stream) => {
-                block_stream
-                    .cancel()
-                    .await
-                    .map_err(|_| Status::internal("Failed to cancel block stream"))?;
+                block_stream.cancel().await.map_err(|err| {
+                    tracing::error!(?err, "Failed to cancel block stream");
+                    Status::internal("Failed to cancel block stream")
+                })?;
             }
         }
 
