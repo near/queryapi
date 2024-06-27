@@ -63,24 +63,18 @@ const LOGS_COUNT = new Counter({
   labelNames: ['level'],
 });
 
-// We need this because the current metric formula uses "successful" executions, so genuinely broken
-// indexers will be considered "failed". This should always be at 100%
-// if there is no data then the executor is not running - and we should alert
 const EXECUTOR_UP = new Counter({
   name: 'queryapi_runner_executor_up',
   help: 'Incremented each time the executor loop runs to indicate whether the job is functional',
   labelNames: ['indexer'],
 });
 
-// not necessarily needed but useful to see?
 const SUCCESSFUL_EXECUTIONS = new Counter({
   name: 'queryapi_runner_successful_executions',
   help: 'Count of successful executions of an indexer function',
   labelNames: ['indexer'],
 });
 
-// This will allow us to determine whether a specific indexer is broken, so wont work across the board
-// but for critial indexers it should be 0
 const FAILED_EXECUTIONS = new Counter({
   name: 'queryapi_runner_failed_executions',
   help: 'Count of failed executions of an indexer function',
