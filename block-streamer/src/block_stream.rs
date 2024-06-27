@@ -18,7 +18,9 @@ const MAX_STREAM_SIZE_WITH_CACHE: u64 = 100;
 const DELTA_LAKE_SKIP_ACCOUNTS: [&str; 4] = ["*", "*.near", "*.kaiching", "*.tg"];
 const MAX_STREAM_SIZE: u64 = 100;
 
+#[pin_project::pin_project]
 pub struct PollCounter<F> {
+    #[pin]
     inner: F,
     indexer_name: String,
 }
@@ -40,8 +42,8 @@ impl<F: Future> Future for PollCounter<F> {
             .with_label_values(&[&self.indexer_name])
             .inc();
 
-        let future = unsafe { self.map_unchecked_mut(|s| &mut s.inner) };
-        future.poll(cx)
+        let this = self.project();
+        this.inner.poll(cx)
     }
 }
 
