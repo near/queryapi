@@ -148,6 +148,9 @@ impl BlockStream {
             task.cancellation_token.cancel();
             let _ = task.handle.await?;
 
+            metrics::BLOCK_STREAM_UP
+                .remove_label_values(&[&self.indexer_config.get_full_name()])?;
+
             return Ok(());
         }
 
