@@ -57,6 +57,12 @@ lazy_static! {
         &["level"]
     )
     .unwrap();
+    pub static ref BLOCK_STREAM_UP: IntCounterVec = register_int_counter_vec!(
+        "queryapi_block_streamer_block_stream_up",
+        "A continuously increasing counter to indicate the block stream is up",
+        &["indexer"]
+    )
+    .unwrap();
 }
 
 pub struct LogCounter;

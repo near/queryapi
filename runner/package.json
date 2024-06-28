@@ -14,7 +14,8 @@
     "start:dev": "tsc -p ./tsconfig.build.json && node ./dist",
     "start:docker": "node dist/index.js",
     "test": "npm run codegen && node --experimental-vm-modules ./node_modules/.bin/jest --silent",
-    "lint": "eslint -c .eslintrc.js"
+    "lint": "eslint -c .eslintrc.js",
+    "script:suspend-indexer": "tsc -p ./tsconfig.json && node ./dist/scripts/suspend-indexer.js"
   },
   "keywords": [],
   "author": "",

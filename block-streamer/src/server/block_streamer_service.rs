@@ -13,7 +13,7 @@ use crate::server::blockstreamer;
 use blockstreamer::*;
 
 pub struct BlockStreamerService {
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
@@ -22,12 +22,12 @@ pub struct BlockStreamerService {
 
 impl BlockStreamerService {
     pub fn new(
-        redis_client: std::sync::Arc<crate::redis::RedisClient>,
+        redis: std::sync::Arc<crate::redis::RedisClient>,
         delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
         Self {
-            redis_client,
+            redis,
             delta_lake_client,
             lake_s3_client,
             chain_id: ChainId::Mainnet,
@@ -58,6 +58,7 @@ impl BlockStreamerService {
 
 #[tonic::async_trait]
 impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService {
+    #[tracing::instrument(skip(self))]
     async fn start_stream(
         &self,
         request: Request<blockstreamer::StartStreamRequest>,
@@ -113,11 +114,15 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         block_stream
             .start(
                 request.start_block_height,
-                self.redis_client.clone(),
+                self.redis.clone(),
                 self.delta_lake_client.clone(),
                 self.lake_s3_client.clone(),
             )
-            .map_err(|_| Status::internal("Failed to start block stream"))?;
+            .map_err(|err| {
+                tracing::error!(?err, "Failed to start block stream");
+
+                Status::internal("Failed to start block stream")
+            })?;
 
         let mut lock = self.get_block_streams_lock()?;
         lock.insert(indexer_config.get_hash_id(), block_stream);
@@ -127,6 +132,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         }))
     }
 
+    #[tracing::instrument(skip(self))]
     async fn stop_stream(
         &self,
         request: Request<blockstreamer::StopStreamRequest>,
@@ -148,10 +154,10 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 )))
             }
             Some(mut block_stream) => {
-                block_stream
-                    .cancel()
-                    .await
-                    .map_err(|_| Status::internal("Failed to cancel block stream"))?;
+                block_stream.cancel().await.map_err(|err| {
+                    tracing::error!(?err, "Failed to cancel block stream");
+                    Status::internal("Failed to cancel block stream")
+                })?;
             }
         }
 
@@ -206,10 +212,7 @@ mod tests {
             .expect_list_matching_block_heights()
             .returning(|_, _| Ok(vec![]));
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
-        mock_redis_client
-            .expect_xadd::<String, u64>()
-            .returning(|_, _| Ok(()));
+        let mock_redis = crate::redis::RedisClient::default();
 
         let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
         mock_lake_s3_client
@@ -217,7 +220,7 @@ mod tests {
             .returning(crate::lake_s3_client::SharedLakeS3Client::default);
 
         BlockStreamerService::new(
-            std::sync::Arc::new(mock_redis_client),
+            std::sync::Arc::new(mock_redis),
             std::sync::Arc::new(mock_delta_lake_client),
             mock_lake_s3_client,
         )

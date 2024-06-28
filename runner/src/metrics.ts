@@ -63,6 +63,24 @@ const LOGS_COUNT = new Counter({
   labelNames: ['level'],
 });
 
+const EXECUTOR_UP = new Counter({
+  name: 'queryapi_runner_executor_up',
+  help: 'Incremented each time the executor loop runs to indicate whether the job is functional',
+  labelNames: ['indexer'],
+});
+
+const SUCCESSFUL_EXECUTIONS = new Counter({
+  name: 'queryapi_runner_successful_executions',
+  help: 'Count of successful executions of an indexer function',
+  labelNames: ['indexer'],
+});
+
+const FAILED_EXECUTIONS = new Counter({
+  name: 'queryapi_runner_failed_executions',
+  help: 'Count of failed executions of an indexer function',
+  labelNames: ['indexer'],
+});
+
 export const METRICS = {
   HEAP_TOTAL_ALLOCATION,
   HEAP_USED,
@@ -73,7 +91,10 @@ export const METRICS = {
   UNPROCESSED_STREAM_MESSAGES,
   LAST_PROCESSED_BLOCK_HEIGHT,
   EXECUTION_DURATION,
-  LOGS_COUNT
+  LOGS_COUNT,
+  EXECUTOR_UP,
+  SUCCESSFUL_EXECUTIONS,
+  FAILED_EXECUTIONS,
 };
 
 const aggregatorRegistry = new AggregatorRegistry();
