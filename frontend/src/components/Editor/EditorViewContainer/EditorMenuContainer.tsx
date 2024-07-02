@@ -37,8 +37,6 @@ interface EditorMenuContainerProps {
   // reset code
   setSchema: (schema: string) => void;
   setSchemaTypes: (schemaTypes: string) => void;
-  setOriginalIndexingCode: (code: string) => void;
-  setOriginalSQLCode: (code: string) => void;
   // publish
   actionButtonText: string;
   schema: string;
@@ -57,8 +55,6 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   // reset code
   setSchema,
   setSchemaTypes,
-  setOriginalIndexingCode,
-  setOriginalSQLCode,
   // publish
   actionButtonText,
   schema,
@@ -118,11 +114,9 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
         const unformattedIndexerCode = wrapCode(data.code);
         const unformattedSchemaCode = data.schema;
         if (unformattedIndexerCode !== null) {
-          setOriginalIndexingCode(unformattedIndexerCode);
           setIndexingCode(unformattedIndexerCode);
         }
         if (unformattedSchemaCode !== null) {
-          setOriginalSQLCode(unformattedSchemaCode);
           setSchema(unformattedSchemaCode);
         }
         // todo add reformatting (reformatAll)
@@ -146,17 +140,17 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const forkedFrom =
       indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName
         ? {
-            account_id: indexerDetails.forkedAccountId,
-            function_name: indexerDetails.forkedIndexerName,
-          }
+          account_id: indexerDetails.forkedAccountId,
+          function_name: indexerDetails.forkedIndexerName,
+        }
         : null;
 
     const startBlock =
       indexerConfig.startBlock === 'startBlockHeight'
         ? { HEIGHT: indexerConfig.height }
         : indexerConfig.startBlock === 'startBlockLatest'
-        ? 'LATEST'
-        : 'CONTINUE';
+          ? 'LATEST'
+          : 'CONTINUE';
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);

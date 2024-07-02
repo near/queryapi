@@ -1,5 +1,5 @@
 import { useInitialPayload } from 'near-social-bridge';
-import React, { createContext, useEffect, useState } from 'react';
+import React, { createContext, useEffect, useState, useMemo, useCallback } from 'react';
 
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import { queryIndexerFunctionDetails } from '@/utils/queryIndexerFunction';
@@ -19,6 +19,7 @@ interface IndexerDetails {
 
 interface IndexerDetailsContextProps {
   indexerDetails: IndexerDetails;
+  setIndexerDetails: (details: IndexerDetails) => void;
   showResetCodeModel: boolean;
   setShowResetCodeModel: (bool: boolean) => void;
   showPublishModal: boolean;
@@ -39,7 +40,6 @@ interface IndexerDetailsContextProps {
   setForkedAccountId: (accountId?: string) => void;
   forkedIndexerName?: string;
   setForkedIndexerName: (indexerName?: string) => void;
-  setIndexerDetails: (details: IndexerDetails) => void;
   showLogsView: boolean;
   setShowLogsView: (showLogsView: boolean) => void;
 }
@@ -55,25 +55,25 @@ export const IndexerDetailsContext = createContext<IndexerDetailsContextProps>({
     forkedAccountId: null,
     forkedIndexerName: null,
   },
+  setIndexerDetails: () => { },
   showResetCodeModel: false,
-  setShowResetCodeModel: () => {},
+  setShowResetCodeModel: () => { },
   showPublishModal: false,
-  setShowPublishModal: () => {},
+  setShowPublishModal: () => { },
   showForkIndexerModal: false,
-  setShowForkIndexerModal: () => {},
+  setShowForkIndexerModal: () => { },
   debugMode: false,
-  setDebugMode: () => {},
+  setDebugMode: () => { },
   latestHeight: 0,
-  setLatestHeight: () => {},
+  setLatestHeight: () => { },
   isCreateNewIndexer: false,
-  setIsCreateNewIndexer: () => {},
-  setAccountId: () => {},
-  setIndexerName: () => {},
-  setForkedAccountId: () => {},
-  setForkedIndexerName: () => {},
-  setIndexerDetails: () => {},
+  setIsCreateNewIndexer: () => { },
+  setAccountId: () => { },
+  setIndexerName: () => { },
+  setForkedAccountId: () => { },
+  setForkedIndexerName: () => { },
   showLogsView: false,
-  setShowLogsView: () => {},
+  setShowLogsView: () => { },
 });
 
 interface IndexerDetailsProviderProps {
@@ -103,13 +103,13 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
   const [latestHeight, setLatestHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
-  const activeView = useInitialPayload<string>(); // Adjust the type according to what useInitialPayload returns
+  const activeView = useInitialPayload<string>();
 
   useEffect(() => {
     if (activeView === 'status') setShowLogsView(true);
   }, [activeView]);
 
-  const requestIndexerDetails = async (): Promise<IndexerDetails | undefined> => {
+  const requestIndexerDetails = useCallback(async (): Promise<IndexerDetails | undefined> => {
     if (!accountId || !indexerName) return undefined;
     const data = await queryIndexerFunctionDetails(accountId, indexerName);
     if (data) {
@@ -125,13 +125,14 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       };
       return details;
     }
-  };
+  }, [accountId, indexerName]);
 
   useEffect(() => {
-    (async () => {
+    const fetchData = async () => {
       const latestHeight = await getLatestBlockHeight();
       setLatestHeight(latestHeight);
-    })();
+    };
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -145,42 +146,70 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       }));
       return;
     }
-    (async () => {
+    const fetchIndexerDetails = async () => {
       const indexer = await requestIndexerDetails();
       if (indexer) {
         setIndexerDetails(indexer);
       }
-    })();
-  }, [accountId, indexerName, forkedAccountId, forkedIndexerName, isCreateNewIndexer]);
+    };
+    fetchIndexerDetails();
+  }, [
+    accountId,
+    indexerName,
+    forkedAccountId,
+    forkedIndexerName,
+    isCreateNewIndexer,
+    requestIndexerDetails,
+    setIndexerDetails,
+  ]);
 
-  return (
-    <IndexerDetailsContext.Provider
-      value={{
-        accountId,
-        indexerName,
-        setAccountId,
-        setIndexerName,
-        setForkedAccountId,
-        setForkedIndexerName,
-        indexerDetails,
-        showResetCodeModel,
-        setShowResetCodeModel,
-        showPublishModal,
-        setShowPublishModal,
-        showForkIndexerModal,
-        setShowForkIndexerModal,
-        debugMode,
-        setDebugMode,
-        latestHeight,
-        setLatestHeight,
-        isCreateNewIndexer,
-        setIsCreateNewIndexer,
-        setIndexerDetails,
-        showLogsView,
-        setShowLogsView,
-      }}
-    >
-      {children}
-    </IndexerDetailsContext.Provider>
+  const contextValue = useMemo(
+    () => ({
+      accountId,
+      indexerName,
+      setAccountId,
+      setIndexerName,
+      setForkedAccountId,
+      setForkedIndexerName,
+      indexerDetails,
+      setIndexerDetails,
+      showResetCodeModel,
+      setShowResetCodeModel,
+      showPublishModal,
+      setShowPublishModal,
+      showForkIndexerModal,
+      setShowForkIndexerModal,
+      debugMode,
+      setDebugMode,
+      latestHeight,
+      setLatestHeight,
+      isCreateNewIndexer,
+      setIsCreateNewIndexer,
+      showLogsView,
+      setShowLogsView,
+    }),
+    [
+      accountId,
+      indexerName,
+      setAccountId,
+      setIndexerName,
+      setForkedAccountId,
+      setForkedIndexerName,
+      indexerDetails,
+      setIndexerDetails,
+      showResetCodeModel,
+      setShowResetCodeModel,
+      showPublishModal,
+      setShowPublishModal,
+      showForkIndexerModal,
+      setShowForkIndexerModal,
+      debugMode,
+      setDebugMode,
+      latestHeight,
+      isCreateNewIndexer,
+      showLogsView,
+    ],
   );
+
+  return <IndexerDetailsContext.Provider value={contextValue}>{children}</IndexerDetailsContext.Provider>;
 };

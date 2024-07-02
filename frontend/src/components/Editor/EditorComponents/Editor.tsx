@@ -15,7 +15,6 @@ import {
 } from '@/constants/Strings';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { useModal } from '@/contexts/ModalContext';
-import { InfoModal } from '@/core/InfoModal';
 import { defaultCode, defaultSchema, defaultSchemaTypes, formatIndexingCode, formatSQL } from '@/utils/formatters';
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import IndexerRunner from '@/utils/indexerRunner';
@@ -30,9 +29,12 @@ import { FileSwitcher } from './FileSwitcher';
 import { GlyphContainer } from './GlyphContainer';
 import ResizableLayoutEditor from './ResizableLayoutEditor';
 
+declare const monaco: any;
 const INDEXER_TAB_NAME = 'indexer.js';
 const SCHEMA_TAB_NAME = 'schema.sql';
-declare const monaco: any;
+const originalSQLCode = formatSQL(defaultSchema);
+const originalIndexingCode = formatIndexingCode(defaultCode);
+const pgSchemaTypeGen = new PgSchemaTypeGen();
 
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
@@ -44,10 +46,6 @@ const Editor: React.FC = (): ReactElement => {
 
   const [error, setError] = useState<string | undefined>();
   const [fileName, setFileName] = useState<string>(INDEXER_TAB_NAME);
-
-  const [originalSQLCode, setOriginalSQLCode] = useState<string>(formatSQL(defaultSchema));
-  const [originalIndexingCode, setOriginalIndexingCode] = useState<string>(formatIndexingCode(defaultCode));
-
   const [indexingCode, setIndexingCode] = useState<string>(originalIndexingCode);
   const [schema, setSchema] = useState<string>(originalSQLCode);
   const [cursorPostion, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
@@ -80,7 +78,6 @@ const Editor: React.FC = (): ReactElement => {
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
-  const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef<any>(null);
   const monacoEditorRef = useRef<any>(null);
 
@@ -118,31 +115,33 @@ const Editor: React.FC = (): ReactElement => {
     codeError ? setError(CODE_FORMATTING_ERROR_MESSAGE) : setError(undefined);
   }, 500);
 
+  const schemaErrorHandler = (schemaError: any): void => {
+    if (schemaError?.type === FORMATTING_ERROR_TYPE) setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+    if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
+    return;
+  }
+
+  const indexerErrorHandler = (codeError: any): void => {
+    if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE);
+    return;
+  }
+
   useEffect(() => {
-    if (indexerDetails.code != null) {
+    const savedCode = storageManager?.getIndexerCode();
+    if (savedCode) setIndexingCode(savedCode)
+    else if (indexerDetails.code) {
       const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code);
-
-      if (codeError) {
-        setError(CODE_FORMATTING_ERROR_MESSAGE);
-      }
-
-      if (formattedCode) {
-        setOriginalIndexingCode(formattedCode);
-        setIndexingCode(formattedCode);
-      }
+      if (codeError) setError(CODE_FORMATTING_ERROR_MESSAGE);
+      formattedCode && setIndexingCode(formattedCode);
     }
   }, [indexerDetails.code]);
 
   useEffect(() => {
-    if (indexerDetails.schema != null) {
+    const savedSchema = storageManager?.getSchemaCode();
+    if (savedSchema) setSchema(savedSchema)
+    else if (indexerDetails.schema) {
       const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
-
-      if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-        setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-      } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
-        setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
-      }
-
+      schemaErrorHandler(schemaError);
       formattedSchema && setSchema(formattedSchema);
     }
   }, [indexerDetails.schema]);
@@ -150,38 +149,29 @@ const Editor: React.FC = (): ReactElement => {
   useEffect(() => {
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
-
-    if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-    } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
-      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
-    } else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE);
-    else {
-      setError(undefined);
-      handleCodeGen();
+    if (schemaError) {
+      schemaErrorHandler(schemaError);
+      return;
     }
-    if (fileName === SCHEMA_TAB_NAME) debouncedValidateSQLSchema(schema);
+    if (codeError) {
+      indexerErrorHandler(codeError);
+      return;
+    }
+    handleCodeGen();
   }, [fileName]);
 
   useEffect(() => {
-    const savedCode = storageManager?.getIndexerCode();
-    const savedSchema = storageManager?.getSchemaCode();
-    if (savedSchema) setSchema(savedSchema);
-    if (savedCode) setIndexingCode(savedCode);
-  }, [indexerDetails.accountId, indexerDetails.indexerName]);
-
-  useEffect(() => {
-    storageManager?.setSchemaCode(schema);
-    storageManager?.setIndexerCode(indexingCode);
     storageManager?.setCursorPosition(cursorPostion);
-  }, [schema, indexingCode, cursorPostion]);
+  }, [cursorPostion]);
 
   useEffect(() => {
+    console.log('Editor useEffect 6');
     storageManager?.setSchemaTypes(schemaTypes);
     handleCodeGen();
   }, [schemaTypes, monacoMount]);
 
   useEffect(() => {
+    console.log('Editor useEffect 7');
     storageManager?.setDebugList(heights);
   }, [heights]);
 
@@ -249,6 +239,7 @@ const Editor: React.FC = (): ReactElement => {
   };
 
   const handleEditorWillMount = (editor: any, monaco: any) => {
+    console.log('monaco mount effect');
     if (!diffView) {
       const decorations = editor.deltaDecorations(
         [],
@@ -297,17 +288,16 @@ const Editor: React.FC = (): ReactElement => {
 
   const handleOnChangeSchema = (_schema: string) => {
     setSchema(_schema);
+    storageManager?.setSchemaCode(schema);
     debouncedValidateSQLSchema(_schema);
   };
 
   const handleOnChangeCode = (_code: string) => {
     setIndexingCode(_code);
+    storageManager?.setIndexerCode(indexingCode);
     debouncedValidateCode(_code);
   };
 
-  const handleRegisterIndexerWithErrors = (args: any) => {
-    request('register-function', args);
-  };
 
   return (
     <>
@@ -341,8 +331,6 @@ const Editor: React.FC = (): ReactElement => {
               //Reset Indexer Modal
               setSchema={setSchema}
               setSchemaTypes={setSchemaTypes}
-              setOriginalIndexingCode={setOriginalIndexingCode}
-              setOriginalSQLCode={setOriginalSQLCode}
               //Publish Modal
               actionButtonText={'publish'}
               schema={schema}
@@ -412,17 +400,8 @@ const Editor: React.FC = (): ReactElement => {
           </>
         )}
       </div>
-      <InfoModal
-        open={openModal}
-        title="Validation Error"
-        message={message}
-        okButtonText="Proceed"
-        onOkButtonPressed={() => handleRegisterIndexerWithErrors(data)}
-        onCancelButtonPressed={hideModal}
-        onClose={hideModal}
-      />
     </>
   );
 };
 
-export default Editor;
+export default React.memo(Editor);
