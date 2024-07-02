@@ -14,6 +14,8 @@ interface DeveloperToolsContainerProps {
   latestHeight: number | undefined;
   diffView: boolean;
   setDiffView: React.Dispatch<React.SetStateAction<boolean>>;
+  // debugModeInfoDisabled: boolean;
+  // setDebugModeInfoDisabled: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const DeveloperToolsContainer: React.FC<DeveloperToolsContainerProps> = ({
@@ -27,6 +29,8 @@ const DeveloperToolsContainer: React.FC<DeveloperToolsContainerProps> = ({
   latestHeight,
   diffView,
   setDiffView,
+  // debugModeInfoDisabled,
+  // setDebugModeInfoDisabled,
 }) => {
   const { setShowResetCodeModel, debugMode, setDebugMode } = useContext(IndexerDetailsContext);
 

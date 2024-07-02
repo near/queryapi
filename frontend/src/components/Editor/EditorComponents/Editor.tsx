@@ -59,7 +59,6 @@ const Editor: React.FC = (): ReactElement => {
   const initialHeights = storageManager ? storageManager.getDebugList() || [] : [];
   const [heights, setHeights] = useState<number[]>(initialHeights);
 
-  const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState<boolean>(false);
   const [diffView, setDiffView] = useState<boolean>(false);
   const [blockView, setBlockView] = useState<boolean>(false);
   const { openModal, showModal, data, message, hideModal } = useModal();
@@ -401,7 +400,7 @@ const Editor: React.FC = (): ReactElement => {
                 height: '100%',
               }}
             >
-              {error && (
+              {/* {error && (
                 <Alert
                   dismissible={true}
                   onClose={() => setError(undefined)}
@@ -410,17 +409,7 @@ const Editor: React.FC = (): ReactElement => {
                 >
                   {error}
                 </Alert>
-              )}
-              {debugMode && !debugModeInfoDisabled && (
-                <Alert
-                  className="px-4 py-3 mb-4 font-semibold text-gray-700 text-sm text-center border border-blue-300 bg-blue-50 rounded-lg shadow-md"
-                  dismissible={true}
-                  onClose={() => setDebugModeInfoDisabled(true)}
-                  variant="info"
-                >
-                  To debug, you will need to open your browser console window in order to see the logs.
-                </Alert>
-              )}
+              )} */}
               <FileSwitcher fileName={fileName} setFileName={setFileName} />
               <GlyphContainer style={{ height: '100%', width: '100%' }}>
                 {/* @ts-ignore remove after refactoring Resizable Editor to ts*/}
