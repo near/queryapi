@@ -48,7 +48,7 @@ const Editor: React.FC = (): ReactElement => {
   const [fileName, setFileName] = useState<string>(INDEXER_TAB_NAME);
   const [indexingCode, setIndexingCode] = useState<string>(originalIndexingCode);
   const [schema, setSchema] = useState<string>(originalSQLCode);
-  const [cursorPostion, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
+  const [cursorPosition, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
     lineNumber: 1,
     column: 1,
   });
@@ -127,6 +127,7 @@ const Editor: React.FC = (): ReactElement => {
   }
 
   useEffect(() => {
+    //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
     if (savedCode) setIndexingCode(savedCode)
     else if (indexerDetails.code) {
@@ -134,9 +135,18 @@ const Editor: React.FC = (): ReactElement => {
       if (codeError) setError(CODE_FORMATTING_ERROR_MESSAGE);
       formattedCode && setIndexingCode(formattedCode);
     }
+    //* Load saved cursor position from local storage if it exists else set cursor to start
+    const savedCursorPosition = storageManager?.getCursorPosition();
+    if (savedCursorPosition) setCursorPosition(savedCursorPosition);
+
+    if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
+      monacoEditorRef.current.setPosition(savedCursorPosition || { lineNumber: 1, column: 1 });
+      monacoEditorRef.current.focus();
+    }
   }, [indexerDetails.code]);
 
   useEffect(() => {
+    //* Load saved schema from local storage if it exists else load code from context
     const savedSchema = storageManager?.getSchemaCode();
     if (savedSchema) setSchema(savedSchema)
     else if (indexerDetails.schema) {
@@ -147,6 +157,7 @@ const Editor: React.FC = (): ReactElement => {
   }, [indexerDetails.schema]);
 
   useEffect(() => {
+    //* Revalidate code and schema on file switch
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
     if (schemaError) {
@@ -161,8 +172,20 @@ const Editor: React.FC = (): ReactElement => {
   }, [fileName]);
 
   useEffect(() => {
-    storageManager?.setCursorPosition(cursorPostion);
-  }, [cursorPostion]);
+    //* Cache code and schema to local storage on change
+    cacheToLocal();
+  }, [indexingCode, schema]);
+
+  useEffect(() => {
+    if (!monacoEditorRef.current) return;
+
+    const editorInstance = monacoEditorRef.current;
+    editorInstance.onDidChangeCursorPosition(handleCursorChange);
+
+    return () => {
+      editorInstance.dispose();
+    };
+  }, [monacoEditorRef.current]);
 
   useEffect(() => {
     console.log('Editor useEffect 6');
@@ -174,6 +197,23 @@ const Editor: React.FC = (): ReactElement => {
     console.log('Editor useEffect 7');
     storageManager?.setDebugList(heights);
   }, [heights]);
+
+  const cacheToLocal = () => {
+    if (!storageManager || !monacoEditorRef.current) return;
+
+    storageManager.setSchemaCode(schema);
+    storageManager.setIndexerCode(indexingCode);
+
+    const newCursorPosition = monacoEditorRef.current.getPosition();
+    if (fileName === INDEXER_TAB_NAME) storageManager.setCursorPosition(newCursorPosition);
+  };
+
+  const handleCursorChange = () => {
+    if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
+      const position = monacoEditorRef.current.getPosition();
+      setCursorPosition(position);
+    }
+  };
 
   const attachTypesToMonaco = () => {
     // If types have been added already, dispose of them first
@@ -252,6 +292,9 @@ const Editor: React.FC = (): ReactElement => {
       );
       monacoEditorRef.current = editor;
       setDecorations(decorations);
+
+      editor.setPosition(fileName === INDEXER_TAB_NAME ? cursorPosition : { lineNumber: 1, column: 1 });
+      editor.focus();
     }
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
