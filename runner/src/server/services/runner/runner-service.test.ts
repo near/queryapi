@@ -27,6 +27,7 @@ describe('Runner gRPC Service', () => {
       return {
         indexerConfig,
         stop: jest.fn(),
+        start: jest.fn()
       };
     });
     genericIndexerConfig = new IndexerConfig(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_VERSION, BASIC_CODE, BASIC_SCHEMA, LogLevel.INFO);
@@ -117,7 +118,7 @@ describe('Runner gRPC Service', () => {
       await Promise.resolve();
     });
     const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
-      return { stop, indexerConfig };
+      return { start: jest.fn(), stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -184,7 +185,7 @@ describe('Runner gRPC Service', () => {
       await Promise.reject(new Error('somehow fails'));
     });
     const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
-      return { stop, indexerConfig };
+      return { start: jest.fn(), stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -212,6 +213,7 @@ describe('Runner gRPC Service', () => {
     });
     const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
+        start: jest.fn(),
         stop,
         indexerConfig,
         executorContext: BASIC_EXECUTOR_CONTEXT

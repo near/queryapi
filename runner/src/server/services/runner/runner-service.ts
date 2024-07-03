@@ -52,6 +52,7 @@ export function getRunnerService (
       // Handle request
       try {
         const streamHandler = new StreamHandlerType(indexerConfig);
+        streamHandler.start();
         executors.set(indexerConfig.executorId, streamHandler);
         callback(null, { executorId: indexerConfig.executorId });
       } catch (e) {

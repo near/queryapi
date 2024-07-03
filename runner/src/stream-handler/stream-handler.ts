@@ -27,33 +27,42 @@ interface ExecutorContext {
 
 export default class StreamHandler {
   private readonly logger: typeof logger;
-  private readonly worker: Worker;
-  public readonly executorContext: ExecutorContext;
+  private worker?: Worker;
+  public executorContext: ExecutorContext = {
+    status: IndexerStatus.STOPPED,
+    block_height: 0,
+  };
 
   constructor (
     public readonly indexerConfig: IndexerConfig,
   ) {
-    if (isMainThread) {
-      this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
-
-      this.worker = new Worker(path.join(__dirname, 'worker.js'), {
-        workerData: {
-          indexerConfigData: indexerConfig.toObject(),
-        },
-      });
-      this.executorContext = {
-        status: IndexerStatus.RUNNING,
-        block_height: indexerConfig.version,
-      };
-
-      this.worker.on('message', this.handleMessage.bind(this));
-      this.worker.on('error', this.handleError.bind(this));
-    } else {
-      throw new Error('StreamHandler should not be instantiated in a worker thread');
+    if (!isMainThread) {
+      throw new Error('StreamHandler must be instantiated in the main thread');
     }
+
+    this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
+  }
+
+  start (): void {
+    this.worker = new Worker(path.join(__dirname, 'worker.js'), {
+      workerData: {
+        indexerConfigData: this.indexerConfig.toObject(),
+      },
+    });
+    this.executorContext = {
+      status: IndexerStatus.RUNNING,
+      block_height: this.indexerConfig.version,
+    };
+
+    this.worker.on('message', this.handleMessage.bind(this));
+    this.worker.on('error', this.handleError.bind(this));
   }
 
   async stop (): Promise<void> {
+    if (!this.worker) {
+      return;
+    }
+
     deregisterWorkerMetrics(this.worker.threadId);
 
     await this.worker.terminate();
@@ -68,14 +77,16 @@ export default class StreamHandler {
       this.logger.error('Failed to set stopped status for indexer', e);
     });
     const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
-    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height);
 
-    indexer.writeCrashedWorkerLog(streamErrorLogEntry)
+    indexer
+      .writeCrashedWorkerLog(
+        LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height)
+      )
       .catch((e) => {
         this.logger.error('Failed to write failure log for stream', e);
       });
 
-    this.worker.terminate().catch(() => {
+    this.worker?.terminate().catch(() => {
       this.logger.error('Failed to terminate thread for stream');
     });
   }
@@ -89,7 +100,9 @@ export default class StreamHandler {
         this.executorContext.block_height = message.data;
         break;
       case WorkerMessageType.METRICS:
-        registerWorkerMetrics(this.worker.threadId, message.data);
+        if (this.worker) {
+          registerWorkerMetrics(this.worker.threadId, message.data);
+        }
         break;
     }
   }
