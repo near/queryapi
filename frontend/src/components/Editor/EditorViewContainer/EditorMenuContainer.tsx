@@ -140,17 +140,17 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const forkedFrom =
       indexerDetails.forkedAccountId && indexerDetails.forkedIndexerName
         ? {
-          account_id: indexerDetails.forkedAccountId,
-          function_name: indexerDetails.forkedIndexerName,
-        }
+            account_id: indexerDetails.forkedAccountId,
+            function_name: indexerDetails.forkedIndexerName,
+          }
         : null;
 
     const startBlock =
       indexerConfig.startBlock === 'startBlockHeight'
         ? { HEIGHT: indexerConfig.height }
         : indexerConfig.startBlock === 'startBlockLatest'
-          ? 'LATEST'
-          : 'CONTINUE';
+        ? 'LATEST'
+        : 'CONTINUE';
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setError(SCHEMA_FORMATTING_ERROR_MESSAGE);

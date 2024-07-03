@@ -23,7 +23,7 @@ const QueryApiEditorPage = ({ router }) => {
       </Alert>
     );
   }
-  
+
   return showLogsView ? <IndexerLogsContainer /> : <Editor />;
 };
 

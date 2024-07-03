@@ -37,7 +37,8 @@ const originalIndexingCode = formatIndexingCode(defaultCode);
 const pgSchemaTypeGen = new PgSchemaTypeGen();
 
 const Editor: React.FC = (): ReactElement => {
-  const { indexerDetails, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+  const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+
   const storageManager = useMemo(() => {
     if (indexerDetails.accountId && indexerDetails.indexerName) {
       return new QueryAPIStorageManager(indexerDetails.accountId, indexerDetails.indexerName);
@@ -118,17 +119,17 @@ const Editor: React.FC = (): ReactElement => {
     if (schemaError?.type === FORMATTING_ERROR_TYPE) setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
     if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
     return;
-  }
+  };
 
   const indexerErrorHandler = (codeError: any): void => {
     if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE);
     return;
-  }
+  };
 
   useEffect(() => {
     //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
-    if (savedCode) setIndexingCode(savedCode)
+    if (savedCode) setIndexingCode(savedCode);
     else if (indexerDetails.code) {
       const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code);
       if (codeError) setError(CODE_FORMATTING_ERROR_MESSAGE);
@@ -147,7 +148,7 @@ const Editor: React.FC = (): ReactElement => {
   useEffect(() => {
     //* Load saved schema from local storage if it exists else load code from context
     const savedSchema = storageManager?.getSchemaCode();
-    if (savedSchema) setSchema(savedSchema)
+    if (savedSchema) setSchema(savedSchema);
     else if (indexerDetails.schema) {
       const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
       schemaErrorHandler(schemaError);
@@ -340,7 +341,6 @@ const Editor: React.FC = (): ReactElement => {
     debouncedValidateCode(_code);
   };
 
-
   return (
     <>
       <div
@@ -410,7 +410,7 @@ const Editor: React.FC = (): ReactElement => {
                   {error}
                 </Alert>
               )} */}
-              <FileSwitcher fileName={fileName} setFileName={setFileName} />
+              <FileSwitcher fileName={fileName} setFileName={setFileName} showAlert={Boolean(error)} error={error} />
               <GlyphContainer style={{ height: '100%', width: '100%' }}>
                 {/* @ts-ignore remove after refactoring Resizable Editor to ts*/}
                 <ResizableLayoutEditor
