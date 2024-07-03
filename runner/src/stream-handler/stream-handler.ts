@@ -69,7 +69,8 @@ export default class StreamHandler {
   }
 
   private handleError (error: Error): void {
-    this.logger.error('Terminating thread', error);
+    this.logger.error('Encountered uncaught error, restarting worker thread', error);
+
     this.executorContext.status = IndexerStatus.STOPPED;
 
     const indexer = new Indexer(this.indexerConfig);
@@ -80,15 +81,13 @@ export default class StreamHandler {
 
     indexer
       .writeCrashedWorkerLog(
-        LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height)
+        LogEntry.systemError(`Encountered uncaught error: ${this.indexerConfig.redisStreamKey}, restarting worker\n${errorContent}`, this.executorContext.block_height)
       )
       .catch((e) => {
         this.logger.error('Failed to write failure log for stream', e);
       });
 
-    this.worker?.terminate().catch(() => {
-      this.logger.error('Failed to terminate thread for stream');
-    });
+    this.start();
   }
 
   private handleMessage (message: WorkerMessage): void {
