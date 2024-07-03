@@ -63,7 +63,7 @@ async function handleStream (workerContext: WorkerContext): Promise<void> {
   void blockQueueConsumer(workerContext);
 }
 
-async function blockQueueProducer (workerContext: WorkerContext): Promise<void> {
+async function blockQueueProducer (workerContext: WorkerContext): Promise<never> {
   const HISTORICAL_BATCH_SIZE = parseInt(process.env.PREFETCH_QUEUE_LIMIT ?? '10');
   let streamMessageStartId = '0';
 
@@ -93,7 +93,7 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
   }
 }
 
-async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
+async function blockQueueConsumer (workerContext: WorkerContext): Promise<never> {
   let previousError: string = '';
   const indexerConfig: IndexerConfig = workerContext.indexerConfig;
   const indexer = new Indexer(indexerConfig);
