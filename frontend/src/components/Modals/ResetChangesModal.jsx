@@ -1,7 +1,7 @@
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import React, { useContext } from 'react';
 import { Button, Modal } from 'react-bootstrap';
-export const ResetChangesModal = ({ handleReload }) => {
+export const ResetChangesModal = ({ handleResetCodeChanges }) => {
   const { showResetCodeModel, setShowResetCodeModel } = useContext(IndexerDetailsContext);
   return (
     <Modal centered={true} show={showResetCodeModel} onHide={() => setShowResetCodeModel(false)}>
@@ -13,7 +13,7 @@ export const ResetChangesModal = ({ handleReload }) => {
         <Button variant="secondary" onClick={() => setShowResetCodeModel(false)}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => handleReload()}>
+        <Button variant="primary" onClick={() => handleResetCodeChanges()}>
           Reload
         </Button>
       </Modal.Footer>

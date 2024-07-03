@@ -1,6 +1,6 @@
 import prettier from 'prettier';
-import SqlPlugin from 'prettier-plugin-sql';
 import parserBabel from 'prettier/parser-babel';
+import SqlPlugin from 'prettier-plugin-sql';
 
 let wrap_code = (code) => `import * as primitives from "@near-lake/primitives"
 /** 

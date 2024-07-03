@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useQuery, gql } from '@apollo/client';
-import { Button, Navbar, Container, ButtonGroup, Spinner } from 'react-bootstrap';
+import { gql, useQuery } from '@apollo/client';
+import React, { useContext, useEffect, useState } from 'react';
+import { Button, ButtonGroup, Container, Navbar, Spinner } from 'react-bootstrap';
 import { ArrowCounterclockwise, Code } from 'react-bootstrap-icons';
+
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+
 import LatestBlock from '../Common/LatestBlock';
 
 interface LogsMenuProps {
@@ -118,7 +120,7 @@ const LogsMenu: React.FC<LogsMenuProps> = ({
             variant="outline-primary"
             className="d-flex align-items-center"
             onClick={() => {
-              setShowLogsView();
+              setShowLogsView(!showLogsView);
             }}
           >
             <Code className="me-2" size={20} />

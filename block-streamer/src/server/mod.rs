@@ -6,7 +6,7 @@ pub mod blockstreamer {
 
 pub async fn init(
     port: &str,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
     delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
 ) -> anyhow::Result<()> {
@@ -14,11 +14,8 @@ pub async fn init(
 
     tracing::info!("Starting gRPC server on {}", addr);
 
-    let block_streamer_service = block_streamer_service::BlockStreamerService::new(
-        redis_client,
-        delta_lake_client,
-        lake_s3_client,
-    );
+    let block_streamer_service =
+        block_streamer_service::BlockStreamerService::new(redis, delta_lake_client, lake_s3_client);
 
     let block_streamer_server =
         blockstreamer::block_streamer_server::BlockStreamerServer::new(block_streamer_service);

@@ -4,18 +4,18 @@ import { Braces, ArrowCounterclockwise, FileText, TrashFill } from 'react-bootst
 import CustomTooltip, { TooltipDirection } from '@/components/Common/CustomTooltip';
 
 const EditorMenuView = ({
+  // Props
+  isUserIndexer,
+  handleDeleteIndexer,
+  isCreateNewIndexer,
+  error,
+  // Context
   indexerName,
   accountId,
   indexerDetails,
   setShowPublishModal,
-  setShowResetCodeModel,
   setShowForkIndexerModal,
-  handleDeleteIndexer,
-  debugMode,
-  isCreateNewIndexer,
   setShowLogsView,
-  isUserIndexer,
-  error,
 }) => {
   return (
     <Navbar bg="white" variant="light" className="shadow-sm p-3 bg-white rounded">

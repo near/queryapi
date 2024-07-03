@@ -2,7 +2,7 @@ import { DiffEditorComponent } from './DiffEditorComponent';
 import { MonacoEditorComponent } from './MonacoEditorComponent';
 import { defaultCode, defaultSchema } from '@/utils/formatters';
 import { useDragResize } from '@/utils/resize';
-import GraphqlPlayground from './../Playground';
+import GraphqlPlayground from '../../Playground';
 
 const containerStyle = {
   display: 'flex',
@@ -51,7 +51,7 @@ const ResizableEditor = ({
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground />,
-    'indexingLogic.js': () =>
+    'indexer.js': () =>
       diffView ? (
         <DiffEditorComponent
           key="code-diff"
@@ -76,7 +76,7 @@ const ResizableEditor = ({
             minimap: { enabled: false },
             folding: false,
             lineNumberMinChars: 3,
-            scrollBeyondLastLine: false,
+            scrollBeyondLastLine: true,
             automaticLayout: true,
             formatOnPaste: true,
             definitionLinkOpensInPeek: true,
@@ -109,7 +109,7 @@ const ResizableEditor = ({
             minimap: { enabled: false },
             folding: false,
             lineNumberMinChars: 3,
-            scrollBeyondLastLine: false,
+            scrollBeyondLastLine: true,
             automaticLayout: true,
             formatOnPaste: true,
             definitionLinkOpensInPeek: true,

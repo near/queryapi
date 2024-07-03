@@ -1,4 +1,5 @@
-import React, { useContext, useState, useEffect, type ChangeEvent } from 'react';
+import React, { type ChangeEvent, useContext, useEffect, useState } from 'react';
+
 import { IndexerDetailsContext } from '../../../contexts/IndexerDetailsContext';
 import { validateContractIds } from '../../../utils/validators';
 import PublishFormView from '../ModalsView/PublishFormView';
