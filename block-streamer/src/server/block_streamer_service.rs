@@ -7,14 +7,15 @@ use tonic::{Request, Response, Status};
 use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
 
+use crate::block_stream;
+use crate::receiver_blocks::ReceiverBlocksProcessor;
 use crate::server::blockstreamer;
-use crate::{bitmap_processor, block_stream};
 
 use blockstreamer::*;
 
 pub struct BlockStreamerService {
     redis_client: std::sync::Arc<crate::redis::RedisClient>,
-    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
+    receiver_blocks_processor: std::sync::Arc<ReceiverBlocksProcessor>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
@@ -23,12 +24,12 @@ pub struct BlockStreamerService {
 impl BlockStreamerService {
     pub fn new(
         redis_client: std::sync::Arc<crate::redis::RedisClient>,
-        bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
+        receiver_blocks_processor: std::sync::Arc<ReceiverBlocksProcessor>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
         Self {
             redis_client,
-            bitmap_processor,
+            receiver_blocks_processor,
             lake_s3_client,
             chain_id: ChainId::Mainnet,
             block_streams: Mutex::new(HashMap::new()),
@@ -114,7 +115,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             .start(
                 request.start_block_height,
                 self.redis_client.clone(),
-                self.bitmap_processor.clone(),
+                self.receiver_blocks_processor.clone(),
                 self.lake_s3_client.clone(),
             )
             .map_err(|_| Status::internal("Failed to start block stream"))?;
@@ -211,8 +212,8 @@ mod tests {
             .expect_get_bitmaps_exact()
             .returning(|_, _| Ok(vec![]));
 
-        let mock_bitmap_processor =
-            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
@@ -226,7 +227,7 @@ mod tests {
 
         BlockStreamerService::new(
             std::sync::Arc::new(mock_redis_client),
-            std::sync::Arc::new(mock_bitmap_processor),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             mock_lake_s3_client,
         )
     }

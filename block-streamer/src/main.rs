@@ -1,12 +1,11 @@
 use tracing_subscriber::prelude::*;
 
-mod bitmap;
-mod bitmap_processor;
 mod block_stream;
 mod graphql;
 mod indexer_config;
 mod lake_s3_client;
 mod metrics;
+mod receiver_blocks;
 mod redis;
 mod rules;
 mod s3_client;
@@ -54,16 +53,21 @@ async fn main() -> anyhow::Result<()> {
     let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
     let graphql_client = graphql::client::GraphQLClient::new(graphql_endpoint);
-    let bitmap_processor = std::sync::Arc::new(crate::bitmap_processor::BitmapProcessor::new(
-        graphql_client,
-        s3_client.clone(),
-    ));
+    let receiver_blocks_processor = std::sync::Arc::new(
+        crate::receiver_blocks::ReceiverBlocksProcessor::new(graphql_client, s3_client.clone()),
+    );
 
     let lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::from_conf(s3_config);
 
     tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 
-    server::init(&grpc_port, redis_client, bitmap_processor, lake_s3_client).await?;
+    server::init(
+        &grpc_port,
+        redis_client,
+        receiver_blocks_processor,
+        lake_s3_client,
+    )
+    .await?;
 
     Ok(())
 }

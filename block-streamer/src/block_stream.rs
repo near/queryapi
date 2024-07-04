@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use futures::StreamExt;
 use near_lake_framework::near_indexer_primitives;
@@ -5,7 +7,10 @@ use registry_types::Rule;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
+use crate::lake_s3_client::SharedLakeS3Client;
 use crate::metrics;
+use crate::receiver_blocks::ReceiverBlocksProcessor;
+use crate::redis::RedisClient;
 use crate::rules::types::ChainId;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
@@ -45,9 +50,9 @@ impl BlockStream {
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis_client: std::sync::Arc<crate::redis::RedisClient>,
-        bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
-        lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
+        redis_client: Arc<RedisClient>,
+        reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+        lake_s3_client: SharedLakeS3Client,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -75,7 +80,7 @@ impl BlockStream {
                     start_block_height,
                     &indexer_config,
                     redis_client,
-                    bitmap_processor,
+                    reciever_blocks_processor,
                     lake_s3_client,
                     &chain_id,
                     LAKE_PREFETCH_SIZE,
@@ -129,9 +134,9 @@ impl BlockStream {
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
-    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
-    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
+    redis_client: Arc<RedisClient>,
+    reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+    lake_s3_client: SharedLakeS3Client,
     chain_id: &ChainId,
     lake_prefetch_size: usize,
     redis_stream: String,
@@ -144,7 +149,7 @@ pub(crate) async fn start_block_stream(
 
     let last_bitmap_indexer_block = process_bitmap_indexer_blocks(
         start_block_height,
-        bitmap_processor,
+        reciever_blocks_processor,
         redis_client.clone(),
         indexer,
         redis_stream.clone(),
@@ -174,8 +179,8 @@ pub(crate) async fn start_block_stream(
 
 async fn process_bitmap_indexer_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
-    bitmap_processor: std::sync::Arc<crate::bitmap_processor::BitmapProcessor>,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+    redis_client: Arc<RedisClient>,
     indexer: &IndexerConfig,
     redis_stream: String,
 ) -> anyhow::Result<u64> {
@@ -213,8 +218,8 @@ async fn process_bitmap_indexer_blocks(
         return Ok(start_block_height);
     }
 
-    let matching_block_heights =
-        bitmap_processor.stream_matching_block_heights(start_block_height, contract_pattern);
+    let matching_block_heights = reciever_blocks_processor
+        .stream_matching_block_heights(start_block_height, contract_pattern);
 
     tokio::pin!(matching_block_heights);
 
@@ -236,9 +241,9 @@ async fn process_bitmap_indexer_blocks(
 
 async fn process_near_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
-    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
+    lake_s3_client: SharedLakeS3Client,
     lake_prefetch_size: usize,
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
+    redis_client: Arc<RedisClient>,
     indexer: &IndexerConfig,
     redis_stream: String,
     chain_id: &ChainId,
@@ -360,8 +365,8 @@ mod tests {
             .expect_get_bitmaps_exact()
             .returning(|_, _| Ok(vec![]));
 
-        let mock_bitmap_processor =
-            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
@@ -406,7 +411,7 @@ mod tests {
             91940840,
             &indexer_config,
             std::sync::Arc::new(mock_redis_client),
-            std::sync::Arc::new(mock_bitmap_processor),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             mock_lake_s3_client,
             &ChainId::Mainnet,
             1,
@@ -455,8 +460,8 @@ mod tests {
             .expect_get_bitmaps_exact()
             .returning(|_, _| Ok(vec![]));
 
-        let mock_bitmap_processor =
-            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
@@ -501,7 +506,7 @@ mod tests {
             107503704,
             &indexer_config,
             std::sync::Arc::new(mock_redis_client),
-            std::sync::Arc::new(mock_bitmap_processor),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             mock_lake_s3_client,
             &ChainId::Mainnet,
             1,
@@ -521,8 +526,8 @@ mod tests {
 
         mock_graphql_client.expect_get_bitmaps_exact().never();
 
-        let mock_bitmap_processor =
-            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
@@ -542,7 +547,7 @@ mod tests {
 
         process_bitmap_indexer_blocks(
             107503704,
-            std::sync::Arc::new(mock_bitmap_processor),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             std::sync::Arc::new(mock_redis_client),
             &indexer_config,
             "stream key".to_string(),
@@ -561,8 +566,8 @@ mod tests {
 
         mock_graphql_client.expect_get_bitmaps_exact().never();
 
-        let mock_bitmap_processor =
-            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
@@ -582,7 +587,7 @@ mod tests {
 
         process_bitmap_indexer_blocks(
             107503704,
-            std::sync::Arc::new(mock_bitmap_processor),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             std::sync::Arc::new(mock_redis_client),
             &indexer_config,
             "stream key".to_string(),
@@ -601,8 +606,8 @@ mod tests {
 
         mock_graphql_client.expect_get_bitmaps_exact().never();
 
-        let mock_bitmap_processor =
-            crate::bitmap_processor::BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
@@ -622,7 +627,7 @@ mod tests {
 
         process_bitmap_indexer_blocks(
             107503704,
-            std::sync::Arc::new(mock_bitmap_processor),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             std::sync::Arc::new(mock_redis_client),
             &indexer_config,
             "stream key".to_string(),

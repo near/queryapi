@@ -4,9 +4,10 @@ use chrono::{DateTime, Duration, TimeZone, Utc};
 use near_lake_framework::near_indexer_primitives;
 use regex::Regex;
 
-use crate::bitmap::{Base64Bitmap, CompressedBitmap, DecompressedBitmap};
 use crate::graphql::client::GraphQLClient;
 use crate::rules::types::ChainId;
+
+use super::bitmap::{Base64Bitmap, CompressedBitmap, DecompressedBitmap};
 
 const MAX_S3_RETRY_COUNT: u8 = 20;
 
@@ -61,13 +62,13 @@ impl From<&str> for ContractPatternType {
     }
 }
 
-pub struct BitmapProcessor {
+pub struct ReceiverBlocksProcessor {
     graphql_client: GraphQLClient,
     s3_client: crate::s3_client::S3Client,
     chain_id: ChainId,
 }
 
-impl BitmapProcessor {
+impl ReceiverBlocksProcessor {
     pub fn new(graphql_client: GraphQLClient, s3_client: crate::s3_client::S3Client) -> Self {
         Self {
             graphql_client,
@@ -308,9 +309,11 @@ mod tests {
             .times(1)
             .returning(move |_, _| Ok(mock_query_result.clone()));
 
-        let bitmap_processor = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
-        let stream = bitmap_processor.stream_matching_block_heights(0, "someone.near".to_owned());
+        let stream =
+            reciever_blocks_processor.stream_matching_block_heights(0, "someone.near".to_owned());
         tokio::pin!(stream);
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
@@ -378,10 +381,11 @@ mod tests {
                 ])
             })
             .once();
-        let bitmap_processor = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
+        let reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
-        let stream =
-            bitmap_processor.stream_matching_block_heights(0, "*.someone.near".to_string());
+        let stream = reciever_blocks_processor
+            .stream_matching_block_heights(0, "*.someone.near".to_string());
         tokio::pin!(stream);
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
