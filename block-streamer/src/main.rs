@@ -31,7 +31,8 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
-    let graphql_url = "https://queryapi-hasura-graphql-mainnet-24ktefolwq-ew.a.run.app/v1/graphql"; // Prod Hasura
+    let graphql_endpoint =
+        std::env::var("HASURA_GRAPHQL_ENDPOINT").expect("HASURA_GRAPHQL_ENDPOINT is not set"); // Prod Hasura
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
     let metrics_port = std::env::var("METRICS_PORT")
         .expect("METRICS_PORT is not set")
@@ -42,6 +43,7 @@ async fn main() -> anyhow::Result<()> {
         redis_url,
         grpc_port,
         metrics_port,
+        graphql_endpoint,
         "Starting Block Streamer"
     );
 
@@ -51,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
     let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
-    let graphql_client = graphql::client::GraphQLClient::new(graphql_url.to_string());
+    let graphql_client = graphql::client::GraphQLClient::new(graphql_endpoint);
     let bitmap_processor = std::sync::Arc::new(crate::bitmap_processor::BitmapProcessor::new(
         graphql_client,
         s3_client.clone(),
