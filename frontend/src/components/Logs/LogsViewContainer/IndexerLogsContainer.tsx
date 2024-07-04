@@ -1,25 +1,26 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
-import { useInitialPayload } from 'near-social-bridge';
-import { sanitizeString } from '@/utils/helpers';
-import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
-import IndexerLogsView from '../LogsView/IndexerLogsView';
 import { Grid } from 'gridjs';
+import { useInitialPayload } from 'near-social-bridge';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 
-import { QueryValidation } from '../GraphQL/QueryValidation';
-import { Query } from '../GraphQL/Query';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { formatTimestamp } from '@/utils/formatTimestamp';
+import { sanitizeString } from '@/utils/helpers';
+
+import { Query } from '../GraphQL/Query';
+import { QueryValidation } from '../GraphQL/QueryValidation';
+import IndexerLogsView from '../LogsView/IndexerLogsView';
 
 interface GridConfig {
-  columns: string[]
-  search: any
-  pagination: any
-  server: any
-  style: any
-  sort: boolean
+  columns: string[];
+  search: any;
+  pagination: any;
+  server: any;
+  style: any;
+  sort: boolean;
 }
 
 interface InitialPayload {
-  currentUserAccountId: string
+  currentUserAccountId: string;
 }
 
 const GRAPHQL_ENDPOINT = `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT as string}/v1/graphql`;
@@ -29,8 +30,8 @@ const IndexerLogsContainer: React.FC = () => {
   const { indexerDetails, latestHeight } = useContext(IndexerDetailsContext);
   const { currentUserAccountId } = useInitialPayload<InitialPayload>();
 
-  const sanitizedAccountId: string = sanitizeString(indexerDetails.accountId);
-  const sanitizedIndexerName: string = sanitizeString(indexerDetails.indexerName);
+  const sanitizedAccountId: string = indexerDetails.accountId ? sanitizeString(indexerDetails.accountId) : '';
+  const sanitizedIndexerName: string = indexerDetails.indexerName ? sanitizeString(indexerDetails.indexerName) : '';
 
   const functionName = `${indexerDetails.accountId}/${indexerDetails.indexerName}`;
   const schemaName = `${sanitizedAccountId}_${sanitizedIndexerName}`;
@@ -54,18 +55,24 @@ const IndexerLogsContainer: React.FC = () => {
       },
       body: JSON.stringify({
         query: Query(tableName),
-        variables: QueryValidation({ limit: LOGS_PER_PAGE, offset: 0, order_by_timestamp: 'desc', level: severity, type: logType, timestamp: startTime })
+        variables: QueryValidation({
+          limit: LOGS_PER_PAGE,
+          offset: 0,
+          order_by_timestamp: 'desc',
+          level: severity,
+          type: logType,
+          timestamp: startTime,
+        }),
       }),
-      then: ({ data }: any) => (
+      then: ({ data }: any) =>
         data[tableName].map((log: any) => [
           log.level,
           log.type,
           formatTimestamp(log.timestamp) ?? log.timestamp,
           log.block_height,
-          log.message
-        ])
-      ),
-      total: ({ data }: any) => (data[`${tableName}_aggregate`].aggregate.count),
+          log.message,
+        ]),
+      total: ({ data }: any) => data[`${tableName}_aggregate`].aggregate.count,
     };
   };
 
@@ -77,19 +84,26 @@ const IndexerLogsContainer: React.FC = () => {
         body: (prev: string, keyword: string) => {
           return JSON.stringify({
             query: Query(tableName),
-            variables: QueryValidation({ limit: LOGS_PER_PAGE, offset: 0, order_by_timestamp: 'desc', level: severity, type: logType, timestamp: startTime, keyword })
+            variables: QueryValidation({
+              limit: LOGS_PER_PAGE,
+              offset: 0,
+              order_by_timestamp: 'desc',
+              level: severity,
+              type: logType,
+              timestamp: startTime,
+              keyword,
+            }),
           });
         },
-        then: ({ data }: any) => (
+        then: ({ data }: any) =>
           data[tableName].map((log: any) => [
             log.level,
             log.type,
             formatTimestamp(log.timestamp) ?? log.timestamp,
             log.block_height,
-            log.message
-          ])
-        ),
-        total: ({ data }: any) => (data[`${tableName}_aggregate`].aggregate.count),
+            log.message,
+          ]),
+        total: ({ data }: any) => data[`${tableName}_aggregate`].aggregate.count,
       },
     };
   };
@@ -99,7 +113,7 @@ const IndexerLogsContainer: React.FC = () => {
       prevButton: false,
       nextButton: false,
       limit: LOGS_PER_PAGE,
-      buttonsCount: 0
+      buttonsCount: 0,
     };
   };
 

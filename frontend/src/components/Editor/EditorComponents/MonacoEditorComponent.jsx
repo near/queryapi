@@ -1,4 +1,4 @@
-import MonacoEditor from "@monaco-editor/react";
+import MonacoEditor from '@monaco-editor/react';
 export const MonacoEditorComponent = ({
   value,
   defaultValue,

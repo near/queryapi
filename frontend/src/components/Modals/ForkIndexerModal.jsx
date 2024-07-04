@@ -1,8 +1,8 @@
-import React, { useContext, useState } from "react";
-import { Button, Modal, Alert, InputGroup, Form } from "react-bootstrap";
-import { IndexerDetailsContext } from "../../contexts/IndexerDetailsContext";
+import React, { useContext, useState } from 'react';
+import { Button, Modal, Alert, InputGroup, Form } from 'react-bootstrap';
+import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 
-export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
+export const ForkIndexerModal = ({ forkIndexer }) => {
   const {
     indexerDetails,
     showForkIndexerModal,
@@ -11,22 +11,18 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
     setIndexerName,
     setForkedAccountId,
     setForkedIndexerName,
-    setIndexerConfig,
-    isCreateNewIndexer,
   } = useContext(IndexerDetailsContext);
-  const [indexerName, setIndexerNameField] = useState("");
+  const [indexerName, setIndexerNameField] = useState('');
   const [error, setError] = useState(null);
 
   const fork = async () => {
     if (!indexerName) {
-      setError("Please provide an Indexer Name");
+      setError('Please provide an Indexer Name');
       return;
     }
 
     if (indexerName === indexerDetails.indexerName) {
-      setError(
-        "Please provide a different Indexer Name than the original Indexer"
-      );
+      setError('Please provide a different Indexer Name than the original Indexer');
       return;
     }
 
@@ -40,22 +36,13 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
   };
 
   return (
-    <Modal
-      centered={true}
-      show={showForkIndexerModal}
-      onHide={() => setShowForkIndexerModal(false)}
-      className="bg-gray-50"
-    >
+    <Modal centered show={showForkIndexerModal} onHide={() => setShowForkIndexerModal(false)} className="bg-gray-50">
       <Modal.Header closeButton className="border-b border-gray-300">
-        <Modal.Title className="text-lg font-semibold text-gray-800">
-          Enter Indexer Details
-        </Modal.Title>
+        <Modal.Title className="text-lg font-semibold text-gray-800">Enter Indexer Details</Modal.Title>
       </Modal.Header>
       <Modal.Body className="p-4">
         <InputGroup size="sm" className="mb-3">
-          <InputGroup.Text className="bg-gray-200 text-gray-700">
-            Indexer Name
-          </InputGroup.Text>
+          <InputGroup.Text className="bg-gray-200 text-gray-700">Indexer Name</InputGroup.Text>
           <Form.Control
             type="text"
             placeholder="indexer_name"
@@ -67,8 +54,8 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
         </InputGroup>
         {error && (
           <Alert
-            className="px-4 py-2 mt-3 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
             variant="danger"
+            className="px-4 py-2 mt-3 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
           >
             {error}
           </Alert>
@@ -82,11 +69,7 @@ export const ForkIndexerModal = ({ registerFunction, forkIndexer }) => {
         >
           Cancel
         </Button>
-        <Button
-          variant="primary"
-          onClick={() => fork()}
-          className="bg-blue-600 text-white hover:bg-blue-700"
-        >
+        <Button variant="primary" onClick={() => fork()} className="bg-blue-600 text-white hover:bg-blue-700">
           Fork Indexer
         </Button>
       </Modal.Footer>

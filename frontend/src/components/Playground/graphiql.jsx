@@ -1,36 +1,35 @@
-import React, { useContext, useState, useMemo } from "react";
-import GraphiQL from "graphiql";
-import { sessionStorage } from "near-social-bridge";
+import React, { useContext, useState, useMemo } from 'react';
+import GraphiQL from 'graphiql';
+import { sessionStorage } from 'near-social-bridge';
 import { IndexerDetailsContext } from '../../contexts/IndexerDetailsContext';
 import { codeExporterPlugin } from '@graphiql/plugin-code-exporter';
 import { explorerPlugin } from '@graphiql/plugin-explorer';
-import "graphiql/graphiql.min.css";
+import 'graphiql/graphiql.min.css';
 import '@graphiql/plugin-code-exporter/dist/style.css';
 import '@graphiql/plugin-explorer/dist/style.css';
 
 const HASURA_ENDPOINT =
-  `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql` ||
-  "https://near-queryapi.dev.api.pagoda.co/v1/graphql";
+  `${process.env.NEXT_PUBLIC_HASURA_ENDPOINT}/v1/graphql` || 'https://near-queryapi.dev.api.pagoda.co/v1/graphql';
 
 const graphQLFetcher = async (graphQLParams, accountId) => {
   const response = await fetch(HASURA_ENDPOINT, {
-    method: "post",
-    credentials: "omit",
+    method: 'post',
+    credentials: 'omit',
     headers: {
-      "Content-Type": "application/json",
-      "X-Hasura-Role": accountId.replaceAll(".", "_"),
+      'Content-Type': 'application/json',
+      'X-Hasura-Role': accountId.replaceAll('.', '_'),
     },
     body: JSON.stringify(graphQLParams || {}),
   });
   return await response.json();
 };
 
-const extractQueryName = query => {
+const extractQueryName = (query) => {
   const match = query.match(/^[^{(]+\s([^{\s(]+)/);
   return match ? match[1] : null;
 };
 
-const extractTableName = query => {
+const extractTableName = (query) => {
   const match = query.match(/query\s*\w*\s*{\s*([^({\s]+)/);
   return match ? match[1].trim() : null;
 };
@@ -41,7 +40,7 @@ const bosQuerySnippet = (accountId) => {
     language: `JavaScript`,
     codeMirrorMode: `jsx`,
     options: [],
-    generate: arg => {
+    generate: (arg) => {
       const { operationDataList } = arg;
       const { query } = operationDataList[0];
       const queryName = extractQueryName(query);
@@ -60,7 +59,7 @@ function fetchGraphQL(operationsDoc, operationName, variables) {
         QUERYAPI_ENDPOINT,
         {
           method: "POST",
-          headers: { "x-hasura-role": \`${accountId?.replaceAll(".", "_")}\` },
+          headers: { "x-hasura-role": \`${accountId?.replaceAll('.', '_')}\` },
           body: JSON.stringify({
             query: operationsDoc,
             variables: variables,
@@ -94,10 +93,9 @@ return (
   {renderedData}
   </>
 );`;
-    }
+    },
   };
 };
-
 
 const explorer = explorerPlugin();
 
@@ -107,7 +105,7 @@ export const GraphqlPlayground = () => {
   const exporter = useMemo(() => codeExporterPlugin({ snippets }), [snippets]);
 
   return (
-    <div style={{ width: "100%", height: "75vh" }}>
+    <div style={{ width: '100%', height: '75vh' }}>
       <GraphiQL
         fetcher={(params) => graphQLFetcher(params, indexerDetails.accountId)}
         storage={sessionStorage}

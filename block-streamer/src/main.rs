@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
         "Starting Block Streamer"
     );
 
-    let redis_client = std::sync::Arc::new(redis::RedisClient::connect(&redis_url).await?);
+    let redis = std::sync::Arc::new(redis::RedisClient::connect(&redis_url).await?);
 
     let aws_config = aws_config::from_env().load().await;
     let s3_config = aws_sdk_s3::Config::from(&aws_config);
@@ -61,13 +61,7 @@ async fn main() -> anyhow::Result<()> {
 
     tokio::spawn(metrics::init_server(metrics_port).expect("Failed to start metrics server"));
 
-    server::init(
-        &grpc_port,
-        redis_client,
-        receiver_blocks_processor,
-        lake_s3_client,
-    )
-    .await?;
+    server::init(&grpc_port, redis, receiver_blocks_processor, lake_s3_client).await?;
 
     Ok(())
 }

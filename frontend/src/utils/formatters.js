@@ -1,6 +1,6 @@
-import prettier from "prettier";
-import SqlPlugin from "prettier-plugin-sql";
-import parserBabel from "prettier/parser-babel";
+import prettier from 'prettier';
+import parserBabel from 'prettier/parser-babel';
+import SqlPlugin from 'prettier-plugin-sql';
 
 let wrap_code = (code) => `import * as primitives from "@near-lake/primitives"
 /** 
@@ -23,34 +23,37 @@ async function getBlock(block: primitives.Block) {
 
 export const formatSQL = (schema) => {
   return prettier.format(schema, {
-    parser: "sql",
-    formatter: "sql-formatter",
+    parser: 'sql',
+    formatter: 'sql-formatter',
     plugins: [SqlPlugin],
     pluginSearchDirs: false,
-    language: "postgresql",
-    database: "postgresql",
+    language: 'postgresql',
+    database: 'postgresql',
   });
 };
 
 export const wrapCode = (code) => {
-  code = code.replace(/(?:\\[n])+/g, "\r\n");
+  code = code.replace(/(?:\\[n])+/g, '\r\n');
   const wrappedCode = wrap_code(code);
   return wrappedCode;
 };
 
 export const formatIndexingCode = (code) => {
   return prettier.format(code, {
-    parser: "babel",
+    parser: 'babel',
     plugins: [parserBabel],
   });
 };
 
-export const defaultCode = formatIndexingCode(wrapCode(
-  `
+export const defaultCode = formatIndexingCode(
+  wrapCode(
+    `
   // Add your code here   
   const h = block.header().height
   await context.set('height', h);
-`));
+`,
+  ),
+);
 
 export const defaultSchema = `
 CREATE TABLE "indexer_storage" ("function_name" TEXT NOT NULL, "key_name" TEXT NOT NULL, "value" TEXT NOT NULL, PRIMARY KEY ("function_name", "key_name"))

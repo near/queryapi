@@ -1,9 +1,10 @@
 import React from 'react';
+
 import SeverityRadioButtonGroupView from '../LogsView/SeveritySelectorView';
 
 interface SeveritySelectorProps {
-  selectedSeverity: string
-  onSeverityChange: (severity: string) => void
+  selectedSeverity: string;
+  onSeverityChange: (severity: string) => void;
 }
 
 const SeveritySelectorContainer: React.FC<SeveritySelectorProps> = ({ selectedSeverity, onSeverityChange }) => {
