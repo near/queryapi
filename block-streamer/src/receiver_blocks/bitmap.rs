@@ -60,6 +60,7 @@ impl TryFrom<&Base64Bitmap> for CompressedBitmap {
 }
 
 impl CompressedBitmap {
+    #[cfg(test)]
     pub fn new(start_block_height: u64, bitmap: Vec<u8>) -> Self {
         Self {
             start_block_height,
@@ -72,14 +73,6 @@ impl CompressedBitmap {
         let bit_index_in_byte: usize = bit_index % 8;
 
         (self.bitmap[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0
-    }
-
-    fn set_bit(&mut self, bit_index: usize, bit_value: bool, write_zero: bool) {
-        if !bit_value && write_zero {
-            self.bitmap[bit_index / 8] &= !(1u8 << (7 - (bit_index % 8)));
-        } else if bit_value {
-            self.bitmap[bit_index / 8] |= 1u8 << (7 - (bit_index % 8));
-        }
     }
 
     fn read_integer_from_binary(&self, start_bit_index: usize, end_bit_index: usize) -> u64 {
@@ -277,9 +270,7 @@ mod tests {
         let bitmap = DecompressedBitmap::new(0, Some(bytes));
         let results: Vec<bool> = [7, 8, 9, 15, 19, 20, 22, 23]
             .iter()
-            .map(|index| {
-                return bitmap.get_bit(*index);
-            })
+            .map(|index| bitmap.get_bit(*index))
             .collect();
         assert_eq!(
             results,
