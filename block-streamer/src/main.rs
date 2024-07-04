@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 
     let redis_url = std::env::var("REDIS_URL").expect("REDIS_URL is not set");
     let graphql_endpoint =
-        std::env::var("HASURA_GRAPHQL_ENDPOINT").expect("HASURA_GRAPHQL_ENDPOINT is not set"); // Prod Hasura
+        std::env::var("HASURA_GRAPHQL_ENDPOINT").expect("HASURA_GRAPHQL_ENDPOINT is not set");
     let grpc_port = std::env::var("GRPC_PORT").expect("GRPC_PORT is not set");
     let metrics_port = std::env::var("METRICS_PORT")
         .expect("METRICS_PORT is not set")
