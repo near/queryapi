@@ -52,7 +52,6 @@ async fn main() -> anyhow::Result<()> {
     let s3_client = crate::s3_client::S3Client::new(s3_config.clone());
 
     let graphql_client = graphql::client::GraphQLClient::new(graphql_url.to_string());
-
     let bitmap_processor = std::sync::Arc::new(crate::bitmap_processor::BitmapProcessor::new(
         graphql_client,
         s3_client.clone(),

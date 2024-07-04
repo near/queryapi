@@ -1,12 +1,12 @@
 use anyhow::Context;
+use futures::StreamExt;
 use near_lake_framework::near_indexer_primitives;
+use registry_types::Rule;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
 use crate::metrics;
 use crate::rules::types::ChainId;
-use futures::StreamExt;
-use registry_types::Rule;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
 /// we need this configurable for testing purposes.
@@ -179,51 +179,55 @@ async fn process_bitmap_indexer_blocks(
     indexer: &IndexerConfig,
     redis_stream: String,
 ) -> anyhow::Result<u64> {
-    let mut last_published_block_height: u64 = start_block_height;
-
     let contract_pattern: String = match &indexer.rule {
         Rule::ActionAny {
             affected_account_id,
             ..
-        } => {
-            if affected_account_id
-                .split(',')
-                .any(|account_id| account_id.trim().eq("*"))
-            {
-                tracing::debug!(
-                    "Skipping fetching block heights form bitmap idnexer due to presence of all account wildcard * in filter {}",
-                    affected_account_id
-                );
-                return Ok(start_block_height);
-            }
-            tracing::debug!(
-                "Fetching block heights starting from {} from Bitmap Indexer",
-                start_block_height,
-            );
-
-            anyhow::Ok(affected_account_id.to_owned())
-        }
+        } => affected_account_id.to_owned(),
         Rule::ActionFunctionCall { .. } => {
-            tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
+            tracing::error!("ActionFunctionCall matching rule not yet supported for bitmap processing, function");
             return Ok(start_block_height);
         }
         Rule::Event { .. } => {
-            tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
+            tracing::error!(
+                "Event matching rule not yet supported for bitmap processing, function"
+            );
             return Ok(start_block_height);
         }
-    }?;
+    };
+
+    tracing::debug!(
+        "Fetching block heights starting from {} from Bitmap Indexer",
+        start_block_height,
+    );
+
+    if contract_pattern
+        .split(',')
+        .any(|account_id| account_id.trim().eq("*"))
+    {
+        tracing::debug!(
+            "Skipping fetching block heights form bitmap idnexer due to presence of all account wildcard * in filter {}",
+            contract_pattern
+        );
+
+        return Ok(start_block_height);
+    }
 
     let matching_block_heights =
         bitmap_processor.stream_matching_block_heights(start_block_height, contract_pattern);
+
     tokio::pin!(matching_block_heights);
+
+    let mut last_published_block_height: u64 = start_block_height;
+
     while let Some(Ok(block_height)) = matching_block_heights.next().await {
-        let block_height = block_height.clone();
         redis_client
             .publish_block(indexer, redis_stream.clone(), block_height)
             .await?;
         redis_client
             .set_last_processed_block(indexer, block_height)
             .await?;
+
         last_published_block_height = block_height;
     }
 

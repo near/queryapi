@@ -72,6 +72,7 @@ impl GraphQLClientImpl {
         > = vec![];
         let mut offset = 0;
         let mut has_more = true;
+
         while has_more {
             let mut query_result = self
                 .post_graphql::<GetBitmapsExact>(get_bitmaps_exact::Variables {

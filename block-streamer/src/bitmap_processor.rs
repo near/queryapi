@@ -1,13 +1,12 @@
-use crate::bitmap::{Base64Bitmap, CompressedBitmap, DecompressedBitmap};
-use crate::graphql::client::GraphQLClient;
-use crate::rules::types::ChainId;
 use anyhow::Context;
 use async_stream::try_stream;
 use chrono::{DateTime, Duration, TimeZone, Utc};
-use futures::stream::{BoxStream, Stream};
-use futures::StreamExt;
 use near_lake_framework::near_indexer_primitives;
 use regex::Regex;
+
+use crate::bitmap::{Base64Bitmap, CompressedBitmap, DecompressedBitmap};
+use crate::graphql::client::GraphQLClient;
+use crate::rules::types::ChainId;
 
 const MAX_S3_RETRY_COUNT: u8 = 20;
 
@@ -166,24 +165,28 @@ impl BitmapProcessor {
             let start_date = self.get_nearest_block_date(start_block_height).await?;
             let contract_pattern_type = ContractPatternType::from(contract_pattern.as_str());
             let mut current_date = start_date;
+
             while current_date <= Utc::now() {
                 let base_64_bitmaps: Vec<Base64Bitmap> = self.query_base_64_bitmaps(&contract_pattern_type, &current_date).await?;
-                if !base_64_bitmaps.is_empty() {
-                    let compressed_bitmaps: Vec<CompressedBitmap> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
-                    let decompressed_bitmaps: Vec<DecompressedBitmap> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
 
-                    let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
-                    let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
-                    for bitmap in decompressed_bitmaps {
-                        bitmap_for_day.merge(bitmap)?;
-                    }
-
-                    let mut bitmap_iter = bitmap_for_day.iter();
-                    while let Some(block_height) = bitmap_iter.next() {
-                        yield block_height;
-                    }
+                if base_64_bitmaps.is_empty() {
+                    current_date = self.next_day(current_date);
+                    continue;
                 }
-                current_date = self.next_day(current_date);
+
+                let compressed_bitmaps: Vec<_> = base_64_bitmaps.iter().map(CompressedBitmap::try_from).collect()?;
+                let decompressed_bitmaps: Vec<_> = compressed_bitmaps.iter().map(CompressedBitmap::decompress).collect()?;
+
+                let starting_block_height: u64 = decompressed_bitmaps.iter().map(|item| item.start_block_height).min().unwrap_or(decompressed_bitmaps[0].start_block_height);
+
+                let mut bitmap_for_day = DecompressedBitmap::new(starting_block_height, None);
+                for bitmap in decompressed_bitmaps {
+                    bitmap_for_day.merge(bitmap)?;
+                }
+
+                for block_height in bitmap_for_day.iter() {
+                    yield block_height;
+                }
             }
         }
     }
@@ -193,6 +196,8 @@ impl BitmapProcessor {
 mod tests {
     use super::*;
     use mockall::predicate;
+
+    use futures::StreamExt;
 
     fn exact_query_result(
         first_block_height: i64,
@@ -217,7 +222,7 @@ mod tests {
 
     #[test]
     fn parse_exact_contract_patterns() {
-        let sample_patterns = vec![
+        let sample_patterns = [
             "near",
             "*.near",
             "near, someone.tg",
@@ -258,7 +263,7 @@ mod tests {
 
     #[test]
     fn parse_wildcard_contract_patterns() {
-        let sample_patterns = vec![
+        let sample_patterns = [
             "*.someone.near",
             "near, someone.*.tg",
             "a.near, b.*, *.b, a.*.c.near",
@@ -336,13 +341,13 @@ mod tests {
                     date.date_naive() == (Utc::now() - Duration::days(2)).date_naive()
                 }),
             )
-            .times(1)
             .returning(move |_, _| {
                 Ok(vec![
                     wildcard_query_result(1, "wA=="),
                     wildcard_query_result(5, "wA=="),
                 ])
-            });
+            })
+            .once();
         mock_graphql_client
             .expect_get_bitmaps_wildcard()
             .with(
@@ -351,13 +356,13 @@ mod tests {
                     date.date_naive() == (Utc::now() - Duration::days(1)).date_naive()
                 }),
             )
-            .times(1)
             .returning(move |_, _| {
                 Ok(vec![
                     wildcard_query_result(10, "wA=="),
                     wildcard_query_result(15, "wA=="),
                 ])
-            });
+            })
+            .once();
         mock_graphql_client
             .expect_get_bitmaps_wildcard()
             .with(
@@ -366,13 +371,13 @@ mod tests {
                     date.date_naive() == Utc::now().date_naive()
                 }),
             )
-            .times(1)
             .returning(move |_, _| {
                 Ok(vec![
                     wildcard_query_result(100, "wA=="),
                     wildcard_query_result(105, "wA=="),
                 ])
-            });
+            })
+            .once();
         let bitmap_processor = BitmapProcessor::new(mock_graphql_client, mock_s3_client);
 
         let stream =
