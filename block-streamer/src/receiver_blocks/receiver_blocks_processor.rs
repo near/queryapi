@@ -170,8 +170,9 @@ impl ReceiverBlocksProcessor {
             while current_date <= Utc::now() {
                 let base_64_bitmaps: Vec<Base64Bitmap> = self.query_base_64_bitmaps(&contract_pattern_type, &current_date).await?;
 
+                current_date = self.next_day(current_date);
+
                 if base_64_bitmaps.is_empty() {
-                    current_date = self.next_day(current_date);
                     continue;
                 }
 
@@ -296,8 +297,6 @@ mod tests {
             });
 
         let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
-        let mock_query_result_item = exact_query_result(1, "wA==");
-        let mock_query_result = vec![mock_query_result_item];
         mock_graphql_client
             .expect_get_bitmaps_exact()
             .with(
@@ -307,18 +306,21 @@ mod tests {
                 }),
             )
             .times(1)
-            .returning(move |_, _| Ok(mock_query_result.clone()));
+            .returning(move |_, _| Ok(vec![exact_query_result(1, "wA==")]));
 
         let reciever_blocks_processor =
             ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let stream =
             reciever_blocks_processor.stream_matching_block_heights(0, "someone.near".to_owned());
+
         tokio::pin!(stream);
+
         let mut result_heights = vec![];
         while let Some(Ok(height)) = stream.next().await {
             result_heights.push(height);
         }
+
         assert_eq!(result_heights, vec![1]);
     }
 
