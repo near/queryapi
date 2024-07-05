@@ -30,7 +30,7 @@ interface EditorMenuContainerProps {
   isUserIndexer: boolean;
   handleDeleteIndexer: () => void;
   isCreateNewIndexer: boolean;
-  error: string | undefined;
+  schemaError: string | undefined;
   indexingCode: string;
   setIndexingCode: (code: string) => void;
   currentUserAccountId: string | undefined;
@@ -40,7 +40,7 @@ interface EditorMenuContainerProps {
   // publish
   actionButtonText: string;
   schema: string;
-  setError: (error: string) => void;
+  setSchemaError: (schemaError: string) => void;
   showModal: (modalName: string, modalProps: any) => void;
 }
 
@@ -48,7 +48,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   isUserIndexer,
   handleDeleteIndexer,
   isCreateNewIndexer,
-  error,
+  schemaError,
   indexingCode,
   setIndexingCode,
   currentUserAccountId,
@@ -58,7 +58,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   // publish
   actionButtonText,
   schema,
-  setError,
+  setSchemaError,
   showModal,
 }) => {
   const {
@@ -131,7 +131,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
 
     if (codeValidationError) {
-      setError(CODE_FORMATTING_ERROR_MESSAGE);
+      //todo: setIndexe error(CODE_FORMATTING_ERROR_MESSAGE);
       return;
     }
 
@@ -153,7 +153,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
         : 'CONTINUE';
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+      setSchemaError(SCHEMA_FORMATTING_ERROR_MESSAGE);
       return;
     } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
       showModal(INDEXER_REGISTER_TYPE_GENERATION_ERROR, {
@@ -193,7 +193,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
           isUserIndexer,
           handleDeleteIndexer,
           isCreateNewIndexer,
-          error,
+          schemaError,
           // Context
           indexerName,
           accountId,
