@@ -82,6 +82,7 @@ const Editor: React.FC = (): ReactElement => {
 
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema: string) => {
     const { error, location } = validateSQLSchema(_schema);
+    error ? parseGlyphError(error as any, location as any) : parseGlyphError();
     schemaErrorHandler(error);
   }, 500);
 
@@ -236,6 +237,29 @@ const Editor: React.FC = (): ReactElement => {
     const { validatedCode, validatedSchema } = reformatAll(indexingCode, schema);
     validatedCode && setIndexingCode(validatedCode);
     validatedSchema && setSchema(validatedSchema);
+  };
+
+  const parseGlyphError = (
+    error?: { message: string },
+    line?: { start: { line: number; column: number }; end: { line: number; column: number } },
+  ) => {
+    const { line: startLine, column: startColumn } = line?.start || { line: 1, column: 1 };
+    const { line: endLine, column: endColumn } = line?.end || { line: 1, column: 1 };
+    const displayedError = error?.message || '';
+
+    monacoEditorRef.current.deltaDecorations(
+      [decorations],
+      [
+        {
+          range: new monaco.Range(startLine, startColumn, endLine, endColumn),
+          options: {
+            isWholeLine: true,
+            glyphMarginClassName: error ? 'glyphError' : 'glyphSuccess',
+            glyphMarginHoverMessage: { value: displayedError },
+          },
+        },
+      ],
+    );
   };
 
   const handleEditorWillMount = (editor: any, monaco: any) => {
