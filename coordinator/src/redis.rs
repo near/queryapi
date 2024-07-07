@@ -138,23 +138,6 @@ impl RedisClientImpl {
             .context(format!("SADD {set:?} {member:?}"))
     }
 
-    pub async fn exists<K>(&self, key: K) -> anyhow::Result<bool>
-    where
-        K: ToRedisArgs + Debug + Send + Sync + 'static,
-    {
-        tracing::debug!("EXISTS {key:?}");
-
-        redis::cmd("EXISTS")
-            .arg(&key)
-            .query_async(&mut self.connection.clone())
-            .await
-            .context(format!("EXISTS {key:?}"))
-    }
-
-    pub async fn indexer_states_set_exists(&self) -> anyhow::Result<bool> {
-        self.exists(Self::INDEXER_STATES_SET).await
-    }
-
     pub async fn get_last_published_block<P>(&self, key_provider: &P) -> anyhow::Result<Option<u64>>
     where
         P: KeyProvider + 'static,
