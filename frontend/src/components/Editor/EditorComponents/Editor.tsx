@@ -88,6 +88,7 @@ const Editor: React.FC = (): ReactElement => {
 
   const debouncedValidateCode = useDebouncedCallback((_code: string) => {
     const { error } = validateJSCode(_code);
+    console.log(error)
     indexerErrorHandler(error);
   }, 500);
 
@@ -105,7 +106,6 @@ const Editor: React.FC = (): ReactElement => {
   };
 
   useEffect(() => {
-    console.log('Editor useEffect 1');
     //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
     if (savedCode) setIndexingCode(savedCode);
@@ -125,7 +125,6 @@ const Editor: React.FC = (): ReactElement => {
   }, [indexerDetails.code]);
 
   useEffect(() => {
-    console.log('Editor useEffect 2');
     //* Load saved schema from local storage if it exists else load code from context
     const savedSchema = storageManager?.getSchemaCode();
     if (savedSchema) setSchema(savedSchema);
@@ -264,25 +263,29 @@ const Editor: React.FC = (): ReactElement => {
 
   const handleEditorWillMount = (editor: any, monaco: any) => {
     if (!diffView) {
-      const decorations = editor.deltaDecorations(
-        [],
-        [
-          {
-            range: new monaco.Range(1, 1, 1, 1),
-            options: {},
-          },
-        ],
+      const decorations = editor.deltaDecorations([], [
+        {
+          range: new monaco.Range(1, 1, 1, 1),
+          options: {},
+        },
+      ],
       );
       monacoEditorRef.current = editor;
       setDecorations(decorations);
-
-      editor.setPosition(fileName === INDEXER_TAB_NAME ? cursorPosition : { lineNumber: 1, column: 1 });
-      editor.focus();
     }
+    editor.setPosition(fileName === INDEXER_TAB_NAME ? cursorPosition : { lineNumber: 1, column: 1 });
+    editor.focus();
+
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
       'file:///node_modules/@near-lake/primitives/index.d.ts',
     );
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2016,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs
+    });
+
     setMonacoMount(true);
   };
 
@@ -383,7 +386,12 @@ const Editor: React.FC = (): ReactElement => {
                 height: '100%',
               }}
             >
-              <FileSwitcher fileName={fileName} setFileName={setFileName} schemaError={schemaError} indexerError={indexerError} />
+              <FileSwitcher
+                fileName={fileName}
+                setFileName={setFileName}
+                schemaError={schemaError}
+                indexerError={indexerError}
+              />
               <GlyphContainer style={{ height: '100%', width: '100%' }}>
                 {/* @ts-ignore remove after refactoring Resizable Editor to ts*/}
                 <ResizableLayoutEditor

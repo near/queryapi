@@ -47,13 +47,11 @@ export function validateJSCode(code: string): { data: string | null; error: Erro
   try {
     const formattedCode = formatIndexingCode(code);
     return { data: formattedCode, error: null };
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error(error.message);
-      return { data: code, error };
-    } else {
-      throw error;
-    }
+  } catch (error: any) {
+    return {
+      data: code,
+      error: error.message, //todo: add specific error messages here
+    };
   }
 }
 

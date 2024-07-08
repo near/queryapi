@@ -4,6 +4,7 @@ import AlertSquareIcon from '@/components/Common/Icons/AlertSquareIcon';
 import CheckMarkSquareIcon from '@/components/Common/Icons/CheckMarkSquareIcon';
 
 import CustomTooltip, { TooltipDirection } from '@/components/Common/CustomTooltip';
+const IndexerErrorMessage = 'There was an error with the Indexer.';
 
 export function FileSwitcher({ fileName, setFileName, schemaError, indexerError }) {
   const { isCreateNewIndexer } = useContext(IndexerDetailsContext);
@@ -17,13 +18,13 @@ export function FileSwitcher({ fileName, setFileName, schemaError, indexerError 
       >
         <span>Indexer.js</span>
         <div className="inline-flex items-center">
-          {indexerError ? (
-            <CustomTooltip message={indexerError} direction={TooltipDirection.Top}>
+          {/* {indexerError ? (
+            <CustomTooltip message={IndexerErrorMessage} direction={TooltipDirection.Top}>
               <AlertSquareIcon />
             </CustomTooltip>
           ) : (
             <CheckMarkSquareIcon />
-          )}
+          )} */}
         </div>
       </button>
       <button

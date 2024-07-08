@@ -4,6 +4,6 @@
 //         <ModalProvider>
 //         <Component { ...pageProps } />
 //         </ModalProvider>
-//         < /IndexerDetailsProvider> 
-//         < /ApolloProvider> 
+//         < /IndexerDetailsProvider>
+//         < /ApolloProvider>
 //         < /NearSocialBridgeProvider>
