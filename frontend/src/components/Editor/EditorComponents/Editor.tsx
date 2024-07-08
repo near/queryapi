@@ -88,7 +88,7 @@ const Editor: React.FC = (): ReactElement => {
 
   const debouncedValidateCode = useDebouncedCallback((_code: string) => {
     const { error } = validateJSCode(_code);
-    console.log(error)
+    console.log(error);
     indexerErrorHandler(error);
   }, 500);
 
@@ -263,12 +263,14 @@ const Editor: React.FC = (): ReactElement => {
 
   const handleEditorWillMount = (editor: any, monaco: any) => {
     if (!diffView) {
-      const decorations = editor.deltaDecorations([], [
-        {
-          range: new monaco.Range(1, 1, 1, 1),
-          options: {},
-        },
-      ],
+      const decorations = editor.deltaDecorations(
+        [],
+        [
+          {
+            range: new monaco.Range(1, 1, 1, 1),
+            options: {},
+          },
+        ],
       );
       monacoEditorRef.current = editor;
       setDecorations(decorations);
@@ -283,7 +285,7 @@ const Editor: React.FC = (): ReactElement => {
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2016,
       allowNonTsExtensions: true,
-      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
     });
 
     setMonacoMount(true);
