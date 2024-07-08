@@ -131,7 +131,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
 
     if (codeValidationError) {
-      //todo: setIndexe error(CODE_FORMATTING_ERROR_MESSAGE);
+      //todo: setIndexer error(CODE_FORMATTING_ERROR_MESSAGE);
       return;
     }
 
