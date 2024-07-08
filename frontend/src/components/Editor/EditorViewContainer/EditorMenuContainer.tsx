@@ -1,6 +1,9 @@
 import { request } from 'near-social-bridge';
 import React, { useContext } from 'react';
 
+import { ForkIndexerModal } from '@/components/Modals/ForkIndexerModal';
+import { PublishModal } from '@/components/Modals/PublishModal';
+import { ResetChangesModal } from '@/components/Modals/ResetChangesModal';
 import {
   CODE_FORMATTING_ERROR_MESSAGE,
   FORMATTING_ERROR_TYPE,
@@ -21,9 +24,6 @@ import { sanitizeAccountId, sanitizeIndexerName } from '@/utils/helpers';
 import { queryIndexerFunctionDetails as PreviousSavedCode } from '@/utils/queryIndexerFunction';
 import { validateJSCode, validateSQLSchema } from '@/utils/validators';
 
-import { ForkIndexerModal } from '@/components/Modals/ForkIndexerModal';
-import { PublishModal } from '@/components/Modals/PublishModal';
-import { ResetChangesModal } from '@/components/Modals/ResetChangesModal';
 import EditorMenuView from '../EditorView/EditorMenuView';
 
 interface EditorMenuContainerProps {

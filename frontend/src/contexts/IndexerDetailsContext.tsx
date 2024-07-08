@@ -1,5 +1,5 @@
 import { useInitialPayload } from 'near-social-bridge';
-import React, { createContext, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useCallback,useEffect, useMemo, useState } from 'react';
 
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import { queryIndexerFunctionDetails } from '@/utils/queryIndexerFunction';

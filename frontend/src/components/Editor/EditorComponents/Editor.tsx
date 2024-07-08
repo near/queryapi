@@ -1,6 +1,6 @@
 import { request, useInitialPayload } from 'near-social-bridge';
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { useDebouncedCallback } from 'use-debounce';
 
