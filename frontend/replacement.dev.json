@@ -1,6 +1,6 @@
 {
     "REPL_ACCOUNT_ID": "dev-queryapi.dataplatform.near",
     "REPL_GRAPHQL_ENDPOINT": "https://near-queryapi.dev.api.pagoda.co",
-    "REPL_EXTERNAL_APP_URL": "http://localhost",
+    "REPL_EXTERNAL_APP_URL": "https://queryapi-frontend-vcqilefdcq-ew.a.run.app",
     "REPL_REGISTRY_CONTRACT_ID": "dev-queryapi.dataplatform.near"
 }

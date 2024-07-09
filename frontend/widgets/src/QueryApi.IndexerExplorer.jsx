@@ -1,39 +1,48 @@
-const limitPerPage = 5;
 const accountId = context.accountId;
+const santizedAccountId = accountId.replaceAll(".", "_");
 
-const [currentPage, setCurrentPage] = useState(0);
-const [selectedTab, setSelectedTab] = useState(props.tab || "all");
-const [totalIndexers, setTotalIndexers] = useState(0);
+const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
 const [myIndexers, setMyIndexers] = useState([]);
 const [allIndexers, setAllIndexers] = useState([]);
 
-if (props.tab && props.tab !== selectedTab) {
-  setSelectedTab(props.tab);
+const fetchIndexerData = () => {
+  const url = 'https://storage.googleapis.com/databricks-near-query-runner/output/query-api-usage/indexers.json';
+
+  asyncFetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const { data } = JSON.parse(response.body);
+      const allIndexers = [];
+      const myIndexers = [];
+
+      data.forEach(entry => {
+        const { indexer_account_id, indexers } = entry;
+
+        indexers.forEach(({ indexer_name, last_deployment_date, num_deployements, num_queries, original_deployment_date }) => {
+          const indexer = {
+            accountId: indexer_account_id,
+            indexerName: indexer_name,
+            lastDeploymentDate: last_deployment_date,
+            numDeployements: num_deployements,
+            numQueries: num_queries,
+            originalDeploymentDate: original_deployment_date
+          };
+
+          if (indexer_account_id === santizedAccountId) myIndexers.push(indexer);
+          allIndexers.push(indexer);
+        });
+      });
+
+      setMyIndexers(myIndexers);
+      setAllIndexers(allIndexers);
+    })
 }
 
+
 useEffect(() => {
-  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-    const indexers = [];
-    let totalIndexers = 0;
-
-    Object.keys(data).forEach((accountId) => {
-      Object.keys(data[accountId]).forEach((functionName) => {
-        indexers.push({
-          accountId: accountId,
-          indexerName: functionName,
-        });
-        totalIndexers += 1;
-      });
-    });
-
-    const myIndexers = indexers.filter(
-      (indexer) => indexer.accountId === accountId
-    );
-
-    setMyIndexers(myIndexers);
-    setAllIndexers(indexers);
-    setTotalIndexers(totalIndexers);
-  });
+  fetchIndexerData();
 }, []);
 
 const Wrapper = styled.div`
@@ -231,10 +240,7 @@ return (
             <Item key={i}>
               <Widget
                 src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{
-                  accountId: indexer.accountId,
-                  indexerName: indexer.indexerName,
-                }}
+                props={{ ...indexer }}
               />
             </Item>
           ))}
@@ -261,10 +267,7 @@ return (
             <Item key={i}>
               <Widget
                 src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{
-                  accountId: indexer.accountId,
-                  indexerName: indexer.indexerName,
-                }}
+                props={{ ...indexer }}
               />
             </Item>
           ))}

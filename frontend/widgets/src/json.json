@@ -1,0 +1,996 @@
+[
+    {
+        "indexer_account_id": "dima_sheleg_near",
+        "indexers": [
+            {
+                "indexer_name": "notification_v2",
+                "original_deployment_date": "2024-03-11",
+                "last_deployment_date": "2024-03-12",
+                "num_deployements": 11,
+                "num_queries": 41
+            },
+            {
+                "indexer_name": "notifications_v3",
+                "original_deployment_date": "2024-03-12",
+                "last_deployment_date": "2024-03-12",
+                "num_deployements": 11,
+                "num_queries": 2
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "markeljan_near",
+        "indexers": [
+            {
+                "indexer_name": "potlock_actions_v3",
+                "original_deployment_date": "2024-03-06",
+                "last_deployment_date": "2024-03-06",
+                "num_deployements": 2,
+                "num_queries": 628385
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "nearpavel_near",
+        "indexers": [
+            {
+                "indexer_name": "social_feed_test",
+                "original_deployment_date": "2024-04-08",
+                "last_deployment_date": "2024-04-08",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "social_posts_test",
+                "original_deployment_date": "2024-04-08",
+                "last_deployment_date": "2024-04-08",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "thomasguntenaar_near",
+        "indexers": [
+            {
+                "indexer_name": "devhub_proposals_quebec",
+                "original_deployment_date": "2024-03-20",
+                "last_deployment_date": "2024-03-20",
+                "num_deployements": 1,
+                "num_queries": 162071
+            },
+            {
+                "indexer_name": "events_committee_proposals",
+                "original_deployment_date": "2024-05-02",
+                "last_deployment_date": "2024-05-09",
+                "num_deployements": 4,
+                "num_queries": 19396
+            },
+            {
+                "indexer_name": "events_committee_proposals_2",
+                "original_deployment_date": "2024-05-09",
+                "last_deployment_date": "2024-05-09",
+                "num_deployements": 1,
+                "num_queries": 7014
+            },
+            {
+                "indexer_name": "devhub_proposals_november",
+                "original_deployment_date": "2024-03-15",
+                "last_deployment_date": "2024-03-15",
+                "num_deployements": 1,
+                "num_queries": 1389
+            },
+            {
+                "indexer_name": "devhub_proposals_romeo",
+                "original_deployment_date": "2024-04-06",
+                "last_deployment_date": "2024-04-06",
+                "num_deployements": 1,
+                "num_queries": 503
+            },
+            {
+                "indexer_name": "devhub_proposals_india",
+                "original_deployment_date": "2024-03-14",
+                "last_deployment_date": "2024-03-14",
+                "num_deployements": 1,
+                "num_queries": 398
+            },
+            {
+                "indexer_name": "devhub_proposals_mining",
+                "original_deployment_date": "2024-03-14",
+                "last_deployment_date": "2024-03-14",
+                "num_deployements": 1,
+                "num_queries": 297
+            },
+            {
+                "indexer_name": "events_committee_proposals_3",
+                "original_deployment_date": "2024-06-04",
+                "last_deployment_date": "2024-06-04",
+                "num_deployements": 1,
+                "num_queries": 61
+            },
+            {
+                "indexer_name": "devhub_proposals_juliet",
+                "original_deployment_date": "2024-03-14",
+                "last_deployment_date": "2024-03-14",
+                "num_deployements": 1,
+                "num_queries": 48
+            },
+            {
+                "indexer_name": "devhub_proposals_lima",
+                "original_deployment_date": "2024-03-14",
+                "last_deployment_date": "2024-03-14",
+                "num_deployements": 1,
+                "num_queries": 48
+            },
+            {
+                "indexer_name": "devhub_proposals_echo",
+                "original_deployment_date": "2024-03-13",
+                "last_deployment_date": "2024-03-13",
+                "num_deployements": 1,
+                "num_queries": 18
+            },
+            {
+                "indexer_name": "devhub_proposals_delta",
+                "original_deployment_date": "2024-03-08",
+                "last_deployment_date": "2024-03-08",
+                "num_deployements": 1,
+                "num_queries": 12
+            },
+            {
+                "indexer_name": "devhub_proposals_hotel",
+                "original_deployment_date": "2024-03-13",
+                "last_deployment_date": "2024-03-13",
+                "num_deployements": 1,
+                "num_queries": 9
+            },
+            {
+                "indexer_name": "devhub_proposals_foxtrot",
+                "original_deployment_date": "2024-03-13",
+                "last_deployment_date": "2024-03-13",
+                "num_deployements": 2,
+                "num_queries": 6
+            },
+            {
+                "indexer_name": "devhub_proposals_golf",
+                "original_deployment_date": "2024-03-13",
+                "last_deployment_date": "2024-03-13",
+                "num_deployements": 1,
+                "num_queries": 5
+            },
+            {
+                "indexer_name": "devhub_proposals_charlie",
+                "original_deployment_date": "2024-03-08",
+                "last_deployment_date": "2024-03-08",
+                "num_deployements": 1,
+                "num_queries": 3
+            },
+            {
+                "indexer_name": "devhub_proposals_beta",
+                "original_deployment_date": "2024-03-08",
+                "last_deployment_date": "2024-03-08",
+                "num_deployements": 1,
+                "num_queries": 3
+            },
+            {
+                "indexer_name": "devhub_proposals_sierra",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 1
+            },
+            {
+                "indexer_name": "devhub_proposals_oscar",
+                "original_deployment_date": "2024-03-15",
+                "last_deployment_date": "2024-03-15",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "devhub_proposals_papa",
+                "original_deployment_date": "2024-03-15",
+                "last_deployment_date": "2024-03-15",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "devhub_proposals_alpha",
+                "original_deployment_date": "2024-03-04",
+                "last_deployment_date": "2024-03-08",
+                "num_deployements": 3,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "devhub_proposals_kilo",
+                "original_deployment_date": "2024-03-14",
+                "last_deployment_date": "2024-03-14",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "devhub_proposals_gamma",
+                "original_deployment_date": "2024-03-08",
+                "last_deployment_date": "2024-03-08",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "morgs_near",
+        "indexers": [
+            {
+                "indexer_name": "control_plane_test",
+                "original_deployment_date": "2024-02-16",
+                "last_deployment_date": "2024-02-19",
+                "num_deployements": 4,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "control_plane_sweat",
+                "original_deployment_date": "2024-02-19",
+                "last_deployment_date": "2024-02-22",
+                "num_deployements": 4,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "control_plane_queryapi",
+                "original_deployment_date": "2024-04-24",
+                "last_deployment_date": "2024-04-24",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "cron-test",
+                "original_deployment_date": "2024-04-24",
+                "last_deployment_date": "2024-04-24",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "potlock-test3",
+                "original_deployment_date": "2024-04-03",
+                "last_deployment_date": "2024-04-03",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "potlock-test",
+                "original_deployment_date": "2024-04-03",
+                "last_deployment_date": "2024-04-03",
+                "num_deployements": 3,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "potlock-test2",
+                "original_deployment_date": "2024-04-03",
+                "last_deployment_date": "2024-04-03",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "new_indexer",
+                "original_deployment_date": "2024-02-20",
+                "last_deployment_date": "2024-02-20",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "polyprogrammist_near",
+        "indexers": [
+            {
+                "indexer_name": "devhub_prod_v1",
+                "original_deployment_date": "2024-06-01",
+                "last_deployment_date": "2024-06-01",
+                "num_deployements": 1,
+                "num_queries": 110452
+            },
+            {
+                "indexer_name": "devhub_objects",
+                "original_deployment_date": "2024-05-14",
+                "last_deployment_date": "2024-05-16",
+                "num_deployements": 38,
+                "num_queries": 25138
+            },
+            {
+                "indexer_name": "devhub_objects_s",
+                "original_deployment_date": "2024-05-19",
+                "last_deployment_date": "2024-06-04",
+                "num_deployements": 21,
+                "num_queries": 21327
+            },
+            {
+                "indexer_name": "devhub_ic_v1",
+                "original_deployment_date": "2024-05-29",
+                "last_deployment_date": "2024-06-04",
+                "num_deployements": 3,
+                "num_queries": 9771
+            },
+            {
+                "indexer_name": "devhub_rfps",
+                "original_deployment_date": "2024-05-02",
+                "last_deployment_date": "2024-05-02",
+                "num_deployements": 3,
+                "num_queries": 2337
+            },
+            {
+                "indexer_name": "devhub_rfps_linked",
+                "original_deployment_date": "2024-05-09",
+                "last_deployment_date": "2024-05-09",
+                "num_deployements": 19,
+                "num_queries": 1947
+            },
+            {
+                "indexer_name": "devhub_proposals_sierra",
+                "original_deployment_date": "2024-05-06",
+                "last_deployment_date": "2024-05-09",
+                "num_deployements": 3,
+                "num_queries": 1889
+            },
+            {
+                "indexer_name": "devhub_objects_test",
+                "original_deployment_date": "2024-05-20",
+                "last_deployment_date": "2024-05-21",
+                "num_deployements": 36,
+                "num_queries": 899
+            },
+            {
+                "indexer_name": "rfp_fix_editor",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 9,
+                "num_queries": 26
+            },
+            {
+                "indexer_name": "devhub_ec_v1",
+                "original_deployment_date": "2024-06-04",
+                "last_deployment_date": "2024-06-06",
+                "num_deployements": 2,
+                "num_queries": 14
+            },
+            {
+                "indexer_name": "my",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 3,
+                "num_queries": 5
+            },
+            {
+                "indexer_name": "indrfp",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 1,
+                "num_queries": 1
+            },
+            {
+                "indexer_name": "some1",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 1,
+                "num_queries": 1
+            },
+            {
+                "indexer_name": "rfp_base_simple_js",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test_ind",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "rfpbase",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "theind",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "devhub_rfps_sierra",
+                "original_deployment_date": "2024-05-01",
+                "last_deployment_date": "2024-05-01",
+                "num_deployements": 3,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "0xprometheus_near",
+        "indexers": [
+            {
+                "indexer_name": "potlock_draft",
+                "original_deployment_date": "2024-03-29",
+                "last_deployment_date": "2024-03-29",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "ind_potlock",
+                "original_deployment_date": "2024-03-29",
+                "last_deployment_date": "2024-03-29",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test_potlock_index",
+                "original_deployment_date": "2024-03-29",
+                "last_deployment_date": "2024-03-29",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "first_potlock_test",
+                "original_deployment_date": "2024-03-29",
+                "last_deployment_date": "2024-03-29",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "index_potlock_test",
+                "original_deployment_date": "2024-03-29",
+                "last_deployment_date": "2024-03-29",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test_potlock_api",
+                "original_deployment_date": "2024-03-27",
+                "last_deployment_date": "2024-03-27",
+                "num_deployements": 3,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "tester_p",
+                "original_deployment_date": "2024-03-27",
+                "last_deployment_date": "2024-03-27",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test2",
+                "original_deployment_date": "2024-03-27",
+                "last_deployment_date": "2024-03-27",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "slimedragon_near",
+        "indexers": [
+            {
+                "indexer_name": "test-indexer",
+                "original_deployment_date": "2024-05-18",
+                "last_deployment_date": "2024-05-18",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "spencerpark_near",
+        "indexers": [
+            {
+                "indexer_name": "aurora_claims",
+                "original_deployment_date": "2024-05-28",
+                "last_deployment_date": "2024-05-29",
+                "num_deployements": 6,
+                "num_queries": 14
+            },
+            {
+                "indexer_name": "sample_social_v2",
+                "original_deployment_date": "2024-06-26",
+                "last_deployment_date": "2024-06-26",
+                "num_deployements": 2,
+                "num_queries": 6
+            },
+            {
+                "indexer_name": "sample_social",
+                "original_deployment_date": "2024-06-26",
+                "last_deployment_date": "2024-06-26",
+                "num_deployements": 3,
+                "num_queries": 6
+            },
+            {
+                "indexer_name": "sample_pool",
+                "original_deployment_date": "2024-06-26",
+                "last_deployment_date": "2024-06-26",
+                "num_deployements": 1,
+                "num_queries": 6
+            },
+            {
+                "indexer_name": "example_indexer",
+                "original_deployment_date": "2024-06-07",
+                "last_deployment_date": "2024-06-07",
+                "num_deployements": 2,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "queryapi_dataplatform_near",
+        "indexers": [
+            {
+                "indexer_name": "test_backfilling_migration",
+                "original_deployment_date": "2024-03-07",
+                "last_deployment_date": "2024-03-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "calebjacob_near",
+        "indexers": [
+            {
+                "indexer_name": "components_alpha",
+                "original_deployment_date": "2024-03-04",
+                "last_deployment_date": "2024-03-04",
+                "num_deployements": 4,
+                "num_queries": 5225
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "root_benjiman_near",
+        "indexers": [
+            {
+                "indexer_name": "all_keypom_key_additions",
+                "original_deployment_date": "2024-06-26",
+                "last_deployment_date": "2024-06-26",
+                "num_deployements": 1,
+                "num_queries": 605
+            },
+            {
+                "indexer_name": "keypom_keys",
+                "original_deployment_date": "2024-06-26",
+                "last_deployment_date": "2024-06-26",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "bo_near",
+        "indexers": [
+            {
+                "indexer_name": "devhub_v38",
+                "original_deployment_date": "2024-03-22",
+                "last_deployment_date": "2024-03-22",
+                "num_deployements": 1,
+                "num_queries": 57164
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "kevin0_near",
+        "indexers": [
+            {
+                "indexer_name": "component_01",
+                "original_deployment_date": "2024-04-18",
+                "last_deployment_date": "2024-04-18",
+                "num_deployements": 1,
+                "num_queries": 12703
+            },
+            {
+                "indexer_name": "queryapi_indexer",
+                "original_deployment_date": "2024-06-28",
+                "last_deployment_date": "2024-06-28",
+                "num_deployements": 1,
+                "num_queries": 7
+            },
+            {
+                "indexer_name": "access_keys_test_v1",
+                "original_deployment_date": "2024-04-18",
+                "last_deployment_date": "2024-04-18",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test_access_keys",
+                "original_deployment_date": "2024-04-18",
+                "last_deployment_date": "2024-04-18",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "eduohe_near",
+        "indexers": [
+            {
+                "indexer_name": "indexer_for_explorer",
+                "original_deployment_date": "2024-03-07",
+                "last_deployment_date": "2024-03-07",
+                "num_deployements": 3,
+                "num_queries": 3
+            },
+            {
+                "indexer_name": "access_keys_v1",
+                "original_deployment_date": "2024-04-03",
+                "last_deployment_date": "2024-04-03",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "jacksonthedev_near",
+        "indexers": [
+            {
+                "indexer_name": "promote2_v1",
+                "original_deployment_date": "2024-03-19",
+                "last_deployment_date": "2024-03-20",
+                "num_deployements": 2,
+                "num_queries": 499
+            },
+            {
+                "indexer_name": "promote_v1",
+                "original_deployment_date": "2024-03-19",
+                "last_deployment_date": "2024-03-19",
+                "num_deployements": 2,
+                "num_queries": 1
+            },
+            {
+                "indexer_name": "promote_v4",
+                "original_deployment_date": "2024-03-19",
+                "last_deployment_date": "2024-03-19",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "promote_v2",
+                "original_deployment_date": "2024-03-19",
+                "last_deployment_date": "2024-03-19",
+                "num_deployements": 4,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "promote_v3",
+                "original_deployment_date": "2024-03-19",
+                "last_deployment_date": "2024-03-19",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "andresdom_near",
+        "indexers": [
+            {
+                "indexer_name": "demo_nearp2p",
+                "original_deployment_date": "2024-05-09",
+                "last_deployment_date": "2024-05-09",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "dataplatform_near",
+        "indexers": [
+            {
+                "indexer_name": "access_keys_v1",
+                "original_deployment_date": "2024-04-03",
+                "last_deployment_date": "2024-06-19",
+                "num_deployements": 12,
+                "num_queries": 79932523
+            },
+            {
+                "indexer_name": "feed",
+                "original_deployment_date": "2024-02-19",
+                "last_deployment_date": "2024-02-19",
+                "num_deployements": 1,
+                "num_queries": 17846215
+            },
+            {
+                "indexer_name": "notifications",
+                "original_deployment_date": "2024-03-12",
+                "last_deployment_date": "2024-03-13",
+                "num_deployements": 7,
+                "num_queries": 6729667
+            },
+            {
+                "indexer_name": "social_feed",
+                "original_deployment_date": "2024-03-25",
+                "last_deployment_date": "2024-04-25",
+                "num_deployements": 7,
+                "num_queries": 2949368
+            },
+            {
+                "indexer_name": "components",
+                "original_deployment_date": "2024-02-27",
+                "last_deployment_date": "2024-04-24",
+                "num_deployements": 8,
+                "num_queries": 255437
+            },
+            {
+                "indexer_name": "entities",
+                "original_deployment_date": "2024-03-27",
+                "last_deployment_date": "2024-04-24",
+                "num_deployements": 22,
+                "num_queries": 57009
+            },
+            {
+                "indexer_name": "agents",
+                "original_deployment_date": "2024-03-14",
+                "last_deployment_date": "2024-03-14",
+                "num_deployements": 1,
+                "num_queries": 7962
+            },
+            {
+                "indexer_name": "staking",
+                "original_deployment_date": "2024-06-25",
+                "last_deployment_date": "2024-06-26",
+                "num_deployements": 6,
+                "num_queries": 5707
+            },
+            {
+                "indexer_name": "moderation",
+                "original_deployment_date": "2024-06-20",
+                "last_deployment_date": "2024-06-20",
+                "num_deployements": 1,
+                "num_queries": 4164
+            },
+            {
+                "indexer_name": "receiver_blocks",
+                "original_deployment_date": "2024-06-20",
+                "last_deployment_date": "2024-06-21",
+                "num_deployements": 4,
+                "num_queries": 183
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "megha19_near",
+        "indexers": [
+            {
+                "indexer_name": "forum.potlock",
+                "original_deployment_date": "2024-06-29",
+                "last_deployment_date": "2024-06-29",
+                "num_deployements": 1,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "demi-god_near",
+        "indexers": [
+            {
+                "indexer_name": "index_potlock_test",
+                "original_deployment_date": "2024-03-30",
+                "last_deployment_date": "2024-04-02",
+                "num_deployements": 15,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "indexer_potlock_test",
+                "original_deployment_date": "2024-03-29",
+                "last_deployment_date": "2024-03-30",
+                "num_deployements": 3,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "indexer_fork_t",
+                "original_deployment_date": "2024-03-30",
+                "last_deployment_date": "2024-03-30",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "fork_test",
+                "original_deployment_date": "2024-03-30",
+                "last_deployment_date": "2024-03-30",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "potlock_indexer_draft",
+                "original_deployment_date": "2024-04-04",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 3,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "oven_baked",
+                "original_deployment_date": "2024-04-06",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 19,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "fresh_start",
+                "original_deployment_date": "2024-04-06",
+                "last_deployment_date": "2024-04-06",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "walk_up",
+                "original_deployment_date": "2024-04-06",
+                "last_deployment_date": "2024-04-06",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "v_go",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-06",
+                "num_deployements": 4,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "walker_add_indexes",
+                "original_deployment_date": "2024-04-06",
+                "last_deployment_date": "2024-04-06",
+                "num_deployements": 3,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "walker_schema",
+                "original_deployment_date": "2024-04-06",
+                "last_deployment_date": "2024-04-06",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "debug_potlock_indexer",
+                "original_deployment_date": "2024-04-01",
+                "last_deployment_date": "2024-04-03",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "potlock_draft",
+                "original_deployment_date": "2024-04-01",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 4,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "fork_ind",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "ford_forked",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "forker",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "forker_too",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "prov_epoint",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "forjed",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "provision_point",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "no_flaws",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "provision_index",
+                "original_deployment_date": "2024-04-07",
+                "last_deployment_date": "2024-04-07",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "ind_potlock",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "indexer_no_fetch",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "indexer_no_fetch_2",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "veri_clone",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "indexer_pot1",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "indexer_potlock_draft",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 1,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test_schema",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 2,
+                "num_queries": 0
+            },
+            {
+                "indexer_name": "test_gen",
+                "original_deployment_date": "2024-04-05",
+                "last_deployment_date": "2024-04-05",
+                "num_deployements": 2,
+                "num_queries": 0
+            }
+        ]
+    },
+    {
+        "indexer_account_id": "bos_forum_potlock_near",
+        "indexers": [
+            {
+                "indexer_name": "ai-pgf-indexer",
+                "original_deployment_date": "2024-07-01",
+                "last_deployment_date": "2024-07-01",
+                "num_deployements": 2,
+                "num_queries": 0
+            }
+        ]
+    }
+]
