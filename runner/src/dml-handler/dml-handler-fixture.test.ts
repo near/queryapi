@@ -173,4 +173,30 @@ describe('DML Handler Fixture Tests', () => {
     expect(upserts).toEqual(selectAll);
   });
 
+  test('delete rows', async () => {
+    const inputObj = [{
+      account_id: 'morgs_near',
+      block_height: 1,
+      receipt_id: 'abc',
+      content: "some content",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    },
+    {
+      account_id: 'morgs_near',
+      block_height: 2,
+      receipt_id: 'abc',
+      content: "some content",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+
+    const deletedRows = await dmlHandler.delete(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' });
+
+    expect(deletedRows).toEqual(inputObj);
+  })
 });

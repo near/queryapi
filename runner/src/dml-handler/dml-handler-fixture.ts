@@ -219,6 +219,10 @@ class InMemoryIndexerData {
 
     return upsertedRows;
   }
+
+  public delete(tableName: string, deleteCriteria: WhereClauseMulti): any[] {
+    return this.removeRows(tableName, deleteCriteria).map(row => row.data);
+  }
 }
 
 export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
@@ -250,6 +254,10 @@ export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
 
   async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
     return this.indexerData.upsert(tableDefinitionNames.originalTableName, rowsToUpsert, conflictColumns, updateColumns);
+  }
+
+  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
+    return this.indexerData.delete(tableDefinitionNames.originalTableName, whereObject);
   }
 }
 
