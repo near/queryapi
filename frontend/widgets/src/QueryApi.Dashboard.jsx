@@ -17,6 +17,30 @@ State.init({
   selected_account: undefined,
 });
 
+Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+  const indexers = [];
+  const total_indexers = 0;
+  Object.keys(data).forEach((accountId) => {
+    Object.keys(data[accountId]).forEach((functionName) => {
+      indexers.push({
+        accountId: accountId,
+        indexerName: functionName,
+      });
+      total_indexers += 1;
+    });
+  });
+
+  let my_indexers = indexers.filter(
+    (indexer) => indexer.accountId === accountId
+  );
+
+  State.update({
+    my_indexers: my_indexers,
+    all_indexers: indexers,
+    totalIndexers: total_indexers,
+  });
+});
+
 const Subheading = styled.h2`
   display: block;
   margin: 0;
