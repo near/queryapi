@@ -6,58 +6,6 @@ const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_
   ".",
   "_"
 )}`;
-
-let graphQLEndpoint = `${REPL_GRAPHQL_ENDPOINT}`;
-const sanitizedIndexerName = indexerName.replaceAll(".", "_");
-const sanitizedAccountName = accountId.replaceAll(".", "_");
-const fullFunctionName = sanitizedAccountName + "_" + sanitizedIndexerName;
-const tableName = `${fullFunctionName}_sys_logs_aggregate`;
-
-const [weeklyCount, setWeeklyCount] = useState(0);
-
-function fetchGraphQL(operationsDoc, operationName, variables) {
-  return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
-    method: "POST",
-    headers: {
-      "x-hasura-role": sanitizedAccountName,
-    },
-    body: JSON.stringify({
-      query: operationsDoc,
-      variables: variables,
-      operationName: operationName,
-    }),
-  });
-}
-
-const TODAY = new Date();
-const PAST_7_DAYS = new Date(TODAY);
-PAST_7_DAYS.setDate(TODAY.getDate() - 7);
-
-const past7DaysQuery = `
-query SomeQuery($PAST_7_DAYS: timestamp!) {
-  ${tableName}(
-    where: {
-      timestamp: {
-        _gte: $PAST_7_DAYS
-      }
-    }
-  ) {
-    aggregate {
-      count
-    }
-  }
-}`;
-
-fetchGraphQL(past7DaysQuery, 'SomeQuery',
-  {
-    "PAST_7_DAYS": PAST_7_DAYS.toISOString(),
-  }).then((result) => {
-    if (result.status === 200) {
-      const count = result?.body?.data?.[tableName]?.aggregate?.count
-      setWeeklyCount(count);
-    }
-  });
-
 const Card = styled.div`
   position: relative;
   width: 100%;
@@ -218,7 +166,7 @@ return (
         <TextLink as="a" ellipsis>
           @{accountId}
         </TextLink>
-        <Text>Query Count Past (7) days: {weeklyCount}</Text>
+        <Text>Query Count past 7 days</Text>
       </div>
     </CardBody>
 

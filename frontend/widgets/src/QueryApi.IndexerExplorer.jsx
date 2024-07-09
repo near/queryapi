@@ -1,46 +1,40 @@
 const limitPerPage = 5;
-let totalIndexers = 0;
 const accountId = context.accountId;
-State.init({
-  currentPage: 0,
-  selectedTab: props.tab || "all",
-  total_indexers: 0,
-  my_indexers: [],
-  all_indexers: [],
-});
 
-if (props.tab && props.tab !== state.selectedTab) {
-  State.update({
-    selectedTab: props.tab,
-  });
+const [currentPage, setCurrentPage] = useState(0);
+const [selectedTab, setSelectedTab] = useState(props.tab || "all");
+const [totalIndexers, setTotalIndexers] = useState(0);
+const [myIndexers, setMyIndexers] = useState([]);
+const [allIndexers, setAllIndexers] = useState([]);
+
+if (props.tab && props.tab !== selectedTab) {
+  setSelectedTab(props.tab);
 }
 
-Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-  const indexers = [];
-  const total_indexers = 0;
-  Object.keys(data).forEach((accountId) => {
-    Object.keys(data[accountId]).forEach((functionName) => {
-      indexers.push({
-        accountId: accountId,
-        indexerName: functionName,
-      });
-      total_indexers += 1;
-    });
-  });
+useEffect(() => {
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const indexers = [];
+    let totalIndexers = 0;
 
-  let my_indexers = indexers.filter(
-    (indexer) => indexer.accountId === accountId
-  );
-  // const results = indexers.slice(
-  //   0,
-  //   state.currentPage * limitPerPage + limitPerPage
-  // );
-  State.update({
-    my_indexers: my_indexers,
-    all_indexers: indexers,
-    total_indexers: total_indexers,
+    Object.keys(data).forEach((accountId) => {
+      Object.keys(data[accountId]).forEach((functionName) => {
+        indexers.push({
+          accountId: accountId,
+          indexerName: functionName,
+        });
+        totalIndexers += 1;
+      });
+    });
+
+    const myIndexers = indexers.filter(
+      (indexer) => indexer.accountId === accountId
+    );
+
+    setMyIndexers(myIndexers);
+    setAllIndexers(indexers);
+    setTotalIndexers(totalIndexers);
   });
-});
+}, []);
 
 const Wrapper = styled.div`
   display: flex;
@@ -217,24 +211,24 @@ return (
   <Wrapper className="container-xl">
     <Tabs>
       <TabsButton
-        onClick={() => State.update({ selectedTab: "my-indexers" })}
-        selected={state.selectedTab === "my-indexers"}
+        onClick={() => setSelectedTab("my-indexers")}
+        selected={selectedTab === "my-indexers"}
       >
         My Indexers
       </TabsButton>
       <TabsButton
-        onClick={() => State.update({ selectedTab: "all" })}
-        selected={state.selectedTab === "all"}
+        onClick={() => setSelectedTab("all")}
+        selected={selectedTab === "all"}
       >
         All
       </TabsButton>
     </Tabs>
 
-    {state.selectedTab === "all" && (
+    {selectedTab === "all" && (
       <>
         <Items>
-          {state.all_indexers.map((indexer, i) => (
-            <Item>
+          {allIndexers.map((indexer, i) => (
+            <Item key={i}>
               <Widget
                 src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
                 props={{
@@ -247,7 +241,7 @@ return (
         </Items>
       </>
     )}
-    {state.selectedTab == "my-indexers" && state.my_indexers.length == 0 && (
+    {selectedTab === "my-indexers" && myIndexers.length === 0 && (
       <Header>
         <H2>
           QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
@@ -261,10 +255,10 @@ return (
       </Header>
     )}
     <Items>
-      {state.selectedTab == "my-indexers" && (
+      {selectedTab === "my-indexers" && (
         <>
-          {state.my_indexers.map((indexer, i) => (
-            <Item>
+          {myIndexers.map((indexer, i) => (
+            <Item key={i}>
               <Widget
                 src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
                 props={{
