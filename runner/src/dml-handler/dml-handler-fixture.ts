@@ -1,6 +1,6 @@
 import { AST, Parser } from "node-sql-parser";
 import { TableDefinitionNames } from "../indexer";
-import { WhereClauseMulti } from "./dml-handler";
+import { WhereClauseMulti, WhereClauseSingle } from "./dml-handler";
 // import { DmlHandlerI } from "./dml-handler";
 
 type IndexerData = Map<string, DataRow[]>;
@@ -100,7 +100,7 @@ class InMemoryIndexerData {
     return counterValue;
   }
 
-  findDataRow(tableName: string, row: DataRow): any | undefined {
+  findRow(tableName: string, row: DataRow): DataRow | undefined {
     const data = this.data.get(tableName) ?? [];
     for (const existingRow of data) {
       if (existingRow.primaryKey() === row.primaryKey()) {
@@ -110,7 +110,7 @@ class InMemoryIndexerData {
     return undefined;
   }
 
-  findRows(tableName: string, criteria: WhereClauseMulti, limit: number | null): DataRow[] {
+  findRows(tableName: string, criteria: WhereClauseSingle | WhereClauseMulti, limit: number | null = null): DataRow[] {
     const results = [];
     const data = this.data.get(tableName) ?? [];
     for (const existingRow of data) {
@@ -126,7 +126,7 @@ class InMemoryIndexerData {
         }
       }
       if (match) {
-        results.push(existingRow.data);
+        results.push(existingRow);
         if (limit && results.length >= limit) {
           return results;
         }
@@ -144,13 +144,35 @@ class InMemoryIndexerData {
     }
 
     const dataRow = new DataRow(row, tableSpec.primaryKeys);
-    if (this.findDataRow(tableName, dataRow)) {
+    if (this.findRow(tableName, dataRow)) {
       throw new Error('Cannot insert row twice into the same table');
     }
     const data = this.data.get(tableName) ?? [];
     data.push(dataRow);
     this.data.set(tableName, data);
     return dataRow;
+  }
+
+  removeRows(tableName: string, criteria: WhereClauseMulti, limit: number | null = null): DataRow[] {
+    const matchingRows = this.findRows(tableName, criteria, limit);
+    let data = this.data.get(tableName) ?? [];
+    data = data.filter(row => !matchingRows.includes(row));
+    this.data.set(tableName, data);
+    return matchingRows ?? [];
+  }
+
+  updateRows(tableName: string, criteria: WhereClauseSingle, updateObject: any): DataRow[] {
+    const existingRows = this.removeRows(tableName, criteria);
+    const data = this.data.get(tableName) ?? [];
+
+    for (const row of existingRows) {
+      for (const [attribute, value] of Object.entries(updateObject)) {
+        row.data[attribute] = value;
+      }
+      data.push(row);
+    }
+    this.data.set(tableName, data);
+    return existingRows;
   }
 
   public insert(tableName: string, rowsToInsert: any[]): any[] {
@@ -164,7 +186,11 @@ class InMemoryIndexerData {
   }
 
   public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): any[] {
-    return this.findRows(tableName, criteria, limit);
+    return this.findRows(tableName, criteria, limit).map(row => row.data);
+  }
+
+  public update(tableName: string, criteria: WhereClauseSingle, updateObject: any): any[] {
+    return this.updateRows(tableName, criteria, updateObject).map(item => item.data);
   }
 }
 
@@ -188,6 +214,10 @@ export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
 
   async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
     return this.indexerData.select(tableDefinitionNames.originalTableName, whereObject, limit);
+  }
+
+  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
+    return this.indexerData.update(tableDefinitionNames.originalTableName, whereObject, updateObject);
   }
 }
 
