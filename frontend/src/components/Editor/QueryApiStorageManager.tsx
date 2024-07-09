@@ -65,18 +65,4 @@ export default class QueryAPIStorageManager {
   getDebugList(): any {
     return this.getFromLocalStorage(this.debugListStorageKey);
   }
-
-  // public logStorageState(): void {
-  //   console.log('Indexer Code Storage Key:', this.indexerCodeStorageKey);
-  //   console.log('Schema Code Storage Key:', this.schemaCodeStorageKey);
-  //   console.log('Schema Types Storage Key:', this.schemaTypesStorageKey);
-  //   console.log('Cursor Position Key:', this.cursorPositionKey);
-  //   console.log('Debug List Storage Key:', this.debugListStorageKey);
-
-  //   console.log('Stored Indexer Code:', this.getIndexerCode());
-  //   console.log('Stored Schema Code:', this.getSchemaCode());
-  //   console.log('Stored Schema Types:', this.getSchemaTypes());
-  //   console.log('Stored Cursor Position:', this.getCursorPosition());
-  //   console.log('Stored Debug List:', this.getDebugList());
-  // }
 }
