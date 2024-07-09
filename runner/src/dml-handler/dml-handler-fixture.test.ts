@@ -133,5 +133,44 @@ describe('DML Handler Fixture Tests', () => {
     const updateAll = await dmlHandler.update(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' }, { content: 'final content' });
     const selectAllUpdated = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' });
     expect(updateAll).toEqual(selectAllUpdated);
-  })
+  });
+
+  test('upsert rows', async () => {
+    const inputObj = [{
+      account_id: 'morgs_near',
+      block_height: 1,
+      receipt_id: 'abc',
+      content: "INSERT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+
+    const upsertObj = [{
+      account_id: 'morgs_near',
+      block_height: 1,
+      receipt_id: 'abc',
+      content: "UPSERT",
+      block_timestamp: 456,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    },
+    {
+      account_id: 'morgs_near',
+      block_height: 2,
+      receipt_id: 'abc',
+      content: "UPSERT",
+      block_timestamp: 456,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    const upserts = await dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id', 'block_height'], ['content', 'block_timestamp']);
+
+    const selectAll = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' });
+    expect(upserts).toEqual(selectAll);
+  });
+
 });

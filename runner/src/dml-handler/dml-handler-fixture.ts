@@ -192,6 +192,33 @@ class InMemoryIndexerData {
   public update(tableName: string, criteria: WhereClauseSingle, updateObject: any): any[] {
     return this.updateRows(tableName, criteria, updateObject).map(item => item.data);
   }
+
+  public upsert(tableName: string, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): any[] {
+    // TODO: Verify conflictColumns is a superset of primary key set (For uniqueness constraint)
+    let upsertedRows: any[] = []
+    for (const row of rowsToUpsert) {
+      const conflictRow = conflictColumns.reduce((criteria, attribute) => {
+        if (attribute in row) {
+          criteria[attribute] = row[attribute];
+        }
+        return criteria;
+      }, {} as Record<string, any>);
+      if (this.findRows(tableName, conflictRow).length > 0) {
+        const updateRow = updateColumns.reduce((updateObj, attribute) => {
+          if (attribute in row) {
+            updateObj[attribute] = row[attribute];
+          }
+          return updateObj;
+        }, {} as Record<string, any>);
+        const updatedRow = this.update(tableName, conflictRow, updateRow);
+        upsertedRows = upsertedRows.concat(updatedRow);
+      } else {
+        upsertedRows.push(this.insertRow(tableName, row).data);
+      }
+    }
+
+    return upsertedRows;
+  }
 }
 
 export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
@@ -218,6 +245,11 @@ export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
 
   async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
     return this.indexerData.update(tableDefinitionNames.originalTableName, whereObject, updateObject);
+  }
+
+
+  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
+    return this.indexerData.upsert(tableDefinitionNames.originalTableName, rowsToUpsert, conflictColumns, updateColumns);
   }
 }
 
