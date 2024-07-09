@@ -9,6 +9,7 @@ use tonic::transport::channel::Channel;
 use tonic::Request;
 
 use crate::indexer_config::IndexerConfig;
+use crate::redis::KeyProvider;
 use crate::utils::exponential_retry;
 
 #[cfg(not(test))]

@@ -5,7 +5,26 @@ use std::fmt::Debug;
 use anyhow::Context;
 use redis::{aio::ConnectionManager, FromRedisValue, ToRedisArgs};
 
-use crate::{indexer_config::IndexerConfig, indexer_state::IndexerState};
+pub trait KeyProvider {
+    fn account_id(&self) -> String;
+    fn function_name(&self) -> String;
+
+    fn prefix(&self) -> String {
+        format!("{}/{}", self.account_id(), self.function_name())
+    }
+
+    fn get_redis_stream_key(&self) -> String {
+        format!("{}:block_stream", self.prefix())
+    }
+
+    fn get_last_published_block_key(&self) -> String {
+        format!("{}:last_published_block", self.prefix())
+    }
+
+    fn get_state_key(&self) -> String {
+        format!("{}:state", self.prefix())
+    }
+}
 
 #[cfg(test)]
 pub use MockRedisClientImpl as RedisClient;
@@ -119,60 +138,48 @@ impl RedisClientImpl {
             .context(format!("SADD {set:?} {member:?}"))
     }
 
-    pub async fn exists<K>(&self, key: K) -> anyhow::Result<bool>
+    pub async fn get_last_published_block<P>(&self, key_provider: &P) -> anyhow::Result<Option<u64>>
     where
-        K: ToRedisArgs + Debug + Send + Sync + 'static,
+        P: KeyProvider + 'static,
     {
-        tracing::debug!("EXISTS {key:?}");
-
-        redis::cmd("EXISTS")
-            .arg(&key)
-            .query_async(&mut self.connection.clone())
-            .await
-            .context(format!("EXISTS {key:?}"))
-    }
-
-    pub async fn indexer_states_set_exists(&self) -> anyhow::Result<bool> {
-        self.exists(Self::INDEXER_STATES_SET).await
-    }
-
-    pub async fn get_last_published_block(
-        &self,
-        indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<Option<u64>> {
-        self.get::<_, u64>(indexer_config.get_last_published_block_key())
+        self.get::<_, u64>(key_provider.get_last_published_block_key())
             .await
     }
 
-    pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
-        let stream_key = indexer_config.get_redis_stream_key();
+    pub async fn clear_block_stream<P>(&self, key_provider: &P) -> anyhow::Result<()>
+    where
+        P: KeyProvider + 'static,
+    {
+        let stream_key = key_provider.get_redis_stream_key();
         self.del(stream_key.clone())
             .await
             .context(format!("Failed to clear Redis Stream: {}", stream_key))
     }
 
-    pub async fn get_indexer_state(
-        &self,
-        indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<Option<String>> {
-        self.get(indexer_config.get_state_key()).await
+    pub async fn get_indexer_state<P>(&self, key_provider: &P) -> anyhow::Result<Option<String>>
+    where
+        P: KeyProvider + 'static,
+    {
+        self.get(key_provider.get_state_key()).await
     }
 
-    pub async fn set_indexer_state(
-        &self,
-        indexer_config: &IndexerConfig,
-        state: String,
-    ) -> anyhow::Result<()> {
-        self.set(indexer_config.get_state_key(), state).await?;
+    pub async fn set_indexer_state<P>(&self, key_provider: &P, state: String) -> anyhow::Result<()>
+    where
+        P: KeyProvider + 'static,
+    {
+        self.set(key_provider.get_state_key(), state).await?;
 
-        self.sadd(Self::INDEXER_STATES_SET, indexer_config.get_state_key())
+        self.sadd(Self::INDEXER_STATES_SET, key_provider.get_state_key())
             .await
     }
 
-    pub async fn delete_indexer_state(&self, state: &IndexerState) -> anyhow::Result<()> {
-        self.del(state.get_state_key()).await?;
+    pub async fn delete_indexer_state<P>(&self, key_provider: &P) -> anyhow::Result<()>
+    where
+        P: KeyProvider + 'static,
+    {
+        self.del(key_provider.get_state_key()).await?;
 
-        self.srem(Self::INDEXER_STATES_SET, state.get_state_key())
+        self.srem(Self::INDEXER_STATES_SET, key_provider.get_state_key())
             .await
     }
 
@@ -202,30 +209,34 @@ mockall::mock! {
     pub RedisClientImpl {
         pub async fn connect(redis_url: &str) -> anyhow::Result<Self>;
 
-        pub async fn get_indexer_state(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<String>>;
+        pub async fn get_indexer_state<P>(&self, key_provider: &P) -> anyhow::Result<Option<String>>
+            where P: KeyProvider + 'static;
 
-        pub async fn set_indexer_state(
+        pub async fn set_indexer_state<P>(
             &self,
-            indexer_config: &IndexerConfig,
+            key_provider: &P,
             state: String,
-        ) -> anyhow::Result<()>;
+        ) -> anyhow::Result<()>
+            where P: KeyProvider + 'static;
 
-        pub async fn get_last_published_block(
+        pub async fn get_last_published_block<P>(
             &self,
-            indexer_config: &IndexerConfig,
-        ) -> anyhow::Result<Option<u64>>;
+            key_provider: &P,
+        ) -> anyhow::Result<Option<u64>>
+            where P: KeyProvider + 'static;
 
-        pub async fn clear_block_stream(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()>;
+        pub async fn clear_block_stream<P>(&self, key_provider: &P) -> anyhow::Result<()>
+            where P: KeyProvider + 'static;
 
         pub async fn get<T, U>(&self, key: T) -> anyhow::Result<Option<U>>
-        where
-            T: ToRedisArgs + Debug + Send + Sync + 'static,
-            U: FromRedisValue + Debug + 'static;
+            where
+                T: ToRedisArgs + Debug + Send + Sync + 'static,
+                U: FromRedisValue + Debug + 'static;
 
         pub async fn set<K, V>(&self, key: K, value: V) -> anyhow::Result<()>
-        where
-            K: ToRedisArgs + Debug + Send + Sync + 'static,
-            V: ToRedisArgs + Debug + Send + Sync + 'static;
+            where
+                K: ToRedisArgs + Debug + Send + Sync + 'static,
+                V: ToRedisArgs + Debug + Send + Sync + 'static;
 
         pub async fn del<K>(&self, key: K) -> anyhow::Result<()>
         where
@@ -234,13 +245,14 @@ mockall::mock! {
         pub async fn indexer_states_set_exists(&self) -> anyhow::Result<bool>;
 
         pub async fn sadd<S, V>(&self, set: S, value: V) -> anyhow::Result<()>
-        where
-            S: ToRedisArgs + Debug + Send + Sync + 'static,
-            V: ToRedisArgs + Debug + Send + Sync + 'static;
+            where
+                S: ToRedisArgs + Debug + Send + Sync + 'static,
+                V: ToRedisArgs + Debug + Send + Sync + 'static;
 
         pub async fn list_indexer_states(&self) -> anyhow::Result<Vec<String>>;
 
-        pub async fn delete_indexer_state(&self, state: &IndexerState) -> anyhow::Result<()>;
+        pub async fn delete_indexer_state<P>(&self, key_provider: &P) -> anyhow::Result<()>
+            where P: KeyProvider + 'static;
     }
 
     impl Clone for RedisClientImpl {
