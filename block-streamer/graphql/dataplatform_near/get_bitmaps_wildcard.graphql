@@ -1,0 +1,6 @@
+query GetBitmapsWildcard($block_date: date, $receiver_ids: String, $limit: Int, $offset: Int) {
+  dataplatform_near_receiver_blocks_bitmaps(limit: $limit, offset: $offset, where: {block_date: {_eq: $block_date}, receiver: {receiver: {_regex: $receiver_ids}}}) {
+    bitmap
+    first_block_height
+  }
+}

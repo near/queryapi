@@ -101,10 +101,28 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
   let currBlockHeight = 0;
 
   while (true) {
+    METRICS.EXECUTOR_UP.labels({ indexer: indexerConfig.fullName() }).inc();
+
+    const metricsSpan = tracer.startSpan('Record metrics after processing block', {}, context.active());
+
+    const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(indexerConfig.redisStreamKey);
+    METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerConfig.fullName() }).set(unprocessedMessageCount);
+
+    const memoryUsage = process.memoryUsage();
+    METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerConfig.fullName() }).set(memoryUsage.heapTotal / (1024 * 1024));
+    METRICS.HEAP_USED.labels({ indexer: indexerConfig.fullName() }).set(memoryUsage.heapUsed / (1024 * 1024));
+    METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerConfig.fullName() }).set(workerContext.queue.length);
+
+    const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
+    parentPort?.postMessage(metricsMessage);
+
+    metricsSpan.end();
+
     if (workerContext.queue.length === 0) {
       await sleep(100);
       continue;
     }
+
     await tracer.startActiveSpan(`${indexerConfig.fullName()}`, async (parentSpan: Span) => {
       parentSpan.setAttribute('indexer', indexerConfig.fullName());
       parentSpan.setAttribute('account', indexerConfig.accountId);
@@ -150,9 +168,11 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 
         executionDurationTimer();
 
+        METRICS.SUCCESSFUL_EXECUTIONS.labels({ indexer: indexerConfig.fullName() }).inc();
         METRICS.LAST_PROCESSED_BLOCK_HEIGHT.labels({ indexer: indexerConfig.fullName() }).set(currBlockHeight);
         postRunSpan.end();
       } catch (err) {
+        METRICS.FAILED_EXECUTIONS.labels({ indexer: indexerConfig.fullName() }).inc();
         parentSpan.setAttribute('status', 'failed');
         parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.FAILING } });
         const error = err as Error;
@@ -164,20 +184,6 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         await sleep(10000);
         sleepSpan.end();
       } finally {
-        const metricsSpan = tracer.startSpan('Record metrics after processing block', {}, context.active());
-
-        const unprocessedMessageCount = await workerContext.redisClient.getUnprocessedStreamMessageCount(indexerConfig.redisStreamKey);
-        METRICS.UNPROCESSED_STREAM_MESSAGES.labels({ indexer: indexerConfig.fullName() }).set(unprocessedMessageCount);
-
-        const memoryUsage = process.memoryUsage();
-        METRICS.HEAP_TOTAL_ALLOCATION.labels({ indexer: indexerConfig.fullName() }).set(memoryUsage.heapTotal / (1024 * 1024));
-        METRICS.HEAP_USED.labels({ indexer: indexerConfig.fullName() }).set(memoryUsage.heapUsed / (1024 * 1024));
-        METRICS.PREFETCH_QUEUE_COUNT.labels({ indexer: indexerConfig.fullName() }).set(workerContext.queue.length);
-
-        const metricsMessage: WorkerMessage = { type: WorkerMessageType.METRICS, data: await promClient.register.getMetricsAsJSON() };
-        parentPort?.postMessage(metricsMessage);
-
-        metricsSpan.end();
         parentSpan.end();
       }
     });

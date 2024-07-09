@@ -8,13 +8,14 @@ use crate::indexer_config::IndexerConfig;
 use crate::rules::types::ChainId;
 
 use crate::block_stream;
+use crate::receiver_blocks::ReceiverBlocksProcessor;
 use crate::server::blockstreamer;
 
 use blockstreamer::*;
 
 pub struct BlockStreamerService {
-    redis_client: std::sync::Arc<crate::redis::RedisClient>,
-    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+    redis: std::sync::Arc<crate::redis::RedisClient>,
+    receiver_blocks_processor: std::sync::Arc<ReceiverBlocksProcessor>,
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
@@ -22,13 +23,13 @@ pub struct BlockStreamerService {
 
 impl BlockStreamerService {
     pub fn new(
-        redis_client: std::sync::Arc<crate::redis::RedisClient>,
-        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
+        redis: std::sync::Arc<crate::redis::RedisClient>,
+        receiver_blocks_processor: std::sync::Arc<ReceiverBlocksProcessor>,
         lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     ) -> Self {
         Self {
-            redis_client,
-            delta_lake_client,
+            redis,
+            receiver_blocks_processor,
             lake_s3_client,
             chain_id: ChainId::Mainnet,
             block_streams: Mutex::new(HashMap::new()),
@@ -58,6 +59,7 @@ impl BlockStreamerService {
 
 #[tonic::async_trait]
 impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService {
+    #[tracing::instrument(skip(self))]
     async fn start_stream(
         &self,
         request: Request<blockstreamer::StartStreamRequest>,
@@ -113,11 +115,15 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         block_stream
             .start(
                 request.start_block_height,
-                self.redis_client.clone(),
-                self.delta_lake_client.clone(),
+                self.redis.clone(),
+                self.receiver_blocks_processor.clone(),
                 self.lake_s3_client.clone(),
             )
-            .map_err(|_| Status::internal("Failed to start block stream"))?;
+            .map_err(|err| {
+                tracing::error!(?err, "Failed to start block stream");
+
+                Status::internal("Failed to start block stream")
+            })?;
 
         let mut lock = self.get_block_streams_lock()?;
         lock.insert(indexer_config.get_hash_id(), block_stream);
@@ -127,6 +133,7 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         }))
     }
 
+    #[tracing::instrument(skip(self))]
     async fn stop_stream(
         &self,
         request: Request<blockstreamer::StopStreamRequest>,
@@ -148,10 +155,10 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
                 )))
             }
             Some(mut block_stream) => {
-                block_stream
-                    .cancel()
-                    .await
-                    .map_err(|_| Status::internal("Failed to cancel block stream"))?;
+                block_stream.cancel().await.map_err(|err| {
+                    tracing::error!(?err, "Failed to cancel block stream");
+                    Status::internal("Failed to cancel block stream")
+                })?;
             }
         }
 
@@ -188,28 +195,32 @@ mod tests {
     use super::*;
 
     use blockstreamer::block_streamer_server::BlockStreamer;
+    use mockall::predicate;
 
     fn create_block_streamer_service() -> BlockStreamerService {
-        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-        mock_delta_lake_client
-            .expect_get_latest_block_metadata()
-            .returning(|| {
-                Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503703".to_string(),
-                    processed_at_utc: "".to_string(),
-                    first_indexed_block: "".to_string(),
-                    last_indexed_block_date: "".to_string(),
-                    first_indexed_block_date: "".to_string(),
-                })
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet".to_string()),
+                predicate::always(),
+            )
+            .returning(move |_, _| {
+                Ok(crate::test_utils::generate_block_with_timestamp(
+                    &chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                ))
             });
-        mock_delta_lake_client
-            .expect_list_matching_block_heights()
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client
+            .expect_get_bitmaps_exact()
             .returning(|_, _| Ok(vec![]));
 
-        let mut mock_redis_client = crate::redis::RedisClient::default();
-        mock_redis_client
-            .expect_xadd::<String, u64>()
-            .returning(|_, _| Ok(()));
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
+        let mock_redis = crate::redis::RedisClient::default();
 
         let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
         mock_lake_s3_client
@@ -217,8 +228,8 @@ mod tests {
             .returning(crate::lake_s3_client::SharedLakeS3Client::default);
 
         BlockStreamerService::new(
-            std::sync::Arc::new(mock_redis_client),
-            std::sync::Arc::new(mock_delta_lake_client),
+            std::sync::Arc::new(mock_redis),
+            std::sync::Arc::new(mock_reciever_blocks_processor),
             mock_lake_s3_client,
         )
     }

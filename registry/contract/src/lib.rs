@@ -5,7 +5,8 @@ use near_sdk::store::UnorderedMap;
 use near_sdk::{env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash};
 
 use registry_types::{
-    AccountIndexers, AccountOrAllIndexers, AllIndexers, IndexerConfig, IndexerIdentity, OldIndexerConfig, Rule, StartBlock, Status,
+    AccountIndexers, AccountOrAllIndexers, AllIndexers, IndexerConfig, IndexerIdentity,
+    OldIndexerConfig, Rule, StartBlock, Status,
 };
 
 type FunctionName = String;
@@ -122,7 +123,6 @@ impl Contract {
             let mut new_indexers: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(
                 StorageKeys::AccountV4(env::sha256_array(account_id.as_bytes())),
             );
-
 
             for (function_name, indexer_config) in indexers.iter() {
                 let new_config: IndexerConfig = indexer_config.clone().into();
@@ -259,9 +259,7 @@ impl Contract {
                 }
                 account_id
             }
-            None => {
-                env::signer_account_id()
-            }
+            None => env::signer_account_id(),
         };
 
         log!(
@@ -279,7 +277,9 @@ impl Contract {
                 affected_account_id,
                 ..
             } => {
-                if affected_account_id.split(',').any(|account_id| ["*", "*.near", "*.kaiching", "*.tg"].contains(&account_id.trim())) {
+                if affected_account_id.split(',').any(|account_id| {
+                    ["*", "*.near", "*.kaiching", "*.tg"].contains(&account_id.trim())
+                }) {
                     self.assert_roles(vec![Role::Owner]);
                 }
             }
@@ -329,10 +329,7 @@ impl Contract {
                     env::panic_str(&format!("Account ID {} is invalid", account_id));
                 })
             }
-            None => {
-                self.assert_roles(vec![Role::Owner, Role::User]);
-                env::signer_account_id()
-            }
+            None => env::signer_account_id(),
         };
 
         log!(
@@ -369,7 +366,7 @@ impl Contract {
 
                 AccountOrAllIndexers::AccountIndexers(self.list_by_account(account_id))
             }
-            None => AccountOrAllIndexers::AllIndexers(self.list_all())
+            None => AccountOrAllIndexers::AllIndexers(self.list_all()),
         }
     }
 
@@ -423,7 +420,7 @@ mod tests {
                 rule: Rule::ActionFunctionCall {
                     affected_account_id: String::from("social.near"),
                     status: Status::Any,
-                    function: String::from("set")
+                    function: String::from("set"),
                 },
                 updated_at_block_height: None,
                 created_at_block_height: 10,
@@ -437,7 +434,7 @@ mod tests {
                 start_block: StartBlock::Height(100),
                 rule: Rule::ActionAny {
                     affected_account_id: String::from("social.near"),
-                    status: Status::Success
+                    status: Status::Success,
                 },
                 updated_at_block_height: Some(20),
                 created_at_block_height: 10,
@@ -732,7 +729,7 @@ mod tests {
             rule: Rule::ActionFunctionCall {
                 affected_account_id: String::from("social.near"),
                 status: Status::Any,
-                function: String::from("set")
+                function: String::from("set"),
             },
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -962,7 +959,7 @@ mod tests {
             rule: Rule::ActionFunctionCall {
                 affected_account_id: String::from("social.near"),
                 status: Status::Any,
-                function: String::from("set")
+                function: String::from("set"),
             },
             updated_at_block_height: None,
             created_at_block_height: 0,
@@ -1007,7 +1004,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionFunctionCall {
+            rule: Rule::ActionFunctionCall {
                 affected_account_id: "test".to_string(),
                 function: "test".to_string(),
                 status: Status::Fail,
@@ -1055,7 +1052,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionFunctionCall {
+                rule: Rule::ActionFunctionCall {
                     affected_account_id: "test".to_string(),
                     function: "test".to_string(),
                     status: Status::Fail,
@@ -1078,7 +1075,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionFunctionCall {
+            rule: Rule::ActionFunctionCall {
                 affected_account_id: "test".to_string(),
                 function: "test".to_string(),
                 status: Status::Fail,
@@ -1124,7 +1121,7 @@ mod tests {
         contract.register(
             "test_function".to_string(),
             None,
-            String::new(), 
+            String::new(),
             String::new(),
             Rule::ActionFunctionCall {
                 affected_account_id: String::from("*"),
@@ -1148,7 +1145,7 @@ mod tests {
         contract.register(
             "test_function".to_string(),
             None,
-            String::new(), 
+            String::new(),
             String::new(),
             Rule::ActionFunctionCall {
                 affected_account_id: String::from("*.near"),
@@ -1171,7 +1168,7 @@ mod tests {
         contract.register(
             "test_function".to_string(),
             None,
-            String::new(), 
+            String::new(),
             String::new(),
             Rule::ActionAny {
                 affected_account_id: String::from("*"),
@@ -1196,7 +1193,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1235,7 +1232,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1275,7 +1272,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1309,7 +1306,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1337,8 +1334,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near does not have any roles")]
-    fn anonymous_cannot_remove_functions() {
+    fn anonymous_can_remove_functions() {
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
             env::sha256_array(account_id.as_bytes()),
@@ -1349,7 +1345,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1380,7 +1376,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1395,7 +1391,7 @@ mod tests {
                 start_block: StartBlock::Latest,
                 code: "var x= 1;".to_string(),
                 schema: String::new(),
-                rule: Rule:: ActionAny {
+                rule: Rule::ActionAny {
                     affected_account_id: "social.near".to_string(),
                     status: Status::Success,
                 },
@@ -1449,7 +1445,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionAny {
+            rule: Rule::ActionAny {
                 affected_account_id: "social.near".to_string(),
                 status: Status::Success,
             },
@@ -1482,7 +1478,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionAny {
+            rule: Rule::ActionAny {
                 affected_account_id: "social.near".to_string(),
                 status: Status::Success,
             },
@@ -1522,7 +1518,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionAny {
+            rule: Rule::ActionAny {
                 affected_account_id: "social.near".to_string(),
                 status: Status::Success,
             },
@@ -1557,7 +1553,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionAny {
+            rule: Rule::ActionAny {
                 affected_account_id: "social.near".to_string(),
                 status: Status::Success,
             },
@@ -1589,7 +1585,7 @@ mod tests {
             start_block: StartBlock::Latest,
             code: "var x= 1;".to_string(),
             schema: String::new(),
-            rule: Rule:: ActionAny {
+            rule: Rule::ActionAny {
                 affected_account_id: "social.near".to_string(),
                 status: Status::Success,
             },
@@ -1645,7 +1641,7 @@ mod tests {
                         start_block: StartBlock::Latest,
                         code: String::from("code"),
                         schema: String::from("schema"),
-                        rule: Rule:: ActionAny {
+                        rule: Rule::ActionAny {
                             affected_account_id: "social.near".to_string(),
                             status: Status::Any,
                         },
@@ -1715,7 +1711,7 @@ mod tests {
                     start_block: StartBlock::Latest,
                     code: String::from("code"),
                     schema: String::from("schema"),
-                    rule: Rule:: ActionAny {
+                    rule: Rule::ActionAny {
                         affected_account_id: "social.near".to_string(),
                         status: Status::Any,
                     },
