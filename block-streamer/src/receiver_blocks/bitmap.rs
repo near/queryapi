@@ -3,6 +3,8 @@ use std::convert::TryFrom;
 
 use crate::graphql::client::{get_bitmaps_exact, get_bitmaps_wildcard};
 
+/// Stores a [`CompressedBitmap`](CompressedBitmap) in Base64 format along with its starting block
+/// height
 #[derive(Debug, Default, PartialEq)]
 pub struct Base64Bitmap {
     pub start_block_height: u64,
@@ -37,12 +39,59 @@ impl TryFrom<&get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBl
     }
 }
 
+/// Stores the decoded value from an Elias Gamma encoded sequence and the index of the last bit
+/// that was part of the encoded value
 #[derive(Default)]
 struct EliasGammaDecoded {
+    /// The decoded value obtained from the Elias Gamma encoding. This represents the
+    /// length of the run of bits (0s or 1s) in the decompressed bitmap.
     pub value: u64,
+    /// The index of the last bit in the compressed bitmap that was part of the
+    /// Elias Gamma encoded value. Used to determine the starting point for the next encoded value.
     pub last_bit_index: usize,
 }
 
+/// A struct representing a compressed bitmap using Elias Gamma encoding.
+///
+/// The `CompressedBitmap` is used to efficiently store sequences of bits where
+/// runs of 1s and 0s are encoded to save space, using Elias Gamma encoding which consists of two
+/// parts:
+/// 1. **Unary Part**:
+///    - A sequence of leading zeros (`N`) followed by a `1`.
+/// 2. **Binary Part**:
+///    - The next `N` bits after the unary part represent binary encoded decimal (remainder).
+///
+/// The final value is calulated with: 2^N + remainder
+///
+/// This encoded value determines the number/length of 0s or 1s to be set. The first bit of the
+/// compressed bitmap indicates the value of the first run. After processing each
+/// Elias Gamma encoded value, the bit value is flipped and the process is repeated for the next
+/// segment.
+///
+/// # Visual Example
+///
+/// Consider a compressed bitmap `0b00100100`:
+///
+/// - The first bit is `0`, so the initial run is of 0s.
+/// - The first sequence is `010`:
+///   - Unary part is `01`, so `N` is `1`
+///   - Binary part is `0`, so remainder is `0`
+///   - Elias Gamma value: `2^1 + 0 = 2`
+///   - This means the first 2 bits of the decompressed bitmap are: `00`
+/// - Flip the bit to `1`.
+/// - The next sequence `0010`:
+///   - Unary part is `010`, so `N` is `0`
+///   - Binary part is `0`, so remainder is `0`
+///   - Elias Gamma value: `2^1 + 0 = 2`
+///   - This means the next 2 bits art `1`s
+/// - Flip the bit to `0`.
+/// - The last sequence `0`:
+///   - Unary part is 0, so N is 0
+///   - Binary part is 0, so remainder is 0
+///   - Elias Gamma value: `2^0 + 0 = 1`
+///   - This means the next bit is `0`.
+///
+/// The decompressed bitmap would be `0b00110000`.
 #[derive(Debug, Default, PartialEq)]
 pub struct CompressedBitmap {
     pub start_block_height: u64,
@@ -110,6 +159,7 @@ impl CompressedBitmap {
         if self.bitmap.is_empty() {
             return Ok(EliasGammaDecoded::default());
         }
+
         let first_bit_index = match self.index_of_first_set_bit(start_bit_index) {
             Some(index) => index,
             None => {
@@ -164,6 +214,31 @@ impl CompressedBitmap {
     }
 }
 
+/// Represents a bitmap of block heights, starting from a given block height.
+///
+/// Each bit in the `bitmap` corresponds to a sequential block height, starting from
+/// the `start_block_height`. For example, with a `start_block_height` of 10, the
+/// first bit in the bitmap represents block height 10, the second bit represents
+/// block height 11, and so on. A bit set to 1 corresponds to a matching block height.
+///
+/// # Visual Example
+///
+/// Given the following `DecompressedBitmap`:
+/// ```
+/// let decompressed = DecompressedBitmap {
+///   start_block_height: 10,
+///   bitmap: [0b00000001, 0b00000000, 0b00001001]
+/// }
+/// ```
+///
+/// bits:  0 0 0 0 0 0 0 1  0 0 0 0 0 0 0 0  0 0 0 0 1 0 0 1
+///                      ^                           ^     ^
+/// index:               7                           20    23
+///
+/// We get the following block heights:
+/// - 17 (10 + 7)
+/// - 30 (10 + 20)
+/// - 33 (10 + 23)
 #[derive(Debug, Default, PartialEq)]
 pub struct DecompressedBitmap {
     pub start_block_height: u64,
@@ -205,6 +280,7 @@ impl DecompressedBitmap {
                 &mut to_merge.start_block_height,
             );
         }
+
         let block_height_difference = to_merge.start_block_height - self.start_block_height;
         let start_bit_index: usize = usize::try_from(block_height_difference)?;
 
@@ -221,6 +297,9 @@ impl DecompressedBitmap {
     }
 }
 
+/// The `DecompressedBitmapIter` struct provides an iterator over the
+/// `DecompressedBitmap`, yielding all matching block heights based on the set
+/// bits in the bitmap, starting from the start block height.
 pub struct DecompressedBitmapIter<'a> {
     data: &'a DecompressedBitmap,
     bit_index: usize,
