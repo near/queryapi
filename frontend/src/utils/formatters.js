@@ -39,10 +39,14 @@ export const wrapCode = (code) => {
 };
 
 export const formatIndexingCode = (code) => {
-  return prettier.format(code, {
-    parser: 'babel',
-    plugins: [parserBabel],
-  });
+  try {
+    return prettier.format(code, {
+      parser: 'babel',
+      plugins: [parserBabel],
+    });
+  } catch (error) {
+    throw new Error(`Failed to format code: ${error.message}`);
+  }
 };
 
 export const defaultCode = formatIndexingCode(

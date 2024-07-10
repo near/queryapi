@@ -1,6 +1,9 @@
 import { request } from 'near-social-bridge';
 import React, { useContext } from 'react';
 
+import { ForkIndexerModal } from '@/components/Modals/ForkIndexerModal';
+import { PublishModal } from '@/components/Modals/PublishModal';
+import { ResetChangesModal } from '@/components/Modals/ResetChangesModal';
 import {
   CODE_FORMATTING_ERROR_MESSAGE,
   FORMATTING_ERROR_TYPE,
@@ -21,28 +24,23 @@ import { sanitizeAccountId, sanitizeIndexerName } from '@/utils/helpers';
 import { queryIndexerFunctionDetails as PreviousSavedCode } from '@/utils/queryIndexerFunction';
 import { validateJSCode, validateSQLSchema } from '@/utils/validators';
 
-import { ForkIndexerModal } from '@/components/Modals/ForkIndexerModal';
-import { PublishModal } from '@/components/Modals/PublishModal';
-import { ResetChangesModal } from '@/components/Modals/ResetChangesModal';
 import EditorMenuView from '../EditorView/EditorMenuView';
 
 interface EditorMenuContainerProps {
   isUserIndexer: boolean;
   handleDeleteIndexer: () => void;
   isCreateNewIndexer: boolean;
-  error: string | undefined;
+  schemaError: string | undefined;
   indexingCode: string;
   setIndexingCode: (code: string) => void;
   currentUserAccountId: string | undefined;
   // reset code
   setSchema: (schema: string) => void;
   setSchemaTypes: (schemaTypes: string) => void;
-  setOriginalIndexingCode: (code: string) => void;
-  setOriginalSQLCode: (code: string) => void;
   // publish
   actionButtonText: string;
   schema: string;
-  setError: (error: string) => void;
+  setSchemaError: (schemaError: string) => void;
   showModal: (modalName: string, modalProps: any) => void;
 }
 
@@ -50,19 +48,17 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
   isUserIndexer,
   handleDeleteIndexer,
   isCreateNewIndexer,
-  error,
+  schemaError,
   indexingCode,
   setIndexingCode,
   currentUserAccountId,
   // reset code
   setSchema,
   setSchemaTypes,
-  setOriginalIndexingCode,
-  setOriginalSQLCode,
   // publish
   actionButtonText,
   schema,
-  setError,
+  setSchemaError,
   showModal,
 }) => {
   const {
@@ -118,11 +114,9 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
         const unformattedIndexerCode = wrapCode(data.code);
         const unformattedSchemaCode = data.schema;
         if (unformattedIndexerCode !== null) {
-          setOriginalIndexingCode(unformattedIndexerCode);
           setIndexingCode(unformattedIndexerCode);
         }
         if (unformattedSchemaCode !== null) {
-          setOriginalSQLCode(unformattedSchemaCode);
           setSchema(unformattedSchemaCode);
         }
         // todo add reformatting (reformatAll)
@@ -137,7 +131,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     const { data: validatedCode, error: codeValidationError } = validateJSCode(indexingCode);
 
     if (codeValidationError) {
-      setError(CODE_FORMATTING_ERROR_MESSAGE);
+      //todo: setIndexer error(CODE_FORMATTING_ERROR_MESSAGE);
       return;
     }
 
@@ -159,7 +153,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
         : 'CONTINUE';
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+      setSchemaError(SCHEMA_FORMATTING_ERROR_MESSAGE);
       return;
     } else if (schemaValidationError?.type === TYPE_GENERATION_ERROR_TYPE) {
       showModal(INDEXER_REGISTER_TYPE_GENERATION_ERROR, {
@@ -199,7 +193,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
           isUserIndexer,
           handleDeleteIndexer,
           isCreateNewIndexer,
-          error,
+          schemaError,
           // Context
           indexerName,
           accountId,

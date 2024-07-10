@@ -8,7 +8,7 @@ const EditorMenuView = ({
   isUserIndexer,
   handleDeleteIndexer,
   isCreateNewIndexer,
-  error,
+  schemaError,
   // Context
   indexerName,
   accountId,
@@ -78,7 +78,7 @@ const EditorMenuView = ({
               variant="outline-primary"
               size="sm"
               className="d-flex align-items-center"
-              disabled={!!error}
+              disabled={!!schemaError}
               onClick={() => setShowPublishModal(true)}
             >
               <ArrowCounterclockwise className="me-2" size={20} />

@@ -1,17 +1,13 @@
 use registry_types::StartBlock;
 use tracing::instrument;
 
-use crate::{
-    handlers::{
-        block_streams::{BlockStreamsHandler, StreamInfo},
-        data_layer::{DataLayerHandler, TaskStatus},
-        executors::{ExecutorInfo, ExecutorsHandler},
-    },
-    indexer_config::IndexerConfig,
-    indexer_state::{IndexerState, IndexerStateManager, ProvisionedState},
-    redis::RedisClient,
-    registry::Registry,
-};
+use crate::handlers::block_streams::{BlockStreamsHandler, StreamInfo};
+use crate::handlers::data_layer::{DataLayerHandler, TaskStatus};
+use crate::handlers::executors::{ExecutorInfo, ExecutorsHandler};
+use crate::indexer_config::IndexerConfig;
+use crate::indexer_state::{IndexerState, IndexerStateManager, ProvisionedState};
+use crate::redis::{KeyProvider, RedisClient};
+use crate::registry::Registry;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
@@ -1050,7 +1046,9 @@ mod test {
             let last_published_block = 1;
 
             let mut redis_client = RedisClient::default();
-            redis_client.expect_clear_block_stream().never();
+            redis_client
+                .expect_clear_block_stream::<IndexerConfig>()
+                .never();
             redis_client
                 .expect_get_last_published_block()
                 .with(eq(config.clone()))

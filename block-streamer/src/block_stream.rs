@@ -1,21 +1,25 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Poll;
 
 use anyhow::Context;
+use futures::StreamExt;
 use near_lake_framework::near_indexer_primitives;
+use registry_types::Rule;
 use tokio::task::JoinHandle;
 
 use crate::indexer_config::IndexerConfig;
+use crate::lake_s3_client::SharedLakeS3Client;
 use crate::metrics;
+use crate::receiver_blocks::ReceiverBlocksProcessor;
+use crate::redis::RedisClient;
 use crate::rules::types::ChainId;
-use registry_types::Rule;
 
 /// The number of blocks to prefetch within `near-lake-framework`. The internal default is 100, but
 /// we need this configurable for testing purposes.
 const LAKE_PREFETCH_SIZE: usize = 100;
 const MAX_STREAM_SIZE_WITH_CACHE: u64 = 100;
-const DELTA_LAKE_SKIP_ACCOUNTS: [&str; 4] = ["*", "*.near", "*.kaiching", "*.tg"];
 const MAX_STREAM_SIZE: u64 = 100;
 
 #[pin_project::pin_project]
@@ -79,9 +83,9 @@ impl BlockStream {
     pub fn start(
         &mut self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
-        redis: std::sync::Arc<crate::redis::RedisClient>,
-        delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-        lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
+        redis: Arc<RedisClient>,
+        reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+        lake_s3_client: SharedLakeS3Client,
     ) -> anyhow::Result<()> {
         if self.task.is_some() {
             return Err(anyhow::anyhow!("BlockStreamer has already been started",));
@@ -100,7 +104,7 @@ impl BlockStream {
                     start_block_height,
                     &indexer_config,
                     redis,
-                    delta_lake_client,
+                    reciever_blocks_processor,
                     lake_s3_client,
                     &chain_id,
                     LAKE_PREFETCH_SIZE,
@@ -174,9 +178,9 @@ impl BlockStream {
 pub(crate) async fn start_block_stream(
     start_block_height: near_indexer_primitives::types::BlockHeight,
     indexer: &IndexerConfig,
-    redis: std::sync::Arc<crate::redis::RedisClient>,
-    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
+    redis: Arc<RedisClient>,
+    reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+    lake_s3_client: SharedLakeS3Client,
     chain_id: &ChainId,
     lake_prefetch_size: usize,
     redis_stream: String,
@@ -187,18 +191,18 @@ pub(crate) async fn start_block_stream(
         .with_label_values(&[&indexer.get_full_name()])
         .reset();
 
-    let last_indexed_delta_lake_block = process_delta_lake_blocks(
+    let last_bitmap_indexer_block = process_bitmap_indexer_blocks(
         start_block_height,
-        delta_lake_client,
+        reciever_blocks_processor,
         redis.clone(),
         indexer,
         redis_stream.clone(),
     )
     .await
-    .context("Failed during Delta Lake processing")?;
+    .context("Failed while fetching and streaming bitmap indexer blocks")?;
 
     let last_indexed_near_lake_block = process_near_lake_blocks(
-        last_indexed_delta_lake_block,
+        last_bitmap_indexer_block,
         lake_s3_client,
         lake_prefetch_size,
         redis,
@@ -217,88 +221,73 @@ pub(crate) async fn start_block_stream(
     Ok(())
 }
 
-async fn process_delta_lake_blocks(
+async fn process_bitmap_indexer_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
-    delta_lake_client: std::sync::Arc<crate::delta_lake_client::DeltaLakeClient>,
-    redis: std::sync::Arc<crate::redis::RedisClient>,
+    reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+    redis: Arc<RedisClient>,
     indexer: &IndexerConfig,
     redis_stream: String,
 ) -> anyhow::Result<u64> {
-    let latest_block_metadata = delta_lake_client.get_latest_block_metadata().await?;
-    let last_indexed_block_from_metadata = latest_block_metadata
-        .last_indexed_block
-        .parse::<near_indexer_primitives::types::BlockHeight>()
-        .context("Failed to parse Delta Lake metadata")?;
-
-    if start_block_height >= last_indexed_block_from_metadata {
-        return Ok(start_block_height);
-    }
-
-    let blocks_from_index = match &indexer.rule {
+    let contract_pattern: String = match &indexer.rule {
         Rule::ActionAny {
             affected_account_id,
             ..
-        } => {
-            if affected_account_id
-                .split(',')
-                .any(|account_id| DELTA_LAKE_SKIP_ACCOUNTS.contains(&account_id.trim()))
-            {
-                tracing::debug!(
-                    "Skipping fetching index files from delta lake due to wildcard contract filter present in {}",
-                    affected_account_id
-                );
-                return Ok(start_block_height);
-            }
-            tracing::debug!(
-                "Fetching block heights starting from {} from delta lake",
-                start_block_height,
-            );
-
-            delta_lake_client
-                .list_matching_block_heights(start_block_height, affected_account_id)
-                .await
-        }
+        } => affected_account_id.to_owned(),
         Rule::ActionFunctionCall { .. } => {
-            tracing::error!("ActionFunctionCall matching rule not yet supported for delta lake processing, function: {:?} {:?}", indexer.account_id, indexer.function_name);
-            Ok(vec![])
+            tracing::error!("ActionFunctionCall matching rule not yet supported for bitmap processing, function");
+            return Ok(start_block_height);
         }
         Rule::Event { .. } => {
-            tracing::error!("Event matching rule not yet supported for delta lake processing, function {:?} {:?}", indexer.account_id, indexer.function_name);
-            Ok(vec![])
+            tracing::error!(
+                "Event matching rule not yet supported for bitmap processing, function"
+            );
+            return Ok(start_block_height);
         }
-    }?;
+    };
 
     tracing::debug!(
-        "Flushing {} block heights from index files to Redis Stream",
-        blocks_from_index.len(),
+        "Fetching block heights starting from {} from Bitmap Indexer",
+        start_block_height,
     );
 
-    for block_height in &blocks_from_index {
-        let block_height = block_height.to_owned();
+    if contract_pattern
+        .split(',')
+        .any(|account_id| account_id.trim().eq("*"))
+    {
+        tracing::debug!(
+            "Skipping fetching block heights form bitmap idnexer due to presence of all account wildcard * in filter {}",
+            contract_pattern
+        );
+
+        return Ok(start_block_height);
+    }
+
+    let matching_block_heights = reciever_blocks_processor
+        .stream_matching_block_heights(start_block_height, contract_pattern);
+
+    tokio::pin!(matching_block_heights);
+
+    let mut last_published_block_height: u64 = start_block_height;
+
+    while let Some(Ok(block_height)) = matching_block_heights.next().await {
         redis
             .publish_block(indexer, redis_stream.clone(), block_height, MAX_STREAM_SIZE)
             .await?;
         redis
             .set_last_processed_block(indexer, block_height)
             .await?;
+
+        last_published_block_height = block_height;
     }
 
-    let last_indexed_block =
-        blocks_from_index
-            .last()
-            .map_or(last_indexed_block_from_metadata, |&last_block_in_index| {
-                // Check for the case where index files are written right after we fetch the last_indexed_block metadata
-                std::cmp::max(last_block_in_index, last_indexed_block_from_metadata)
-            });
-
-    Ok(last_indexed_block)
+    Ok(last_published_block_height)
 }
 
 async fn process_near_lake_blocks(
     start_block_height: near_indexer_primitives::types::BlockHeight,
-    lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
+    lake_s3_client: SharedLakeS3Client,
     lake_prefetch_size: usize,
-    redis: std::sync::Arc<crate::redis::RedisClient>,
+    redis: Arc<RedisClient>,
     indexer: &IndexerConfig,
     redis_stream: String,
     chain_id: &ChainId,
@@ -355,16 +344,14 @@ async fn process_near_lake_blocks(
 mod tests {
     use super::*;
 
-    use std::sync::Arc;
-
     use mockall::predicate;
     use near_lake_framework::s3_client::GetObjectBytesError;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
 
-    // FIX: near lake framework now infinitely retires - we need a way to stop it to allow the test
-    // to finish
-    #[ignore]
     #[tokio::test]
-    async fn adds_matching_blocks_from_index_and_lake() {
+    async fn adds_matching_blocks_from_bitmap_and_lake() {
+        let contract_filter = "queryapi.dataplatform.near";
         let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
 
         mock_lake_s3_client
@@ -377,24 +364,50 @@ mod tests {
 
         mock_lake_s3_client
             .expect_list_common_prefixes()
-            .with(predicate::always(), predicate::eq(107503704.to_string()))
             .returning(|_, _| Ok(vec![107503704.to_string(), 107503705.to_string()]));
 
-        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-        mock_delta_lake_client
-            .expect_get_latest_block_metadata()
-            .returning(|| {
-                Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503703".to_string(),
-                    processed_at_utc: "".to_string(),
-                    first_indexed_block: "".to_string(),
-                    last_indexed_block_date: "".to_string(),
-                    first_indexed_block_date: "".to_string(),
-                })
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet".to_string()),
+                predicate::eq("000091940840/block.json"),
+            )
+            .returning(move |_, _| {
+                Ok(crate::test_utils::generate_block_with_timestamp(
+                    "2023-12-09",
+                ))
             });
-        mock_delta_lake_client
-            .expect_list_matching_block_heights()
-            .returning(|_, _| Ok(vec![107503702, 107503703]));
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client
+            .expect_get_bitmaps_exact()
+            .with(
+                predicate::eq(vec![contract_filter.to_owned()]),
+                predicate::eq(crate::test_utils::utc_date_time_from_date_string(
+                    "2023-12-09",
+                )),
+            )
+            .returning(|_, _| {
+                Ok(vec![
+                    crate::graphql::client::get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps {
+                        first_block_height: 107503702,
+                        bitmap: "oA==".to_string(),
+                    }
+                ])
+            });
+
+        mock_graphql_client
+            .expect_get_bitmaps_exact()
+            .returning(|_, _| Ok(vec![]));
+
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
+
+        let last_processed_block_height = Arc::new(AtomicU64::new(0));
+        let last_processed_block_height_clone = last_processed_block_height.clone();
 
         let mut mock_redis = crate::redis::RedisClient::default();
         mock_redis
@@ -413,7 +426,10 @@ mod tests {
                 predicate::always(),
                 predicate::in_iter([107503702, 107503703, 107503704, 107503705]),
             )
-            .returning(|_, _| Ok(()))
+            .returning(move |_, height| {
+                last_processed_block_height_clone.store(height, Ordering::Relaxed);
+                Ok(())
+            })
             .times(4);
         mock_redis
             .expect_cache_streamer_message()
@@ -431,44 +447,79 @@ mod tests {
             .unwrap(),
             function_name: "test".to_string(),
             rule: registry_types::Rule::ActionAny {
-                affected_account_id: "queryapi.dataplatform.near".to_string(),
+                affected_account_id: contract_filter.to_owned(),
                 status: registry_types::Status::Success,
             },
         };
 
-        start_block_stream(
-            91940840,
-            &indexer_config,
-            std::sync::Arc::new(mock_redis),
-            std::sync::Arc::new(mock_delta_lake_client),
-            mock_lake_s3_client,
-            &ChainId::Mainnet,
+        let mut block_stream = BlockStream::new(
+            indexer_config,
+            ChainId::Mainnet,
             1,
             "stream key".to_string(),
-        )
-        .await
-        .unwrap();
+        );
+
+        block_stream
+            .start(
+                91940840,
+                std::sync::Arc::new(mock_redis),
+                std::sync::Arc::new(mock_reciever_blocks_processor),
+                mock_lake_s3_client,
+            )
+            .unwrap();
+
+        loop {
+            if last_processed_block_height.load(Ordering::Relaxed) >= 107503705 {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        block_stream.cancel().await.unwrap();
     }
 
-    // FIX: near lake framework now infinitely retires - we need a way to stop it to allow the test
-    // to finish
-    #[ignore]
     #[tokio::test]
     async fn skips_caching_of_lake_block_over_stream_size_limit() {
-        let mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
+        let mut mock_lake_s3_client = crate::lake_s3_client::SharedLakeS3Client::default();
 
-        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-        mock_delta_lake_client
-            .expect_get_latest_block_metadata()
-            .returning(|| {
-                Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503700".to_string(),
-                    processed_at_utc: "".to_string(),
-                    first_indexed_block: "".to_string(),
-                    last_indexed_block_date: "".to_string(),
-                    first_indexed_block_date: "".to_string(),
-                })
+        mock_lake_s3_client
+            .expect_get_object_bytes()
+            .returning(|_, prefix| {
+                let path = format!("{}/data/{}", env!("CARGO_MANIFEST_DIR"), prefix);
+
+                std::fs::read(path).map_err(|e| GetObjectBytesError(Arc::new(e)))
             });
+
+        mock_lake_s3_client
+            .expect_list_common_prefixes()
+            .returning(|_, _| Ok(vec![107503704.to_string(), 107503705.to_string()]));
+
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client
+            .expect_get_text_file()
+            .with(
+                predicate::eq("near-lake-data-mainnet".to_string()),
+                predicate::eq("000107503704/block.json"),
+            )
+            .returning(move |_, _| {
+                Ok(crate::test_utils::generate_block_with_timestamp(
+                    &chrono::Utc::now().format("%Y-%m-%d").to_string(),
+                ))
+            });
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client
+            .expect_get_bitmaps_exact()
+            .returning(|_, _| Ok(vec![]));
+
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
+
+        let last_processed_block_height = Arc::new(AtomicU64::new(0));
+        let last_processed_block_height_clone = last_processed_block_height.clone();
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client
@@ -487,7 +538,10 @@ mod tests {
                 predicate::always(),
                 predicate::in_iter([107503704, 107503705]),
             )
-            .returning(|_, _| Ok(()))
+            .returning(move |_, height| {
+                last_processed_block_height_clone.store(height, Ordering::Relaxed);
+                Ok(())
+            })
             .times(2);
         mock_redis_client
             .expect_cache_streamer_message()
@@ -510,37 +564,45 @@ mod tests {
             },
         };
 
-        start_block_stream(
-            107503704,
-            &indexer_config,
-            std::sync::Arc::new(mock_redis_client),
-            std::sync::Arc::new(mock_delta_lake_client),
-            mock_lake_s3_client,
-            &ChainId::Mainnet,
+        let mut block_stream = BlockStream::new(
+            indexer_config,
+            ChainId::Mainnet,
             1,
             "stream key".to_string(),
-        )
-        .await
-        .unwrap();
+        );
+
+        block_stream
+            .start(
+                107503704,
+                Arc::new(mock_redis_client),
+                Arc::new(mock_reciever_blocks_processor),
+                mock_lake_s3_client,
+            )
+            .unwrap();
+
+        loop {
+            if last_processed_block_height.load(Ordering::Relaxed) >= 107503705 {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        block_stream.cancel().await.unwrap();
     }
 
     #[tokio::test]
-    async fn skips_delta_lake_for_star_filter() {
-        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-        mock_delta_lake_client
-            .expect_get_latest_block_metadata()
-            .returning(|| {
-                Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503700".to_string(),
-                    processed_at_utc: "".to_string(),
-                    first_indexed_block: "".to_string(),
-                    last_indexed_block_date: "".to_string(),
-                    first_indexed_block_date: "".to_string(),
-                })
-            });
-        mock_delta_lake_client
-            .expect_list_matching_block_heights()
-            .never();
+    async fn skips_bitmap_for_star_filter() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client.expect_get_text_file().never();
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client.expect_get_bitmaps_exact().never();
+
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
@@ -558,10 +620,10 @@ mod tests {
             },
         };
 
-        process_delta_lake_blocks(
+        process_bitmap_indexer_blocks(
             107503704,
-            std::sync::Arc::new(mock_delta_lake_client),
-            std::sync::Arc::new(mock_redis_client),
+            Arc::new(mock_reciever_blocks_processor),
+            Arc::new(mock_redis_client),
             &indexer_config,
             "stream key".to_string(),
         )
@@ -570,22 +632,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skips_delta_lake_for_multiple_star_filter() {
-        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-        mock_delta_lake_client
-            .expect_get_latest_block_metadata()
-            .returning(|| {
-                Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503700".to_string(),
-                    processed_at_utc: "".to_string(),
-                    first_indexed_block: "".to_string(),
-                    last_indexed_block_date: "".to_string(),
-                    first_indexed_block_date: "".to_string(),
-                })
-            });
-        mock_delta_lake_client
-            .expect_list_matching_block_heights()
-            .never();
+    async fn skips_bitmap_for_multiple_star_filter() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client.expect_get_text_file().never();
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client.expect_get_bitmaps_exact().never();
+
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
@@ -598,15 +655,15 @@ mod tests {
             .unwrap(),
             function_name: "test".to_string(),
             rule: registry_types::Rule::ActionAny {
-                affected_account_id: "*, *.tg".to_string(),
+                affected_account_id: "*.tg, *".to_string(),
                 status: registry_types::Status::Success,
             },
         };
 
-        process_delta_lake_blocks(
+        process_bitmap_indexer_blocks(
             107503704,
-            std::sync::Arc::new(mock_delta_lake_client),
-            std::sync::Arc::new(mock_redis_client),
+            Arc::new(mock_reciever_blocks_processor),
+            Arc::new(mock_redis_client),
             &indexer_config,
             "stream key".to_string(),
         )
@@ -615,22 +672,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skips_delta_lake_for_star_filter_after_normal_account() {
-        let mut mock_delta_lake_client = crate::delta_lake_client::DeltaLakeClient::default();
-        mock_delta_lake_client
-            .expect_get_latest_block_metadata()
-            .returning(|| {
-                Ok(crate::delta_lake_client::LatestBlockMetadata {
-                    last_indexed_block: "107503700".to_string(),
-                    processed_at_utc: "".to_string(),
-                    first_indexed_block: "".to_string(),
-                    last_indexed_block_date: "".to_string(),
-                    first_indexed_block_date: "".to_string(),
-                })
-            });
-        mock_delta_lake_client
-            .expect_list_matching_block_heights()
-            .never();
+    async fn skips_bitmap_for_star_filter_after_normal_account() {
+        let mut mock_s3_client = crate::s3_client::S3Client::default();
+
+        mock_s3_client.expect_get_text_file().never();
+
+        let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
+
+        mock_graphql_client.expect_get_bitmaps_exact().never();
+
+        let mock_reciever_blocks_processor =
+            ReceiverBlocksProcessor::new(mock_graphql_client, mock_s3_client);
 
         let mut mock_redis_client = crate::redis::RedisClient::default();
         mock_redis_client.expect_publish_block().never();
@@ -643,15 +695,15 @@ mod tests {
             .unwrap(),
             function_name: "test".to_string(),
             rule: registry_types::Rule::ActionAny {
-                affected_account_id: "someone.near, *.kaiching".to_string(),
+                affected_account_id: "someone.tg, *".to_string(),
                 status: registry_types::Status::Success,
             },
         };
 
-        process_delta_lake_blocks(
+        process_bitmap_indexer_blocks(
             107503704,
-            std::sync::Arc::new(mock_delta_lake_client),
-            std::sync::Arc::new(mock_redis_client),
+            Arc::new(mock_reciever_blocks_processor),
+            Arc::new(mock_redis_client),
             &indexer_config,
             "stream key".to_string(),
         )

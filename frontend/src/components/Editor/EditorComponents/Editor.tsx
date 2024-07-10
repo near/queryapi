@@ -1,13 +1,11 @@
 import { request, useInitialPayload } from 'near-social-bridge';
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { useDebouncedCallback } from 'use-debounce';
 
 import primitives from '!!raw-loader!./primitives.d.ts';
 import {
-  CODE_FORMATTING_ERROR_MESSAGE,
-  CODE_GENERAL_ERROR_MESSAGE,
   FORMATTING_ERROR_TYPE,
   SCHEMA_FORMATTING_ERROR_MESSAGE,
   SCHEMA_TYPE_GENERATION_ERROR_MESSAGE,
@@ -15,7 +13,6 @@ import {
 } from '@/constants/Strings';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { useModal } from '@/contexts/ModalContext';
-import { InfoModal } from '@/core/InfoModal';
 import { defaultCode, defaultSchema, defaultSchemaTypes, formatIndexingCode, formatSQL } from '@/utils/formatters';
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import IndexerRunner from '@/utils/indexerRunner';
@@ -30,27 +27,28 @@ import { FileSwitcher } from './FileSwitcher';
 import { GlyphContainer } from './GlyphContainer';
 import ResizableLayoutEditor from './ResizableLayoutEditor';
 
+declare const monaco: any;
 const INDEXER_TAB_NAME = 'indexer.js';
 const SCHEMA_TAB_NAME = 'schema.sql';
-declare const monaco: any;
+const originalSQLCode = formatSQL(defaultSchema);
+const originalIndexingCode = formatIndexingCode(defaultCode);
+const pgSchemaTypeGen = new PgSchemaTypeGen();
 
 const Editor: React.FC = (): ReactElement => {
-  const { indexerDetails, debugMode, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+  const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+
   const storageManager = useMemo(() => {
     if (indexerDetails.accountId && indexerDetails.indexerName) {
       return new QueryAPIStorageManager(indexerDetails.accountId, indexerDetails.indexerName);
     } else return null;
   }, [indexerDetails.accountId, indexerDetails.indexerName]);
 
-  const [error, setError] = useState<string | undefined>();
+  const [indexerError, setIndexerError] = useState<string | undefined>();
+  const [schemaError, setSchemaError] = useState<string | undefined>();
   const [fileName, setFileName] = useState<string>(INDEXER_TAB_NAME);
-
-  const [originalSQLCode, setOriginalSQLCode] = useState<string>(formatSQL(defaultSchema));
-  const [originalIndexingCode, setOriginalIndexingCode] = useState<string>(formatIndexingCode(defaultCode));
-
   const [indexingCode, setIndexingCode] = useState<string>(originalIndexingCode);
   const [schema, setSchema] = useState<string>(originalSQLCode);
-  const [cursorPostion, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
+  const [cursorPosition, setCursorPosition] = useState<{ lineNumber: number; column: number }>({
     lineNumber: 1,
     column: 1,
   });
@@ -61,10 +59,9 @@ const Editor: React.FC = (): ReactElement => {
   const initialHeights = storageManager ? storageManager.getDebugList() || [] : [];
   const [heights, setHeights] = useState<number[]>(initialHeights);
 
-  const [debugModeInfoDisabled, setDebugModeInfoDisabled] = useState<boolean>(false);
   const [diffView, setDiffView] = useState<boolean>(false);
   const [blockView, setBlockView] = useState<boolean>(false);
-  const { openModal, showModal, data, message, hideModal } = useModal();
+  const { showModal } = useModal();
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState<boolean>(false);
   const { height, currentUserAccountId }: { height?: number; currentUserAccountId?: string } =
@@ -80,69 +77,60 @@ const Editor: React.FC = (): ReactElement => {
   };
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
-  const pgSchemaTypeGen = new PgSchemaTypeGen();
   const disposableRef = useRef<any>(null);
   const monacoEditorRef = useRef<any>(null);
-
-  const parseGlyphError = (
-    error?: { message: string },
-    line?: { start: { line: number; column: number }; end: { line: number; column: number } },
-  ) => {
-    const { line: startLine, column: startColumn } = line?.start || { line: 1, column: 1 };
-    const { line: endLine, column: endColumn } = line?.end || { line: 1, column: 1 };
-    const displayedError = error?.message || 'No Errors';
-
-    monacoEditorRef.current.deltaDecorations(
-      [decorations],
-      [
-        {
-          range: new monaco.Range(startLine, startColumn, endLine, endColumn),
-          options: {
-            isWholeLine: true,
-            glyphMarginClassName: error ? 'glyphError' : 'glyphSuccess',
-            glyphMarginHoverMessage: { value: displayedError },
-          },
-        },
-      ],
-    );
-  };
 
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema: string) => {
     const { error, location } = validateSQLSchema(_schema);
     error ? parseGlyphError(error as any, location as any) : parseGlyphError();
-    return;
+    schemaErrorHandler(error);
   }, 500);
 
   const debouncedValidateCode = useDebouncedCallback((_code: string) => {
-    const { error: codeError } = validateJSCode(_code);
-    codeError ? setError(CODE_FORMATTING_ERROR_MESSAGE) : setError(undefined);
+    const { error } = validateJSCode(_code);
+    console.log(error);
+    indexerErrorHandler(error);
   }, 500);
 
+  const schemaErrorHandler = (schemaError: any): void => {
+    if (schemaError?.type === FORMATTING_ERROR_TYPE) setSchemaError(SCHEMA_FORMATTING_ERROR_MESSAGE);
+    if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) setSchemaError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
+    if (!schemaError) setSchemaError(undefined);
+    return;
+  };
+
+  const indexerErrorHandler = (indexerError: any): void => {
+    if (indexerError) setIndexerError(indexerError);
+    if (!indexerError) setIndexerError(undefined);
+    return;
+  };
+
   useEffect(() => {
-    if (indexerDetails.code != null) {
+    //* Load saved code from local storage if it exists else load code from context
+    const savedCode = storageManager?.getIndexerCode();
+    if (savedCode) setIndexingCode(savedCode);
+    else if (indexerDetails.code) {
       const { data: formattedCode, error: codeError } = validateJSCode(indexerDetails.code);
+      indexerErrorHandler(codeError);
+      formattedCode && setIndexingCode(formattedCode);
+    }
+    //* Load saved cursor position from local storage if it exists else set cursor to start
+    const savedCursorPosition = storageManager?.getCursorPosition();
+    if (savedCursorPosition) setCursorPosition(savedCursorPosition);
 
-      if (codeError) {
-        setError(CODE_FORMATTING_ERROR_MESSAGE);
-      }
-
-      if (formattedCode) {
-        setOriginalIndexingCode(formattedCode);
-        setIndexingCode(formattedCode);
-      }
+    if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
+      monacoEditorRef.current.setPosition(savedCursorPosition || { lineNumber: 1, column: 1 });
+      monacoEditorRef.current.focus();
     }
   }, [indexerDetails.code]);
 
   useEffect(() => {
-    if (indexerDetails.schema != null) {
+    //* Load saved schema from local storage if it exists else load code from context
+    const savedSchema = storageManager?.getSchemaCode();
+    if (savedSchema) setSchema(savedSchema);
+    else if (indexerDetails.schema) {
       const { data: formattedSchema, error: schemaError } = validateSQLSchema(indexerDetails.schema);
-
-      if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-        setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-      } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
-        setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
-      }
-
+      schemaErrorHandler(schemaError);
       formattedSchema && setSchema(formattedSchema);
     }
   }, [indexerDetails.schema]);
@@ -151,30 +139,29 @@ const Editor: React.FC = (): ReactElement => {
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
 
-    if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-    } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
-      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
-    } else if (codeError) setError(CODE_GENERAL_ERROR_MESSAGE);
-    else {
-      setError(undefined);
-      handleCodeGen();
+    if (schemaError || codeError) {
+      if (schemaError) schemaErrorHandler(schemaError);
+      if (codeError) indexerErrorHandler(codeError);
+      return;
     }
-    if (fileName === SCHEMA_TAB_NAME) debouncedValidateSQLSchema(schema);
+
+    handleCodeGen();
   }, [fileName]);
 
   useEffect(() => {
-    const savedCode = storageManager?.getIndexerCode();
-    const savedSchema = storageManager?.getSchemaCode();
-    if (savedSchema) setSchema(savedSchema);
-    if (savedCode) setIndexingCode(savedCode);
-  }, [indexerDetails.accountId, indexerDetails.indexerName]);
+    cacheToLocal();
+  }, [indexingCode, schema]);
 
   useEffect(() => {
-    storageManager?.setSchemaCode(schema);
-    storageManager?.setIndexerCode(indexingCode);
-    storageManager?.setCursorPosition(cursorPostion);
-  }, [schema, indexingCode, cursorPostion]);
+    if (!monacoEditorRef.current) return;
+
+    const editorInstance = monacoEditorRef.current;
+    editorInstance.onDidChangeCursorPosition(handleCursorChange);
+
+    return () => {
+      editorInstance.dispose();
+    };
+  }, [monacoEditorRef.current]);
 
   useEffect(() => {
     storageManager?.setSchemaTypes(schemaTypes);
@@ -184,6 +171,23 @@ const Editor: React.FC = (): ReactElement => {
   useEffect(() => {
     storageManager?.setDebugList(heights);
   }, [heights]);
+
+  const cacheToLocal = () => {
+    if (!storageManager || !monacoEditorRef.current) return;
+
+    storageManager.setSchemaCode(schema);
+    storageManager.setIndexerCode(indexingCode);
+
+    const newCursorPosition = monacoEditorRef.current.getPosition();
+    if (fileName === INDEXER_TAB_NAME) storageManager.setCursorPosition(newCursorPosition);
+  };
+
+  const handleCursorChange = () => {
+    if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
+      const position = monacoEditorRef.current.getPosition();
+      setCursorPosition(position);
+    }
+  };
 
   const attachTypesToMonaco = () => {
     // If types have been added already, dispose of them first
@@ -213,23 +217,9 @@ const Editor: React.FC = (): ReactElement => {
   const reformatAll = (indexingCode: string, schema: string) => {
     const { data: validatedCode, error: codeError } = validateJSCode(indexingCode);
     const { data: validatedSchema, error: schemaError } = validateSQLSchema(schema);
-
-    let formattedCode = validatedCode;
-    let formattedSchema = validatedSchema;
-    if (codeError) {
-      formattedCode = indexingCode;
-      setError(CODE_FORMATTING_ERROR_MESSAGE);
-    } else if (schemaError?.type === FORMATTING_ERROR_TYPE) {
-      formattedSchema = schema;
-      setError(SCHEMA_FORMATTING_ERROR_MESSAGE);
-    } else if (schemaError?.type === TYPE_GENERATION_ERROR_TYPE) {
-      formattedSchema = schema;
-      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
-    } else {
-      setError(undefined);
-    }
-
-    return { formattedCode, formattedSchema };
+    indexerErrorHandler(codeError);
+    schemaErrorHandler(schemaError);
+    return { validatedCode, validatedSchema };
   };
 
   const handleCodeGen = () => {
@@ -238,14 +228,37 @@ const Editor: React.FC = (): ReactElement => {
       attachTypesToMonaco(); // Just in case schema types have been updated but weren't added to monaco
     } catch (_error) {
       console.error('Error generating types for saved schema.\n', _error);
-      setError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
+      setSchemaError(SCHEMA_TYPE_GENERATION_ERROR_MESSAGE);
     }
   };
 
   const handleFormating = () => {
-    const { formattedCode, formattedSchema } = reformatAll(indexingCode, schema);
-    formattedCode && setIndexingCode(formattedCode);
-    formattedSchema && setSchema(formattedSchema);
+    const { validatedCode, validatedSchema } = reformatAll(indexingCode, schema);
+    validatedCode && setIndexingCode(validatedCode);
+    validatedSchema && setSchema(validatedSchema);
+  };
+
+  const parseGlyphError = (
+    error?: { message: string },
+    line?: { start: { line: number; column: number }; end: { line: number; column: number } },
+  ) => {
+    const { line: startLine, column: startColumn } = line?.start || { line: 1, column: 1 };
+    const { line: endLine, column: endColumn } = line?.end || { line: 1, column: 1 };
+    const displayedError = error?.message || '';
+
+    monacoEditorRef.current.deltaDecorations(
+      [decorations],
+      [
+        {
+          range: new monaco.Range(startLine, startColumn, endLine, endColumn),
+          options: {
+            isWholeLine: true,
+            glyphMarginClassName: error ? 'glyphError' : 'glyphSuccess',
+            glyphMarginHoverMessage: { value: displayedError },
+          },
+        },
+      ],
+    );
   };
 
   const handleEditorWillMount = (editor: any, monaco: any) => {
@@ -262,10 +275,19 @@ const Editor: React.FC = (): ReactElement => {
       monacoEditorRef.current = editor;
       setDecorations(decorations);
     }
+    editor.setPosition(fileName === INDEXER_TAB_NAME ? cursorPosition : { lineNumber: 1, column: 1 });
+    editor.focus();
+
     monaco.languages.typescript.typescriptDefaults.addExtraLib(
       `${primitives}}`,
       'file:///node_modules/@near-lake/primitives/index.d.ts',
     );
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.ES2016,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+    });
+
     setMonacoMount(true);
   };
 
@@ -297,16 +319,14 @@ const Editor: React.FC = (): ReactElement => {
 
   const handleOnChangeSchema = (_schema: string) => {
     setSchema(_schema);
+    storageManager?.setSchemaCode(schema);
     debouncedValidateSQLSchema(_schema);
   };
 
   const handleOnChangeCode = (_code: string) => {
     setIndexingCode(_code);
+    storageManager?.setIndexerCode(indexingCode);
     debouncedValidateCode(_code);
-  };
-
-  const handleRegisterIndexerWithErrors = (args: any) => {
-    request('register-function', args);
   };
 
   return (
@@ -333,7 +353,7 @@ const Editor: React.FC = (): ReactElement => {
               isUserIndexer={indexerDetails.accountId === currentUserAccountId}
               handleDeleteIndexer={handleDeleteIndexer}
               isCreateNewIndexer={isCreateNewIndexer}
-              error={error}
+              schemaError={schemaError}
               //Fork Indexer Modal
               indexingCode={indexingCode}
               setIndexingCode={setIndexingCode}
@@ -341,12 +361,10 @@ const Editor: React.FC = (): ReactElement => {
               //Reset Indexer Modal
               setSchema={setSchema}
               setSchemaTypes={setSchemaTypes}
-              setOriginalIndexingCode={setOriginalIndexingCode}
-              setOriginalSQLCode={setOriginalSQLCode}
               //Publish Modal
               actionButtonText={'publish'}
               schema={schema}
-              setError={setError}
+              setSchemaError={setSchemaError}
               showModal={showModal}
             />
             <DeveloperToolsContainer
@@ -370,27 +388,12 @@ const Editor: React.FC = (): ReactElement => {
                 height: '100%',
               }}
             >
-              {error && (
-                <Alert
-                  dismissible={true}
-                  onClose={() => setError(undefined)}
-                  className="px-4 py-3 mb-4 font-semibold text-red-700 text-sm text-center border border-red-300 bg-red-50 rounded-lg shadow-md"
-                  variant="danger"
-                >
-                  {error}
-                </Alert>
-              )}
-              {debugMode && !debugModeInfoDisabled && (
-                <Alert
-                  className="px-4 py-3 mb-4 font-semibold text-gray-700 text-sm text-center border border-blue-300 bg-blue-50 rounded-lg shadow-md"
-                  dismissible={true}
-                  onClose={() => setDebugModeInfoDisabled(true)}
-                  variant="info"
-                >
-                  To debug, you will need to open your browser console window in order to see the logs.
-                </Alert>
-              )}
-              <FileSwitcher fileName={fileName} setFileName={setFileName} />
+              <FileSwitcher
+                fileName={fileName}
+                setFileName={setFileName}
+                schemaError={schemaError}
+                indexerError={indexerError}
+              />
               <GlyphContainer style={{ height: '100%', width: '100%' }}>
                 {/* @ts-ignore remove after refactoring Resizable Editor to ts*/}
                 <ResizableLayoutEditor
@@ -412,17 +415,8 @@ const Editor: React.FC = (): ReactElement => {
           </>
         )}
       </div>
-      <InfoModal
-        open={openModal}
-        title="Validation Error"
-        message={message}
-        okButtonText="Proceed"
-        onOkButtonPressed={() => handleRegisterIndexerWithErrors(data)}
-        onCancelButtonPressed={hideModal}
-        onClose={hideModal}
-      />
     </>
   );
 };
 
-export default Editor;
+export default React.memo(Editor);
