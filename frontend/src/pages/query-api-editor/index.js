@@ -16,7 +16,7 @@ const QueryApiEditorPage = ({ router }) => {
     setIndexerName(indexerName);
   }, [accountId, indexerName]);
 
-  if (!accountId || !indexerName) {
+  if (accountId == undefined || indexerName == undefined) {
     return (
       <Alert className="px-3 pt-3" variant="info">
         Both accountId and IndexerName need to be specified in the URL.
