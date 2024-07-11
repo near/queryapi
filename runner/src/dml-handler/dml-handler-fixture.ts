@@ -1,7 +1,7 @@
 import { AST, Parser } from "node-sql-parser";
 import { TableDefinitionNames } from "../indexer";
 import { PostgresRow, WhereClauseMulti, WhereClauseSingle } from "./dml-handler";
-// import { DmlHandlerI } from "./dml-handler";
+import { DmlHandlerI } from "./dml-handler";
 
 type IndexerData = Map<string, DataRow[]>;
 interface TableSpecification {
@@ -225,7 +225,7 @@ class InMemoryIndexerData {
   }
 }
 
-export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
+export default class InMemoryDmlHandler implements DmlHandlerI {
   indexerData: InMemoryIndexerData;
 
   constructor(schema: string) {
