@@ -187,7 +187,7 @@ impl ReceiverBlocksProcessor {
                 }
 
                 for block_height in bitmap_for_day.iter() {
-                    if block_height > start_block_height {
+                    if block_height >= start_block_height {
                         yield block_height;
                     }
                 }
@@ -349,7 +349,10 @@ mod tests {
         let stream =
             reciever_blocks_processor.stream_matching_block_heights(2, "someone.near".to_owned());
 
-        assert_eq!(stream.try_collect::<Vec<u64>>().await.unwrap(), vec![3, 4]);
+        assert_eq!(
+            stream.try_collect::<Vec<u64>>().await.unwrap(),
+            vec![2, 3, 4]
+        );
     }
 
     #[tokio::test]
