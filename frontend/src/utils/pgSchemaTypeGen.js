@@ -273,8 +273,8 @@ export class PgSchemaTypeGen {
       // UUID type
       uuid: 'string',
       // JSON types
-      json: 'any',
-      jsonb: 'any',
+      json: 'string | any',
+      jsonb: 'string | any',
       // Arrays
       'integer[]': 'number[]',
       'text[]': 'string[]',
