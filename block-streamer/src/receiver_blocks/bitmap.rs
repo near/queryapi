@@ -51,7 +51,7 @@ struct EliasGammaDecoded {
     pub last_bit_index: usize,
 }
 
-/// A struct representing a compressed bitmap using Elias Gamma encoding.
+/// A struct representing a bitmap compressed using Elias Gamma encoding.
 ///
 /// The `CompressedBitmap` is used to efficiently store sequences of bits where
 /// runs of 1s and 0s are encoded to save space, using Elias Gamma encoding which consists of two
