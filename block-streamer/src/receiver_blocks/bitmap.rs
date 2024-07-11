@@ -47,7 +47,7 @@ struct EliasGammaDecoded {
     /// length of the run of bits (0s or 1s) in the decompressed bitmap.
     pub value: u64,
     /// The index of the last bit in the compressed bitmap that was part of the
-    /// Elias Gamma encoded value. Used to determine the starting point for the next encoded value.
+    /// Elias Gamma sequence. Used to determine the starting point for the next sequence.
     pub last_bit_index: usize,
 }
 
