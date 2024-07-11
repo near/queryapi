@@ -15,6 +15,7 @@ use crate::synchroniser::Synchroniser;
 mod handlers;
 mod indexer_config;
 mod indexer_state;
+mod lifecycle;
 mod redis;
 mod registry;
 mod server;
