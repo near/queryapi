@@ -1,6 +1,6 @@
 import { AST, Parser } from "node-sql-parser";
 import { TableDefinitionNames } from "../indexer";
-import { WhereClauseMulti, WhereClauseSingle } from "./dml-handler";
+import { PostgresRow, WhereClauseMulti, WhereClauseSingle } from "./dml-handler";
 // import { DmlHandlerI } from "./dml-handler";
 
 type IndexerData = Map<string, DataRow[]>;
@@ -175,7 +175,7 @@ class InMemoryIndexerData {
     return existingRows;
   }
 
-  public insert(tableName: string, rowsToInsert: any[]): any[] {
+  public insert(tableName: string, rowsToInsert: PostgresRow[]): PostgresRow[] {
     // TODO: Check types of columns
     // TODO: Verify columns are correctly named, and have any required values
     const insertedRows = [];
@@ -185,17 +185,17 @@ class InMemoryIndexerData {
     return rowsToInsert;
   }
 
-  public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): any[] {
+  public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): PostgresRow[] {
     return this.findRows(tableName, criteria, limit).map(row => row.data);
   }
 
-  public update(tableName: string, criteria: WhereClauseSingle, updateObject: any): any[] {
+  public update(tableName: string, criteria: WhereClauseSingle, updateObject: any): PostgresRow[] {
     return this.updateRows(tableName, criteria, updateObject).map(item => item.data);
   }
 
-  public upsert(tableName: string, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): any[] {
+  public upsert(tableName: string, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): PostgresRow[] {
     // TODO: Verify conflictColumns is a superset of primary key set (For uniqueness constraint)
-    let upsertedRows: any[] = []
+    let upsertedRows: PostgresRow[] = [];
     for (const row of rowsToUpsert) {
       const conflictRow = conflictColumns.reduce((criteria, attribute) => {
         if (attribute in row) {
@@ -220,7 +220,7 @@ class InMemoryIndexerData {
     return upsertedRows;
   }
 
-  public delete(tableName: string, deleteCriteria: WhereClauseMulti): any[] {
+  public delete(tableName: string, deleteCriteria: WhereClauseMulti): PostgresRow[] {
     return this.removeRows(tableName, deleteCriteria).map(row => row.data);
   }
 }
@@ -235,7 +235,7 @@ export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
     this.indexerData = new InMemoryIndexerData(schemaAST);
   }
 
-  async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
+  async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]): Promise<PostgresRow[]> {
     if (!rowsToInsert?.length) {
       return [];
     }
@@ -243,20 +243,20 @@ export default class InMemoryDmlHandler /* implements DmlHandlerI */ {
     return this.indexerData.insert(tableDefinitionNames.originalTableName, rowsToInsert);
   }
 
-  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
+  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<PostgresRow[]> {
     return this.indexerData.select(tableDefinitionNames.originalTableName, whereObject, limit);
   }
 
-  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
+  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<PostgresRow[]> {
     return this.indexerData.update(tableDefinitionNames.originalTableName, whereObject, updateObject);
   }
 
 
-  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
+  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): Promise<PostgresRow[]> {
     return this.indexerData.upsert(tableDefinitionNames.originalTableName, rowsToUpsert, conflictColumns, updateColumns);
   }
 
-  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
+  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<PostgresRow[]> {
     return this.indexerData.delete(tableDefinitionNames.originalTableName, whereObject);
   }
 }

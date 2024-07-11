@@ -6,15 +6,17 @@ import type IndexerConfig from '../indexer-config/indexer-config';
 import { type Tracer, trace, type Span } from '@opentelemetry/api';
 import { type QueryResult } from 'pg';
 
-export type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
-export type WhereClauseSingle = Record<string, (string | number)>;
+export type PostgresRowValue = string | number | any;
+export type PostgresRow = Record<string, PostgresRowValue>;
+export type WhereClauseMulti = Record<string, (PostgresRowValue | Array<PostgresRowValue>)>;
+export type WhereClauseSingle = Record<string, PostgresRowValue>;
 
 export interface DmlHandlerI {
-  insert: (tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]) => Promise<any[]>
-  select: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null) => Promise<any[]>
-  update: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any) => Promise<any[]>
-  upsert: (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]) => Promise<any[]>
-  delete: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti) => Promise<any[]>
+  insert: (tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]) => Promise<PostgresRow[]>
+  select: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null) => Promise<PostgresRow[]>
+  update: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any) => Promise<PostgresRow[]>
+  upsert: (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]) => Promise<PostgresRow[]>
+  delete: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti) => Promise<PostgresRow[]>
 }
 export default class DmlHandler implements DmlHandlerI {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -60,7 +62,7 @@ export default class DmlHandler implements DmlHandlerI {
     return { queryVars, whereClause };
   }
 
-  async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
+  async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]): Promise<PostgresRow[]> {
     if (!rowsToInsert?.length) {
       return [];
     }
@@ -74,7 +76,7 @@ export default class DmlHandler implements DmlHandlerI {
     return result.rows;
   }
 
-  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
+  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<PostgresRow[]> {
     const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
     let query = `SELECT * FROM ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} WHERE ${whereClause}`;
     if (limit !== null) {
@@ -85,7 +87,7 @@ export default class DmlHandler implements DmlHandlerI {
     return result.rows;
   }
 
-  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
+  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<PostgresRow[]> {
     const updateKeys = Object.keys(updateObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
     const whereKeys = Object.keys(whereObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
@@ -98,7 +100,7 @@ export default class DmlHandler implements DmlHandlerI {
     return result.rows;
   }
 
-  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
+  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): Promise<PostgresRow[]> {
     if (!rowsToUpsert?.length) {
       return [];
     }
@@ -115,7 +117,7 @@ export default class DmlHandler implements DmlHandlerI {
     return result.rows;
   }
 
-  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
+  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<PostgresRow[]> {
     const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
     const query = `DELETE FROM ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} WHERE ${whereClause} RETURNING *`;
 
