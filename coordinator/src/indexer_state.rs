@@ -4,6 +4,7 @@ use anyhow::Context;
 use near_primitives::types::AccountId;
 
 use crate::indexer_config::IndexerConfig;
+use crate::lifecycle::Lifecycle;
 use crate::redis::{KeyProvider, RedisClient};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
@@ -17,11 +18,13 @@ pub enum ProvisionedState {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct IndexerState {
+    // store previous config to make comparison easier?
     pub account_id: AccountId,
     pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
     pub provisioned_state: ProvisionedState,
+    pub lifecycle: Lifecycle,
 }
 
 impl KeyProvider for IndexerState {
@@ -56,6 +59,7 @@ impl IndexerStateManagerImpl {
             block_stream_synced_at: None,
             enabled: true,
             provisioned_state: ProvisionedState::Unprovisioned,
+            lifecycle: Lifecycle::default(),
         }
     }
 

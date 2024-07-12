@@ -79,6 +79,15 @@ impl BlockStreamsHandlerImpl {
         .into()
     }
 
+    pub async fn get(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<StreamInfo>> {
+        Ok(Some(StreamInfo {
+            stream_id: "".to_string(),
+            account_id: indexer_config.account_id.to_string(),
+            function_name: indexer_config.function_name.clone(),
+            version: indexer_config.get_registry_version(),
+        }))
+    }
+
     pub async fn start(
         &self,
         start_block_height: u64,

@@ -169,8 +169,8 @@ impl RegistryImpl {
 
     pub async fn fetch_indexer(
         &self,
-        account_id: AccountId,
-        function_name: String,
+        account_id: &AccountId,
+        function_name: &str,
     ) -> anyhow::Result<IndexerConfig> {
         let response = self
             .json_rpc_client

@@ -42,7 +42,7 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
 
         let indexer_config = self
             .registry
-            .fetch_indexer(account_id, request.function_name)
+            .fetch_indexer(&account_id, &request.function_name)
             .await
             .map_err(|_| Status::not_found("Indexer not found"))?;
 
@@ -78,7 +78,7 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
 
         let indexer_config = self
             .registry
-            .fetch_indexer(account_id, request.function_name)
+            .fetch_indexer(&account_id, &request.function_name)
             .await
             .map_err(|_| Status::not_found("Indexer not found"))?;
 

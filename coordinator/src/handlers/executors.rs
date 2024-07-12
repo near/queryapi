@@ -50,6 +50,16 @@ impl ExecutorsHandlerImpl {
         .await
     }
 
+    pub async fn get(&self, config: &IndexerConfig) -> anyhow::Result<Option<ExecutorInfo>> {
+        Ok(Some(ExecutorInfo {
+            executor_id: "".into(),
+            account_id: config.account_id.to_string(),
+            function_name: config.function_name.clone(),
+            version: 0,
+            status: "".to_string(),
+        }))
+    }
+
     pub async fn start(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
         let request = StartExecutorRequest {
             code: indexer_config.code.clone(),
