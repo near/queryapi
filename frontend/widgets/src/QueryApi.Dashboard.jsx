@@ -36,31 +36,38 @@ const [inputValue, setInputValue] = useState('');
 const [methodCount, setMethodCount] = useState(0);
 
 const handleFetchCheckboxData = async () => {
-  if (!validateContractId(inputValue)) {
-    setContractInputMessage('Invalid contract id');
-    return;
-  }
+  // setCheckBoxData([]);
+  // setMethodCount(0);
 
-  setLoading(true);
-  setContractInputMessage('');
-  var url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
-  asyncFetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      filter: '*pool.near'
-    }),
-    mode: 'cors'
-  })
+  // if (!validateContractId(inputValue)) {
+  //   setContractInputMessage('Invalid contract id');
+  //   return;
+  // }
+
+  // setLoading(true);
+  // setContractInputMessage('');
+
+  const url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
+  asyncFetch(url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filter: '*pool.near'
+      }),
+    }
+  )
     .then(response => {
-      console.log(response);
-      // if (!response.ok) {
-      //   throw new Error(`HTTP error! status: ${response.status}`);
-      // }
+      if (!response.ok) {
+        setError('There was an error fetching the data');
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = response.body;
+      setCheckBoxData(data);
+      setMethodCount(data.length);
     })
-  setLoading(false);
 };
 
 const initialCheckboxState = checkBoxData.reduce((acc, item) => {
@@ -109,6 +116,18 @@ const handleChildChange = (childId) => {
   });
 };
 
+const NoQueryContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+const NoQueryText = styled.p`
+  font-family: 'Mona Sans', sans-serif;
+  font-size: 10px;
+  line-height: 18.2px;
+  letter-spacing: 1.5%;
+  font-align: center;
+`;
+
 const CheckboxContainer = styled.div`
   margin-bottom: 10px;
 `;
@@ -128,8 +147,21 @@ const SubCheckboxContainer = styled.div`
 `;
 
 const Checkbox = styled.input`
-  margin-right: 10px;
   cursor: pointer;
+  width: 21.6px;
+  height: 21.6px;
+  border-radius: 5.4px;
+
+  border: 0.9px solid #DBDBD7;
+  padding: 5.4px;
+
+  background-color: #FDFDFC;
+  box-shadow: 0 0.9px 1.8px 0 rgba(0, 0, 0, 0.1);
+
+  vertical-align: middle;
+  margin-right: 7.2px;
+  
+  outline: none;
 `;
 
 // TOP HALF
@@ -231,11 +263,30 @@ const MethodsSpan = styled.span`
 `;
 
 const SubContainerContent = styled.div`
-  border: 1px solid #ccc; 
   height: 260px;
-  border-radius: 6px;
 `
+const ScrollableDiv = styled.div`
+height: 260px;
+overflow-y: auto;
 
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+
+`;
 
 const InputWrapper = styled.div`
   display: flex;
@@ -559,45 +610,60 @@ return (
                   <div>
                     {loading ? (
                       <div>Loading...</div>
-                    ) : (
-                      <div>
-                        {checkBoxData.length > 0 && (
-                          <>
+                    ) : (checkBoxData.length === 0) ?
+                      <NoQueryContainer>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+                          <polygon fill="#2E2E2E" points="50,72 63,58 50,58 37,58" />
+                          <polygon fill="#2E2E2E" points="27,37 40,50 27,50 27,37" />
+                          <polygon fill="#2E2E2E" points="73,37 60,50 73,50 73,37" />
+                        </svg>
+                        <NoQueryText>Enter a smart contract address to see methods and events.</NoQueryText>
+                      </NoQueryContainer>
+                      : (
+                        <div>
+                          {checkBoxData.length > 0 && (
                             <MethodsText>
                               Methods <MethodsSpan>{methodCount}</MethodsSpan>
                             </MethodsText>
-                            {checkBoxData.map((item, index) => (
-                              <CheckboxContainer key={index}>
-                                <CheckboxLabel>
-                                  <Checkbox
-                                    type="checkbox"
-                                    id={item.method_name}
-                                    checked={checkboxState[item.method_name]}
-                                    onChange={() => handleParentChange(item.method_name)}
-                                  />
-                                  {item.method_name}
-                                </CheckboxLabel>
-                                {item.schema.properties && (
-                                  <SubCheckboxContainer>
-                                    {Object.keys(item.schema.properties).map((property, subIndex) => (
-                                      <CheckboxLabel key={subIndex}>
+                          )}
+                          < ScrollableDiv >
+                            {
+                              checkBoxData.length > 0 && (
+                                <>
+                                  {checkBoxData.map((item, index) => (
+                                    <CheckboxContainer key={index}>
+                                      <CheckboxLabel>
                                         <Checkbox
                                           type="checkbox"
-                                          id={`${item.method_name}::${property}`}
-                                          checked={checkboxState[`${item.method_name}::${property}`]}
-                                          onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                          id={item.method_name}
+                                          checked={checkboxState[item.method_name]}
+                                          onChange={() => handleParentChange(item.method_name)}
                                         />
-                                        {property}: {item.schema.properties[property].type}
+                                        {item.method_name}
                                       </CheckboxLabel>
-                                    ))}
-                                  </SubCheckboxContainer>
-                                )}
-                              </CheckboxContainer>
-                            ))}
-                          </>
-                        )}
-                      </div>
-                    )}
+                                      {item.schema.properties && (
+                                        <SubCheckboxContainer>
+                                          {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                            <CheckboxLabel key={subIndex}>
+                                              <Checkbox
+                                                type="checkbox"
+                                                id={`${item.method_name}::${property}`}
+                                                checked={checkboxState[`${item.method_name}::${property}`]}
+                                                onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                              />
+                                              {property}: {item.schema.properties[property].type}
+                                            </CheckboxLabel>
+                                          ))}
+                                        </SubCheckboxContainer>
+                                      )}
+                                    </CheckboxContainer>
+                                  ))}
+                                </>
+                              )
+                            }
+                          </ScrollableDiv>
+                        </div>
+                      )}
                   </div>
                 </SubContainerContent>
               </SubContainer>
@@ -620,6 +686,6 @@ return (
 
       </Section>
     </Main>
-  </Wrapper>
+  </Wrapper >
 
 );
