@@ -148,4 +148,19 @@ impl BlockStreamsHandlerImpl {
 
         Ok(())
     }
+
+    // TODO handle reconfiguration
+    pub async fn synchronise_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        let block_stream = self.get(config).await.unwrap();
+        if let Some(block_stream) = block_stream {
+            if block_stream.version != config.get_registry_version() {
+                self.stop(block_stream.stream_id).await.unwrap();
+                self.start(0, config).await.unwrap();
+            }
+        } else {
+            self.start(0, config).await.unwrap();
+        }
+
+        Ok(())
+    }
 }

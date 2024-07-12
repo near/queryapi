@@ -107,4 +107,18 @@ impl ExecutorsHandlerImpl {
 
         Ok(())
     }
+
+    pub async fn synchronise_executor(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        let executor = self.get(config).await.unwrap();
+        if let Some(executor) = executor {
+            if executor.version != config.get_registry_version() {
+                self.stop(executor.executor_id).await.unwrap();
+                self.start(config).await.unwrap();
+            }
+        } else {
+            self.start(config).await.unwrap();
+        }
+
+        Ok(())
+    }
 }

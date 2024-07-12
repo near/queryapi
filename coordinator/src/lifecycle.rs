@@ -83,32 +83,22 @@ impl<'a> LifecycleManager<'a> {
 
         // check if we need to reprovision
 
-        // ensure_running()
-        let block_stream = self.block_streams_handler.get(config).await.unwrap();
-        if let Some(block_stream) = block_stream {
-            if block_stream.version != config.get_registry_version() {
-                self.block_streams_handler
-                    .stop(block_stream.stream_id)
-                    .await
-                    .unwrap();
-                self.block_streams_handler.start(0, config).await.unwrap();
-            }
-        } else {
-            self.block_streams_handler.start(0, config).await.unwrap();
+        if self
+            .block_streams_handler
+            .synchronise_block_stream(config)
+            .await
+            .is_err()
+        {
+            return Lifecycle::Erroring;
         }
 
-        // ensure_running()
-        let executor = self.executors_handler.get(config).await.unwrap();
-        if let Some(executor) = executor {
-            if executor.version != config.get_registry_version() {
-                self.executors_handler
-                    .stop(executor.executor_id)
-                    .await
-                    .unwrap();
-                self.executors_handler.start(config).await.unwrap();
-            }
-        } else {
-            self.executors_handler.start(config).await.unwrap();
+        if self
+            .executors_handler
+            .synchronise_executor(config)
+            .await
+            .is_err()
+        {
+            return Lifecycle::Erroring;
         }
 
         Lifecycle::Running
