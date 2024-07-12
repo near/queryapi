@@ -8,7 +8,7 @@ use anyhow::Context;
 use runner::data_layer::data_layer_client::DataLayerClient;
 use runner::data_layer::{DeprovisionRequest, GetTaskStatusRequest, ProvisionRequest};
 use tonic::transport::channel::Channel;
-use tonic::Request;
+use tonic::{Request, Status};
 
 use crate::indexer_config::IndexerConfig;
 
@@ -37,7 +37,7 @@ impl DataLayerHandlerImpl {
     pub async fn start_provisioning_task(
         &self,
         indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<TaskId> {
+    ) -> Result<TaskId, Status> {
         let request = ProvisionRequest {
             account_id: indexer_config.account_id.to_string(),
             function_name: indexer_config.function_name.clone(),
@@ -97,5 +97,30 @@ impl DataLayerHandlerImpl {
         };
 
         Ok(status)
+    }
+
+    pub async fn ensure_provisioned(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        let start_task_result = self.start_provisioning_task(indexer_config).await;
+
+        if let Err(error) = start_task_result {
+            // Already provisioned
+            if error.code() == tonic::Code::FailedPrecondition {
+                return Ok(());
+            }
+
+            return Err(error.into());
+        }
+
+        let task_id = start_task_result.unwrap();
+
+        loop {
+            if self.get_task_status(task_id.clone()).await? == TaskStatus::Complete {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+
+        Ok(())
     }
 }

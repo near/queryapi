@@ -64,23 +64,13 @@ impl<'a> LifecycleManager<'a> {
         config: &IndexerConfig,
         _state: &IndexerState,
     ) -> Lifecycle {
-        // ensure_provisioned()
-        let task_id = self
+        if self
             .data_layer_handler
-            .start_provisioning_task(config)
+            .ensure_provisioned(config)
             .await
-            .unwrap();
-
-        loop {
-            let status = self
-                .data_layer_handler
-                .get_task_status(task_id.clone())
-                .await
-                .unwrap();
-
-            if status == TaskStatus::Complete {
-                break;
-            }
+            .is_err()
+        {
+            return Lifecycle::Erroring;
         }
 
         Lifecycle::Running
