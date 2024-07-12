@@ -172,7 +172,7 @@ impl<'a> LifecycleManager<'a> {
                 .get_state(&config.clone().unwrap())
                 .await?;
 
-            state.lifecycle = if let Some(config) = config {
+            state.lifecycle = if let Some(config) = config.clone() {
                 match state.lifecycle {
                     Lifecycle::Provisioning => self.handle_provisioning(&config, &state).await,
                     Lifecycle::Running => self.handle_running(&config, &state).await,
@@ -185,9 +185,11 @@ impl<'a> LifecycleManager<'a> {
                 }
             } else {
                 self.handle_deleting(&state).await
-            }
+            };
 
-            // flush state
+            self.state_manager
+                .set_state(&config.unwrap(), state)
+                .await?;
         }
 
         Ok(())

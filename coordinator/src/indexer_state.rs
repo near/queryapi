@@ -83,7 +83,7 @@ impl IndexerStateManagerImpl {
         self.redis_client.delete_indexer_state(indexer_state).await
     }
 
-    async fn set_state(
+    pub async fn set_state(
         &self,
         indexer_config: &IndexerConfig,
         state: IndexerState,
