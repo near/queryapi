@@ -145,23 +145,13 @@ impl<'a> LifecycleManager<'a> {
     }
 
     async fn handle_deleting(&self, state: &IndexerState) -> Lifecycle {
-        // ensure_deprovisioned
-        let task_id = self
+        if self
             .data_layer_handler
-            .start_deprovisioning_task(state.account_id.clone(), state.function_name.clone())
+            .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
             .await
-            .unwrap();
-
-        loop {
-            let status = self
-                .data_layer_handler
-                .get_task_status(task_id.clone())
-                .await
-                .unwrap();
-
-            if status == TaskStatus::Complete {
-                break;
-            }
+            .is_err()
+        {
+            return Lifecycle::Erroring;
         }
 
         Lifecycle::Deleted

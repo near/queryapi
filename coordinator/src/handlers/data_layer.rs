@@ -123,4 +123,24 @@ impl DataLayerHandlerImpl {
 
         Ok(())
     }
+
+    pub async fn ensure_deprovisioned(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<()> {
+        let task_id = self
+            .start_deprovisioning_task(account_id, function_name)
+            .await?;
+
+        loop {
+            if self.get_task_status(task_id.clone()).await? == TaskStatus::Complete {
+                break;
+            }
+
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+
+        Ok(())
+    }
 }
