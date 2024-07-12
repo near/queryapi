@@ -204,6 +204,7 @@ export class PgSchemaTypeGen {
 
       tableList.add(sanitizedTableName);
 
+      let queryDefinition = `declare interface ${sanitizedTableName}Query {\n`;
       let itemDefinition = `declare interface ${sanitizedTableName}Item {\n`;
       let inputDefinition = `declare interface ${sanitizedTableName}Input {\n`;
 
@@ -211,23 +212,25 @@ export class PgSchemaTypeGen {
         const tsType = columnDetails.nullable ? columnDetails.type + ' | null' : columnDetails.type;
         const optional = columnDetails.required ? '' : '?';
 
+        queryDefinition += `  ${columnName}?: ${tsType} | ${tsType}[];\n`
         itemDefinition += `  ${columnName}?: ${tsType};\n`;
         inputDefinition += `  ${columnName}${optional}: ${tsType};\n`;
       }
 
+      queryDefinition += '}\n\n';
       itemDefinition += '}\n\n';
       inputDefinition += '}\n\n';
       const columnNamesDef = `type ${sanitizedTableName}Columns = "${Object.keys(columns).join('" | "')}";\n\n`;
 
-      tsDefinitions += itemDefinition + inputDefinition + columnNamesDef;
+      tsDefinitions += queryDefinition + itemDefinition + inputDefinition + columnNamesDef;
 
       contextObject += `
                 ${sanitizedTableName}: {
                     insert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[]) => Promise<${sanitizedTableName}Item[]>;
-                    select: (filterObj: ${sanitizedTableName}Item, limit = null) => Promise<${sanitizedTableName}Item[]>;
-                    update: (filterObj: ${sanitizedTableName}Item, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
+                    select: (filterObj: ${sanitizedTableName}Query, limit = null) => Promise<${sanitizedTableName}Item[]>;
+                    update: (filterObj: ${sanitizedTableName}Query, updateObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
                     upsert: (objectsToInsert: ${sanitizedTableName}Input | ${sanitizedTableName}Input[], conflictColumns: ${sanitizedTableName}Columns[], updateColumns: ${sanitizedTableName}Columns[]) => Promise<${sanitizedTableName}Item[]>;
-                    delete: (filterObj: ${sanitizedTableName}Item) => Promise<${sanitizedTableName}Item[]>;
+                    delete: (filterObj: ${sanitizedTableName}Query) => Promise<${sanitizedTableName}Item[]>;
                 },`;
     }
 
@@ -255,23 +258,23 @@ export class PgSchemaTypeGen {
       char: 'string',
       text: 'string',
       // Binary data types
-      bytea: 'Buffer',
+      bytea: 'Buffer | string',
       // Boolean type
-      boolean: 'boolean',
+      boolean: 'boolean | string',
       // Date/Time types
-      timestamp: 'Date',
-      'timestamp without time zone': 'Date',
-      'timestamp with time zone': 'Date',
-      date: 'Date',
-      time: 'Date',
-      'time without time zone': 'Date',
-      'time with time zone': 'Date',
-      interval: 'Date',
+      timestamp: 'Date | string',
+      'timestamp without time zone': 'Date | string',
+      'timestamp with time zone': 'Date | string',
+      date: 'Date | string',
+      time: 'Date | string',
+      'time without time zone': 'Date | string',
+      'time with time zone': 'Date | string',
+      interval: 'Date | string',
       // UUID type
       uuid: 'string',
       // JSON types
-      json: 'any',
-      jsonb: 'any',
+      json: 'string | any',
+      jsonb: 'string | any',
       // Arrays
       'integer[]': 'number[]',
       'text[]': 'string[]',
