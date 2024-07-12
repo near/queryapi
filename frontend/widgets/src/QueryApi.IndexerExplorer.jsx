@@ -4,13 +4,15 @@ const santizedAccountId = accountId.replaceAll(".", "_");
 const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
 const [myIndexers, setMyIndexers] = useState([]);
 const [allIndexers, setAllIndexers] = useState([]);
+const [error, setError] = useState(null);
 
 const fetchIndexerData = () => {
-  const url = 'https://storage.googleapis.com/databricks-near-query-runner/output/query-api-usage/indexers.json';
+  const url = `${REPL_QUERY_API_USAGE_URL}`;
 
   asyncFetch(url)
     .then(response => {
       if (!response.ok) {
+        setError('There was an error fetching the data');
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const { data } = JSON.parse(response.body);
@@ -35,7 +37,7 @@ const fetchIndexerData = () => {
         });
       });
 
-      setMyIndexers(myIndexers);
+      setMyIndexers([myIndexers]);
       setAllIndexers(allIndexers);
     })
 }
@@ -232,7 +234,7 @@ return (
         All
       </TabsButton>
     </Tabs>
-
+    {error && <Text>{error}</Text>}
     {selectedTab === "all" && (
       <>
         <Items>
@@ -249,6 +251,7 @@ return (
     )}
     {selectedTab === "my-indexers" && myIndexers.length === 0 && (
       <Header>
+        <H2>You don't have any indexers yet.</H2>
         <H2>
           QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
         </H2>
