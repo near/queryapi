@@ -6,19 +6,114 @@ const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ?
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 const [myIndexers, setMyIndexers] = useState([]);
 const [allIndexers, setAllIndexers] = useState([]);
-const [selectedIndexerName, setSelectedIndexerName] = useState('');
-const [totalIndexers, setTotalIndexers] = useState(0);
+const [selectedIndexerName, setSelectedIndexerName] = useState('')
+const [checkedItems, setCheckedItems] = useState({});
+
+const CheckboxContainer = styled.div`
+  margin-bottom: 16px;
+`;
+
+const CheckboxLabel = styled.label`
+  display: block;
+  margin-bottom: 8px;
+`;
+
+const SubCheckboxContainer = styled.div`
+  margin-left: 24px;
+  margin-top: 8px;
+`;
+
+const Checkbox = styled.input`
+  margin-right: 8px;
+`;
+
+const handleParentChange = (methodName) => {
+  setCheckedItems((prevState) => {
+    const newState = { ...prevState };
+    const parentChecked = !prevState[methodName];
+
+    newState[methodName] = parentChecked;
+
+    // Check/uncheck immediate sub-checkboxes
+    if (parentChecked) {
+      checkboxData.forEach((item) => {
+        if (item.method_name === methodName && item.schema.properties) {
+          Object.keys(item.schema.properties).forEach((property) => {
+            newState[`${methodName}_${property}`] = true;
+          });
+        }
+      });
+    } else {
+      // Uncheck all sub-checkboxes if parent is unchecked
+      checkboxData.forEach((item) => {
+        if (item.method_name === methodName && item.schema.properties) {
+          Object.keys(item.schema.properties).forEach((property) => {
+            newState[`${methodName}_${property}`] = false;
+          });
+        }
+      });
+    }
+
+    return newState;
+  });
+};
+
+const handleChildChange = (parent, child) => {
+  setCheckedItems((prevState) => ({
+    ...prevState,
+    [`${parent}_${child}`]: !prevState[`${parent}_${child}`],
+  }));
+};
+
+
+const checkBoxData = [
+  {
+    method_name: 'harvest_meta',
+    schema: {
+      type: 'object',
+    },
+  },
+  {
+    method_name: 'ADD_KEY',
+    schema: {
+      type: 'object',
+    },
+  },
+  {
+    method_name: 'add_authorized_farm_token',
+    schema: {
+      type: 'object',
+      properties: {
+        token_id: {
+          type: 'string',
+        },
+      },
+      required: ['token_id'],
+    },
+  },
+  {
+    method_name: 'add_authorized_user',
+    schema: {
+      type: 'object',
+      properties: {
+        accoint_id: {
+          type: 'string',
+        },
+      },
+      required: ['accoint_id'],
+    },
+  },
+];
+
 
 Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
   const indexers = [];
-  const total_indexers = 0;
   Object.keys(data).forEach((accountId) => {
     Object.keys(data[accountId]).forEach((functionName) => {
       indexers.push({
         accountId: accountId,
         indexerName: functionName,
       });
-      total_indexers += 1;
     });
   });
 
@@ -28,10 +123,7 @@ Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
 
   setMyIndexers(my_indexers);
   setAllIndexers(indexers)
-  setTotalIndexers(total_indexers);
-
 });
-
 
 // TOP HALF
 const Hero = styled.div`
@@ -110,6 +202,9 @@ const SubContainerTitle = styled.h2`
   color: #333;
   margin: 0;
 `;
+
+const SubContainerContent = styled.div` `
+
 
 const InputWrapper = styled.div`
   display: flex;
@@ -669,6 +764,32 @@ return (
             <WidgetContainer>
               <SubContainer>
                 <SubContainerTitle>Customize indexer</SubContainerTitle>
+                <SubContainerContent>
+                  <div>
+                    {checkBoxData.map((item, index) => (
+                      <CheckboxContainer key={index}>
+                        <CheckboxLabel>
+                          <Checkbox
+                            onChange={() => handleParentChange(item.method_name)}
+                            type="checkbox" id={item.method_name} />
+                          {item.method_name}
+                        </CheckboxLabel>
+                        {item.schema.properties && (
+                          <SubCheckboxContainer>
+                            {Object.keys(item.schema.properties).map((property, subIndex) => (
+                              <CheckboxLabel key={subIndex}>
+                                <Checkbox type="checkbox" id={`${item.method_name}_${property}`}
+                                  onChange={() => handleChildChange(item.method_name, property)}
+                                />
+                                {property}: {item.schema.properties[property].type}
+                              </CheckboxLabel>
+                            ))}
+                          </SubCheckboxContainer>
+                        )}
+                      </CheckboxContainer>
+                    ))}
+                  </div>
+                </SubContainerContent>
               </SubContainer>
             </WidgetContainer>
           </Container>
