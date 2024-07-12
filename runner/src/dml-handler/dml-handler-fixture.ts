@@ -3,17 +3,15 @@ import { TableDefinitionNames } from "../indexer";
 import { PostgresRow, WhereClauseMulti, WhereClauseSingle } from "./dml-handler";
 import { DmlHandlerI } from "./dml-handler";
 
-type IndexerData = Map<string, DataRow[]>;
 interface TableSpecification {
   tableName: string
   columnNames: string[]
-  primaryKeys: string[]
-  serialKeys: string[]
+  primaryKeyColumns: string[]
+  serialColumns: string[]
 }
-type IndexerDataSpecification = Map<string, TableSpecification>;
 
-class DataRow {
-  data: any;
+class PostgresRowEntity {
+  data: PostgresRow;
   private primaryKeys: string[];
 
   constructor(data: any, primaryKeys: string[]) {
@@ -21,7 +19,7 @@ class DataRow {
     this.primaryKeys = primaryKeys.sort();
   }
 
-  primaryKey(): any {
+  primaryKey(): string {
     return JSON.stringify(
       this.primaryKeys.reduce((acc, key) => {
         acc[key] = this.data[key];
@@ -29,36 +27,152 @@ class DataRow {
       }, {} as Record<string, any>)
     );
   }
-}
 
-class InMemoryIndexerData {
-  data: IndexerData;
-  tableSpecs: IndexerDataSpecification;
-  serialCounter: Map<string, number>;
-
-  constructor(schema: AST[], indexerData?: IndexerData, serialCounter?: Map<string, number>) {
-    this.data = indexerData ?? new Map();
-    this.tableSpecs = this.collectTableSpecifications(schema);
-    this.serialCounter = serialCounter ?? new Map();
+  isEqualRow(row: PostgresRow): boolean {
+    return this.primaryKeys.every(primaryKey => {
+      return row[primaryKey] === this.data[primaryKey];
+    });
   }
 
-  private collectTableSpecifications(schemaAST: AST[]): IndexerDataSpecification {
-    const tableSpecs = new Map();
+  isEqualEntity(entity: PostgresRowEntity): boolean {
+    return this.primaryKey() === entity.primaryKey();
+  }
+
+  isEqualCriteria(criteria: WhereClauseMulti): boolean {
+    return Object.keys(criteria).every(attribute => {
+      const toMatchValue = criteria[attribute];
+      if (Array.isArray(toMatchValue)) {
+        return toMatchValue.includes(this.data[attribute]);
+      }
+      return toMatchValue === this.data[attribute];
+    });
+  }
+
+  update(updateObject: PostgresRow): void {
+    Object.keys(updateObject).map(updateKey => {
+      this.data[updateKey] = updateObject[updateKey];
+    });
+  }
+}
+
+class TableData {
+  specification: TableSpecification;
+  data: PostgresRowEntity[];
+  serialCounter: Map<string, number>;
+
+  constructor(tableSpec: TableSpecification) {
+    this.specification = tableSpec;
+    this.data = [];
+    this.serialCounter = new Map();
+  }
+
+  getEntitiesByCriteria(criteria: WhereClauseMulti, limit: number | null): PostgresRowEntity[] {
+    const matchedRows: PostgresRowEntity[] = [];
+    this.data.map(row => {
+      if (row.isEqualCriteria(criteria)) {
+        if (!limit || (limit && matchedRows.length <= limit)) {
+          matchedRows.push(row);
+        }
+      }
+    });
+    return matchedRows;
+  }
+
+  getSerialValue(columnName: string): number {
+    const serialCounterKey = `${this.specification.tableName}-${columnName}`;
+    let counterValue = this.serialCounter.get(serialCounterKey) ?? 0;
+    this.serialCounter.set(serialCounterKey, counterValue + 1);
+    return counterValue;
+  }
+
+  fillSerialValues(row: PostgresRow): void {
+    for (const serialColumnName of this.specification.serialColumns) {
+      if (row[serialColumnName] === undefined) {
+        row[serialColumnName] = this.getSerialValue(serialColumnName);
+      }
+    }
+  }
+
+  convertRowToEntity(row: PostgresRow): PostgresRowEntity {
+    this.fillSerialValues(row);
+    return new PostgresRowEntity(row, this.specification.primaryKeyColumns);
+  }
+
+  rowIsUnique(otherRow: PostgresRow): boolean {
+    return this.data.every(entity => {
+      return !entity.isEqualRow(otherRow);
+    });
+  }
+
+  entityIsUnique(otherEntity: PostgresRowEntity): boolean {
+    return this.data.every(entity => {
+      return !entity.isEqualEntity(otherEntity);
+    });
+  }
+
+  insertRow(row: PostgresRow): PostgresRowEntity {
+    const entity = this.convertRowToEntity(row);
+    if (!this.entityIsUnique(entity)) {
+      throw new Error('Cannot insert row twice into the same table');
+    }
+
+    this.data.push(entity);
+    return entity;
+  }
+
+  insertEntity(entity: PostgresRowEntity): PostgresRowEntity {
+    if (!this.entityIsUnique(entity)) {
+      throw new Error('Cannot insert row twice into the same table');
+    }
+
+    this.data.push(entity);
+    return entity;
+  }
+
+  removeEntitiesByCriteria(criteria: WhereClauseMulti): PostgresRowEntity[] {
+    const remainingRows: PostgresRowEntity[] = [];
+    const matchedRows: PostgresRowEntity[] = [];
+    this.data.map(row => {
+      if (row.isEqualCriteria(criteria)) {
+        matchedRows.push(row)
+      } else {
+        remainingRows.push(row);
+      }
+    });
+    this.data = remainingRows;
+    return matchedRows;
+  }
+
+  removeEntity(entity: PostgresRowEntity): PostgresRowEntity {
+    const matchingIndex = this.data.findIndex(existingEntity => existingEntity.isEqualEntity(entity));
+    return this.data.splice(matchingIndex, 1)[0];
+  }
+}
+
+class IndexerData {
+  tables: Map<string, TableData>;
+
+  constructor(schema: AST[]) {
+    this.tables = this.initializeTables(schema);
+  }
+
+  private initializeTables(schemaAST: AST[]): Map<string, TableData> {
+    const tables = new Map();
     for (const statement of schemaAST) {
       if (statement.type === "create" && statement.keyword === "table") {
         const tableSpec = this.createTableSpecification(statement);
-        tableSpecs.set(tableSpec.tableName, tableSpec);
+        tables.set(tableSpec.tableName, new TableData(tableSpec));
       }
     }
 
-    return tableSpecs;
+    return tables;
   }
 
   private createTableSpecification(createTableStatement: any): TableSpecification {
     const tableName = createTableStatement.table[0].table;
     const columnNames = [];
-    const primaryKeys = [];
-    const serialKeys = [];
+    const primaryKeyColumns = [];
+    const serialColumns = [];
 
     for (const columnDefinition of createTableStatement.create_definitions ?? []) {
       if (columnDefinition.column) {
@@ -67,20 +181,21 @@ class InMemoryIndexerData {
 
         const dataType = columnDefinition.definition.dataType as string;
         if (dataType.toUpperCase().includes('SERIAL')) {
-          serialKeys.push(columnName);
+          serialColumns
+            .push(columnName);
         }
 
       } else if (columnDefinition.constraint && columnDefinition.constraint_type === "primary key") {
         for (const primaryKey of columnDefinition.definition) {
-          primaryKeys.push(primaryKey.column.expr.value);
+          primaryKeyColumns.push(primaryKey.column.expr.value);
         }
       }
     }
     const tableSpec: TableSpecification = {
       tableName,
       columnNames,
-      primaryKeys,
-      serialKeys,
+      primaryKeyColumns,
+      serialColumns,
     };
 
     return tableSpec;
@@ -93,127 +208,74 @@ class InMemoryIndexerData {
     return "";
   }
 
-  getSerialValue(tableName: string, columnName: string): number {
-    const serialCounterKey = `${tableName}-${columnName}`;
-    let counterValue = this.serialCounter.get(serialCounterKey) ?? 0;
-    this.serialCounter.set(serialCounterKey, counterValue + 1);
-    return counterValue;
+  selectColumnsFromRow(row: PostgresRow, columnsToSelect: string[]): PostgresRow {
+    return columnsToSelect.reduce((newRow, columnName) => {
+      if (columnName in row) {
+        newRow[columnName] = row[columnName];
+        return newRow;
+      }
+      return newRow;
+    }, {} as PostgresRow);
   }
 
-  findRow(tableName: string, row: DataRow): DataRow | undefined {
-    const data = this.data.get(tableName) ?? [];
-    for (const existingRow of data) {
-      if (existingRow.primaryKey() === row.primaryKey()) {
-        return existingRow;
-      }
+  public getTableData(tableName: string): TableData {
+    const tableData = this.tables.get(tableName);
+    if (!tableData) {
+      throw new Error('Invalid table name provided');
     }
-    return undefined;
+
+    return tableData;
   }
-
-  findRows(tableName: string, criteria: WhereClauseSingle | WhereClauseMulti, limit: number | null = null): DataRow[] {
-    const results = [];
-    const data = this.data.get(tableName) ?? [];
-    for (const existingRow of data) {
-      let match = true;
-      for (const attribute of Object.keys(criteria)) {
-        const matchValues = criteria[attribute];
-        if (Array.isArray(matchValues)) {
-          if (!(matchValues.includes(existingRow.data[attribute]))) {
-            match = false;
-          }
-        } else if (existingRow.data[attribute] !== criteria[attribute]) {
-          match = false;
-        }
-      }
-      if (match) {
-        results.push(existingRow);
-        if (limit && results.length >= limit) {
-          return results;
-        }
-      }
-    }
-    return results;
-  }
-
-  insertRow(tableName: string, row: any): DataRow {
-    const tableSpec = this.tableSpecs.get(tableName) as TableSpecification;
-    for (const serialKey of tableSpec.serialKeys) {
-      if (row[serialKey] === undefined) {
-        row[serialKey] = this.getSerialValue(tableName, serialKey);
-      }
-    }
-
-    const dataRow = new DataRow(row, tableSpec.primaryKeys);
-    if (this.findRow(tableName, dataRow)) {
-      throw new Error('Cannot insert row twice into the same table');
-    }
-    const data = this.data.get(tableName) ?? [];
-    data.push(dataRow);
-    this.data.set(tableName, data);
-    return dataRow;
-  }
-
-  removeRows(tableName: string, criteria: WhereClauseMulti, limit: number | null = null): DataRow[] {
-    const matchingRows = this.findRows(tableName, criteria, limit);
-    let data = this.data.get(tableName) ?? [];
-    data = data.filter(row => !matchingRows.includes(row));
-    this.data.set(tableName, data);
-    return matchingRows ?? [];
-  }
-
-  updateRows(tableName: string, criteria: WhereClauseSingle, updateObject: any): DataRow[] {
-    const existingRows = this.removeRows(tableName, criteria);
-    const data = this.data.get(tableName) ?? [];
-
-    for (const row of existingRows) {
-      for (const [attribute, value] of Object.entries(updateObject)) {
-        row.data[attribute] = value;
-      }
-      data.push(row);
-    }
-    this.data.set(tableName, data);
-    return existingRows;
+  public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): PostgresRow[] {
+    const tableData = this.getTableData(tableName);
+    return tableData.getEntitiesByCriteria(criteria, limit).map(entity => entity.data);
   }
 
   public insert(tableName: string, rowsToInsert: PostgresRow[]): PostgresRow[] {
     // TODO: Check types of columns
     // TODO: Verify columns are correctly named, and have any required values
-    const insertedRows = [];
+    // TODO: Verify inserts are unique before actual insertion
+    const tableData = this.getTableData(tableName);
+    const insertedRows: PostgresRow[] = [];
+
     for (const row of rowsToInsert) {
-      insertedRows.push(this.insertRow(tableName, row).data);
+      if (!tableData.rowIsUnique(row)) {
+        throw new Error('Cannot insert row twice into the same table');
+      }
+      insertedRows.push(tableData.insertRow(row).data);
     }
-    return rowsToInsert;
+
+    return insertedRows;
   }
 
-  public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): PostgresRow[] {
-    return this.findRows(tableName, criteria, limit).map(row => row.data);
-  }
+  public update(tableName: string, criteria: WhereClauseSingle, updateObject: PostgresRow): PostgresRow[] {
+    const tableData = this.getTableData(tableName);
+    const updatedRows: PostgresRow[] = [];
 
-  public update(tableName: string, criteria: WhereClauseSingle, updateObject: any): PostgresRow[] {
-    return this.updateRows(tableName, criteria, updateObject).map(item => item.data);
+    const matchedRows = tableData.removeEntitiesByCriteria(criteria);
+    for (const rowEntity of matchedRows) {
+      rowEntity.update(updateObject);
+      updatedRows.push(tableData.insertEntity(rowEntity).data);
+    }
+
+    return updatedRows;
   }
 
   public upsert(tableName: string, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): PostgresRow[] {
     // TODO: Verify conflictColumns is a superset of primary key set (For uniqueness constraint)
-    let upsertedRows: PostgresRow[] = [];
+    const tableData = this.getTableData(tableName);
+    const upsertedRows: PostgresRow[] = [];
+
     for (const row of rowsToUpsert) {
-      const conflictRow = conflictColumns.reduce((criteria, attribute) => {
-        if (attribute in row) {
-          criteria[attribute] = row[attribute];
-        }
-        return criteria;
-      }, {} as Record<string, any>);
-      if (this.findRows(tableName, conflictRow).length > 0) {
-        const updateRow = updateColumns.reduce((updateObj, attribute) => {
-          if (attribute in row) {
-            updateObj[attribute] = row[attribute];
-          }
-          return updateObj;
-        }, {} as Record<string, any>);
-        const updatedRow = this.update(tableName, conflictRow, updateRow);
-        upsertedRows = upsertedRows.concat(updatedRow);
+      const updateCriteriaObject = this.selectColumnsFromRow(row, conflictColumns);
+      const matchedEntity = tableData.removeEntitiesByCriteria(updateCriteriaObject)[0];
+
+      if (matchedEntity) {
+        const updateObject = this.selectColumnsFromRow(row, updateColumns);
+        matchedEntity.update(updateObject);
+        upsertedRows.push(tableData.insertEntity(matchedEntity).data);
       } else {
-        upsertedRows.push(this.insertRow(tableName, row).data);
+        upsertedRows.push(tableData.insertRow(row).data);
       }
     }
 
@@ -221,18 +283,19 @@ class InMemoryIndexerData {
   }
 
   public delete(tableName: string, deleteCriteria: WhereClauseMulti): PostgresRow[] {
-    return this.removeRows(tableName, deleteCriteria).map(row => row.data);
+    const tableData = this.getTableData(tableName);
+    return tableData.removeEntitiesByCriteria(deleteCriteria).map(entity => entity.data);
   }
 }
 
 export default class InMemoryDmlHandler implements DmlHandlerI {
-  indexerData: InMemoryIndexerData;
+  indexerData: IndexerData;
 
   constructor(schema: string) {
     const parser = new Parser();
     let schemaAST = parser.astify(schema, { database: 'Postgresql' });
     schemaAST = Array.isArray(schemaAST) ? schemaAST : [schemaAST]; // Ensure iterable
-    this.indexerData = new InMemoryIndexerData(schemaAST);
+    this.indexerData = new IndexerData(schemaAST);
   }
 
   async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]): Promise<PostgresRow[]> {

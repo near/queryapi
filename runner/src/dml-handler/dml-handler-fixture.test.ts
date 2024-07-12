@@ -70,6 +70,21 @@ describe('DML Handler Fixture Tests', () => {
     expect(result).toEqual(correctResult);
   });
 
+  test('get error from inserting conflicting row', async () => {
+    const inputObj = [{
+      account_id: 'morgs_near',
+      block_height: 1,
+      receipt_id: 'abc',
+      content: "some content",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+    expect(dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj)).rejects.toThrow('Cannot insert row twice into the same table');
+  });
+
   test('select rows', async () => {
     const inputObj = [{
       account_id: 'morgs_near',
