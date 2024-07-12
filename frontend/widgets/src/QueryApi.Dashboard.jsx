@@ -1,64 +1,67 @@
 const accountId = context.accountId;
 
+const WILD_CARD = '*';
+
+const validateContractId = (accountId) => {
+  accountId = accountId.trim();
+  // Check if accountId is a wildcard '*'
+  if (accountId === WILD_CARD) return true;
+  // Check if accountId length is between 2 and 64 characters
+  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  if (!isLengthValid) return false;
+  // Check if accountId starts with '*.' || '*' remove for part verification
+  if (accountId.startsWith('*.')) accountId = accountId.slice(2);
+  if (accountId.startsWith('*')) accountId = accountId.slice(1);
+
+  const parts = accountId.split('.');
+  for (let part of parts) {
+    if (!part.match(/^[a-z\d]+([-_][a-z\d]+)*$/)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
 const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 
 const [allIndexers, setAllIndexers] = useState([]);
 const [checkboxState, setCheckboxState] = useState(initialCheckboxState);
 
-const checkBoxData = [
-  {
-    method_name: 'harvest_meta',
-    schema: {
-      type: 'object',
-    },
-  },
-  {
-    method_name: 'ADD_KEY',
-    schema: {
-      type: 'object',
-    },
-  },
-  {
-    method_name: 'add_authorized_farm_token',
-    schema: {
-      type: 'object',
-      properties: {
-        token_id: {
-          type: 'string',
-        },
-      },
-      required: ['token_id'],
-    },
-  },
-  {
-    method_name: 'add_authorized_user',
-    schema: {
-      type: 'object',
-      properties: {
-        accoint_id: {
-          type: 'string',
-        },
-      },
-      required: ['accoint_id'],
-    },
-  },
-];
+const [checkBoxData, setCheckBoxData] = useState([]);
+const [loading, setLoading] = useState(false);
+const [contractInputMessage, setContractInputMessage] = useState('');
+const [inputValue, setInputValue] = useState('');
+const [methodCount, setMethodCount] = useState(0);
 
-useEffect(() => {
-  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-    const indexers = [];
-    Object.keys(data).forEach((accountId) => {
-      Object.keys(data[accountId]).forEach((functionName) => {
-        indexers.push({
-          accountId: accountId,
-          indexerName: functionName,
-        });
-      });
-    });
-    setAllIndexers(indexers)
-  });
-}, []);
+const handleFetchCheckboxData = async () => {
+  if (!validateContractId(inputValue)) {
+    setContractInputMessage('Invalid contract id');
+    return;
+  }
+
+  setLoading(true);
+  setContractInputMessage('');
+  var url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
+  asyncFetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      filter: '*pool.near'
+    }),
+    mode: 'cors'
+  })
+    .then(response => {
+      console.log(response);
+      // if (!response.ok) {
+      //   throw new Error(`HTTP error! status: ${response.status}`);
+      // }
+    })
+  setLoading(false);
+};
 
 const initialCheckboxState = checkBoxData.reduce((acc, item) => {
   acc[item.method_name] = false;
@@ -69,6 +72,21 @@ const initialCheckboxState = checkBoxData.reduce((acc, item) => {
   }
   return acc;
 }, {});
+
+useEffect(() => {
+  // Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+  //   const indexers = [];
+  //   Object.keys(data).forEach((accountId) => {
+  //     Object.keys(data[accountId]).forEach((functionName) => {
+  //       indexers.push({
+  //         accountId: accountId,
+  //         indexerName: functionName,
+  //       });
+  //     });
+  //   });
+  //   setAllIndexers(indexers)
+  // });
+}, []);
 
 const handleParentChange = (methodName) => {
   const newState = { ...checkboxState };
@@ -157,7 +175,7 @@ const Container = styled.div`
 
 const HeadlineContainer = styled.div`
   width: 364px;
-  height: 168px;
+  height: 193px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -173,7 +191,7 @@ const WidgetContainer = styled.div`
   justify-content: center;
   align-items: center;
   box-shadow: 0 8.2px 19.92px 0 rgba(0, 0, 0, 0.1), 0 2.34px 2.34px 0 rgba(0, 0, 0, 0.15);
-  margin-top: 158px; /* Gap between WidgetContainer and HeadlineContainer */
+  margin-top: 183px; /* Gap between WidgetContainer and HeadlineContainer */
   background: #fff;
   border-radius: 10px;
 `;
@@ -189,10 +207,34 @@ const SubContainerTitle = styled.h2`
   font-size: 14px;
   line-height: 14.06px;
   color: #333;
-  margin: 0;
+  margin-bottom: 6px;
 `;
 
-const SubContainerContent = styled.div` `
+const MethodsText = styled.div`
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+`;
+
+const MethodsSpan = styled.span`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: normal; 
+  width: 23px; 
+  height: 17px;
+  border-radius: 50px;
+  padding: 4px 6px;
+  background-color: #F3F3F2;
+`;
+
+const SubContainerContent = styled.div`
+  border: 1px solid #ccc; 
+  height: 260px;
+  border-radius: 6px;
+`
 
 
 const InputWrapper = styled.div`
@@ -206,7 +248,7 @@ const InputWrapper = styled.div`
   overflow: hidden;
 `;
 
-const StyledInput = styled.input`
+const StyledInput = styled.input` 
   flex: 1;
   height: 100%;
   border: none;
@@ -214,6 +256,12 @@ const StyledInput = styled.input`
   padding: 8px 12px;
   border-radius: 6px 0 0 6px;
 `;
+
+const ContractInputMessage = styled.p`
+  height: 25px;
+  font-size: 10px;
+  color: red;
+`
 
 const GreenButton = styled.button`
   width: 84px;
@@ -394,8 +442,6 @@ const Section = styled.div`
   padding-top: 0px;
   border-left: none;
   border-right: none;
-  display: ${(p) => (p.active ? "block" : "none")};
-  margin: ${(p) => (p.negativeMargin ? "0 -12px" : "0")};
 `;
 
 const Tabs = styled.div`
@@ -455,6 +501,7 @@ const selectIndexerPage = (viewName) => {
 
 return (
   <Wrapper negativeMargin={activeTab === "explore"}>
+
     {/* <Tabs>
       <TabsButton
         type="button"
@@ -488,51 +535,69 @@ return (
 
 
     <Main>
-      <Section active={activeTab === "explore"}>
 
+      <Section active={activeTab === "explore"}>
         <Hero>
           <Container>
             <HeadlineContainer>
               <Headline>Launch an indexer in minutes</Headline>
               <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
               <InputWrapper>
-                <StyledInput placeholder="yoursmartcontract.pool.near" />
-                <GreenButton>Start</GreenButton>
+                <StyledInput
+                  placeholder="yoursmartcontract.pool.near"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                />
+                <GreenButton onClick={handleFetchCheckboxData}>Start</GreenButton>
               </InputWrapper>
+              <ContractInputMessage>{contractInputMessage}</ContractInputMessage>
             </HeadlineContainer>
             <WidgetContainer>
               <SubContainer>
                 <SubContainerTitle>Customize indexer</SubContainerTitle>
                 <SubContainerContent>
                   <div>
-                    {checkBoxData.map((item, index) => (
-                      <CheckboxContainer key={index}>
-                        <CheckboxLabel>
-                          <Checkbox
-                            type="checkbox"
-                            id={item.method_name}
-                            checked={checkboxState[item.method_name]}
-                            onChange={() => handleParentChange(item.method_name)}
-                          />
-                          {item.method_name}
-                        </CheckboxLabel>
-                        {item.schema.properties && (
-                          <SubCheckboxContainer>
-                            {Object.keys(item.schema.properties).map((property, subIndex) => (
-                              <CheckboxLabel key={subIndex}>
-                                <Checkbox
-                                  type="checkbox"
-                                  id={`${item.method_name}::${property}`}
-                                  checked={checkboxState[`${item.method_name}::${property}`]}
-                                  onChange={() => handleChildChange(`${item.method_name}::${property}`)}
-                                />
-                                {property}: {item.schema.properties[property].type}
-                              </CheckboxLabel>
+                    {loading ? (
+                      <div>Loading...</div>
+                    ) : (
+                      <div>
+                        {checkBoxData.length > 0 && (
+                          <>
+                            <MethodsText>
+                              Methods <MethodsSpan>{methodCount}</MethodsSpan>
+                            </MethodsText>
+                            {checkBoxData.map((item, index) => (
+                              <CheckboxContainer key={index}>
+                                <CheckboxLabel>
+                                  <Checkbox
+                                    type="checkbox"
+                                    id={item.method_name}
+                                    checked={checkboxState[item.method_name]}
+                                    onChange={() => handleParentChange(item.method_name)}
+                                  />
+                                  {item.method_name}
+                                </CheckboxLabel>
+                                {item.schema.properties && (
+                                  <SubCheckboxContainer>
+                                    {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                      <CheckboxLabel key={subIndex}>
+                                        <Checkbox
+                                          type="checkbox"
+                                          id={`${item.method_name}::${property}`}
+                                          checked={checkboxState[`${item.method_name}::${property}`]}
+                                          onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                        />
+                                        {property}: {item.schema.properties[property].type}
+                                      </CheckboxLabel>
+                                    ))}
+                                  </SubCheckboxContainer>
+                                )}
+                              </CheckboxContainer>
                             ))}
-                          </SubCheckboxContainer>
+                          </>
                         )}
-                      </CheckboxContainer>
-                    ))}
+                      </div>
+                    )}
                   </div>
                 </SubContainerContent>
               </SubContainer>
@@ -556,4 +621,5 @@ return (
       </Section>
     </Main>
   </Wrapper>
+
 );
