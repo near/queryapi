@@ -39,6 +39,7 @@ const fetchIndexerData = () => {
 
       setMyIndexers([myIndexers]);
       setAllIndexers(allIndexers);
+      setError(null);
     })
 }
 
