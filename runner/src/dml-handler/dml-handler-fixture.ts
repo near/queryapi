@@ -142,11 +142,11 @@ class TableData {
   removeEntitiesByCriteria(criteria: WhereClauseMulti): PostgresRowEntity[] {
     const remainingRows: PostgresRowEntity[] = [];
     const matchedRows: PostgresRowEntity[] = [];
-    this.data.map(row => {
-      if (row.isEqualCriteria(criteria)) {
-        matchedRows.push(row)
+    this.data.map(entity => {
+      if (entity.isEqualCriteria(criteria)) {
+        matchedRows.push(entity)
       } else {
-        remainingRows.push(row);
+        remainingRows.push(entity);
       }
     });
     this.data = remainingRows;
@@ -220,10 +220,7 @@ class IndexerData {
 
   selectColumnsFromRow(row: PostgresRow, columnsToSelect: string[]): PostgresRow {
     return columnsToSelect.reduce((newRow, columnName) => {
-      if (columnName in row) {
-        newRow[columnName] = row[columnName];
-        return newRow;
-      }
+      newRow[columnName] = columnName in row ? row[columnName] : undefined;
       return newRow;
     }, {} as PostgresRow);
   }
@@ -236,6 +233,7 @@ class IndexerData {
 
     return tableData;
   }
+
   public select(tableName: string, criteria: WhereClauseMulti, limit: number | null): PostgresRow[] {
     const tableData = this.getTableData(tableName);
     return tableData.getEntitiesByCriteria(criteria, limit).map(entity => entity.data);
@@ -246,54 +244,58 @@ class IndexerData {
     // TODO: Verify columns are correctly named, and have any required values
     // TODO: Verify inserts are unique before actual insertion
     const tableData = this.getTableData(tableName);
-    const insertedRows: PostgresRow[] = [];
+    const insertedRows: PostgresRowEntity[] = [];
 
     for (const row of rowsToInsert) {
       if (!tableData.rowIsUnique(row)) {
         throw new Error('Cannot insert row twice into the same table');
       }
-      insertedRows.push(tableData.insertRow(row).data);
+      insertedRows.push(tableData.insertRow(row));
     }
 
-    return insertedRows;
+    return insertedRows.map(entity => entity.data);
   }
 
   public update(tableName: string, criteria: WhereClauseSingle, updateObject: PostgresRow): PostgresRow[] {
     // TODO: Validate criteria passed in has valid column names
     const tableData = this.getTableData(tableName);
-    const updatedRows: PostgresRow[] = [];
+    const updatedRows: PostgresRowEntity[] = [];
 
     const matchedRows = tableData.removeEntitiesByCriteria(criteria);
     for (const rowEntity of matchedRows) {
       rowEntity.update(updateObject);
-      updatedRows.push(tableData.insertEntity(rowEntity).data);
+      updatedRows.push(tableData.insertEntity(rowEntity));
     }
 
-    return updatedRows;
+    return updatedRows.map(entity => entity.data);
   }
 
   public upsert(tableName: string, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): PostgresRow[] {
     // TODO: Verify conflictColumns is a superset of primary key set (For uniqueness constraint)
     const tableData = this.getTableData(tableName);
-    const upsertedRows: PostgresRow[] = [];
+    const upsertedRows: PostgresRowEntity[] = [];
 
     for (const row of rowsToUpsert) {
       const updateCriteriaObject = this.selectColumnsFromRow(row, conflictColumns);
       const rowsMatchingUpdate = tableData.removeEntitiesByCriteria(updateCriteriaObject);
 
       if (rowsMatchingUpdate.length > 1) {
-        throw new Error('Conflict update criteria cannot match multiple rows');
+        throw new Error('Conflict update criteria cannot affect row twice');
       } else if (rowsMatchingUpdate.length == 1) {
         const matchedEntity = rowsMatchingUpdate[0];
+        if (upsertedRows.some(upsertedEntity => upsertedEntity.isEqualEntity(matchedEntity))) {
+          throw new Error('Conflict update criteria cannot affect row twice');
+        }
+
         const updateObject = this.selectColumnsFromRow(row, updateColumns);
         matchedEntity.update(updateObject);
-        upsertedRows.push(tableData.insertEntity(matchedEntity).data);
+        upsertedRows.push(tableData.insertEntity(matchedEntity));
       } else {
-        upsertedRows.push(tableData.insertRow(row).data);
+        upsertedRows.push(tableData.insertRow(row));
       }
     }
 
-    return upsertedRows;
+    return upsertedRows.map(entity => entity.data);
   }
 
   public delete(tableName: string, deleteCriteria: WhereClauseMulti): PostgresRow[] {

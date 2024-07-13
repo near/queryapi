@@ -50,7 +50,7 @@ describe('DML Handler Fixture Tests', () => {
     expect(await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'unknown_near' })).toEqual([]);
   });
 
-  test('insert two rows with serial ID column', async () => {
+  test('insert two rows with serial column', async () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
@@ -217,7 +217,55 @@ describe('DML Handler Fixture Tests', () => {
       accounts_liked: [],
     }];
 
-    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id'], ['content', 'block_timestamp'])).rejects.toThrow('Conflict update criteria cannot match multiple rows');
+    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id'], ['content', 'block_timestamp'])).rejects.toThrow('Conflict update criteria cannot affect row twice');
+  });
+
+  test('reject upsert due to duplicate row', async () => {
+    const inputObj = [{
+      id: 0,
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      content: "CONTENT",
+      accounts_liked: [],
+    },
+    {
+      id: 0,
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      content: "CONTENT",
+      accounts_liked: [],
+    }];
+
+    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObj, ['id', 'account_id'], ['content'])).rejects.toThrow('Conflict update criteria cannot affect row twice');
+  });
+
+  test('reject upsert after specifying serial column value', async () => {
+    const inputObjWithSerial = [{
+      id: 0, // Specifying a serial value does not change the next produced serial value (Which would be 0 in this case)
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      content: "CONTENT",
+      accounts_liked: [],
+    }];
+    const inputObj = [{
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      content: "CONTENT",
+      accounts_liked: [],
+    }];
+
+    await dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObjWithSerial, ['id', 'account_id'], ['content']);
+    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObj, ['id', 'account_id'], ['content'])).rejects.toThrow('Cannot insert row twice into the same table');
+  });
+
+  test('reject insert after not specifying primary key value', async () => {
+    const inputObj = [{
+      block_height: 1,
+      content: "CONTENT",
+      accounts_liked: [],
+    }];
+
+    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObj, ['id', 'account_id'], ['content'])).rejects.toThrow('Inserted row must specify value for primary key columns');
   });
 
   test('delete rows', async () => {
