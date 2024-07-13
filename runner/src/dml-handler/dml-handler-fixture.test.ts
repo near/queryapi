@@ -1,6 +1,36 @@
 import { TableDefinitionNames } from "../indexer";
 import InMemoryDmlHandler from "./dml-handler-fixture";
 
+const DEFAULT_ITEM_1_WITHOUT_ID = {
+  account_id: 'TEST_NEAR',
+  block_height: 1,
+  content: "CONTENT",
+  accounts_liked: [],
+};
+
+const DEFAULT_ITEM_1_WITH_ID = {
+  id: 0,
+  account_id: 'TEST_NEAR',
+  block_height: 1,
+  content: "CONTENT",
+  accounts_liked: [],
+};
+
+const DEFAULT_ITEM_2_WITHOUT_ID = {
+  account_id: 'TEST_NEAR',
+  block_height: 2,
+  content: "CONTENT",
+  accounts_liked: [],
+};
+
+const DEFAULT_ITEM_2_WITH_ID = {
+  id: 1,
+  account_id: 'TEST_NEAR',
+  block_height: 2,
+  content: "CONTENT",
+  accounts_liked: [],
+};
+
 describe('DML Handler Fixture Tests', () => {
   const SIMPLE_SCHEMA = `CREATE TABLE
     "posts" (
@@ -23,18 +53,7 @@ describe('DML Handler Fixture Tests', () => {
   });
 
   test('select rows', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID, DEFAULT_ITEM_2_WITHOUT_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
@@ -51,52 +70,17 @@ describe('DML Handler Fixture Tests', () => {
   });
 
   test('insert two rows with serial column', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID, DEFAULT_ITEM_2_WITHOUT_ID];
 
-    const correctResult = [{
-      id: 0,
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      id: 1,
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const correctResult = [DEFAULT_ITEM_1_WITH_ID, DEFAULT_ITEM_2_WITH_ID];
 
     const result = await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
     expect(result).toEqual(correctResult);
   });
 
   test('reject insert after specifying serial column value', async () => {
-    const inputObjWithSerial = [{
-      id: 0, // Specifying a serial value does not change the next produced serial value (Which would be 0 in this case)
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObjWithSerial = [DEFAULT_ITEM_1_WITH_ID];
+    const inputObj = [DEFAULT_ITEM_2_WITHOUT_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObjWithSerial);
     await expect(dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj)).rejects.toThrow('Cannot insert row twice into the same table');
@@ -113,18 +97,7 @@ describe('DML Handler Fixture Tests', () => {
   });
 
   test('update rows', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID, DEFAULT_ITEM_2_WITHOUT_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
@@ -138,18 +111,7 @@ describe('DML Handler Fixture Tests', () => {
   });
 
   test('update criteria matches nothing', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID, DEFAULT_ITEM_2_WITHOUT_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
@@ -160,12 +122,7 @@ describe('DML Handler Fixture Tests', () => {
   });
 
   test('upsert rows', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "INSERT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
@@ -182,25 +139,14 @@ describe('DML Handler Fixture Tests', () => {
       accounts_liked: [],
     }];
 
-    const upserts = await dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id', 'block_height'], ['content', 'block_timestamp']);
+    const upserts = await dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id', 'block_height'], ['content']);
 
     const selectAll = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR' });
     expect(upserts).toEqual(selectAll);
   });
 
   test('upsert rows with non unique conflcit columns', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID, DEFAULT_ITEM_2_WITHOUT_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
@@ -217,42 +163,18 @@ describe('DML Handler Fixture Tests', () => {
       accounts_liked: [],
     }];
 
-    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id'], ['content', 'block_timestamp'])).rejects.toThrow('Conflict update criteria cannot affect row twice');
+    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id'], ['content'])).rejects.toThrow('Conflict update criteria cannot affect row twice');
   });
 
   test('reject upsert due to duplicate row', async () => {
-    const inputObj = [{
-      id: 0,
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      id: 0,
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITH_ID, DEFAULT_ITEM_1_WITH_ID];
 
     await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObj, ['id', 'account_id'], ['content'])).rejects.toThrow('Conflict update criteria cannot affect row twice');
   });
 
   test('reject upsert after specifying serial column value', async () => {
-    const inputObjWithSerial = [{
-      id: 0, // Specifying a serial value does not change the next produced serial value (Which would be 0 in this case)
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObjWithSerial = [DEFAULT_ITEM_1_WITH_ID];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID];
 
     await dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObjWithSerial, ['id', 'account_id'], ['content']);
     await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, inputObj, ['id', 'account_id'], ['content'])).rejects.toThrow('Cannot insert row twice into the same table');
@@ -269,33 +191,9 @@ describe('DML Handler Fixture Tests', () => {
   });
 
   test('delete rows', async () => {
-    const inputObj = [{
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const inputObj = [DEFAULT_ITEM_1_WITHOUT_ID, DEFAULT_ITEM_2_WITHOUT_ID];
 
-    const correctResponse = [{
-      id: 0,
-      account_id: 'TEST_NEAR',
-      block_height: 1,
-      content: "CONTENT",
-      accounts_liked: [],
-    },
-    {
-      id: 1,
-      account_id: 'TEST_NEAR',
-      block_height: 2,
-      content: "CONTENT",
-      accounts_liked: [],
-    }];
+    const correctResponse = [DEFAULT_ITEM_1_WITH_ID, DEFAULT_ITEM_2_WITH_ID];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
