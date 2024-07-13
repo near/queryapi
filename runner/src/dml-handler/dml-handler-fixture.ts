@@ -73,7 +73,7 @@ class TableData {
     this.serialCounter = new Map();
   }
 
-  getEntitiesByCriteria(criteria: WhereClauseMulti, limit: number | null): PostgresRowEntity[] {
+  public getEntitiesByCriteria(criteria: WhereClauseMulti, limit: number | null): PostgresRowEntity[] {
     const matchedRows: PostgresRowEntity[] = [];
     this.data.map(row => {
       if (row.isEqualCriteria(criteria)) {
@@ -85,14 +85,14 @@ class TableData {
     return matchedRows;
   }
 
-  getSerialValue(columnName: string): number {
+  private getSerialValue(columnName: string): number {
     const serialCounterKey = `${this.specification.tableName}-${columnName}`;
-    let counterValue = this.serialCounter.get(serialCounterKey) ?? 0;
+    let counterValue: number = this.serialCounter.get(serialCounterKey) ?? 0;
     this.serialCounter.set(serialCounterKey, counterValue + 1);
     return counterValue;
   }
 
-  fillSerialValues(row: PostgresRow): void {
+  private fillSerialValues(row: PostgresRow): void {
     for (const serialColumnName of this.specification.serialColumns) {
       if (row[serialColumnName] === undefined) {
         row[serialColumnName] = this.getSerialValue(serialColumnName);
@@ -100,28 +100,28 @@ class TableData {
     }
   }
 
-  convertRowToEntity(row: PostgresRow): PostgresRowEntity {
-    const rowCopy = { ...row };
+  private createEntityFromRow(row: PostgresRow): PostgresRowEntity {
     // TODO: Also fill default values
     // TODO: Assert non null values
+    const rowCopy = { ...row };
     this.fillSerialValues(rowCopy);
     return new PostgresRowEntity(rowCopy, this.specification.primaryKeyColumns);
   }
 
-  rowIsUnique(otherRow: PostgresRow): boolean {
+  public rowIsUnique(otherRow: PostgresRow): boolean {
     return this.data.every(entity => {
       return !entity.isEqualRow(otherRow);
     });
   }
 
-  entityIsUnique(otherEntity: PostgresRowEntity): boolean {
+  private entityIsUnique(otherEntity: PostgresRowEntity): boolean {
     return this.data.every(entity => {
       return !entity.isEqualEntity(otherEntity);
     });
   }
 
-  insertRow(row: PostgresRow): PostgresRowEntity {
-    const entity = this.convertRowToEntity(row);
+  public insertRow(row: PostgresRow): PostgresRowEntity {
+    const entity: PostgresRowEntity = this.createEntityFromRow(row);
     if (!this.entityIsUnique(entity)) {
       throw new Error('Cannot insert row twice into the same table');
     }
@@ -130,7 +130,7 @@ class TableData {
     return entity;
   }
 
-  insertEntity(entity: PostgresRowEntity): PostgresRowEntity {
+  public insertEntity(entity: PostgresRowEntity): PostgresRowEntity {
     if (!this.entityIsUnique(entity)) {
       throw new Error('Cannot insert row twice into the same table');
     }
@@ -139,7 +139,7 @@ class TableData {
     return entity;
   }
 
-  removeEntitiesByCriteria(criteria: WhereClauseMulti): PostgresRowEntity[] {
+  public removeEntitiesByCriteria(criteria: WhereClauseMulti): PostgresRowEntity[] {
     const remainingRows: PostgresRowEntity[] = [];
     const matchedRows: PostgresRowEntity[] = [];
     this.data.map(entity => {
@@ -152,11 +152,6 @@ class TableData {
     this.data = remainingRows;
     return matchedRows;
   }
-
-  removeEntity(entity: PostgresRowEntity): PostgresRowEntity {
-    const matchingIndex = this.data.findIndex(existingEntity => existingEntity.isEqualEntity(entity));
-    return this.data.splice(matchingIndex, 1)[0];
-  }
 }
 
 class IndexerData {
@@ -167,7 +162,7 @@ class IndexerData {
   }
 
   private initializeTables(schemaAST: AST[]): Map<string, TableData> {
-    const tables = new Map();
+    const tables: Map<string, TableData> = new Map();
     for (const statement of schemaAST) {
       if (statement.type === "create" && statement.keyword === "table") {
         const tableSpec = this.createTableSpecification(statement);
@@ -180,9 +175,9 @@ class IndexerData {
 
   private createTableSpecification(createTableStatement: any): TableSpecification {
     const tableName = createTableStatement.table[0].table;
-    const columnNames = [];
-    const primaryKeyColumns = [];
-    const serialColumns = [];
+    const columnNames: string[] = [];
+    const primaryKeyColumns: string[] = [];
+    const serialColumns: string[] = [];
 
     for (const columnDefinition of createTableStatement.create_definitions ?? []) {
       if (columnDefinition.column) {
@@ -218,14 +213,14 @@ class IndexerData {
     return "";
   }
 
-  selectColumnsFromRow(row: PostgresRow, columnsToSelect: string[]): PostgresRow {
+  private selectColumnsFromRow(row: PostgresRow, columnsToSelect: string[]): PostgresRow {
     return columnsToSelect.reduce((newRow, columnName) => {
       newRow[columnName] = columnName in row ? row[columnName] : undefined;
       return newRow;
     }, {} as PostgresRow);
   }
 
-  public getTableData(tableName: string): TableData {
+  private getTableData(tableName: string): TableData {
     const tableData = this.tables.get(tableName);
     if (!tableData) {
       throw new Error('Invalid table name provided');
@@ -314,7 +309,7 @@ export default class InMemoryDmlHandler implements DmlHandlerI {
     this.indexerData = new IndexerData(schemaAST);
   }
 
-  async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]): Promise<PostgresRow[]> {
+  public async insert(tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]): Promise<PostgresRow[]> {
     if (!rowsToInsert?.length) {
       return [];
     }
@@ -322,20 +317,20 @@ export default class InMemoryDmlHandler implements DmlHandlerI {
     return this.indexerData.insert(tableDefinitionNames.originalTableName, rowsToInsert);
   }
 
-  async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<PostgresRow[]> {
+  public async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<PostgresRow[]> {
     return this.indexerData.select(tableDefinitionNames.originalTableName, whereObject, limit);
   }
 
-  async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<PostgresRow[]> {
+  public async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<PostgresRow[]> {
     return this.indexerData.update(tableDefinitionNames.originalTableName, whereObject, updateObject);
   }
 
 
-  async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): Promise<PostgresRow[]> {
+  public async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): Promise<PostgresRow[]> {
     return this.indexerData.upsert(tableDefinitionNames.originalTableName, rowsToUpsert, conflictColumns, updateColumns);
   }
 
-  async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<PostgresRow[]> {
+  public async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<PostgresRow[]> {
     return this.indexerData.delete(tableDefinitionNames.originalTableName, whereObject);
   }
 }
