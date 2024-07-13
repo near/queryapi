@@ -17,6 +17,13 @@ class PostgresRowEntity {
   constructor(data: any, primaryKeys: string[]) {
     this.data = data;
     this.primaryKeys = primaryKeys.sort();
+
+    // TODO: Verify value of primary key as well (if primary key is NOT NULL)
+    if (!primaryKeys.every(primaryKey => {
+      return primaryKey in data;
+    })) {
+      throw new Error('Inserted row must specify value for primary key columns');
+    }
   }
 
   primaryKey(): string {
@@ -94,8 +101,11 @@ class TableData {
   }
 
   convertRowToEntity(row: PostgresRow): PostgresRowEntity {
-    this.fillSerialValues(row);
-    return new PostgresRowEntity(row, this.specification.primaryKeyColumns);
+    const rowCopy = { ...row };
+    // TODO: Also fill default values
+    // TODO: Assert non null values
+    this.fillSerialValues(rowCopy);
+    return new PostgresRowEntity(rowCopy, this.specification.primaryKeyColumns);
   }
 
   rowIsUnique(otherRow: PostgresRow): boolean {
@@ -249,6 +259,7 @@ class IndexerData {
   }
 
   public update(tableName: string, criteria: WhereClauseSingle, updateObject: PostgresRow): PostgresRow[] {
+    // TODO: Validate criteria passed in has valid column names
     const tableData = this.getTableData(tableName);
     const updatedRows: PostgresRow[] = [];
 

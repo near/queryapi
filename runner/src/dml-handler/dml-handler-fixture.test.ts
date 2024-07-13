@@ -25,21 +25,55 @@ describe('DML Handler Fixture Tests', () => {
     dmlHandler = new InMemoryDmlHandler(SIMPLE_SCHEMA);
   });
 
-  test('insert two rows', async () => {
+  test('select rows', async () => {
     const inputObj = [{
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
     },
     {
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+
+    const selectSingleValue = await dmlHandler.select(TABLE_DEFINITION_NAMES, { id: 1 });
+    expect(selectSingleValue[0].id).toEqual(1);
+
+    const selectMultipleValues = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR', block_height: [1, 2] });
+    expect(selectMultipleValues[0].account_id).toEqual('TEST_NEAR');
+    expect(selectMultipleValues[1].account_id).toEqual('TEST_NEAR');
+    expect(selectMultipleValues[0].block_height).toEqual(1);
+    expect(selectMultipleValues[1].block_height).toEqual(2);
+
+    expect(await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'unknown_near' })).toEqual([]);
+  });
+
+  test('insert two rows with serial ID column', async () => {
+    const inputObj = [{
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    },
+    {
+      account_id: 'TEST_NEAR',
+      block_height: 2,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
@@ -47,20 +81,20 @@ describe('DML Handler Fixture Tests', () => {
 
     const correctResult = [{
       id: 0,
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
     },
     {
       id: 1,
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
@@ -70,70 +104,59 @@ describe('DML Handler Fixture Tests', () => {
     expect(result).toEqual(correctResult);
   });
 
-  test('get error from inserting conflicting row', async () => {
-    const inputObj = [{
-      account_id: 'morgs_near',
+  test('reject insert after specifying serial column value', async () => {
+    const inputObjWithSerial = [{
+      id: 0, // Specifying a serial value does not change the next produced serial value (Which would be 0 in this case)
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+    const inputObj = [{
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
     }];
 
-    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
-    expect(dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj)).rejects.toThrow('Cannot insert row twice into the same table');
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObjWithSerial);
+    await expect(dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj)).rejects.toThrow('Cannot insert row twice into the same table');
   });
 
-  test('select rows', async () => {
+  test('reject insert after not specifying primary key value', async () => {
     const inputObj = [{
-      account_id: 'morgs_near',
       block_height: 1,
-      receipt_id: 'abc',
-      content: "some content",
-      block_timestamp: 123,
-      accounts_liked: [],
-      last_comment_timestamp: 456
-    },
-    {
-      account_id: 'morgs_near',
-      block_height: 2,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
     }];
 
-    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
-
-    const selectA = await dmlHandler.select(TABLE_DEFINITION_NAMES, { id: 1 });
-    expect(selectA[0].id).toEqual(1);
-
-    const selectB = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near', block_height: [1, 2] });
-    expect(selectB[0].account_id).toEqual('morgs_near');
-    expect(selectB[1].account_id).toEqual('morgs_near');
-    expect(selectB[0].block_height).toEqual(1);
-    expect(selectB[1].block_height).toEqual(2);
-
-    expect(await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'unknown_near' })).toEqual([]);
+    await expect(dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj)).rejects.toThrow('Inserted row must specify value for primary key columns');
   });
 
   test('update rows', async () => {
     const inputObj = [{
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
     },
     {
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
@@ -141,20 +164,48 @@ describe('DML Handler Fixture Tests', () => {
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
-    const updateOne = await dmlHandler.update(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near', block_height: 2 }, { content: 'updated content' });
-    const selectOneUpdate = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near', block_height: 2 });
+    const updateOne = await dmlHandler.update(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR', block_height: 2 }, { content: 'UPDATED_CONTENT' });
+    const selectOneUpdate = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR', block_height: 2 });
     expect(updateOne).toEqual(selectOneUpdate);
 
-    const updateAll = await dmlHandler.update(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' }, { content: 'final content' });
-    const selectAllUpdated = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' });
+    const updateAll = await dmlHandler.update(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR' }, { content: 'final content' });
+    const selectAllUpdated = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR' });
     expect(updateAll).toEqual(selectAllUpdated);
+  });
+
+  test('update criteria matches nothing', async () => {
+    const inputObj = [{
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    },
+    {
+      account_id: 'TEST_NEAR',
+      block_height: 2,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+
+    const updateNone = await dmlHandler.update(TABLE_DEFINITION_NAMES, { account_id: 'none_near' }, { content: 'UPDATED_CONTENT' });
+    const selectUpdated = await dmlHandler.select(TABLE_DEFINITION_NAMES, { content: 'UPDATED_CONTENT' });
+    expect(updateNone).toEqual([]);
+    expect(selectUpdated).toEqual([]);
   });
 
   test('upsert rows', async () => {
     const inputObj = [{
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
+      receipt_id: 'RECEIPT_ID',
       content: "INSERT",
       block_timestamp: 123,
       accounts_liked: [],
@@ -164,18 +215,18 @@ describe('DML Handler Fixture Tests', () => {
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
     const upsertObj = [{
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
+      receipt_id: 'RECEIPT_ID',
       content: "UPSERT",
       block_timestamp: 456,
       accounts_liked: [],
       last_comment_timestamp: 456
     },
     {
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'abc',
+      receipt_id: 'RECEIPT_ID',
       content: "UPSERT",
       block_timestamp: 456,
       accounts_liked: [],
@@ -184,25 +235,46 @@ describe('DML Handler Fixture Tests', () => {
 
     const upserts = await dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id', 'block_height'], ['content', 'block_timestamp']);
 
-    const selectAll = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' });
+    const selectAll = await dmlHandler.select(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR' });
     expect(upserts).toEqual(selectAll);
   });
 
   test('delete rows', async () => {
     const inputObj = [{
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
     },
     {
-      account_id: 'morgs_near',
+      account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'abc',
-      content: "some content",
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    }];
+
+    const correctResponse = [{
+      id: 0,
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
+      block_timestamp: 123,
+      accounts_liked: [],
+      last_comment_timestamp: 456
+    },
+    {
+      id: 1,
+      account_id: 'TEST_NEAR',
+      block_height: 2,
+      receipt_id: 'RECEIPT_ID',
+      content: "CONTENT",
       block_timestamp: 123,
       accounts_liked: [],
       last_comment_timestamp: 456
@@ -210,8 +282,8 @@ describe('DML Handler Fixture Tests', () => {
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
 
-    const deletedRows = await dmlHandler.delete(TABLE_DEFINITION_NAMES, { account_id: 'morgs_near' });
+    const deletedRows = await dmlHandler.delete(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR' });
 
-    expect(deletedRows).toEqual(inputObj);
+    expect(deletedRows).toEqual(correctResponse);
   })
 });
