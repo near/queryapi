@@ -230,7 +230,7 @@ class IndexerData {
   }
 
   private copyRow(row: PostgresRow): PostgresRow {
-    return { ...row };
+    return JSON.parse(JSON.stringify(row));
   }
 
   private copyDataFromEntities(entities: PostgresRowEntity[]): PostgresRow[] {
