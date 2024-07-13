@@ -27,7 +27,7 @@ class PostgresRowEntity {
     }
   }
 
-  primaryKey(): string {
+  public primaryKey(): string {
     return JSON.stringify(
       this.primaryKeys.reduce((acc, key) => {
         acc[key] = this.data[key];
@@ -36,17 +36,17 @@ class PostgresRowEntity {
     );
   }
 
-  isEqualRow(row: PostgresRow): boolean {
+  public isEqualRow(row: PostgresRow): boolean {
     return this.primaryKeys.every(primaryKey => {
       return row[primaryKey] === this.data[primaryKey];
     });
   }
 
-  isEqualEntity(entity: PostgresRowEntity): boolean {
+  public isEqualEntity(entity: PostgresRowEntity): boolean {
     return this.primaryKey() === entity.primaryKey();
   }
 
-  isEqualCriteria(criteria: WhereClauseMulti): boolean {
+  public isEqualCriteria(criteria: WhereClauseMulti): boolean {
     return Object.keys(criteria).every(attribute => {
       const toMatchValue = criteria[attribute];
       if (Array.isArray(toMatchValue)) {
@@ -56,7 +56,7 @@ class PostgresRowEntity {
     });
   }
 
-  update(updateObject: PostgresRow): void {
+  public update(updateObject: PostgresRow): void {
     Object.keys(updateObject).map(updateKey => {
       this.data[updateKey] = updateObject[updateKey];
     });
