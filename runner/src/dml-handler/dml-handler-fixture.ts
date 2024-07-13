@@ -279,9 +279,12 @@ class IndexerData {
 
     for (const row of rowsToUpsert) {
       const updateCriteriaObject = this.selectColumnsFromRow(row, conflictColumns);
-      const matchedEntity = tableData.removeEntitiesByCriteria(updateCriteriaObject)[0];
+      const rowsMatchingUpdate = tableData.removeEntitiesByCriteria(updateCriteriaObject);
 
-      if (matchedEntity) {
+      if (rowsMatchingUpdate.length > 1) {
+        throw new Error('Conflict update criteria cannot match multiple rows');
+      } else if (rowsMatchingUpdate.length == 1) {
+        const matchedEntity = rowsMatchingUpdate[0];
         const updateObject = this.selectColumnsFromRow(row, updateColumns);
         matchedEntity.update(updateObject);
         upsertedRows.push(tableData.insertEntity(matchedEntity).data);

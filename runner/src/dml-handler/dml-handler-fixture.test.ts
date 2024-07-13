@@ -7,11 +7,8 @@ describe('DML Handler Fixture Tests', () => {
       "id" SERIAL NOT NULL,
       "account_id" VARCHAR NOT NULL,
       "block_height" DECIMAL(58, 0) NOT NULL,
-      "receipt_id" VARCHAR NOT NULL,
       "content" TEXT NOT NULL,
-      "block_timestamp" DECIMAL(20, 0) NOT NULL,
       "accounts_liked" JSONB NOT NULL DEFAULT '[]',
-      "last_comment_timestamp" DECIMAL(20, 0),
       CONSTRAINT "posts_pkey" PRIMARY KEY ("id", "account_id")
     );`;
   let TABLE_DEFINITION_NAMES: TableDefinitionNames = {
@@ -29,20 +26,14 @@ describe('DML Handler Fixture Tests', () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
@@ -63,41 +54,29 @@ describe('DML Handler Fixture Tests', () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     const correctResult = [{
       id: 0,
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       id: 1,
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     const result = await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
@@ -109,20 +88,14 @@ describe('DML Handler Fixture Tests', () => {
       id: 0, // Specifying a serial value does not change the next produced serial value (Which would be 0 in this case)
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObjWithSerial);
@@ -132,11 +105,8 @@ describe('DML Handler Fixture Tests', () => {
   test('reject insert after not specifying primary key value', async () => {
     const inputObj = [{
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await expect(dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj)).rejects.toThrow('Inserted row must specify value for primary key columns');
@@ -146,20 +116,14 @@ describe('DML Handler Fixture Tests', () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
@@ -177,20 +141,14 @@ describe('DML Handler Fixture Tests', () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
@@ -205,11 +163,8 @@ describe('DML Handler Fixture Tests', () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "INSERT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
@@ -217,20 +172,14 @@ describe('DML Handler Fixture Tests', () => {
     const upsertObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "UPSERT",
-      block_timestamp: 456,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "UPSERT",
-      block_timestamp: 456,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     const upserts = await dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id', 'block_height'], ['content', 'block_timestamp']);
@@ -239,45 +188,65 @@ describe('DML Handler Fixture Tests', () => {
     expect(upserts).toEqual(selectAll);
   });
 
-  test('delete rows', async () => {
+  test('upsert rows with non unique conflcit columns', async () => {
     const inputObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
+    }];
+
+    await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
+
+    const upsertObj = [{
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      content: "UPSERT",
+      accounts_liked: [],
+    },
+    {
+      account_id: 'TEST_NEAR',
+      block_height: 2,
+      content: "UPSERT",
+      accounts_liked: [],
+    }];
+
+    await expect(dmlHandler.upsert(TABLE_DEFINITION_NAMES, upsertObj, ['account_id'], ['content', 'block_timestamp'])).rejects.toThrow('Conflict update criteria cannot match multiple rows');
+  });
+
+  test('delete rows', async () => {
+    const inputObj = [{
+      account_id: 'TEST_NEAR',
+      block_height: 1,
+      content: "CONTENT",
+      accounts_liked: [],
+    },
+    {
+      account_id: 'TEST_NEAR',
+      block_height: 2,
+      content: "CONTENT",
+      accounts_liked: [],
     }];
 
     const correctResponse = [{
       id: 0,
       account_id: 'TEST_NEAR',
       block_height: 1,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     },
     {
       id: 1,
       account_id: 'TEST_NEAR',
       block_height: 2,
-      receipt_id: 'RECEIPT_ID',
       content: "CONTENT",
-      block_timestamp: 123,
       accounts_liked: [],
-      last_comment_timestamp: 456
     }];
 
     await dmlHandler.insert(TABLE_DEFINITION_NAMES, inputObj);
