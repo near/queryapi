@@ -109,15 +109,31 @@ impl ExecutorsHandlerImpl {
     }
 
     pub async fn synchronise_executor(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        let executor = self.get(config).await.unwrap();
+        let executor = self.get(config).await?;
+
         if let Some(executor) = executor {
-            if executor.version != config.get_registry_version() {
-                self.stop(executor.executor_id).await.unwrap();
-                self.start(config).await.unwrap();
+            if executor.version == config.get_registry_version() {
+                return Ok(());
             }
-        } else {
-            self.start(config).await.unwrap();
+
+            tracing::info!(
+                account_id = config.account_id.as_str(),
+                function_name = config.function_name,
+                version = executor.version,
+                "Stopping executor"
+            );
+
+            self.stop(executor.executor_id).await?;
         }
+
+        tracing::info!(
+            account_id = config.account_id.as_str(),
+            function_name = config.function_name,
+            version = config.get_registry_version(),
+            "Starting executor"
+        );
+
+        self.start(config).await?;
 
         Ok(())
     }
