@@ -171,7 +171,7 @@ impl RegistryImpl {
         &self,
         account_id: &AccountId,
         function_name: &str,
-    ) -> anyhow::Result<IndexerConfig> {
+    ) -> anyhow::Result<Option<IndexerConfig>> {
         let response = self
             .json_rpc_client
             .call(RpcQueryRequest {
@@ -194,10 +194,10 @@ impl RegistryImpl {
             .context("Failed to fetch indexer")?;
 
         if let QueryResponseKind::CallResult(call_result) = response.kind {
-            let indexer: registry_types::IndexerConfig =
-                serde_json::from_slice(&call_result.result)?;
-
-            return Ok(IndexerConfig {
+            let indexer = serde_json::from_slice::<Option<registry_types::IndexerConfig>>(
+                &call_result.result,
+            )?
+            .map(|indexer| IndexerConfig {
                 account_id: account_id.clone(),
                 function_name: function_name.to_string(),
                 code: indexer.code,
@@ -207,6 +207,8 @@ impl RegistryImpl {
                 updated_at_block_height: indexer.updated_at_block_height,
                 created_at_block_height: indexer.created_at_block_height,
             });
+
+            return Ok(indexer);
         }
 
         anyhow::bail!("Invalid registry response")

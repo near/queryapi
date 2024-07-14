@@ -44,7 +44,8 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
             .registry
             .fetch_indexer(&account_id, &request.function_name)
             .await
-            .map_err(|_| Status::not_found("Indexer not found"))?;
+            .map_err(|_| Status::internal("Failed to fetch indexer"))?
+            .ok_or(Status::not_found("Indexer not found"))?;
 
         self.indexer_state_manager
             .set_enabled(&indexer_config, true)
@@ -80,7 +81,8 @@ impl indexer_manager::indexer_manager_server::IndexerManager for IndexerManagerS
             .registry
             .fetch_indexer(&account_id, &request.function_name)
             .await
-            .map_err(|_| Status::not_found("Indexer not found"))?;
+            .map_err(|_| Status::internal("Failed to fetch indexer"))?
+            .ok_or(Status::not_found("Indexer not found"))?;
 
         self.indexer_state_manager
             .set_enabled(&indexer_config, false)
