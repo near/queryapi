@@ -113,12 +113,26 @@ impl DataLayerHandlerImpl {
 
         let task_id = start_task_result.unwrap();
 
+        let mut iterations = 0;
+        let delay_seconds = 1;
+
         loop {
             if self.get_task_status(task_id.clone()).await? == TaskStatus::Complete {
                 break;
             }
 
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+            iterations += 1;
+
+            if iterations * delay_seconds % 60 == 0 {
+                tracing::warn!(
+                    ?indexer_config.account_id,
+                    ?indexer_config.function_name,
+                    "Still waiting for provisioning to complete after {} seconds",
+                    iterations * delay_seconds
+                );
+            }
         }
 
         Ok(())
@@ -130,15 +144,29 @@ impl DataLayerHandlerImpl {
         function_name: String,
     ) -> anyhow::Result<()> {
         let task_id = self
-            .start_deprovisioning_task(account_id, function_name)
+            .start_deprovisioning_task(account_id.clone(), function_name.clone())
             .await?;
+
+        let mut iterations = 0;
+        let delay_seconds = 1;
 
         loop {
             if self.get_task_status(task_id.clone()).await? == TaskStatus::Complete {
                 break;
             }
 
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(delay_seconds)).await;
+
+            iterations += 1;
+
+            if iterations * delay_seconds % 60 == 0 {
+                tracing::warn!(
+                    ?account_id,
+                    ?function_name,
+                    "Still waiting for deprovisioning to complete after {} seconds",
+                    iterations * delay_seconds
+                );
+            }
         }
 
         Ok(())
