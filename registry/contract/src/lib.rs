@@ -142,7 +142,7 @@ impl Contract {
         &self,
         function_name: String,
         account_id: Option<String>,
-    ) -> IndexerConfig {
+    ) -> Option<IndexerConfig> {
         let account_id = match account_id {
             Some(account_id) => account_id.parse::<AccountId>().unwrap_or_else(|_| {
                 env::panic_str(&format!("Account ID {} is invalid", account_id));
@@ -150,21 +150,7 @@ impl Contract {
             None => env::signer_account_id(),
         };
 
-        let account_indexers = self.registry.get(&account_id).unwrap_or_else(|| {
-            env::panic_str(format!("Account {} has no registered functions", account_id).as_str())
-        });
-
-        let config = account_indexers.get(&function_name).unwrap_or_else(|| {
-            env::panic_str(
-                format!(
-                    "Function {} is not registered under account {}",
-                    &function_name, account_id
-                )
-                .as_str(),
-            )
-        });
-
-        config.clone()
+        self.registry.get(&account_id)?.get(&function_name).cloned()
     }
 
     pub fn assert_roles(&self, permitted_roles: Vec<Role>) {
@@ -752,7 +738,7 @@ mod tests {
 
         assert_eq!(
             contract.read_indexer_function("test_function".to_string(), None),
-            config
+            Some(config)
         );
     }
 
@@ -799,7 +785,7 @@ mod tests {
         );
         assert_eq!(
             contract.read_indexer_function("test_function".to_string(), None),
-            config
+            Some(config)
         );
     }
 
@@ -1423,7 +1409,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Function test is not registered under account bob.near")]
     fn read_non_existant_indexer_function() {
         let mut registry = IndexersByAccount::new(StorageKeys::Registry);
         let account_id = "bob.near".parse::<AccountId>().unwrap();
@@ -1436,7 +1421,10 @@ mod tests {
             account_roles: vec![],
         };
 
-        contract.read_indexer_function("test".to_string(), None);
+        assert_eq!(
+            contract.read_indexer_function("test".to_string(), None),
+            None
+        );
     }
 
     #[test]
@@ -1468,7 +1456,7 @@ mod tests {
 
         assert_eq!(
             contract.read_indexer_function("test".to_string(), None),
-            config
+            Some(config)
         );
     }
 
@@ -1500,16 +1488,17 @@ mod tests {
 
         assert_eq!(
             contract.read_indexer_function("test".to_string(), Some("alice.near".to_string())),
-            config
+            Some(config)
         );
     }
 
     #[test]
-    #[should_panic(expected = "Account bob.near has no registered functions")]
     fn read_indexer_function_for_non_existant_account() {
         let contract = Contract::default();
-        // no registered indexers so should return the default ""
-        contract.read_indexer_function("test".to_string(), None);
+        assert_eq!(
+            contract.read_indexer_function("test".to_string(), None),
+            None
+        );
     }
 
     #[test]
