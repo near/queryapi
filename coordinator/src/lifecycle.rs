@@ -10,16 +10,14 @@ use crate::registry::Registry;
 
 const LOOP_THROTTLE_MS: u64 = 500;
 
-// is there a way to map the transitions in this type?
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub enum LifecycleStates {
+pub enum LifecycleState {
     #[default]
-    Provisioning,
+    Initializing,
     Running,
     Stopping,
     Stopped,
-    // Repairing?
-    Erroring,
+    Repairing,
     Deleting,
     Deleted,
 }
@@ -59,30 +57,26 @@ impl<'a> LifecycleManager<'a> {
         }
     }
 
-    async fn handle_provisioning(
+    async fn handle_initializing(
         &self,
         config: &IndexerConfig,
         _state: &IndexerState,
-    ) -> LifecycleStates {
+    ) -> LifecycleState {
         if self
             .data_layer_handler
             .ensure_provisioned(config)
             .await
             .is_err()
         {
-            return LifecycleStates::Erroring;
+            return LifecycleState::Repairing;
         }
 
-        LifecycleStates::Running
+        LifecycleState::Running
     }
 
-    async fn handle_running(
-        &self,
-        config: &IndexerConfig,
-        state: &IndexerState,
-    ) -> LifecycleStates {
+    async fn handle_running(&self, config: &IndexerConfig, state: &IndexerState) -> LifecycleState {
         if !state.enabled {
-            return LifecycleStates::Stopping;
+            return LifecycleState::Stopping;
         }
 
         if self
@@ -91,7 +85,7 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
-            return LifecycleStates::Erroring;
+            return LifecycleState::Repairing;
         }
 
         if self
@@ -100,13 +94,13 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
-            return LifecycleStates::Erroring;
+            return LifecycleState::Repairing;
         }
 
-        LifecycleStates::Running
+        LifecycleState::Running
     }
 
-    async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleStates {
+    async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleState {
         if let Some(block_stream) = self.block_streams_handler.get(config).await.unwrap() {
             self.block_streams_handler
                 .stop(block_stream.stream_id)
@@ -121,45 +115,41 @@ impl<'a> LifecycleManager<'a> {
                 .unwrap();
         }
 
-        LifecycleStates::Stopped
+        LifecycleState::Stopped
     }
 
-    async fn handle_stopped(&self, state: &IndexerState) -> LifecycleStates {
+    async fn handle_stopped(&self, state: &IndexerState) -> LifecycleState {
         // TODO Transistion to `Running` on config update
 
         if state.enabled {
-            return LifecycleStates::Running;
+            return LifecycleState::Running;
         }
 
-        LifecycleStates::Stopped
+        LifecycleState::Stopped
     }
 
-    async fn handle_erroring(
+    async fn handle_repairing(
         &self,
-        config: &IndexerConfig,
-        state: &IndexerState,
-    ) -> LifecycleStates {
-        // check for update
-        if config.get_registry_version() != state.block_stream_synced_at.unwrap() {
-            return LifecycleStates::Running;
-        }
-
-        LifecycleStates::Erroring
+        _config: &IndexerConfig,
+        _state: &IndexerState,
+    ) -> LifecycleState {
+        // TODO Add more robust error handling
+        LifecycleState::Repairing
     }
 
-    async fn handle_deleting(&self, state: &IndexerState) -> LifecycleStates {
+    async fn handle_deleting(&self, state: &IndexerState) -> LifecycleState {
         if self
             .data_layer_handler
             .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
             .await
             .is_err()
         {
-            return LifecycleStates::Erroring;
+            return LifecycleState::Repairing;
         }
 
         // remove redis state
 
-        LifecycleStates::Deleted
+        LifecycleState::Deleted
     }
 
     // should _not_ return a result here, all errors should be handled internally
@@ -176,15 +166,13 @@ impl<'a> LifecycleManager<'a> {
 
             let next_lifecycle_state = if let Some(config) = config.clone() {
                 match state.lifecycle {
-                    LifecycleStates::Provisioning => {
-                        self.handle_provisioning(&config, &state).await
-                    }
-                    LifecycleStates::Running => self.handle_running(&config, &state).await,
-                    LifecycleStates::Stopping => self.handle_stopping(&config).await,
-                    LifecycleStates::Stopped => self.handle_stopped(&state).await,
-                    LifecycleStates::Erroring => self.handle_erroring(&config, &state).await,
-                    LifecycleStates::Deleting => unreachable!("handled below"),
-                    LifecycleStates::Deleted => break,
+                    LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
+                    LifecycleState::Running => self.handle_running(&config, &state).await,
+                    LifecycleState::Stopping => self.handle_stopping(&config).await,
+                    LifecycleState::Stopped => self.handle_stopped(&state).await,
+                    LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
+                    LifecycleState::Deleting => unreachable!("handled below"),
+                    LifecycleState::Deleted => break,
                 }
             } else {
                 self.handle_deleting(&state).await
