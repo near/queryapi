@@ -3,7 +3,7 @@ use crate::handlers::data_layer::DataLayerHandler;
 use crate::handlers::executors::ExecutorsHandler;
 use crate::indexer_config::IndexerConfig;
 use crate::indexer_state::{IndexerState, IndexerStateManager};
-use crate::redis::RedisClient;
+use crate::redis::{KeyProvider, RedisClient};
 use crate::registry::Registry;
 
 const LOOP_THROTTLE_MS: u64 = 500;
@@ -134,6 +134,21 @@ impl<'a> LifecycleManager<'a> {
     }
 
     async fn handle_deleting(&self, state: &IndexerState) -> LifecycleState {
+        if self.state_manager.delete_state(state).await.is_err() {
+            // Retry
+            return LifecycleState::Deleting;
+        }
+
+        if self
+            .redis_client
+            .del(state.get_redis_stream_key())
+            .await
+            .is_err()
+        {
+            // Retry
+            return LifecycleState::Deleting;
+        }
+
         if self
             .data_layer_handler
             .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
@@ -142,8 +157,6 @@ impl<'a> LifecycleManager<'a> {
         {
             return LifecycleState::Repairing;
         }
-
-        // remove redis state
 
         LifecycleState::Deleted
     }
