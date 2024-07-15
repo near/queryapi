@@ -1,10 +1,10 @@
 use near_primitives::types::AccountId;
 
-use crate::handlers::block_streams::{BlockStreamsHandler, StreamInfo};
-use crate::handlers::data_layer::{DataLayerHandler, TaskStatus};
-use crate::handlers::executors::{ExecutorInfo, ExecutorsHandler};
+use crate::handlers::block_streams::BlockStreamsHandler;
+use crate::handlers::data_layer::DataLayerHandler;
+use crate::handlers::executors::ExecutorsHandler;
 use crate::indexer_config::IndexerConfig;
-use crate::indexer_state::{IndexerState, IndexerStateManager, ProvisionedState};
+use crate::indexer_state::{IndexerState, IndexerStateManager};
 use crate::redis::RedisClient;
 use crate::registry::Registry;
 
@@ -13,14 +13,12 @@ const LOOP_THROTTLE_MS: u64 = 500;
 // is there a way to map the transitions in this type?
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum LifecycleStates {
-    // are these too specific? e.g. should deprovisioning happen within deleting?
     #[default]
     Provisioning,
     Running,
     Stopping,
     Stopped,
-    // this is kinda the same as deleting, do we need it?
-    Deprovisioning,
+    // Repairing?
     Erroring,
     Deleting,
     Deleted,
@@ -127,17 +125,13 @@ impl<'a> LifecycleManager<'a> {
     }
 
     async fn handle_stopped(&self, state: &IndexerState) -> LifecycleStates {
-        // check if config update?
+        // TODO Transistion to `Running` on config update
 
         if state.enabled {
             return LifecycleStates::Running;
         }
 
         LifecycleStates::Stopped
-    }
-
-    async fn handle_deprovisioning(&self) -> LifecycleStates {
-        LifecycleStates::Deprovisioning
     }
 
     async fn handle_erroring(
@@ -180,7 +174,7 @@ impl<'a> LifecycleManager<'a> {
                 .get_state(&config.clone().unwrap())
                 .await?;
 
-            state.lifecycle = if let Some(config) = config.clone() {
+            let next_lifecycle_state = if let Some(config) = config.clone() {
                 match state.lifecycle {
                     LifecycleStates::Provisioning => {
                         self.handle_provisioning(&config, &state).await
@@ -188,7 +182,6 @@ impl<'a> LifecycleManager<'a> {
                     LifecycleStates::Running => self.handle_running(&config, &state).await,
                     LifecycleStates::Stopping => self.handle_stopping(&config).await,
                     LifecycleStates::Stopped => self.handle_stopped(&state).await,
-                    LifecycleStates::Deprovisioning => self.handle_deprovisioning().await,
                     LifecycleStates::Erroring => self.handle_erroring(&config, &state).await,
                     LifecycleStates::Deleting => unreachable!("handled below"),
                     LifecycleStates::Deleted => break,
@@ -196,6 +189,8 @@ impl<'a> LifecycleManager<'a> {
             } else {
                 self.handle_deleting(&state).await
             };
+
+            state.lifecycle = next_lifecycle_state;
 
             // only set if not deleting
             self.state_manager
