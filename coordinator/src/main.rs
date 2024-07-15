@@ -83,7 +83,6 @@ async fn main() -> anyhow::Result<()> {
         async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
-    // handle removal
     let mut lifecycle_tasks = HashMap::<String, JoinHandle<()>>::new();
 
     loop {
@@ -119,6 +118,17 @@ async fn main() -> anyhow::Result<()> {
             });
 
             lifecycle_tasks.insert(config.get_full_name(), handle);
+        }
+
+        let finished_tasks: Vec<String> = lifecycle_tasks
+            .iter()
+            .filter_map(|(name, task)| task.is_finished().then_some(name.clone()))
+            .collect();
+
+        for indexer_name in finished_tasks {
+            tracing::info!(indexer_name, "Lifecycle has finished, removing...");
+
+            lifecycle_tasks.remove(&indexer_name);
         }
 
         sleep(LOOP_THROTTLE_SECONDS).await?;
