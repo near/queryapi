@@ -259,4 +259,12 @@ impl BlockStreamsHandlerImpl {
 
         Ok(())
     }
+
+    pub async fn stop_if_needed(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        if let Some(block_stream) = self.get(config).await? {
+            self.stop(block_stream.stream_id).await?;
+        }
+
+        Ok(())
+    }
 }

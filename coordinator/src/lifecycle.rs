@@ -17,7 +17,7 @@ pub enum LifecycleState {
     Running,
     Stopping,
     Stopped,
-    Repairing,
+    Repairing, // TODO Add `error` to enable reparation
     Deleting,
     Deleted,
 }
@@ -101,18 +101,19 @@ impl<'a> LifecycleManager<'a> {
     }
 
     async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleState {
-        if let Some(block_stream) = self.block_streams_handler.get(config).await.unwrap() {
-            self.block_streams_handler
-                .stop(block_stream.stream_id)
-                .await
-                .unwrap();
+        if self
+            .block_streams_handler
+            .stop_if_needed(config)
+            .await
+            .is_err()
+        {
+            // Retry
+            return LifecycleState::Stopping;
         }
 
-        if let Some(executor) = self.executors_handler.get(config).await.unwrap() {
-            self.executors_handler
-                .stop(executor.executor_id)
-                .await
-                .unwrap();
+        if self.executors_handler.stop_if_needed(config).await.is_err() {
+            // Retry
+            return LifecycleState::Stopping;
         }
 
         LifecycleState::Stopped
@@ -153,18 +154,23 @@ impl<'a> LifecycleManager<'a> {
     }
 
     // should _not_ return a result here, all errors should be handled internally
-    pub async fn run(&self) -> anyhow::Result<()> {
+    pub async fn run(&self) {
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
 
-            let config = self
+            let config = match self
                 .registry
                 .fetch_indexer(&self.account_id, &self.function_name)
-                .await?;
-            let mut state = self
-                .state_manager
-                .get_state(&config.clone().unwrap())
-                .await?;
+                .await
+            {
+                Ok(config) => config,
+                Err(_) => continue,
+            };
+
+            let mut state = match self.state_manager.get_state(&config.clone().unwrap()).await {
+                Ok(state) => state,
+                Err(_) => continue,
+            };
 
             let next_lifecycle_state = if let Some(config) = config.clone() {
                 match state.lifecycle {
@@ -182,12 +188,21 @@ impl<'a> LifecycleManager<'a> {
 
             state.lifecycle = next_lifecycle_state;
 
-            // only set if not deleting
-            self.state_manager
-                .set_state(&config.unwrap(), state)
-                .await?;
-        }
+            loop {
+                match self
+                    .state_manager
+                    // FIX: `config` could be `None`
+                    .set_state(&config.clone().unwrap(), state.clone())
+                    .await
+                {
+                    Ok(_) => break,
+                    Err(e) => {
+                        tracing::error!("Failed to set state: {:?}. Retrying...", e);
 
-        Ok(())
+                        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                    }
+                }
+            }
+        }
     }
 }

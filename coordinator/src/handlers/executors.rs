@@ -137,4 +137,12 @@ impl ExecutorsHandlerImpl {
 
         Ok(())
     }
+
+    pub async fn stop_if_needed(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        if let Some(executor) = self.get(config).await? {
+            self.stop(executor.executor_id).await?;
+        }
+
+        Ok(())
+    }
 }
