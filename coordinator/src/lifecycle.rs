@@ -10,8 +10,7 @@ use crate::registry::Registry;
 
 // is there a way to map the transitions in this type?
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-// LifecycleStates
-pub enum Lifecycle {
+pub enum LifecycleStates {
     // are these too specific? e.g. should deprovisioning happen within deleting?
     #[default]
     Provisioning,
@@ -64,22 +63,26 @@ impl<'a> LifecycleManager<'a> {
         &self,
         config: &IndexerConfig,
         _state: &IndexerState,
-    ) -> Lifecycle {
+    ) -> LifecycleStates {
         if self
             .data_layer_handler
             .ensure_provisioned(config)
             .await
             .is_err()
         {
-            return Lifecycle::Erroring;
+            return LifecycleStates::Erroring;
         }
 
-        Lifecycle::Running
+        LifecycleStates::Running
     }
 
-    async fn handle_running(&self, config: &IndexerConfig, state: &IndexerState) -> Lifecycle {
+    async fn handle_running(
+        &self,
+        config: &IndexerConfig,
+        state: &IndexerState,
+    ) -> LifecycleStates {
         if !state.enabled {
-            return Lifecycle::Stopping;
+            return LifecycleStates::Stopping;
         }
 
         // check if we need to reprovision
@@ -90,7 +93,7 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
-            return Lifecycle::Erroring;
+            return LifecycleStates::Erroring;
         }
 
         if self
@@ -99,13 +102,13 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
-            return Lifecycle::Erroring;
+            return LifecycleStates::Erroring;
         }
 
-        Lifecycle::Running
+        LifecycleStates::Running
     }
 
-    async fn handle_stopping(&self, config: &IndexerConfig) -> Lifecycle {
+    async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleStates {
         if let Some(block_stream) = self.block_streams_handler.get(config).await.unwrap() {
             self.block_streams_handler
                 .stop(block_stream.stream_id)
@@ -120,45 +123,49 @@ impl<'a> LifecycleManager<'a> {
                 .unwrap();
         }
 
-        Lifecycle::Stopped
+        LifecycleStates::Stopped
     }
 
-    async fn handle_stopped(&self, state: &IndexerState) -> Lifecycle {
+    async fn handle_stopped(&self, state: &IndexerState) -> LifecycleStates {
         // check if config update?
 
         if state.enabled {
-            return Lifecycle::Running;
+            return LifecycleStates::Running;
         }
 
-        Lifecycle::Stopped
+        LifecycleStates::Stopped
     }
 
-    async fn handle_deprovisioning(&self) -> Lifecycle {
-        Lifecycle::Deprovisioning
+    async fn handle_deprovisioning(&self) -> LifecycleStates {
+        LifecycleStates::Deprovisioning
     }
 
-    async fn handle_erroring(&self, config: &IndexerConfig, state: &IndexerState) -> Lifecycle {
+    async fn handle_erroring(
+        &self,
+        config: &IndexerConfig,
+        state: &IndexerState,
+    ) -> LifecycleStates {
         // check for update
         if config.get_registry_version() != state.block_stream_synced_at.unwrap() {
-            return Lifecycle::Running;
+            return LifecycleStates::Running;
         }
 
-        Lifecycle::Erroring
+        LifecycleStates::Erroring
     }
 
-    async fn handle_deleting(&self, state: &IndexerState) -> Lifecycle {
+    async fn handle_deleting(&self, state: &IndexerState) -> LifecycleStates {
         if self
             .data_layer_handler
             .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
             .await
             .is_err()
         {
-            return Lifecycle::Erroring;
+            return LifecycleStates::Erroring;
         }
 
         // remove redis state
 
-        Lifecycle::Deleted
+        LifecycleStates::Deleted
     }
 
     // should _not_ return a result here, all errors should be handled internally
@@ -176,14 +183,16 @@ impl<'a> LifecycleManager<'a> {
 
             state.lifecycle = if let Some(config) = config.clone() {
                 match state.lifecycle {
-                    Lifecycle::Provisioning => self.handle_provisioning(&config, &state).await,
-                    Lifecycle::Running => self.handle_running(&config, &state).await,
-                    Lifecycle::Stopping => self.handle_stopping(&config).await,
-                    Lifecycle::Stopped => self.handle_stopped(&state).await,
-                    Lifecycle::Deprovisioning => self.handle_deprovisioning().await,
-                    Lifecycle::Erroring => self.handle_erroring(&config, &state).await,
-                    Lifecycle::Deleting => unreachable!("handled below"),
-                    Lifecycle::Deleted => break,
+                    LifecycleStates::Provisioning => {
+                        self.handle_provisioning(&config, &state).await
+                    }
+                    LifecycleStates::Running => self.handle_running(&config, &state).await,
+                    LifecycleStates::Stopping => self.handle_stopping(&config).await,
+                    LifecycleStates::Stopped => self.handle_stopped(&state).await,
+                    LifecycleStates::Deprovisioning => self.handle_deprovisioning().await,
+                    LifecycleStates::Erroring => self.handle_erroring(&config, &state).await,
+                    LifecycleStates::Deleting => unreachable!("handled below"),
+                    LifecycleStates::Deleted => break,
                 }
             } else {
                 self.handle_deleting(&state).await
