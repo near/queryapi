@@ -8,6 +8,8 @@ use crate::indexer_state::{IndexerState, IndexerStateManager, ProvisionedState};
 use crate::redis::RedisClient;
 use crate::registry::Registry;
 
+const LOOP_THROTTLE_MS: u64 = 500;
+
 // is there a way to map the transitions in this type?
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum LifecycleStates {
@@ -84,8 +86,6 @@ impl<'a> LifecycleManager<'a> {
         if !state.enabled {
             return LifecycleStates::Stopping;
         }
-
-        // check if we need to reprovision
 
         if self
             .block_streams_handler
@@ -170,7 +170,6 @@ impl<'a> LifecycleManager<'a> {
 
     // should _not_ return a result here, all errors should be handled internally
     pub async fn run(&self) -> anyhow::Result<()> {
-        // should throttle this
         loop {
             let config = self
                 .registry
@@ -202,6 +201,8 @@ impl<'a> LifecycleManager<'a> {
             self.state_manager
                 .set_state(&config.unwrap(), state)
                 .await?;
+
+            tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
         }
 
         Ok(())
