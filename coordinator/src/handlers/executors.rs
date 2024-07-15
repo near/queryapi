@@ -15,8 +15,9 @@ use crate::utils::exponential_retry;
 #[cfg(not(test))]
 pub use ExecutorsHandlerImpl as ExecutorsHandler;
 #[cfg(test)]
-pub use MockExecutorsHandlerImpl as ExecutorsHandler;
+pub use ExecutorsHandlerImpl as ExecutorsHandler;
 
+#[derive(Clone)]
 pub struct ExecutorsHandlerImpl {
     client: RunnerClient<Channel>,
 }

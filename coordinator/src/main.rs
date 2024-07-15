@@ -7,16 +7,19 @@
 // - [ ] Introduce typestate?
 // - [ ] tests
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use near_primitives::types::AccountId;
+use tokio::task::JoinHandle;
 use tracing_subscriber::prelude::*;
 
 use crate::handlers::block_streams::BlockStreamsHandler;
 use crate::handlers::data_layer::DataLayerHandler;
 use crate::handlers::executors::ExecutorsHandler;
 use crate::indexer_state::IndexerStateManager;
+use crate::lifecycle::LifecycleManager;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
 use crate::synchroniser::Synchroniser;
@@ -31,7 +34,7 @@ mod server;
 mod synchroniser;
 mod utils;
 
-const CONTROL_LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
+const LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
 
 async fn sleep(duration: Duration) -> anyhow::Result<()> {
     tokio::time::sleep(duration).await;
@@ -73,14 +76,6 @@ async fn main() -> anyhow::Result<()> {
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
     let data_layer_handler = DataLayerHandler::connect(&runner_url)?;
     let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));
-    let synchroniser = Synchroniser::new(
-        &block_streams_handler,
-        &executors_handler,
-        &data_layer_handler,
-        &registry,
-        &indexer_state_manager,
-        &redis_client,
-    );
 
     tokio::spawn({
         let indexer_state_manager = indexer_state_manager.clone();
@@ -88,7 +83,44 @@ async fn main() -> anyhow::Result<()> {
         async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
+    // handle removal
+    let mut lifecycle_tasks = HashMap::<String, JoinHandle<()>>::new();
+
     loop {
-        tokio::try_join!(synchroniser.sync(), sleep(CONTROL_LOOP_THROTTLE_SECONDS))?;
+        let indexer_registry = registry.fetch().await?;
+
+        for config in indexer_registry.iter() {
+            if lifecycle_tasks.contains_key(&config.get_full_name()) {
+                continue;
+            }
+
+            let handle = tokio::spawn({
+                let indexer_state_manager = indexer_state_manager.clone();
+                let config = config.clone();
+                let registry = registry.clone();
+                let redis_client = redis_client.clone();
+                let block_streams_handler = block_streams_handler.clone();
+                let data_layer_handler = data_layer_handler.clone();
+                let executors_handler = executors_handler.clone();
+
+                async move {
+                    let lifecycle_manager = LifecycleManager::new(
+                        config,
+                        &block_streams_handler,
+                        &executors_handler,
+                        &data_layer_handler,
+                        &registry,
+                        &indexer_state_manager,
+                        &redis_client,
+                    );
+
+                    lifecycle_manager.run().await
+                }
+            });
+
+            lifecycle_tasks.insert(config.get_full_name(), handle);
+        }
+
+        sleep(LOOP_THROTTLE_SECONDS).await?;
     }
 }

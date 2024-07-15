@@ -19,8 +19,10 @@ use crate::utils::exponential_retry;
 #[cfg(not(test))]
 pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
 #[cfg(test)]
-pub use MockBlockStreamsHandlerImpl as BlockStreamsHandler;
+pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
+//pub use MockBlockStreamsHandlerImpl as BlockStreamsHandler;
 
+#[derive(Clone)]
 pub struct BlockStreamsHandlerImpl {
     client: BlockStreamerClient<Channel>,
     redis_client: RedisClient,

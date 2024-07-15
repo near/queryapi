@@ -15,10 +15,11 @@ use crate::indexer_config::IndexerConfig;
 #[cfg(not(test))]
 pub use DataLayerHandlerImpl as DataLayerHandler;
 #[cfg(test)]
-pub use MockDataLayerHandlerImpl as DataLayerHandler;
+pub use DataLayerHandlerImpl as DataLayerHandler;
 
 type TaskId = String;
 
+#[derive(Clone)]
 pub struct DataLayerHandlerImpl {
     client: DataLayerClient<Channel>,
 }

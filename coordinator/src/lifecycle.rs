@@ -31,8 +31,7 @@ pub struct LifecycleManager<'a> {
 }
 
 impl<'a> LifecycleManager<'a> {
-    #[allow(clippy::too_many_arguments)]
-    fn new(
+    pub fn new(
         initial_config: IndexerConfig,
         block_streams_handler: &'a BlockStreamsHandler,
         executors_handler: &'a ExecutorsHandler,
