@@ -155,6 +155,8 @@ impl<'a> LifecycleManager<'a> {
     // should _not_ return a result here, all errors should be handled internally
     pub async fn run(&self) -> anyhow::Result<()> {
         loop {
+            tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
+
             let config = self
                 .registry
                 .fetch_indexer(&self.account_id, &self.function_name)
@@ -184,8 +186,6 @@ impl<'a> LifecycleManager<'a> {
             self.state_manager
                 .set_state(&config.unwrap(), state)
                 .await?;
-
-            tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
         }
 
         Ok(())
