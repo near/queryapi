@@ -1,11 +1,9 @@
-const accountId = props.accountId || context.accountId;
-const indexerName = props.indexerName;
+const { accountId, indexerName, lastDeploymentDate, numDeployements, numQueries, originalDeploymentDate } = props;
 const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
 const statusUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
-const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
-  ".",
-  "_"
-)}`;
+const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replace(/\./g, '_')}`;
+const formatNumberWithCommas = (number) => number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
 const Card = styled.div`
   position: relative;
   width: 100%;
@@ -166,6 +164,7 @@ return (
         <TextLink as="a" ellipsis>
           @{accountId}
         </TextLink>
+        <Text>{formatNumberWithCommas(numQueries)} Queries in the past 7 days</Text>
       </div>
     </CardBody>
 
