@@ -1,5 +1,3 @@
-use near_primitives::types::AccountId;
-
 use crate::handlers::block_streams::BlockStreamsHandler;
 use crate::handlers::data_layer::DataLayerHandler;
 use crate::handlers::executors::ExecutorsHandler;
@@ -23,8 +21,7 @@ pub enum LifecycleState {
 }
 
 pub struct LifecycleManager<'a> {
-    account_id: AccountId,
-    function_name: String,
+    initial_config: IndexerConfig,
     block_streams_handler: &'a BlockStreamsHandler,
     executors_handler: &'a ExecutorsHandler,
     data_layer_handler: &'a DataLayerHandler,
@@ -36,8 +33,7 @@ pub struct LifecycleManager<'a> {
 impl<'a> LifecycleManager<'a> {
     #[allow(clippy::too_many_arguments)]
     fn new(
-        account_id: AccountId,
-        function_name: String,
+        initial_config: IndexerConfig,
         block_streams_handler: &'a BlockStreamsHandler,
         executors_handler: &'a ExecutorsHandler,
         data_layer_handler: &'a DataLayerHandler,
@@ -46,8 +42,7 @@ impl<'a> LifecycleManager<'a> {
         redis_client: &'a RedisClient,
     ) -> Self {
         Self {
-            account_id,
-            function_name,
+            initial_config,
             block_streams_handler,
             executors_handler,
             data_layer_handler,
@@ -153,21 +148,23 @@ impl<'a> LifecycleManager<'a> {
         LifecycleState::Deleted
     }
 
-    // should _not_ return a result here, all errors should be handled internally
     pub async fn run(&self) {
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
 
             let config = match self
                 .registry
-                .fetch_indexer(&self.account_id, &self.function_name)
+                .fetch_indexer(
+                    &self.initial_config.account_id,
+                    &self.initial_config.function_name,
+                )
                 .await
             {
                 Ok(config) => config,
                 Err(_) => continue,
             };
 
-            let mut state = match self.state_manager.get_state(&config.clone().unwrap()).await {
+            let mut state = match self.state_manager.get_state(&self.initial_config).await {
                 Ok(state) => state,
                 Err(_) => continue,
             };
@@ -191,8 +188,7 @@ impl<'a> LifecycleManager<'a> {
             loop {
                 match self
                     .state_manager
-                    // FIX: `config` could be `None`
-                    .set_state(&config.clone().unwrap(), state.clone())
+                    .set_state(&self.initial_config, state.clone())
                     .await
                 {
                     Ok(_) => break,
