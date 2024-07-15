@@ -133,8 +133,8 @@ impl<'a> LifecycleManager<'a> {
         _config: &IndexerConfig,
         _state: &IndexerState,
     ) -> LifecycleState {
-        // TODO Add more robust error handling
-        LifecycleState::Repairing
+        // TODO Add more robust error handling, for now just stop
+        LifecycleState::Stopping
     }
 
     async fn handle_deleting(&self, state: &IndexerState) -> LifecycleState {
