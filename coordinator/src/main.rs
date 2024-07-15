@@ -68,7 +68,8 @@ async fn main() -> anyhow::Result<()> {
 
     let registry = Arc::new(Registry::connect(registry_contract_id.clone(), &rpc_url));
     let redis_client = RedisClient::connect(&redis_url).await?;
-    let block_streams_handler = BlockStreamsHandler::connect(&block_streamer_url)?;
+    let block_streams_handler =
+        BlockStreamsHandler::connect(&block_streamer_url, redis_client.clone())?;
     let executors_handler = ExecutorsHandler::connect(&runner_url)?;
     let data_layer_handler = DataLayerHandler::connect(&runner_url)?;
     let indexer_state_manager = Arc::new(IndexerStateManager::new(redis_client.clone()));

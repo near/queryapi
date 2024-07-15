@@ -10,6 +10,7 @@ use crate::registry::Registry;
 
 // is there a way to map the transitions in this type?
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+// LifecycleStates
 pub enum Lifecycle {
     // are these too specific? e.g. should deprovisioning happen within deleting?
     #[default]
@@ -85,7 +86,7 @@ impl<'a> LifecycleManager<'a> {
 
         if self
             .block_streams_handler
-            .synchronise_block_stream(config)
+            .synchronise_block_stream(config, state.block_stream_synced_at)
             .await
             .is_err()
         {
@@ -137,6 +138,7 @@ impl<'a> LifecycleManager<'a> {
     }
 
     async fn handle_erroring(&self, config: &IndexerConfig, state: &IndexerState) -> Lifecycle {
+        // check for update
         if config.get_registry_version() != state.block_stream_synced_at.unwrap() {
             return Lifecycle::Running;
         }
@@ -154,19 +156,19 @@ impl<'a> LifecycleManager<'a> {
             return Lifecycle::Erroring;
         }
 
+        // remove redis state
+
         Lifecycle::Deleted
     }
 
-    // should not return a result here, all errors should be handled internally
+    // should _not_ return a result here, all errors should be handled internally
     pub async fn run(&self) -> anyhow::Result<()> {
         // should throttle this
         loop {
-            // this would be optional, and would decide the deleting state
-            let config = Some(
-                self.registry
-                    .fetch_indexer(&self.account_id, &self.function_name)
-                    .await?,
-            );
+            let config = self
+                .registry
+                .fetch_indexer(&self.account_id, &self.function_name)
+                .await?;
             let mut state = self
                 .state_manager
                 .get_state(&config.clone().unwrap())
@@ -187,6 +189,7 @@ impl<'a> LifecycleManager<'a> {
                 self.handle_deleting(&state).await
             };
 
+            // only set if not deleting
             self.state_manager
                 .set_state(&config.unwrap(), state)
                 .await?;
