@@ -1,131 +1,22 @@
-const accountId = context.accountId;
-
-const WILD_CARD = '*';
-
-const validateContractId = (accountId) => {
-  accountId = accountId.trim();
-  // Check if accountId is a wildcard '*'
-  if (accountId === WILD_CARD) return true;
-  // Check if accountId length is between 2 and 64 characters
-  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
-  if (!isLengthValid) return false;
-  // Check if accountId starts with '*.' || '*' remove for part verification
-  if (accountId.startsWith('*.')) accountId = accountId.slice(2);
-  if (accountId.startsWith('*')) accountId = accountId.slice(1);
-
-  const parts = accountId.split('.');
-  for (let part of parts) {
-    if (!part.match(/^[a-z\d]+([-_][a-z\d]+)*$/)) {
-      return false;
-    }
-  }
-
-  return true;
-};
-
-const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
-const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
-
-const [allIndexers, setAllIndexers] = useState([]);
-const [checkboxState, setCheckboxState] = useState(initialCheckboxState);
-
-const [checkBoxData, setCheckBoxData] = useState([]);
-const [loading, setLoading] = useState(false);
-const [contractInputMessage, setContractInputMessage] = useState('');
-const [inputValue, setInputValue] = useState('');
-const [methodCount, setMethodCount] = useState(0);
-
-const handleFetchCheckboxData = async () => {
-  // setCheckBoxData([]);
-  // setMethodCount(0);
-
-  // if (!validateContractId(inputValue)) {
-  //   setContractInputMessage('Invalid contract id');
-  //   return;
-  // }
-
-  // setLoading(true);
-  // setContractInputMessage('');
-
-  const url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
-  asyncFetch(url,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        filter: '*pool.near'
-      }),
-    }
-  )
-    .then(response => {
-      if (!response.ok) {
-        setError('There was an error fetching the data');
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = response.body;
-      setCheckBoxData(data);
-      setMethodCount(data.length);
-    })
-};
-
-const initialCheckboxState = checkBoxData.reduce((acc, item) => {
-  acc[item.method_name] = false;
-  if (item.schema.properties) {
-    Object.keys(item.schema.properties).forEach(property => {
-      acc[`${item.method_name}::${property}`] = false;
-    });
-  }
-  return acc;
-}, {});
-
-useEffect(() => {
-  // Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-  //   const indexers = [];
-  //   Object.keys(data).forEach((accountId) => {
-  //     Object.keys(data[accountId]).forEach((functionName) => {
-  //       indexers.push({
-  //         accountId: accountId,
-  //         indexerName: functionName,
-  //       });
-  //     });
-  //   });
-  //   setAllIndexers(indexers)
-  // });
-}, []);
-
-const handleParentChange = (methodName) => {
-  const newState = { ...checkboxState };
-  const isChecked = !checkboxState[methodName];
-  newState[methodName] = isChecked;
-  checkBoxData.forEach(item => {
-    if (item.method_name === methodName && item.schema.properties) {
-      Object.keys(item.schema.properties).forEach(property => {
-        newState[`${methodName}::${property}`] = isChecked;
-      });
-    }
-  });
-  setCheckboxState(newState);
-};
-
-const handleChildChange = (childId) => {
-  setCheckboxState({
-    ...checkboxState,
-    [childId]: !checkboxState[childId],
-  });
-};
-
 const NoQueryContainer = styled.div`
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
 `;
+
 const NoQueryText = styled.p`
-  font-family: 'Mona Sans', sans-serif;
-  font-size: 10px;
-  line-height: 18.2px;
-  letter-spacing: 1.5%;
-  font-align: center;
+  margin-top: 16px;
+  font-size: 16px;
+  color: #000;
+  text-align: center;
+`;
+
+const NoQuerySVG = styled.svg`
+  height: 100px;
+  width: 100%;
 `;
 
 const CheckboxContainer = styled.div`
@@ -151,16 +42,12 @@ const Checkbox = styled.input`
   width: 21.6px;
   height: 21.6px;
   border-radius: 5.4px;
-
   border: 0.9px solid #DBDBD7;
   padding: 5.4px;
-
   background-color: #FDFDFC;
   box-shadow: 0 0.9px 1.8px 0 rgba(0, 0, 0, 0.1);
-
   vertical-align: middle;
   margin-right: 7.2px;
-  
   outline: none;
 `;
 
@@ -267,25 +154,44 @@ const SubContainerContent = styled.div`
 `
 const ScrollableDiv = styled.div`
 height: 260px;
-overflow-y: auto;
 
-  ::-webkit-scrollbar {
-    width: 10px;
-  }
+width: 100%;
+overflow-x: auto; 
+overflow-y: auto; 
 
-  ::-webkit-scrollbar-track {
-    background: #f1f1f1;
-  }
 
-  ::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 5px;
-  }
+&::-webkit-scrollbar {
+  height: 12px;
+}
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: #555;
-  }
+&::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 6px;
+}
 
+&::-webkit-scrollbar-thumb:hover {
+  background-color: #555; 
+}
+
+&::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+  border-radius: 6px;
+}
+
+&::-webkit-scrollbar-track-piece {
+  background: #f9f9f9;
+}
+
+/* Firefox */
+scrollbar-width: thin;
+scrollbar-color: #888 #f1f1f1; 
+
+/* Edge and IE */
+-ms-overflow-style: -ms-autohiding-scrollbar; 
+
+-ms-scroll-chaining: none;
+-ms-scroll-snap-type: mandatory;
+-ms-scroll-snap-points-x: snapInterval(0%, 100%);
 `;
 
 const InputWrapper = styled.div`
@@ -314,7 +220,7 @@ const ContractInputMessage = styled.p`
   color: red;
 `
 
-const GreenButton = styled.button`
+const SearchButton = styled.button`
   width: 84px;
   background-color: #37CD83;
   border: none;
@@ -384,10 +290,12 @@ const SearchInput = styled.input`
 `;
 
 const SearchIndexerButton = styled.button`
-  background-color: transparent;
+  flex:1;  
+  border-radius: 50px;
+  background-color: #f0f0f0;
   border: none;
   color: black;
-  padding: 8px 16px;
+  padding: 8px 31px;
   cursor: pointer;
   font-family: 'Mona Sans', sans-serif;
   font-weight: 450;
@@ -396,13 +304,16 @@ const SearchIndexerButton = styled.button`
   letter-spacing: 2%;
 `;
 
-const MagnifyingGlass = styled.span`
-  font-size: 14px; /* Adjust as necessary */
-  margin-right: 8px; /* Adjust as necessary */
+const MagnifyingGlass = styled.svg`
+  width: 16px;
+  height: 16px;
 `;
 
-// TABLE
-
+const SearchArrow = styled.svg`
+  width: 20px;
+  height: 20px;
+`
+/** TABLE STYLES*/
 const TableContainer = styled.div`
   width: 745px;
   margin: 0 auto;
@@ -445,40 +356,6 @@ const TableCell = styled.td`
   text-align: left;
 `;
 
-const data = allIndexers.map((indexer) => ({
-  indexer: indexer.indexerName,
-  weeklyRequest: indexer.weeklyRequest || 150,
-  lastUpdated: indexer.lastUpdated || '2023-06-25',
-  status: indexer.status || 'Active',
-}));
-
-function CustomTable() {
-  return (
-    <TableContainer>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHeaderCell>Indexer</TableHeaderCell>
-            <TableHeaderCell>Weekly Request</TableHeaderCell>
-            <TableHeaderCell>Last Updated</TableHeaderCell>
-            <TableHeaderCell>Status</TableHeaderCell>
-          </TableRow>
-        </TableHeader>
-        <tbody>
-          {data.map((row, index) => (
-            <TableRow key={index}>
-              <TableCell>{row.indexer}</TableCell>
-              <TableCell>{row.weeklyRequest}</TableCell>
-              <TableCell>{row.lastUpdated}</TableCell>
-              <TableCell>{row.status}</TableCell>
-            </TableRow>
-          ))}
-        </tbody>
-      </Table>
-    </TableContainer>
-  );
-}
-
 // BELOW IS ORIGINAL STYLED COMPONENTS
 const Wrapper = styled.div`
   margin-inline: 12px;
@@ -512,7 +389,6 @@ const Tabs = styled.div`
   }
 `;
 
-
 const TabsButton = styled.button`
   font-weight: 600;
   font-size: 14px;
@@ -538,6 +414,170 @@ const TabsButton = styled.button`
     background: #0091ff;
   }
 `;
+
+const accountId = context.accountId;
+const WILD_CARD = '*';
+
+const validateContractId = (accountId) => {
+  accountId = accountId.trim();
+  // Check if accountId is a wildcard '*'
+  if (accountId === WILD_CARD) return true;
+  // Check if accountId length is between 2 and 64 characters
+  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  if (!isLengthValid) return false;
+  // Check if accountId starts with '*.' || '*' remove for part verification
+  if (accountId.startsWith('*.')) accountId = accountId.slice(2);
+  if (accountId.startsWith('*')) accountId = accountId.slice(1);
+
+  const parts = accountId.split('.');
+  for (let part of parts) {
+    if (!part.match(/^[a-z\d]+([-_][a-z\d]+)*$/)) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
+const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
+
+const [allIndexers, setAllIndexers] = useState([]);
+const [checkboxState, setCheckboxState] = useState(initialCheckboxState);
+
+const [checkBoxData, setCheckBoxData] = useState([]);
+const [loading, setLoading] = useState(false);
+const [contractInputMessage, setContractInputMessage] = useState('');
+const [inputValue, setInputValue] = useState('');
+const [methodCount, setMethodCount] = useState(0);
+
+const handleFetchCheckboxData = async () => {
+  setCheckBoxData([]);
+  setMethodCount(0);
+  setContractInputMessage('');
+
+  if (!validateContractId(inputValue)) {
+    setContractInputMessage('Invalid contract id');
+    return;
+  }
+
+  setLoading(true);
+
+  const url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
+  asyncFetch(url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filter: inputValue,
+      }),
+    }
+  )
+    .then(response => {
+      if (!response.ok) {
+        setError('There was an error fetching the data');
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = response.body;
+
+      if (data.length === 0) {
+        setContractInputMessage('No methods found for this contract');
+        setLoading(false);
+        return;
+      };
+
+      setCheckBoxData(data);
+      setMethodCount(data.length);
+      setLoading(false);
+    }).catch(error => {
+      setLoading(false);
+      setError('There was an error fetching the data');
+    });
+
+};
+
+const initialCheckboxState = checkBoxData.reduce((acc, item) => {
+  acc[item.method_name] = false;
+  if (item.schema.properties) {
+    Object.keys(item.schema.properties).forEach(property => {
+      acc[`${item.method_name}::${property}`] = false;
+    });
+  }
+  return acc;
+}, {});
+
+const handleParentChange = (methodName) => {
+  const newState = { ...checkboxState };
+  const isChecked = !checkboxState[methodName];
+  newState[methodName] = isChecked;
+  checkBoxData.forEach(item => {
+    if (item.method_name === methodName && item.schema.properties) {
+      Object.keys(item.schema.properties).forEach(property => {
+        newState[`${methodName}::${property}`] = isChecked;
+      });
+    }
+  });
+  setCheckboxState(newState);
+};
+
+const handleChildChange = (childId) => {
+  setCheckboxState({
+    ...checkboxState,
+    [childId]: !checkboxState[childId],
+  });
+};
+
+
+useEffect(() => {
+  // Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+  //   const indexers = [];
+  //   Object.keys(data).forEach((accountId) => {
+  //     Object.keys(data[accountId]).forEach((functionName) => {
+  //       indexers.push({
+  //         accountId: accountId,
+  //         indexerName: functionName,
+  //       });
+  //     });
+  //   });
+  //   setAllIndexers(indexers)
+  // });
+});
+
+const data = allIndexers.map((indexer) => ({
+  indexer: indexer.indexerName,
+  weeklyRequest: indexer.weeklyRequest || 150,
+  lastUpdated: indexer.lastUpdated || '2023-06-25',
+  status: indexer.status || 'Active',
+}));
+
+function CustomTable() {
+  return (
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHeaderCell>Indexer</TableHeaderCell>
+            <TableHeaderCell>Weekly Request</TableHeaderCell>
+            <TableHeaderCell>Last Updated</TableHeaderCell>
+            <TableHeaderCell>Status</TableHeaderCell>
+          </TableRow>
+        </TableHeader>
+        <tbody>
+          {data.map((row, index) => (
+            <TableRow key={index}>
+              <TableCell>{row.indexer}</TableCell>
+              <TableCell>{row.weeklyRequest}</TableCell>
+              <TableCell>{row.lastUpdated}</TableCell>
+              <TableCell>{row.status}</TableCell>
+            </TableRow>
+          ))}
+        </tbody>
+      </Table>
+    </TableContainer>
+  );
+}
 
 
 const selectTab = (tabName) => {
@@ -584,9 +624,7 @@ return (
       )}
     </Tabs> */}
 
-
     <Main>
-
       <Section active={activeTab === "explore"}>
         <Hero>
           <Container>
@@ -598,8 +636,9 @@ return (
                   placeholder="yoursmartcontract.pool.near"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
+                  onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
                 />
-                <GreenButton onClick={handleFetchCheckboxData}>Start</GreenButton>
+                <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
               </InputWrapper>
               <ContractInputMessage>{contractInputMessage}</ContractInputMessage>
             </HeadlineContainer>
@@ -607,64 +646,80 @@ return (
               <SubContainer>
                 <SubContainerTitle>Customize indexer</SubContainerTitle>
                 <SubContainerContent>
-                  <div>
-                    {loading ? (
-                      <div>Loading...</div>
-                    ) : (checkBoxData.length === 0) ?
+                  {loading ? (
+                    <div>Loading...</div>
+                  ) : (checkBoxData.length === 0) ?
+                    <>
                       <NoQueryContainer>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
-                          <polygon fill="#2E2E2E" points="50,72 63,58 50,58 37,58" />
-                          <polygon fill="#2E2E2E" points="27,37 40,50 27,50 27,37" />
-                          <polygon fill="#2E2E2E" points="73,37 60,50 73,50 73,37" />
-                        </svg>
+                        <NoQuerySVG version="1.0" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64" enable-background="new 0 0 64 64" space="preserve" fill="#000000">
+                          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                          <g id="SVGRepo_iconCarrier">
+                            <g>
+                              <path fill="#231F20" d="M63.029,42.285l-15.054-9.032c0,0.004,0,0.009-0.001,0.013C47.984,32.844,48,32.427,48,32
+                                c0-16.026-7.692-26.865-14.891-31.664C32.773,0.112,32.387,0,32,0s-0.773,0.112-1.109,0.336C23.692,5.135,16,15.974,16,32
+                                c0,0.427,0.016,0.844,0.025,1.266c-0.001-0.004-0.001-0.009-0.001-0.013L0.971,42.285C0.368,42.646,0,43.297,0,44v6
+                                c0,1.104,0.896,2,2,2h17.188c0.516,1.627,0.904,2.617,0.954,2.742C20.447,55.502,21.183,56,22,56h5c0,4.785,2.585,8,5,8
+                                c2.396,0,4.961-3.166,5-7.891c0.002-0.036,0.003-0.072,0.003-0.109H42c0.817,0,1.553-0.498,1.857-1.258
+                                c0.05-0.125,0.438-1.115,0.954-2.742H62c1.104,0,2-0.896,2-2v-6C64,43.297,63.632,42.646,63.029,42.285z M32,2c6,4,14,14,14,30
+                                c0,4.401-0.539,8.531-1.221,12H19.221C18.539,40.531,18,36.401,18,32C18,16,26,6,32,2z M2,44l14.117-8.471
+                                c0.234,3.901,0.814,7.484,1.472,10.471H2V44z M2,50v-2h16.059c0.182,0.728,0.362,1.396,0.54,2.022
+                                c-0.003-0.008-0.005-0.015-0.007-0.022H2z M32,62c-1,0-3-2-3-6h6C35,60,33,62,32,62z M42,54H22c0,0-1.254-3.136-2.357-8h24.715
+                                C43.254,50.864,42,54,42,54z M62,50H45.408c-0.002,0.008-0.004,0.015-0.007,0.022c0.178-0.626,0.358-1.295,0.54-2.022H62V50z
+                                M62,46H46.411c0.657-2.986,1.237-6.569,1.472-10.471L62,44V46z"></path>
+                              <path fill="#231F20" d="M32,30c3.313,0,6-2.687,6-6s-2.687-6-6-6s-6,2.687-6,6S28.687,30,32,30z M32,20c2.209,0,4,1.791,4,4
+                                s-1.791,4-4,4s-4-1.791-4-4S29.791,20,32,20z"></path>
+                            </g>
+                          </g>
+                        </NoQuerySVG>
                         <NoQueryText>Enter a smart contract address to see methods and events.</NoQueryText>
                       </NoQueryContainer>
-                      : (
-                        <div>
-                          {checkBoxData.length > 0 && (
-                            <MethodsText>
-                              Methods <MethodsSpan>{methodCount}</MethodsSpan>
-                            </MethodsText>
-                          )}
-                          < ScrollableDiv >
-                            {
-                              checkBoxData.length > 0 && (
-                                <>
-                                  {checkBoxData.map((item, index) => (
-                                    <CheckboxContainer key={index}>
-                                      <CheckboxLabel>
-                                        <Checkbox
-                                          type="checkbox"
-                                          id={item.method_name}
-                                          checked={checkboxState[item.method_name]}
-                                          onChange={() => handleParentChange(item.method_name)}
-                                        />
-                                        {item.method_name}
-                                      </CheckboxLabel>
-                                      {item.schema.properties && (
-                                        <SubCheckboxContainer>
-                                          {Object.keys(item.schema.properties).map((property, subIndex) => (
-                                            <CheckboxLabel key={subIndex}>
-                                              <Checkbox
-                                                type="checkbox"
-                                                id={`${item.method_name}::${property}`}
-                                                checked={checkboxState[`${item.method_name}::${property}`]}
-                                                onChange={() => handleChildChange(`${item.method_name}::${property}`)}
-                                              />
-                                              {property}: {item.schema.properties[property].type}
-                                            </CheckboxLabel>
-                                          ))}
-                                        </SubCheckboxContainer>
-                                      )}
-                                    </CheckboxContainer>
-                                  ))}
-                                </>
-                              )
-                            }
-                          </ScrollableDiv>
-                        </div>
-                      )}
-                  </div>
+                    </>
+                    : (
+                      <div>
+                        {checkBoxData.length > 0 && (
+                          <MethodsText>
+                            Methods <MethodsSpan>{methodCount}</MethodsSpan>
+                          </MethodsText>
+                        )}
+                        < ScrollableDiv >
+                          {
+                            checkBoxData.length > 0 && (
+                              <>
+                                {checkBoxData.map((item, index) => (
+                                  <CheckboxContainer key={index}>
+                                    <CheckboxLabel>
+                                      <Checkbox
+                                        type="checkbox"
+                                        id={item.method_name}
+                                        checked={checkboxState[item.method_name]}
+                                        onChange={() => handleParentChange(item.method_name)}
+                                      />
+                                      {item.method_name}
+                                    </CheckboxLabel>
+                                    {item.schema.properties && (
+                                      <SubCheckboxContainer>
+                                        {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                          <CheckboxLabel key={subIndex}>
+                                            <Checkbox
+                                              type="checkbox"
+                                              id={`${item.method_name}::${property}`}
+                                              checked={checkboxState[`${item.method_name}::${property}`]}
+                                              onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                            />
+                                            {property}: {item.schema.properties[property].type}
+                                          </CheckboxLabel>
+                                        ))}
+                                      </SubCheckboxContainer>
+                                    )}
+                                  </CheckboxContainer>
+                                ))}
+                              </>
+                            )
+                          }
+                        </ScrollableDiv>
+                      </div>
+                    )}
                 </SubContainerContent>
               </SubContainer>
             </WidgetContainer>
@@ -675,17 +730,20 @@ return (
           <ExploreContent>
             <ExploreIndexersHeading>Explore indexers on Near</ExploreIndexersHeading>
             <SearchIndexerContainer>
-              <MagnifyingGlass>🔍</MagnifyingGlass>
+              <MagnifyingGlass fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M3.624,15a8.03,8.03,0,0,0,10.619.659l5.318,5.318a1,1,0,0,0,1.414-1.414l-5.318-5.318A8.04,8.04,0,0,0,3.624,3.624,8.042,8.042,0,0,0,3.624,15Zm1.414-9.96a6.043,6.043,0,1,1-1.77,4.274A6,6,0,0,1,5.038,5.038ZM4.622,9.311a1,1,0,0,1,2,0A2.692,2.692,0,0,0,9.311,12a1,1,0,0,1,0,2A4.7,4.7,0,0,1,4.622,9.311Z"></path></g></MagnifyingGlass>
               <SearchInput placeholder="Search indexers" />
-              <SearchIndexerButton>{"➡️"}</SearchIndexerButton>
+              <SearchIndexerButton>
+                <SearchArrow viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M13.4697 5.46967C13.7626 5.17678 14.2374 5.17678 14.5303 5.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L14.5303 18.5303C14.2374 18.8232 13.7626 18.8232 13.4697 18.5303C13.1768 18.2374 13.1768 17.7626 13.4697 17.4697L18.1893 12.75H4C3.58579 12.75 3.25 12.4142 3.25 12C3.25 11.5858 3.58579 11.25 4 11.25H18.1893L13.4697 6.53033C13.1768 6.23744 13.1768 5.76256 13.4697 5.46967Z" fill="#1C274C"></path> </g></SearchArrow>
+              </SearchIndexerButton>
             </SearchIndexerContainer>
             {CustomTable()}
           </ExploreContent>
         </ExploreIndexersContainer>
-
-
       </Section>
     </Main>
   </Wrapper >
-
 );
+
+
+
+
