@@ -1,12 +1,3 @@
-// TODO
-// - [ ] Ensure all states are appropriate, i.e. do we need both Deprovisioning and Deleting?
-// - [ ] Fully implement state handling, i.e. block stream/executor synchronisation
-// - [ ] Spawn lifecycle tasks from `main()`
-// - [ ] Extract client from handlers to make mocking/testing easier? is handler the best place for
-// those higher level methods
-// - [ ] Introduce typestate?
-// - [ ] tests
-
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,7 +13,6 @@ use crate::indexer_state::IndexerStateManager;
 use crate::lifecycle::LifecycleManager;
 use crate::redis::RedisClient;
 use crate::registry::Registry;
-use crate::synchroniser::Synchroniser;
 
 mod handlers;
 mod indexer_config;
