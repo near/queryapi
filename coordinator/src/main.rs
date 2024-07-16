@@ -79,10 +79,7 @@ async fn main() -> anyhow::Result<()> {
     loop {
         let indexer_registry = registry.fetch().await?;
 
-        for config in indexer_registry
-            .iter()
-            .filter(|config| config.account_id.as_str() == "vuso.near")
-        {
+        for config in indexer_registry.iter() {
             if lifecycle_tasks.contains_key(&config.get_full_name()) {
                 continue;
             }
