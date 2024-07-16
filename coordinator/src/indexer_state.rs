@@ -17,14 +17,23 @@ pub enum ProvisionedState {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
-pub struct IndexerState {
+pub struct OldIndexerState {
     // store previous config to make comparison easier?
     pub account_id: AccountId,
     pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
     pub provisioned_state: ProvisionedState,
-    pub lifecycle: LifecycleState,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub struct IndexerState {
+    // store previous config to make comparison easier?
+    pub account_id: AccountId,
+    pub function_name: String,
+    pub block_stream_synced_at: Option<u64>,
+    pub enabled: bool,
+    pub lifecycle_state: LifecycleState,
 }
 
 impl KeyProvider for IndexerState {
@@ -52,14 +61,46 @@ impl IndexerStateManagerImpl {
         Self { redis_client }
     }
 
+    pub async fn migrate(&self) -> anyhow::Result<()> {
+        let raw_states = self.redis_client.list_indexer_states().await?;
+
+        for raw_state in raw_states {
+            if let Ok(state) = serde_json::from_str::<IndexerState>(&raw_state) {
+                tracing::info!(
+                    "{}/{} already migrated, skipping",
+                    state.account_id,
+                    state.function_name
+                );
+                continue;
+            }
+
+            tracing::info!("Migrating {}", raw_state);
+
+            let old_state: OldIndexerState = serde_json::from_str(&raw_state)?;
+
+            let state = IndexerState {
+                account_id: old_state.account_id,
+                function_name: old_state.function_name,
+                block_stream_synced_at: old_state.block_stream_synced_at,
+                enabled: old_state.enabled,
+                lifecycle_state: LifecycleState::Running,
+            };
+
+            self.redis_client
+                .set(state.get_state_key(), serde_json::to_string(&state)?)
+                .await?;
+        }
+
+        Ok(())
+    }
+
     fn get_default_state(&self, indexer_config: &IndexerConfig) -> IndexerState {
         IndexerState {
             account_id: indexer_config.account_id.clone(),
             function_name: indexer_config.function_name.clone(),
             block_stream_synced_at: None,
             enabled: true,
-            provisioned_state: ProvisionedState::Unprovisioned,
-            lifecycle: LifecycleState::default(),
+            lifecycle_state: LifecycleState::default(),
         }
     }
 
@@ -99,58 +140,6 @@ impl IndexerStateManagerImpl {
         let mut indexer_state = self.get_state(indexer_config).await?;
 
         indexer_state.block_stream_synced_at = Some(indexer_config.get_registry_version());
-
-        self.set_state(indexer_config, indexer_state).await?;
-
-        Ok(())
-    }
-
-    pub async fn set_deprovisioning(
-        &self,
-        indexer_state: &IndexerState,
-        task_id: String,
-    ) -> anyhow::Result<()> {
-        let mut state = indexer_state.clone();
-
-        state.provisioned_state = ProvisionedState::Deprovisioning { task_id };
-
-        self.redis_client
-            .set(state.get_state_key(), serde_json::to_string(&state)?)
-            .await?;
-
-        Ok(())
-    }
-
-    pub async fn set_provisioning(
-        &self,
-        indexer_config: &IndexerConfig,
-        task_id: String,
-    ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(indexer_config).await?;
-
-        indexer_state.provisioned_state = ProvisionedState::Provisioning { task_id };
-
-        self.set_state(indexer_config, indexer_state).await?;
-
-        Ok(())
-    }
-
-    pub async fn set_provisioned(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(indexer_config).await?;
-
-        indexer_state.provisioned_state = ProvisionedState::Provisioned;
-
-        self.set_state(indexer_config, indexer_state).await?;
-
-        Ok(())
-    }
-    pub async fn set_provisioning_failure(
-        &self,
-        indexer_config: &IndexerConfig,
-    ) -> anyhow::Result<()> {
-        let mut indexer_state = self.get_state(indexer_config).await?;
-
-        indexer_state.provisioned_state = ProvisionedState::Failed;
 
         self.set_state(indexer_config, indexer_state).await?;
 

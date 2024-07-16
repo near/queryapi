@@ -21,7 +21,6 @@ mod lifecycle;
 mod redis;
 mod registry;
 mod server;
-mod synchroniser;
 mod utils;
 
 const LOOP_THROTTLE_SECONDS: Duration = Duration::from_secs(1);
@@ -73,6 +72,8 @@ async fn main() -> anyhow::Result<()> {
         async move { server::init(grpc_port, indexer_state_manager, registry).await }
     });
 
+    indexer_state_manager.migrate().await?;
+
     let mut lifecycle_tasks = HashMap::<String, JoinHandle<()>>::new();
 
     loop {
@@ -82,6 +83,12 @@ async fn main() -> anyhow::Result<()> {
             if lifecycle_tasks.contains_key(&config.get_full_name()) {
                 continue;
             }
+
+            tracing::info!(
+                account_id = config.account_id.as_str(),
+                function_name = config.function_name.as_str(),
+                "Starting lifecycle manager"
+            );
 
             let handle = tokio::spawn({
                 let indexer_state_manager = indexer_state_manager.clone();
