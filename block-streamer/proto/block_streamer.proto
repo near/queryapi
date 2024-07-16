@@ -12,6 +12,15 @@ service BlockStreamer {
 
     // Lists all current BlockStream processes
     rpc ListStreams (ListStreamsRequest) returns (ListStreamsResponse);
+
+    // Get info for an existing BlockStream process
+    rpc GetStream (GetStreamRequest) returns (StreamInfo);
+}
+
+// Request message for getting a BlockStream
+message GetStreamRequest {
+    // ID or handle of the BlockStream
+    string stream_id = 1;
 }
 
 // Request message for starting a BlockStream
