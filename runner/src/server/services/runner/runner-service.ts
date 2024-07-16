@@ -8,6 +8,7 @@ import parentLogger from '../../../logger';
 import { type RunnerHandlers } from '../../../generated/runner/Runner';
 import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../../../generated/runner/StartExecutorResponse';
 import { type StartExecutorRequest__Output } from '../../../generated/runner/StartExecutorRequest';
+import { type GetExecutorRequest__Output } from '../../../generated/runner/GetExecutorRequest';
 import { type StopExecutorRequest__Output } from '../../../generated/runner/StopExecutorRequest';
 import { type StopExecutorResponse__Output, type StopExecutorResponse } from '../../../generated/runner/StopExecutorResponse';
 import { type ListExecutorsRequest__Output } from '../../../generated/runner/ListExecutorsRequest';
@@ -19,6 +20,26 @@ export function getRunnerService (
   StreamHandlerType: typeof StreamHandler = StreamHandler
 ): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
+    GetExecutor (call: ServerUnaryCall<GetExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<ExecutorInfo__Output>): void {
+      const executorId = call.request.executorId;
+      const executor = executors.get(executorId);
+
+      if (executor) {
+        callback(null, {
+          executorId,
+          accountId: executor.indexerConfig.accountId,
+          functionName: executor.indexerConfig.functionName,
+          version: executor.indexerConfig.version.toString(),
+          status: executor.executorContext.status
+        });
+      } else {
+        const notFoundError = {
+          code: grpc.status.NOT_FOUND,
+          message: `Executor with ID ${executorId} does not exist`
+        };
+        callback(notFoundError, null);
+      }
+    },
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
       // Validate request
       const validationResult = validateStartExecutorRequest(call.request);

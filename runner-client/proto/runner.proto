@@ -10,6 +10,14 @@ service Runner {
 
     // Lists all Runner executor
     rpc ListExecutors (ListExecutorsRequest) returns (ListExecutorsResponse);
+
+    // Get Executor info
+    rpc GetExecutor (GetExecutorRequest) returns (ExecutorInfo);
+}
+
+// Get Executor request
+message GetExecutorRequest {
+    string executor_id = 1;
 }
 
 // Start Executor Request 

@@ -32,6 +32,59 @@ describe('Runner gRPC Service', () => {
     genericIndexerConfig = new IndexerConfig(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_VERSION, BASIC_CODE, BASIC_SCHEMA, LogLevel.INFO);
   });
 
+  it('get non existant executor', async () => {
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return {
+        indexerConfig,
+        executorContext: BASIC_EXECUTOR_CONTEXT
+      };
+    });
+    const service = getRunnerService(new Map(), streamHandlerType);
+
+    await new Promise((resolve) => {
+      service.GetExecutor({ request: { executorId: BASIC_EXECUTOR_ID } } as any, (err) => {
+        expect(err).toEqual({
+          code: grpc.status.NOT_FOUND,
+          message: `Executor with ID ${BASIC_EXECUTOR_ID} does not exist`
+        });
+        resolve(null);
+      });
+    });
+  });
+
+  it('gets an existing executor', async () => {
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return {
+        indexerConfig,
+        executorContext: BASIC_EXECUTOR_CONTEXT
+      };
+    });
+    const service = getRunnerService(new Map(), streamHandlerType);
+    const request = generateRequest(BASIC_REDIS_STREAM + '-A', BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
+
+    await new Promise((resolve, reject) => {
+      service.StartExecutor(request, (err) => {
+        if (err) reject(err);
+        resolve(null);
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      service.GetExecutor({ request: { executorId: BASIC_EXECUTOR_ID } } as any, (err, response) => {
+        if (err) reject(err);
+
+        expect(response).toEqual({
+          executorId: BASIC_EXECUTOR_ID,
+          accountId: genericIndexerConfig.accountId,
+          functionName: genericIndexerConfig.functionName,
+          status: IndexerStatus.RUNNING,
+          version: '1'
+        });
+        resolve(null);
+      });
+    });
+  });
+
   it('starts a executor with correct settings', () => {
     const service = getRunnerService(new Map(), genericStreamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
