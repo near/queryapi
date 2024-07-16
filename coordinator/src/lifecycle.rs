@@ -11,15 +11,49 @@ use crate::utils::exponential_retry;
 
 const LOOP_THROTTLE_MS: u64 = 1000;
 
+/// Represents the different lifecycle states of an Indexer
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum LifecycleState {
+    /// Pre-requisite resources, i.e. Data Layer are being created.
+    ///
+    /// Transitions:
+    /// - `Running` on success
+    /// - `Repairing` on Data Layer provisioning failure
     #[default]
     Initializing,
+    /// Indexer is functional, Block Stream and Executors are continouously monitored to ensure
+    /// they are running the latest version of the Indexer.
+    ///
+    /// Transitions:
+    /// - `Stopping` if suspended
+    /// - `Running` if Block Stream or Executor fails to synchronise, essentially triggering a
+    /// retry
+    /// - `Running` on success
     Running,
+    /// Indexer is being stopped, Block Stream and Executors are being stopped.
+    ///
+    /// Transitions:
+    /// - `Stopping` on failure, triggering a retry
+    /// - `Stopped` on success
     Stopping,
+    /// Indexer is stopped, Block Stream and Executors are not running.
+    ///
+    /// Transitions:
+    /// - `Running` if unsuspended
     Stopped,
+    /// Indexer is in a bad state, currently requires manual intervention, but should eventually
+    /// self heal. This is a dead-end state
+    ///
+    /// Transitions:
+    /// - `Repairing` continuously
     Repairing, // TODO Add `error` to enable reparation
+    /// Indexer is being deleted, all resources are being cleaned up
+    ///
+    /// Transitions:
+    /// - `Deleting` on failure, triggering a retry
+    /// - `Deleted` on success
     Deleting,
+    /// Indexer is deleted, all resources are cleaned up, lifecycle manager will exit
     Deleted,
 }
 
@@ -266,7 +300,7 @@ impl<'a> LifecycleManager<'a> {
                 first_iteration = false;
             }
 
-            let next_lifecycle_state = match state.lifecycle_state {
+            let desired_lifecycle_state = match state.lifecycle_state {
                 LifecycleState::Initializing => {
                     self.handle_initializing(config.as_ref(), &state).await
                 }
@@ -278,18 +312,18 @@ impl<'a> LifecycleManager<'a> {
                 LifecycleState::Deleted => LifecycleState::Deleted,
             };
 
-            if next_lifecycle_state != state.lifecycle_state {
+            if desired_lifecycle_state != state.lifecycle_state {
                 info!(
                     "Transitioning lifecycle state: {:?} -> {:?}",
-                    state.lifecycle_state, next_lifecycle_state,
+                    state.lifecycle_state, desired_lifecycle_state,
                 );
             }
 
-            if next_lifecycle_state == LifecycleState::Deleted {
+            if desired_lifecycle_state == LifecycleState::Deleted {
                 break;
             }
 
-            state.lifecycle_state = next_lifecycle_state;
+            state.lifecycle_state = desired_lifecycle_state;
 
             loop {
                 match self
