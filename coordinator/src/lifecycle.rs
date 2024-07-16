@@ -8,7 +8,7 @@ use crate::indexer_state::{IndexerState, IndexerStateManager};
 use crate::redis::{KeyProvider, RedisClient};
 use crate::registry::Registry;
 
-const LOOP_THROTTLE_MS: u64 = 500;
+const LOOP_THROTTLE_MS: u64 = 1000;
 
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum LifecycleState {
@@ -59,8 +59,6 @@ impl<'a> LifecycleManager<'a> {
         config: &IndexerConfig,
         _state: &IndexerState,
     ) -> LifecycleState {
-        info!("Initializing");
-
         if self
             .data_layer_handler
             .ensure_provisioned(config)
@@ -84,15 +82,15 @@ impl<'a> LifecycleManager<'a> {
             .synchronise_block_stream(config, state.block_stream_synced_at)
             .await
         {
-            warn!(?error, "Failed to synchronise block stream");
+            warn!(?error, "Failed to synchronise block stream, retrying...");
 
-            return LifecycleState::Repairing;
+            return LifecycleState::Running;
         }
 
         if let Err(error) = self.executors_handler.synchronise_executor(config).await {
-            warn!(?error, "Failed to synchronise executor");
+            warn!(?error, "Failed to synchronise executor, retrying...");
 
-            return LifecycleState::Repairing;
+            return LifecycleState::Running;
         }
 
         LifecycleState::Running
@@ -100,12 +98,20 @@ impl<'a> LifecycleManager<'a> {
 
     #[tracing::instrument(name = "stopping", skip_all)]
     async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleState {
-        if let Err(error) = self.block_streams_handler.stop_if_needed(config).await {
+        if let Err(error) = self
+            .block_streams_handler
+            .stop_if_needed(config.account_id.clone(), config.function_name.clone())
+            .await
+        {
             warn!(?error, "Failed to stop block stream, retrying...");
             return LifecycleState::Stopping;
         }
 
-        if let Err(error) = self.executors_handler.stop_if_needed(config).await {
+        if let Err(error) = self
+            .executors_handler
+            .stop_if_needed(config.account_id.clone(), config.function_name.clone())
+            .await
+        {
             warn!(?error, "Failed to stop executor, retrying...");
             return LifecycleState::Stopping;
         }
@@ -130,14 +136,28 @@ impl<'a> LifecycleManager<'a> {
         _config: &IndexerConfig,
         _state: &IndexerState,
     ) -> LifecycleState {
-        info!("Repairing");
-
-        // TODO Add more robust error handling, for now just stop
-        LifecycleState::Stopping
+        // TODO Add more robust error handling, for now attempt to continue
+        LifecycleState::Repairing
     }
 
     #[tracing::instrument(name = "deleting", skip_all)]
     async fn handle_deleting(&self, state: &IndexerState) -> LifecycleState {
+        if let Err(error) = self
+            .block_streams_handler
+            .stop_if_needed(state.account_id.clone(), state.function_name.clone())
+            .await
+        {
+            warn!(?error, "Failed to stop block stream");
+        }
+
+        if let Err(error) = self
+            .executors_handler
+            .stop_if_needed(state.account_id.clone(), state.function_name.clone())
+            .await
+        {
+            warn!(?error, "Failed to stop executor");
+        }
+
         if self.state_manager.delete_state(state).await.is_err() {
             // Retry
             return LifecycleState::Deleting;
@@ -159,7 +179,7 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
-            return LifecycleState::Repairing;
+            return LifecycleState::Deleted;
         }
 
         LifecycleState::Deleted
@@ -174,6 +194,8 @@ impl<'a> LifecycleManager<'a> {
         )
     )]
     pub async fn run(&self) {
+        let mut first_iteration = true;
+
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
 
@@ -200,6 +222,11 @@ impl<'a> LifecycleManager<'a> {
                 }
             };
 
+            if first_iteration {
+                info!("Initial lifecycle state: {:?}", state.lifecycle_state,);
+                first_iteration = false;
+            }
+
             let next_lifecycle_state = if let Some(config) = config.clone() {
                 match state.lifecycle_state {
                     LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
@@ -216,9 +243,8 @@ impl<'a> LifecycleManager<'a> {
 
             if next_lifecycle_state != state.lifecycle_state {
                 info!(
-                    current = ?state.lifecycle_state,
-                    next = ?next_lifecycle_state,
-                    "Transitioning lifecycle state"
+                    "Transitioning lifecycle state: {:?} -> {:?}",
+                    state.lifecycle_state, next_lifecycle_state,
                 );
             }
 

@@ -95,6 +95,8 @@ impl DataLayerHandler {
     }
 
     pub async fn ensure_provisioned(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
+        tracing::info!(account_id = ?indexer_config.account_id, function_name = ?indexer_config.function_name, "Provisioning data layer");
+
         let start_task_result = self.start_provisioning_task(indexer_config).await;
 
         if let Err(error) = start_task_result {
@@ -138,6 +140,8 @@ impl DataLayerHandler {
         account_id: AccountId,
         function_name: String,
     ) -> anyhow::Result<()> {
+        tracing::info!(?account_id, ?function_name, "Deprovisioning data layer");
+
         let task_id = self
             .start_deprovisioning_task(account_id.clone(), function_name.clone())
             .await?;

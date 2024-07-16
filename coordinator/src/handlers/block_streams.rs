@@ -8,6 +8,7 @@ use block_streamer::{
     start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, GetStreamRequest,
     ListStreamsRequest, StartStreamRequest, Status, StopStreamRequest,
 };
+use near_primitives::types::AccountId;
 use registry_types::StartBlock;
 use tonic::transport::channel::Channel;
 use tonic::Request;
@@ -80,18 +81,22 @@ impl BlockStreamsHandler {
         .into()
     }
 
-    pub async fn get(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<StreamInfo>> {
+    pub async fn get(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<Option<StreamInfo>> {
         let request = GetStreamRequest {
-            account_id: indexer_config.account_id.to_string(),
-            function_name: indexer_config.function_name.clone(),
+            account_id: account_id.to_string(),
+            function_name: function_name.clone(),
         };
 
         match self.client.clone().get_stream(Request::new(request)).await {
             Ok(response) => Ok(Some(response.into_inner())),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(err) => Err(err).context(format!(
-                "Failed to get stream: {}",
-                indexer_config.get_full_name()
+                "Failed to get stream for account {} and name {}",
+                account_id, function_name
             )),
         }
     }
@@ -171,7 +176,11 @@ impl BlockStreamsHandler {
             StartBlock::Continue => self.get_continuation_block_height(config).await?,
         };
 
-        tracing::info!(height, "Starting block stream");
+        tracing::info!(
+            start_block = ?config.start_block,
+            height,
+            "Starting block stream"
+        );
 
         self.start(height, config).await?;
 
@@ -190,7 +199,11 @@ impl BlockStreamsHandler {
             }
         };
 
-        tracing::info!(height, "Starting block stream");
+        tracing::info!(
+            start_block = ?config.start_block,
+            height,
+            "Starting block stream"
+        );
 
         self.start(height, config).await
     }
@@ -227,7 +240,9 @@ impl BlockStreamsHandler {
         config: &IndexerConfig,
         previous_sync_version: Option<u64>,
     ) -> anyhow::Result<()> {
-        let block_stream = self.get(config).await?;
+        let block_stream = self
+            .get(config.account_id.clone(), config.function_name.clone())
+            .await?;
 
         if let Some(block_stream) = block_stream {
             if block_stream.version == config.get_registry_version() {
@@ -263,8 +278,12 @@ impl BlockStreamsHandler {
         Ok(())
     }
 
-    pub async fn stop_if_needed(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        if let Some(block_stream) = self.get(config).await? {
+    pub async fn stop_if_needed(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<()> {
+        if let Some(block_stream) = self.get(account_id, function_name).await? {
             self.stop(block_stream.stream_id).await?;
         }
 

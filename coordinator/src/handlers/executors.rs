@@ -1,5 +1,6 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use near_primitives::types::AccountId;
 pub use runner::ExecutorInfo;
 
 use anyhow::Context;
@@ -45,10 +46,14 @@ impl ExecutorsHandler {
         .await
     }
 
-    pub async fn get(&self, config: &IndexerConfig) -> anyhow::Result<Option<ExecutorInfo>> {
+    pub async fn get(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<Option<ExecutorInfo>> {
         let request = GetExecutorRequest {
-            account_id: config.account_id.to_string(),
-            function_name: config.function_name.clone(),
+            account_id: account_id.to_string(),
+            function_name: function_name.clone(),
         };
 
         match self
@@ -60,8 +65,8 @@ impl ExecutorsHandler {
             Ok(response) => Ok(Some(response.into_inner())),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(err) => Err(err).context(format!(
-                "Failed to get executor: {}",
-                config.get_full_name()
+                "Failed to get executor for account {} and name {}",
+                account_id, function_name
             )),
         }
     }
@@ -115,7 +120,9 @@ impl ExecutorsHandler {
     }
 
     pub async fn synchronise_executor(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        let executor = self.get(config).await?;
+        let executor = self
+            .get(config.account_id.clone(), config.function_name.clone())
+            .await?;
 
         if let Some(executor) = executor {
             if executor.version == config.get_registry_version() {
@@ -126,7 +133,7 @@ impl ExecutorsHandler {
                 account_id = config.account_id.as_str(),
                 function_name = config.function_name,
                 version = executor.version,
-                "Stopping executor"
+                "Stopping outdated executor"
             );
 
             self.stop(executor.executor_id).await?;
@@ -144,8 +151,12 @@ impl ExecutorsHandler {
         Ok(())
     }
 
-    pub async fn stop_if_needed(&self, config: &IndexerConfig) -> anyhow::Result<()> {
-        if let Some(executor) = self.get(config).await? {
+    pub async fn stop_if_needed(
+        &self,
+        account_id: AccountId,
+        function_name: String,
+    ) -> anyhow::Result<()> {
+        if let Some(executor) = self.get(account_id, function_name).await? {
             self.stop(executor.executor_id).await?;
         }
 
