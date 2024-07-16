@@ -688,7 +688,7 @@ return (
               <SubContainer>
                 <SubContainerTitle>Customize indexer</SubContainerTitle>
                 <SubContainerContent>
-                  {!loading ? (
+                  {loading ? (
                     <Container>
                       <LoadingSpinner />
                     </Container>
