@@ -90,6 +90,8 @@ const Container = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
+  height: 100%;
+  width: 100%;
 `;
 
 const HeadlineContainer = styled.div`
@@ -218,7 +220,7 @@ const ContractInputMessage = styled.p`
   height: 25px;
   font-size: 10px;
   color: red;
-`
+`;
 
 const SearchButton = styled.button`
   width: 84px;
@@ -356,7 +358,7 @@ const TableCell = styled.td`
   text-align: left;
 `;
 
-// BELOW IS ORIGINAL STYLED COMPONENTS
+// ORIGINAL STYLED COMPONENTS
 const Wrapper = styled.div`
   margin-inline: 12px;
   margin-top: calc(var(--body-top-padding) * -1);
@@ -414,6 +416,18 @@ const TabsButton = styled.button`
     background: #0091ff;
   }
 `;
+
+const LoadingSpinner = () => {
+  const spinnerStyle = {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(0, 0, 0, 0.1)',
+    borderLeftColor: 'black',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  };
+  return <div style={spinnerStyle}></div>;
+};
 
 const accountId = context.accountId;
 const WILD_CARD = '*';
@@ -489,6 +503,7 @@ const handleFetchCheckboxData = async () => {
       };
 
       setCheckBoxData(data);
+      console.log(data);
       setMethodCount(data.length);
       setLoading(false);
     }).catch(error => {
@@ -499,6 +514,7 @@ const handleFetchCheckboxData = async () => {
 };
 
 const initialCheckboxState = checkBoxData.reduce((acc, item) => {
+  //Select eveyrthing by default.
   acc[item.method_name] = false;
   if (item.schema.properties) {
     Object.keys(item.schema.properties).forEach(property => {
@@ -531,18 +547,18 @@ const handleChildChange = (childId) => {
 
 
 useEffect(() => {
-  // Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-  //   const indexers = [];
-  //   Object.keys(data).forEach((accountId) => {
-  //     Object.keys(data[accountId]).forEach((functionName) => {
-  //       indexers.push({
-  //         accountId: accountId,
-  //         indexerName: functionName,
-  //       });
-  //     });
-  //   });
-  //   setAllIndexers(indexers)
-  // });
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const indexers = [];
+    Object.keys(data).forEach((accountId) => {
+      Object.keys(data[accountId]).forEach((functionName) => {
+        indexers.push({
+          accountId: accountId,
+          indexerName: functionName,
+        });
+      });
+    });
+    setAllIndexers(indexers)
+  });
 });
 
 const data = allIndexers.map((indexer) => ({
@@ -647,7 +663,9 @@ return (
                 <SubContainerTitle>Customize indexer</SubContainerTitle>
                 <SubContainerContent>
                   {loading ? (
-                    <div>Loading...</div>
+                    <Container>
+                      <LoadingSpinner />
+                    </Container>
                   ) : (checkBoxData.length === 0) ?
                     <>
                       <NoQueryContainer>
@@ -672,7 +690,7 @@ return (
                             </g>
                           </g>
                         </NoQuerySVG>
-                        <NoQueryText>Enter a smart contract address to see methods and events.</NoQueryText>
+                        <NoQueryText>Enter a smart contract filter, For example "*.pool.near, *.poolv1.near"</NoQueryText>
                       </NoQueryContainer>
                     </>
                     : (
