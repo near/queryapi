@@ -37,7 +37,7 @@ const fetchIndexerData = () => {
         });
       });
 
-      setMyIndexers([myIndexers]);
+      setMyIndexers(myIndexers);
       setAllIndexers(allIndexers);
       setError(null);
     })
