@@ -10,13 +10,15 @@ const NoQueryContainer = styled.div`
 const NoQueryText = styled.p`
   margin-top: 16px;
   font-size: 16px;
-  color: #000;
+  font-family: 'Mona Sans', sans-serif;
+  color: #A1A09A;
   text-align: center;
 `;
 
 const NoQuerySVG = styled.svg`
   height: 100px;
   width: 100%;
+  color: #A1A09A;
 `;
 
 const CheckboxContainer = styled.div`
@@ -71,7 +73,7 @@ const Hero = styled.div`
 `;
 
 const Headline = styled.h1`
-  font-family: 'FK Grotesk Variable', sans-serif;
+  font-family: 'Mona Sans', sans-serif;
   font-weight: 700;
   width: 369px;
   font-size: 24px;
@@ -81,8 +83,9 @@ const Headline = styled.h1`
 const Subheadline = styled.p`
   font-family: 'Mona Sans', sans-serif;
   font-weight: 400;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 18.2px;
+  color: #717069;
   letter-spacing: 1.5%;
 `;
 
@@ -127,7 +130,7 @@ const SubContainerTitle = styled.h2`
   font-weight: 700;
   font-size: 14px;
   line-height: 14.06px;
-  color: #333;
+  color: #7F7E77;
   margin-bottom: 6px;
 `;
 
@@ -217,10 +220,18 @@ const StyledInput = styled.input`
 `;
 
 const ContractInputMessage = styled.p`
+  margin-top: 8px;
   height: 25px;
   font-size: 10px;
-  color: red;
+  color: #D95C4A; 
+  width: 100%;
 `;
+
+const WarningSVG = styled.svg`
+  height: 16px;
+  width: 16px;
+  margin-right: 4px;
+`
 
 const SearchButton = styled.button`
   width: 84px;
@@ -250,9 +261,9 @@ const ExploreIndexersContainer = styled.div`
 
 
 const ExploreIndexersHeading = styled.h2`
-  font-family: 'FK Grotesk Variable', sans-serif;
+  font-family: 'Mona Sans', sans-serif;
   font-size: 20px;
-  font-weight: 400;
+  font-weight: 500;
   line-height: 26px;
   letter-spacing: 0.015em;
   text-align: left;
@@ -360,7 +371,6 @@ const TableCell = styled.td`
 
 // ORIGINAL STYLED COMPONENTS
 const Wrapper = styled.div`
-  margin-inline: 12px;
   margin-top: calc(var(--body-top-padding) * -1);
 `;
 
@@ -425,8 +435,23 @@ const LoadingSpinner = () => {
     borderLeftColor: 'black',
     borderRadius: '50%',
     animation: 'spin 1s linear infinite',
+    textAlign: 'center',
+    display: 'flex',
+    justifyContent: 'center',
+    alignCenter: 'center',
   };
-  return <div style={spinnerStyle}></div>;
+
+  const LoadingContainer = styled.div`
+    text-align: center;
+    width: 100%;
+  `;
+
+  const LoadingSpinnerContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    font-size: 14px;
+  `
+  return <LoadingContainer> <LoadingSpinnerContainer><div style={spinnerStyle} /> </LoadingSpinnerContainer><>Generating Methods</></LoadingContainer>;
 };
 
 const accountId = context.accountId;
@@ -649,48 +674,31 @@ return (
               <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
               <InputWrapper>
                 <StyledInput
-                  placeholder="yoursmartcontract.pool.near"
+                  placeholder="*.pool.near, *.poolv1.near"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
                 />
                 <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
               </InputWrapper>
-              <ContractInputMessage>{contractInputMessage}</ContractInputMessage>
+              <ContractInputMessage>{contractInputMessage ?? <><WarningSVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><path d="M142.41,40.22l87.46,151.87C236,202.79,228.08,216,215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22C119.89,29.26,136.11,29.26,142.41,40.22Z" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><line x1="128" y1="144" x2="128" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="180" fill="red" r="12" /></WarningSVG> {contractInputMessage}</>}</ContractInputMessage>
+
             </HeadlineContainer>
             <WidgetContainer>
               <SubContainer>
                 <SubContainerTitle>Customize indexer</SubContainerTitle>
                 <SubContainerContent>
-                  {loading ? (
+                  {!loading ? (
                     <Container>
                       <LoadingSpinner />
                     </Container>
                   ) : (checkBoxData.length === 0) ?
                     <>
                       <NoQueryContainer>
-                        <NoQuerySVG version="1.0" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" viewBox="0 0 64 64" enable-background="new 0 0 64 64" space="preserve" fill="#000000">
-                          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                          <g id="SVGRepo_iconCarrier">
-                            <g>
-                              <path fill="#231F20" d="M63.029,42.285l-15.054-9.032c0,0.004,0,0.009-0.001,0.013C47.984,32.844,48,32.427,48,32
-                                c0-16.026-7.692-26.865-14.891-31.664C32.773,0.112,32.387,0,32,0s-0.773,0.112-1.109,0.336C23.692,5.135,16,15.974,16,32
-                                c0,0.427,0.016,0.844,0.025,1.266c-0.001-0.004-0.001-0.009-0.001-0.013L0.971,42.285C0.368,42.646,0,43.297,0,44v6
-                                c0,1.104,0.896,2,2,2h17.188c0.516,1.627,0.904,2.617,0.954,2.742C20.447,55.502,21.183,56,22,56h5c0,4.785,2.585,8,5,8
-                                c2.396,0,4.961-3.166,5-7.891c0.002-0.036,0.003-0.072,0.003-0.109H42c0.817,0,1.553-0.498,1.857-1.258
-                                c0.05-0.125,0.438-1.115,0.954-2.742H62c1.104,0,2-0.896,2-2v-6C64,43.297,63.632,42.646,63.029,42.285z M32,2c6,4,14,14,14,30
-                                c0,4.401-0.539,8.531-1.221,12H19.221C18.539,40.531,18,36.401,18,32C18,16,26,6,32,2z M2,44l14.117-8.471
-                                c0.234,3.901,0.814,7.484,1.472,10.471H2V44z M2,50v-2h16.059c0.182,0.728,0.362,1.396,0.54,2.022
-                                c-0.003-0.008-0.005-0.015-0.007-0.022H2z M32,62c-1,0-3-2-3-6h6C35,60,33,62,32,62z M42,54H22c0,0-1.254-3.136-2.357-8h24.715
-                                C43.254,50.864,42,54,42,54z M62,50H45.408c-0.002,0.008-0.004,0.015-0.007,0.022c0.178-0.626,0.358-1.295,0.54-2.022H62V50z
-                                M62,46H46.411c0.657-2.986,1.237-6.569,1.472-10.471L62,44V46z"></path>
-                              <path fill="#231F20" d="M32,30c3.313,0,6-2.687,6-6s-2.687-6-6-6s-6,2.687-6,6S28.687,30,32,30z M32,20c2.209,0,4,1.791,4,4
-                                s-1.791,4-4,4s-4-1.791-4-4S29.791,20,32,20z"></path>
-                            </g>
-                          </g>
+                        <NoQuerySVG
+                          xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
                         </NoQuerySVG>
-                        <NoQueryText>Enter a smart contract filter, For example "*.pool.near, *.poolv1.near"</NoQueryText>
+                        <NoQueryText>No smart contract address entered</NoQueryText>
                       </NoQueryContainer>
                     </>
                     : (
