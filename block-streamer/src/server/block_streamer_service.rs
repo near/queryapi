@@ -71,17 +71,22 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
             tonic::Status::internal("Failed to acquire `block_streams` lock")
         })?;
 
-        if let Some(stream) = lock.get(&request.stream_id) {
+        let stream_entry = lock.iter().find(|(_, block_stream)| {
+            block_stream.indexer_config.account_id == request.account_id
+                && block_stream.indexer_config.function_name == request.function_name
+        });
+
+        if let Some((stream_id, stream)) = stream_entry {
             Ok(Response::new(StreamInfo {
-                stream_id: request.stream_id,
+                stream_id: stream_id.to_string(),
                 account_id: stream.indexer_config.account_id.to_string(),
                 function_name: stream.indexer_config.function_name.to_string(),
                 version: stream.version,
             }))
         } else {
             Err(Status::not_found(format!(
-                "Block Stream with ID {} does not exist",
-                request.stream_id
+                "Block Stream for account {} and name {} does not exist",
+                request.account_id, request.function_name
             )))
         }
     }
@@ -291,7 +296,8 @@ mod tests {
 
         let stream = block_streamer_service
             .get_stream(Request::new(GetStreamRequest {
-                stream_id: "16210176318434468568".to_string(),
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
             }))
             .await
             .unwrap();
@@ -313,7 +319,8 @@ mod tests {
 
         let stream_response = block_streamer_service
             .get_stream(Request::new(GetStreamRequest {
-                stream_id: "16210176318434468568".to_string(),
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
             }))
             .await;
 

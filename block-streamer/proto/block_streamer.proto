@@ -19,8 +19,10 @@ service BlockStreamer {
 
 // Request message for getting a BlockStream
 message GetStreamRequest {
-    // ID or handle of the BlockStream
-    string stream_id = 1;
+    // Account ID which the indexer is defined under
+    string account_id = 1;
+    // Name of the indexer
+    string function_name = 2;
 }
 
 // Request message for starting a BlockStream
