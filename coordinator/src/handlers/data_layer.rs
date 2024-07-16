@@ -12,20 +12,14 @@ use tonic::{Request, Status};
 
 use crate::indexer_config::IndexerConfig;
 
-#[cfg(not(test))]
-pub use DataLayerHandlerImpl as DataLayerHandler;
-#[cfg(test)]
-pub use DataLayerHandlerImpl as DataLayerHandler;
-
 type TaskId = String;
 
 #[derive(Clone)]
-pub struct DataLayerHandlerImpl {
+pub struct DataLayerHandler {
     client: DataLayerClient<Channel>,
 }
 
-#[cfg_attr(test, mockall::automock)]
-impl DataLayerHandlerImpl {
+impl DataLayerHandler {
     pub fn connect(runner_url: &str) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(runner_url.to_string())
             .context("Runner URL is invalid")?

@@ -12,18 +12,12 @@ use crate::indexer_config::IndexerConfig;
 use crate::redis::KeyProvider;
 use crate::utils::exponential_retry;
 
-#[cfg(not(test))]
-pub use ExecutorsHandlerImpl as ExecutorsHandler;
-#[cfg(test)]
-pub use ExecutorsHandlerImpl as ExecutorsHandler;
-
 #[derive(Clone)]
-pub struct ExecutorsHandlerImpl {
+pub struct ExecutorsHandler {
     client: RunnerClient<Channel>,
 }
 
-#[cfg_attr(test, mockall::automock)]
-impl ExecutorsHandlerImpl {
+impl ExecutorsHandler {
     pub fn connect(runner_url: &str) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(runner_url.to_string())
             .context("Runner URL is invalid")?

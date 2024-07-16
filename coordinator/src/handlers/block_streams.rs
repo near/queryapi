@@ -16,20 +16,14 @@ use crate::indexer_config::IndexerConfig;
 use crate::redis::{KeyProvider, RedisClient};
 use crate::utils::exponential_retry;
 
-#[cfg(not(test))]
-pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
-#[cfg(test)]
-pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
-//pub use MockBlockStreamsHandlerImpl as BlockStreamsHandler;
-
 #[derive(Clone)]
-pub struct BlockStreamsHandlerImpl {
+pub struct BlockStreamsHandler {
     client: BlockStreamerClient<Channel>,
     redis_client: RedisClient,
 }
 
 #[cfg_attr(test, mockall::automock)]
-impl BlockStreamsHandlerImpl {
+impl BlockStreamsHandler {
     pub fn connect(block_streamer_url: &str, redis_client: RedisClient) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(block_streamer_url.to_string())
             .context("Block Streamer URL is invalid")?
