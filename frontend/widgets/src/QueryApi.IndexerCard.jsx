@@ -2,6 +2,7 @@ const { accountId, indexerName, lastDeploymentDate, numDeployements, numQueries,
 const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId.replaceAll("_", ".")}/${indexerName}`;
 const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replace(/\./g, '_')}`;
 const formatNumberWithCommas = (number) => number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
 const Card = styled.div`
   position: relative;
   width: 100%;
@@ -181,7 +182,6 @@ return (
       >
         View Indexer
       </ButtonLink>
-      {editUrl}
     </CardFooter>
   </Card>
 );
