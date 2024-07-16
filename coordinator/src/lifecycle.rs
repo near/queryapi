@@ -227,6 +227,10 @@ impl<'a> LifecycleManager<'a> {
                 first_iteration = false;
             }
 
+            if state.lifecycle_state == LifecycleState::Deleted {
+                break;
+            }
+
             let next_lifecycle_state = if let Some(config) = config.clone() {
                 match state.lifecycle_state {
                     LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
@@ -234,8 +238,9 @@ impl<'a> LifecycleManager<'a> {
                     LifecycleState::Stopping => self.handle_stopping(&config).await,
                     LifecycleState::Stopped => self.handle_stopped(&state).await,
                     LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
-                    LifecycleState::Deleting => unreachable!("handled below"),
-                    LifecycleState::Deleted => break,
+                    LifecycleState::Deleting | LifecycleState::Deleted => {
+                        unreachable!("handled explicitly above")
+                    }
                 }
             } else {
                 self.handle_deleting(&state).await
