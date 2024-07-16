@@ -21,10 +21,12 @@ export function getRunnerService (
 ): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
     GetExecutor (call: ServerUnaryCall<GetExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<ExecutorInfo__Output>): void {
-      const executorId = call.request.executorId;
-      const executor = executors.get(executorId);
+      const { accountId, functionName } = call.request;
 
-      if (executor) {
+      const executorEntry = Array.from(executors.entries()).find(([_id, executor]) => executor.indexerConfig.accountId === accountId && executor.indexerConfig.functionName === functionName);
+
+      if (executorEntry) {
+        const [executorId, executor] = executorEntry;
         callback(null, {
           executorId,
           accountId: executor.indexerConfig.accountId,
@@ -35,7 +37,7 @@ export function getRunnerService (
       } else {
         const notFoundError = {
           code: grpc.status.NOT_FOUND,
-          message: `Executor with ID ${executorId} does not exist`
+          message: `Executor for account ${accountId} and name ${functionName} does not exist`
         };
         callback(notFoundError, null);
       }

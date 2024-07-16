@@ -42,10 +42,10 @@ describe('Runner gRPC Service', () => {
     const service = getRunnerService(new Map(), streamHandlerType);
 
     await new Promise((resolve) => {
-      service.GetExecutor({ request: { executorId: BASIC_EXECUTOR_ID } } as any, (err) => {
+      service.GetExecutor({ request: { accountId: BASIC_ACCOUNT_ID, functionName: BASIC_FUNCTION_NAME } } as any, (err) => {
         expect(err).toEqual({
           code: grpc.status.NOT_FOUND,
-          message: `Executor with ID ${BASIC_EXECUTOR_ID} does not exist`
+          message: `Executor for account ${BASIC_ACCOUNT_ID} and name ${BASIC_FUNCTION_NAME} does not exist`
         });
         resolve(null);
       });
@@ -70,7 +70,7 @@ describe('Runner gRPC Service', () => {
     });
 
     await new Promise((resolve, reject) => {
-      service.GetExecutor({ request: { executorId: BASIC_EXECUTOR_ID } } as any, (err, response) => {
+      service.GetExecutor({ request: { accountId: BASIC_ACCOUNT_ID, functionName: BASIC_FUNCTION_NAME } } as any, (err, response) => {
         if (err) reject(err);
 
         expect(response).toEqual({

@@ -17,7 +17,8 @@ service Runner {
 
 // Get Executor request
 message GetExecutorRequest {
-    string executor_id = 1;
+    string account_id = 1;
+    string function_name = 2;
 }
 
 // Start Executor Request 
