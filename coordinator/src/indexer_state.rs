@@ -121,6 +121,8 @@ impl IndexerStateManagerImpl {
     }
 
     pub async fn delete_state(&self, indexer_state: &IndexerState) -> anyhow::Result<()> {
+        tracing::info!("Deleting state");
+
         self.redis_client.delete_indexer_state(indexer_state).await
     }
 

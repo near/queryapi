@@ -157,6 +157,7 @@ impl ExecutorsHandler {
         function_name: String,
     ) -> anyhow::Result<()> {
         if let Some(executor) = self.get(account_id, function_name).await? {
+            tracing::info!("Stopping executor");
             self.stop(executor.executor_id).await?;
         }
 

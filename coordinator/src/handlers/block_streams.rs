@@ -284,6 +284,8 @@ impl BlockStreamsHandler {
         function_name: String,
     ) -> anyhow::Result<()> {
         if let Some(block_stream) = self.get(account_id, function_name).await? {
+            tracing::info!("Stopping block stream");
+
             self.stop(block_stream.stream_id).await?;
         }
 

@@ -56,9 +56,15 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "initializing", skip_all)]
     async fn handle_initializing(
         &self,
-        config: &IndexerConfig,
+        config: Option<&IndexerConfig>,
         _state: &IndexerState,
     ) -> LifecycleState {
+        if config.is_none() {
+            return LifecycleState::Deleting;
+        }
+
+        let config = config.unwrap();
+
         if self
             .data_layer_handler
             .ensure_provisioned(config)
@@ -72,7 +78,17 @@ impl<'a> LifecycleManager<'a> {
     }
 
     #[tracing::instrument(name = "running", skip_all)]
-    async fn handle_running(&self, config: &IndexerConfig, state: &IndexerState) -> LifecycleState {
+    async fn handle_running(
+        &self,
+        config: Option<&IndexerConfig>,
+        state: &IndexerState,
+    ) -> LifecycleState {
+        if config.is_none() {
+            return LifecycleState::Deleting;
+        }
+
+        let config = config.unwrap();
+
         if !state.enabled {
             return LifecycleState::Stopping;
         }
@@ -97,7 +113,13 @@ impl<'a> LifecycleManager<'a> {
     }
 
     #[tracing::instrument(name = "stopping", skip_all)]
-    async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleState {
+    async fn handle_stopping(&self, config: Option<&IndexerConfig>) -> LifecycleState {
+        if config.is_none() {
+            return LifecycleState::Deleting;
+        }
+
+        let config = config.unwrap();
+
         if let Err(error) = self
             .block_streams_handler
             .stop_if_needed(config.account_id.clone(), config.function_name.clone())
@@ -120,7 +142,15 @@ impl<'a> LifecycleManager<'a> {
     }
 
     #[tracing::instrument(name = "stopped", skip_all)]
-    async fn handle_stopped(&self, state: &IndexerState) -> LifecycleState {
+    async fn handle_stopped(
+        &self,
+        config: Option<&IndexerConfig>,
+        state: &IndexerState,
+    ) -> LifecycleState {
+        if config.is_none() {
+            return LifecycleState::Deleting;
+        }
+
         // TODO Transistion to `Running` on config update
 
         if state.enabled {
@@ -133,10 +163,14 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "repairing", skip_all)]
     async fn handle_repairing(
         &self,
-        _config: &IndexerConfig,
+        config: Option<&IndexerConfig>,
         _state: &IndexerState,
     ) -> LifecycleState {
-        // TODO Add more robust error handling, for now attempt to continue
+        if config.is_none() {
+            return LifecycleState::Deleting;
+        }
+
+        // TODO Add more robust error handling, for now just stop
         LifecycleState::Repairing
     }
 
@@ -162,6 +196,8 @@ impl<'a> LifecycleManager<'a> {
             // Retry
             return LifecycleState::Deleting;
         }
+
+        info!("Clearing block stream");
 
         if self
             .redis_client
@@ -227,23 +263,16 @@ impl<'a> LifecycleManager<'a> {
                 first_iteration = false;
             }
 
-            if state.lifecycle_state == LifecycleState::Deleted {
-                break;
-            }
-
-            let next_lifecycle_state = if let Some(config) = config.clone() {
-                match state.lifecycle_state {
-                    LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
-                    LifecycleState::Running => self.handle_running(&config, &state).await,
-                    LifecycleState::Stopping => self.handle_stopping(&config).await,
-                    LifecycleState::Stopped => self.handle_stopped(&state).await,
-                    LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
-                    LifecycleState::Deleting | LifecycleState::Deleted => {
-                        unreachable!("handled explicitly above")
-                    }
+            let next_lifecycle_state = match state.lifecycle_state {
+                LifecycleState::Initializing => {
+                    self.handle_initializing(config.as_ref(), &state).await
                 }
-            } else {
-                self.handle_deleting(&state).await
+                LifecycleState::Running => self.handle_running(config.as_ref(), &state).await,
+                LifecycleState::Stopping => self.handle_stopping(config.as_ref()).await,
+                LifecycleState::Stopped => self.handle_stopped(config.as_ref(), &state).await,
+                LifecycleState::Repairing => self.handle_repairing(config.as_ref(), &state).await,
+                LifecycleState::Deleting => self.handle_deleting(&state).await,
+                LifecycleState::Deleted => LifecycleState::Deleted,
             };
 
             if next_lifecycle_state != state.lifecycle_state {
@@ -251,6 +280,10 @@ impl<'a> LifecycleManager<'a> {
                     "Transitioning lifecycle state: {:?} -> {:?}",
                     state.lifecycle_state, next_lifecycle_state,
                 );
+            }
+
+            if next_lifecycle_state == LifecycleState::Deleted {
+                break;
             }
 
             state.lifecycle_state = next_lifecycle_state;
