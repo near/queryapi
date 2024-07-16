@@ -1,5 +1,6 @@
 const { accountId, indexerName, lastDeploymentDate, numDeployements, numQueries, originalDeploymentDate } = props;
-const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId.replaceAll("_", ".")}/${indexerName}`;
+const accountIdName = accountId.replaceAll("_", ".");
+const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountIdName}/${indexerName}`;
 const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replace(/\./g, '_')}`;
 const formatNumberWithCommas = (number) => number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
@@ -161,7 +162,7 @@ return (
           {indexerName}
         </TextLink>
         <TextLink as="a" ellipsis>
-          @{accountId}
+          @{accountIdName}
         </TextLink>
         <Text>{formatNumberWithCommas(numQueries)} Queries in the past 7 days</Text>
       </div>
