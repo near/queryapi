@@ -5,8 +5,8 @@ pub use block_streamer::StreamInfo;
 use anyhow::Context;
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
-    start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, ListStreamsRequest,
-    StartStreamRequest, Status, StopStreamRequest,
+    start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, GetStreamRequest,
+    ListStreamsRequest, StartStreamRequest, Status, StopStreamRequest,
 };
 use registry_types::StartBlock;
 use tonic::transport::channel::Channel;
@@ -81,12 +81,19 @@ impl BlockStreamsHandler {
     }
 
     pub async fn get(&self, indexer_config: &IndexerConfig) -> anyhow::Result<Option<StreamInfo>> {
-        Ok(Some(StreamInfo {
-            stream_id: "".to_string(),
+        let request = GetStreamRequest {
             account_id: indexer_config.account_id.to_string(),
             function_name: indexer_config.function_name.clone(),
-            version: indexer_config.get_registry_version(),
-        }))
+        };
+
+        match self.client.clone().get_stream(Request::new(request)).await {
+            Ok(response) => Ok(Some(response.into_inner())),
+            Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
+            Err(err) => Err(err).context(format!(
+                "Failed to get stream: {}",
+                indexer_config.get_full_name()
+            )),
+        }
     }
 
     pub async fn start(

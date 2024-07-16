@@ -4,7 +4,7 @@ pub use runner::ExecutorInfo;
 
 use anyhow::Context;
 use runner::runner_client::RunnerClient;
-use runner::{ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
+use runner::{GetExecutorRequest, ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
@@ -46,13 +46,24 @@ impl ExecutorsHandler {
     }
 
     pub async fn get(&self, config: &IndexerConfig) -> anyhow::Result<Option<ExecutorInfo>> {
-        Ok(Some(ExecutorInfo {
-            executor_id: "".into(),
+        let request = GetExecutorRequest {
             account_id: config.account_id.to_string(),
             function_name: config.function_name.clone(),
-            version: 0,
-            status: "".to_string(),
-        }))
+        };
+
+        match self
+            .client
+            .clone()
+            .get_executor(Request::new(request))
+            .await
+        {
+            Ok(response) => Ok(Some(response.into_inner())),
+            Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
+            Err(err) => Err(err).context(format!(
+                "Failed to get executor: {}",
+                config.get_full_name()
+            )),
+        }
     }
 
     pub async fn start(&self, indexer_config: &IndexerConfig) -> anyhow::Result<()> {
