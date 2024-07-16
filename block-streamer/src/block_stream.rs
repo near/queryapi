@@ -269,7 +269,7 @@ async fn process_bitmap_indexer_blocks(
 
     let mut last_published_block_height: u64 = start_block_height;
 
-    while let Some(Ok(block_height)) = matching_block_heights.next().await {
+    while let Some(block_height) = matching_block_heights.next().await.transpose()? {
         redis
             .publish_block(indexer, redis_stream.clone(), block_height, MAX_STREAM_SIZE)
             .await?;
