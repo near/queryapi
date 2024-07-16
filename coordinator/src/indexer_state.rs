@@ -18,7 +18,6 @@ pub enum ProvisionedState {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct OldIndexerState {
-    // store previous config to make comparison easier?
     pub account_id: AccountId,
     pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
@@ -28,7 +27,6 @@ pub struct OldIndexerState {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct IndexerState {
-    // store previous config to make comparison easier?
     pub account_id: AccountId,
     pub function_name: String,
     pub block_stream_synced_at: Option<u64>,

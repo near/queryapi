@@ -7,6 +7,7 @@ use crate::indexer_config::IndexerConfig;
 use crate::indexer_state::{IndexerState, IndexerStateManager};
 use crate::redis::{KeyProvider, RedisClient};
 use crate::registry::Registry;
+use crate::utils::exponential_retry;
 
 const LOOP_THROTTLE_MS: u64 = 1000;
 
@@ -81,7 +82,7 @@ impl<'a> LifecycleManager<'a> {
     async fn handle_running(
         &self,
         config: Option<&IndexerConfig>,
-        state: &IndexerState,
+        state: &mut IndexerState,
     ) -> LifecycleState {
         if config.is_none() {
             return LifecycleState::Deleting;
@@ -102,6 +103,8 @@ impl<'a> LifecycleManager<'a> {
 
             return LifecycleState::Running;
         }
+
+        state.block_stream_synced_at = Some(config.get_registry_version());
 
         if let Err(error) = self.executors_handler.synchronise_executor(config).await {
             warn!(?error, "Failed to synchronise executor, retrying...");
@@ -267,7 +270,7 @@ impl<'a> LifecycleManager<'a> {
                 LifecycleState::Initializing => {
                     self.handle_initializing(config.as_ref(), &state).await
                 }
-                LifecycleState::Running => self.handle_running(config.as_ref(), &state).await,
+                LifecycleState::Running => self.handle_running(config.as_ref(), &mut state).await,
                 LifecycleState::Stopping => self.handle_stopping(config.as_ref()).await,
                 LifecycleState::Stopped => self.handle_stopped(config.as_ref(), &state).await,
                 LifecycleState::Repairing => self.handle_repairing(config.as_ref(), &state).await,
