@@ -286,6 +286,7 @@ async fn process_bitmap_indexer_blocks(
                     "Backfill using bitmap indexer failed unexpectedly: {:?}",
                     err
                 );
+                break;
             }
         }
     }
