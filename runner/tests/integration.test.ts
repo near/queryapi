@@ -13,6 +13,8 @@ import block_115185108 from './blocks/00115185108/streamer_message.json';
 import block_115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
+import IndexerMeta from '../src/indexer-meta/indexer-meta';
+import DmlHandler from '../src/dml-handler/dml-handler';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -114,19 +116,7 @@ describe('Indexer integration', () => {
       LogLevel.INFO
     );
 
-    const indexer = new Indexer(
-      indexerConfig,
-      {
-        provisioner
-      },
-      undefined,
-      {
-        hasuraAdminSecret: hasuraContainer.getAdminSecret(),
-        hasuraEndpoint: hasuraContainer.getEndpoint(),
-      }
-    );
-
-    await provisioner.provisionUserApi(indexerConfig);
+    const indexer = await prepareIndexer(indexerConfig, provisioner, hasuraContainer);
 
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
 
@@ -222,19 +212,7 @@ describe('Indexer integration', () => {
       LogLevel.INFO
     );
 
-    const indexer = new Indexer(
-      indexerConfig,
-      {
-        provisioner
-      },
-      undefined,
-      {
-        hasuraAdminSecret: hasuraContainer.getAdminSecret(),
-        hasuraEndpoint: hasuraContainer.getEndpoint(),
-      }
-    );
-
-    await provisioner.provisionUserApi(indexerConfig);
+    const indexer = await prepareIndexer(indexerConfig, provisioner, hasuraContainer);
 
     await indexer.execute(Block.fromStreamerMessage(block_115185108 as any as StreamerMessage));
     await indexer.execute(Block.fromStreamerMessage(block_115185109 as any as StreamerMessage));
@@ -293,7 +271,27 @@ describe('Indexer integration', () => {
   });
 });
 
-async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+async function prepareIndexer(indexerConfig: IndexerConfig, provisioner: Provisioner, hasuraContainer: StartedHasuraGraphQLContainer): Promise<Indexer> {
+  await provisioner.provisionUserApi(indexerConfig);
+
+  const db_connection_params = await provisioner.getPostgresConnectionParameters(indexerConfig.userName());
+  const dmlHandler = new DmlHandler(db_connection_params, indexerConfig);
+  const indexerMeta = new IndexerMeta(indexerConfig, db_connection_params);
+
+  return new Indexer(
+    indexerConfig,
+    {
+      dmlHandler,
+      indexerMeta,
+    },
+    {
+      hasuraAdminSecret: hasuraContainer.getAdminSecret(),
+      hasuraEndpoint: hasuraContainer.getEndpoint(),
+    }
+  );
+}
+
+async function indexerLogsQuery(indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`
     query {
       ${indexerSchemaName}_sys_logs {
@@ -304,15 +302,15 @@ async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: Graph
   return graphqlResult[`${indexerSchemaName}_sys_logs`];
 }
 
-async function indexerStatusQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerStatusQuery(indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   return await indexerMetadataQuery(indexerSchemaName, 'STATUS', graphqlClient);
 }
 
-async function indexerBlockHeightQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerBlockHeightQuery(indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   return await indexerMetadataQuery(indexerSchemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', graphqlClient);
 }
 
-async function indexerMetadataQuery (indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerMetadataQuery(indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`
     query {
       ${indexerSchemaName}_sys_metadata(where: {attribute: {_eq: "${attribute}"}}) {

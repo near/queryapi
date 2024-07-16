@@ -7,11 +7,13 @@ import LogEntry from '../indexer-meta/log-entry';
 import logger from '../logger';
 
 import type IndexerConfig from '../indexer-config';
+import { PostgresConnectionParams } from '../pg-client';
 
 export enum WorkerMessageType {
-  METRICS = 'METRICS',
-  BLOCK_HEIGHT = 'BLOCK_HEIGHT',
-  EXECUTION_STATE = 'STATUS',
+  METRICS,
+  BLOCK_HEIGHT,
+  STATUS,
+  DATABASE_CONNECTION_PARAMS,
 }
 
 export interface WorkerMessage {
@@ -36,8 +38,9 @@ export default class StreamHandler {
   private readonly logger: typeof logger;
   private readonly worker: Worker;
   public readonly executorContext: ExecutorContext;
+  private database_connection_parameters: PostgresConnectionParams | undefined;
 
-  constructor (
+  constructor(
     public readonly indexerConfig: IndexerConfig,
   ) {
     if (isMainThread) {
@@ -60,7 +63,7 @@ export default class StreamHandler {
     }
   }
 
-  async stop (): Promise<void> {
+  async stop(): Promise<void> {
     deregisterWorkerMetrics(this.worker.threadId);
 
     this.executorContext.executionState = ExecutionState.STOPPED;
@@ -68,28 +71,32 @@ export default class StreamHandler {
     await this.worker.terminate();
   }
 
-  private handleError (error: Error): void {
+  private handleError(error: Error): void {
     this.logger.error('Terminating thread', error);
     this.executorContext.executionState = ExecutionState.STALLED;
 
-    const indexer = new Indexer(this.indexerConfig);
-    indexer.setStoppedStatus().catch((e) => {
-      this.logger.error('Failed to set stopped status for indexer', e);
-    });
-    const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
-    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height);
-
-    indexer.writeCrashedWorkerLog(streamErrorLogEntry)
-      .catch((e) => {
-        this.logger.error('Failed to write failure log for stream', e);
+    if (this.database_connection_parameters) {
+      const indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
+      indexerMeta.setStatus(IndexerStatus.STOPPED).catch((e) => {
+        this.logger.error('Failed to set stopped status for indexer', e);
       });
+      const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
+      const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height);
+
+      indexerMeta.writeLogs([streamErrorLogEntry])
+        .catch((e) => {
+          this.logger.error('Failed to write failure log for stream', e);
+        });
+    } else {
+      this.logger.error('Worker crashed but was unable to write crash log to Indexer logs due to failure to acquire DB Connection Parameters');
+    }
 
     this.worker.terminate().catch(() => {
       this.logger.error('Failed to terminate thread for stream');
     });
   }
 
-  private handleMessage (message: WorkerMessage): void {
+  private handleMessage(message: WorkerMessage): void {
     switch (message.type) {
       case WorkerMessageType.EXECUTION_STATE:
         this.executorContext.executionState = message.data.state;
@@ -97,6 +104,8 @@ export default class StreamHandler {
       case WorkerMessageType.BLOCK_HEIGHT:
         this.executorContext.block_height = message.data;
         break;
+      case WorkerMessageType.DATABASE_CONNECTION_PARAMS:
+        this.database_connection_parameters = message.data;
       case WorkerMessageType.METRICS:
         registerWorkerMetrics(this.worker.threadId, message.data);
         break;

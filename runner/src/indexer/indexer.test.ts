@@ -7,10 +7,9 @@ import DmlHandler from '../dml-handler/dml-handler';
 import type PgClient from '../pg-client';
 import { LogLevel } from '../indexer-meta/log-entry';
 import IndexerConfig from '../indexer-config/indexer-config';
-import type IndexerMeta from '../indexer-meta';
+import IndexerMeta from '../indexer-meta';
 import { IndexerStatus } from '../indexer-meta';
-import type Provisioner from '../provisioner';
-import { type PostgresConnectionParams } from '../pg-client';
+import { PostgresConnectionParams } from '../pg-client';
 
 describe('Indexer unit tests', () => {
   const SIMPLE_SCHEMA = `CREATE TABLE
@@ -213,15 +212,8 @@ describe('Indexer unit tests', () => {
   const genericMockIndexerMeta: any = {
     writeLogs: jest.fn(),
     setStatus: jest.fn(),
-    updateBlockHeight: jest.fn()
+    updateBlockHeight: jest.fn().mockResolvedValue(null),
   } as unknown as IndexerMeta;
-
-  const genericProvisioner = {
-    getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-    fetchUserApiProvisioningStatus: jest.fn().mockResolvedValue(true),
-    provisionLogsAndMetadataIfNeeded: jest.fn(),
-    ensureConsistentHasuraState: jest.fn(),
-  } as unknown as Provisioner;
 
   const config = {
     hasuraEndpoint: 'mock-hasura-endpoint',
@@ -253,15 +245,14 @@ describe('Indexer unit tests', () => {
     const indexerMeta = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
+      updateBlockHeight: jest.fn().mockResolvedValue(null),
     } as unknown as IndexerMeta;
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, {
       fetch: mockFetch as unknown as typeof fetch,
-      provisioner: genericProvisioner,
       dmlHandler: genericMockDmlHandler,
       indexerMeta,
-    }, undefined, config);
+    }, config);
 
     await indexer.execute(mockBlock);
 
@@ -292,8 +283,9 @@ describe('Indexer unit tests', () => {
       });
     const indexer = new Indexer(simpleSchemaConfig, {
       fetch: mockFetch as unknown as typeof fetch,
-      dmlHandler: genericMockDmlHandler
-    }, undefined, config);
+      dmlHandler: genericMockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
 
     const context = indexer.buildContext(1, []);
 
@@ -316,30 +308,30 @@ describe('Indexer unit tests', () => {
     expect(greet).toEqual('hello');
     expect(success).toEqual(true);
     expect(mockFetch.mock.calls[0]).toEqual([
-            `${config.hasuraEndpoint}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': 'morgs_near',
-                'X-Hasura-Admin-Secret': config.hasuraAdminSecret
-              },
-              body: JSON.stringify({ query })
-            }
+      `${config.hasuraEndpoint}/v1/graphql`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hasura-Use-Backend-Only-Permissions': 'true',
+          'X-Hasura-Role': 'morgs_near',
+          'X-Hasura-Admin-Secret': config.hasuraAdminSecret
+        },
+        body: JSON.stringify({ query })
+      }
     ]);
     expect(mockFetch.mock.calls[1]).toEqual([
-            `${config.hasuraEndpoint}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': 'morgs_near',
-                'X-Hasura-Admin-Secret': config.hasuraAdminSecret
-              },
-              body: JSON.stringify({ query: mutation })
-            }
+      `${config.hasuraEndpoint}/v1/graphql`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hasura-Use-Backend-Only-Permissions': 'true',
+          'X-Hasura-Role': 'morgs_near',
+          'X-Hasura-Admin-Secret': config.hasuraAdminSecret
+        },
+        body: JSON.stringify({ query: mutation })
+      }
     ]);
   });
 
@@ -347,8 +339,9 @@ describe('Indexer unit tests', () => {
     const mockFetch = jest.fn();
     const indexer = new Indexer(simpleSchemaConfig, {
       fetch: mockFetch as unknown as typeof fetch,
-      dmlHandler: genericMockDmlHandler
-    }, undefined, config);
+      dmlHandler: genericMockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
 
     const context = indexer.buildContext(1, []);
 
@@ -377,7 +370,7 @@ describe('Indexer unit tests', () => {
           errors: ['boom']
         })
       });
-    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
 
     const context = indexer.buildContext(1, []);
 
@@ -392,7 +385,7 @@ describe('Indexer unit tests', () => {
           data: 'mock',
         }),
       });
-    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
 
     const context = indexer.buildContext(1, []);
 
@@ -401,25 +394,25 @@ describe('Indexer unit tests', () => {
     await context.graphql(query, variables);
 
     expect(mockFetch.mock.calls[0]).toEqual([
-            `${config.hasuraEndpoint}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': 'morgs_near',
-                'X-Hasura-Admin-Secret': config.hasuraAdminSecret
-              },
-              body: JSON.stringify({
-                query,
-                variables,
-              }),
-            },
+      `${config.hasuraEndpoint}/v1/graphql`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hasura-Use-Backend-Only-Permissions': 'true',
+          'X-Hasura-Role': 'morgs_near',
+          'X-Hasura-Admin-Secret': config.hasuraAdminSecret
+        },
+        body: JSON.stringify({
+          query,
+          variables,
+        }),
+      },
     ]);
   });
 
   test('GetTableNameToDefinitionNamesMapping works for a variety of input schemas', async () => {
-    const indexer = new Indexer(stressTestConfig);
+    const indexer = new Indexer(stressTestConfig, { dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta });
 
     const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(STRESS_TEST_SCHEMA);
     expect([...tableNameToDefinitionNamesMapping.keys()]).toStrictEqual([
@@ -453,7 +446,7 @@ describe('Indexer unit tests', () => {
   });
 
   test('GetTableNameToDefinitionNamesMapping works for mixed quotes schema', async () => {
-    const indexer = new Indexer(caseSensitiveConfig);
+    const indexer = new Indexer(caseSensitiveConfig, { dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta });
 
     const tableNameToDefinitionNamesMapping = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
     const tableNames = [...tableNameToDefinitionNamesMapping.keys()];
@@ -472,7 +465,7 @@ describe('Indexer unit tests', () => {
   });
 
   test('GetSchemaLookup works for mixed quotes schema', async () => {
-    const indexer = new Indexer(caseSensitiveConfig);
+    const indexer = new Indexer(caseSensitiveConfig, { dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta });
 
     const schemaLookup = indexer.getTableNameToDefinitionNamesMapping(CASE_SENSITIVE_SCHEMA);
     const tableNames = [...schemaLookup.keys()];
@@ -489,7 +482,7 @@ describe('Indexer unit tests', () => {
   });
 
   test('SanitizeTableName works properly on many test cases', async () => {
-    const indexer = new Indexer(simpleSchemaConfig, undefined, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
 
     expect(indexer.sanitizeTableName('table_name')).toStrictEqual('TableName');
     expect(indexer.sanitizeTableName('tablename')).toStrictEqual('Tablename'); // name is not capitalized
@@ -512,7 +505,7 @@ describe('Indexer unit tests', () => {
       "id" SERIAL NOT NULL
     );`;
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'code', schemaWithDuplicateSanitizedTableNames, LogLevel.INFO);
-    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
 
     // Does not outright throw an error but instead returns an empty object
     expect(indexer.buildDatabaseContext(1, []))
@@ -524,8 +517,9 @@ describe('Indexer unit tests', () => {
 
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: mockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: mockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     const objToInsert = [{
@@ -558,10 +552,11 @@ describe('Indexer unit tests', () => {
     const upsertSpy = jest.spyOn(mockDmlHandler, 'upsert');
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: mockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: mockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
-    const promises = [];
+    const promises: any[] = [];
 
     for (let i = 1; i <= 100; i++) {
       const promise = context.db.Posts.upsert(
@@ -593,8 +588,9 @@ describe('Indexer unit tests', () => {
 
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: mockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: mockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     const objToSelect = {
@@ -619,8 +615,9 @@ describe('Indexer unit tests', () => {
 
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: mockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: mockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     const whereObj = {
@@ -649,8 +646,9 @@ describe('Indexer unit tests', () => {
 
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: mockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: mockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     const objToInsert = [{
@@ -681,8 +679,9 @@ describe('Indexer unit tests', () => {
 
     const indexer = new Indexer(socialSchemaConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: mockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: mockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     const deleteFilter = {
@@ -696,8 +695,9 @@ describe('Indexer unit tests', () => {
   test('indexer builds context and verifies all methods generated', async () => {
     const indexer = new Indexer(stressTestConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: genericMockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: genericMockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     expect(Object.keys(context.db)).toStrictEqual([
@@ -735,8 +735,9 @@ describe('Indexer unit tests', () => {
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'code', '', LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, {
       fetch: genericMockFetch as unknown as typeof fetch,
-      dmlHandler: genericMockDmlHandler
-    }, genericDbCredentials, config);
+      dmlHandler: genericMockDmlHandler,
+      indexerMeta: genericMockIndexerMeta,
+    }, config);
     const context = indexer.buildContext(1, []);
 
     expect(Object.keys(context.db)).toStrictEqual([]);
@@ -838,10 +839,9 @@ describe('Indexer unit tests', () => {
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, {
       fetch: mockFetch as unknown as typeof fetch,
-      provisioner: genericProvisioner,
       dmlHandler: genericMockDmlHandler,
       indexerMeta: genericMockIndexerMeta
-    }, undefined, config);
+    }, config);
 
     await indexer.execute(mockBlock);
 
@@ -892,71 +892,20 @@ describe('Indexer unit tests', () => {
     const indexerMeta = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
+      updateBlockHeight: jest.fn().mockResolvedValue(null)
     } as unknown as IndexerMeta;
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'buildnear.testnet', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, {
       fetch: mockFetch as unknown as typeof fetch,
-      provisioner: genericProvisioner,
       dmlHandler: genericMockDmlHandler,
       indexerMeta,
-    }, undefined, config);
+    }, config);
 
     await expect(indexer.execute(mockBlock)).rejects.toThrow(new Error('Execution error: boom'));
     expect(mockFetch.mock.calls).toMatchSnapshot();
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(1, IndexerStatus.RUNNING);
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(2, IndexerStatus.FAILING);
     expect(indexerMeta.updateBlockHeight).not.toHaveBeenCalled();
-  });
-
-  test('Indexer.execute() skips database credentials fetch second time onward', async () => {
-    const blockHeight = 82699904;
-    const mockFetch = jest.fn(() => ({
-      status: 200,
-      json: async () => ({
-        errors: null,
-      }),
-    }));
-    const mockBlock = Block.fromStreamerMessage({
-      block: {
-        chunks: [0],
-        header: {
-          height: blockHeight
-        }
-      },
-      shards: {}
-    } as unknown as StreamerMessage) as unknown as Block;
-    const provisioner: any = {
-      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
-      provisionUserApi: jest.fn(),
-      provisionLogsAndMetadataIfNeeded: jest.fn(),
-      ensureConsistentHasuraState: jest.fn(),
-    };
-    const indexerMeta = {
-      writeLogs: jest.fn(),
-      setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
-    } as unknown as IndexerMeta;
-    const indexer = new Indexer(simpleSchemaConfig, {
-      fetch: mockFetch as unknown as typeof fetch,
-      provisioner,
-      dmlHandler: genericMockDmlHandler,
-      indexerMeta,
-    }, undefined, config);
-
-    await indexer.execute(mockBlock);
-    await indexer.execute(mockBlock);
-    await indexer.execute(mockBlock);
-
-    expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
-    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    // expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalled();
-    // expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalled();
-    expect(indexerMeta.setStatus).toHaveBeenCalledTimes(1); // Status is cached, so only called once
-    expect(indexerMeta.setStatus).toHaveBeenCalledWith(IndexerStatus.RUNNING);
-    expect(indexerMeta.updateBlockHeight).toHaveBeenCalledTimes(3);
-    expect(indexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
   });
 
   test('Indexer.execute() supplies the required role to the GraphQL endpoint', async () => {
@@ -976,17 +925,10 @@ describe('Indexer unit tests', () => {
       },
       shards: {}
     } as unknown as StreamerMessage) as unknown as Block;
-    const provisioner: any = {
-      getPgBouncerConnectionParameters: jest.fn().mockReturnValue(genericDbCredentials),
-      fetchUserApiProvisioningStatus: jest.fn().mockReturnValue(true),
-      provisionUserApi: jest.fn(),
-      provisionLogsAndMetadataIfNeeded: jest.fn(),
-      ensureConsistentHasuraState: jest.fn(),
-    };
     const indexerMeta = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
+      updateBlockHeight: jest.fn().mockResolvedValue(null)
     } as unknown as IndexerMeta;
     const code = `
       context.graphql(\`mutation { set(functionName: "buildnear.testnet/test", key: "height", data: "\${block.blockHeight}")}\`);
@@ -994,19 +936,14 @@ describe('Indexer unit tests', () => {
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, 'morgs.near', 'test', 0, code, SIMPLE_SCHEMA, LogLevel.INFO);
     const indexer = new Indexer(indexerConfig, {
       fetch: mockFetch as unknown as typeof fetch,
-      provisioner,
       dmlHandler: genericMockDmlHandler,
       indexerMeta,
-    }, undefined, config);
+    }, config);
 
     await indexer.execute(mockBlock);
 
-    expect(provisioner.provisionUserApi).not.toHaveBeenCalled();
     expect(indexerMeta.setStatus).toHaveBeenNthCalledWith(1, IndexerStatus.RUNNING);
     expect(mockFetch.mock.calls).toMatchSnapshot();
-    expect(provisioner.getPgBouncerConnectionParameters).toHaveBeenCalledTimes(1);
-    // expect(provisioner.provisionLogsAndMetadataIfNeeded).toHaveBeenCalledTimes(1);
-    // expect(provisioner.ensureConsistentHasuraState).toHaveBeenCalledTimes(1);
     expect(indexerMeta.updateBlockHeight).toHaveBeenCalledWith(blockHeight);
   });
 
@@ -1014,17 +951,17 @@ describe('Indexer unit tests', () => {
     const mockDebugIndexerMeta = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
+      updateBlockHeight: jest.fn().mockResolvedValue(null)
     };
     const mockInfoIndexerMeta = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
+      updateBlockHeight: jest.fn().mockResolvedValue(null)
     };
     const mockErrorIndexerMeta = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn()
+      updateBlockHeight: jest.fn().mockResolvedValue(null)
     };
     const blockHeight = 456;
     const mockBlock = Block.fromStreamerMessage({
@@ -1055,33 +992,27 @@ describe('Indexer unit tests', () => {
       debugIndexerConfig,
       {
         fetch: jest.fn() as unknown as typeof fetch,
-        provisioner: genericProvisioner,
         dmlHandler: mockDmlHandler,
         indexerMeta: mockDebugIndexerMeta as unknown as IndexerMeta
       },
-      undefined,
       config
     );
     const indexerInfo = new Indexer(
       infoIndexerConfig,
       {
         fetch: jest.fn() as unknown as typeof fetch,
-        provisioner: genericProvisioner,
         dmlHandler: mockDmlHandler,
         indexerMeta: mockInfoIndexerMeta as unknown as IndexerMeta
       },
-      undefined,
       config
     );
     const indexerError = new Indexer(
       errorIndexerConfig,
       {
         fetch: jest.fn() as unknown as typeof fetch,
-        provisioner: genericProvisioner,
         dmlHandler: mockDmlHandler,
         indexerMeta: mockErrorIndexerMeta as unknown as IndexerMeta
       },
-      undefined,
       config
     );
 
@@ -1113,7 +1044,7 @@ describe('Indexer unit tests', () => {
           data: {}
         })
       });
-    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
     const context = indexer.buildContext(1, []);
 
     const mutation = `
@@ -1127,17 +1058,17 @@ describe('Indexer unit tests', () => {
     await context.graphql(mutation);
 
     expect(mockFetch.mock.calls[0]).toEqual([
-            `${config.hasuraEndpoint}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-                'X-Hasura-Role': simpleSchemaConfig.hasuraRoleName(),
-                'X-Hasura-Admin-Secret': config.hasuraAdminSecret
-              },
-              body: JSON.stringify({ query: mutation })
-            }
+      `${config.hasuraEndpoint}/v1/graphql`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hasura-Use-Backend-Only-Permissions': 'true',
+          'X-Hasura-Role': simpleSchemaConfig.hasuraRoleName(),
+          'X-Hasura-Admin-Secret': config.hasuraAdminSecret
+        },
+        body: JSON.stringify({ query: mutation })
+      }
     ]);
   });
 
@@ -1162,7 +1093,7 @@ describe('Indexer unit tests', () => {
     const indexerMeta: any = {
       writeLogs: jest.fn(),
       setStatus: jest.fn(),
-      updateBlockHeight: jest.fn(),
+      updateBlockHeight: jest.fn().mockResolvedValue(null),
     };
 
     const code = `
@@ -1179,8 +1110,7 @@ describe('Indexer unit tests', () => {
     const mockDmlHandler: DmlHandler = { select: jest.fn() } as unknown as DmlHandler;
     const indexerDebug = new Indexer(
       debugIndexerConfig,
-      { fetch: mockFetchDebug as unknown as typeof fetch, provisioner: genericProvisioner, dmlHandler: mockDmlHandler, indexerMeta },
-      undefined,
+      { fetch: mockFetchDebug as unknown as typeof fetch, dmlHandler: mockDmlHandler, indexerMeta },
       config
     );
 
@@ -1196,7 +1126,7 @@ describe('Indexer unit tests', () => {
           data: {}
         })
       });
-    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(simpleSchemaConfig, { fetch: mockFetch as unknown as typeof fetch, dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
 
     const mutation = `
             mutation {
@@ -1209,21 +1139,21 @@ describe('Indexer unit tests', () => {
     await indexer.runGraphQLQuery(mutation, null, 0, null);
 
     expect(mockFetch.mock.calls[0]).toEqual([
-            `${config.hasuraEndpoint}/v1/graphql`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Hasura-Use-Backend-Only-Permissions': 'true',
-              },
-              body: JSON.stringify({ query: mutation })
-            }
+      `${config.hasuraEndpoint}/v1/graphql`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hasura-Use-Backend-Only-Permissions': 'true',
+        },
+        body: JSON.stringify({ query: mutation })
+      }
     ]);
   });
 
   test('transformedCode applies the correct transformations', () => {
     const indexerConfig = new IndexerConfig(SIMPLE_REDIS_STREAM, SIMPLE_ACCOUNT_ID, SIMPLE_FUNCTION_NAME, 0, 'console.log(\'hello\')', SIMPLE_SCHEMA, LogLevel.INFO);
-    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler }, undefined, config);
+    const indexer = new Indexer(indexerConfig, { dmlHandler: genericMockDmlHandler, indexerMeta: genericMockIndexerMeta }, config);
     const transformedFunction = indexer.transformIndexerFunction();
 
     expect(transformedFunction).toEqual(`
