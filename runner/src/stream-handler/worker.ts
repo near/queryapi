@@ -102,7 +102,7 @@ async function blockQueueConsumer(workerContext: WorkerContext): Promise<void> {
   let database_connection_parameters: PostgresConnectionParams;
   try {
     const provisioner = new Provisioner();
-    database_connection_parameters = await provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+    database_connection_parameters = await provisioner.getPgBouncerConnectionParameters(indexerConfig.hasuraRoleName());
     parentPort?.postMessage({ type: WorkerMessageType.DATABASE_CONNECTION_PARAMS, data: database_connection_parameters });
   } catch (e) {
     const error = e as Error;
