@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use near_lake_framework::near_indexer_primitives;
 use tonic::{Request, Response, Status};
@@ -36,6 +37,11 @@ impl From<block_stream::BlockStreamHealth> for blockstreamer::Health {
                     blockstreamer::ProcessingState::Paused as i32
                 }
             },
+            updated_at_timestamp_secs: health
+                .last_updated
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
         }
     }
 }
