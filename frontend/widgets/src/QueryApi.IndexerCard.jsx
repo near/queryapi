@@ -1,6 +1,14 @@
-const { accountId, indexerName, lastDeploymentDate, numDeployements, numQueries, originalDeploymentDate } = props;
+const { accountId, indexerName, indexerMetadata } = props;
+const sanitizedAccountID = accountId.replace(/\./g, '_');
+const key = `${sanitizedAccountID}/${indexerName}`;
+
+const indexer = {
+  accountId,
+  indexerName,
+  ...(indexerMetadata.has(key) && indexerMetadata.get(key))
+};
+
 const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
-const statusUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
 const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replace(/\./g, '_')}`;
 const formatNumberWithCommas = (number) => number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
@@ -164,7 +172,13 @@ return (
         <TextLink as="a" ellipsis>
           @{accountId}
         </TextLink>
-        <Text>{formatNumberWithCommas(numQueries)} Queries in the past 7 days</Text>
+        {indexer.numQueries >= 0 && (
+          <Text>
+            {indexer.numQueries > 999
+              ? `${formatNumberWithCommas(indexer.numQueries)} Queries in the past 7 days`
+              : `${indexer.numQueries} Queries in the past 7 days`}
+          </Text>
+        )}
       </div>
     </CardBody>
 
@@ -175,11 +189,6 @@ return (
       <ButtonLink
         primary
         href={editUrl}
-        onClick={() =>
-          State.update({
-            activeTab: "editor",
-          })
-        }
       >
         View Indexer
       </ButtonLink>

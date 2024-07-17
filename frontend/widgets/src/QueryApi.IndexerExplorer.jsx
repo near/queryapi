@@ -1,12 +1,31 @@
-const accountId = context.accountId;
-const santizedAccountId = accountId.replaceAll(".", "_");
+const myAccountId = context.accountId;
 
 const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
 const [myIndexers, setMyIndexers] = useState([]);
 const [allIndexers, setAllIndexers] = useState([]);
 const [error, setError] = useState(null);
+const [indexerMetadata, setIndexerMetaData] = useState(new Map());
 
 const fetchIndexerData = () => {
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const allIndexers = [];
+    const myIndexers = [];
+    Object.keys(data).forEach((accId) => {
+      Object.keys(data[accId]).forEach((functionName) => {
+        const indexer = {
+          accountId: accId,
+          indexerName: functionName,
+        };
+        if (accId === myAccountId) myIndexers.push(indexer);
+        allIndexers.push(indexer);
+      });
+    });
+    setMyIndexers(myIndexers);
+    setAllIndexers(allIndexers);
+  });
+}
+
+const storeIndexerMetaData = () => {
   const url = `${REPL_QUERY_API_USAGE_URL}`;
 
   asyncFetch(url)
@@ -16,12 +35,10 @@ const fetchIndexerData = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const { data } = JSON.parse(response.body);
-      const allIndexers = [];
-      const myIndexers = [];
+      const map = new Map();
 
       data.forEach(entry => {
         const { indexer_account_id, indexers } = entry;
-
         indexers.forEach(({ indexer_name, last_deployment_date, num_deployements, num_queries, original_deployment_date }) => {
           const indexer = {
             accountId: indexer_account_id,
@@ -31,21 +48,17 @@ const fetchIndexerData = () => {
             numQueries: num_queries,
             originalDeploymentDate: original_deployment_date
           };
-
-          if (indexer_account_id === santizedAccountId) myIndexers.push(indexer);
-          allIndexers.push(indexer);
+          map.set(`${indexer_account_id}/${indexer_name}`, indexer);
         });
       });
-
-      setMyIndexers([myIndexers]);
-      setAllIndexers(allIndexers);
+      setIndexerMetaData(map);
       setError(null);
     })
 }
 
-
 useEffect(() => {
   fetchIndexerData();
+  storeIndexerMetaData();
 }, []);
 
 const Wrapper = styled.div`
@@ -243,7 +256,7 @@ return (
             <Item key={i}>
               <Widget
                 src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{ ...indexer }}
+                props={{ ...indexer, indexerMetadata }}
               />
             </Item>
           ))}
@@ -271,7 +284,7 @@ return (
             <Item key={i}>
               <Widget
                 src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{ ...indexer }}
+                props={{ ...indexer, indexerMetadata }}
               />
             </Item>
           ))}
