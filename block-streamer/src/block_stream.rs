@@ -139,12 +139,12 @@ impl BlockStream {
                             tracing::error!(
                                 account_id = config.account_id.as_str(),
                                 function_name = config.function_name,
-                                "Last processed block decreased"
+                                "Last processed block should not decrease"
                             );
 
                             health.lock().unwrap().processing_state = ProcessingState::Halted;
                         }
-                        Ordering::Equal if stream_size == Some(MAX_STREAM_SIZE) => {
+                        Ordering::Equal if stream_size >= Some(MAX_STREAM_SIZE) => {
                             health.lock().unwrap().processing_state = ProcessingState::Paused;
                         }
                         Ordering::Equal => {
