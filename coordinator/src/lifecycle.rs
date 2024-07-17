@@ -7,7 +7,6 @@ use crate::indexer_config::IndexerConfig;
 use crate::indexer_state::{IndexerState, IndexerStateManager};
 use crate::redis::{KeyProvider, RedisClient};
 use crate::registry::Registry;
-use crate::utils::exponential_retry;
 
 const LOOP_THROTTLE_MS: u64 = 1000;
 
