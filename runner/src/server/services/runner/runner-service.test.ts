@@ -1,10 +1,10 @@
 import * as grpc from '@grpc/grpc-js';
 
 import type StreamHandler from '../../../stream-handler/stream-handler';
-import { IndexerStatus } from '../../../indexer-meta/indexer-meta';
 import { LogLevel } from '../../../indexer-meta/log-entry';
 import getRunnerService from './runner-service';
 import IndexerConfig from '../../../indexer-config/indexer-config';
+import { ExecutionState } from '../../../generated/runner/ExecutionState';
 
 const BASIC_REDIS_STREAM = 'test-redis-stream';
 const BASIC_ACCOUNT_ID = 'test-account-id';
@@ -15,7 +15,7 @@ const BASIC_CODE = 'test-code';
 const BASIC_SCHEMA = 'test-schema';
 const BASIC_VERSION = 1;
 const BASIC_EXECUTOR_CONTEXT = {
-  status: IndexerStatus.RUNNING,
+  executionState: ExecutionState.RUNNING,
 };
 
 describe('Runner gRPC Service', () => {
@@ -77,8 +77,10 @@ describe('Runner gRPC Service', () => {
           executorId: BASIC_EXECUTOR_ID,
           accountId: genericIndexerConfig.accountId,
           functionName: genericIndexerConfig.functionName,
-          status: IndexerStatus.RUNNING,
-          version: '1'
+          version: '1',
+          health: {
+            executionState: 'RUNNING'
+          }
         });
         resolve(null);
       });
@@ -288,8 +290,10 @@ describe('Runner gRPC Service', () => {
             executorId: BASIC_EXECUTOR_ID,
             accountId: genericIndexerConfig.accountId,
             functionName: genericIndexerConfig.functionName,
-            status: IndexerStatus.RUNNING,
-            version: '1'
+            version: '1',
+            health: {
+              executionState: 'RUNNING'
+            }
           }]
         });
         resolve(null);

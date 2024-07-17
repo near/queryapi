@@ -32,7 +32,9 @@ export function getRunnerService (
           accountId: executor.indexerConfig.accountId,
           functionName: executor.indexerConfig.functionName,
           version: executor.indexerConfig.version.toString(),
-          status: executor.executorContext.status
+          health: {
+            executionState: executor.executorContext.executionState,
+          }
         });
       } else {
         const notFoundError = {
@@ -150,7 +152,9 @@ export function getRunnerService (
             accountId: indexerConfig.accountId,
             functionName: indexerConfig.functionName,
             version: indexerConfig.version.toString(),
-            status: indexerContext.status
+            health: {
+              executionState: indexerContext.executionState,
+            }
           });
         });
         callback(null, {

@@ -7,9 +7,8 @@ import Indexer from '../indexer';
 import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
 import LakeClient from '../lake-client';
-import { WorkerMessageType, type WorkerMessage } from './stream-handler';
+import { WorkerMessageType, type WorkerMessage, ExecutionState } from './stream-handler';
 import setUpTracerExport from '../instrumentation';
-import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
@@ -119,6 +118,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
     metricsSpan.end();
 
     if (workerContext.queue.length === 0) {
+      parentPort?.postMessage({ type: WorkerMessageType.EXECUTION_STATE, data: { state: ExecutionState.WAITING } });
       await sleep(100);
       continue;
     }
@@ -162,7 +162,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         });
 
         const postRunSpan = tracer.startSpan('Delete redis message and shift queue', {}, context.active());
-        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.RUNNING } });
+        parentPort?.postMessage({ type: WorkerMessageType.EXECUTION_STATE, data: { state: ExecutionState.RUNNING } });
         await workerContext.redisClient.deleteStreamMessage(indexerConfig.redisStreamKey, streamMessageId);
         await workerContext.queue.shift();
 
@@ -174,7 +174,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
       } catch (err) {
         METRICS.FAILED_EXECUTIONS.labels({ indexer: indexerConfig.fullName() }).inc();
         parentSpan.setAttribute('status', 'failed');
-        parentPort?.postMessage({ type: WorkerMessageType.STATUS, data: { status: IndexerStatus.FAILING } });
+        parentPort?.postMessage({ type: WorkerMessageType.EXECUTION_STATE, data: { state: ExecutionState.FAILING } });
         const error = err as Error;
         if (previousError !== error.message) {
           previousError = error.message;
