@@ -3,6 +3,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::Poll;
+use std::time::SystemTime;
 
 use anyhow::Context;
 use futures::StreamExt;
@@ -79,6 +80,7 @@ pub enum ProcessingState {
 #[derive(Clone)]
 pub struct BlockStreamHealth {
     pub processing_state: ProcessingState,
+    pub last_updated: SystemTime,
 }
 
 pub struct BlockStream {
@@ -105,6 +107,7 @@ impl BlockStream {
             redis_stream,
             health: Arc::new(Mutex::new(BlockStreamHealth {
                 processing_state: ProcessingState::Idle,
+                last_updated: SystemTime::now(),
             })),
         }
     }
@@ -130,9 +133,40 @@ impl BlockStream {
                     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
                     let new_last_processed_block =
-                        redis.get_last_processed_block(&config).await.unwrap();
+                        if let Ok(block) = redis.get_last_processed_block(&config).await {
+                            block
+                        } else {
+                            tracing::warn!(
+                                account_id = config.account_id.as_str(),
+                                function_name = config.function_name,
+                                "Failed to fetch last processed block"
+                            );
+                            continue;
+                        };
 
-                    let stream_size = redis.get_stream_length(redis_stream.clone()).await.unwrap();
+                    let stream_size = if let Ok(stream_size) =
+                        redis.get_stream_length(redis_stream.clone()).await
+                    {
+                        stream_size
+                    } else {
+                        tracing::warn!(
+                            account_id = config.account_id.as_str(),
+                            function_name = config.function_name,
+                            "Failed to fetch stream size"
+                        );
+                        continue;
+                    };
+
+                    let mut health_lock = if let Ok(health) = health.lock() {
+                        health
+                    } else {
+                        tracing::warn!(
+                            account_id = config.account_id.as_str(),
+                            function_name = config.function_name,
+                            "Failed to acquire health lock"
+                        );
+                        continue;
+                    };
 
                     match new_last_processed_block.cmp(&last_processed_block) {
                         Ordering::Less => {
@@ -142,18 +176,20 @@ impl BlockStream {
                                 "Last processed block should not decrease"
                             );
 
-                            health.lock().unwrap().processing_state = ProcessingState::Halted;
+                            health_lock.processing_state = ProcessingState::Halted;
                         }
                         Ordering::Equal if stream_size >= Some(MAX_STREAM_SIZE) => {
-                            health.lock().unwrap().processing_state = ProcessingState::Paused;
+                            health_lock.processing_state = ProcessingState::Paused;
                         }
                         Ordering::Equal => {
-                            health.lock().unwrap().processing_state = ProcessingState::Halted;
+                            health_lock.processing_state = ProcessingState::Halted;
                         }
                         Ordering::Greater => {
-                            health.lock().unwrap().processing_state = ProcessingState::Active;
+                            health_lock.processing_state = ProcessingState::Active;
                         }
                     };
+
+                    health_lock.last_updated = SystemTime::now();
 
                     last_processed_block = new_last_processed_block;
                 }

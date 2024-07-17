@@ -114,6 +114,7 @@ message StreamInfo {
 
 message Health {
     ProcessingState processing_state = 1;
+    uint64 updated_at_timestamp_secs = 2;
 }
 
 enum ProcessingState {
