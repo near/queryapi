@@ -167,6 +167,7 @@ impl BlockStream {
 
 #[allow(clippy::too_many_arguments)]
 #[tracing::instrument(
+    name = "block_stream"
     skip_all,
     fields(
         account_id = indexer.account_id.as_str(),
