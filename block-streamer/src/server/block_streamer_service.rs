@@ -21,6 +21,25 @@ pub struct BlockStreamerService {
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
 }
 
+impl From<block_stream::BlockStreamHealth> for blockstreamer::Health {
+    fn from(health: block_stream::BlockStreamHealth) -> Self {
+        blockstreamer::Health {
+            processing_state: match health.processing_state {
+                block_stream::ProcessingState::Active => {
+                    blockstreamer::ProcessingState::Active as i32
+                }
+                block_stream::ProcessingState::Idle => blockstreamer::ProcessingState::Idle as i32,
+                block_stream::ProcessingState::Halted => {
+                    blockstreamer::ProcessingState::Halted as i32
+                }
+                block_stream::ProcessingState::Paused => {
+                    blockstreamer::ProcessingState::Paused as i32
+                }
+            },
+        }
+    }
+}
+
 impl BlockStreamerService {
     pub fn new(
         redis: std::sync::Arc<crate::redis::RedisClient>,
@@ -77,11 +96,17 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         });
 
         if let Some((stream_id, stream)) = stream_entry {
+            let stream_health = stream.health().map_err(|err| {
+                tracing::error!(?err, "Failed to get health of block stream");
+                Status::internal("Failed to get health of block stream")
+            })?;
+
             Ok(Response::new(StreamInfo {
                 stream_id: stream_id.to_string(),
                 account_id: stream.indexer_config.account_id.to_string(),
                 function_name: stream.indexer_config.function_name.to_string(),
                 version: stream.version,
+                health: Some(stream_health.into()),
             }))
         } else {
             Err(Status::not_found(format!(
@@ -210,11 +235,22 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
 
         let block_streams: Vec<StreamInfo> = lock
             .values()
-            .map(|block_stream| StreamInfo {
-                stream_id: block_stream.indexer_config.get_hash_id(),
-                account_id: block_stream.indexer_config.account_id.to_string(),
-                function_name: block_stream.indexer_config.function_name.clone(),
-                version: block_stream.version,
+            .map(|block_stream| {
+                let stream_health = block_stream
+                    .health()
+                    .map_err(|err| {
+                        tracing::error!(?err, "Failed to get health of block stream");
+                        Status::internal("Failed to get health of block stream")
+                    })
+                    .ok();
+
+                StreamInfo {
+                    stream_id: block_stream.indexer_config.get_hash_id(),
+                    account_id: block_stream.indexer_config.account_id.to_string(),
+                    function_name: block_stream.indexer_config.function_name.to_string(),
+                    version: block_stream.version,
+                    health: stream_health.map(|health| health.into()),
+                }
             })
             .collect();
 
