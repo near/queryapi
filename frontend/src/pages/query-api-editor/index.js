@@ -5,6 +5,7 @@ import { Alert } from 'react-bootstrap';
 import Editor from '@/components/Editor/EditorComponents/Editor';
 import IndexerLogsContainer from '@/components/Logs/LogsViewContainer/IndexerLogsContainer';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
+import GenerateCode from '@/components/Editor/EditorComponents/GenerateCode';
 
 const QueryApiEditorPage = ({ router }) => {
   const { accountId, indexerName } = router.query;
@@ -21,6 +22,12 @@ const QueryApiEditorPage = ({ router }) => {
       <Alert className="px-3 pt-3" variant="info">
         Both accountId and IndexerName need to be specified in the URL.
       </Alert>
+    );
+  }
+
+  if (accountId == 'test' || indexerName == 'test') {
+    return (
+      <GenerateCode />
     );
   }
 
