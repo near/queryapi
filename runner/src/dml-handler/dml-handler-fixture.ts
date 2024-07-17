@@ -155,7 +155,7 @@ class TableData {
 }
 
 class IndexerData {
-  tables: Map<string, TableData>;
+  private readonly tables: Map<string, TableData>;
 
   constructor(schema: AST[]) {
     this.tables = this.initializeTables(schema);
@@ -324,7 +324,7 @@ class IndexerData {
 }
 
 export default class InMemoryDmlHandler implements DmlHandlerI {
-  indexerData: IndexerData;
+  private readonly indexerData: IndexerData;
 
   constructor(schema: string) {
     const parser = new Parser();
