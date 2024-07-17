@@ -1,5 +1,7 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use std::time::{Duration, SystemTime};
+
 pub use block_streamer::StreamInfo;
 
 use anyhow::Context;
@@ -241,10 +243,16 @@ impl BlockStreamsHandler {
         block_stream: &StreamInfo,
     ) -> anyhow::Result<()> {
         if let Some(health) = block_stream.health.as_ref() {
-            if !matches!(
+            let updated_at =
+                SystemTime::UNIX_EPOCH + Duration::from_secs(health.updated_at_timestamp_secs);
+
+            let stale = updated_at.elapsed().unwrap_or_default() > Duration::from_secs(30);
+            let stalled = matches!(
                 health.processing_state.try_into(),
                 Ok(ProcessingState::Stalled)
-            ) {
+            );
+
+            if !stale && !stalled {
                 return Ok(());
             }
         }
