@@ -33,8 +33,8 @@ impl From<block_stream::BlockStreamHealth> for blockstreamer::Health {
                 block_stream::ProcessingState::Stalled => {
                     blockstreamer::ProcessingState::Stalled as i32
                 }
-                block_stream::ProcessingState::Paused => {
-                    blockstreamer::ProcessingState::Paused as i32
+                block_stream::ProcessingState::Waiting => {
+                    blockstreamer::ProcessingState::Waiting as i32
                 }
             },
             updated_at_timestamp_secs: health

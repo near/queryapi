@@ -126,8 +126,8 @@ enum ProcessingState {
     IDLE = 1;
     // Running as expected
     RUNNING = 2;
-    // Intentionally paused due to some internal condition
-    PAUSED = 3;
+    // Waiting for some internal condition to be met before continuing
+    WAITING = 3;
     // Stopped due to some unknown error
     STALLED = 4;
 }

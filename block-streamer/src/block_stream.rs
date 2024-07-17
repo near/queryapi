@@ -71,7 +71,7 @@ pub enum ProcessingState {
 
     /// Block Stream has been intentionally/internally paused due to some condition, i.e. back pressure on
     /// the Redis Stream.
-    Paused,
+    Waiting,
 
     /// Block Stream has stalled due to an error or other condition. Must be manually
     /// restarted.
@@ -180,7 +180,7 @@ impl BlockStream {
                             health_lock.processing_state = ProcessingState::Stalled;
                         }
                         Ordering::Equal if stream_size >= Some(MAX_STREAM_SIZE) => {
-                            health_lock.processing_state = ProcessingState::Paused;
+                            health_lock.processing_state = ProcessingState::Waiting;
                         }
                         Ordering::Equal => {
                             health_lock.processing_state = ProcessingState::Stalled;
