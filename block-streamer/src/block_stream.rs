@@ -1,6 +1,7 @@
+use std::cmp::Ordering;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::Poll;
 
 use anyhow::Context;
@@ -56,12 +57,37 @@ pub struct Task {
     cancellation_token: tokio_util::sync::CancellationToken,
 }
 
+/// Represents the processing state of a block stream
+#[derive(Clone)]
+pub enum ProcessingState {
+    /// Block Stream is not currently active but can be started. Either has not been started or was
+    /// stopped.
+    Idle,
+
+    /// Block Stream is actively processing blocks.
+    Active,
+
+    /// Block Stream has been intentionally/internally paused due to some condition, i.e. back pressure on
+    /// the Redis Stream.
+    Paused,
+
+    /// Block Stream has been halted due to an error or other condition. Must be manually
+    /// restarted.
+    Halted,
+}
+
+#[derive(Clone)]
+pub struct BlockStreamHealth {
+    pub processing_state: ProcessingState,
+}
+
 pub struct BlockStream {
     task: Option<Task>,
     pub indexer_config: IndexerConfig,
     pub chain_id: ChainId,
     pub version: u64,
     pub redis_stream: String,
+    health: Arc<Mutex<BlockStreamHealth>>,
 }
 
 impl BlockStream {
@@ -77,23 +103,73 @@ impl BlockStream {
             chain_id,
             version,
             redis_stream,
+            health: Arc::new(Mutex::new(BlockStreamHealth {
+                processing_state: ProcessingState::Idle,
+            })),
         }
     }
 
-    pub fn start(
-        &mut self,
+    pub fn health(&self) -> anyhow::Result<BlockStreamHealth> {
+        match self.health.lock() {
+            Ok(health) => Ok(health.clone()),
+            Err(e) => Err(anyhow::anyhow!("Failed to acquire health lock: {:?}", e)),
+        }
+    }
+
+    fn start_health_monitoring_task(&self, redis: Arc<RedisClient>) {
+        tokio::spawn({
+            let config = self.indexer_config.clone();
+            let health = self.health.clone();
+            let redis_stream = self.redis_stream.clone();
+
+            async move {
+                let mut last_processed_block =
+                    redis.get_last_processed_block(&config).await.unwrap();
+
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+                    let new_last_processed_block =
+                        redis.get_last_processed_block(&config).await.unwrap();
+
+                    let stream_size = redis.get_stream_length(redis_stream.clone()).await.unwrap();
+
+                    match new_last_processed_block.cmp(&last_processed_block) {
+                        Ordering::Less => {
+                            tracing::error!(
+                                account_id = config.account_id.as_str(),
+                                function_name = config.function_name,
+                                "Last processed block decreased"
+                            );
+
+                            health.lock().unwrap().processing_state = ProcessingState::Halted;
+                        }
+                        Ordering::Equal if stream_size == Some(MAX_STREAM_SIZE) => {
+                            health.lock().unwrap().processing_state = ProcessingState::Paused;
+                        }
+                        Ordering::Equal => {
+                            health.lock().unwrap().processing_state = ProcessingState::Halted;
+                        }
+                        Ordering::Greater => {
+                            health.lock().unwrap().processing_state = ProcessingState::Active;
+                        }
+                    };
+
+                    last_processed_block = new_last_processed_block;
+                }
+            }
+        });
+    }
+
+    fn start_block_stream_task(
+        &self,
         start_block_height: near_indexer_primitives::types::BlockHeight,
         redis: Arc<RedisClient>,
         reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
         lake_s3_client: SharedLakeS3Client,
-    ) -> anyhow::Result<()> {
-        if self.task.is_some() {
-            return Err(anyhow::anyhow!("BlockStreamer has already been started",));
-        }
-
-        let cancellation_token = tokio_util::sync::CancellationToken::new();
-
-        let handle = tokio::spawn({
+        cancellation_token: tokio_util::sync::CancellationToken,
+    ) -> JoinHandle<anyhow::Result<()>> {
+        tokio::spawn({
             let cancellation_token = cancellation_token.clone();
             let indexer_config = self.indexer_config.clone();
             let chain_id = self.chain_id.clone();
@@ -137,7 +213,31 @@ impl BlockStream {
                     }
                 }
             }
-        });
+        })
+    }
+
+    pub fn start(
+        &mut self,
+        start_block_height: near_indexer_primitives::types::BlockHeight,
+        redis: Arc<RedisClient>,
+        reciever_blocks_processor: Arc<ReceiverBlocksProcessor>,
+        lake_s3_client: SharedLakeS3Client,
+    ) -> anyhow::Result<()> {
+        if self.task.is_some() {
+            return Err(anyhow::anyhow!("BlockStreamer has already been started",));
+        }
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+
+        self.start_health_monitoring_task(redis.clone());
+
+        let handle = self.start_block_stream_task(
+            start_block_height,
+            redis,
+            reciever_blocks_processor,
+            lake_s3_client,
+            cancellation_token.clone(),
+        );
 
         self.task = Some(Task {
             handle,
