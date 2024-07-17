@@ -9,7 +9,7 @@ const DEFAULT_ITEM_1_WITHOUT_ID = {
 };
 
 const DEFAULT_ITEM_1_WITH_ID = {
-  id: 0,
+  id: 1,
   account_id: 'TEST_NEAR',
   block_height: 1,
   content: "CONTENT",
@@ -24,7 +24,7 @@ const DEFAULT_ITEM_2_WITHOUT_ID = {
 };
 
 const DEFAULT_ITEM_2_WITH_ID = {
-  id: 1,
+  id: 2,
   account_id: 'TEST_NEAR',
   block_height: 2,
   content: "CONTENT",
@@ -42,7 +42,8 @@ describe('DML Handler Fixture Tests', () => {
       CONSTRAINT "posts_pkey" PRIMARY KEY ("id", "account_id")
     );`;
   let TABLE_DEFINITION_NAMES: TableDefinitionNames = {
-    originalTableName: 'posts',
+    tableName: 'posts',
+    originalTableName: '"posts"',
     originalColumnNames: new Map<string, string>([])
   };
 

@@ -88,7 +88,7 @@ class TableData {
 
   private getSerialValue(columnName: string): number {
     const serialCounterKey = `${this.specification.tableName}-${columnName}`;
-    let counterValue: number = this.serialCounter.get(serialCounterKey) ?? 0;
+    let counterValue: number = this.serialCounter.get(serialCounterKey) ?? 1;
     this.serialCounter.set(serialCounterKey, counterValue + 1);
     return counterValue;
   }
@@ -123,7 +123,7 @@ class TableData {
   public insertRow(row: PostgresRow): PostgresRowEntity {
     const entity: PostgresRowEntity = this.createEntityFromRow(row);
     if (!this.entityIsUnique(entity)) {
-      throw new Error('Cannot insert row twice into the same table');
+      throw new Error(`Cannot insert row twice into the same table: ${JSON.stringify(entity.data)}`);
     }
 
     this.data.push(entity);
@@ -132,7 +132,7 @@ class TableData {
 
   public insertEntity(entity: PostgresRowEntity): PostgresRowEntity {
     if (!this.entityIsUnique(entity)) {
-      throw new Error('Cannot insert row twice into the same table');
+      throw new Error(`Cannot insert row twice into the same table: ${JSON.stringify(entity.data)}`);
     }
 
     this.data.push(entity);
@@ -174,6 +174,7 @@ class IndexerData {
   }
 
   private createTableSpecification(createTableStatement: any): TableSpecification {
+    // TODO: Track foreign key columns and manage them during inserts/updates
     const tableName = createTableStatement.table[0].table;
     const columnNames: string[] = [];
     const primaryKeyColumns: string[] = [];
@@ -190,7 +191,10 @@ class IndexerData {
             .push(columnName);
         }
 
-      } else if (columnDefinition.constraint && columnDefinition.constraint_type === "primary key") {
+        if (columnDefinition.primary_key) {
+          primaryKeyColumns.push(columnName);
+        }
+      } else if (columnDefinition.constraint_type === "primary key") {
         for (const primaryKey of columnDefinition.definition) {
           primaryKeyColumns.push(primaryKey.column.expr.value);
         }
@@ -223,7 +227,7 @@ class IndexerData {
   private getTableData(tableName: string): TableData {
     const tableData = this.tables.get(tableName);
     if (!tableData) {
-      throw new Error('Invalid table name provided');
+      throw new Error(`Invalid table name provided: ${tableName}`);
     }
 
     return tableData;
@@ -260,7 +264,7 @@ class IndexerData {
     for (const row of rowsToInsert) {
       const rowCopy = this.copyRow(row);
       if (!tableData.rowIsUnique(rowCopy)) {
-        throw new Error('Cannot insert row twice into the same table');
+        throw new Error(`Cannot insert row twice into the same table: ${JSON.stringify(rowCopy)}`);
       }
       insertedRows.push(tableData.insertRow(rowCopy));
     }
@@ -334,24 +338,23 @@ export default class InMemoryDmlHandler implements DmlHandlerI {
       return [];
     }
 
-    return this.indexerData.insert(tableDefinitionNames.originalTableName, rowsToInsert);
+    return this.indexerData.insert(tableDefinitionNames.tableName, rowsToInsert);
   }
 
   public async select(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<PostgresRow[]> {
-    return this.indexerData.select(tableDefinitionNames.originalTableName, whereObject, limit);
+    return this.indexerData.select(tableDefinitionNames.tableName, whereObject, limit);
   }
 
   public async update(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<PostgresRow[]> {
-    return this.indexerData.update(tableDefinitionNames.originalTableName, whereObject, updateObject);
+    return this.indexerData.update(tableDefinitionNames.tableName, whereObject, updateObject);
   }
 
-
   public async upsert(tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): Promise<PostgresRow[]> {
-    return this.indexerData.upsert(tableDefinitionNames.originalTableName, rowsToUpsert, conflictColumns, updateColumns);
+    return this.indexerData.upsert(tableDefinitionNames.tableName, rowsToUpsert, conflictColumns, updateColumns);
   }
 
   public async delete(tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<PostgresRow[]> {
-    return this.indexerData.delete(tableDefinitionNames.originalTableName, whereObject);
+    return this.indexerData.delete(tableDefinitionNames.tableName, whereObject);
   }
 }
 
