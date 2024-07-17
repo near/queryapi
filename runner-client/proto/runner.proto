@@ -62,7 +62,26 @@ message ExecutorInfo {
     string executor_id = 1;
     string account_id = 2;
     string function_name = 3;
-    string status = 4;
     // Block height corresponding to the created/updated height of the indexer
     uint64 version = 5;
+    Health health = 6;
+}
+
+// Contains health information for the Executor
+message Health {
+    ExecutionState execution_state = 1;
+}
+
+enum ExecutionState {
+    UNSPECIFIED = 0;
+    // Running as expected
+    RUNNING = 1;
+    // Executor is running, but the execution is erroring
+    FAILING = 2;
+    // Waiting for some internal condition to be met before proceeding
+    WAITING = 3;
+    // Intentionally stopped
+    STOPPED = 4;
+    // Unintentionally stopped
+    STALLED = 5;
 }
