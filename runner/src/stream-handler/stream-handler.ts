@@ -3,7 +3,6 @@ import { Worker, isMainThread } from 'worker_threads';
 
 import { registerWorkerMetrics, deregisterWorkerMetrics } from '../metrics';
 import Indexer from '../indexer';
-import { IndexerStatus } from '../indexer-meta/indexer-meta';
 import LogEntry from '../indexer-meta/log-entry';
 import logger from '../logger';
 
@@ -12,7 +11,7 @@ import type IndexerConfig from '../indexer-config';
 export enum WorkerMessageType {
   METRICS = 'METRICS',
   BLOCK_HEIGHT = 'BLOCK_HEIGHT',
-  STATUS = 'STATUS',
+  EXECUTION_STATE = 'STATUS',
 }
 
 export interface WorkerMessage {
@@ -20,8 +19,16 @@ export interface WorkerMessage {
   data: any
 }
 
+export enum ExecutionState {
+  RUNNING = 'RUNNING',
+  FAILING = 'FAILING',
+  WAITING = 'WAITING',
+  STOPPED = 'STOPPED',
+  STALLED = 'STALLED',
+}
+
 interface ExecutorContext {
-  status: IndexerStatus
+  executionState: ExecutionState
   block_height: number
 }
 
@@ -42,7 +49,7 @@ export default class StreamHandler {
         },
       });
       this.executorContext = {
-        status: IndexerStatus.RUNNING,
+        executionState: ExecutionState.RUNNING,
         block_height: indexerConfig.version,
       };
 
@@ -56,12 +63,14 @@ export default class StreamHandler {
   async stop (): Promise<void> {
     deregisterWorkerMetrics(this.worker.threadId);
 
+    this.executorContext.executionState = ExecutionState.STOPPED;
+
     await this.worker.terminate();
   }
 
   private handleError (error: Error): void {
     this.logger.error('Terminating thread', error);
-    this.executorContext.status = IndexerStatus.STOPPED;
+    this.executorContext.executionState = ExecutionState.STALLED;
 
     const indexer = new Indexer(this.indexerConfig);
     indexer.setStoppedStatus().catch((e) => {
@@ -82,8 +91,8 @@ export default class StreamHandler {
 
   private handleMessage (message: WorkerMessage): void {
     switch (message.type) {
-      case WorkerMessageType.STATUS:
-        this.executorContext.status = message.data.status;
+      case WorkerMessageType.EXECUTION_STATE:
+        this.executorContext.executionState = message.data.state;
         break;
       case WorkerMessageType.BLOCK_HEIGHT:
         this.executorContext.block_height = message.data;
