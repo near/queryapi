@@ -120,7 +120,7 @@ message Health {
 enum ProcessingState {
     UNSPECIFIED = 0;
     IDLE = 1;
-    ACTIVE = 2;
+    RUNNING = 2;
     PAUSED = 3;
-    HALTED = 4;
+    STALLED = 4;
 }

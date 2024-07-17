@@ -26,12 +26,12 @@ impl From<block_stream::BlockStreamHealth> for blockstreamer::Health {
     fn from(health: block_stream::BlockStreamHealth) -> Self {
         blockstreamer::Health {
             processing_state: match health.processing_state {
-                block_stream::ProcessingState::Active => {
-                    blockstreamer::ProcessingState::Active as i32
+                block_stream::ProcessingState::Running => {
+                    blockstreamer::ProcessingState::Running as i32
                 }
                 block_stream::ProcessingState::Idle => blockstreamer::ProcessingState::Idle as i32,
-                block_stream::ProcessingState::Halted => {
-                    blockstreamer::ProcessingState::Halted as i32
+                block_stream::ProcessingState::Stalled => {
+                    blockstreamer::ProcessingState::Stalled as i32
                 }
                 block_stream::ProcessingState::Paused => {
                     blockstreamer::ProcessingState::Paused as i32
