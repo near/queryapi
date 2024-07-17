@@ -1,4 +1,4 @@
-//Dummy Component to generate code
+//Dummy Component to generate code accessable accountId=test and indexerName=test and
 import { useState } from 'react';
 
 const GenerateCode = () => {
