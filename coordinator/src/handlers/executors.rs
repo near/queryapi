@@ -5,7 +5,10 @@ pub use runner::ExecutorInfo;
 
 use anyhow::Context;
 use runner::runner_client::RunnerClient;
-use runner::{GetExecutorRequest, ListExecutorsRequest, StartExecutorRequest, StopExecutorRequest};
+use runner::{
+    ExecutionState, GetExecutorRequest, ListExecutorsRequest, StartExecutorRequest,
+    StopExecutorRequest,
+};
 use tonic::transport::channel::Channel;
 use tonic::Request;
 
@@ -119,6 +122,28 @@ impl ExecutorsHandler {
         Ok(())
     }
 
+    async fn ensure_healthy(
+        &self,
+        config: &IndexerConfig,
+        executor: ExecutorInfo,
+    ) -> anyhow::Result<()> {
+        if let Some(health) = executor.health {
+            if !matches!(
+                health.execution_state.try_into(),
+                Ok(ExecutionState::Stalled)
+            ) {
+                return Ok(());
+            }
+        }
+
+        tracing::info!("Restarting stalled executor");
+
+        self.stop(executor.executor_id).await?;
+        self.start(config).await?;
+
+        Ok(())
+    }
+
     pub async fn synchronise_executor(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         let executor = self
             .get(config.account_id.clone(), config.function_name.clone())
@@ -126,6 +151,7 @@ impl ExecutorsHandler {
 
         if let Some(executor) = executor {
             if executor.version == config.get_registry_version() {
+                self.ensure_healthy(config, executor).await?;
                 return Ok(());
             }
 
