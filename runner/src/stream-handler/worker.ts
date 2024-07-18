@@ -9,12 +9,12 @@ import { METRICS } from '../metrics';
 import LakeClient from '../lake-client';
 import { WorkerMessageType, type WorkerMessage, ExecutionState } from './stream-handler';
 import setUpTracerExport from '../instrumentation';
-import IndexerMeta, { IndexerStatus } from '../indexer-meta/indexer-meta';
+import IndexerMeta from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
 import Provisioner from '../provisioner';
-import { PostgresConnectionParams } from '../pg-client';
+import { type PostgresConnectionParams } from '../pg-client';
 import DmlHandler from '../dml-handler/dml-handler';
 
 if (isMainThread) {
@@ -40,7 +40,7 @@ const sleep = async (ms: number): Promise<void> => { await new Promise((resolve)
 setUpTracerExport();
 const tracer = trace.getTracer('queryapi-runner-worker');
 
-void (async function main() {
+void (async function main () {
   const indexerConfig: IndexerConfig = IndexerConfig.fromObject(workerData.indexerConfigData);
   const logger = parentLogger.child({
     service: 'StreamHandler/worker',
@@ -61,12 +61,12 @@ void (async function main() {
   await handleStream(workerContext);
 })();
 
-async function handleStream(workerContext: WorkerContext): Promise<void> {
+async function handleStream (workerContext: WorkerContext): Promise<void> {
   void blockQueueProducer(workerContext);
   void blockQueueConsumer(workerContext);
 }
 
-async function blockQueueProducer(workerContext: WorkerContext): Promise<void> {
+async function blockQueueProducer (workerContext: WorkerContext): Promise<void> {
   const HISTORICAL_BATCH_SIZE = parseInt(process.env.PREFETCH_QUEUE_LIMIT ?? '10');
   let streamMessageStartId = '0';
 
@@ -96,22 +96,22 @@ async function blockQueueProducer(workerContext: WorkerContext): Promise<void> {
   }
 }
 
-async function blockQueueConsumer(workerContext: WorkerContext): Promise<void> {
+async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
   let previousError: string = '';
   const indexerConfig: IndexerConfig = workerContext.indexerConfig;
-  let database_connection_parameters: PostgresConnectionParams;
+  let databaseConnectionParams: PostgresConnectionParams;
   try {
     const provisioner = new Provisioner();
-    database_connection_parameters = await provisioner.getPgBouncerConnectionParameters(indexerConfig.hasuraRoleName());
-    parentPort?.postMessage({ type: WorkerMessageType.DATABASE_CONNECTION_PARAMS, data: database_connection_parameters });
+    databaseConnectionParams = await provisioner.getPgBouncerConnectionParameters(indexerConfig.hasuraRoleName());
+    parentPort?.postMessage({ type: WorkerMessageType.DATABASE_CONNECTION_PARAMS, data: databaseConnectionParams });
   } catch (e) {
     const error = e as Error;
     workerContext.logger.error(`Failed to get database connection parameters: ${error.message}`);
     throw error;
   }
 
-  const dmlHandler: DmlHandler = new DmlHandler(database_connection_parameters, indexerConfig);
-  const indexerMeta: IndexerMeta = new IndexerMeta(indexerConfig, database_connection_parameters);
+  const dmlHandler: DmlHandler = new DmlHandler(databaseConnectionParams, indexerConfig);
+  const indexerMeta: IndexerMeta = new IndexerMeta(indexerConfig, databaseConnectionParams);
   const indexer = new Indexer(indexerConfig, { dmlHandler, indexerMeta });
   let streamMessageId = '';
   let currBlockHeight = 0;
@@ -207,7 +207,7 @@ async function blockQueueConsumer(workerContext: WorkerContext): Promise<void> {
   }
 }
 
-async function generateQueuePromise(workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
+async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
   const block = await workerContext.lakeClient.fetchBlock(blockHeight).catch((err) => {
     workerContext.logger.error(`Error fetching block ${blockHeight}`, err);
     return undefined;
