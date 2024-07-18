@@ -14,7 +14,7 @@ class PostgresRowEntity {
   data: PostgresRow;
   private readonly primaryKeys: string[];
 
-  constructor (data: any, primaryKeys: string[]) {
+  constructor (data: PostgresRow, primaryKeys: string[]) {
     this.data = data;
     this.primaryKeys = primaryKeys.sort();
 
