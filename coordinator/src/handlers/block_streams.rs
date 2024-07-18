@@ -1,12 +1,14 @@
 #![cfg_attr(test, allow(dead_code))]
 
+use std::time::{Duration, SystemTime};
+
 pub use block_streamer::StreamInfo;
 
 use anyhow::Context;
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
     start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, GetStreamRequest,
-    ListStreamsRequest, StartStreamRequest, Status, StopStreamRequest,
+    ListStreamsRequest, ProcessingState, StartStreamRequest, Status, StopStreamRequest,
 };
 use near_primitives::types::AccountId;
 use registry_types::StartBlock;
@@ -235,6 +237,34 @@ impl BlockStreamsHandler {
         Ok(())
     }
 
+    async fn ensure_healthy(
+        &self,
+        config: &IndexerConfig,
+        block_stream: &StreamInfo,
+    ) -> anyhow::Result<()> {
+        if let Some(health) = block_stream.health.as_ref() {
+            let updated_at =
+                SystemTime::UNIX_EPOCH + Duration::from_secs(health.updated_at_timestamp_secs);
+
+            let stale = updated_at.elapsed().unwrap_or_default() > Duration::from_secs(30);
+            let stalled = matches!(
+                health.processing_state.try_into(),
+                Ok(ProcessingState::Stalled)
+            );
+
+            if !stale && !stalled {
+                return Ok(());
+            }
+        }
+
+        tracing::info!("Restarting stalled block stream");
+
+        self.stop(block_stream.stream_id.clone()).await?;
+        self.resume_block_stream(config).await?;
+
+        Ok(())
+    }
+
     pub async fn synchronise_block_stream(
         &self,
         config: &IndexerConfig,
@@ -246,6 +276,7 @@ impl BlockStreamsHandler {
 
         if let Some(block_stream) = block_stream {
             if block_stream.version == config.get_registry_version() {
+                self.ensure_healthy(config, &block_stream).await?;
                 return Ok(());
             }
 
