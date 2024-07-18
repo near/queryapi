@@ -6,10 +6,19 @@ import type IndexerConfig from '../indexer-config/indexer-config';
 import { type Tracer, trace, type Span } from '@opentelemetry/api';
 import { type QueryResult } from 'pg';
 
-type WhereClauseMulti = Record<string, (string | number | Array<string | number>)>;
-type WhereClauseSingle = Record<string, (string | number)>;
+export type PostgresRowValue = string | number | any;
+export type PostgresRow = Record<string, PostgresRowValue>;
+export type WhereClauseMulti = Record<string, (PostgresRowValue | PostgresRowValue[])>;
+export type WhereClauseSingle = Record<string, PostgresRowValue>;
 
-export default class DmlHandler {
+export interface IDmlHandler {
+  insert: (tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]) => Promise<PostgresRow[]>
+  select: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null) => Promise<PostgresRow[]>
+  update: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any) => Promise<PostgresRow[]>
+  upsert: (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]) => Promise<PostgresRow[]>
+  delete: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti) => Promise<PostgresRow[]>
+}
+export default class DmlHandler implements IDmlHandler {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   pgClient: PgClient;
   tracer: Tracer;
@@ -53,7 +62,7 @@ export default class DmlHandler {
     return { queryVars, whereClause };
   }
 
-  async insert (tableDefinitionNames: TableDefinitionNames, rowsToInsert: any[]): Promise<any[]> {
+  async insert (tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]): Promise<PostgresRow[]> {
     if (!rowsToInsert?.length) {
       return [];
     }
@@ -67,7 +76,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async select (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<any[]> {
+  async select (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null = null): Promise<PostgresRow[]> {
     const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
     let query = `SELECT * FROM ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} WHERE ${whereClause}`;
     if (limit !== null) {
@@ -78,7 +87,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async update (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<any[]> {
+  async update (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any): Promise<PostgresRow[]> {
     const updateKeys = Object.keys(updateObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
     const updateParam = Array.from({ length: updateKeys.length }, (_, index) => `${updateKeys[index]}=$${index + 1}`).join(', ');
     const whereKeys = Object.keys(whereObject).map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col);
@@ -91,7 +100,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async upsert (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: any[], conflictColumns: string[], updateColumns: string[]): Promise<any[]> {
+  async upsert (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]): Promise<PostgresRow[]> {
     if (!rowsToUpsert?.length) {
       return [];
     }
@@ -108,7 +117,7 @@ export default class DmlHandler {
     return result.rows;
   }
 
-  async delete (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<any[]> {
+  async delete (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti): Promise<PostgresRow[]> {
     const { queryVars, whereClause } = this.getWhereClause(whereObject, tableDefinitionNames.originalColumnNames);
     const query = `DELETE FROM ${this.indexerConfig.schemaName()}.${tableDefinitionNames.originalTableName} WHERE ${whereClause} RETURNING *`;
 

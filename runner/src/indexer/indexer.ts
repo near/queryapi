@@ -34,6 +34,7 @@ interface Context {
 }
 
 export interface TableDefinitionNames {
+  tableName: string
   originalTableName: string
   originalColumnNames: Map<string, string>
 }
@@ -234,6 +235,7 @@ export default class Indexer {
         for (const columnDef of createDefs) {
           if (columnDef.column?.type === 'column_ref') {
             const tableDefinitionNames: TableDefinitionNames = {
+              tableName,
               originalTableName: this.retainOriginalQuoting(schema, tableName),
               originalColumnNames: this.getColumnDefinitionNames(createDefs)
             };
@@ -401,7 +403,7 @@ export default class Indexer {
       if (logError) {
         const message: string = errors ? errors.map((e: any) => e.message).join(', ') : `HTTP ${response.status} error writing with graphql to indexer storage`;
         const mutation: string =
-                    `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
+          `mutation writeLog($function_name: String!, $block_height: numeric!, $message: String!){
                     insert_indexer_log_entries_one(object: {function_name: $function_name, block_height: $block_height, message: $message}) {
                     id
                   }
