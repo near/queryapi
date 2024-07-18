@@ -1,5 +1,5 @@
 import { TableDefinitionNames } from "../indexer";
-import InMemoryDmlHandler from "./dml-handler-fixture";
+import InMemoryDmlHandler from "./in-memory-dml-handler";
 
 const DEFAULT_ITEM_1_WITHOUT_ID = {
   account_id: 'TEST_NEAR',

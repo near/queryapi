@@ -59,7 +59,7 @@ export default class Indexer {
   private database_connection_parameters: PostgresConnectionParams | undefined;
   private currentStatus?: string;
 
-  constructor(
+  constructor (
     private readonly indexerConfig: IndexerConfig,
     deps?: Partial<Dependencies>,
     databaseConnectionParameters: PostgresConnectionParams | undefined = undefined,
@@ -77,7 +77,7 @@ export default class Indexer {
     this.database_connection_parameters = databaseConnectionParameters;
   }
 
-  async execute(
+  async execute (
     block: lakePrimitives.Block,
   ): Promise<string[]> {
     this.logger.debug('Executing block', { blockHeight: block.blockHeight });
@@ -152,7 +152,7 @@ export default class Indexer {
     return allMutations;
   }
 
-  buildContext(blockHeight: number, logEntries: LogEntry[]): Context {
+  buildContext (blockHeight: number, logEntries: LogEntry[]): Context {
     return {
       graphql: async (operation, variables) => {
         return await wrapSpan(async () => {
@@ -196,7 +196,7 @@ export default class Indexer {
     };
   }
 
-  private getColumnDefinitionNames(columnDefs: any[]): Map<string, string> {
+  private getColumnDefinitionNames (columnDefs: any[]): Map<string, string> {
     const columnDefinitionNames = new Map<string, string>();
     for (const columnDef of columnDefs) {
       if (columnDef.column?.type === 'column_ref') {
@@ -208,7 +208,7 @@ export default class Indexer {
     return columnDefinitionNames;
   }
 
-  private retainOriginalQuoting(schema: string, tableName: string): string {
+  private retainOriginalQuoting (schema: string, tableName: string): string {
     const createTableQuotedRegex = `\\b(create|CREATE)\\s+(table|TABLE)\\s+"${tableName}"\\s*`;
 
     if (schema.match(new RegExp(createTableQuotedRegex, 'i'))) {
@@ -218,7 +218,7 @@ export default class Indexer {
     return tableName;
   }
 
-  getTableNameToDefinitionNamesMapping(schema: string): Map<string, TableDefinitionNames> {
+  getTableNameToDefinitionNamesMapping (schema: string): Map<string, TableDefinitionNames> {
     let schemaSyntaxTree = this.deps.parser.astify(schema, { database: 'Postgresql' });
     schemaSyntaxTree = Array.isArray(schemaSyntaxTree) ? schemaSyntaxTree : [schemaSyntaxTree]; // Ensure iterable
     const tableNameToDefinitionNamesMap = new Map<string, TableDefinitionNames>();
@@ -252,7 +252,7 @@ export default class Indexer {
     return tableNameToDefinitionNamesMap;
   }
 
-  sanitizeTableName(tableName: string): string {
+  sanitizeTableName (tableName: string): string {
     // Convert to PascalCase
     let pascalCaseTableName = tableName
       // Replace special characters with underscores
@@ -270,7 +270,7 @@ export default class Indexer {
     return pascalCaseTableName;
   }
 
-  buildDatabaseContext(
+  buildDatabaseContext (
     blockHeight: number,
     logEntries: LogEntry[],
   ): Record<string, Record<string, (...args: any[]) => any>> {
@@ -340,7 +340,7 @@ export default class Indexer {
     return {}; // Default to empty object if error
   }
 
-  async setStatus(status: IndexerStatus): Promise<any> {
+  async setStatus (status: IndexerStatus): Promise<any> {
     if (this.currentStatus === status) {
       return;
     }
@@ -351,7 +351,7 @@ export default class Indexer {
     await this.deps.indexerMeta?.setStatus(status);
   }
 
-  private async createIndexerMetaIfNotExists(failureMessage: string): Promise<void> {
+  private async createIndexerMetaIfNotExists (failureMessage: string): Promise<void> {
     if (!this.deps.indexerMeta) {
       try {
         this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
@@ -364,23 +364,23 @@ export default class Indexer {
     }
   }
 
-  async setStoppedStatus(): Promise<void> {
+  async setStoppedStatus (): Promise<void> {
     await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`);
     const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
     await indexerMeta.setStatus(IndexerStatus.STOPPED);
   }
 
-  async writeCrashedWorkerLog(logEntry: LogEntry): Promise<void> {
+  async writeCrashedWorkerLog (logEntry: LogEntry): Promise<void> {
     await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to write crashed worker error log for stream`);
     const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
     await indexerMeta.writeLogs([logEntry]);
   }
 
-  async updateIndexerBlockHeight(blockHeight: number): Promise<void> {
+  async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
     await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
-  async runGraphQLQuery(operation: string, variables: any, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
+  async runGraphQLQuery (operation: string, variables: any, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
     const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {
@@ -420,7 +420,7 @@ export default class Indexer {
     return data;
   }
 
-  private enableAwaitTransform(code: string): string {
+  private enableAwaitTransform (code: string): string {
     return `
       async function f(){
         ${code}
@@ -429,7 +429,7 @@ export default class Indexer {
     `;
   }
 
-  transformIndexerFunction(): string {
+  transformIndexerFunction (): string {
     return [
       this.enableAwaitTransform,
     ].reduce((acc, val) => val(acc), this.indexerConfig.code);
