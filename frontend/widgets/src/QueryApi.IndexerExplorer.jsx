@@ -1,46 +1,76 @@
-const limitPerPage = 5;
-let totalIndexers = 0;
-const accountId = context.accountId;
-State.init({
-  currentPage: 0,
-  selectedTab: props.tab || "all",
-  total_indexers: 0,
-  my_indexers: [],
-  all_indexers: [],
-});
+const myAccountId = context.accountId;
 
-if (props.tab && props.tab !== state.selectedTab) {
-  State.update({
-    selectedTab: props.tab,
+const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
+const [myIndexers, setMyIndexers] = useState([]);
+const [allIndexers, setAllIndexers] = useState([]);
+const [error, setError] = useState(null);
+const [indexerMetadata, setIndexerMetaData] = useState(new Map());
+const [loading, setLoading] = useState(false);
+
+const fetchIndexerData = () => {
+  setLoading(true);
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const allIndexers = [];
+    const myIndexers = [];
+    Object.keys(data).forEach((accId) => {
+      Object.keys(data[accId]).forEach((functionName) => {
+        const indexer = {
+          accountId: accId,
+          indexerName: functionName,
+        };
+        if (accId === myAccountId) myIndexers.push(indexer);
+        allIndexers.push(indexer);
+      });
+    });
+    setMyIndexers(myIndexers);
+    setAllIndexers(allIndexers);
+    setLoading(false);
   });
 }
 
-Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-  const indexers = [];
-  const total_indexers = 0;
-  Object.keys(data).forEach((accountId) => {
-    Object.keys(data[accountId]).forEach((functionName) => {
-      indexers.push({
-        accountId: accountId,
-        indexerName: functionName,
-      });
-      total_indexers += 1;
-    });
-  });
+const storeIndexerMetaData = () => {
+  const url = `${REPL_QUERY_API_USAGE_URL}`;
 
-  let my_indexers = indexers.filter(
-    (indexer) => indexer.accountId === accountId
-  );
-  // const results = indexers.slice(
-  //   0,
-  //   state.currentPage * limitPerPage + limitPerPage
-  // );
-  State.update({
-    my_indexers: my_indexers,
-    all_indexers: indexers,
-    total_indexers: total_indexers,
-  });
-});
+  asyncFetch(url)
+    .then(response => {
+      if (!response.ok) {
+        setError('There was an error fetching the data');
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const { data } = JSON.parse(response.body);
+      const map = new Map();
+
+      data.forEach(entry => {
+        const { indexer_account_id, indexers } = entry;
+        indexers.forEach(({ indexer_name, last_deployment_date, num_deployements, num_queries, original_deployment_date }) => {
+          const indexer = {
+            accountId: indexer_account_id,
+            indexerName: indexer_name,
+            lastDeploymentDate: last_deployment_date,
+            numDeployements: num_deployements,
+            numQueries: num_queries,
+            originalDeploymentDate: original_deployment_date
+          };
+          map.set(`${indexer_account_id}/${indexer_name}`, indexer);
+        });
+      });
+      setIndexerMetaData(map);
+      setError(null);
+    })
+}
+
+useEffect(() => {
+  fetchIndexerData();
+  storeIndexerMetaData();
+}, []);
+
+const Container = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+`;
 
 const Wrapper = styled.div`
   display: flex;
@@ -213,69 +243,114 @@ const TextLink = styled.a`
   }
 `;
 
+const LoadingSpinner = () => {
+  const spinnerStyle = {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(0, 0, 0, 0.1)',
+    borderLeftColor: 'black',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    textAlign: 'center',
+    display: 'flex',
+    justifyContent: 'center',
+    alignCenter: 'center',
+  };
+
+  const LoadingContainer = styled.div`
+    text-align: center;
+    width: 100%;
+    height: 100%;
+  `;
+
+  const LoadingSpinnerContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    font-size: 14px;
+  `
+  return <LoadingContainer>
+    <LoadingSpinnerContainer>
+      <div style={spinnerStyle} />
+    </LoadingSpinnerContainer>
+    <>{selectedTab === "my-indexers" ? "Loading Your Indexers" : "Loading All Indexers"}</>
+  </LoadingContainer>;
+};
+
 return (
   <Wrapper className="container-xl">
     <Tabs>
       <TabsButton
-        onClick={() => State.update({ selectedTab: "my-indexers" })}
-        selected={state.selectedTab === "my-indexers"}
+        onClick={() => setSelectedTab("my-indexers")}
+        selected={selectedTab === "my-indexers"}
       >
         My Indexers
       </TabsButton>
       <TabsButton
-        onClick={() => State.update({ selectedTab: "all" })}
-        selected={state.selectedTab === "all"}
+        onClick={() => setSelectedTab("all")}
+        selected={selectedTab === "all"}
       >
         All
       </TabsButton>
     </Tabs>
+    {error && <Text>{error}</Text>}
 
-    {state.selectedTab === "all" && (
+    {selectedTab === "all" && (
       <>
-        <Items>
-          {state.all_indexers.map((indexer, i) => (
-            <Item>
-              <Widget
-                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{
-                  accountId: indexer.accountId,
-                  indexerName: indexer.indexerName,
-                }}
-              />
-            </Item>
-          ))}
-        </Items>
+        {loading ? (
+          <Container>
+            <LoadingSpinner />
+          </Container>
+        ) : (
+          <Items>
+            <>
+              {allIndexers.map((indexer, i) => (
+                <Item key={i}>
+                  <Widget
+                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                    props={{ ...indexer, indexerMetadata }}
+                  />
+                </Item>
+              ))}
+            </>
+          </Items>
+        )}
       </>
     )}
-    {state.selectedTab == "my-indexers" && state.my_indexers.length == 0 && (
-      <Header>
-        <H2>
-          QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
-        </H2>
-        <H2>
-          To learn more about QueryAPI, visit
-          <TextLink target="_blank" href="https://docs.near.org/build/data-infrastructure/query-api/indexers" as="a" bold>
-            QueryAPI Docs
-          </TextLink>
-        </H2>
-      </Header>
+
+    {selectedTab === "my-indexers" && (
+      <>
+        {loading ? (
+          <Container>
+            <LoadingSpinner />
+          </Container>
+        ) : myIndexers.length === 0 ? (
+          <Header>
+            <H2>You don't have any indexers yet.</H2>
+            <H2>
+              QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
+            </H2>
+            <H2>
+              To learn more about QueryAPI, visit
+              <TextLink target="_blank" href="https://docs.near.org/build/data-infrastructure/query-api/indexers" as="a" bold>
+                QueryAPI Docs
+              </TextLink>
+            </H2>
+          </Header>
+        ) : (
+          <Items>
+            <>
+              {myIndexers.map((indexer, i) => (
+                <Item key={i}>
+                  <Widget
+                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                    props={{ ...indexer, indexerMetadata }}
+                  />
+                </Item>
+              ))}
+            </>
+          </Items>
+        )}
+      </>
     )}
-    <Items>
-      {state.selectedTab == "my-indexers" && (
-        <>
-          {state.my_indexers.map((indexer, i) => (
-            <Item>
-              <Widget
-                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{
-                  accountId: indexer.accountId,
-                  indexerName: indexer.indexerName,
-                }}
-              />
-            </Item>
-          ))}
-        </>
-      )}
-    </Items>
-  </Wrapper>
+  </Wrapper >
 );

@@ -1,6 +1,6 @@
 // Run with 'npx ts-node src/test-client.ts'
 
-import runnerClient from '../src/server/runner-client';
+import runnerClient from '../src/server/services/runner/runner-client';
 
 const schema = `
 CREATE TABLE
@@ -13,7 +13,7 @@ CREATE TABLE
 `;
 
 const code = `
-console.log("hello");
+// do nothing
 `;
 
 const indexer = {
@@ -35,7 +35,7 @@ void (async function main () {
     if (err) {
       console.error('error: ', err);
     } else {
-      console.log('start request: ', response);
+      console.log('start response: ', JSON.stringify({ response }, null, 2));
     }
   });
 })();

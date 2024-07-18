@@ -1,10 +1,10 @@
 import * as grpc from '@grpc/grpc-js';
 
 import type StreamHandler from '../../../stream-handler/stream-handler';
-import { IndexerStatus } from '../../../indexer-meta/indexer-meta';
 import { LogLevel } from '../../../indexer-meta/log-entry';
 import getRunnerService from './runner-service';
 import IndexerConfig from '../../../indexer-config/indexer-config';
+import { ExecutionState } from '../../../generated/runner/ExecutionState';
 
 const BASIC_REDIS_STREAM = 'test-redis-stream';
 const BASIC_ACCOUNT_ID = 'test-account-id';
@@ -15,7 +15,7 @@ const BASIC_CODE = 'test-code';
 const BASIC_SCHEMA = 'test-schema';
 const BASIC_VERSION = 1;
 const BASIC_EXECUTOR_CONTEXT = {
-  status: IndexerStatus.RUNNING,
+  executionState: ExecutionState.RUNNING,
 };
 
 describe('Runner gRPC Service', () => {
@@ -30,6 +30,61 @@ describe('Runner gRPC Service', () => {
       };
     });
     genericIndexerConfig = new IndexerConfig(BASIC_REDIS_STREAM, BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_VERSION, BASIC_CODE, BASIC_SCHEMA, LogLevel.INFO);
+  });
+
+  it('get non existant executor', async () => {
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return {
+        indexerConfig,
+        executorContext: BASIC_EXECUTOR_CONTEXT
+      };
+    });
+    const service = getRunnerService(new Map(), streamHandlerType);
+
+    await new Promise((resolve) => {
+      service.GetExecutor({ request: { accountId: BASIC_ACCOUNT_ID, functionName: BASIC_FUNCTION_NAME } } as any, (err) => {
+        expect(err).toEqual({
+          code: grpc.status.NOT_FOUND,
+          message: `Executor for account ${BASIC_ACCOUNT_ID} and name ${BASIC_FUNCTION_NAME} does not exist`
+        });
+        resolve(null);
+      });
+    });
+  });
+
+  it('gets an existing executor', async () => {
+    const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
+      return {
+        indexerConfig,
+        executorContext: BASIC_EXECUTOR_CONTEXT
+      };
+    });
+    const service = getRunnerService(new Map(), streamHandlerType);
+    const request = generateRequest(BASIC_REDIS_STREAM + '-A', BASIC_ACCOUNT_ID, BASIC_FUNCTION_NAME, BASIC_CODE, BASIC_SCHEMA, BASIC_VERSION);
+
+    await new Promise((resolve, reject) => {
+      service.StartExecutor(request, (err) => {
+        if (err) reject(err);
+        resolve(null);
+      });
+    });
+
+    await new Promise((resolve, reject) => {
+      service.GetExecutor({ request: { accountId: BASIC_ACCOUNT_ID, functionName: BASIC_FUNCTION_NAME } } as any, (err, response) => {
+        if (err) reject(err);
+
+        expect(response).toEqual({
+          executorId: BASIC_EXECUTOR_ID,
+          accountId: genericIndexerConfig.accountId,
+          functionName: genericIndexerConfig.functionName,
+          version: '1',
+          health: {
+            executionState: 'RUNNING'
+          }
+        });
+        resolve(null);
+      });
+    });
   });
 
   it('starts a executor with correct settings', () => {
@@ -235,8 +290,10 @@ describe('Runner gRPC Service', () => {
             executorId: BASIC_EXECUTOR_ID,
             accountId: genericIndexerConfig.accountId,
             functionName: genericIndexerConfig.functionName,
-            status: IndexerStatus.RUNNING,
-            version: '1'
+            version: '1',
+            health: {
+              executionState: 'RUNNING'
+            }
           }]
         });
         resolve(null);

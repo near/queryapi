@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use near_lake_framework::near_indexer_primitives;
 use tonic::{Request, Response, Status};
@@ -19,6 +20,30 @@ pub struct BlockStreamerService {
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
+}
+
+impl From<block_stream::BlockStreamHealth> for blockstreamer::Health {
+    fn from(health: block_stream::BlockStreamHealth) -> Self {
+        blockstreamer::Health {
+            processing_state: match health.processing_state {
+                block_stream::ProcessingState::Running => {
+                    blockstreamer::ProcessingState::Running as i32
+                }
+                block_stream::ProcessingState::Idle => blockstreamer::ProcessingState::Idle as i32,
+                block_stream::ProcessingState::Stalled => {
+                    blockstreamer::ProcessingState::Stalled as i32
+                }
+                block_stream::ProcessingState::Waiting => {
+                    blockstreamer::ProcessingState::Waiting as i32
+                }
+            },
+            updated_at_timestamp_secs: health
+                .last_updated
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
 }
 
 impl BlockStreamerService {
@@ -59,6 +84,44 @@ impl BlockStreamerService {
 
 #[tonic::async_trait]
 impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerService {
+    #[tracing::instrument(skip(self))]
+    async fn get_stream(
+        &self,
+        request: Request<blockstreamer::GetStreamRequest>,
+    ) -> Result<Response<blockstreamer::StreamInfo>, Status> {
+        let request = request.into_inner();
+
+        let lock = self.block_streams.lock().map_err(|err| {
+            tracing::error!(?err, "Failed to acquire `block_streams` lock");
+            tonic::Status::internal("Failed to acquire `block_streams` lock")
+        })?;
+
+        let stream_entry = lock.iter().find(|(_, block_stream)| {
+            block_stream.indexer_config.account_id == request.account_id
+                && block_stream.indexer_config.function_name == request.function_name
+        });
+
+        if let Some((stream_id, stream)) = stream_entry {
+            let stream_health = stream.health().map_err(|err| {
+                tracing::error!(?err, "Failed to get health of block stream");
+                Status::internal("Failed to get health of block stream")
+            })?;
+
+            Ok(Response::new(StreamInfo {
+                stream_id: stream_id.to_string(),
+                account_id: stream.indexer_config.account_id.to_string(),
+                function_name: stream.indexer_config.function_name.to_string(),
+                version: stream.version,
+                health: Some(stream_health.into()),
+            }))
+        } else {
+            Err(Status::not_found(format!(
+                "Block Stream for account {} and name {} does not exist",
+                request.account_id, request.function_name
+            )))
+        }
+    }
+
     #[tracing::instrument(skip(self))]
     async fn start_stream(
         &self,
@@ -171,14 +234,29 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         &self,
         _request: Request<blockstreamer::ListStreamsRequest>,
     ) -> Result<Response<blockstreamer::ListStreamsResponse>, Status> {
-        let lock = self.block_streams.lock().unwrap();
+        let lock = self.block_streams.lock().map_err(|err| {
+            tracing::error!(?err, "Failed to acquire `block_streams` lock");
+            tonic::Status::internal("Failed to acquire `block_streams` lock")
+        })?;
+
         let block_streams: Vec<StreamInfo> = lock
             .values()
-            .map(|block_stream| StreamInfo {
-                stream_id: block_stream.indexer_config.get_hash_id(),
-                account_id: block_stream.indexer_config.account_id.to_string(),
-                function_name: block_stream.indexer_config.function_name.clone(),
-                version: block_stream.version,
+            .map(|block_stream| {
+                let stream_health = block_stream
+                    .health()
+                    .map_err(|err| {
+                        tracing::error!(?err, "Failed to get health of block stream");
+                        Status::internal("Failed to get health of block stream")
+                    })
+                    .ok();
+
+                StreamInfo {
+                    stream_id: block_stream.indexer_config.get_hash_id(),
+                    account_id: block_stream.indexer_config.account_id.to_string(),
+                    function_name: block_stream.indexer_config.function_name.to_string(),
+                    version: block_stream.version,
+                    health: stream_health.map(|health| health.into()),
+                }
             })
             .collect();
 
@@ -232,6 +310,63 @@ mod tests {
             std::sync::Arc::new(mock_reciever_blocks_processor),
             mock_lake_s3_client,
         )
+    }
+
+    #[tokio::test]
+    async fn get_existing_block_stream() {
+        let block_streamer_service = create_block_streamer_service();
+
+        {
+            let lock = block_streamer_service.get_block_streams_lock().unwrap();
+            assert_eq!(lock.len(), 0);
+        }
+
+        block_streamer_service
+            .start_stream(Request::new(StartStreamRequest {
+                start_block_height: 0,
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+                version: 0,
+                redis_stream: "stream".to_string(),
+                rule: Some(start_stream_request::Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: 1,
+                })),
+            }))
+            .await
+            .unwrap();
+
+        let stream = block_streamer_service
+            .get_stream(Request::new(GetStreamRequest {
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            stream.into_inner().stream_id,
+            "16210176318434468568".to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn get_non_existant_block_stream() {
+        let block_streamer_service = create_block_streamer_service();
+
+        {
+            let lock = block_streamer_service.get_block_streams_lock().unwrap();
+            assert_eq!(lock.len(), 0);
+        }
+
+        let stream_response = block_streamer_service
+            .get_stream(Request::new(GetStreamRequest {
+                account_id: "morgs.near".to_string(),
+                function_name: "test".to_string(),
+            }))
+            .await;
+
+        assert_eq!(stream_response.err().unwrap().code(), tonic::Code::NotFound);
     }
 
     #[tokio::test]
