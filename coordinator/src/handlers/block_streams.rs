@@ -254,13 +254,17 @@ impl BlockStreamsHandler {
 
             if !stale && !stalled {
                 return Ok(());
+            } else {
+                tracing::info!(stale, stalled, "Restarting stalled block stream");
             }
+        } else {
+            tracing::info!("Restarting stalled block stream");
         }
 
-        tracing::info!("Restarting stalled block stream");
-
         self.stop(block_stream.stream_id.clone()).await?;
-        self.resume_block_stream(config).await?;
+
+        let height = self.get_continuation_block_height(config).await?;
+        self.start(height, config).await?;
 
         Ok(())
     }
