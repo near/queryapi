@@ -1,10 +1,10 @@
-import { TableDefinitionNames } from "../indexer";
-import InMemoryDmlHandler from "./in-memory-dml-handler";
+import { type TableDefinitionNames } from '../indexer';
+import InMemoryDmlHandler from './in-memory-dml-handler';
 
 const DEFAULT_ITEM_1_WITHOUT_ID = {
   account_id: 'TEST_NEAR',
   block_height: 1,
-  content: "CONTENT",
+  content: 'CONTENT',
   accounts_liked: [],
 };
 
@@ -12,14 +12,14 @@ const DEFAULT_ITEM_1_WITH_ID = {
   id: 1,
   account_id: 'TEST_NEAR',
   block_height: 1,
-  content: "CONTENT",
+  content: 'CONTENT',
   accounts_liked: [],
 };
 
 const DEFAULT_ITEM_2_WITHOUT_ID = {
   account_id: 'TEST_NEAR',
   block_height: 2,
-  content: "CONTENT",
+  content: 'CONTENT',
   accounts_liked: [],
 };
 
@@ -27,7 +27,7 @@ const DEFAULT_ITEM_2_WITH_ID = {
   id: 2,
   account_id: 'TEST_NEAR',
   block_height: 2,
-  content: "CONTENT",
+  content: 'CONTENT',
   accounts_liked: [],
 };
 
@@ -41,7 +41,7 @@ describe('DML Handler Fixture Tests', () => {
       "accounts_liked" JSONB NOT NULL DEFAULT '[]',
       CONSTRAINT "posts_pkey" PRIMARY KEY ("id", "account_id")
     );`;
-  let TABLE_DEFINITION_NAMES: TableDefinitionNames = {
+  const TABLE_DEFINITION_NAMES: TableDefinitionNames = {
     tableName: 'posts',
     originalTableName: '"posts"',
     originalColumnNames: new Map<string, string>([])
@@ -90,7 +90,7 @@ describe('DML Handler Fixture Tests', () => {
   test('reject insert after not specifying primary key value', async () => {
     const inputObj = [{
       block_height: 1,
-      content: "CONTENT",
+      content: 'CONTENT',
       accounts_liked: [],
     }];
 
@@ -130,13 +130,13 @@ describe('DML Handler Fixture Tests', () => {
     const upsertObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      content: "UPSERT",
+      content: 'UPSERT',
       accounts_liked: [],
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      content: "UPSERT",
+      content: 'UPSERT',
       accounts_liked: [],
     }];
 
@@ -154,13 +154,13 @@ describe('DML Handler Fixture Tests', () => {
     const upsertObj = [{
       account_id: 'TEST_NEAR',
       block_height: 1,
-      content: "UPSERT",
+      content: 'UPSERT',
       accounts_liked: [],
     },
     {
       account_id: 'TEST_NEAR',
       block_height: 2,
-      content: "UPSERT",
+      content: 'UPSERT',
       accounts_liked: [],
     }];
 
@@ -184,7 +184,7 @@ describe('DML Handler Fixture Tests', () => {
   test('reject insert after not specifying primary key value', async () => {
     const inputObj = [{
       block_height: 1,
-      content: "CONTENT",
+      content: 'CONTENT',
       accounts_liked: [],
     }];
 
@@ -201,5 +201,5 @@ describe('DML Handler Fixture Tests', () => {
     const deletedRows = await dmlHandler.delete(TABLE_DEFINITION_NAMES, { account_id: 'TEST_NEAR' });
 
     expect(deletedRows).toEqual(correctResponse);
-  })
+  });
 });
