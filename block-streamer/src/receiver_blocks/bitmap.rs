@@ -1,33 +1,22 @@
-use anyhow::anyhow;
 use base64::{engine::general_purpose, Engine as _};
 use std::convert::TryFrom;
 
 use crate::graphql::client::{get_bitmaps_exact, get_bitmaps_wildcard};
 
+/// Stores a [`CompressedBitmap`](CompressedBitmap) in Base64 format along with its starting block
+/// height
 #[derive(Debug, Default, PartialEq)]
 pub struct Base64Bitmap {
     pub start_block_height: u64,
     pub base64: String,
 }
 
-impl TryFrom<&get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex> for Base64Bitmap {
-    type Error = anyhow::Error;
-    fn try_from(
-        query_item: &get_bitmaps_exact::GetBitmapsExactDarunrsNearBitmapV5ActionsIndex,
-    ) -> anyhow::Result<Self> {
-        Ok(Self {
-            base64: query_item.bitmap.clone(),
-            start_block_height: u64::try_from(query_item.first_block_height)?,
-        })
-    }
-}
-
-impl TryFrom<&get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex>
+impl TryFrom<&get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps>
     for Base64Bitmap
 {
     type Error = anyhow::Error;
     fn try_from(
-        query_item: &get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5ActionsIndex,
+        query_item: &get_bitmaps_exact::GetBitmapsExactDataplatformNearReceiverBlocksBitmaps,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             base64: query_item.bitmap.clone(),
@@ -36,12 +25,73 @@ impl TryFrom<&get_bitmaps_wildcard::GetBitmapsWildcardDarunrsNearBitmapV5Actions
     }
 }
 
+impl TryFrom<&get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps>
+    for Base64Bitmap
+{
+    type Error = anyhow::Error;
+    fn try_from(
+        query_item: &get_bitmaps_wildcard::GetBitmapsWildcardDataplatformNearReceiverBlocksBitmaps,
+    ) -> anyhow::Result<Self> {
+        Ok(Self {
+            base64: query_item.bitmap.clone(),
+            start_block_height: u64::try_from(query_item.first_block_height)?,
+        })
+    }
+}
+
+/// Stores the decoded value from an Elias Gamma encoded sequence and the index of the last bit
+/// that was part of the encoded value
 #[derive(Default)]
 struct EliasGammaDecoded {
+    /// The decoded value obtained from the Elias Gamma encoding. This represents the
+    /// length of the run of bits (0s or 1s) in the decompressed bitmap.
     pub value: u64,
+    /// The index of the last bit in the compressed bitmap that was part of the
+    /// Elias Gamma sequence. Used to determine the starting point for the next sequence.
     pub last_bit_index: usize,
 }
 
+/// A struct representing a bitmap compressed using Elias Gamma encoding.
+///
+/// The `CompressedBitmap` is used to efficiently store sequences of bits where
+/// runs of 1s and 0s are encoded to save space, using Elias Gamma encoding which consists of two
+/// parts:
+/// 1. **Unary Part**:
+///    - A sequence of leading zeros (`N`) followed by a `1`.
+/// 2. **Binary Part**:
+///    - The next `N` bits after the unary part represent binary encoded decimal (remainder).
+///
+/// The final value is calulated with: 2^N + remainder
+///
+/// This encoded value determines the number/length of 0s or 1s to be set. The first bit of the
+/// compressed bitmap indicates the value of the first run. After processing each
+/// Elias Gamma encoded value, the bit value is flipped and the process is repeated for the next
+/// segment.
+///
+/// # Visual Example
+///
+/// Consider a compressed bitmap `0b00100100`:
+///
+/// - The first bit is `0`, so the initial run is of 0s.
+/// - The first sequence is `010`:
+///   - Unary part is `01`, so `N` is `1`
+///   - Binary part is `0`, so remainder is `0`
+///   - Elias Gamma value: `2^1 + 0 = 2`
+///   - This means the first 2 bits of the decompressed bitmap are: `00`
+/// - Flip the bit to `1`.
+/// - The next sequence `0010`:
+///   - Unary part is `010`, so `N` is `0`
+///   - Binary part is `0`, so remainder is `0`
+///   - Elias Gamma value: `2^1 + 0 = 2`
+///   - This means the next 2 bits art `1`s
+/// - Flip the bit to `0`.
+/// - The last sequence `0`:
+///   - Unary part is 0, so N is 0
+///   - Binary part is 0, so remainder is 0
+///   - Elias Gamma value: `2^0 + 0 = 1`
+///   - This means the next bit is `0`.
+///
+/// The decompressed bitmap would be `0b00110000`.
 #[derive(Debug, Default, PartialEq)]
 pub struct CompressedBitmap {
     pub start_block_height: u64,
@@ -59,6 +109,7 @@ impl TryFrom<&Base64Bitmap> for CompressedBitmap {
 }
 
 impl CompressedBitmap {
+    #[cfg(test)]
     pub fn new(start_block_height: u64, bitmap: Vec<u8>) -> Self {
         Self {
             start_block_height,
@@ -71,14 +122,6 @@ impl CompressedBitmap {
         let bit_index_in_byte: usize = bit_index % 8;
 
         (self.bitmap[byte_index] & (1u8 << (7 - bit_index_in_byte))) > 0
-    }
-
-    fn set_bit(&mut self, bit_index: usize, bit_value: bool, write_zero: bool) {
-        if !bit_value && write_zero {
-            self.bitmap[bit_index / 8] &= !(1u8 << (7 - (bit_index % 8)));
-        } else if bit_value {
-            self.bitmap[bit_index / 8] |= 1u8 << (7 - (bit_index % 8));
-        }
     }
 
     fn read_integer_from_binary(&self, start_bit_index: usize, end_bit_index: usize) -> u64 {
@@ -116,6 +159,7 @@ impl CompressedBitmap {
         if self.bitmap.is_empty() {
             return Ok(EliasGammaDecoded::default());
         }
+
         let first_bit_index = match self.index_of_first_set_bit(start_bit_index) {
             Some(index) => index,
             None => {
@@ -170,6 +214,31 @@ impl CompressedBitmap {
     }
 }
 
+/// Represents a bitmap of block heights, starting from a given block height.
+///
+/// Each bit in the `bitmap` corresponds to a sequential block height, starting from
+/// the `start_block_height`. For example, with a `start_block_height` of 10, the
+/// first bit in the bitmap represents block height 10, the second bit represents
+/// block height 11, and so on. A bit set to 1 corresponds to a matching block height.
+///
+/// # Visual Example
+///
+/// Given the following `DecompressedBitmap`:
+/// ```
+/// let decompressed = DecompressedBitmap {
+///   start_block_height: 10,
+///   bitmap: [0b00000001, 0b00000000, 0b00001001]
+/// }
+/// ```
+///
+/// bits:  0 0 0 0 0 0 0 1  0 0 0 0 0 0 0 0  0 0 0 0 1 0 0 1
+///                      ^                           ^     ^
+/// index:               7                           20    23
+///
+/// We get the following block heights:
+/// - 17 (10 + 7)
+/// - 30 (10 + 20)
+/// - 33 (10 + 23)
 #[derive(Debug, Default, PartialEq)]
 pub struct DecompressedBitmap {
     pub start_block_height: u64,
@@ -180,7 +249,7 @@ impl DecompressedBitmap {
     pub fn new(start_block_height: u64, bitmap: Option<Vec<u8>>) -> Self {
         Self {
             start_block_height,
-            bitmap: bitmap.unwrap_or(vec![]),
+            bitmap: bitmap.unwrap_or_default(),
         }
     }
 
@@ -211,6 +280,7 @@ impl DecompressedBitmap {
                 &mut to_merge.start_block_height,
             );
         }
+
         let block_height_difference = to_merge.start_block_height - self.start_block_height;
         let start_bit_index: usize = usize::try_from(block_height_difference)?;
 
@@ -227,6 +297,9 @@ impl DecompressedBitmap {
     }
 }
 
+/// The `DecompressedBitmapIter` struct provides an iterator over the
+/// `DecompressedBitmap`, yielding all matching block heights based on the set
+/// bits in the bitmap, starting from the start block height.
 pub struct DecompressedBitmapIter<'a> {
     data: &'a DecompressedBitmap,
     bit_index: usize,
@@ -276,9 +349,7 @@ mod tests {
         let bitmap = DecompressedBitmap::new(0, Some(bytes));
         let results: Vec<bool> = [7, 8, 9, 15, 19, 20, 22, 23]
             .iter()
-            .map(|index| {
-                return bitmap.get_bit(*index);
-            })
+            .map(|index| bitmap.get_bit(*index))
             .collect();
         assert_eq!(
             results,
@@ -437,7 +508,7 @@ mod tests {
             bitmap: vec![0b11001010, 0b10001111],
             start_block_height: 10,
         };
-        let mut to_merge: DecompressedBitmap = DecompressedBitmap {
+        let to_merge: DecompressedBitmap = DecompressedBitmap {
             bitmap: vec![0b11100001],
             start_block_height: 14,
         };
@@ -448,7 +519,7 @@ mod tests {
 
     #[test]
     fn merge_two_bitmaps_with_swap() {
-        let mut to_merge: DecompressedBitmap = DecompressedBitmap {
+        let to_merge: DecompressedBitmap = DecompressedBitmap {
             bitmap: vec![0b11001010, 0b10001111],
             start_block_height: 10,
         };
@@ -464,15 +535,15 @@ mod tests {
     #[test]
     fn merge_multiple_bitmaps_together() {
         let mut base_bitmap = DecompressedBitmap::new(200, None);
-        let mut bitmap_a = DecompressedBitmap {
+        let bitmap_a = DecompressedBitmap {
             bitmap: vec![0b11000000],
             start_block_height: 18,
         };
-        let mut bitmap_b = DecompressedBitmap {
+        let bitmap_b = DecompressedBitmap {
             bitmap: vec![0b11000000],
             start_block_height: 10,
         };
-        let mut bitmap_c = DecompressedBitmap {
+        let bitmap_c = DecompressedBitmap {
             bitmap: vec![0b11000000],
             start_block_height: 14,
         };

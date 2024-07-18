@@ -26,7 +26,7 @@ const DeveloperToolsView = ({
 
   return (
     <div className="bg-gray-100 rounded-lg p-2 mb-0 mx-2">
-      <div className="text-center mb-1">
+      <div className="text-center mb-3">
         <span className="text-xs font-medium">Developer Tools</span>
       </div>
       <div className="flex justify-between">
@@ -74,22 +74,25 @@ const DeveloperToolsView = ({
               }}
             />
           </div>
-          <div
-            className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${
-              debugMode ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300'
-            }`}
-            onClick={handleCodeGen}
-          >
-            <span className="px-3">Debug Mode</span>
-            <input
-              type="checkbox"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              checked={debugMode}
-              onChange={(e) => {
-                setDebugMode(e.target.checked);
-              }}
-            />
-          </div>
+
+          <CustomTooltip message="Please Open Browser Console" direction={TooltipDirection.Top}>
+            <div
+              className={`relative flex items-center justify-center px-2 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded ${
+                debugMode ? 'bg-gray-600 hover:bg-gray-700 text-white' : 'bg-gray-200 hover:bg-gray-300'
+              }`}
+              onClick={handleCodeGen}
+            >
+              <span className="px-3">Debug Mode</span>
+              <input
+                type="checkbox"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                checked={debugMode}
+                onChange={(e) => {
+                  setDebugMode(e.target.checked);
+                }}
+              />
+            </div>
+          </CustomTooltip>
         </div>
 
         <div className="flex flex-col items-center space-y-4">

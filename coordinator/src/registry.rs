@@ -23,6 +23,7 @@ impl IndexerRegistry {
         Self(slice.iter().cloned().collect())
     }
 
+    #[cfg(test)]
     pub fn new() -> Self {
         Self(HashMap::new())
     }
@@ -34,6 +35,7 @@ impl IndexerRegistry {
         }
     }
 
+    #[cfg(test)]
     pub fn get(&self, account_id: &AccountId, function_name: &str) -> Option<&IndexerConfig> {
         self.0.get(account_id)?.get(function_name)
     }
