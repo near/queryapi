@@ -12,6 +12,17 @@ service BlockStreamer {
 
     // Lists all current BlockStream processes
     rpc ListStreams (ListStreamsRequest) returns (ListStreamsResponse);
+
+    // Get info for an existing BlockStream process
+    rpc GetStream (GetStreamRequest) returns (StreamInfo);
+}
+
+// Request message for getting a BlockStream
+message GetStreamRequest {
+    // Account ID which the indexer is defined under
+    string account_id = 1;
+    // Name of the indexer
+    string function_name = 2;
 }
 
 // Request message for starting a BlockStream
