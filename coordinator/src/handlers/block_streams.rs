@@ -246,7 +246,7 @@ impl BlockStreamsHandler {
             let updated_at =
                 SystemTime::UNIX_EPOCH + Duration::from_secs(health.updated_at_timestamp_secs);
 
-            let stale = updated_at.elapsed().unwrap_or_default() > Duration::from_secs(30);
+            let stale = updated_at.elapsed().unwrap_or_default() > Duration::from_secs(60);
             let stalled = matches!(
                 health.processing_state.try_into(),
                 Ok(ProcessingState::Stalled)
