@@ -12,6 +12,17 @@ service BlockStreamer {
 
     // Lists all current BlockStream processes
     rpc ListStreams (ListStreamsRequest) returns (ListStreamsResponse);
+
+    // Get info for an existing BlockStream process
+    rpc GetStream (GetStreamRequest) returns (StreamInfo);
+}
+
+// Request message for getting a BlockStream
+message GetStreamRequest {
+    // Account ID which the indexer is defined under
+    string account_id = 1;
+    // Name of the indexer
+    string function_name = 2;
 }
 
 // Request message for starting a BlockStream
@@ -97,4 +108,26 @@ message StreamInfo {
     string function_name = 4;
     // Block height corresponding to the created/updated height of the indexer
     uint64 version = 5;
+    // Contains health information for the Block Stream
+    Health health = 6;
+}
+
+// Contains health information for the Block Stream
+message Health {
+    // The processing state of the block stream
+    ProcessingState processing_state = 1;
+    // When the health info was last updated
+    uint64 updated_at_timestamp_secs = 2;
+}
+
+enum ProcessingState {
+    UNSPECIFIED = 0;
+    // Not started, or has been stopped
+    IDLE = 1;
+    // Running as expected
+    RUNNING = 2;
+    // Waiting for some internal condition to be met before continuing
+    WAITING = 3;
+    // Stopped due to some unknown error
+    STALLED = 4;
 }

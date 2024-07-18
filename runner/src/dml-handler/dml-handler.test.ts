@@ -27,6 +27,7 @@ describe('DML Handler tests', () => {
       format: pgFormat
     } as unknown as PgClient;
     TABLE_DEFINITION_NAMES = {
+      tableName: 'test_table',
       originalTableName: '"test_table"',
       originalColumnNames: new Map<string, string>([
         ['account_id', 'account_id'],

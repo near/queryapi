@@ -8,6 +8,7 @@ import parentLogger from '../../../logger';
 import { type RunnerHandlers } from '../../../generated/runner/Runner';
 import { type StartExecutorResponse__Output, type StartExecutorResponse } from '../../../generated/runner/StartExecutorResponse';
 import { type StartExecutorRequest__Output } from '../../../generated/runner/StartExecutorRequest';
+import { type GetExecutorRequest__Output } from '../../../generated/runner/GetExecutorRequest';
 import { type StopExecutorRequest__Output } from '../../../generated/runner/StopExecutorRequest';
 import { type StopExecutorResponse__Output, type StopExecutorResponse } from '../../../generated/runner/StopExecutorResponse';
 import { type ListExecutorsRequest__Output } from '../../../generated/runner/ListExecutorsRequest';
@@ -19,6 +20,30 @@ export function getRunnerService (
   StreamHandlerType: typeof StreamHandler = StreamHandler
 ): RunnerHandlers {
   const RunnerService: RunnerHandlers = {
+    GetExecutor (call: ServerUnaryCall<GetExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<ExecutorInfo__Output>): void {
+      const { accountId, functionName } = call.request;
+
+      const executorEntry = Array.from(executors.entries()).find(([_id, executor]) => executor.indexerConfig.accountId === accountId && executor.indexerConfig.functionName === functionName);
+
+      if (executorEntry) {
+        const [executorId, executor] = executorEntry;
+        callback(null, {
+          executorId,
+          accountId: executor.indexerConfig.accountId,
+          functionName: executor.indexerConfig.functionName,
+          version: executor.indexerConfig.version.toString(),
+          health: {
+            executionState: executor.executorContext.executionState,
+          }
+        });
+      } else {
+        const notFoundError = {
+          code: grpc.status.NOT_FOUND,
+          message: `Executor for account ${accountId} and name ${functionName} does not exist`
+        };
+        callback(notFoundError, null);
+      }
+    },
     StartExecutor (call: ServerUnaryCall<StartExecutorRequest__Output, StartExecutorResponse>, callback: sendUnaryData<StartExecutorResponse__Output>): void {
       // Validate request
       const validationResult = validateStartExecutorRequest(call.request);
@@ -127,7 +152,9 @@ export function getRunnerService (
             accountId: indexerConfig.accountId,
             functionName: indexerConfig.functionName,
             version: indexerConfig.version.toString(),
-            status: indexerContext.status
+            health: {
+              executionState: indexerContext.executionState,
+            }
           });
         });
         callback(null, {

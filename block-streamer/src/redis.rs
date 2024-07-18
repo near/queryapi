@@ -28,6 +28,18 @@ impl RedisCommandsImpl {
         Ok(Self { connection })
     }
 
+    pub async fn get<T>(&self, key: T) -> Result<Option<u64>, RedisError>
+    where
+        T: ToRedisArgs + Debug + Send + Sync + 'static,
+    {
+        tracing::debug!("GET: {:?}", key);
+
+        redis::cmd("GET")
+            .arg(key)
+            .query_async(&mut self.connection.clone())
+            .await
+    }
+
     pub async fn xadd<T, U>(&self, stream_key: T, fields: &[(String, U)]) -> Result<(), RedisError>
     where
         T: ToRedisArgs + Debug + Send + Sync + 'static,
@@ -129,6 +141,16 @@ impl RedisClientImpl {
 
         self.commands
             .set(indexer_config.last_processed_block_key(), height)
+            .await
+            .context("Failed to set last processed block")
+    }
+
+    pub async fn get_last_processed_block(
+        &self,
+        indexer_config: &IndexerConfig,
+    ) -> anyhow::Result<Option<u64>> {
+        self.commands
+            .get(indexer_config.last_processed_block_key())
             .await
             .context("Failed to set last processed block")
     }

@@ -5,8 +5,10 @@ const [myIndexers, setMyIndexers] = useState([]);
 const [allIndexers, setAllIndexers] = useState([]);
 const [error, setError] = useState(null);
 const [indexerMetadata, setIndexerMetaData] = useState(new Map());
+const [loading, setLoading] = useState(false);
 
 const fetchIndexerData = () => {
+  setLoading(true);
   Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
     const allIndexers = [];
     const myIndexers = [];
@@ -22,6 +24,7 @@ const fetchIndexerData = () => {
     });
     setMyIndexers(myIndexers);
     setAllIndexers(allIndexers);
+    setLoading(false);
   });
 }
 
@@ -60,6 +63,14 @@ useEffect(() => {
   fetchIndexerData();
   storeIndexerMetaData();
 }, []);
+
+const Container = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+`;
 
 const Wrapper = styled.div`
   display: flex;
@@ -232,6 +243,39 @@ const TextLink = styled.a`
   }
 `;
 
+const LoadingSpinner = () => {
+  const spinnerStyle = {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(0, 0, 0, 0.1)',
+    borderLeftColor: 'black',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    textAlign: 'center',
+    display: 'flex',
+    justifyContent: 'center',
+    alignCenter: 'center',
+  };
+
+  const LoadingContainer = styled.div`
+    text-align: center;
+    width: 100%;
+    height: 100%;
+  `;
+
+  const LoadingSpinnerContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    font-size: 14px;
+  `
+  return <LoadingContainer>
+    <LoadingSpinnerContainer>
+      <div style={spinnerStyle} />
+    </LoadingSpinnerContainer>
+    <>{selectedTab === "my-indexers" ? "Loading Your Indexers" : "Loading All Indexers"}</>
+  </LoadingContainer>;
+};
+
 return (
   <Wrapper className="container-xl">
     <Tabs>
@@ -249,47 +293,64 @@ return (
       </TabsButton>
     </Tabs>
     {error && <Text>{error}</Text>}
+
     {selectedTab === "all" && (
       <>
-        <Items>
-          {allIndexers.map((indexer, i) => (
-            <Item key={i}>
-              <Widget
-                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{ ...indexer, indexerMetadata }}
-              />
-            </Item>
-          ))}
-        </Items>
+        {loading ? (
+          <Container>
+            <LoadingSpinner />
+          </Container>
+        ) : (
+          <Items>
+            <>
+              {allIndexers.map((indexer, i) => (
+                <Item key={i}>
+                  <Widget
+                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                    props={{ ...indexer, indexerMetadata }}
+                  />
+                </Item>
+              ))}
+            </>
+          </Items>
+        )}
       </>
     )}
-    {selectedTab === "my-indexers" && myIndexers.length === 0 && (
-      <Header>
-        <H2>You don't have any indexers yet.</H2>
-        <H2>
-          QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
-        </H2>
-        <H2>
-          To learn more about QueryAPI, visit
-          <TextLink target="_blank" href="https://docs.near.org/build/data-infrastructure/query-api/indexers" as="a" bold>
-            QueryAPI Docs
-          </TextLink>
-        </H2>
-      </Header>
+
+    {selectedTab === "my-indexers" && (
+      <>
+        {loading ? (
+          <Container>
+            <LoadingSpinner />
+          </Container>
+        ) : myIndexers.length === 0 ? (
+          <Header>
+            <H2>You don't have any indexers yet.</H2>
+            <H2>
+              QueryAPI streamlines the process of querying specific data from the Near Blockchain. Explore new Indexers and fork them to try it out!
+            </H2>
+            <H2>
+              To learn more about QueryAPI, visit
+              <TextLink target="_blank" href="https://docs.near.org/build/data-infrastructure/query-api/indexers" as="a" bold>
+                QueryAPI Docs
+              </TextLink>
+            </H2>
+          </Header>
+        ) : (
+          <Items>
+            <>
+              {myIndexers.map((indexer, i) => (
+                <Item key={i}>
+                  <Widget
+                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                    props={{ ...indexer, indexerMetadata }}
+                  />
+                </Item>
+              ))}
+            </>
+          </Items>
+        )}
+      </>
     )}
-    <Items>
-      {selectedTab === "my-indexers" && (
-        <>
-          {myIndexers.map((indexer, i) => (
-            <Item key={i}>
-              <Widget
-                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                props={{ ...indexer, indexerMetadata }}
-              />
-            </Item>
-          ))}
-        </>
-      )}
-    </Items>
-  </Wrapper>
+  </Wrapper >
 );

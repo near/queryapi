@@ -104,7 +104,6 @@ export class PgSchemaTypeGen {
       ) {
         this.addColumn(columnSpec, columns);
       } else if (
-        Object.prototype.hasOwnProperty.call(columnSpec, 'constraint') &&
         columnSpec.constraint_type === 'primary key'
       ) {
         for (const foreignKeyDef of columnSpec.definition) {
