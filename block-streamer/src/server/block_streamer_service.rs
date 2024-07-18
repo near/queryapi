@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 use near_lake_framework::near_indexer_primitives;
 use tonic::{Request, Response, Status};
@@ -19,6 +20,30 @@ pub struct BlockStreamerService {
     lake_s3_client: crate::lake_s3_client::SharedLakeS3Client,
     chain_id: ChainId,
     block_streams: Mutex<HashMap<String, block_stream::BlockStream>>,
+}
+
+impl From<block_stream::BlockStreamHealth> for blockstreamer::Health {
+    fn from(health: block_stream::BlockStreamHealth) -> Self {
+        blockstreamer::Health {
+            processing_state: match health.processing_state {
+                block_stream::ProcessingState::Running => {
+                    blockstreamer::ProcessingState::Running as i32
+                }
+                block_stream::ProcessingState::Idle => blockstreamer::ProcessingState::Idle as i32,
+                block_stream::ProcessingState::Stalled => {
+                    blockstreamer::ProcessingState::Stalled as i32
+                }
+                block_stream::ProcessingState::Waiting => {
+                    blockstreamer::ProcessingState::Waiting as i32
+                }
+            },
+            updated_at_timestamp_secs: health
+                .last_updated
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        }
+    }
 }
 
 impl BlockStreamerService {
@@ -77,11 +102,17 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
         });
 
         if let Some((stream_id, stream)) = stream_entry {
+            let stream_health = stream.health().map_err(|err| {
+                tracing::error!(?err, "Failed to get health of block stream");
+                Status::internal("Failed to get health of block stream")
+            })?;
+
             Ok(Response::new(StreamInfo {
                 stream_id: stream_id.to_string(),
                 account_id: stream.indexer_config.account_id.to_string(),
                 function_name: stream.indexer_config.function_name.to_string(),
                 version: stream.version,
+                health: Some(stream_health.into()),
             }))
         } else {
             Err(Status::not_found(format!(
@@ -210,11 +241,22 @@ impl blockstreamer::block_streamer_server::BlockStreamer for BlockStreamerServic
 
         let block_streams: Vec<StreamInfo> = lock
             .values()
-            .map(|block_stream| StreamInfo {
-                stream_id: block_stream.indexer_config.get_hash_id(),
-                account_id: block_stream.indexer_config.account_id.to_string(),
-                function_name: block_stream.indexer_config.function_name.clone(),
-                version: block_stream.version,
+            .map(|block_stream| {
+                let stream_health = block_stream
+                    .health()
+                    .map_err(|err| {
+                        tracing::error!(?err, "Failed to get health of block stream");
+                        Status::internal("Failed to get health of block stream")
+                    })
+                    .ok();
+
+                StreamInfo {
+                    stream_id: block_stream.indexer_config.get_hash_id(),
+                    account_id: block_stream.indexer_config.account_id.to_string(),
+                    function_name: block_stream.indexer_config.function_name.to_string(),
+                    version: block_stream.version,
+                    health: stream_health.map(|health| health.into()),
+                }
             })
             .collect();
 
