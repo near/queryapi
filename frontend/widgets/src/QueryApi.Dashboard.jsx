@@ -405,6 +405,17 @@ const TabsButton = styled.button`
   }
 `;
 
+const AlertText = styled.p`
+font-family: 'Mona Sans', sans-serif;
+font-size: 14px;
+line-height: 21px;
+text-align: center;
+color:red;
+margin: 0;
+padding: 0;
+bg-color: #f9f9f9;
+`
+
 const LoadingSpinner = () => {
   const spinnerStyle = {
     width: '40px',
@@ -455,7 +466,7 @@ const validateContractId = (accountId) => {
 
   return true;
 };
-console.log(props);
+
 const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 
@@ -508,7 +519,6 @@ const handleFetchCheckboxData = async () => {
       };
 
       setCheckBoxData(data);
-      console.log(data);
       setMethodCount(data.length);
       setLoading(false);
     }).catch(error => {
@@ -550,10 +560,6 @@ const handleChildChange = (childId) => {
   });
 };
 
-useEffect(() => {
-  console.log(selectedIndexer.split('/')[0]);
-  console.log(selectedIndexer.split('/')[1]);
-});
 useEffect(() => {
   Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
     const indexers = [];
@@ -637,7 +643,7 @@ return (
         onClick={() => selectTab("indexer")}
         selected={activeTab === "indexer"}
       >
-        Indexer ({selectedIndexerPath})
+        Indexer ({selectedIndexer})
       </TabsButton>
     </Tabs>
 
@@ -645,6 +651,7 @@ return (
     <Main>
       {activeTab === 'launchpad' && (
         <Section >
+          <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
           <Hero>
             <Container>
               <HeadlineContainer>
@@ -754,68 +761,41 @@ return (
         </Section>
       )}
 
-      {activeTab === 'indexer' && (
+      {activeTab === "create-new-indexer" && (
         <Section>
-          {/* {state.indexers.length > 0 &&
-              (state.selected_indexer != undefined ? (
-                <H2>{state.selected_indexer}</H2>
-              ) : (
-                <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
-              ))} */}
           <Widget
             src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
             props={{
-              indexerName: selectedIndexer.split('/')[0],
-              accountId: selectedIndexer.split('/')[1],
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
+              path: "create-new-indexer",
+            }}
+          />
+        </Section>
+      )}
+
+      {activeTab === 'indexer' && (
+        <Section>
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+            props={{
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
               path: "query-api-editor",
               tab: props.tab,
               activeView: activeIndexerTabView
             }}
           />
-          {/* {state.activeTab === "create-new-indexer" && (
-            <div>
-              {state.indexers.length > 0 &&
-                (state.selected_indexer != undefined ? (
-                  <H2>{state.selected_indexer}</H2>
-                ) : (
-                  <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
-                ))}
-              <Widget
-                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-                props={{
-                  indexerName:
-                    selectedIndexerName ?? state.indexers[0].indexerName,
-                  accountId: selected_accountId ?? state.indexers[0].accountId,
-                  path: "create-new-indexer",
-                }}
-              />
-            </div>
-          )} */}
         </Section>
       )}
 
-      {/* <Section
-        negativeMargin
-        primary
-        active={state.activeTab === "create-new-indexer"}
-      >
-        {state.activeTab === "create-new-indexer" && (
-          <div>
-            <Widget
-              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-              props={{
-                indexerName:
-                  selected_indexerName ?? state.indexers[0].indexerName,
-                accountId: selected_accountId ?? state.indexers[0].accountId,
-                path: "create-new-indexer",
-              }}
-            />
-          </div>
-        )}
-      </Section> */}
+      {!['launchpad', 'explore', 'indexer', 'create-new-indexer'].includes(activeTab) && (
+        <Widget
+          src={`${REPL_ACCOUNT_ID}/widget/QueryApi.NotFound`}
+          props={{}}
+        />
+      )}
 
-
-      {/* NOT FOUND DEFAULT */}
     </Main>
   </Wrapper >
 );

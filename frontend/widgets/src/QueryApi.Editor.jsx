@@ -3,7 +3,6 @@ const tab = props.tab || "";
 const activeView = props.activeView || "editor";
 let accountId = props.accountId || context.accountId;
 let externalAppUrl = `${REPL_EXTERNAL_APP_URL}/${path}?accountId=${accountId}`;
-console.log("props", props);
 
 if (props.indexerName) {
   externalAppUrl += `&indexerName=${props.indexerName}`;
@@ -71,15 +70,6 @@ const requestHandler = (request, response) => {
       console.log("default case");
   }
 };
-
-
-console.log('critical info',
-  externalAppUrl,
-  path,
-  initialViewHeight,
-  initialPayload,
-  requestHandler
-)
 
 // NearSocialBridgeCore widget is the core that makes all the "magic" happens
 return (
