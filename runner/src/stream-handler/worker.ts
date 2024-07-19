@@ -13,7 +13,6 @@ import IndexerMeta from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
-import Provisioner from '../provisioner';
 import { type PostgresConnectionParams } from '../pg-client';
 import DmlHandler from '../dml-handler/dml-handler';
 
@@ -33,6 +32,7 @@ interface WorkerContext {
   lakeClient: LakeClient
   queue: PrefetchQueue
   indexerConfig: IndexerConfig
+  databaseConnectionParams: PostgresConnectionParams
   logger: typeof parentLogger
 }
 
@@ -55,6 +55,7 @@ void (async function main () {
     lakeClient: new LakeClient(),
     queue: [],
     indexerConfig,
+    databaseConnectionParams: workerData.databaseConnectionParams,
     logger
   };
 
@@ -99,20 +100,11 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
 async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
   let previousError: string = '';
   const indexerConfig: IndexerConfig = workerContext.indexerConfig;
-  let databaseConnectionParams: PostgresConnectionParams;
-  try {
-    const provisioner = new Provisioner();
-    databaseConnectionParams = await provisioner.getPgBouncerConnectionParameters(indexerConfig.hasuraRoleName());
-    parentPort?.postMessage({ type: WorkerMessageType.DATABASE_CONNECTION_PARAMS, data: databaseConnectionParams });
-  } catch (e) {
-    const error = e as Error;
-    workerContext.logger.error(`Failed to get database connection parameters: ${error.message}`);
-    throw error;
-  }
 
-  const dmlHandler: DmlHandler = new DmlHandler(databaseConnectionParams, indexerConfig);
-  const indexerMeta: IndexerMeta = new IndexerMeta(indexerConfig, databaseConnectionParams);
+  const dmlHandler: DmlHandler = new DmlHandler(workerContext.databaseConnectionParams, indexerConfig);
+  const indexerMeta: IndexerMeta = new IndexerMeta(indexerConfig, workerContext.databaseConnectionParams);
   const indexer = new Indexer(indexerConfig, { dmlHandler, indexerMeta });
+
   let streamMessageId = '';
   let currBlockHeight = 0;
 

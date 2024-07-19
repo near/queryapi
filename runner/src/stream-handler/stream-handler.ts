@@ -8,6 +8,9 @@ import logger from '../logger';
 import type IndexerConfig from '../indexer-config';
 import type IndexerMeta from '../indexer-meta';
 import { IndexerStatus } from '../indexer-meta';
+import assert from 'assert';
+import Provisioner from '../provisioner';
+import { type PostgresConnectionParams } from '../pg-client';
 
 export enum WorkerMessageType {
   METRICS,
@@ -45,21 +48,33 @@ export default class StreamHandler {
     this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
 
     this.executorContext = {
-      executionState: ExecutionState.RUNNING,
+      executionState: ExecutionState.WAITING,
       block_height: indexerConfig.version,
     };
   }
 
   async start (): Promise<void> {
     if (isMainThread) {
-      this.worker = new Worker(path.join(__dirname, 'worker.js'), {
-        workerData: {
-          indexerConfigData: this.indexerConfig.toObject(),
-        },
-      });
+      try {
+        const provisioner = new Provisioner();
+        const databaseConnectionParams: PostgresConnectionParams = await provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+        this.worker = new Worker(path.join(__dirname, 'worker.js'), {
+          workerData: {
+            indexerConfigData: this.indexerConfig.toObject(),
+            databaseConnectionParams,
+          },
+        });
 
-      this.worker.on('message', this.handleMessage.bind(this));
-      this.worker.on('error', this.handleError.bind(this));
+        this.worker.on('message', this.handleMessage.bind(this));
+        this.worker.on('error', this.handleError.bind(this));
+
+        this.executorContext.executionState = ExecutionState.RUNNING;
+      } catch (error: any) {
+        const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
+        this.logger.error('Terminating thread', error);
+        this.executorContext.executionState = ExecutionState.STALLED;
+        throw new Error(`Failed to start Indexer: ${errorContent}`);
+      }
     } else {
       throw new Error('StreamHandler should not be instantiated in a worker thread');
     }
@@ -77,20 +92,23 @@ export default class StreamHandler {
     this.logger.error('Terminating thread', error);
     this.executorContext.executionState = ExecutionState.STALLED;
 
-    this.indexerMeta.setStatus(IndexerStatus.STOPPED).catch((e) => {
-      this.logger.error('Failed to set stopped status for indexer', e);
-    });
-    const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
-    const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height);
-
-    this.indexerMeta.writeLogs([streamErrorLogEntry])
-      .catch((e) => {
-        this.logger.error('Failed to write failure log for stream', e);
+    if (this.indexerMeta) {
+      this.indexerMeta.setStatus(IndexerStatus.STOPPED).catch((e: Error) => {
+        this.logger.error('Failed to set stopped status for indexer', e);
       });
+      const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
+      const streamErrorLogEntry = LogEntry.systemError(`Encountered error processing stream: ${this.indexerConfig.redisStreamKey}, terminating thread\n${errorContent}`, this.executorContext.block_height);
+      this.indexerMeta.writeLogs([streamErrorLogEntry])
+        .catch((e) => {
+          this.logger.error('Failed to write failure log for stream', e);
+        });
+    }
 
-    this.worker.terminate().catch(() => {
-      this.logger.error('Failed to terminate thread for stream');
-    });
+    if (this.worker) {
+      this.worker.terminate().catch(() => {
+        this.logger.error('Failed to terminate thread for stream');
+      });
+    }
   }
 
   private handleMessage (message: WorkerMessage): void {
@@ -102,6 +120,7 @@ export default class StreamHandler {
         this.executorContext.block_height = message.data;
         break;
       case WorkerMessageType.METRICS:
+        assert(this.worker, 'Worker is not initialized');
         registerWorkerMetrics(this.worker.threadId, message.data);
         break;
     }
