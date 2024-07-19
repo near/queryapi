@@ -466,6 +466,7 @@ const validateContractId = (accountId) => {
 
   return true;
 };
+const IS_DEV = `${REPL_EXTERNAL_APP_URL}` === "https://queryapi-frontend-vcqilefdcq-ew.a.run.app" || `${REPL_EXTERNAL_APP_URL}` === "http://localhost:3000";
 
 const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
@@ -622,13 +623,15 @@ const selectIndexerPage = (viewName) => {
 return (
   <Wrapper>
     <Tabs>
-      <TabsButton
-        type="button"
-        onClick={() => selectTab("launchpad")}
-        selected={activeTab === "launchpad"}
-      >
-        Launchpad
-      </TabsButton>
+      {!IS_DEV && (
+        <TabsButton
+          type="button"
+          onClick={() => selectTab("launchpad")}
+          selected={activeTab === "launchpad"}
+        >
+          Launchpad
+        </TabsButton>
+      )}
 
       <TabsButton
         type="button"
@@ -649,7 +652,7 @@ return (
 
 
     <Main>
-      {activeTab === 'launchpad' && (
+      {activeTab === 'launchpad' && IS_DEV && (
         <Section >
           <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
           <Hero>
