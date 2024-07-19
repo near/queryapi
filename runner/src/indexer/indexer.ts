@@ -13,6 +13,8 @@ import type IndexerConfig from '../indexer-config';
 import { type PostgresConnectionParams } from '../pg-client';
 import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
+import { type IRpcClient } from '../rpc-client/rpc-client';
+import { type CodeResult } from '@near-js/types/lib/provider/response';
 
 interface Dependencies {
   fetch: typeof fetch
@@ -20,7 +22,13 @@ interface Dependencies {
   dmlHandler?: DmlHandler
   indexerMeta?: IndexerMeta
   parser: Parser
-};
+  rpcClient?: IRpcClient
+}
+
+interface IRpcContext {
+  viewCallRaw: (contractId: string, methodName: string, args: Record<string, string | number | object>) => Promise<CodeResult>
+  viewCallJSON: (contractId: string, methodName: string, args: Record<string, string | number | object>) => Promise<any>
+}
 
 interface Context {
   graphql: (operation: string, variables?: Record<string, any>) => Promise<any>
@@ -31,6 +39,7 @@ interface Context {
   error: (message: string) => void
   fetchFromSocialApi: (path: string, options?: any) => Promise<any>
   db: Record<string, Record<string, (...args: any[]) => any>>
+  rpc: IRpcContext
 }
 
 export interface TableDefinitionNames {
@@ -192,7 +201,8 @@ export default class Indexer {
       fetchFromSocialApi: async (path, options) => {
         return await this.deps.fetch(`https://api.near.social${path}`, options);
       },
-      db: this.buildDatabaseContext(blockHeight, logEntries)
+      db: this.buildDatabaseContext(blockHeight, logEntries),
+      rpc: this.buildRPCContext(blockHeight)
     };
   }
 
@@ -268,6 +278,25 @@ export default class Indexer {
     }
 
     return pascalCaseTableName;
+  }
+
+  buildRPCContext (
+    currentBlockHeight: number,
+  ): IRpcContext {
+    const rpcClient = (): IRpcClient => {
+      if (!this.deps.rpcClient) {
+        throw new Error('RPC client is not configured');
+      }
+      return this.deps.rpcClient;
+    };
+    return {
+      viewCallRaw: async (contractId: string, methodName: string, args: Record<string, string | number | object> = {}, blockHeight = currentBlockHeight): Promise<CodeResult> => {
+        return await rpcClient().viewCallRaw(blockHeight, contractId, methodName, args);
+      },
+      viewCallJSON: async (contractId: string, methodName: string, args: Record<string, string | number | object> = {}, blockHeight = currentBlockHeight): Promise<any> => {
+        return await rpcClient().viewCallJSON(blockHeight, contractId, methodName, args);
+      }
+    };
   }
 
   buildDatabaseContext (
