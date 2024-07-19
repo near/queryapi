@@ -623,7 +623,7 @@ const selectIndexerPage = (viewName) => {
 return (
   <Wrapper>
     <Tabs>
-      {!IS_DEV && (
+      {IS_DEV && (
         <TabsButton
           type="button"
           onClick={() => selectTab("launchpad")}
