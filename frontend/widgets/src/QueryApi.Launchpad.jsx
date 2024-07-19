@@ -1,4 +1,3 @@
-
 const AlertText = styled.p`
 font-family: 'Mona Sans', sans-serif;
 font-size: 14px;
@@ -380,53 +379,53 @@ const TableCell = styled.td`
 `;
 
 const LoadingSpinner = () => {
-    const spinnerStyle = {
-        width: '40px',
-        height: '40px',
-        border: '4px solid rgba(0, 0, 0, 0.1)',
-        borderLeftColor: 'black',
-        borderRadius: '50%',
-        animation: 'spin 1s linear infinite',
-        textAlign: 'center',
-        display: 'flex',
-        justifyContent: 'center',
-        alignCenter: 'center',
-    };
+  const spinnerStyle = {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(0, 0, 0, 0.1)',
+    borderLeftColor: 'black',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    textAlign: 'center',
+    display: 'flex',
+    justifyContent: 'center',
+    alignCenter: 'center',
+  };
 
-    const LoadingContainer = styled.div`
+  const LoadingContainer = styled.div`
       text-align: center;
       width: 100%;
     `;
 
-    const LoadingSpinnerContainer = styled.div`
+  const LoadingSpinnerContainer = styled.div`
       display: flex;
       justify-content: center;
       font-size: 14px;
     `
-    return <LoadingContainer> <LoadingSpinnerContainer><div style={spinnerStyle} /> </LoadingSpinnerContainer><>Generating Methods</></LoadingContainer>;
+  return <LoadingContainer> <LoadingSpinnerContainer><div style={spinnerStyle} /> </LoadingSpinnerContainer><>Generating Methods</></LoadingContainer>;
 };
 
 
 const WILD_CARD = '*';
 const validateContractId = (accountId) => {
-    accountId = accountId.trim();
-    // Check if accountId is a wildcard '*'
-    if (accountId === WILD_CARD) return true;
-    // Check if accountId length is between 2 and 64 characters
-    const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
-    if (!isLengthValid) return false;
-    // Check if accountId starts with '*.' || '*' remove for part verification
-    if (accountId.startsWith('*.')) accountId = accountId.slice(2);
-    if (accountId.startsWith('*')) accountId = accountId.slice(1);
+  accountId = accountId.trim();
+  // Check if accountId is a wildcard '*'
+  if (accountId === WILD_CARD) return true;
+  // Check if accountId length is between 2 and 64 characters
+  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  if (!isLengthValid) return false;
+  // Check if accountId starts with '*.' || '*' remove for part verification
+  if (accountId.startsWith('*.')) accountId = accountId.slice(2);
+  if (accountId.startsWith('*')) accountId = accountId.slice(1);
 
-    const parts = accountId.split('.');
-    for (let part of parts) {
-        if (!part.match(/^[a-z\d]+([-_][a-z\d]+)*$/)) {
-            return false;
-        }
+  const parts = accountId.split('.');
+  for (let part of parts) {
+    if (!part.match(/^[a-z\d]+([-_][a-z\d]+)*$/)) {
+      return false;
     }
+  }
 
-    return true;
+  return true;
 };
 
 const [checkBoxData, setCheckBoxData] = useState([]);
@@ -438,235 +437,235 @@ const [allIndexers, setAllIndexers] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-    Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-        const indexers = [];
-        Object.keys(data).forEach((accountId) => {
-            Object.keys(data[accountId]).forEach((functionName) => {
-                indexers.push({
-                    accountId: accountId,
-                    indexerName: functionName,
-                });
-            });
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const indexers = [];
+    Object.keys(data).forEach((accountId) => {
+      Object.keys(data[accountId]).forEach((functionName) => {
+        indexers.push({
+          accountId: accountId,
+          indexerName: functionName,
         });
-        setAllIndexers(indexers)
+      });
     });
+    setAllIndexers(indexers)
+  });
 });
 
 const handleFetchCheckboxData = async () => {
-    setCheckBoxData([]);
-    setMethodCount(0);
-    setContractInputMessage('');
+  setCheckBoxData([]);
+  setMethodCount(0);
+  setContractInputMessage('');
 
-    if (!validateContractId(inputValue)) {
-        setContractInputMessage('Invalid contract id');
-        return;
+  if (!validateContractId(inputValue)) {
+    setContractInputMessage('Invalid contract id');
+    return;
+  }
+
+  setLoading(true);
+
+  const url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
+  asyncFetch(url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filter: inputValue,
+      }),
     }
+  )
+    .then(response => {
+      if (!response.ok) {
+        setError('There was an error fetching the data');
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = response.body;
 
-    setLoading(true);
+      if (data.length === 0) {
+        setContractInputMessage('No methods found for this contract');
+        setLoading(false);
+        return;
+      };
 
-    const url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
-    asyncFetch(url,
-        {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                filter: inputValue,
-            }),
-        }
-    )
-        .then(response => {
-            if (!response.ok) {
-                setError('There was an error fetching the data');
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            const data = response.body;
-
-            if (data.length === 0) {
-                setContractInputMessage('No methods found for this contract');
-                setLoading(false);
-                return;
-            };
-
-            setCheckBoxData(data);
-            setMethodCount(data.length);
-            setLoading(false);
-        }).catch(error => {
-            setLoading(false);
-            setError('There was an error fetching the data');
-        });
+      setCheckBoxData(data);
+      setMethodCount(data.length);
+      setLoading(false);
+    }).catch(error => {
+      setLoading(false);
+      setError('There was an error fetching the data');
+    });
 
 };
 
 const initialCheckboxState = checkBoxData.reduce((acc, item) => {
-    //Select eveyrthing by default.
-    acc[item.method_name] = false;
-    if (item.schema.properties) {
-        Object.keys(item.schema.properties).forEach(property => {
-            acc[`${item.method_name}::${property}`] = false;
-        });
-    }
-    return acc;
+  //Select eveyrthing by default.
+  acc[item.method_name] = false;
+  if (item.schema.properties) {
+    Object.keys(item.schema.properties).forEach(property => {
+      acc[`${item.method_name}::${property}`] = false;
+    });
+  }
+  return acc;
 }, {});
 
 const handleParentChange = (methodName) => {
-    const newState = { ...checkboxState };
-    const isChecked = !checkboxState[methodName];
-    newState[methodName] = isChecked;
-    checkBoxData.forEach(item => {
-        if (item.method_name === methodName && item.schema.properties) {
-            Object.keys(item.schema.properties).forEach(property => {
-                newState[`${methodName}::${property}`] = isChecked;
-            });
-        }
-    });
-    setCheckboxState(newState);
+  const newState = { ...checkboxState };
+  const isChecked = !checkboxState[methodName];
+  newState[methodName] = isChecked;
+  checkBoxData.forEach(item => {
+    if (item.method_name === methodName && item.schema.properties) {
+      Object.keys(item.schema.properties).forEach(property => {
+        newState[`${methodName}::${property}`] = isChecked;
+      });
+    }
+  });
+  setCheckboxState(newState);
 };
 
 const handleChildChange = (childId) => {
-    setCheckboxState({
-        ...checkboxState,
-        [childId]: !checkboxState[childId],
-    });
+  setCheckboxState({
+    ...checkboxState,
+    [childId]: !checkboxState[childId],
+  });
 };
 
 const data = allIndexers.map((indexer) => ({
-    indexer: indexer.indexerName,
-    weeklyRequest: indexer.weeklyRequest || 150,
-    lastUpdated: indexer.lastUpdated || '2023-06-25',
-    status: indexer.status || 'Active',
+  indexer: indexer.indexerName,
+  weeklyRequest: indexer.weeklyRequest || 150,
+  lastUpdated: indexer.lastUpdated || '2023-06-25',
+  status: indexer.status || 'Active',
 }));
 
 function CustomTable() {
-    return (
-        <TableContainer>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHeaderCell>Indexer</TableHeaderCell>
-                        <TableHeaderCell>Weekly Request</TableHeaderCell>
-                        <TableHeaderCell>Last Updated</TableHeaderCell>
-                        <TableHeaderCell>Status</TableHeaderCell>
-                    </TableRow>
-                </TableHeader>
-                <tbody>
-                    {data.map((row, index) => (
-                        <TableRow key={index}>
-                            <TableCell>{row.indexer}</TableCell>
-                            <TableCell>{row.weeklyRequest}</TableCell>
-                            <TableCell>{row.lastUpdated}</TableCell>
-                            <TableCell>{row.status}</TableCell>
-                        </TableRow>
-                    ))}
-                </tbody>
-            </Table>
-        </TableContainer>
-    );
+  return (
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHeaderCell>Indexer</TableHeaderCell>
+            <TableHeaderCell>Weekly Request</TableHeaderCell>
+            <TableHeaderCell>Last Updated</TableHeaderCell>
+            <TableHeaderCell>Status</TableHeaderCell>
+          </TableRow>
+        </TableHeader>
+        <tbody>
+          {data.map((row, index) => (
+            <TableRow key={index}>
+              <TableCell>{row.indexer}</TableCell>
+              <TableCell>{row.weeklyRequest}</TableCell>
+              <TableCell>{row.lastUpdated}</TableCell>
+              <TableCell>{row.status}</TableCell>
+            </TableRow>
+          ))}
+        </tbody>
+      </Table>
+    </TableContainer>
+  );
 }
 
 
 
 return (
-    <>
-        <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
-        <Hero>
-            <Container>
-                <HeadlineContainer>
-                    <Headline>Launch an indexer in minutes</Headline>
-                    <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
-                    <InputWrapper>
-                        <StyledInput
-                            placeholder="*.pool.near, *.poolv1.near"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
-                        />
-                        <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
-                    </InputWrapper>
-                    <ContractInputMessage>{contractInputMessage ?? <><WarningSVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><path d="M142.41,40.22l87.46,151.87C236,202.79,228.08,216,215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22C119.89,29.26,136.11,29.26,142.41,40.22Z" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><line x1="128" y1="144" x2="128" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="180" fill="red" r="12" /></WarningSVG> {contractInputMessage}</>}</ContractInputMessage>
+  <>
+    <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
+    <Hero>
+      <Container>
+        <HeadlineContainer>
+          <Headline>Launch an indexer in minutes</Headline>
+          <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
+          <InputWrapper>
+            <StyledInput
+              placeholder="*.pool.near, *.poolv1.near"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
+            />
+            <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
+          </InputWrapper>
+          <ContractInputMessage>{contractInputMessage ?? <><WarningSVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><path d="M142.41,40.22l87.46,151.87C236,202.79,228.08,216,215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22C119.89,29.26,136.11,29.26,142.41,40.22Z" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><line x1="128" y1="144" x2="128" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="180" fill="red" r="12" /></WarningSVG> {contractInputMessage}</>}</ContractInputMessage>
 
-                </HeadlineContainer>
-                <WidgetContainer>
-                    <SubContainer>
-                        <SubContainerTitle>Customize indexer</SubContainerTitle>
-                        <SubContainerContent>
-                            {loading ? (
-                                <Container>
-                                    <LoadingSpinner />
-                                </Container>
-                            ) : (checkBoxData.length === 0) ?
-                                <>
-                                    <NoQueryContainer>
-                                        <NoQuerySVG
-                                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
-                                        </NoQuerySVG>
-                                        <NoQueryText>No smart contract address entered</NoQueryText>
-                                    </NoQueryContainer>
-                                </>
-                                : (
-                                    <div>
-                                        {checkBoxData.length > 0 && (
-                                            <MethodsText>
-                                                Methods <MethodsSpan>{methodCount}</MethodsSpan>
-                                            </MethodsText>
-                                        )}
-                                        < ScrollableDiv >
-                                            {
-                                                checkBoxData.length > 0 && (
-                                                    <>
-                                                        {checkBoxData.map((item, index) => (
-                                                            <CheckboxContainer key={index}>
-                                                                <CheckboxLabel>
-                                                                    <Checkbox
-                                                                        type="checkbox"
-                                                                        id={item.method_name}
-                                                                        checked={checkboxState[item.method_name]}
-                                                                        onChange={() => handleParentChange(item.method_name)}
-                                                                    />
-                                                                    {item.method_name}
-                                                                </CheckboxLabel>
-                                                                {item.schema.properties && (
-                                                                    <SubCheckboxContainer>
-                                                                        {Object.keys(item.schema.properties).map((property, subIndex) => (
-                                                                            <CheckboxLabel key={subIndex}>
-                                                                                <Checkbox
-                                                                                    type="checkbox"
-                                                                                    id={`${item.method_name}::${property}`}
-                                                                                    checked={checkboxState[`${item.method_name}::${property}`]}
-                                                                                    onChange={() => handleChildChange(`${item.method_name}::${property}`)}
-                                                                                />
-                                                                                {property}: {item.schema.properties[property].type}
-                                                                            </CheckboxLabel>
-                                                                        ))}
-                                                                    </SubCheckboxContainer>
-                                                                )}
-                                                            </CheckboxContainer>
-                                                        ))}
-                                                    </>
-                                                )
-                                            }
-                                        </ScrollableDiv>
-                                    </div>
+        </HeadlineContainer>
+        <WidgetContainer>
+          <SubContainer>
+            <SubContainerTitle>Customize indexer</SubContainerTitle>
+            <SubContainerContent>
+              {loading ? (
+                <Container>
+                  <LoadingSpinner />
+                </Container>
+              ) : (checkBoxData.length === 0) ?
+                <>
+                  <NoQueryContainer>
+                    <NoQuerySVG
+                      xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
+                    </NoQuerySVG>
+                    <NoQueryText>No smart contract address entered</NoQueryText>
+                  </NoQueryContainer>
+                </>
+                : (
+                  <div>
+                    {checkBoxData.length > 0 && (
+                      <MethodsText>
+                        Methods <MethodsSpan>{methodCount}</MethodsSpan>
+                      </MethodsText>
+                    )}
+                    < ScrollableDiv >
+                      {
+                        checkBoxData.length > 0 && (
+                          <>
+                            {checkBoxData.map((item, index) => (
+                              <CheckboxContainer key={index}>
+                                <CheckboxLabel>
+                                  <Checkbox
+                                    type="checkbox"
+                                    id={item.method_name}
+                                    checked={checkboxState[item.method_name]}
+                                    onChange={() => handleParentChange(item.method_name)}
+                                  />
+                                  {item.method_name}
+                                </CheckboxLabel>
+                                {item.schema.properties && (
+                                  <SubCheckboxContainer>
+                                    {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                      <CheckboxLabel key={subIndex}>
+                                        <Checkbox
+                                          type="checkbox"
+                                          id={`${item.method_name}::${property}`}
+                                          checked={checkboxState[`${item.method_name}::${property}`]}
+                                          onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                        />
+                                        {property}: {item.schema.properties[property].type}
+                                      </CheckboxLabel>
+                                    ))}
+                                  </SubCheckboxContainer>
                                 )}
-                        </SubContainerContent>
-                    </SubContainer>
-                </WidgetContainer>
-            </Container>
-        </Hero>
-        <Divider />
-        <ExploreIndexersContainer>
-            <ExploreContent>
-                <ExploreIndexersHeading>Explore indexers on Near</ExploreIndexersHeading>
-                <SearchIndexerContainer>
-                    <MagnifyingGlass fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M3.624,15a8.03,8.03,0,0,0,10.619.659l5.318,5.318a1,1,0,0,0,1.414-1.414l-5.318-5.318A8.04,8.04,0,0,0,3.624,3.624,8.042,8.042,0,0,0,3.624,15Zm1.414-9.96a6.043,6.043,0,1,1-1.77,4.274A6,6,0,0,1,5.038,5.038ZM4.622,9.311a1,1,0,0,1,2,0A2.692,2.692,0,0,0,9.311,12a1,1,0,0,1,0,2A4.7,4.7,0,0,1,4.622,9.311Z"></path></g></MagnifyingGlass>
-                    <SearchInput placeholder="Search indexers" />
-                    <SearchIndexerButton>
-                        <SearchArrow viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M13.4697 5.46967C13.7626 5.17678 14.2374 5.17678 14.5303 5.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L14.5303 18.5303C14.2374 18.8232 13.7626 18.8232 13.4697 18.5303C13.1768 18.2374 13.1768 17.7626 13.4697 17.4697L18.1893 12.75H4C3.58579 12.75 3.25 12.4142 3.25 12C3.25 11.5858 3.58579 11.25 4 11.25H18.1893L13.4697 6.53033C13.1768 6.23744 13.1768 5.76256 13.4697 5.46967Z" fill="#1C274C"></path> </g></SearchArrow>
-                    </SearchIndexerButton>
-                </SearchIndexerContainer>
-                {CustomTable()}
-            </ExploreContent>
-        </ExploreIndexersContainer>
-    </>
+                              </CheckboxContainer>
+                            ))}
+                          </>
+                        )
+                      }
+                    </ScrollableDiv>
+                  </div>
+                )}
+            </SubContainerContent>
+          </SubContainer>
+        </WidgetContainer>
+      </Container>
+    </Hero>
+    <Divider />
+    <ExploreIndexersContainer>
+      <ExploreContent>
+        <ExploreIndexersHeading>Explore indexers on Near</ExploreIndexersHeading>
+        <SearchIndexerContainer>
+          <MagnifyingGlass fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M3.624,15a8.03,8.03,0,0,0,10.619.659l5.318,5.318a1,1,0,0,0,1.414-1.414l-5.318-5.318A8.04,8.04,0,0,0,3.624,3.624,8.042,8.042,0,0,0,3.624,15Zm1.414-9.96a6.043,6.043,0,1,1-1.77,4.274A6,6,0,0,1,5.038,5.038ZM4.622,9.311a1,1,0,0,1,2,0A2.692,2.692,0,0,0,9.311,12a1,1,0,0,1,0,2A4.7,4.7,0,0,1,4.622,9.311Z"></path></g></MagnifyingGlass>
+          <SearchInput placeholder="Search indexers" />
+          <SearchIndexerButton>
+            <SearchArrow viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M13.4697 5.46967C13.7626 5.17678 14.2374 5.17678 14.5303 5.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L14.5303 18.5303C14.2374 18.8232 13.7626 18.8232 13.4697 18.5303C13.1768 18.2374 13.1768 17.7626 13.4697 17.4697L18.1893 12.75H4C3.58579 12.75 3.25 12.4142 3.25 12C3.25 11.5858 3.58579 11.25 4 11.25H18.1893L13.4697 6.53033C13.1768 6.23744 13.1768 5.76256 13.4697 5.46967Z" fill="#1C274C"></path> </g></SearchArrow>
+          </SearchIndexerButton>
+        </SearchIndexerContainer>
+        {CustomTable()}
+      </ExploreContent>
+    </ExploreIndexersContainer>
+  </>
 )
