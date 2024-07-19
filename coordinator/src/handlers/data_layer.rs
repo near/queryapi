@@ -116,8 +116,13 @@ impl DataLayerHandler {
         let delay_seconds = 1;
 
         loop {
-            if self.get_task_status(task_id.clone()).await? == TaskStatus::Complete {
-                break;
+            match self.get_task_status(task_id.clone()).await? {
+                TaskStatus::Pending => {}
+                TaskStatus::Complete => break,
+                TaskStatus::Failed | TaskStatus::Unspecified => {
+                    tracing::warn!("Provisioning task failed");
+                    anyhow::bail!("Provisioning task failed")
+                }
             }
 
             tokio::time::sleep(std::time::Duration::from_secs(delay_seconds)).await;
@@ -157,8 +162,13 @@ impl DataLayerHandler {
         let delay_seconds = 1;
 
         loop {
-            if self.get_task_status(task_id.clone()).await? == TaskStatus::Complete {
-                break;
+            match self.get_task_status(task_id.clone()).await? {
+                TaskStatus::Pending => {}
+                TaskStatus::Complete => break,
+                TaskStatus::Failed | TaskStatus::Unspecified => {
+                    tracing::warn!("Deprovisioning task failed");
+                    anyhow::bail!("Deprovisioning task failed")
+                }
             }
 
             tokio::time::sleep(std::time::Duration::from_secs(delay_seconds)).await;
