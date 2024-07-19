@@ -6,8 +6,7 @@ import LogEntry from '../indexer-meta/log-entry';
 import logger from '../logger';
 
 import type IndexerConfig from '../indexer-config';
-import type IndexerMeta from '../indexer-meta';
-import { IndexerStatus } from '../indexer-meta';
+import IndexerMeta, { IndexerStatus } from '../indexer-meta';
 import assert from 'assert';
 import Provisioner from '../provisioner';
 import { type PostgresConnectionParams } from '../pg-client';
@@ -40,7 +39,7 @@ export default class StreamHandler {
   private readonly logger: typeof logger;
   private worker: Worker | undefined;
   public readonly executorContext: ExecutorContext;
-  private readonly indexerMeta: IndexerMeta | undefined;
+  private indexerMeta: IndexerMeta | undefined;
 
   constructor (
     public readonly indexerConfig: IndexerConfig,
@@ -58,6 +57,8 @@ export default class StreamHandler {
       try {
         const provisioner = new Provisioner();
         const databaseConnectionParams: PostgresConnectionParams = await provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
+
+        this.indexerMeta = new IndexerMeta(this.indexerConfig, databaseConnectionParams);
         this.worker = new Worker(path.join(__dirname, 'worker.js'), {
           workerData: {
             indexerConfigData: this.indexerConfig.toObject(),
