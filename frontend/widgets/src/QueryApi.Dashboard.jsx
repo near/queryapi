@@ -468,6 +468,8 @@ const [contractInputMessage, setContractInputMessage] = useState('');
 const [inputValue, setInputValue] = useState('');
 const [methodCount, setMethodCount] = useState(0);
 
+const [selectedIndexer, setSelectedIndexer] = useState(props.selectedIndexerPath);
+
 const handleFetchCheckboxData = async () => {
   setCheckBoxData([]);
   setMethodCount(0);
@@ -548,7 +550,10 @@ const handleChildChange = (childId) => {
   });
 };
 
-
+useEffect(() => {
+  console.log(selectedIndexer.split('/')[0]);
+  console.log(selectedIndexer.split('/')[1]);
+});
 useEffect(() => {
   Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
     const indexers = [];
@@ -636,10 +641,8 @@ return (
       </TabsButton>
     </Tabs>
 
-    {/* Start of Default Code */}
-    <Main>
 
-      {/* End of Default Code */}
+    <Main>
       {activeTab === 'launchpad' && (
         <Section >
           <Hero>
@@ -740,16 +743,56 @@ return (
               {CustomTable()}
             </ExploreContent>
           </ExploreIndexersContainer>
-        </Section>)
-      }
-
-      {activeTab === 'explore' && (
-        <Section>
-            <Widget src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`}/>
         </Section>
       )}
 
+      {activeTab === 'explore' && (
+        <Section>
+          <Widget
 
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`} />
+        </Section>
+      )}
+
+      {activeTab === 'indexer' && (
+        <Section>
+          {/* {state.indexers.length > 0 &&
+              (state.selected_indexer != undefined ? (
+                <H2>{state.selected_indexer}</H2>
+              ) : (
+                <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
+              ))} */}
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+            props={{
+              indexerName: selectedIndexer.split('/')[0],
+              accountId: selectedIndexer.split('/')[1],
+              path: "query-api-editor",
+              tab: props.tab,
+              activeView: activeIndexerTabView
+            }}
+          />
+          {/* {state.activeTab === "create-new-indexer" && (
+            <div>
+              {state.indexers.length > 0 &&
+                (state.selected_indexer != undefined ? (
+                  <H2>{state.selected_indexer}</H2>
+                ) : (
+                  <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
+                ))}
+              <Widget
+                src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+                props={{
+                  indexerName:
+                    selectedIndexerName ?? state.indexers[0].indexerName,
+                  accountId: selected_accountId ?? state.indexers[0].accountId,
+                  path: "create-new-indexer",
+                }}
+              />
+            </div>
+          )} */}
+        </Section>
+      )}
 
       {/* <Section
         negativeMargin
@@ -771,47 +814,6 @@ return (
         )}
       </Section> */}
 
-
-      {/* <Section negativeMargin primary active={state.activeTab === "indexer"}>
-        <Editor>
-          {state.indexers.length > 0 &&
-            (state.selected_indexer != undefined ? (
-              <H2>{state.selected_indexer}</H2>
-            ) : (
-              <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
-            ))}
-          <Widget
-            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-            props={{
-              indexerName:
-                selected_indexerName ?? state.indexers[0].indexerName,
-              accountId: selected_accountId ?? state.indexers[0].accountId,
-              path: "query-api-editor",
-              tab: props.tab,
-              activeView: state.activeIndexerView
-            }}
-          />
-        </Editor>
-        {state.activeTab === "create-new-indexer" && (
-          <div>
-            {state.indexers.length > 0 &&
-              (state.selected_indexer != undefined ? (
-                <H2>{state.selected_indexer}</H2>
-              ) : (
-                <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
-              ))}
-            <Widget
-              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-              props={{
-                indexerName:
-                  selectedIndexerName ?? state.indexers[0].indexerName,
-                accountId: selected_accountId ?? state.indexers[0].accountId,
-                path: "create-new-indexer",
-              }}
-            />
-          </div>
-        )}
-      </Section> */}
 
       {/* NOT FOUND DEFAULT */}
     </Main>
