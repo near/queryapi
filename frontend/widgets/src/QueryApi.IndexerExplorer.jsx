@@ -130,22 +130,35 @@ const Text = styled.p`
     }
   }
 `;
-
 const Items = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
+  padding: 1rem;
 
   @media (max-width: 1200px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media (max-width: 800px) {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 `;
 
-const Item = styled.div``;
+const Item = styled.div`
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  }
+`;
+
 
 const Button = styled.button`
   display: block;
@@ -243,6 +256,106 @@ const TextLink = styled.a`
   }
 `;
 
+
+const NavBarContainer = styled.div`
+  display: flex;
+  align-items: center;
+  background-color: #f0f0f0;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #ccc;
+  justify-content: space-between;
+`;
+
+const LeftGroup = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const NavBarLogo = styled.a`
+  display: flex;
+  align-items: center;
+  color: #333;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: bold;
+  margin-right: 1rem;
+  &:hover {
+    text-decoration: none;
+    color: #333;
+  }
+
+`;
+
+const SignUpLink = styled.a`
+  color: #0070f3;
+  text-decoration: none;
+  font-size: 0.75rem;
+  margin-right: 1rem;
+`;
+
+const ButtonWrapper = styled.div`
+  display: flex;
+  align-items: center;
+`;
+const ButtonLink = styled.a`
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: black;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, transform 0.2s;
+
+  &:hover {
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    outline: none;
+  }
+
+  &:focus {
+    outline: none;
+    text-decoration: none;
+  }
+`;
+
+const ToggleWrapper = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const ToggleButton = styled.button`
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 20px;
+  background-color: ${props => (props.selected ? 'black' : '#e0e0e0')};
+  color: ${props => (props.selected ? '#fff' : '#333')};
+  font-size: 0.75rem;
+  font-weight: ${props => (props.selected ? 'bold' : 'normal')};
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, transform 0.2s;
+  text-align: center;
+  min-width: 100px;
+  max-width: 150px;
+  
+  &:not(:last-child) {
+    margin-right: 4px;
+  }
+
+  &:hover {
+    background-color: ${props => (props.selected ? '#333' : '#d0d0d0')};
+    color: ${props => (props.selected ? '#fff' : '#000')};
+  }
+
+  &:focus {
+    outline: none;
+  }
+`;
+
 const LoadingSpinner = () => {
   const spinnerStyle = {
     width: '40px',
@@ -277,21 +390,59 @@ const LoadingSpinner = () => {
 };
 
 return (
-  <Wrapper className="container-xl">
-    <Tabs>
-      <TabsButton
-        onClick={() => setSelectedTab("my-indexers")}
-        selected={selectedTab === "my-indexers"}
-      >
-        My Indexers
-      </TabsButton>
-      <TabsButton
-        onClick={() => setSelectedTab("all")}
-        selected={selectedTab === "all"}
-      >
-        All
-      </TabsButton>
-    </Tabs>
+  <Wrapper>
+
+    <NavBarContainer>
+      <LeftGroup>
+        <NavBarLogo title="QueryApi">
+          <Widget
+            src="mob.near/widget/Image"
+            props={{
+              className: "d-inline-block align-text-top me-2",
+              image: metadata.image,
+              style: { height: "20px" }, // Smaller logo
+              fallbackUrl:
+                "https://upload.wikimedia.org/wikipedia/commons/8/86/Database-icon.svg",
+              alt: "the queryapi logo",
+            }}
+          />
+          QueryApi
+        </NavBarLogo>
+
+        <SignUpLink target="_blank" href={`https://docs.near.org/build/data-infrastructure/query-api/intro`}>
+          (Documentation)
+        </SignUpLink>
+
+        <ButtonWrapper>
+          <ButtonLink
+            href={`/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
+            onClick={() => {
+              setActiveTab("create-new-indexer");
+              setSelectedIndexerName("");
+              selectTab("create-new-indexer");
+            }}
+          >
+            Create New Indexer
+          </ButtonLink>
+        </ButtonWrapper>
+      </LeftGroup>
+
+      <ToggleWrapper>
+        <ToggleButton
+          onClick={() => setSelectedTab("my-indexers")}
+          selected={selectedTab === "my-indexers"}
+        >
+          My Indexers
+        </ToggleButton>
+        <ToggleButton
+          onClick={() => setSelectedTab("all")}
+          selected={selectedTab === "all"}
+        >
+          All Indexers
+        </ToggleButton>
+      </ToggleWrapper>
+    </NavBarContainer>
+
     {error && <Text>{error}</Text>}
 
     {selectedTab === "all" && (
@@ -302,16 +453,14 @@ return (
           </Container>
         ) : (
           <Items>
-            <>
-              {allIndexers.map((indexer, i) => (
-                <Item key={i}>
-                  <Widget
-                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                    props={{ ...indexer, indexerMetadata }}
-                  />
-                </Item>
-              ))}
-            </>
+            {allIndexers.map((indexer, i) => (
+              <Item key={i}>
+                <Widget
+                  src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                  props={{ ...indexer, indexerMetadata }}
+                />
+              </Item>
+            ))}
           </Items>
         )}
       </>
@@ -338,16 +487,14 @@ return (
           </Header>
         ) : (
           <Items>
-            <>
-              {myIndexers.map((indexer, i) => (
-                <Item key={i}>
-                  <Widget
-                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                    props={{ ...indexer, indexerMetadata }}
-                  />
-                </Item>
-              ))}
-            </>
+            {myIndexers.map((indexer, i) => (
+              <Item key={i}>
+                <Widget
+                  src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                  props={{ ...indexer, indexerMetadata }}
+                />
+              </Item>
+            ))}
           </Items>
         )}
       </>

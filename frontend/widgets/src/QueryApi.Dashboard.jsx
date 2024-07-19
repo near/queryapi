@@ -1,54 +1,377 @@
-const accountId = context.accountId;
-const [selected_accountId, selected_indexerName] = props.selectedIndexerPath
-  ? props.selectedIndexerPath.split("/")
-  : [undefined, undefined];
+const NoQueryContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+`;
 
-const activeTab = props.view == "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore"
-const activeIndexerView = props.activeIndexerView ?? "editor";
-const limit = 7;
-let totalIndexers = 0;
+const NoQueryText = styled.p`
+  margin-top: 16px;
+  font-size: 16px;
+  font-family: 'Mona Sans', sans-serif;
+  color: #A1A09A;
+  text-align: center;
+`;
 
-State.init({
-  activeTab: activeTab,
-  activeIndexerView: activeIndexerView,
-  my_indexers: [],
-  all_indexers: [],
-  selected_indexer: undefined,
-  selected_account: undefined,
-});
+const NoQuerySVG = styled.svg`
+  height: 100px;
+  width: 100%;
+  color: #A1A09A;
+`;
 
-const Subheading = styled.h2`
-  display: block;
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  color: ${(p) => (p.bold ? "#11181C !important" : "#687076 !important")};
-  font-weight: ${(p) => (p.bold ? "600" : "400")};
-  font-size: ${(p) => (p.small ? "12px" : "14px")};
-  overflow: ${(p) => (p.ellipsis ? "hidden" : "visible")};
-  text-overflow: ${(p) => (p.ellipsis ? "ellipsis" : "unset")};
-  white-space: nowrap;
+const CheckboxContainer = styled.div`
+  margin-bottom: 10px;
+`;
+
+const CheckboxLabel = styled.label`
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  margin-bottom: 5px;
+`;
+
+const SubCheckboxContainer = styled.div`
+  margin-left: 20px;
+  border-left: 2px solid #ccc;
+  padding-left: 10px;
+`;
+
+const Checkbox = styled.input`
+  cursor: pointer;
+  width: 21.6px;
+  height: 21.6px;
+  border-radius: 5.4px;
+  border: 0.9px solid #DBDBD7;
+  padding: 5.4px;
+  background-color: #FDFDFC;
+  box-shadow: 0 0.9px 1.8px 0 rgba(0, 0, 0, 0.1);
+  vertical-align: middle;
+  margin-right: 7.2px;
   outline: none;
 `;
 
-const Editor = styled.div`
-`;
-const Status = styled.div`
+// TOP HALF
+const Hero = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 349px;
+  width: 100%; 
+  background: linear-gradient(
+    268.88deg, 
+    rgba(2, 255, 133, 0.2) 1.75%, 
+    rgba(2, 133, 255, 0.08) 54.6%, 
+    rgba(2, 27, 255, 0.08) 84.31%
+  );
+  // , url('https://s3-alpha-sig.figma.com/img/f856/12b1/14c8f8fd2894d48314a47b98531b3002?Expires=1720396800&Key-Pair-Id=APKAQ4GOSFWCVNEHN3O4&Signature=iC8KBVqIyZDHU2~xisqW3kuwC8nLk5POGZqHyVGNcAWcLwep3jEocxIrZI9hR5VUfiXwetmD6pXTdHxScqfIMjwvIsccAhEAkzD9t5xasMfuC5vHKel9t96-CGMeMikD3No92ObNZ-eGFdo2QAnrNVNxufsdwhYUKRbXuZSquC2A2qx9kzYxv7pyUjR3QGxg8UkMqhmZiKogoiLL~727aERO3PUIiSlMMH~kRFKVyK4UnJFERuroJ9L3EZTfgBG90EUM5MYTVqLIeeA1gWeYPkfTlYghAWwOx60B2wdLk5WTgmqytRZxbqsCiN8u92ZKZjmBzFcZZcWF9eONAqdDvA__');
+  // background-size: 100%;
+  // background-position: right;
+  // background-repeat: no-repeat;
 `;
 
+const Headline = styled.h1`
+  font-family: 'Mona Sans', sans-serif;
+  font-weight: 700;
+  width: 369px;
+  font-size: 24px;
+  line-height: 31.2px;
+`;
+
+const Subheadline = styled.p`
+  font-family: 'Mona Sans', sans-serif;
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 18.2px;
+  color: #717069;
+  letter-spacing: 1.5%;
+`;
+
+const Container = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+`;
+
+const HeadlineContainer = styled.div`
+  width: 364px;
+  height: 193px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-right: 80px; /* Gap between HeadlineContainer and WidgetContainer */
+`;
+
+const WidgetContainer = styled.div`
+  width: 301px;
+  height: 365px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 8.2px 19.92px 0 rgba(0, 0, 0, 0.1), 0 2.34px 2.34px 0 rgba(0, 0, 0, 0.15);
+  margin-top: 183px; /* Gap between WidgetContainer and HeadlineContainer */
+  background: #fff;
+  border-radius: 10px;
+`;
+
+const SubContainer = styled.div`
+  width: 262.5px;
+  height: 330px; //270px later
+`;
+
+const SubContainerTitle = styled.h2`
+  font-family: 'Product Sans', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 14.06px;
+  color: #7F7E77;
+  margin-bottom: 6px;
+`;
+
+const MethodsText = styled.div`
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  margin-bottom: 8px;
+`;
+
+const MethodsSpan = styled.span`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: normal; 
+  width: 23px; 
+  height: 17px;
+  border-radius: 50px;
+  padding: 4px 6px;
+  background-color: #F3F3F2;
+`;
+
+const SubContainerContent = styled.div`
+  height: 260px;
+`
+const ScrollableDiv = styled.div`
+height: 260px;
+
+width: 100%;
+overflow-x: auto; 
+overflow-y: auto; 
+
+
+&::-webkit-scrollbar {
+  height: 12px;
+}
+
+&::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 6px;
+}
+
+&::-webkit-scrollbar-thumb:hover {
+  background-color: #555; 
+}
+
+&::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+  border-radius: 6px;
+}
+
+&::-webkit-scrollbar-track-piece {
+  background: #f9f9f9;
+}
+
+scrollbar-width: thin;
+scrollbar-color: #888 #f1f1f1; 
+
+-ms-overflow-style: -ms-autohiding-scrollbar; 
+
+-ms-scroll-chaining: none;
+-ms-scroll-snap-type: mandatory;
+-ms-scroll-snap-points-x: snapInterval(0%, 100%);
+`;
+
+const InputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  width: 364px;
+  height: 40px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 0;
+  overflow: hidden;
+`;
+
+const StyledInput = styled.input` 
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  padding: 8px 12px;
+  border-radius: 6px 0 0 6px;
+`;
+
+const ContractInputMessage = styled.p`
+  margin-top: 8px;
+  height: 25px;
+  font-size: 10px;
+  color: #D95C4A; 
+  width: 100%;
+`;
+
+const WarningSVG = styled.svg`
+  height: 16px;
+  width: 16px;
+  margin-right: 4px;
+`
+
+const SearchButton = styled.button`
+  width: 84px;
+  background-color: #37CD83;
+  border: none;
+  border-radius: 0px 6px 6px 0px;
+  color: white;
+  cursor: pointer;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+//BOTTOM HALF
+const Divider = styled.div`
+  height: 40px;
+  width: 100%;
+`
+const ExploreIndexersContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%; 
+  width: 100%; 
+`;
+
+
+const ExploreIndexersHeading = styled.h2`
+  font-family: 'Mona Sans', sans-serif;
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 26px;
+  letter-spacing: 0.015em;
+  text-align: left;
+`;
+
+const ExploreContent = styled.div`
+  width: 745px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+`
+
+const SearchIndexerContainer = styled.div`
+  display: flex;
+  align-items: center;
+  width: 269px;
+  height: 40px;
+  padding: 8px 12px;
+  gap: 8px;
+  border-radius: 50px;
+  border: 1px solid #E3E3E0;
+  background-color: white;
+`;
+
+const SearchInput = styled.input`
+  flex: 1;
+  border: none;
+  outline: none;
+  font-family: 'Mona Sans', sans-serif;
+  font-weight: 450;
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: 2%;
+  &::placeholder {
+    color: #a9a9a9; 
+  }
+`;
+
+const SearchIndexerButton = styled.button`
+  flex:1;  
+  border-radius: 50px;
+  background-color: #f0f0f0;
+  border: none;
+  color: black;
+  padding: 8px 31px;
+  cursor: pointer;
+  font-family: 'Mona Sans', sans-serif;
+  font-weight: 450;
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: 2%;
+`;
+
+const MagnifyingGlass = styled.svg`
+  width: 16px;
+  height: 16px;
+`;
+
+const SearchArrow = styled.svg`
+  width: 20px;
+  height: 20px;
+`
+/** TABLE STYLES*/
+const TableContainer = styled.div`
+  width: 745px;
+  margin: 0 auto;
+`;
+
+const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px; 
+  overflow: hidden;
+`;
+
+const TableHeader = styled.thead`
+  background-color: #F0F0F1;
+`;
+
+const TableHeaderCell = styled.th`
+  font-family: 'Mona Sans', sans-serif;
+  font-weight: 450;
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 2%;
+  text-align: left;
+  padding: 8px;
+`;
+
+const TableRow = styled.tr`
+  &:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+`;
+
+const TableCell = styled.td`
+  font-family: 'Mona Sans', sans-serif;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 21px;
+  letter-spacing: 2%;
+  padding: 8px;
+  text-align: left;
+`;
+
+// ORIGINAL STYLED COMPONENTS
 const Wrapper = styled.div`
-  margin-inline: 12px;
   margin-top: calc(var(--body-top-padding) * -1);
 `;
 
-const NavBarLogo = styled.a`
-  padding-top: 0.3125rem;
-  padding-bottom: 0.3125rem;
-  margin-right: .01rem;
-  font-size: 1.25rem;
-  text-decoration: none;
-  white-space: nowrap;
-`;
 const Main = styled.div`
   display: block;
 `;
@@ -57,437 +380,429 @@ const Section = styled.div`
   padding-top: 0px;
   border-left: none;
   border-right: none;
-  display: ${(p) => (p.active ? "block" : "none")};
-  margin: ${(p) => (p.negativeMargin ? "0 -12px" : "0")};
 `;
 
 const Tabs = styled.div`
-  display: none;
-  height: 48px;
-  background: #f8f9fa;
-  border-top: 1px solid #eceef0;
-  border-bottom: 1px solid #eceef0;
-  margin-bottom: ${(p) => (p.noMargin ? "0" : p.halfMargin ? "24px" : "24px")};
-
   display: flex;
-  margin-left: -12px;
-  margin-right: -12px;
-
-  button {
-    flex: 1;
-  }
-`;
-const Content = styled.div`
-  background-color: #f7f7f7;
-  padding: 2em;
-  border-radius: 5px;
-`;
-
-const Title = styled.h1`
-  font-size: 1.5em;
-  text-align: center;
-  color: palevioletred;
+  border-bottom: 2px solid #ccc;
+  background-color: #f0f0f0;
 `;
 
 const TabsButton = styled.button`
-  font-weight: 600;
-  font-size: 14px;
-  line-height: 16px;
-  padding: 0 12px;
-  position: relative;
-  color: ${(p) => (p.selected ? "#11181C" : "#687076")};
-  background: none;
+  flex: 1;
+  padding: 1rem;
   border: none;
-  outline: none;
+  background: ${props => (props.selected ? '#3acd83' : 'transparent')};
+  color: ${props => (props.selected ? '#fff' : '#333')};
+  font-family: 'Mona Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: ${props => (props.selected ? 'bold' : 'normal')};
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+
   &:hover {
-    color: #11181c;
-  }
-
-  &::after {
-    content: "";
-    display: ${(p) => (p.selected ? "block" : "none")};
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #0091ff;
-  }
-`;
-const H2 = styled.h2`
-  font-size: 19px;
-  line-height: 22px;
-  color: #11181c;
-  margin: 0 0 8px;
-`;
-const Card = styled.div`
-  border-radius: 12px;
-  background: #fff;
-  border: ${(div) => (div.selected ? "1px solid black" : "1px solid #eceef0")};
-  box-shadow: 0px 1px 3px rgba(16, 24, 40, 0.1),
-    0px 1px 2px rgba(16, 24, 40, 0.06);
-`;
-
-const CardBody = styled.div`
-  padding: 16px;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-
-  > * {
-    min-width: 0;
+    background: #e0e0e0;
   }
 `;
 
-const CardFooter = styled.div`
-  display: flex;
-  justify-content: space-around;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 16px;
-  border-top: 1px solid #eceef0;
-`;
+const AlertText = styled.p`
+font-family: 'Mona Sans', sans-serif;
+font-size: 14px;
+line-height: 21px;
+text-align: center;
+color:red;
+margin: 0;
+padding: 0;
+bg-color: #f9f9f9;
+`
 
-const TextLink = styled.a`
-  display: block;
-  margin: 0;
-  font-size: 14px;
-  line-height: 20px;
-  color: ${(p) => (p.bold ? "#11181C !important" : "#687076 !important")};
-  font-weight: ${(p) => (p.bold ? "600" : "400")};
-  font-size: ${(p) => (p.small ? "12px" : "14px")};
-  overflow: ${(p) => (p.ellipsis ? "hidden" : "visible")};
-  text-overflow: ${(p) => (p.ellipsis ? "ellipsis" : "unset")};
-  white-space: nowrap;
-  outline: none;
+const LoadingSpinner = () => {
+  const spinnerStyle = {
+    width: '40px',
+    height: '40px',
+    border: '4px solid rgba(0, 0, 0, 0.1)',
+    borderLeftColor: 'black',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    textAlign: 'center',
+    display: 'flex',
+    justifyContent: 'center',
+    alignCenter: 'center',
+  };
 
-  &:focus,
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const Thumbnail = styled.a`
-  display: block;
-  width: 48px;
-  height: 48px;
-  flex-shrink: 0;
-  border: 1px solid #eceef0;
-  border-radius: 8px;
-  overflow: hidden;
-  outline: none;
-  transition: border-color 200ms;
-
-  &:focus,
-  &:hover {
-    border-color: #d0d5dd;
-  }
-
-  img {
-    object-fit: cover;
+  const LoadingContainer = styled.div`
+    text-align: center;
     width: 100%;
-    height: 100%;
-  }
-`;
+  `;
 
-const CardWrapper = styled.div`
-  margin: 0 0 16px;
-`;
+  const LoadingSpinnerContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    font-size: 14px;
+  `
+  return <LoadingContainer> <LoadingSpinnerContainer><div style={spinnerStyle} /> </LoadingSpinnerContainer><>Generating Methods</></LoadingContainer>;
+};
 
-const sharedButtonStyles = `
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  margin-bottom: 12px;
-  height: 32px;
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 12px;
-  line-height: 15px;
-  text-align: center;
-  cursor: pointer;
+const accountId = context.accountId;
+const WILD_CARD = '*';
 
-  &:hover,
-  &:focus {
-    text-decoration: none;
-    outline: none;
-  }
+const validateContractId = (accountId) => {
+  accountId = accountId.trim();
+  // Check if accountId is a wildcard '*'
+  if (accountId === WILD_CARD) return true;
+  // Check if accountId length is between 2 and 64 characters
+  const isLengthValid = accountId.length >= 2 && accountId.length <= 64;
+  if (!isLengthValid) return false;
+  // Check if accountId starts with '*.' || '*' remove for part verification
+  if (accountId.startsWith('*.')) accountId = accountId.slice(2);
+  if (accountId.startsWith('*')) accountId = accountId.slice(1);
 
-  i {
-    color: #7E868C;
-  }
-
-  .bi-16 {
-    font-size: 16px;
-  }
-`;
-
-const Button = styled.button`
-  ${sharedButtonStyles}
-  color: ${(p) => (p.primary ? "#fff" : "#11181C")} !important;
-  background: ${(p) => (p.primary ? "#0091FF" : "#FBFCFD")};
-  border: ${(p) => (p.primary ? "none" : "1px solid #D7DBDF")};
-
-  &:hover,
-  &:focus {
-    background: ${(p) => (p.primary ? "#0484e5" : "#ECEDEE")};
-  }
-`;
-
-const ButtonLink = styled.a`
-  ${sharedButtonStyles}
-  color: ${(p) => {
-    if (p.primary) return "#fff";
-    else if (p.danger) return "#fff";
-    else return "#11181C";
-  }} !important;
-  background: ${(p) => {
-    if (p.primary) return "#0091FF";
-    else if (p.danger) return "#dc3545";
-    else return "#FBFCFD";
-  }};
-  border: ${(p) => (p.primary ? "none" : "1px solid #D7DBDF")};
-
-  &:hover,
-  &:focus {
-    background: ${(p) => {
-    if (p.primary) return "#0484e5";
-    else if (p.danger) return "#b22b38";
-    else return "#ECEDEE";
-  }}
-`;
-
-const SignUpLink = styled.a`
-  --blue: RGBA(13, 110, 253, 1);
-  display: ${({ hidden }) => (hidden ? "none" : "inline-block")};
-  font-size: 14px;
-  cursor: pointer;
-  color: var(--blue);
-  text-decoration: none;
-  margin-left: 0.1em;
-  padding: 0;
-  white-space: nowrap;
-
-  &:hover {
-    color: var(--blue);
-    text-decoration: none;
+  const parts = accountId.split('.');
+  for (let part of parts) {
+    if (!part.match(/^[a-z\d]+([-_][a-z\d]+)*$/)) {
+      return false;
+    }
   }
 
-  &:visited {
-    color: var(--blue);
-    text-decoration: none;
+  return true;
+};
+const IS_DEV = `${REPL_EXTERNAL_APP_URL}` === "https://queryapi-frontend-vcqilefdcq-ew.a.run.app" || `${REPL_EXTERNAL_APP_URL}` === "http://localhost:3000";
+
+const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
+const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
+
+const [allIndexers, setAllIndexers] = useState([]);
+const [checkboxState, setCheckboxState] = useState(initialCheckboxState);
+
+const [checkBoxData, setCheckBoxData] = useState([]);
+const [loading, setLoading] = useState(false);
+const [contractInputMessage, setContractInputMessage] = useState('');
+const [inputValue, setInputValue] = useState('');
+const [methodCount, setMethodCount] = useState(0);
+
+const [selectedIndexer, setSelectedIndexer] = useState(props.selectedIndexerPath);
+
+const handleFetchCheckboxData = async () => {
+  setCheckBoxData([]);
+  setMethodCount(0);
+  setContractInputMessage('');
+
+  if (!validateContractId(inputValue)) {
+    setContractInputMessage('Invalid contract id');
+    return;
   }
-`;
-// TODO fix activeTab
-// const previousSelectedTab = Storage.privateGet("queryapi:activeTab");
-// if (previousSelectedTab && previousSelectedTab !== state.activeTab) {
-//   State.update({
-//     activeTab: previousSelectedTab,
-//   });
-// }
+
+  setLoading(true);
+
+  const url = 'https://europe-west1-pagoda-data-stack-prod.cloudfunctions.net/queryapi_wizard';
+  asyncFetch(url,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filter: inputValue,
+      }),
+    }
+  )
+    .then(response => {
+      if (!response.ok) {
+        setError('There was an error fetching the data');
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = response.body;
+
+      if (data.length === 0) {
+        setContractInputMessage('No methods found for this contract');
+        setLoading(false);
+        return;
+      };
+
+      setCheckBoxData(data);
+      setMethodCount(data.length);
+      setLoading(false);
+    }).catch(error => {
+      setLoading(false);
+      setError('There was an error fetching the data');
+    });
+
+};
+
+const initialCheckboxState = checkBoxData.reduce((acc, item) => {
+  //Select eveyrthing by default.
+  acc[item.method_name] = false;
+  if (item.schema.properties) {
+    Object.keys(item.schema.properties).forEach(property => {
+      acc[`${item.method_name}::${property}`] = false;
+    });
+  }
+  return acc;
+}, {});
+
+const handleParentChange = (methodName) => {
+  const newState = { ...checkboxState };
+  const isChecked = !checkboxState[methodName];
+  newState[methodName] = isChecked;
+  checkBoxData.forEach(item => {
+    if (item.method_name === methodName && item.schema.properties) {
+      Object.keys(item.schema.properties).forEach(property => {
+        newState[`${methodName}::${property}`] = isChecked;
+      });
+    }
+  });
+  setCheckboxState(newState);
+};
+
+const handleChildChange = (childId) => {
+  setCheckboxState({
+    ...checkboxState,
+    [childId]: !checkboxState[childId],
+  });
+};
+
+useEffect(() => {
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const indexers = [];
+    Object.keys(data).forEach((accountId) => {
+      Object.keys(data[accountId]).forEach((functionName) => {
+        indexers.push({
+          accountId: accountId,
+          indexerName: functionName,
+        });
+      });
+    });
+    setAllIndexers(indexers)
+  });
+});
+
+const data = allIndexers.map((indexer) => ({
+  indexer: indexer.indexerName,
+  weeklyRequest: indexer.weeklyRequest || 150,
+  lastUpdated: indexer.lastUpdated || '2023-06-25',
+  status: indexer.status || 'Active',
+}));
+
+function CustomTable() {
+  return (
+    <TableContainer>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHeaderCell>Indexer</TableHeaderCell>
+            <TableHeaderCell>Weekly Request</TableHeaderCell>
+            <TableHeaderCell>Last Updated</TableHeaderCell>
+            <TableHeaderCell>Status</TableHeaderCell>
+          </TableRow>
+        </TableHeader>
+        <tbody>
+          {data.map((row, index) => (
+            <TableRow key={index}>
+              <TableCell>{row.indexer}</TableCell>
+              <TableCell>{row.weeklyRequest}</TableCell>
+              <TableCell>{row.lastUpdated}</TableCell>
+              <TableCell>{row.status}</TableCell>
+            </TableRow>
+          ))}
+        </tbody>
+      </Table>
+    </TableContainer>
+  );
+}
 
 const selectTab = (tabName) => {
   Storage.privateSet("queryapi:activeTab", tabName);
-  State.update({
-    activeTab: tabName,
-  });
+  setActiveTab(tabName);
 };
 
 const selectIndexerPage = (viewName) => {
   Storage.privateSet("queryapi:activeIndexerTabView", viewName);
-  State.update({
-    activeIndexerView: viewName,
-  });
-};
-const indexerView = (accountId, indexerName) => {
-  const editUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}`;
-  const statusUrl = `https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App?selectedIndexerPath=${accountId}/${indexerName}&view=indexer&activeIndexerView=status`;
-  const playgroundLink = `https://cloud.hasura.io/public/graphiql?endpoint=${REPL_GRAPHQL_ENDPOINT}/v1/graphql&header=x-hasura-role%3A${accountId.replaceAll(
-    ".",
-    "_"
-  )}`;
-
-  return (
-    <Card>
-      <CardBody>
-        <Thumbnail>
-          <Widget
-            src="mob.near/widget/Image"
-            props={{
-              image: metadata.image,
-              fallbackUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/8/86/Database-icon.svg",
-              alt: "Near QueryApi indexer",
-            }}
-          />
-        </Thumbnail>
-
-        <div>
-          <TextLink as="a" bold ellipsis>
-            {indexerName}
-          </TextLink>
-          <TextLink as="a" ellipsis>
-            @{accountId}
-          </TextLink>
-        </div>
-      </CardBody>
-
-      <CardFooter className="flex justify-center items-center">
-        <ButtonLink onClick={() => selectIndexerPage("status")}>
-          View Status
-        </ButtonLink>
-        <ButtonLink primary onClick={() => selectIndexerPage("editor")}>
-          {accountId === context.accountId ? "Edit Indexer" : "View Indexer"}
-        </ButtonLink>
-        <ButtonLink href={playgroundLink} target="_blank">
-          View In Playground
-        </ButtonLink>
-      </CardFooter>
-    </Card>
-  );
+  setActiveIndexerTabView(viewName);
 };
 
 return (
-  <Wrapper negativeMargin={state.activeTab === "explore"}>
+  <Wrapper>
     <Tabs>
-      <TabsButton
-        type="button"
-        onClick={() => selectTab("explore")}
-        selected={state.activeTab === "explore"}
-      >
-        Explore Indexers
-      </TabsButton>
-      {state.activeTab == "create-new-indexer" && (
+      {IS_DEV && (
         <TabsButton
           type="button"
-          onClick={() => selectTab("create-new-indexer")}
-          selected={state.activeTab === "create-new-indexer"}
+          onClick={() => selectTab("launchpad")}
+          selected={activeTab === "launchpad"}
         >
-          Create New Indexer
+          Launchpad
         </TabsButton>
       )}
 
-      {props.selectedIndexerPath && (
-        <>
-          <TabsButton
-            type="button"
-            onClick={() => selectTab("indexer")}
-            selected={state.activeTab === "indexer"}
-          >
-            Indexer ({props.selectedIndexerPath})
-          </TabsButton>
-        </>
-      )}
-    </Tabs>
-    <Main>
-      <Section active={state.activeTab === "explore"}>
-        <NavBarLogo
-          href={`https://dev.near.org/${REPL_ACCOUNT_ID}/widget/QueryApi.App`}
-          title="QueryApi"
-          onClick={() => selectTab("explore")}
-        >
-          <Widget
-            src="mob.near/widget/Image"
-            props={{
-              className: "d-inline-block align-text-top me-2",
-              image: metadata.image,
-              style: { height: "24px" },
-              fallbackUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/8/86/Database-icon.svg",
-              alt: "the queryapi logo",
-            }}
-          />
-          QueryApi
-        </NavBarLogo>
-
-        <SignUpLink target="_blank" href={`https://docs.near.org/build/data-infrastructure/query-api/intro`}>
-          (Documentation)
-        </SignUpLink>
-        <div>
-          <ButtonLink
-            href={`/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
-            style={{ "margin-top": "10px" }}
-            onClick={() => {
-              State.update({
-                activeTab: "create-new-indexer",
-                selected_indexer: "",
-              });
-              selectTab("create-new-indexer");
-            }}
-          >
-            Create New Indexer
-          </ButtonLink>
-          {state.my_indexers.length > 0 && (
-            <H2>
-              {accountId}'s Indexers
-              <span>({state.my_indexers.length})</span>
-            </H2>
-          )}
-          <Widget
-            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`}
-          />
-        </div>
-      </Section>
-      <Section
-        negativeMargin
-        primary
-        active={state.activeTab === "create-new-indexer"}
+      <TabsButton
+        type="button"
+        onClick={() => selectTab("explore")}
+        selected={activeTab === "explore"}
       >
-        {state.activeTab === "create-new-indexer" && (
-          <div>
-            <Widget
-              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-              props={{
-                indexerName:
-                  selected_indexerName ?? state.indexers[0].indexerName,
-                accountId: selected_accountId ?? state.indexers[0].accountId,
-                path: "create-new-indexer",
-              }}
-            />
-          </div>
-        )}
-      </Section>
-      <Section negativeMargin primary active={state.activeTab === "indexer"}>
-        <Editor>
-          {state.indexers.length > 0 &&
-            (state.selected_indexer != undefined ? (
-              <H2>{state.selected_indexer}</H2>
-            ) : (
-              <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
-            ))}
+        Explore Indexers
+      </TabsButton>
+
+      <TabsButton
+        type="button"
+        onClick={() => selectTab("indexer")}
+        selected={activeTab === "indexer"}
+      >
+        Indexer ({selectedIndexer})
+      </TabsButton>
+    </Tabs>
+
+
+    <Main>
+      {activeTab === 'launchpad' && IS_DEV && (
+        <Section >
+          <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
+          <Hero>
+            <Container>
+              <HeadlineContainer>
+                <Headline>Launch an indexer in minutes</Headline>
+                <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
+                <InputWrapper>
+                  <StyledInput
+                    placeholder="*.pool.near, *.poolv1.near"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
+                  />
+                  <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
+                </InputWrapper>
+                <ContractInputMessage>{contractInputMessage ?? <><WarningSVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><path d="M142.41,40.22l87.46,151.87C236,202.79,228.08,216,215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22C119.89,29.26,136.11,29.26,142.41,40.22Z" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><line x1="128" y1="144" x2="128" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="180" fill="red" r="12" /></WarningSVG> {contractInputMessage}</>}</ContractInputMessage>
+
+              </HeadlineContainer>
+              <WidgetContainer>
+                <SubContainer>
+                  <SubContainerTitle>Customize indexer</SubContainerTitle>
+                  <SubContainerContent>
+                    {loading ? (
+                      <Container>
+                        <LoadingSpinner />
+                      </Container>
+                    ) : (checkBoxData.length === 0) ?
+                      <>
+                        <NoQueryContainer>
+                          <NoQuerySVG
+                            xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
+                          </NoQuerySVG>
+                          <NoQueryText>No smart contract address entered</NoQueryText>
+                        </NoQueryContainer>
+                      </>
+                      : (
+                        <div>
+                          {checkBoxData.length > 0 && (
+                            <MethodsText>
+                              Methods <MethodsSpan>{methodCount}</MethodsSpan>
+                            </MethodsText>
+                          )}
+                          < ScrollableDiv >
+                            {
+                              checkBoxData.length > 0 && (
+                                <>
+                                  {checkBoxData.map((item, index) => (
+                                    <CheckboxContainer key={index}>
+                                      <CheckboxLabel>
+                                        <Checkbox
+                                          type="checkbox"
+                                          id={item.method_name}
+                                          checked={checkboxState[item.method_name]}
+                                          onChange={() => handleParentChange(item.method_name)}
+                                        />
+                                        {item.method_name}
+                                      </CheckboxLabel>
+                                      {item.schema.properties && (
+                                        <SubCheckboxContainer>
+                                          {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                            <CheckboxLabel key={subIndex}>
+                                              <Checkbox
+                                                type="checkbox"
+                                                id={`${item.method_name}::${property}`}
+                                                checked={checkboxState[`${item.method_name}::${property}`]}
+                                                onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                              />
+                                              {property}: {item.schema.properties[property].type}
+                                            </CheckboxLabel>
+                                          ))}
+                                        </SubCheckboxContainer>
+                                      )}
+                                    </CheckboxContainer>
+                                  ))}
+                                </>
+                              )
+                            }
+                          </ScrollableDiv>
+                        </div>
+                      )}
+                  </SubContainerContent>
+                </SubContainer>
+              </WidgetContainer>
+            </Container>
+          </Hero>
+          <Divider />
+          <ExploreIndexersContainer>
+            <ExploreContent>
+              <ExploreIndexersHeading>Explore indexers on Near</ExploreIndexersHeading>
+              <SearchIndexerContainer>
+                <MagnifyingGlass fill="#000000" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"><path d="M3.624,15a8.03,8.03,0,0,0,10.619.659l5.318,5.318a1,1,0,0,0,1.414-1.414l-5.318-5.318A8.04,8.04,0,0,0,3.624,3.624,8.042,8.042,0,0,0,3.624,15Zm1.414-9.96a6.043,6.043,0,1,1-1.77,4.274A6,6,0,0,1,5.038,5.038ZM4.622,9.311a1,1,0,0,1,2,0A2.692,2.692,0,0,0,9.311,12a1,1,0,0,1,0,2A4.7,4.7,0,0,1,4.622,9.311Z"></path></g></MagnifyingGlass>
+                <SearchInput placeholder="Search indexers" />
+                <SearchIndexerButton>
+                  <SearchArrow viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M13.4697 5.46967C13.7626 5.17678 14.2374 5.17678 14.5303 5.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L14.5303 18.5303C14.2374 18.8232 13.7626 18.8232 13.4697 18.5303C13.1768 18.2374 13.1768 17.7626 13.4697 17.4697L18.1893 12.75H4C3.58579 12.75 3.25 12.4142 3.25 12C3.25 11.5858 3.58579 11.25 4 11.25H18.1893L13.4697 6.53033C13.1768 6.23744 13.1768 5.76256 13.4697 5.46967Z" fill="#1C274C"></path> </g></SearchArrow>
+                </SearchIndexerButton>
+              </SearchIndexerContainer>
+              {CustomTable()}
+            </ExploreContent>
+          </ExploreIndexersContainer>
+        </Section>
+      )}
+
+      {activeTab === 'explore' && (
+        <Section>
+          <Widget
+
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`} />
+        </Section>
+      )}
+
+      {activeTab === "create-new-indexer" && (
+        <Section>
           <Widget
             src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
             props={{
-              indexerName:
-                selected_indexerName ?? state.indexers[0].indexerName,
-              accountId: selected_accountId ?? state.indexers[0].accountId,
-              path: "query-api-editor",
-              tab: props.tab,
-              activeView: state.activeIndexerView
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
+              path: "create-new-indexer",
             }}
           />
-        </Editor>
-        {state.activeTab === "create-new-indexer" && (
-          <div>
-            {state.indexers.length > 0 &&
-              (state.selected_indexer != undefined ? (
-                <H2>{state.selected_indexer}</H2>
-              ) : (
-                <H2>{`${state.indexers[0].accountId}/${state.indexers[0].indexerName}`}</H2>
-              ))}
-            <Widget
-              src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-              props={{
-                indexerName:
-                  selected_indexerName ?? state.indexers[0].indexerName,
-                accountId: selected_accountId ?? state.indexers[0].accountId,
-                path: "create-new-indexer",
-              }}
-            />
-          </div>
-        )}
-      </Section>
+        </Section>
+      )}
+
+      {activeTab === 'indexer' && (
+        <Section>
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+            props={{
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
+              path: "query-api-editor",
+              tab: props.tab,
+              activeView: activeIndexerTabView
+            }}
+          />
+        </Section>
+      )}
+
+      {!['launchpad', 'explore', 'indexer', 'create-new-indexer'].includes(activeTab) && (
+        <Widget
+          src={`${REPL_ACCOUNT_ID}/widget/QueryApi.NotFound`}
+          props={{}}
+        />
+      )}
+
     </Main>
-  </Wrapper>
+  </Wrapper >
 );
+
+
+
+
