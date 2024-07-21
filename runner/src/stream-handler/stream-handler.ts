@@ -23,6 +23,7 @@ export interface WorkerMessage {
 }
 
 export enum ExecutionState {
+  IDLE = 'IDLE',
   RUNNING = 'RUNNING',
   FAILING = 'FAILING',
   WAITING = 'WAITING',
@@ -47,7 +48,7 @@ export default class StreamHandler {
     this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
 
     this.executorContext = {
-      executionState: ExecutionState.WAITING,
+      executionState: ExecutionState.IDLE,
       block_height: indexerConfig.version,
     };
   }
@@ -77,7 +78,7 @@ export default class StreamHandler {
         throw new Error(`Failed to start Indexer: ${errorContent}`);
       }
     } else {
-      throw new Error('StreamHandler should not be instantiated in a worker thread');
+      throw new Error('StreamHandler should not be started in a worker thread');
     }
   }
 
