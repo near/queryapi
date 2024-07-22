@@ -26,6 +26,7 @@ describe('Runner gRPC Service', () => {
     genericStreamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
         indexerConfig,
+        start: jest.fn().mockResolvedValue(null),
         stop: jest.fn(),
       };
     });
@@ -168,11 +169,14 @@ describe('Runner gRPC Service', () => {
   });
 
   it('stops a executor with correct settings', (done) => {
+    const start = jest.fn().mockImplementation(async () => {
+      await Promise.resolve();
+    });
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
     const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
-      return { stop, indexerConfig };
+      return { start, stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -195,11 +199,14 @@ describe('Runner gRPC Service', () => {
   });
 
   it('Invalid stop executor request with empty executor Id', () => {
+    const start = jest.fn().mockImplementation(async () => {
+      await Promise.resolve();
+    });
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
     const streamHandlerType = jest.fn().mockImplementation(() => {
-      return { stop };
+      return { start, stop };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -215,11 +222,14 @@ describe('Runner gRPC Service', () => {
   });
 
   it('Invalid stop executor request with non-existent executor', (done) => {
+    const start = jest.fn().mockImplementation(async () => {
+      await Promise.resolve();
+    });
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
     const streamHandlerType = jest.fn().mockImplementation(() => {
-      return { stop };
+      return { start, stop };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
 
@@ -235,11 +245,14 @@ describe('Runner gRPC Service', () => {
   });
 
   it('Invalid stop executor request with somehow failing stop', (done) => {
+    const start = jest.fn().mockImplementation(async () => {
+      await Promise.resolve();
+    });
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.reject(new Error('somehow fails'));
     });
     const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
-      return { stop, indexerConfig };
+      return { start, stop, indexerConfig };
     });
     const service = getRunnerService(new Map(), streamHandlerType);
     const mockCallback = jest.fn() as unknown as any;
@@ -262,11 +275,15 @@ describe('Runner gRPC Service', () => {
   });
 
   it('valid list executor request lists executors correctly, with stopped indexer', async () => {
+    const start = jest.fn().mockImplementation(async () => {
+      await Promise.resolve();
+    });
     const stop = jest.fn().mockImplementation(async () => {
       await Promise.resolve();
     });
     const streamHandlerType = jest.fn().mockImplementation((indexerConfig) => {
       return {
+        start,
         stop,
         indexerConfig,
         executorContext: BASIC_EXECUTOR_CONTEXT
