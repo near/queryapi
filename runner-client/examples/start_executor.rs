@@ -9,15 +9,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let response = client
         .start_executor(Request::new(StartExecutorRequest {
-            account_id: "test_account".to_string(),
-            function_name: "test_indexer".to_string(),
-            code: "console.log('hi');".to_string(),
+            account_id: "account_near".to_string(),
+            function_name: "sample_indexer".to_string(),
+            code: " 
+                console.log('Hello, world!');
+                await context.db.IndexerStorage.insert({
+                    \"function_name\": \"sample_indexer\",
+                    \"key_name\": block.blockHeight.toString(),
+                    \"value\": \"Hello, world!\"
+                });
+            "
+            .to_string(),
             schema: "CREATE TABLE \"indexer_storage\" (
                         \"function_name\" TEXT NOT NULL,
                         \"key_name\" TEXT NOT NULL,
                         \"value\" TEXT NOT NULL,
                         PRIMARY KEY (\"function_name\", \"key_name\")
-                    );".to_string(),
+                    );"
+            .to_string(),
             redis_stream: "test:stream".to_string(),
             version: 123,
         }))

@@ -14,6 +14,7 @@ import { type StopExecutorResponse__Output, type StopExecutorResponse } from '..
 import { type ListExecutorsRequest__Output } from '../../../generated/runner/ListExecutorsRequest';
 import { type ListExecutorsResponse__Output, type ListExecutorsResponse } from '../../../generated/runner/ListExecutorsResponse';
 import { type ExecutorInfo__Output } from '../../../generated/runner/ExecutorInfo';
+import { type ExecutionState__Output } from '../../../generated/runner/ExecutionState';
 
 export function getRunnerService (
   executors: Map<string, StreamHandler> = new Map<string, StreamHandler>(),
@@ -33,7 +34,7 @@ export function getRunnerService (
           functionName: executor.indexerConfig.functionName,
           version: executor.indexerConfig.version.toString(),
           health: {
-            executionState: executor.executorContext.executionState,
+            executionState: executor.executorContext.executionState as ExecutionState__Output
           }
         });
       } else {
@@ -79,6 +80,9 @@ export function getRunnerService (
         const streamHandler = new StreamHandlerType(indexerConfig);
         executors.set(indexerConfig.executorId, streamHandler);
         callback(null, { executorId: indexerConfig.executorId });
+        streamHandler.start().catch((error: Error) => {
+          logger.error('Failed to start executor', error);
+        });
       } catch (e) {
         const error = e as Error;
 
@@ -153,7 +157,7 @@ export function getRunnerService (
             functionName: indexerConfig.functionName,
             version: indexerConfig.version.toString(),
             health: {
-              executionState: indexerContext.executionState,
+              executionState: indexerContext.executionState as ExecutionState__Output
             }
           });
         });
