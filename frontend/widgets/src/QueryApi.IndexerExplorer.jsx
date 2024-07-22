@@ -7,26 +7,65 @@ const [error, setError] = useState(null);
 const [indexerMetadata, setIndexerMetaData] = useState(new Map());
 const [loading, setLoading] = useState(false);
 
-const fetchIndexerData = () => {
-  setLoading(true);
-  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-    const allIndexers = [];
-    const myIndexers = [];
-    Object.keys(data).forEach((accId) => {
-      Object.keys(data[accId]).forEach((functionName) => {
-        const indexer = {
-          accountId: accId,
-          indexerName: functionName,
-        };
-        if (accId === myAccountId) myIndexers.push(indexer);
-        allIndexers.push(indexer);
-      });
-    });
-    setMyIndexers(myIndexers);
-    setAllIndexers(allIndexers);
-    setLoading(false);
+
+let graphQLEndpoint = `${REPL_GRAPHQL_ENDPOINT}`;
+
+const fetchGraphQL = (operationsDoc, operationName, variables) => {
+  return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
+    method: "POST",
+    headers: {
+      "x-hasura-role": "dataplatform_near",
+    },
+    body: JSON.stringify({
+      query: operationsDoc,
+      variables: variables,
+      operationName: operationName,
+    }),
   });
 }
+const tableName = "dataplatform_near_queryapi_indexer_indexers";
+
+const GET_ALL_ACTIVE_INDEXERS = `
+query getAllActiveIndexers {
+  ${tableName}(where: {is_removed: {_eq: false}}) {
+    author_account_id
+    indexer_name
+  }
+}
+`;
+const fetchIndexerData = () => {
+  setLoading(true);
+  const allIndexers = [];
+  const myIndexers = [];
+
+  fetchGraphQL(GET_ALL_ACTIVE_INDEXERS, 'getAllActiveIndexers', {})
+    .then((result) => {
+      if (result.status === 200) {
+        const data = result?.body?.data?.[tableName];
+        if (Array.isArray(data)) {
+          data.forEach(({ author_account_id, indexer_name }) => {
+            const indexer = {
+              accountId: author_account_id,
+              indexerName: indexer_name,
+            };
+            if (author_account_id === myAccountId) myIndexers.push(indexer);
+            allIndexers.push(indexer);
+          });
+        } 
+      } else {
+        console.error('Failed to fetch data:', result);
+      }
+
+      setMyIndexers(myIndexers);
+      setAllIndexers(allIndexers);
+      setLoading(false);
+    })
+    .catch((error) => {
+      console.error('An error occurred while fetching indexer data:', error);
+      setLoading(false);
+    });
+};
+
 
 const storeIndexerMetaData = () => {
   const url = `${REPL_QUERY_API_USAGE_URL}`;

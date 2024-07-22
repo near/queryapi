@@ -437,6 +437,7 @@ const [allIndexers, setAllIndexers] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
+  console.log('hit then there is a problem')
   Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
     const indexers = [];
     Object.keys(data).forEach((accountId) => {
