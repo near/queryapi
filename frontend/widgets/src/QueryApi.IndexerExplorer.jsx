@@ -290,7 +290,7 @@ const SignUpLink = styled.a`
   color: #0070f3;
   text-decoration: none;
   font-size: 0.75rem;
-  margin-right: 1rem;
+  margin-left: 1rem;
 `;
 
 const ButtonWrapper = styled.div`
@@ -394,53 +394,38 @@ return (
 
     <NavBarContainer>
       <LeftGroup>
-        <NavBarLogo title="QueryApi">
-          <Widget
-            src="mob.near/widget/Image"
-            props={{
-              className: "d-inline-block align-text-top me-2",
-              image: metadata.image,
-              style: { height: "20px" }, // Smaller logo
-              fallbackUrl:
-                "https://upload.wikimedia.org/wikipedia/commons/8/86/Database-icon.svg",
-              alt: "the queryapi logo",
-            }}
-          />
-          QueryApi
-        </NavBarLogo>
+        <ToggleWrapper>
+          <ToggleButton
+            onClick={() => setSelectedTab("my-indexers")}
+            selected={selectedTab === "my-indexers"}
+          >
+            My Indexers
+          </ToggleButton>
+          <ToggleButton
+            onClick={() => setSelectedTab("all")}
+            selected={selectedTab === "all"}
+          >
+            All Indexers
+          </ToggleButton>
+        </ToggleWrapper>
 
         <SignUpLink target="_blank" href={`https://docs.near.org/build/data-infrastructure/query-api/intro`}>
           (Documentation)
         </SignUpLink>
-
-        <ButtonWrapper>
-          <ButtonLink
-            href={`/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
-            onClick={() => {
-              setActiveTab("create-new-indexer");
-              setSelectedIndexerName("");
-              selectTab("create-new-indexer");
-            }}
-          >
-            Create New Indexer
-          </ButtonLink>
-        </ButtonWrapper>
       </LeftGroup>
 
-      <ToggleWrapper>
-        <ToggleButton
-          onClick={() => setSelectedTab("my-indexers")}
-          selected={selectedTab === "my-indexers"}
+      <ButtonWrapper>
+        <ButtonLink
+          href={`/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
+          onClick={() => {
+            setActiveTab("create-new-indexer");
+            setSelectedIndexerName("");
+            selectTab("create-new-indexer");
+          }}
         >
-          My Indexers
-        </ToggleButton>
-        <ToggleButton
-          onClick={() => setSelectedTab("all")}
-          selected={selectedTab === "all"}
-        >
-          All Indexers
-        </ToggleButton>
-      </ToggleWrapper>
+          Create New Indexer
+        </ButtonLink>
+      </ButtonWrapper>
     </NavBarContainer>
 
     {error && <Text>{error}</Text>}
