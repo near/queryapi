@@ -23,12 +23,13 @@ export interface WorkerMessage {
 }
 
 export enum ExecutionState {
-  IDLE = 'IDLE',
+  UNSPECIFIED = 'UNSPECIFIED',
   RUNNING = 'RUNNING',
   FAILING = 'FAILING',
   WAITING = 'WAITING',
   STOPPED = 'STOPPED',
   STALLED = 'STALLED',
+  IDLE = 'IDLE',
 }
 
 interface ExecutorContext {
