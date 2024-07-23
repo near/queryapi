@@ -25,7 +25,7 @@ const QueryApiEditorPage = ({ router }) => {
     );
   }
 
-  if (accountId == 'test' || indexerName == 'test') {
+  if (accountId == 'test' && indexerName == 'test') {
     return <GenerateCode />;
   }
 
