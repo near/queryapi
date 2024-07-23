@@ -57,6 +57,12 @@ impl GraphQLClientImpl {
             .json(&body)
             .send()
             .await?;
+        if reqwest_response.status() != 200 {
+            tracing::error!(
+                "GraphQL query failed with status code: {}",
+                reqwest_response.status()
+            );
+        }
 
         reqwest_response.json().await
     }

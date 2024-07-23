@@ -63,6 +63,12 @@ lazy_static! {
         &["indexer"]
     )
     .unwrap();
+    pub static ref RECEIVER_BLOCKS_FAILURE: IntGaugeVec = register_int_gauge_vec!(
+        "queryapi_block_streamer_receiver_blocks_failure",
+        "Gauge which only has a nonzero value if an error occurs during receiver block backfill",
+        &["indexer"]
+    )
+    .unwrap();
 }
 
 pub struct LogCounter;
