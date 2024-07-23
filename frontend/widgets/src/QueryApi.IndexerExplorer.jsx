@@ -1,6 +1,6 @@
 const myAccountId = context.accountId;
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 205;
 const TABLE_NAME = "dataplatform_near_queryapi_indexer_indexers";
 const GET_ALL_ACTIVE_INDEXERS = `
 query getAllActiveIndexers($limit: Int!, $offset: Int!) {
@@ -12,12 +12,19 @@ query getAllActiveIndexers($limit: Int!, $offset: Int!) {
     author_account_id
     indexer_name
   }
+  ${TABLE_NAME}_aggregate(
+    where: {is_removed: {_eq: false}}
+  ) {
+    aggregate {
+      count
+    }
+  }
 }
 `;
 
 const GET_MY_ACTIVE_INDEXERS = `
 query getMyActiveIndexers($authorAccountId: String!) {
-  dataplatform_near_queryapi_indexer_indexers(
+  ${TABLE_NAME}(
     where: {
       is_removed: { _eq: false }
       author_account_id: { _eq: $authorAccountId }
@@ -33,6 +40,7 @@ const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" 
 const [indexerMetadata, setIndexerMetaData] = useState(new Map());
 
 const [indexers, setIndexers] = useState([]);
+const [total, setTotal] = useState(0);
 const [myIndexers, setMyIndexers] = useState([]);
 const [page, setPage] = useState(0);
 
@@ -72,16 +80,16 @@ const fetchMyIndexerData = () => {
           }));
           setMyIndexers(newIndexers);
         } else {
-          setError('Data is not an array:', data);
+          throw new Error('Data is not an array:', data);
         }
       } else {
-        setError('Failed to fetch data:', result);
+        throw new Error('Failed to fetch data:', result);
       }
       setLoading(false);
     })
     .catch((error) => {
-      setError('An error occurred while fetching indexer data:', error);
-      setLoading(false);
+      setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
+      backupNearRPCRequest();
     });
 }
 
@@ -97,25 +105,28 @@ const fetchIndexerData = (page, append) => {
     .then((result) => {
       if (result.status === 200) {
         const data = result?.body?.data?.[TABLE_NAME];
+        const totalCount = result?.body?.data?.[`${TABLE_NAME}_aggregate`]?.aggregate?.count;
         if (Array.isArray(data)) {
           const newIndexers = data.map(({ author_account_id, indexer_name }) => ({
             accountId: author_account_id,
             indexerName: indexer_name,
           }));
+          setTotal(totalCount);
           setIndexers((prevIndexers) => append ? [...prevIndexers, ...newIndexers] : newIndexers);
         } else {
-          setError('Data is not an array:', data);
+          throw new Error('Data is not an array:', data);
         }
       } else {
-        setError('Failed to fetch data:', result);
+        throw new Error('Failed to fetch data:', result);
       }
       append ? setIsLoadingMore(false) : setLoading(false);
       setIsFetching(false);
     })
     .catch((error) => {
-      setError('An error occurred while fetching indexer data:', error);
+      setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
       append ? setIsLoadingMore(false) : setLoading(false);
       setIsFetching(false);
+      backupNearRPCRequest();
     });
 };
 
@@ -169,6 +180,31 @@ useEffect(() => {
 const handleLoadMore = () => {
   if (!isLoadingMore) setPage((prevPage) => prevPage + 1);
 };
+
+const backupNearRPCRequest = () => {
+  console.log('Retrieving data from Near RPC..');
+  setLoading(true);
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const allIndexers = [];
+    const myIndexers = [];
+
+    Object.keys(data).forEach((accId) => {
+      Object.keys(data[accId]).forEach((functionName) => {
+        const indexer = {
+          accountId: accId,
+          indexerName: functionName,
+        };
+        if (accId === myAccountId) myIndexers.push(indexer);
+        allIndexers.push(indexer);
+      });
+    });
+    setMyIndexers(myIndexers);
+    setIndexers(allIndexers);
+    setTotal(0);
+    setLoading(false);
+    setError(null);
+  });
+}
 
 const Container = styled.div`
   display: flex;
@@ -282,6 +318,13 @@ const Button = styled.button`
   color: #11181c !important;
   margin: 0;
 
+  &:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
   &:hover,
   &:focus {
     background: #ecedee;
@@ -292,6 +335,8 @@ const Button = styled.button`
   span {
     color: #687076 !important;
   }
+
+  
 `;
 
 const Tabs = styled.div`
@@ -563,7 +608,7 @@ return (
             </Items>
             {isLoadingMore && <LoadingSpinner />}
             <LoadMoreContainer>
-              <Button onClick={handleLoadMore} disabled={isLoadingMore || isFetching || error}>
+              <Button onClick={handleLoadMore} disabled={isLoadingMore || isFetching || error || total === 0 || (total === indexer.length)}>
                 Load More
               </Button>
             </LoadMoreContainer>
