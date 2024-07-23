@@ -1,6 +1,6 @@
 import { type AST, Parser } from 'node-sql-parser';
 import { type TableDefinitionNames } from '../indexer';
-import { type PostgresRow, type WhereClauseMulti, type WhereClauseSingle, type IDmlHandler } from './dml-handler';
+import { type PostgresRow, type WhereClauseMulti, type WhereClauseSingle, type DmlHandlerInterface } from './dml-handler';
 
 // TODO: Define class to represent specification
 interface TableSpecification {
@@ -322,7 +322,7 @@ class IndexerData {
   }
 }
 
-export default class InMemoryDmlHandler implements IDmlHandler {
+export default class InMemoryDmlHandler implements DmlHandlerInterface {
   private readonly indexerData: IndexerData;
 
   constructor (schema: string) {

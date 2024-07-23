@@ -11,12 +11,12 @@ import type IndexerConfig from '../indexer-config';
 import { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
 import { type IndexerMetaInterface } from '../indexer-meta/indexer-meta';
-import { type IDmlHandler } from '../dml-handler/dml-handler';
+import { type DmlHandlerInterface } from '../dml-handler/dml-handler';
 import assert from 'assert';
 
 interface Dependencies {
   fetch?: typeof fetch
-  dmlHandler: IDmlHandler
+  dmlHandler: DmlHandlerInterface
   indexerMeta: IndexerMetaInterface
   parser?: Parser
 };
@@ -259,7 +259,7 @@ export default class Indexer {
       const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(this.indexerConfig.schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler: IDmlHandler = this.deps.dmlHandler;
+      const dmlHandler: DmlHandlerInterface = this.deps.dmlHandler;
 
       // Generate and collect methods for each table name
       const result = tableNames.reduce((prev, tableName) => {
