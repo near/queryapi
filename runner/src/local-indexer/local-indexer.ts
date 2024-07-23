@@ -6,7 +6,7 @@ import Indexer from '../indexer/indexer';
 import LakeClient from '../lake-client/lake-client';
 
 export default class LocalIndexer {
-  private readonly indexer: Indexer;
+  public readonly indexer: Indexer;
   private readonly lakeClient: LakeClient;
 
   constructor (config: LocalIndexerConfig) {
@@ -26,6 +26,7 @@ export default class LocalIndexer {
   }
 
   async executeOnBlock (blockHeight: number): Promise<void> {
+    // TODO: Cache Block data locally
     const block = await this.lakeClient.fetchBlock(blockHeight);
     await this.indexer.execute(block);
   }
