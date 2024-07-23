@@ -103,9 +103,7 @@ export class PgSchemaTypeGen {
         Object.prototype.hasOwnProperty.call(columnSpec, 'definition')
       ) {
         this.addColumn(columnSpec, columns);
-      } else if (
-        columnSpec.constraint_type === 'primary key'
-      ) {
+      } else if (columnSpec.constraint_type === 'primary key') {
         for (const foreignKeyDef of columnSpec.definition) {
           columns[foreignKeyDef.column.expr.value].nullable = false;
         }
@@ -211,7 +209,7 @@ export class PgSchemaTypeGen {
         const tsType = columnDetails.nullable ? columnDetails.type + ' | null' : columnDetails.type;
         const optional = columnDetails.required ? '' : '?';
 
-        queryDefinition += `  ${columnName}?: ${tsType} | ${tsType}[];\n`
+        queryDefinition += `  ${columnName}?: ${tsType} | ${tsType}[];\n`;
         itemDefinition += `  ${columnName}?: ${tsType};\n`;
         inputDefinition += `  ${columnName}${optional}: ${tsType};\n`;
       }
