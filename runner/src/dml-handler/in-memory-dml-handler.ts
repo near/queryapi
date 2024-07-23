@@ -327,7 +327,13 @@ export default class InMemoryDmlHandler implements IDmlHandler {
 
   constructor (schema: string) {
     const parser = new Parser();
-    let schemaAST = parser.astify(schema, { database: 'Postgresql' });
+    let schemaAST: AST | AST[];
+    try {
+      schemaAST = parser.astify(schema, { database: 'Postgresql' });
+    } catch (err) {
+      const error = err as Error;
+      throw new Error(`Failed to parse indexer schema: ${error.message}`);
+    }
     schemaAST = Array.isArray(schemaAST) ? schemaAST : [schemaAST]; // Ensure iterable
     this.indexerData = new IndexerData(schemaAST);
   }

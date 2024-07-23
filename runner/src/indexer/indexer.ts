@@ -6,17 +6,18 @@ import { trace, type Span } from '@opentelemetry/api';
 import VError from 'verror';
 
 import logger from '../logger';
-import type DmlHandler from '../dml-handler/dml-handler';
 import LogEntry from '../indexer-meta/log-entry';
 import type IndexerConfig from '../indexer-config';
-import type IndexerMeta from '../indexer-meta';
 import { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
+import { type IndexerMetaInterface } from '../indexer-meta/indexer-meta';
+import { type IDmlHandler } from '../dml-handler/dml-handler';
+import assert from 'assert';
 
 interface Dependencies {
   fetch?: typeof fetch
-  dmlHandler: DmlHandler
-  indexerMeta: IndexerMeta
+  dmlHandler: IDmlHandler
+  indexerMeta: IndexerMetaInterface
   parser?: Parser
 };
 
@@ -40,11 +41,12 @@ export interface TableDefinitionNames {
 interface Config {
   hasuraAdminSecret: string
   hasuraEndpoint: string
+
 }
 
 const defaultConfig: Config = {
-  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET,
-  hasuraEndpoint: process.env.HASURA_ENDPOINT,
+  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET = '',
+  hasuraEndpoint: process.env.HASURA_ENDPOINT = '',
 };
 
 export default class Indexer {
@@ -73,7 +75,7 @@ export default class Indexer {
 
   async execute (
     block: lakePrimitives.Block,
-  ): Promise<string[]> {
+  ): Promise<void> {
     this.logger.debug('Executing block', { blockHeight: block.blockHeight });
 
     const blockHeight: number = block.blockHeight;
@@ -81,7 +83,6 @@ export default class Indexer {
     const lag = Date.now() - Math.floor(Number(block.header().timestampNanosec) / 1000000);
 
     const simultaneousPromises: Array<Promise<any>> = [];
-    const allMutations: string[] = [];
     const logEntries: LogEntry[] = [];
 
     try {
@@ -130,7 +131,6 @@ export default class Indexer {
       }
       this.IS_FIRST_EXECUTION = false;
     }
-    return allMutations;
   }
 
   buildContext (blockHeight: number, logEntries: LogEntry[]): Context {
@@ -259,7 +259,7 @@ export default class Indexer {
       const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(this.indexerConfig.schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler: DmlHandler = this.deps.dmlHandler;
+      const dmlHandler: IDmlHandler = this.deps.dmlHandler;
 
       // Generate and collect methods for each table name
       const result = tableNames.reduce((prev, tableName) => {
@@ -333,6 +333,7 @@ export default class Indexer {
   }
 
   async runGraphQLQuery (operation: string, variables: any, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
+    assert(this.config.hasuraAdminSecret !== '' && this.config.hasuraEndpoint !== '', 'hasuraAdminSecret and hasuraEndpoint env variables are required');
     const response: Response = await this.deps.fetch(`${this.config.hasuraEndpoint}/v1/graphql`, {
       method: 'POST',
       headers: {

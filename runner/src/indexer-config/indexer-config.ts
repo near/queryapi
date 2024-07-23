@@ -49,6 +49,36 @@ export class ProvisioningConfig extends BaseConfig {
   }
 }
 
+interface LocalIndexerConfigData {
+  accountId: string
+  functionName: string
+  code: string
+  schema: string
+  logLevel: LogLevel
+}
+
+export class LocalIndexerConfig extends BaseConfig {
+  constructor (
+    public readonly accountId: string,
+    public readonly functionName: string,
+    public readonly code: string,
+    public readonly schema: string,
+    public readonly logLevel: LogLevel
+  ) {
+    super(accountId, functionName);
+  }
+
+  static fromObject (data: LocalIndexerConfigData): LocalIndexerConfig {
+    return new LocalIndexerConfig(
+      data.accountId,
+      data.functionName,
+      data.code,
+      data.schema,
+      data.logLevel
+    );
+  }
+}
+
 interface IndexerConfigData {
   redisStreamKey: string
   accountId: string

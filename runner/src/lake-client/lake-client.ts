@@ -1,7 +1,5 @@
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Block } from '@near-lake/primitives';
-import { METRICS } from '../metrics';
-import RedisClient from '../redis-client';
 
 export default class LakeClient {
   constructor (
@@ -9,8 +7,7 @@ export default class LakeClient {
     private readonly s3Client: S3Client = new S3Client({
       maxAttempts: 5,
       retryMode: 'adaptive'
-    }),
-    private readonly redisClient: RedisClient = new RedisClient()
+    })
   ) {}
 
   // pad with 0s to 12 digits
@@ -68,15 +65,6 @@ export default class LakeClient {
   }
 
   async fetchBlock (blockHeight: number): Promise<Block> {
-    const cachedMessage = await this.redisClient.getStreamerMessage(blockHeight);
-    if (cachedMessage) {
-      METRICS.CACHE_HIT.inc();
-      const parsedMessage = JSON.parse(cachedMessage);
-      return Block.fromStreamerMessage(parsedMessage);
-    } else {
-      METRICS.CACHE_MISS.inc();
-    }
-
     const block = await this.fetchBlockPromise(blockHeight);
     const shards = await Promise.all(this.fetchShards(blockHeight, block.chunks.length));
 
