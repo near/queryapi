@@ -1,3 +1,4 @@
+//Dummy component
 import { useState } from 'react';
 
 type Schema = {

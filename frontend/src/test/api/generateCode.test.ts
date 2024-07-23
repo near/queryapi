@@ -129,7 +129,7 @@ describe('API Handler', () => {
     expect(res._getStatusCode()).toBe(200);
   });
 
-  it('should handle empty arrays correctly', async () => {
+  it('should handle empty arrays correctly because I mean maybe they just want something to do with contractName?', async () => {
     const { req, res } = createRequestResponseMocks('POST', {
       contractFilter: 'filter',
       selectedMethods: [],
@@ -146,7 +146,7 @@ describe('API Handler', () => {
 
   it('should return 400 for invalid contractFilter data type', async () => {
     const { req, res } = createRequestResponseMocks('POST', {
-      contractFilter: 123, // Invalid type
+      contractFilter: 123, 
       selectedMethods: [
         {
           method_name: 'method1',
@@ -175,7 +175,7 @@ describe('API Handler', () => {
       selectedMethods: [
         {
           method_name: 'method1',
-          schema: 'invalid-schema', // Invalid schema
+          schema: 'invalid-schema',
         },
       ],
       selectedEvents: [
