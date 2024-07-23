@@ -1,6 +1,6 @@
 const myAccountId = context.accountId;
 
-const PAGE_SIZE = 205;
+const PAGE_SIZE = 50;
 const TABLE_NAME = "dataplatform_near_queryapi_indexer_indexers";
 const GET_ALL_ACTIVE_INDEXERS = `
 query getAllActiveIndexers($limit: Int!, $offset: Int!) {
@@ -608,7 +608,7 @@ return (
             </Items>
             {isLoadingMore && <LoadingSpinner />}
             <LoadMoreContainer>
-              <Button onClick={handleLoadMore} disabled={isLoadingMore || isFetching || error || total === 0 || (total === indexer.length)}>
+              <Button onClick={handleLoadMore} disabled={isLoadingMore || isFetching || error !== null || total === 0 || (total === indexers.length)}>
                 Load More
               </Button>
             </LoadMoreContainer>
