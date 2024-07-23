@@ -3,9 +3,9 @@ import React, { useContext, useEffect } from 'react';
 import { Alert } from 'react-bootstrap';
 
 import Editor from '@/components/Editor/EditorComponents/Editor';
+import GenerateCode from '@/components/Editor/EditorComponents/GenerateCode';
 import IndexerLogsContainer from '@/components/Logs/LogsViewContainer/IndexerLogsContainer';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
-import GenerateCode from '@/components/Editor/EditorComponents/GenerateCode';
 
 const QueryApiEditorPage = ({ router }) => {
   const { accountId, indexerName } = router.query;
@@ -26,9 +26,7 @@ const QueryApiEditorPage = ({ router }) => {
   }
 
   if (accountId == 'test' || indexerName == 'test') {
-    return (
-      <GenerateCode />
-    );
+    return <GenerateCode />;
   }
 
   return showLogsView ? <IndexerLogsContainer /> : <Editor />;

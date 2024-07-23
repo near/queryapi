@@ -6,20 +6,18 @@ import { trace, type Span } from '@opentelemetry/api';
 import VError from 'verror';
 
 import logger from '../logger';
-import Provisioner from '../provisioner';
-import DmlHandler from '../dml-handler/dml-handler';
+import type DmlHandler from '../dml-handler/dml-handler';
 import LogEntry from '../indexer-meta/log-entry';
 import type IndexerConfig from '../indexer-config';
-import { type PostgresConnectionParams } from '../pg-client';
-import IndexerMeta, { IndexerStatus } from '../indexer-meta';
+import type IndexerMeta from '../indexer-meta';
+import { IndexerStatus } from '../indexer-meta';
 import { wrapSpan } from '../utility';
 
 interface Dependencies {
-  fetch: typeof fetch
-  provisioner: Provisioner
-  dmlHandler?: DmlHandler
-  indexerMeta?: IndexerMeta
-  parser: Parser
+  fetch?: typeof fetch
+  dmlHandler: DmlHandler
+  indexerMeta: IndexerMeta
+  parser?: Parser
 };
 
 interface Context {
@@ -55,14 +53,12 @@ export default class Indexer {
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly logger: typeof logger;
-  private readonly deps: Dependencies;
-  private database_connection_parameters: PostgresConnectionParams | undefined;
+  private readonly deps: Required<Dependencies>;
   private currentStatus?: string;
 
   constructor (
     private readonly indexerConfig: IndexerConfig,
-    deps?: Partial<Dependencies>,
-    databaseConnectionParameters: PostgresConnectionParams | undefined = undefined,
+    deps: Dependencies,
     private readonly config: Config = defaultConfig,
   ) {
     this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
@@ -70,11 +66,9 @@ export default class Indexer {
     this.DEFAULT_HASURA_ROLE = 'append';
     this.deps = {
       fetch,
-      provisioner: new Provisioner(),
       parser: new Parser(),
-      ...deps,
+      ...deps
     };
-    this.database_connection_parameters = databaseConnectionParameters;
   }
 
   async execute (
@@ -92,20 +86,7 @@ export default class Indexer {
 
     try {
       const runningMessage = `Running function ${this.indexerConfig.fullName()} on block ${blockHeight}, lag is: ${lag?.toString()}ms from block timestamp`;
-
       logEntries.push(LogEntry.systemInfo(runningMessage, blockHeight));
-      // Cache database credentials after provisioning
-      await wrapSpan(async () => {
-        try {
-          this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-          this.deps.indexerMeta ??= new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
-          this.deps.dmlHandler ??= new DmlHandler(this.database_connection_parameters, this.indexerConfig);
-        } catch (e) {
-          const error = e as Error;
-          logEntries.push(LogEntry.systemError(`Failed to get database connection parameters: ${error.message}`, blockHeight));
-          throw error;
-        }
-      }, this.tracer, 'get database connection parameters');
 
       const resourceCreationSpan = this.tracer.startSpan('prepare vm and context to run indexer code');
       simultaneousPromises.push(this.setStatus(IndexerStatus.RUNNING).catch((e: Error) => {
@@ -133,7 +114,7 @@ export default class Indexer {
           runIndexerCodeSpan.end();
         }
       });
-      simultaneousPromises.push(this.updateIndexerBlockHeight(blockHeight).catch((e: Error) => {
+      simultaneousPromises.push(this.deps.indexerMeta.updateBlockHeight(blockHeight).catch((e: Error) => {
         this.logger.error('Failed to update block height', e);
       }));
     } catch (e) {
@@ -143,7 +124,7 @@ export default class Indexer {
       }));
       throw e;
     } finally {
-      const results = await Promise.allSettled([(this.deps.indexerMeta as IndexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
+      const results = await Promise.allSettled([(this.deps.indexerMeta).writeLogs(logEntries), ...simultaneousPromises]);
       if (this.IS_FIRST_EXECUTION && results[0].status === 'rejected') {
         this.logger.error('Failed to write logs after executing on block:', results[0].reason);
       }
@@ -278,7 +259,7 @@ export default class Indexer {
       const tableNameToDefinitionNamesMapping = this.getTableNameToDefinitionNamesMapping(this.indexerConfig.schema);
       const tableNames = Array.from(tableNameToDefinitionNamesMapping.keys());
       const sanitizedTableNames = new Set<string>();
-      const dmlHandler: DmlHandler = this.deps.dmlHandler as DmlHandler;
+      const dmlHandler: DmlHandler = this.deps.dmlHandler;
 
       // Generate and collect methods for each table name
       const result = tableNames.reduce((prev, tableName) => {
@@ -349,35 +330,6 @@ export default class Indexer {
 
     // Metadata table possibly unprovisioned when called, so I am not validating indexerMeta yet
     await this.deps.indexerMeta?.setStatus(status);
-  }
-
-  private async createIndexerMetaIfNotExists (failureMessage: string): Promise<void> {
-    if (!this.deps.indexerMeta) {
-      try {
-        this.database_connection_parameters ??= await this.deps.provisioner.getPgBouncerConnectionParameters(this.indexerConfig.hasuraRoleName());
-        this.deps.indexerMeta = new IndexerMeta(this.indexerConfig, this.database_connection_parameters);
-      } catch (e) {
-        const error = e as Error;
-        this.logger.error(failureMessage, e);
-        throw error;
-      }
-    }
-  }
-
-  async setStoppedStatus (): Promise<void> {
-    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to set status STOPPED for stream`);
-    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
-    await indexerMeta.setStatus(IndexerStatus.STOPPED);
-  }
-
-  async writeCrashedWorkerLog (logEntry: LogEntry): Promise<void> {
-    await this.createIndexerMetaIfNotExists(`${this.indexerConfig.fullName()}: Failed to get DB params to write crashed worker error log for stream`);
-    const indexerMeta: IndexerMeta = this.deps.indexerMeta as IndexerMeta;
-    await indexerMeta.writeLogs([logEntry]);
-  }
-
-  async updateIndexerBlockHeight (blockHeight: number): Promise<void> {
-    await (this.deps.indexerMeta as IndexerMeta).updateBlockHeight(blockHeight);
   }
 
   async runGraphQLQuery (operation: string, variables: any, blockHeight: number, hasuraRoleName: string | null, logError: boolean = true): Promise<any> {
