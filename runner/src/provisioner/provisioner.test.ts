@@ -329,6 +329,7 @@ describe('Provisioner', () => {
       hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
+      expect(hasuraClient.addPermissionsToTables).toHaveBeenCalledTimes(testingRetryConfig.maxRetries);
     });
 
     it('throws when grant cron access fails', async () => {

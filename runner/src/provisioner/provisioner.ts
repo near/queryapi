@@ -351,7 +351,9 @@ export default class Provisioner {
             await this.trackForeignKeyRelationships(schemaName, databaseName);
           });
 
-          await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
+          await this.exponentialRetry(async () => {
+            await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
+          });
         },
         'Failed to provision endpoint'
       );
