@@ -17,6 +17,10 @@ describe('Provisioner', () => {
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
+  const testingRetryConfig = {
+    maxRetries: 5,
+    baseDelay: 10
+  };
   const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.sys_metadata (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
   const logsDDL = expect.any(String);
   const metadataDDL = expect.any(String);
@@ -68,7 +72,7 @@ describe('Provisioner', () => {
       };
     });
 
-    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any);
+    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any, testingRetryConfig);
 
     indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
   });
@@ -318,6 +322,7 @@ describe('Provisioner', () => {
       hasuraClient.trackForeignKeyRelationships = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to track foreign key relationships: some error');
+      expect(hasuraClient.trackForeignKeyRelationships).toHaveBeenCalledTimes(testingRetryConfig.maxRetries);
     });
 
     it('throws an error when it fails to add permissions to tables', async () => {
