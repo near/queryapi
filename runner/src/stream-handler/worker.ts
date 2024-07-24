@@ -1,7 +1,7 @@
 import { isMainThread, parentPort, workerData } from 'worker_threads';
 import { trace, type Span, context } from '@opentelemetry/api';
 import promClient from 'prom-client';
-import type { Block } from '@near-lake/primitives';
+import { Block } from '@near-lake/primitives';
 
 import Indexer from '../indexer';
 import RedisClient from '../redis-client';
@@ -200,6 +200,17 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 }
 
 async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
+  const cachedMessage = await workerContext.redisClient.getStreamerMessage(blockHeight);
+  if (cachedMessage) {
+    METRICS.CACHE_HIT.inc();
+    const parsedMessage = JSON.parse(cachedMessage);
+    return {
+      block: Block.fromStreamerMessage(parsedMessage),
+      streamMessageId
+    };
+  } else {
+    METRICS.CACHE_MISS.inc();
+  }
   const block = await workerContext.lakeClient.fetchBlock(blockHeight).catch((err) => {
     workerContext.logger.error(`Error fetching block ${blockHeight}`, err);
     return undefined;

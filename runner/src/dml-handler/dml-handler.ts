@@ -11,14 +11,14 @@ export type PostgresRow = Record<string, PostgresRowValue>;
 export type WhereClauseMulti = Record<string, (PostgresRowValue | PostgresRowValue[])>;
 export type WhereClauseSingle = Record<string, PostgresRowValue>;
 
-export interface IDmlHandler {
+export interface DmlHandlerInterface {
   insert: (tableDefinitionNames: TableDefinitionNames, rowsToInsert: PostgresRow[]) => Promise<PostgresRow[]>
   select: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti, limit: number | null) => Promise<PostgresRow[]>
   update: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseSingle, updateObject: any) => Promise<PostgresRow[]>
   upsert: (tableDefinitionNames: TableDefinitionNames, rowsToUpsert: PostgresRow[], conflictColumns: string[], updateColumns: string[]) => Promise<PostgresRow[]>
   delete: (tableDefinitionNames: TableDefinitionNames, whereObject: WhereClauseMulti) => Promise<PostgresRow[]>
 }
-export default class DmlHandler implements IDmlHandler {
+export default class DmlHandler implements DmlHandlerInterface {
   validTableNameRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   pgClient: PgClient;
   tracer: Tracer;

@@ -7,9 +7,9 @@ import DmlHandler from '../dml-handler/dml-handler';
 import type PgClient from '../pg-client';
 import { LogLevel } from '../indexer-meta/log-entry';
 import IndexerConfig from '../indexer-config/indexer-config';
-import IndexerMeta from '../indexer-meta';
 import { IndexerStatus } from '../indexer-meta';
-import { PostgresConnectionParams } from '../pg-client';
+import type IndexerMeta from '../indexer-meta';
+import { type PostgresConnectionParams } from '../pg-client';
 
 describe('Indexer unit tests', () => {
   const SIMPLE_SCHEMA = `CREATE TABLE
