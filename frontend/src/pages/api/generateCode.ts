@@ -1,65 +1,38 @@
-// https://github.com/aspecto-io/genson-js/blob/master/src/types.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { defaultCode, defaultSchema } from '../../utils/formatters';
+import { createSchema } from 'genson-js';
+import { Schema } from 'genson-js/dist/types';
 
-enum ValueType {
-  Null = 'null',
-  Boolean = 'boolean',
-  Integer = 'integer',
-  Number = 'number',
-  String = 'string',
-  Object = 'object',
-  Array = 'array',
-}
-
-type Schema = {
-  type?: ValueType | ValueType[];
-  items?: Schema;
-  properties?: Record<string, Schema>;
-  required?: string[];
-  anyOf?: Array<Schema>;
-};
-
-type Method = {
+export type Method = {
   method_name: string;
   schema: Schema;
 };
 
-type Event = {
+export type Event = {
   event_name: string;
   schema: Schema;
 };
 
-interface RequestBody {
+export interface RequestBody {
   contractFilter: string | string[];
   selectedMethods: Method[];
   selectedEvents: Event[];
 }
-const validateSchema = (schema: any): schema is Schema => {
-  if (typeof schema !== 'object' || schema === null) return false;
 
-  const { type, items, properties, required, anyOf } = schema;
+export const isStringOrArray = (value: any): value is string | string[] =>
+  (typeof value === 'string' && value !== '') || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
 
-  if (type && !Array.isArray(type) && !Object.values(ValueType).includes(type)) return false;
-  if (items && !validateSchema(items)) return false;
-  if (properties && typeof properties !== 'object') return false;
-  if (required && !Array.isArray(required)) return false;
-  if (anyOf && !Array.isArray(anyOf)) return false;
-
-  return true;
+export const isValidSchema = (schema: any): boolean => {
+  try {
+    createSchema(schema);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
-const validateRequestBody = (body: any): body is RequestBody => {
-  const isStringOrArray = (value: any): value is string | string[] =>
-    typeof value === 'string' || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
-
-  const isValidMethod = (item: any): item is Method =>
-    typeof item === 'object' && typeof item.method_name === 'string' && validateSchema(item.schema);
-
-  const isValidEvent = (item: any): item is Event =>
-    typeof item === 'object' && typeof item.event_name === 'string' && validateSchema(item.schema);
-
+export const validateRequestBody = (body: any): body is RequestBody => {
   return (
     isStringOrArray(body.contractFilter) &&
     Array.isArray(body.selectedMethods) &&
@@ -69,11 +42,29 @@ const validateRequestBody = (body: any): body is RequestBody => {
   );
 };
 
+export const isValidMethod = (item: any): item is Method =>
+  typeof item === 'object' &&
+  typeof item.method_name === 'string' &&
+  item.method_name.trim() !== '' &&
+  isValidSchema(item.schema);
+
+export const isValidEvent = (item: any): item is Event =>
+  typeof item === 'object' &&
+  typeof item.event_name === 'string' &&
+  item.event_name.trim() !== '' &&
+  isValidSchema(item.schema);
+
 const generateDummyJSCode = (
   contractFilter: string | string[],
   selectedMethods: Method[],
   selectedEvents: Event[],
 ): string => {
+
+  // All Types Of Methods
+  // const allMethodTypeList = selectedMethods.map(method => {
+  //   return createSchema(method.schema);
+  // });
+
   const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
   const jsCodeHeader =
     `// JavaScript Code\n\n` +
@@ -99,6 +90,11 @@ const generateDummySQLCode = (
   selectedMethods: Method[],
   selectedEvents: Event[],
 ): string => {
+  // All Types Of Methods
+  // const allMethodTypeList = selectedMethods.map(method => {
+  //   return createSchema(method.schema);
+  // });
+
   const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
   const sqlCodeHeader =
     `-- SQL Code\n\n` +
