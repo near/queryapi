@@ -66,6 +66,24 @@ With everything configured correctly, we can now start all components of QueryAp
 docker compose up
 ```
 
+### Developing frontend
+1. Change `frontend/replacement.dev.json` to
+```json
+{
+    "REPL_ACCOUNT_ID": "dev-queryapi.dataplatform.near",
+    "REPL_GRAPHQL_ENDPOINT": "https://near-queryapi.dev.api.pagoda.co",
+    "REPL_EXTERNAL_APP_URL": "http://localhost:3000",
+    "REPL_REGISTRY_CONTRACT_ID": "dev-queryapi.dataplatform.near",
+    "REPL_QUERY_API_USAGE_URL": "https://storage.googleapis.com/databricks-near-query-runner/output/query-api-usage/indexers_dev.json"
+}
+```
+2. `cd frontend`
+3. `npm install`
+4. `npm run dev`
+5. `npm run serve:widgets:dev`
+6. Set flags https://dev.near.org/flags to `http://127.0.0.1:3030`
+7. Navigate to `https://dev.near.org/dev-queryapi.dataplatform.near/widget/QueryApi.dev-App`
+
 ### Local Configuration
 - Coordinator watches the dev registry contract by default (`dev-queryapi.dataplatform.near`). To use a different contract, you can update the `REGISTRY_CONTRACT_ID` environment variable.
 
