@@ -1,32 +1,134 @@
 const myAccountId = context.accountId;
 
-const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
-const [myIndexers, setMyIndexers] = useState([]);
-const [allIndexers, setAllIndexers] = useState([]);
-const [error, setError] = useState(null);
-const [indexerMetadata, setIndexerMetaData] = useState(new Map());
-const [loading, setLoading] = useState(false);
+const PAGE_SIZE = 50;
+const TABLE_NAME = "dataplatform_near_queryapi_indexer_indexers";
+const GET_ALL_ACTIVE_INDEXERS = `
+query getAllActiveIndexers($limit: Int!, $offset: Int!) {
+  ${TABLE_NAME}(
+    where: {is_removed: {_eq: false}}
+    limit: $limit
+    offset: $offset
+  ) {
+    author_account_id
+    indexer_name
+  }
+  ${TABLE_NAME}_aggregate(
+    where: {is_removed: {_eq: false}}
+  ) {
+    aggregate {
+      count
+    }
+  }
+}
+`;
 
-const fetchIndexerData = () => {
-  setLoading(true);
-  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-    const allIndexers = [];
-    const myIndexers = [];
-    Object.keys(data).forEach((accId) => {
-      Object.keys(data[accId]).forEach((functionName) => {
-        const indexer = {
-          accountId: accId,
-          indexerName: functionName,
-        };
-        if (accId === myAccountId) myIndexers.push(indexer);
-        allIndexers.push(indexer);
-      });
-    });
-    setMyIndexers(myIndexers);
-    setAllIndexers(allIndexers);
-    setLoading(false);
+const GET_MY_ACTIVE_INDEXERS = `
+query getMyActiveIndexers($authorAccountId: String!) {
+  ${TABLE_NAME}(
+    where: {
+      is_removed: { _eq: false }
+      author_account_id: { _eq: $authorAccountId }
+    }
+  ) {
+    author_account_id
+    indexer_name
+  }
+}
+`;
+
+const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
+const [indexerMetadata, setIndexerMetaData] = useState(new Map());
+
+const [indexers, setIndexers] = useState([]);
+const [total, setTotal] = useState(0);
+const [myIndexers, setMyIndexers] = useState([]);
+const [page, setPage] = useState(0);
+
+const [loading, setLoading] = useState(false);
+const [isLoadingMore, setIsLoadingMore] = useState(false);
+const [isFetching, setIsFetching] = useState(false);
+const [error, setError] = useState(null);
+
+const fetchGraphQL = (operationsDoc, operationName, variables) => {
+  const graphQLEndpoint = `${REPL_GRAPHQL_ENDPOINT}`;
+  return asyncFetch(`${graphQLEndpoint}/v1/graphql`, {
+    method: "POST",
+    headers: {
+      "x-hasura-role": "dataplatform_near",
+    },
+    body: JSON.stringify({
+      query: operationsDoc,
+      variables: variables,
+      operationName: operationName,
+    }),
   });
 }
+
+const fetchMyIndexerData = () => {
+  setLoading(true);
+
+  fetchGraphQL(GET_MY_ACTIVE_INDEXERS, 'getMyActiveIndexers', {
+    authorAccountId: myAccountId,
+  })
+    .then((result) => {
+      if (result.status === 200) {
+        const data = result?.body?.data?.[TABLE_NAME];
+        if (Array.isArray(data)) {
+          const newIndexers = data.map(({ author_account_id, indexer_name }) => ({
+            accountId: author_account_id,
+            indexerName: indexer_name,
+          }));
+          setMyIndexers(newIndexers);
+        } else {
+          throw new Error('Data is not an array:', data);
+        }
+      } else {
+        throw new Error('Failed to fetch data:', result);
+      }
+      setLoading(false);
+    })
+    .catch((error) => {
+      setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
+      backupNearRPCRequest();
+    });
+}
+
+const fetchIndexerData = (page, append) => {
+  if (isFetching) return;
+  setIsFetching(true);
+  append ? setIsLoadingMore(true) : setLoading(true);
+
+  fetchGraphQL(GET_ALL_ACTIVE_INDEXERS, 'getAllActiveIndexers', {
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  })
+    .then((result) => {
+      if (result.status === 200) {
+        const data = result?.body?.data?.[TABLE_NAME];
+        const totalCount = result?.body?.data?.[`${TABLE_NAME}_aggregate`]?.aggregate?.count;
+        if (Array.isArray(data)) {
+          const newIndexers = data.map(({ author_account_id, indexer_name }) => ({
+            accountId: author_account_id,
+            indexerName: indexer_name,
+          }));
+          setTotal(totalCount);
+          setIndexers((prevIndexers) => append ? [...prevIndexers, ...newIndexers] : newIndexers);
+        } else {
+          throw new Error('Data is not an array:', data);
+        }
+      } else {
+        throw new Error('Failed to fetch data:', result);
+      }
+      append ? setIsLoadingMore(false) : setLoading(false);
+      setIsFetching(false);
+    })
+    .catch((error) => {
+      setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
+      append ? setIsLoadingMore(false) : setLoading(false);
+      setIsFetching(false);
+      backupNearRPCRequest();
+    });
+};
 
 const storeIndexerMetaData = () => {
   const url = `${REPL_QUERY_API_USAGE_URL}`;
@@ -35,7 +137,7 @@ const storeIndexerMetaData = () => {
     .then(response => {
       if (!response.ok) {
         setError('There was an error fetching the data');
-        throw new Error(`HTTP error! status: ${response.status}`);
+        return;
       }
       const { data } = JSON.parse(response.body);
       const map = new Map();
@@ -55,14 +157,54 @@ const storeIndexerMetaData = () => {
         });
       });
       setIndexerMetaData(map);
-      setError(null);
     })
 }
 
 useEffect(() => {
-  fetchIndexerData();
   storeIndexerMetaData();
 }, []);
+
+useEffect(() => {
+  fetchIndexerData(page, page > 0);
+}, [page]);
+
+useEffect(() => {
+  if (selectedTab === "my-indexers") {
+    if (myIndexers.length <= 0) fetchMyIndexerData();
+  }
+  if (selectedTab === "all") {
+    if (indexers.length <= 0) fetchIndexerData(page, page > 0);
+  }
+}, [selectedTab]);
+
+const handleLoadMore = () => {
+  if (!isLoadingMore) setPage((prevPage) => prevPage + 1);
+};
+
+const backupNearRPCRequest = () => {
+  console.log('Retrieving data from Near RPC..');
+  setLoading(true);
+  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+    const allIndexers = [];
+    const myIndexers = [];
+
+    Object.keys(data).forEach((accId) => {
+      Object.keys(data[accId]).forEach((functionName) => {
+        const indexer = {
+          accountId: accId,
+          indexerName: functionName,
+        };
+        if (accId === myAccountId) myIndexers.push(indexer);
+        allIndexers.push(indexer);
+      });
+    });
+    setMyIndexers(myIndexers);
+    setIndexers(allIndexers);
+    setTotal(0);
+    setLoading(false);
+    setError(null);
+  });
+}
 
 const Container = styled.div`
   display: flex;
@@ -130,22 +272,35 @@ const Text = styled.p`
     }
   }
 `;
-
 const Items = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
+  padding: 1rem;
 
   @media (max-width: 1200px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   @media (max-width: 800px) {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 `;
 
-const Item = styled.div``;
+const Item = styled.div`
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  }
+`;
+
 
 const Button = styled.button`
   display: block;
@@ -163,6 +318,13 @@ const Button = styled.button`
   color: #11181c !important;
   margin: 0;
 
+  &:disabled {
+    background-color: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  
   &:hover,
   &:focus {
     background: #ecedee;
@@ -173,6 +335,8 @@ const Button = styled.button`
   span {
     color: #687076 !important;
   }
+
+  
 `;
 
 const Tabs = styled.div`
@@ -243,6 +407,114 @@ const TextLink = styled.a`
   }
 `;
 
+
+const NavBarContainer = styled.div`
+  display: flex;
+  align-items: center;
+  background-color: #f0f0f0;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #ccc;
+  justify-content: space-between;
+`;
+
+const LeftGroup = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const NavBarLogo = styled.a`
+  display: flex;
+  align-items: center;
+  color: #333;
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: bold;
+  margin-right: 1rem;
+  &:hover {
+    text-decoration: none;
+    color: #333;
+  }
+
+`;
+
+const SignUpLink = styled.a`
+  color: #0070f3;
+  text-decoration: none;
+  font-size: 0.75rem;
+  margin-left: 1rem;
+`;
+
+const ButtonWrapper = styled.div`
+  display: flex;
+  align-items: center;
+`;
+const ButtonLink = styled.a`
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  background-color: black;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, transform 0.2s;
+
+  &:hover {
+    background-color: #333;
+    color: #fff;
+    text-decoration: none;
+    outline: none;
+  }
+
+  &:focus {
+    outline: none;
+    text-decoration: none;
+  }
+`;
+
+const ToggleWrapper = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const ToggleButton = styled.button`
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 20px;
+  background-color: ${props => (props.selected ? 'black' : '#e0e0e0')};
+  color: ${props => (props.selected ? '#fff' : '#333')};
+  font-size: 0.75rem;
+  font-weight: ${props => (props.selected ? 'bold' : 'normal')};
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, transform 0.2s;
+  text-align: center;
+  min-width: 100px;
+  max-width: 150px;
+  
+  &:not(:last-child) {
+    margin-right: 4px;
+  }
+
+  &:hover {
+    background-color: ${props => (props.selected ? '#333' : '#d0d0d0')};
+    color: ${props => (props.selected ? '#fff' : '#000')};
+  }
+
+  &:focus {
+    outline: none;
+  }
+`;
+
+const LoadMoreContainer = styled.div`
+  display: flex;
+  justify-content: center; 
+  align-items: flex-end; 
+  margin-top: 16px; 
+  padding: 16px; 
+`;
+
 const LoadingSpinner = () => {
   const spinnerStyle = {
     width: '40px',
@@ -277,21 +549,43 @@ const LoadingSpinner = () => {
 };
 
 return (
-  <Wrapper className="container-xl">
-    <Tabs>
-      <TabsButton
-        onClick={() => setSelectedTab("my-indexers")}
-        selected={selectedTab === "my-indexers"}
-      >
-        My Indexers
-      </TabsButton>
-      <TabsButton
-        onClick={() => setSelectedTab("all")}
-        selected={selectedTab === "all"}
-      >
-        All
-      </TabsButton>
-    </Tabs>
+  <Wrapper>
+    <NavBarContainer>
+      <LeftGroup>
+        <ToggleWrapper>
+          <ToggleButton
+            onClick={() => setSelectedTab("my-indexers")}
+            selected={selectedTab === "my-indexers"}
+          >
+            My Indexers
+          </ToggleButton>
+          <ToggleButton
+            onClick={() => setSelectedTab("all")}
+            selected={selectedTab === "all"}
+          >
+            All Indexers
+          </ToggleButton>
+        </ToggleWrapper>
+
+        <SignUpLink target="_blank" href={`https://docs.near.org/build/data-infrastructure/query-api/intro`}>
+          (Documentation)
+        </SignUpLink>
+      </LeftGroup>
+
+      <ButtonWrapper>
+        <ButtonLink
+          href={`/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
+          onClick={() => {
+            setActiveTab("create-new-indexer");
+            setSelectedIndexerName("");
+            selectTab("create-new-indexer");
+          }}
+        >
+          Create New Indexer
+        </ButtonLink>
+      </ButtonWrapper>
+    </NavBarContainer>
+
     {error && <Text>{error}</Text>}
 
     {selectedTab === "all" && (
@@ -301,9 +595,9 @@ return (
             <LoadingSpinner />
           </Container>
         ) : (
-          <Items>
-            <>
-              {allIndexers.map((indexer, i) => (
+          <>
+            <Items>
+              {indexers.map((indexer, i) => (
                 <Item key={i}>
                   <Widget
                     src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
@@ -311,8 +605,14 @@ return (
                   />
                 </Item>
               ))}
-            </>
-          </Items>
+            </Items>
+            {isLoadingMore && <LoadingSpinner />}
+            <LoadMoreContainer>
+              <Button onClick={handleLoadMore} disabled={isLoadingMore || isFetching || error !== null || total === 0 || (total === indexers.length)}>
+                Load More
+              </Button>
+            </LoadMoreContainer>
+          </>
         )}
       </>
     )}
@@ -338,16 +638,14 @@ return (
           </Header>
         ) : (
           <Items>
-            <>
-              {myIndexers.map((indexer, i) => (
-                <Item key={i}>
-                  <Widget
-                    src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                    props={{ ...indexer, indexerMetadata }}
-                  />
-                </Item>
-              ))}
-            </>
+            {myIndexers.map((indexer, i) => (
+              <Item key={i}>
+                <Widget
+                  src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
+                  props={{ ...indexer, indexerMetadata }}
+                />
+              </Item>
+            ))}
           </Items>
         )}
       </>

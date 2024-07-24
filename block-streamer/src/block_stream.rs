@@ -409,9 +409,14 @@ async fn process_bitmap_indexer_blocks(
 
     let mut last_published_block_height: u64 = start_block_height;
 
+    let indexer_name = indexer.get_full_name();
+
     while let Some(block_height_result) = matching_block_heights.next().await {
         match block_height_result {
             Ok(block_height) => {
+                metrics::RECEIVER_BLOCKS_FAILURE
+                    .with_label_values(&[&indexer_name])
+                    .set(0);
                 redis
                     .publish_block(indexer, redis_stream.clone(), block_height, MAX_STREAM_SIZE)
                     .await?;
@@ -422,6 +427,9 @@ async fn process_bitmap_indexer_blocks(
                 last_published_block_height = block_height;
             }
             Err(err) => {
+                metrics::RECEIVER_BLOCKS_FAILURE
+                    .with_label_values(&[&indexer_name])
+                    .inc();
                 tracing::error!(
                     "Backfill using bitmap indexer failed unexpectedly: {:?}",
                     err

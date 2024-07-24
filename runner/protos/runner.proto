@@ -84,4 +84,6 @@ enum ExecutionState {
     STOPPED = 4;
     // Unintentionally stopped
     STALLED = 5;
+    // Waiting to start
+    IDLE = 6;
 }

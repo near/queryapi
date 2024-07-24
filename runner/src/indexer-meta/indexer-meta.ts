@@ -19,7 +19,13 @@ export enum MetadataFields {
   LAST_PROCESSED_BLOCK_HEIGHT = 'LAST_PROCESSED_BLOCK_HEIGHT'
 }
 
-export default class IndexerMeta {
+export interface IndexerMetaInterface {
+  writeLogs: (logEntries: LogEntry[]) => Promise<void>
+  setStatus: (status: IndexerStatus) => Promise<void>
+  updateBlockHeight: (blockHeight: number) => Promise<void>
+}
+
+export default class IndexerMeta implements IndexerMetaInterface {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
   private readonly pgClient: PgClient;
@@ -29,7 +35,7 @@ export default class IndexerMeta {
   constructor (
     indexerConfig: IndexerConfig,
     databaseConnectionParameters: PostgresConnectionParams,
-    pgClientInstance: PgClient | undefined = undefined
+    pgClientInstance: PgClient | undefined = undefined,
   ) {
     const pgClient = pgClientInstance ?? new PgClient(databaseConnectionParameters);
 
@@ -45,7 +51,9 @@ export default class IndexerMeta {
     logEntries: LogEntry[],
   ): Promise<void> {
     const entriesArray = logEntries.filter(entry => this.shouldLog(entry.level));
-    if (entriesArray.length === 0) return;
+    if (entriesArray.length === 0) {
+      return;
+    };
 
     await wrapSpan(async () => {
       await wrapError(async () => {

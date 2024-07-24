@@ -1,7 +1,7 @@
 import { isMainThread, parentPort, workerData } from 'worker_threads';
 import { trace, type Span, context } from '@opentelemetry/api';
 import promClient from 'prom-client';
-import type { Block } from '@near-lake/primitives';
+import { Block } from '@near-lake/primitives';
 
 import Indexer from '../indexer';
 import RedisClient from '../redis-client';
@@ -9,9 +9,12 @@ import { METRICS } from '../metrics';
 import LakeClient from '../lake-client';
 import { WorkerMessageType, type WorkerMessage, ExecutionState } from './stream-handler';
 import setUpTracerExport from '../instrumentation';
+import IndexerMeta from '../indexer-meta/indexer-meta';
 import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
+import { type PostgresConnectionParams } from '../pg-client';
+import DmlHandler from '../dml-handler/dml-handler';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -29,6 +32,7 @@ interface WorkerContext {
   lakeClient: LakeClient
   queue: PrefetchQueue
   indexerConfig: IndexerConfig
+  databaseConnectionParams: PostgresConnectionParams
   logger: typeof parentLogger
 }
 
@@ -51,6 +55,7 @@ void (async function main () {
     lakeClient: new LakeClient(),
     queue: [],
     indexerConfig,
+    databaseConnectionParams: workerData.databaseConnectionParams,
     logger
   };
 
@@ -95,7 +100,11 @@ async function blockQueueProducer (workerContext: WorkerContext): Promise<void> 
 async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> {
   let previousError: string = '';
   const indexerConfig: IndexerConfig = workerContext.indexerConfig;
-  const indexer = new Indexer(indexerConfig);
+
+  const dmlHandler: DmlHandler = new DmlHandler(workerContext.databaseConnectionParams, indexerConfig);
+  const indexerMeta: IndexerMeta = new IndexerMeta(indexerConfig, workerContext.databaseConnectionParams);
+  const indexer = new Indexer(indexerConfig, { dmlHandler, indexerMeta });
+
   let streamMessageId = '';
   let currBlockHeight = 0;
 
@@ -191,6 +200,17 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
 }
 
 async function generateQueuePromise (workerContext: WorkerContext, blockHeight: number, streamMessageId: string): Promise<QueueMessage> {
+  const cachedMessage = await workerContext.redisClient.getStreamerMessage(blockHeight);
+  if (cachedMessage) {
+    METRICS.CACHE_HIT.inc();
+    const parsedMessage = JSON.parse(cachedMessage);
+    return {
+      block: Block.fromStreamerMessage(parsedMessage),
+      streamMessageId
+    };
+  } else {
+    METRICS.CACHE_MISS.inc();
+  }
   const block = await workerContext.lakeClient.fetchBlock(blockHeight).catch((err) => {
     workerContext.logger.error(`Error fetching block ${blockHeight}`, err);
     return undefined;

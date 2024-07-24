@@ -2,7 +2,7 @@ module.exports = {
   parser: '@typescript-eslint/parser',
   env: {
     es2021: true,
-    node: true,
+    node: true
   },
   overrides: [
     {
@@ -11,23 +11,25 @@ module.exports = {
       extends: ['standard'],
       rules: {
         semi: ['error', 'always'],
-        'comma-dangle': ['error', 'only-multiline'],
-      },
+        quotes: ['error', 'single'],
+        'array-callback-return': ['error', { allowImplicit: false }]
+      }
     },
     {
-      files: ['./src/**/*', './tests/**/*'],
+      files: ['**/*.ts'],
       parserOptions: {
         project: './tsconfig.json',
-        tsconfigRootDir: __dirname,
+        tsconfigRootDir: __dirname
       },
       extends: [
-        'standard-with-typescript',
+        'standard-with-typescript'
       ],
       rules: {
         '@typescript-eslint/semi': ['error', 'always'],
         '@typescript-eslint/comma-dangle': ['error', 'only-multiline'],
         '@typescript-eslint/strict-boolean-expressions': 'off',
-      },
-    },
-  ],
+        'array-callback-return': ['error', { allowImplicit: false }]
+      }
+    }
+  ]
 };
