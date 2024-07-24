@@ -15,6 +15,7 @@ import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
 import { type PostgresConnectionParams } from '../pg-client';
 import DmlHandler from '../dml-handler/dml-handler';
+import ContextBuilder from '../context/context';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
@@ -102,8 +103,9 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
   const indexerConfig: IndexerConfig = workerContext.indexerConfig;
 
   const dmlHandler: DmlHandler = new DmlHandler(workerContext.databaseConnectionParams, indexerConfig);
+  const contextBuilder: ContextBuilder = new ContextBuilder(indexerConfig, { dmlHandler });
   const indexerMeta: IndexerMeta = new IndexerMeta(indexerConfig, workerContext.databaseConnectionParams);
-  const indexer = new Indexer(indexerConfig, { dmlHandler, indexerMeta });
+  const indexer = new Indexer(indexerConfig, { contextBuilder, indexerMeta });
 
   let streamMessageId = '';
   let currBlockHeight = 0;
