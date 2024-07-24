@@ -39,12 +39,22 @@ interface Config {
   postgresPort: number
 }
 
+interface RetryConfig {
+  maxRetries: number
+  baseDelay: number
+}
+
 const defaultConfig: Config = {
   cronDatabase: process.env.CRON_DATABASE,
   pgBouncerHost: process.env.PGHOST_PGBOUNCER ?? process.env.PGHOST,
   pgBouncerPort: Number(process.env.PGPORT_PGBOUNCER ?? process.env.PGPORT),
   postgresHost: process.env.PGHOST,
   postgresPort: Number(process.env.PGPORT)
+};
+
+const defaultRetryConfig: RetryConfig = {
+  maxRetries: 5,
+  baseDelay: 1000
 };
 
 export default class Provisioner {
@@ -57,7 +67,8 @@ export default class Provisioner {
     private readonly config: Config = defaultConfig,
     private readonly crypto: typeof cryptoModule = cryptoModule,
     private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
-    private readonly PgClient: typeof PgClientClass = PgClientClass
+    private readonly PgClient: typeof PgClientClass = PgClientClass,
+    private readonly retryConfig: RetryConfig = defaultRetryConfig,
   ) {}
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
@@ -336,13 +347,31 @@ export default class Provisioner {
 
           await this.trackTables(schemaName, updatedTableNames, databaseName);
 
-          await this.trackForeignKeyRelationships(schemaName, databaseName);
+          await this.exponentialRetry(async () => {
+            await this.trackForeignKeyRelationships(schemaName, databaseName);
+          });
 
-          await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
+          await this.exponentialRetry(async () => {
+            await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
+          });
         },
         'Failed to provision endpoint'
       );
     }, this.tracer, 'provision indexer resources');
+  }
+
+  async exponentialRetry (fn: () => Promise<void>): Promise<void> {
+    let lastError = null;
+    for (let i = 0; i < this.retryConfig.maxRetries; i++) {
+      try {
+        await fn();
+        return;
+      } catch (e) {
+        lastError = e;
+        await new Promise((resolve) => setTimeout(resolve, this.retryConfig.baseDelay * (2 ** i)));
+      }
+    }
+    throw lastError;
   }
 
   async getPostgresConnectionParameters (userName: string): Promise<PostgresConnectionParams> {

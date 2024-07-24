@@ -45,8 +45,8 @@ interface Config {
 }
 
 const defaultConfig: Config = {
-  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET = '',
-  hasuraEndpoint: process.env.HASURA_ENDPOINT = '',
+  hasuraAdminSecret: process.env.HASURA_ADMIN_SECRET ?? '',
+  hasuraEndpoint: process.env.HASURA_ENDPOINT ?? '',
 };
 
 export default class Indexer {
