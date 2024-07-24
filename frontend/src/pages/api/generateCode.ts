@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 
 import { defaultCode, defaultSchema } from '../../utils/formatters';
 import { createSchema } from 'genson-js';
-import { Schema } from 'genson-js/dist/types';
+import type { Schema } from 'genson-js/dist/types';
 
 export type Method = {
   method_name: string;
@@ -21,7 +21,8 @@ export interface RequestBody {
 }
 
 export const isStringOrArray = (value: any): value is string | string[] =>
-  (typeof value === 'string' && value !== '') || (Array.isArray(value) && value.every((item) => typeof item === 'string'));
+  (typeof value === 'string' && value !== '') ||
+  (Array.isArray(value) && value.every((item) => typeof item === 'string'));
 
 export const isValidSchema = (schema: any): boolean => {
   try {
@@ -59,7 +60,6 @@ const generateDummyJSCode = (
   selectedMethods: Method[],
   selectedEvents: Event[],
 ): string => {
-
   // All Types Of Methods
   // const allMethodTypeList = selectedMethods.map(method => {
   //   return createSchema(method.schema);

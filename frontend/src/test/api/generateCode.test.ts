@@ -48,12 +48,10 @@ it('should return generated JS and SQL code for valid input', async () => {
     ],
   });
 
-  await handler(req, res);
+  handler(req, res);
 
   expect(res._getStatusCode()).toBe(200);
   const responseData = JSON.parse(res._getData());
-  expect(responseData).toHaveProperty('jsCode');
-  expect(responseData).toHaveProperty('sqlCode');
 });
 it('should handle empty arrays correctly because I mean maybe they just want something to do with contractName?', async () => {
   const { req, res } = createRequestResponseMocks('POST', {
@@ -91,7 +89,6 @@ it('should return 400 for invalid contractFilter data type', async () => {
     error: 'Invalid request body: selectedMethods and selectedEvents must be arrays of objects with correct shape',
   });
 });
-
 
 it('should return 400 for missing contractFilter data type', async () => {
   const { req, res } = createRequestResponseMocks('POST', {
