@@ -37,6 +37,8 @@ const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" 
 
 const [indexers, setIndexers] = useState([]);
 const [total, setTotal] = useState(0);
+const [currentPageIndexer, setCurrentPageIndexer] = useState([]);
+
 const [myIndexers, setMyIndexers] = useState([]);
 const [indexerMetaData, setIndexerMetaData] = useState(new Map());
 const [page, setPage] = useState(0);
@@ -44,7 +46,6 @@ const [hasMetadataRendered, setHasMetadataRendered] = useState(false);
 
 const [loading, setLoading] = useState(false);
 const [isLoadingMore, setIsLoadingMore] = useState(false);
-const [isFetching, setIsFetching] = useState(false);
 const [error, setError] = useState(null);
 
 const fetchGraphQL = (operationsDoc, operationName, variables) => {
@@ -63,6 +64,7 @@ const fetchGraphQL = (operationsDoc, operationName, variables) => {
 }
 
 const fetchIndexerData = () => {
+  setLoading(true);
   fetchGraphQL(GET_ALL_ACTIVE_INDEXERS, 'getAllActiveIndexers').then((result) => {
     if (result.status === 200) {
       const data = result?.body?.data?.[TABLE_NAME];
@@ -88,6 +90,7 @@ const fetchIndexerData = () => {
     } else {
       throw new Error('Failed to fetch data:', result);
     }
+    setLoading(false);
   })
     .catch((error) => {
       setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
@@ -105,6 +108,7 @@ const fetchMyIndexerData = () => {
       if (result.status === 200) {
         const data = result?.body?.data?.[TABLE_NAME];
         if (Array.isArray(data)) {
+          //inject metadata if exist
           const newIndexers = data.map(({ author_account_id, indexer_name }) => {
             const sanitizedAccountID = author_account_id.replace(/\./g, '_');
             const key = `${sanitizedAccountID}/${indexer_name}`;
@@ -132,13 +136,8 @@ const fetchMyIndexerData = () => {
 }
 
 const fetchIndexerMetadata = () => {
-
   const url = `${REPL_QUERY_API_USAGE_URL}`;
   const map = new Map();
-
-  if (isFetching) return;
-
-  setIsFetching(true);
 
   asyncFetch(url)
     .then(response => {
@@ -181,27 +180,21 @@ useEffect(() => {
 
 useEffect(() => {
   if (hasMetadataRendered) {
-    fetchIndexerData();
-  }
-}, [page, hasMetadataRendered]);
-
-// useEffect(() => {
-//   console.log(indexerMetaData);
-// })
-
-useEffect(() => {
-  if (hasMetadataRendered) {
     if (selectedTab === "my-indexers") {
       if (myIndexers.length <= 0) fetchMyIndexerData();
     }
     if (selectedTab === "all") {
-      if (indexers.length <= 0) fetchIndexerData(page, page > 0);
+      if (indexers.length <= 0) fetchIndexerData();
     }
   }
-}, [selectedTab]);
+}, [selectedTab, hasMetadataRendered]);
 
 const handleLoadMore = () => {
-  if (!isLoadingMore) setPage((prevPage) => prevPage + 1);
+  const start = page * PAGE_SIZE;
+  const end = start + PAGE_SIZE;
+  const newIndexers = indexers.slice(start, end);
+  setCurrentPageIndexer([...currentPageIndexer, ...newIndexers]);
+  setPage(page + 1);
 };
 
 const backupNearRPCRequest = () => {
@@ -618,7 +611,7 @@ return (
         ) : (
           <>
             <Items>
-              {indexers.map((indexer, i) => (
+              {currentPageIndexer.map((indexer, i) => (
                 <Item key={i}>
                   <Widget
                     src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
@@ -629,7 +622,7 @@ return (
             </Items>
             {isLoadingMore && <LoadingSpinner />}
             <LoadMoreContainer>
-              <Button onClick={handleLoadMore} disabled={isLoadingMore || isFetching || error !== null || total === 0 || (total === indexers.length)}>
+              <Button onClick={handleLoadMore}>
                 Load More
               </Button>
             </LoadMoreContainer>
