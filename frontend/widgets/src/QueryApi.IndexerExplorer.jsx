@@ -3,11 +3,9 @@ const myAccountId = context.accountId;
 const PAGE_SIZE = 50;
 const TABLE_NAME = "dataplatform_near_queryapi_indexer_indexers";
 const GET_ALL_ACTIVE_INDEXERS = `
-query getAllActiveIndexers($limit: Int!, $offset: Int!) {
+query getAllActiveIndexers {
   ${TABLE_NAME}(
     where: {is_removed: {_eq: false}}
-    limit: $limit
-    offset: $offset
   ) {
     author_account_id
     indexer_name
@@ -19,8 +17,7 @@ query getAllActiveIndexers($limit: Int!, $offset: Int!) {
       count
     }
   }
-}
-`;
+}`;
 
 const GET_MY_ACTIVE_INDEXERS = `
 query getMyActiveIndexers($authorAccountId: String!) {
@@ -37,12 +34,13 @@ query getMyActiveIndexers($authorAccountId: String!) {
 `;
 
 const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
-const [indexerMetadata, setIndexerMetaData] = useState(new Map());
 
 const [indexers, setIndexers] = useState([]);
 const [total, setTotal] = useState(0);
 const [myIndexers, setMyIndexers] = useState([]);
+const [indexerMetaData, setIndexerMetaData] = useState(new Map());
 const [page, setPage] = useState(0);
+const [hasMetadataRendered, setHasMetadataRendered] = useState(false);
 
 const [loading, setLoading] = useState(false);
 const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -64,6 +62,39 @@ const fetchGraphQL = (operationsDoc, operationName, variables) => {
   });
 }
 
+const fetchIndexerData = () => {
+  fetchGraphQL(GET_ALL_ACTIVE_INDEXERS, 'getAllActiveIndexers').then((result) => {
+    if (result.status === 200) {
+      const data = result?.body?.data?.[TABLE_NAME];
+      const totalCount = result?.body?.data?.[`${TABLE_NAME}_aggregate`]?.aggregate?.count;
+      if (Array.isArray(data)) {
+        //inject metadata if exist
+        const newIndexers = data.map(({ author_account_id, indexer_name }) => {
+          const sanitizedAccountID = author_account_id.replace(/\./g, '_');
+          const key = `${sanitizedAccountID}/${indexer_name}`;
+          return ({
+            accountId: author_account_id,
+            indexerName: indexer_name,
+            ...(indexerMetaData.has(key) && indexerMetaData.get(key))
+          })
+        });
+        // sort by numQueries
+        const sortedIndexers = newIndexers.sort((a, b) => (b.numQueries ?? 0) - (a.numQueries ?? 0));
+        setTotal(totalCount);
+        setIndexers(sortedIndexers);
+      } else {
+        throw new Error('Data is not an array:', data);
+      }
+    } else {
+      throw new Error('Failed to fetch data:', result);
+    }
+  })
+    .catch((error) => {
+      setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
+      backupNearRPCRequest();
+    });
+}
+
 const fetchMyIndexerData = () => {
   setLoading(true);
 
@@ -74,11 +105,18 @@ const fetchMyIndexerData = () => {
       if (result.status === 200) {
         const data = result?.body?.data?.[TABLE_NAME];
         if (Array.isArray(data)) {
-          const newIndexers = data.map(({ author_account_id, indexer_name }) => ({
-            accountId: author_account_id,
-            indexerName: indexer_name,
-          }));
-          setMyIndexers(newIndexers);
+          const newIndexers = data.map(({ author_account_id, indexer_name }) => {
+            const sanitizedAccountID = author_account_id.replace(/\./g, '_');
+            const key = `${sanitizedAccountID}/${indexer_name}`;
+            return ({
+              accountId: author_account_id,
+              indexerName: indexer_name,
+              ...(indexerMetaData.has(key) && indexerMetaData.get(key))
+            })
+          });
+          // sort by numQueries
+          const sortedIndexers = newIndexers.sort((a, b) => (b.numQueries ?? 0) - (a.numQueries ?? 0));
+          setMyIndexers(sortedIndexers);
         } else {
           throw new Error('Data is not an array:', data);
         }
@@ -93,45 +131,14 @@ const fetchMyIndexerData = () => {
     });
 }
 
-const fetchIndexerData = (page, append) => {
-  if (isFetching) return;
-  setIsFetching(true);
-  append ? setIsLoadingMore(true) : setLoading(true);
+const fetchIndexerMetadata = () => {
 
-  fetchGraphQL(GET_ALL_ACTIVE_INDEXERS, 'getAllActiveIndexers', {
-    limit: PAGE_SIZE,
-    offset: page * PAGE_SIZE,
-  })
-    .then((result) => {
-      if (result.status === 200) {
-        const data = result?.body?.data?.[TABLE_NAME];
-        const totalCount = result?.body?.data?.[`${TABLE_NAME}_aggregate`]?.aggregate?.count;
-        if (Array.isArray(data)) {
-          const newIndexers = data.map(({ author_account_id, indexer_name }) => ({
-            accountId: author_account_id,
-            indexerName: indexer_name,
-          }));
-          setTotal(totalCount);
-          setIndexers((prevIndexers) => append ? [...prevIndexers, ...newIndexers] : newIndexers);
-        } else {
-          throw new Error('Data is not an array:', data);
-        }
-      } else {
-        throw new Error('Failed to fetch data:', result);
-      }
-      append ? setIsLoadingMore(false) : setLoading(false);
-      setIsFetching(false);
-    })
-    .catch((error) => {
-      setError('An error occurred while retrieving indexer data. Attempting to fetch from NEAR RPC...', error);
-      append ? setIsLoadingMore(false) : setLoading(false);
-      setIsFetching(false);
-      backupNearRPCRequest();
-    });
-};
-
-const storeIndexerMetaData = () => {
   const url = `${REPL_QUERY_API_USAGE_URL}`;
+  const map = new Map();
+
+  if (isFetching) return;
+
+  setIsFetching(true);
 
   asyncFetch(url)
     .then(response => {
@@ -139,12 +146,18 @@ const storeIndexerMetaData = () => {
         setError('There was an error fetching the data');
         return;
       }
-      const { data } = JSON.parse(response.body);
-      const map = new Map();
 
+      const { data } = JSON.parse(response.body);
       data.forEach(entry => {
         const { indexer_account_id, indexers } = entry;
-        indexers.forEach(({ indexer_name, last_deployment_date, num_deployements, num_queries, original_deployment_date }) => {
+
+        indexers.forEach(({
+          indexer_name,
+          last_deployment_date,
+          num_deployements,
+          num_queries,
+          original_deployment_date
+        }) => {
           const indexer = {
             accountId: indexer_account_id,
             indexerName: indexer_name,
@@ -155,25 +168,35 @@ const storeIndexerMetaData = () => {
           };
           map.set(`${indexer_account_id}/${indexer_name}`, indexer);
         });
+        setIndexerMetaData(map);
+        setHasMetadataRendered(true);
       });
-      setIndexerMetaData(map);
     })
 }
 
+
 useEffect(() => {
-  storeIndexerMetaData();
+  fetchIndexerMetadata();
 }, []);
 
 useEffect(() => {
-  fetchIndexerData(page, page > 0);
-}, [page]);
+  if (hasMetadataRendered) {
+    fetchIndexerData();
+  }
+}, [page, hasMetadataRendered]);
+
+// useEffect(() => {
+//   console.log(indexerMetaData);
+// })
 
 useEffect(() => {
-  if (selectedTab === "my-indexers") {
-    if (myIndexers.length <= 0) fetchMyIndexerData();
-  }
-  if (selectedTab === "all") {
-    if (indexers.length <= 0) fetchIndexerData(page, page > 0);
+  if (hasMetadataRendered) {
+    if (selectedTab === "my-indexers") {
+      if (myIndexers.length <= 0) fetchMyIndexerData();
+    }
+    if (selectedTab === "all") {
+      if (indexers.length <= 0) fetchIndexerData(page, page > 0);
+    }
   }
 }, [selectedTab]);
 
@@ -301,7 +324,6 @@ const Item = styled.div`
   }
 `;
 
-
 const Button = styled.button`
   display: block;
   width: 100%;
@@ -406,7 +428,6 @@ const TextLink = styled.a`
     text-decoration: underline;
   }
 `;
-
 
 const NavBarContainer = styled.div`
   display: flex;
@@ -601,7 +622,7 @@ return (
                 <Item key={i}>
                   <Widget
                     src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                    props={{ ...indexer, indexerMetadata }}
+                    props={{ ...indexer }}
                   />
                 </Item>
               ))}
@@ -642,7 +663,7 @@ return (
               <Item key={i}>
                 <Widget
                   src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerCard`}
-                  props={{ ...indexer, indexerMetadata }}
+                  props={{ ...indexer }}
                 />
               </Item>
             ))}
