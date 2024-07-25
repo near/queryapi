@@ -16,8 +16,8 @@
     "strictFunctionTypes": true,                      /* When assigning functions, check to ensure parameters and the return values are subtype-compatible. */
     "noImplicitThis": true,                           /* Enable error reporting when 'this' is given the type 'any'. */
     "alwaysStrict": true,                             /* Ensure 'use strict' is always emitted. */
-    "noUnusedLocals": false,                           /* Enable error reporting when local variables aren't read. */
-    "noUnusedParameters": false,                       /* Raise an error when a function parameter isn't read. */
+    "noUnusedLocals": true,                           /* Enable error reporting when local variables aren't read. */
+    "noUnusedParameters": true,                       /* Raise an error when a function parameter isn't read. */
     "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
   },
   "include": ["./src", "./tests", "./scripts"],

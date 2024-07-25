@@ -15,7 +15,7 @@ import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
 import { type PostgresConnectionParams } from '../pg-client';
 import DmlHandler from '../dml-handler/dml-handler';
-import ContextBuilder from '../context/context';
+import ContextBuilder from '../context';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');
