@@ -34,18 +34,17 @@ query getMyActiveIndexers($authorAccountId: String!) {
 `;
 
 const [selectedTab, setSelectedTab] = useState(props.tab && props.tab !== "all" ? props.tab : "all");
+const [indexerMetaData, setIndexerMetaData] = useState(new Map());
+const [hasMetadataRendered, setHasMetadataRendered] = useState(false);
 
 const [indexers, setIndexers] = useState([]);
 const [total, setTotal] = useState(0);
 const [currentPageIndexer, setCurrentPageIndexer] = useState([]);
+const [page, setPage] = useState(0);
 
 const [myIndexers, setMyIndexers] = useState([]);
-const [indexerMetaData, setIndexerMetaData] = useState(new Map());
-const [page, setPage] = useState(0);
-const [hasMetadataRendered, setHasMetadataRendered] = useState(false);
 
 const [loading, setLoading] = useState(false);
-const [isLoadingMore, setIsLoadingMore] = useState(false);
 const [error, setError] = useState(null);
 
 const fetchGraphQL = (operationsDoc, operationName, variables) => {
@@ -84,6 +83,7 @@ const fetchIndexerData = () => {
         const sortedIndexers = newIndexers.sort((a, b) => (b.numQueries ?? 0) - (a.numQueries ?? 0));
         setTotal(totalCount);
         setIndexers(sortedIndexers);
+        setCurrentPageIndexer(sortedIndexers.slice(0, PAGE_SIZE));
       } else {
         throw new Error('Data is not an array:', data);
       }
@@ -620,10 +620,9 @@ return (
                 </Item>
               ))}
             </Items>
-            {isLoadingMore && <LoadingSpinner />}
             <LoadMoreContainer>
-              <Button onClick={handleLoadMore}>
-                Load More
+              <Button onClick={handleLoadMore} disabled={indexers.length <= currentPageIndexer.length}>
+                {indexers.length <= currentPageIndexer.length ? "No more indexers" : "Load More"}
               </Button>
             </LoadMoreContainer>
           </>
