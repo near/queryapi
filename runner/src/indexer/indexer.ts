@@ -9,7 +9,7 @@ import LogEntry from '../indexer-meta/log-entry';
 import type IndexerConfig from '../indexer-config';
 import { IndexerStatus } from '../indexer-meta';
 import { type IndexerMetaInterface } from '../indexer-meta/indexer-meta';
-import type ContextBuilder from '../context';
+import type ContextBuilder from '../context-builder';
 
 interface Dependencies {
   contextBuilder: ContextBuilder
@@ -28,7 +28,7 @@ export default class Indexer {
   tracer = trace.getTracer('queryapi-runner-indexer');
 
   private readonly logger: typeof logger;
-  private readonly deps: Required<Dependencies>;
+  readonly deps: Required<Dependencies>;
   private currentStatus?: string;
 
   constructor (

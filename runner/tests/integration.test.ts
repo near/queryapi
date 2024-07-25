@@ -15,7 +15,7 @@ import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
 import IndexerMeta from '../src/indexer-meta/indexer-meta';
 import DmlHandler from '../src/dml-handler/dml-handler';
-import ContextBuilder from '../src/context';
+import ContextBuilder from '../src/context-builder';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);

@@ -1,3 +1,4 @@
+import ContextBuilder from '../context-builder';
 import InMemoryDmlHandler from '../dml-handler/in-memory-dml-handler';
 import IndexerConfig from '../indexer-config';
 import { type LocalIndexerConfig } from '../indexer-config/indexer-config';
@@ -20,8 +21,9 @@ export default class LocalIndexer {
       logLevel: config.logLevel,
     });
     const dmlHandler = new InMemoryDmlHandler(config.schema);
+    const contextBuilder = new ContextBuilder(fullIndexerConfig, { dmlHandler });
     const indexerMeta = new NoOpIndexerMeta(config);
-    this.indexer = new Indexer(fullIndexerConfig, { indexerMeta, dmlHandler });
+    this.indexer = new Indexer(fullIndexerConfig, { indexerMeta, contextBuilder });
     this.lakeClient = new LakeClient();
   }
 

@@ -1,0 +1,158 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ContextBuilder unit tests Context object social api can fetch from the near social api 1`] = `
+[
+  [
+    "https://api.near.social/index",
+    {
+      "body": "{"action":"post","key":"main","options":{"limit":1,"order":"desc"}}",
+      "headers": {
+        "Content-Type": "application/json",
+      },
+      "method": "POST",
+    },
+  ],
+]
+`;
+
+exports[`ContextBuilder unit tests ContextBuilder adds CRUD operations for table 1`] = `
+{
+  "delete": [Function],
+  "insert": [Function],
+  "select": [Function],
+  "update": [Function],
+  "upsert": [Function],
+}
+`;
+
+exports[`ContextBuilder unit tests ContextBuilder can parse various schemas 1`] = `
+{
+  "Posts": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+}
+`;
+
+exports[`ContextBuilder unit tests ContextBuilder can parse various schemas 2`] = `
+{
+  "Comments": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "PostLikes": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "Posts": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+}
+`;
+
+exports[`ContextBuilder unit tests ContextBuilder can parse various schemas 3`] = `
+{
+  "CommentsTable": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "Posts": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+}
+`;
+
+exports[`ContextBuilder unit tests ContextBuilder can parse various schemas 4`] = `
+{
+  "AnotherTable": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "Comments": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "ComposerQuest": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "ContractorQuest": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "CreatorQuest": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "MyTable1": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "PostLikes": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "Posts": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "ThirdTable": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+  "YetAnotherTable": {
+    "delete": [Function],
+    "insert": [Function],
+    "select": [Function],
+    "update": [Function],
+    "upsert": [Function],
+  },
+}
+`;
