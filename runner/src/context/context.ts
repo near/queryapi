@@ -168,6 +168,10 @@ export default class ContextBuilder {
     blockHeight: number,
     logEntries: LogEntry[],
   ): Record<string, Record<string, (...args: any[]) => any>> {
+    if (this.tableDefinitions.size === 0) {
+      logEntries.push(LogEntry.systemDebug('No tables found in schema. No context.db methods generated'));
+      return {};
+    }
     try {
       const tableNames = Array.from(this.tableDefinitions.keys());
       const sanitizedTableNames = new Set<string>();
@@ -282,10 +286,6 @@ function getTableNameToDefinitionNamesMapping (schema: string): Map<string, Tabl
         }
       }
     }
-  }
-
-  if (tableNameToDefinitionNamesMap.size === 0) {
-    throw new Error('Schema does not have any tables. There should be at least one table.');
   }
 
   return tableNameToDefinitionNamesMap;

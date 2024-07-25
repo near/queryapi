@@ -1,18 +1,14 @@
 import { Block, type StreamerMessage } from '@near-lake/primitives';
-import type fetch from 'node-fetch';
 
 import Indexer from './indexer';
 import { VM } from 'vm2';
 import type DmlHandler from '../dml-handler/dml-handler';
-import type PgClient from '../pg-client';
 import { LogLevel } from '../indexer-meta/log-entry';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { IndexerStatus } from '../indexer-meta';
 import type IndexerMeta from '../indexer-meta';
-import { type PostgresConnectionParams } from '../pg-client';
 import ContextBuilder from '../context';
 import { type ContextObject } from '../context';
-import { mock } from 'node:test';
 
 describe('Indexer unit tests', () => {
   const SIMPLE_REDIS_STREAM = 'test:stream';
