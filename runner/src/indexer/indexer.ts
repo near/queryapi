@@ -12,7 +12,6 @@ import { type IndexerMetaInterface } from '../indexer-meta/indexer-meta';
 import type ContextBuilder from '../context';
 
 interface Dependencies {
-  fetch?: typeof fetch
   contextBuilder: ContextBuilder
   indexerMeta: IndexerMetaInterface
   parser?: Parser
@@ -39,7 +38,6 @@ export default class Indexer {
     this.logger = logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName, service: this.constructor.name });
 
     this.deps = {
-      fetch,
       parser: new Parser(),
       ...deps
     };
