@@ -16,6 +16,8 @@ use crate::indexer_config::IndexerConfig;
 use crate::redis::KeyProvider;
 use crate::utils::exponential_retry;
 
+const RESTART_TIMEOUT_SECONDS: u64 = 600;
+
 #[derive(Clone)]
 pub struct ExecutorsHandler {
     client: RunnerClient<Channel>,
@@ -136,9 +138,10 @@ impl ExecutorsHandler {
             }
         }
 
-        tracing::info!("Restarting stalled executor");
+        tracing::info!("Restarting stalled executor after {RESTART_TIMEOUT_SECONDS} seconds");
 
         self.stop(executor.executor_id).await?;
+        tokio::time::sleep(std::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
         self.start(config).await?;
 
         Ok(())
