@@ -15,6 +15,9 @@ describe('Receiver Blocks Indexer Tests', () => {
 
   test('Try executing on a block', async () => {
     const localIndexer = new LocalIndexer(indexerConfig);
-    await localIndexer.executeOnBlock(123621232);
+    const context = localIndexer.getContext();
+
+    await localIndexer.executeOnBlock(100000000);
+    const receivers = context.db.Receivers.select({})
   });
 });

@@ -1,4 +1,4 @@
-import ContextBuilder from '../context-builder';
+import ContextBuilder, { type ContextObject } from '../context-builder';
 import InMemoryDmlHandler from '../dml-handler/in-memory-dml-handler';
 import IndexerConfig from '../indexer-config';
 import { type LocalIndexerConfig } from '../indexer-config/indexer-config';
@@ -25,6 +25,10 @@ export default class LocalIndexer {
     const indexerMeta = new NoOpIndexerMeta(config);
     this.indexer = new Indexer(fullIndexerConfig, { indexerMeta, contextBuilder });
     this.lakeClient = new LakeClient();
+  }
+
+  getContext (): ContextObject {
+    return this.indexer.deps.contextBuilder.buildContext(0, []);
   }
 
   async executeOnBlock (blockHeight: number): Promise<void> {
