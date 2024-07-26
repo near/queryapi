@@ -141,7 +141,7 @@ impl ExecutorsHandler {
         tracing::info!("Restarting stalled executor after {RESTART_TIMEOUT_SECONDS} seconds");
 
         self.stop(executor.executor_id).await?;
-        tokio::time::sleep(std::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
         self.start(config).await?;
 
         Ok(())

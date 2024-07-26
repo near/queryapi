@@ -266,7 +266,7 @@ impl BlockStreamsHandler {
         }
 
         self.stop(block_stream.stream_id.clone()).await?;
-        tokio::time::sleep(std::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
+        tokio::time::sleep(tokio::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
         let height = self.get_continuation_block_height(config).await?;
         self.start(height, config).await?;
 
