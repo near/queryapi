@@ -1,3 +1,5 @@
+console.log(props);
+const { setActiveTab, activeTab, setIndexerWizardCode, setSchemaWizardCode } = props;
 const AlertText = styled.p`
 font-family: 'Mona Sans', sans-serif;
 font-size: 14px;
@@ -207,6 +209,19 @@ scrollbar-color: #888 #f1f1f1;
 -ms-scroll-snap-type: mandatory;
 -ms-scroll-snap-points-x: snapInterval(0%, 100%);
 `;
+
+const GenerateMethodsButton = styled.button`
+  width: 100%;
+  background-color: #37CD83;
+  border: none;
+  border-radius: 6px 6px 6px 6px;
+  color: white;
+  cursor: pointer;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+`
 
 const InputWrapper = styled.div`
   display: flex;
@@ -451,6 +466,14 @@ useEffect(() => {
   });
 });
 
+const generateMethods = () => {
+  setIndexerWizardCode('Generating methods... BLAH BLAH BLAH');
+  setSchemaWizardCode('Generating schema... BLAH BLAH BLAH');
+
+  setActiveTab('launch-new-indexer');
+  console.log('finish')
+};
+
 const handleFetchCheckboxData = async () => {
   setCheckBoxData([]);
   setMethodCount(0);
@@ -564,8 +587,6 @@ function CustomTable() {
   );
 }
 
-
-
 return (
   <>
     <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
@@ -601,6 +622,7 @@ return (
                       xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
                     </NoQuerySVG>
                     <NoQueryText>No smart contract address entered</NoQueryText>
+                    <GenerateMethodsButton onClick={generateMethods}> Generate</GenerateMethodsButton>
                   </NoQueryContainer>
                 </>
                 : (
@@ -646,8 +668,10 @@ return (
                         )
                       }
                     </ScrollableDiv>
+                    {/* <GenerateMethodsButton onClick={generateMethods}> Generate</GenerateMethodsButton> */}
                   </div>
                 )}
+
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>

@@ -40,6 +40,9 @@ const accountId = context.accountId;
 const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 const [selectedIndexer, setSelectedIndexer] = useState(props.selectedIndexerPath);
+const [indexerWizardCode, setIndexerWizardCode] = useState('');
+const [schemaWizardCode, setSchemaWizardCode] = useState('');
+
 
 const selectTab = (tabName) => {
   Storage.privateSet("queryapi:activeTab", tabName);
@@ -85,7 +88,15 @@ return (
     <Main>
       {activeTab === 'launchpad' && IS_DEV && (
         <Section >
-          <Widget src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Launchpad`} />
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Launchpad`}
+            props={{
+              activeTab: activeTab,
+              setActiveTab: setActiveTab,
+              setIndexerWizardCode: setIndexerWizardCode,
+              setSchemaWizardCode: setSchemaWizardCode,
+            }}
+          />
         </Section>
       )}
 
@@ -123,7 +134,24 @@ return (
         </Section>
       )}
 
-      {!['launchpad', 'explore', 'indexer', 'create-new-indexer'].includes(activeTab) && (
+      {activeTab === 'launch-new-indexer' && (
+        <Section>
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+            props={{
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
+              path: "query-api-editor",
+              tab: props.tab,
+              activeView: activeIndexerTabView,
+              indexerWizardCode: indexerWizardCode,
+              schemaWizardCode: schemaWizardCode,
+            }}
+          />
+        </Section>
+      )}
+
+      {!['launchpad', 'explore', 'indexer', 'create-new-indexer', 'launch-new-indexer'].includes(activeTab) && (
         <Widget
           src={`${REPL_ACCOUNT_ID}/widget/QueryApi.NotFound`}
           props={{}}
