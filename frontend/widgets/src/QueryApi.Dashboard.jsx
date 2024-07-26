@@ -33,6 +33,11 @@ const TabsButton = styled.button`
   &:hover {
     background: #e0e0e0;
   }
+
+  &:disabled {
+    color: #999;
+    cursor: not-allowed;
+  }
 `;
 
 const IS_DEV = `${REPL_EXTERNAL_APP_URL}` === "https://queryapi-frontend-vcqilefdcq-ew.a.run.app" || `${REPL_EXTERNAL_APP_URL}` === "http://localhost:3000";
@@ -75,13 +80,16 @@ return (
         Explore Indexers
       </TabsButton>
 
-      <TabsButton
+      {<TabsButton
         type="button"
         onClick={() => selectTab("indexer")}
         selected={activeTab === "indexer"}
+        disabled={!selectedIndexer}
       >
-        Indexer ({selectedIndexer})
-      </TabsButton>
+        {!selectedIndexer
+          ? (activeTab !== "create-new-indexer" ? "Select an Indexer" : "Indexer Creation")
+          : `Indexer (${selectedIndexer})`}
+      </TabsButton>}
     </Tabs>
 
 
