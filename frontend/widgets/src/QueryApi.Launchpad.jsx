@@ -1,5 +1,4 @@
-console.log(props);
-const { setActiveTab, activeTab, setIndexerWizardCode, setSchemaWizardCode } = props;
+const { setActiveTab, activeTab, setIndexerWizardCode, setSchemaWizardCode, setSelectedIndexer } = props;
 const AlertText = styled.p`
 font-family: 'Mona Sans', sans-serif;
 font-size: 14px;
@@ -452,26 +451,25 @@ const [allIndexers, setAllIndexers] = useState([]);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
-  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-    const indexers = [];
-    Object.keys(data).forEach((accountId) => {
-      Object.keys(data[accountId]).forEach((functionName) => {
-        indexers.push({
-          accountId: accountId,
-          indexerName: functionName,
-        });
-      });
-    });
-    setAllIndexers(indexers)
-  });
-});
+  // Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
+  //   const indexers = [];
+  //   Object.keys(data).forEach((accountId) => {
+  //     Object.keys(data[accountId]).forEach((functionName) => {
+  //       indexers.push({
+  //         accountId: accountId,
+  //         indexerName: functionName,
+  //       });
+  //     });
+  //   });
+  //   setAllIndexers(indexers)
+  // });
+}, []);
 
 const generateMethods = () => {
   setIndexerWizardCode('Generating methods... BLAH BLAH BLAH');
   setSchemaWizardCode('Generating schema... BLAH BLAH BLAH');
-
+  setSelectedIndexer(null);
   setActiveTab('launch-new-indexer');
-  console.log('finish')
 };
 
 const handleFetchCheckboxData = async () => {

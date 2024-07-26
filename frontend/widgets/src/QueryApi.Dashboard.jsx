@@ -107,6 +107,7 @@ return (
               setActiveTab: setActiveTab,
               setIndexerWizardCode: setIndexerWizardCode,
               setSchemaWizardCode: setSchemaWizardCode,
+              setSelectedIndexer: setSelectedIndexer,
             }}
           />
         </Section>
@@ -120,6 +121,7 @@ return (
 
       {activeTab === 'launch-new-indexer' && (
         <Section>
+          {/* Modify the href post click explorer indexer */}
           <Widget
             src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
             props={{

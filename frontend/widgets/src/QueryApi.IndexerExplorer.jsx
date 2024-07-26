@@ -577,8 +577,6 @@ return (
           href={`/${REPL_ACCOUNT_ID}/widget/QueryApi.App/?view=create-new-indexer`}
           onClick={() => {
             setActiveTab("create-new-indexer");
-            setSelectedIndexerName("");
-            selectTab("create-new-indexer");
           }}
         >
           Create New Indexer
