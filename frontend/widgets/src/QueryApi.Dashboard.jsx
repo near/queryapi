@@ -80,16 +80,20 @@ return (
         Explore Indexers
       </TabsButton>
 
-      {<TabsButton
+      <TabsButton
         type="button"
         onClick={() => selectTab("indexer")}
         selected={activeTab === "indexer"}
         disabled={!selectedIndexer}
       >
-        {!selectedIndexer
-          ? (activeTab !== "create-new-indexer" ? "Select an Indexer" : "Indexer Creation")
-          : `Indexer (${selectedIndexer})`}
-      </TabsButton>}
+        {(!selectedIndexer && activeTab === "create-new-indexer")
+          ? "Indexer Creation"
+          : (!selectedIndexer && activeTab === "launch-new-indexer")
+            ? "Indexer Creation (Launchpad)"
+            : (!selectedIndexer)
+              ? "Select an Indexer"
+              : `Indexer (${selectedIndexer})`}
+      </TabsButton>
     </Tabs>
 
 
@@ -111,6 +115,21 @@ return (
       {activeTab === 'explore' && (
         <Section>
           <Widget src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`} />
+        </Section>
+      )}
+
+      {activeTab === 'launch-new-indexer' && (
+        <Section>
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+            props={{
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
+              path: "create-new-indexer",
+              indexerWizardCode: indexerWizardCode,
+              schemaWizardCode: schemaWizardCode,
+            }}
+          />
         </Section>
       )}
 
@@ -142,22 +161,6 @@ return (
         </Section>
       )}
 
-      {activeTab === 'launch-new-indexer' && (
-        <Section>
-          <Widget
-            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
-            props={{
-              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
-              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
-              path: "query-api-editor",
-              tab: props.tab,
-              activeView: activeIndexerTabView,
-              indexerWizardCode: indexerWizardCode,
-              schemaWizardCode: schemaWizardCode,
-            }}
-          />
-        </Section>
-      )}
 
       {!['launchpad', 'explore', 'indexer', 'create-new-indexer', 'launch-new-indexer'].includes(activeTab) && (
         <Widget
