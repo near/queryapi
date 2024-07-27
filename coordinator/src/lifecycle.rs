@@ -228,33 +228,36 @@ impl<'a> LifecycleManager<'a> {
             warn!(?error, "Failed to stop executor");
         }
 
-        if self.state_manager.delete_state(state).await.is_err() {
-            // Retry
-            return LifecycleState::Deleting;
-        }
+        tracing::error!("Temporarily preventing indexer deprovision due to service instability");
+        LifecycleState::Repairing
 
-        info!("Clearing block stream");
-
-        if self
-            .redis_client
-            .del(state.get_redis_stream_key())
-            .await
-            .is_err()
-        {
-            // Retry
-            return LifecycleState::Deleting;
-        }
-
-        if self
-            .data_layer_handler
-            .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
-            .await
-            .is_err()
-        {
-            return LifecycleState::Deleted;
-        }
-
-        LifecycleState::Deleted
+        // if self.state_manager.delete_state(state).await.is_err() {
+        //     // Retry
+        //     return LifecycleState::Deleting;
+        // }
+        //
+        // info!("Clearing block stream");
+        //
+        // if self
+        //     .redis_client
+        //     .del(state.get_redis_stream_key())
+        //     .await
+        //     .is_err()
+        // {
+        //     // Retry
+        //     return LifecycleState::Deleting;
+        // }
+        //
+        // if self
+        //     .data_layer_handler
+        //     .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
+        //     .await
+        //     .is_err()
+        // {
+        //     return LifecycleState::Deleted;
+        // }
+        //
+        // LifecycleState::Deleted
     }
 
     #[tracing::instrument(
