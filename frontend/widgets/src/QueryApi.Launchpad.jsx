@@ -1,14 +1,4 @@
 const { setActiveTab, activeTab, setSelectedIndexer, setWizardContractFilter, setWizardMethods } = props;
-const AlertText = styled.p`
-font-family: 'Mona Sans', sans-serif;
-font-size: 14px;
-line-height: 21px;
-text-align: center;
-color:red;
-margin: 0;
-padding: 0;
-bg-color: #f9f9f9;
-`;
 
 const NoQueryContainer = styled.div`
   display: flex;
@@ -210,6 +200,7 @@ scrollbar-color: #888 #f1f1f1;
 `;
 
 const GenerateMethodsButton = styled.button`
+  margin-top: 16px;
   width: 100%;
   background-color: #37CD83;
   border: none;
@@ -222,6 +213,12 @@ const GenerateMethodsButton = styled.button`
   justify-content: center;
   position:relative;
   z-index:10;
+
+  &:disabled {
+    background-color: #F3F3F2; 
+    color: #999; 
+    cursor: not-allowed;
+  }
 `
 
 const InputWrapper = styled.div`
@@ -474,24 +471,38 @@ useEffect(() => {
 const generateMethods = () => {
   const filteredData = checkBoxData.map(item => {
     const parentChecked = checkboxState[item.method_name];
-    if (!item.schema || !item.schema.properties) return null;
+    if (!item.schema) return null;
 
-    const filteredProperties = Object.keys(item.schema.properties).reduce((acc, property) => {
-      const childKey = `${item.method_name}::${property}`;
-      if (checkboxState[childKey]) {
-        acc[property] = item.schema.properties[property];
+    if (item.schema && !item.schema.properties) {
+      if (parentChecked) {
+        return {
+          method_name: item.method_name,
+          schema: {
+            ...item.schema
+          }
+        };
       }
-      return acc;
-    }, {});
+      return null;
+    }
 
-    if (parentChecked || Object.keys(filteredProperties).length > 0) {
-      return {
-        method_name: item.method_name,
-        schema: {
-          ...item.schema,
-          properties: filteredProperties
+    if (item.schema && item.schema.properties) {
+      const filteredProperties = Object.keys(item.schema.properties).reduce((acc, property) => {
+        const childKey = `${item.method_name}::${property}`;
+        if (checkboxState[childKey]) {
+          acc[property] = item.schema.properties[property];
         }
-      };
+        return acc;
+      }, {});
+
+      if (parentChecked || Object.keys(filteredProperties).length > 0) {
+        return {
+          method_name: item.method_name,
+          schema: {
+            ...item.schema,
+            properties: filteredProperties
+          }
+        };
+      }
     }
 
     return null;
@@ -540,7 +551,6 @@ const handleFetchCheckboxData = async () => {
         setLoading(false);
         return;
       };
-
       setCheckBoxData(data);
       setMethodCount(data.length);
       setLoading(false);
@@ -585,9 +595,12 @@ const handleChildChange = (key) => {
   });
 };
 
+const hasSelectedMethod = (checkboxState) => {
+  return Object.values(checkboxState).some(value => value === true);
+}
+
 return (
   <>
-    <AlertText>Please note that this page is currently under development. Features may be incomplete or inaccurate</AlertText>
     <Hero>
       <Container>
         <HeadlineContainer>
@@ -623,7 +636,7 @@ return (
                   </NoQueryContainer>
                 </>
                 : (
-                  <div>
+                  <SubContainerContent>
                     {checkBoxData.length > 0 && (
                       <MethodsText>
                         Methods <MethodsSpan>{methodCount}</MethodsSpan>
@@ -665,10 +678,9 @@ return (
                         )
                       }
                     </ScrollableDiv>
-                    <GenerateMethodsButton onClick={generateMethods}> Generate</GenerateMethodsButton>
-                  </div>
+                  </SubContainerContent>
                 )}
-
+              <GenerateMethodsButton onClick={generateMethods} disabled={(Object.entries(checkboxState).length === 0) || !hasSelectedMethod(checkboxState)}> Generate</GenerateMethodsButton>
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>
