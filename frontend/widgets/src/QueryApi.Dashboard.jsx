@@ -45,8 +45,9 @@ const accountId = context.accountId;
 const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ? "create-new-indexer" : props.selectedIndexerPath ? "indexer" : "explore");
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 const [selectedIndexer, setSelectedIndexer] = useState(props.selectedIndexerPath);
-const [indexerWizardCode, setIndexerWizardCode] = useState('');
-const [schemaWizardCode, setSchemaWizardCode] = useState('');
+
+const [wizardMethods, setWizardMethods] = useState({});
+const [wizardContractFilter, setWizardContractFilter] = useState('');
 
 
 const selectTab = (tabName) => {
@@ -105,9 +106,9 @@ return (
             props={{
               activeTab: activeTab,
               setActiveTab: setActiveTab,
-              setIndexerWizardCode: setIndexerWizardCode,
-              setSchemaWizardCode: setSchemaWizardCode,
               setSelectedIndexer: setSelectedIndexer,
+              setWizardContractFilter: setWizardContractFilter,
+              setWizardMethods: setWizardMethods,
             }}
           />
         </Section>
@@ -128,8 +129,8 @@ return (
               indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
               accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
               path: "create-new-indexer",
-              indexerWizardCode: indexerWizardCode,
-              schemaWizardCode: schemaWizardCode,
+              wizardContractFilter: wizardContractFilter,
+              wizardMethods: wizardMethods,
             }}
           />
         </Section>

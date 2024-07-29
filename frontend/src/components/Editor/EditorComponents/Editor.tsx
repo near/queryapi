@@ -80,22 +80,6 @@ const Editor: React.FC = (): ReactElement => {
   const disposableRef = useRef<any>(null);
   const monacoEditorRef = useRef<any>(null);
 
-  interface LaunchpadResponse {
-    indexerWizardCode: string;
-    schemaWizardCode: string;
-  }
-
-  async function fetchWizardData() {
-    try {
-      const response: LaunchpadResponse = await request('launchpad-create-indexer');
-      const { indexerWizardCode, schemaWizardCode } = response;
-      console.log(indexerWizardCode, schemaWizardCode);
-    } catch (error) {
-
-      console.error('Error fetching data from wizard:', error);
-    }
-  }
-
   const debouncedValidateSQLSchema = useDebouncedCallback((_schema: string) => {
     const { error, location } = validateSQLSchema(_schema);
     error ? parseGlyphError(error as any, location as any) : parseGlyphError();
@@ -122,7 +106,6 @@ const Editor: React.FC = (): ReactElement => {
   };
 
   useEffect(() => {
-    fetchWizardData();
     //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
     if (savedCode) setIndexingCode(savedCode);

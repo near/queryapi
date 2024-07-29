@@ -4,8 +4,8 @@ const activeView = props.activeView || "editor";
 let accountId = props.accountId || context.accountId;
 let externalAppUrl = `${REPL_EXTERNAL_APP_URL}/${path}?accountId=${accountId}`;
 
-const { indexerWizardCode, schemaWizardCode } = props;
-console.log(indexerWizardCode, schemaWizardCode)
+const { wizardContractFilter, wizardMethods } = props;
+
 if (props.indexerName) {
   externalAppUrl += `&indexerName=${props.indexerName}`;
 }
@@ -58,9 +58,7 @@ let deleteIndexer = (request) => {
 };
 
 const getLaunchpadCode = (request, response) => {
-  console.log("calling getLaunchpadCode function through requestHandler");
-  console.log(indexerWizardCode, schemaWizardCode)
-  return { indexerWizardCode, schemaWizardCode };
+  return { wizardContractFilter, wizardMethods };
 }
 
 /**
