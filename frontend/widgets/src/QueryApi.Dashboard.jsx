@@ -46,6 +46,10 @@ const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ?
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 const [selectedIndexer, setSelectedIndexer] = useState(props.selectedIndexerPath);
 
+const [wizardMethods, setWizardMethods] = useState({});
+const [wizardContractFilter, setWizardContractFilter] = useState('');
+
+
 const selectTab = (tabName) => {
   Storage.privateSet("queryapi:activeTab", tabName);
   setActiveTab(tabName);
@@ -77,29 +81,58 @@ return (
         Explore Indexers
       </TabsButton>
 
-      {<TabsButton
+      <TabsButton
         type="button"
         onClick={() => selectTab("indexer")}
         selected={activeTab === "indexer"}
         disabled={!selectedIndexer}
       >
-        {!selectedIndexer
-          ? (activeTab !== "create-new-indexer" ? "Select an Indexer" : "Indexer Creation")
-          : `Indexer (${selectedIndexer})`}
-      </TabsButton>}
+        {(!selectedIndexer && activeTab === "create-new-indexer")
+          ? "Indexer Creation"
+          : (!selectedIndexer && activeTab === "launch-new-indexer")
+            ? "Indexer Creation (Launchpad)"
+            : (!selectedIndexer)
+              ? "Select an Indexer"
+              : `Indexer (${selectedIndexer})`}
+      </TabsButton>
     </Tabs>
 
 
     <Main>
       {activeTab === 'launchpad' && IS_DEV && (
         <Section >
-          <Widget src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Launchpad`} />
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Launchpad`}
+            props={{
+              activeTab: activeTab,
+              setActiveTab: setActiveTab,
+              setSelectedIndexer: setSelectedIndexer,
+              setWizardContractFilter: setWizardContractFilter,
+              setWizardMethods: setWizardMethods,
+            }}
+          />
         </Section>
       )}
 
       {activeTab === 'explore' && (
         <Section>
           <Widget src={`${REPL_ACCOUNT_ID}/widget/QueryApi.IndexerExplorer`} />
+        </Section>
+      )}
+
+      {activeTab === 'launch-new-indexer' && (
+        <Section>
+          {/* Modify the href post click explorer indexer */}
+          <Widget
+            src={`${REPL_ACCOUNT_ID}/widget/QueryApi.Editor`}
+            props={{
+              indexerName: selectedIndexer ? selectedIndexer.split('/')[1] : '',
+              accountId: selectedIndexer ? selectedIndexer.split('/')[0] : '',
+              path: "create-new-indexer",
+              wizardContractFilter: wizardContractFilter,
+              wizardMethods: wizardMethods,
+            }}
+          />
         </Section>
       )}
 
@@ -131,7 +164,8 @@ return (
         </Section>
       )}
 
-      {!['launchpad', 'explore', 'indexer', 'create-new-indexer'].includes(activeTab) && (
+
+      {!['launchpad', 'explore', 'indexer', 'create-new-indexer', 'launch-new-indexer'].includes(activeTab) && (
         <Widget
           src={`${REPL_ACCOUNT_ID}/widget/QueryApi.NotFound`}
           props={{}}

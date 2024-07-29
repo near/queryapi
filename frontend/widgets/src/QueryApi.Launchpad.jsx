@@ -1,3 +1,4 @@
+const { setActiveTab, activeTab, setSelectedIndexer, setWizardContractFilter, setWizardMethods } = props;
 const AlertText = styled.p`
 font-family: 'Mona Sans', sans-serif;
 font-size: 14px;
@@ -208,6 +209,21 @@ scrollbar-color: #888 #f1f1f1;
 -ms-scroll-snap-points-x: snapInterval(0%, 100%);
 `;
 
+const GenerateMethodsButton = styled.button`
+  width: 100%;
+  background-color: #37CD83;
+  border: none;
+  border-radius: 6px 6px 6px 6px;
+  color: white;
+  cursor: pointer;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position:relative;
+  z-index:10;
+`
+
 const InputWrapper = styled.div`
   display: flex;
   align-items: center;
@@ -267,7 +283,6 @@ const ExploreIndexersContainer = styled.div`
   height: 100%; 
   width: 100%; 
 `;
-
 
 const ExploreIndexersHeading = styled.h2`
   font-family: 'Mona Sans', sans-serif;
@@ -436,20 +451,58 @@ const [inputValue, setInputValue] = useState('');
 const [allIndexers, setAllIndexers] = useState([]);
 const [loading, setLoading] = useState(false);
 
-useEffect(() => {
-  Near.asyncView(`${REPL_REGISTRY_CONTRACT_ID}`, "list_all").then((data) => {
-    const indexers = [];
-    Object.keys(data).forEach((accountId) => {
-      Object.keys(data[accountId]).forEach((functionName) => {
-        indexers.push({
-          accountId: accountId,
-          indexerName: functionName,
-        });
+
+const initializeCheckboxState = (data) => {
+  const initialState = {};
+  data.forEach((item) => {
+    initialState[item.method_name] = true;
+
+    if (item.schema.properties) {
+      Object.keys(item.schema.properties).forEach((property) => {
+        initialState[`${item.method_name}::${property}`] = true;
       });
-    });
-    setAllIndexers(indexers)
+    }
   });
-});
+
+  return initialState;
+};
+
+useEffect(() => {
+  setCheckboxState(initializeCheckboxState(checkBoxData));
+}, [checkBoxData]);
+
+const generateMethods = () => {
+  const filteredData = checkBoxData.map(item => {
+    const parentChecked = checkboxState[item.method_name];
+    if (!item.schema || !item.schema.properties) return null;
+
+    const filteredProperties = Object.keys(item.schema.properties).reduce((acc, property) => {
+      const childKey = `${item.method_name}::${property}`;
+      if (checkboxState[childKey]) {
+        acc[property] = item.schema.properties[property];
+      }
+      return acc;
+    }, {});
+
+    if (parentChecked || Object.keys(filteredProperties).length > 0) {
+      return {
+        method_name: item.method_name,
+        schema: {
+          ...item.schema,
+          properties: filteredProperties
+        }
+      };
+    }
+
+    return null;
+  }).filter(item => item !== null);
+
+  const copy = filteredData;
+  setWizardContractFilter(inputValue)
+  setWizardMethods(copy);
+  setSelectedIndexer(null);
+  setActiveTab('launch-new-indexer');
+};
 
 const handleFetchCheckboxData = async () => {
   setCheckBoxData([]);
@@ -498,73 +551,39 @@ const handleFetchCheckboxData = async () => {
 
 };
 
-const initialCheckboxState = checkBoxData.reduce((acc, item) => {
-  //Select eveyrthing by default.
-  acc[item.method_name] = false;
-  if (item.schema.properties) {
-    Object.keys(item.schema.properties).forEach(property => {
-      acc[`${item.method_name}::${property}`] = false;
-    });
-  }
-  return acc;
-}, {});
 
 const handleParentChange = (methodName) => {
-  const newState = { ...checkboxState };
-  const isChecked = !checkboxState[methodName];
-  newState[methodName] = isChecked;
-  checkBoxData.forEach(item => {
-    if (item.method_name === methodName && item.schema.properties) {
-      Object.keys(item.schema.properties).forEach(property => {
-        newState[`${methodName}::${property}`] = isChecked;
+  setCheckboxState(prevState => {
+    const newState = !prevState[methodName];
+    const updatedState = { ...prevState };
+    updatedState[methodName] = newState;
+
+    if (!newState) {
+      Object.keys(updatedState).forEach(key => {
+        if (key.startsWith(`${methodName}::`)) {
+          updatedState[key] = false;
+        }
+      });
+    } else {
+      Object.keys(checkBoxData.find(item => item.method_name === methodName)?.schema.properties || {}).forEach(property => {
+        const childKey = `${methodName}::${property}`;
+        updatedState[childKey] = true;
       });
     }
-  });
-  setCheckboxState(newState);
-};
-
-const handleChildChange = (childId) => {
-  setCheckboxState({
-    ...checkboxState,
-    [childId]: !checkboxState[childId],
+    return updatedState;
   });
 };
 
-const data = allIndexers.map((indexer) => ({
-  indexer: indexer.indexerName,
-  weeklyRequest: indexer.weeklyRequest || 150,
-  lastUpdated: indexer.lastUpdated || '2023-06-25',
-  status: indexer.status || 'Active',
-}));
-
-function CustomTable() {
-  return (
-    <TableContainer>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHeaderCell>Indexer</TableHeaderCell>
-            <TableHeaderCell>Weekly Request</TableHeaderCell>
-            <TableHeaderCell>Last Updated</TableHeaderCell>
-            <TableHeaderCell>Status</TableHeaderCell>
-          </TableRow>
-        </TableHeader>
-        <tbody>
-          {data.map((row, index) => (
-            <TableRow key={index}>
-              <TableCell>{row.indexer}</TableCell>
-              <TableCell>{row.weeklyRequest}</TableCell>
-              <TableCell>{row.lastUpdated}</TableCell>
-              <TableCell>{row.status}</TableCell>
-            </TableRow>
-          ))}
-        </tbody>
-      </Table>
-    </TableContainer>
-  );
-}
-
-
+const handleChildChange = (key) => {
+  setCheckboxState(prevState => {
+    const newState = !prevState[key];
+    const updatedState = { ...prevState, [key]: newState };
+    const parentMethodName = key.split('::')[0];
+    const anyChildChecked = Object.keys(updatedState).some(childKey => childKey.startsWith(`${parentMethodName}::`) && updatedState[childKey]);
+    updatedState[parentMethodName] = anyChildChecked;
+    return updatedState;
+  });
+};
 
 return (
   <>
@@ -646,8 +665,10 @@ return (
                         )
                       }
                     </ScrollableDiv>
+                    <GenerateMethodsButton onClick={generateMethods}> Generate</GenerateMethodsButton>
                   </div>
                 )}
+
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>
@@ -664,7 +685,6 @@ return (
             <SearchArrow viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M13.4697 5.46967C13.7626 5.17678 14.2374 5.17678 14.5303 5.46967L20.5303 11.4697C20.8232 11.7626 20.8232 12.2374 20.5303 12.5303L14.5303 18.5303C14.2374 18.8232 13.7626 18.8232 13.4697 18.5303C13.1768 18.2374 13.1768 17.7626 13.4697 17.4697L18.1893 12.75H4C3.58579 12.75 3.25 12.4142 3.25 12C3.25 11.5858 3.58579 11.25 4 11.25H18.1893L13.4697 6.53033C13.1768 6.23744 13.1768 5.76256 13.4697 5.46967Z" fill="#1C274C"></path> </g></SearchArrow>
           </SearchIndexerButton>
         </SearchIndexerContainer>
-        {CustomTable()}
       </ExploreContent>
     </ExploreIndexersContainer>
   </>
