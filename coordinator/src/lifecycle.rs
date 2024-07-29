@@ -199,12 +199,13 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "repairing", skip_all)]
     async fn handle_repairing(
         &self,
-        config: Option<&IndexerConfig>,
+        _config: Option<&IndexerConfig>,
         _state: &IndexerState,
     ) -> LifecycleState {
-        if config.is_none() {
-            return LifecycleState::Deleting;
-        }
+        // TODO: Re-enable auto deprovision once guard rails in place
+        // if config.is_none() {
+            //     return LifecycleState::Deleting;
+            // }
 
         // TODO Add more robust error handling, for now just stop
         LifecycleState::Repairing
