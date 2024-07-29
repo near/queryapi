@@ -42,7 +42,7 @@ interface WizardResponse {
 }
 const fetchWizardData = (req: string): Promise<WizardResponse> => {
   return request<WizardResponse>('launchpad-create-indexer', req);
-}
+};
 
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
@@ -132,8 +132,7 @@ const Editor: React.FC = (): ReactElement => {
     } catch (error) {
       throw error;
     }
-  }
-
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -178,7 +177,7 @@ const Editor: React.FC = (): ReactElement => {
       schemaErrorHandler(schemaError);
       formattedSchema && setSchema(formattedSchema);
     }
-  }, [indexerDetails.schema,]);
+  }, [indexerDetails.schema]);
 
   useEffect(() => {
     const { error: schemaError } = validateSQLSchema(schema);

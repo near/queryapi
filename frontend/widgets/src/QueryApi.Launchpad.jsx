@@ -680,7 +680,7 @@ return (
                     </ScrollableDiv>
                   </SubContainerContent>
                 )}
-              <GenerateMethodsButton onClick={generateMethods} disabled={(Object.entries(checkboxState).length === 0) || !hasSelectedMethod(checkboxState)}> Generate</GenerateMethodsButton>
+              <GenerateMethodsButton onClick={generateMethods} disabled={!checkboxState || !hasSelectedMethod(checkboxState)}> Generate</GenerateMethodsButton>
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>
