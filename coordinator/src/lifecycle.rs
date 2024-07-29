@@ -204,8 +204,8 @@ impl<'a> LifecycleManager<'a> {
     ) -> LifecycleState {
         // TODO: Re-enable auto deprovision once guard rails in place
         // if config.is_none() {
-            //     return LifecycleState::Deleting;
-            // }
+        //     return LifecycleState::Deleting;
+        // }
 
         // TODO Add more robust error handling, for now just stop
         LifecycleState::Repairing
