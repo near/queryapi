@@ -1,6 +1,7 @@
 import { request, useInitialPayload } from 'near-social-bridge';
 import type { ReactElement } from 'react';
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type { Method, Event } from '@/pages/api/generateCode';
+import React, { use, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { useDebouncedCallback } from 'use-debounce';
 
@@ -33,6 +34,14 @@ const SCHEMA_TAB_NAME = 'schema.sql';
 const originalSQLCode = formatSQL(defaultSchema);
 const originalIndexingCode = formatIndexingCode(defaultCode);
 const pgSchemaTypeGen = new PgSchemaTypeGen();
+interface WizardResponse {
+  wizardContractFilter: string;
+  wizardMethods: Method[];
+  wizardEvents?: Event[];
+}
+const fetchWizardData = (req: string): Promise<WizardResponse> => {
+  return request<WizardResponse>('launchpad-create-indexer', req);
+}
 
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
@@ -105,6 +114,42 @@ const Editor: React.FC = (): ReactElement => {
     return;
   };
 
+  const generateCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
+    try {
+      const response = await fetch('/api/generateCode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ contractFilter, selectedMethods, selectedEvents }),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetchWizardData('');
+        const { wizardContractFilter, wizardMethods } = response;
+
+        const codeResponse = await generateCode(wizardContractFilter, wizardMethods);
+        setIndexingCode(codeResponse.jsCode);
+        setSchema(codeResponse.sqlCode);
+      } catch (error: unknown) {
+        console.error(error);
+      }
+    };
+    fetchData();
+  }, []);
+
   useEffect(() => {
     //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
@@ -117,7 +162,6 @@ const Editor: React.FC = (): ReactElement => {
     //* Load saved cursor position from local storage if it exists else set cursor to start
     const savedCursorPosition = storageManager?.getCursorPosition();
     if (savedCursorPosition) setCursorPosition(savedCursorPosition);
-
     if (monacoEditorRef.current && fileName === INDEXER_TAB_NAME) {
       monacoEditorRef.current.setPosition(savedCursorPosition || { lineNumber: 1, column: 1 });
       monacoEditorRef.current.focus();
@@ -133,7 +177,7 @@ const Editor: React.FC = (): ReactElement => {
       schemaErrorHandler(schemaError);
       formattedSchema && setSchema(formattedSchema);
     }
-  }, [indexerDetails.schema]);
+  }, [indexerDetails.schema,]);
 
   useEffect(() => {
     const { error: schemaError } = validateSQLSchema(schema);

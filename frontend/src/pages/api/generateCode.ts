@@ -17,7 +17,7 @@ export type Event = {
 export interface RequestBody {
   contractFilter: string | string[];
   selectedMethods: Method[];
-  selectedEvents: Event[];
+  selectedEvents?: Event[];
 }
 
 export const isStringOrArray = (value: any): value is string | string[] =>
@@ -37,9 +37,10 @@ export const validateRequestBody = (body: any): body is RequestBody => {
   return (
     isStringOrArray(body.contractFilter) &&
     Array.isArray(body.selectedMethods) &&
-    body.selectedMethods.every(isValidMethod) &&
-    Array.isArray(body.selectedEvents) &&
-    body.selectedEvents.every(isValidEvent)
+    body.selectedMethods.every(isValidMethod)
+    // &&
+    // Array.isArray(body.selectedEvents) &&
+    // body.selectedEvents.every(isValidEvent)
   );
 };
 
@@ -58,7 +59,7 @@ export const isValidEvent = (item: any): item is Event =>
 const generateDummyJSCode = (
   contractFilter: string | string[],
   selectedMethods: Method[],
-  selectedEvents: Event[],
+  selectedEvents?: Event[],
 ): string => {
   // All Types Of Methods
   // const allMethodTypeList = selectedMethods.map(method => {
@@ -69,26 +70,26 @@ const generateDummyJSCode = (
   const jsCodeHeader =
     `// JavaScript Code\n\n` +
     `-- Contract Filter: ${filterString}\n\n` +
-    `-- Selected Methods: ${selectedMethods.map((m) => m.method_name).join(', ')}\n\n` +
-    `-- Selected Events: ${selectedEvents.map((e) => e.event_name).join(', ')}\n\n`;
+    `-- Selected Methods: ${selectedMethods.map((m) => m.method_name).join(', ')}\n\n`;
+  // `-- Selected Events: ${selectedEvents.map((e) => e.event_name).join(', ')}\n\n`;
 
   const methodsJS = selectedMethods
     .map((method) => `function ${method.method_name}() {\n  console.log('Executing ${method.method_name}');\n}\n\n`)
     .join('');
 
-  const eventsJS = selectedEvents
-    .map(
-      (event) => `function handle${event.event_name}() {\n  console.log('Handling event ${event.event_name}');\n}\n\n`,
-    )
-    .join('');
+  // const eventsJS = selectedEvents
+  //   .map(
+  //     (event) => `function handle${event.event_name}() {\n  console.log('Handling event ${event.event_name}');\n}\n\n`,
+  //   )
+  //   .join('');
 
-  return jsCodeHeader + defaultCode + methodsJS + eventsJS;
+  return jsCodeHeader + defaultCode + methodsJS;
 };
 
 const generateDummySQLCode = (
   contractFilter: string | string[],
   selectedMethods: Method[],
-  selectedEvents: Event[],
+  selectedEvents?: Event[],
 ): string => {
   // All Types Of Methods
   // const allMethodTypeList = selectedMethods.map(method => {
@@ -99,8 +100,8 @@ const generateDummySQLCode = (
   const sqlCodeHeader =
     `-- SQL Code\n\n` +
     `-- Contract Filter: ${filterString}\n\n` +
-    `-- Selected Methods: ${selectedMethods.map((m) => m.method_name).join(', ')}\n\n` +
-    `-- Selected Events: ${selectedEvents.map((e) => e.event_name).join(', ')}\n\n`;
+    `-- Selected Methods: ${selectedMethods.map((m) => m.method_name).join(', ')}\n\n`;
+  // `-- Selected Events: ${selectedEvents.map((e) => e.event_name).join(', ')}\n\n`;
 
   const methodsSQL = selectedMethods
     .map(
@@ -108,11 +109,11 @@ const generateDummySQLCode = (
     )
     .join('');
 
-  const eventsSQL = selectedEvents
-    .map((event) => `-- Event: ${event.event_name}\nINSERT INTO events (name) VALUES ('${event.event_name}');\n\n`)
-    .join('');
+  // const eventsSQL = selectedEvents
+  //   .map((event) => `-- Event: ${event.event_name}\nINSERT INTO events (name) VALUES ('${event.event_name}');\n\n`)
+  //   .join('');
 
-  return sqlCodeHeader + defaultSchema + methodsSQL + eventsSQL;
+  return sqlCodeHeader + defaultSchema + methodsSQL;
 };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse): void {

@@ -58,7 +58,7 @@ let deleteIndexer = (request) => {
 };
 
 const getLaunchpadCode = (request, response) => {
-  return { wizardContractFilter, wizardMethods };
+  response(request).send({ wizardContractFilter, wizardMethods });
 }
 
 /**
@@ -73,7 +73,7 @@ const requestHandler = (request, response) => {
       deleteIndexer(request, response);
       break;
     case "launchpad-create-indexer":
-      getLaunchpadCode();
+      getLaunchpadCode(request, response);
       break
     case "default":
       console.log("default case");
