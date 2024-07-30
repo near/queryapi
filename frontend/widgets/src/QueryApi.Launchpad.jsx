@@ -450,10 +450,8 @@ const [loading, setLoading] = useState(false);
 
 
 const initializeCheckboxState = (data) => {
-  console.log('in checkbox', data);
   const initialState = {};
   data.forEach((item) => {
-    console.log('item', item);
     initialState[item.method_name] = true;
 
     if (item.schema.properties) {
