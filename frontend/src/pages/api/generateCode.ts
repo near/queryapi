@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-import { defaultCode, defaultSchema } from '../../utils/formatters';
 import { createSchema } from 'genson-js';
 import type { Schema } from 'genson-js/dist/types';
+import { WizardCodeGenerator } from './WizardCodeGenerator';
 
 export type Method = {
   method_name: string;
@@ -38,8 +38,7 @@ export const validateRequestBody = (body: any): body is RequestBody => {
     isStringOrArray(body.contractFilter) &&
     Array.isArray(body.selectedMethods) &&
     body.selectedMethods.every(isValidMethod)
-    // &&
-    // Array.isArray(body.selectedEvents) &&
+    // && Array.isArray(body.selectedEvents) &&
     // body.selectedEvents.every(isValidEvent)
   );
 };
@@ -55,66 +54,6 @@ export const isValidEvent = (item: any): item is Event =>
   typeof item.event_name === 'string' &&
   item.event_name.trim() !== '' &&
   isValidSchema(item.schema);
-
-const generateDummyJSCode = (
-  contractFilter: string | string[],
-  selectedMethods: Method[],
-  selectedEvents?: Event[],
-): string => {
-  // All Types Of Methods
-  // const allMethodTypeList = selectedMethods.map(method => {
-  //   return createSchema(method.schema);
-  // });
-
-  const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
-  const jsCodeHeader =
-    `// JavaScript Code\n\n` +
-    `-- Contract Filter: ${filterString}\n\n` +
-    `-- Selected Methods: ${selectedMethods.map((m) => m.method_name).join(', ')}\n\n`;
-  // `-- Selected Events: ${selectedEvents.map((e) => e.event_name).join(', ')}\n\n`;
-
-  const methodsJS = selectedMethods
-    .map((method) => `function ${method.method_name}() {\n  console.log('Executing ${method.method_name}');\n}\n\n`)
-    .join('');
-
-  // const eventsJS = selectedEvents
-  //   .map(
-  //     (event) => `function handle${event.event_name}() {\n  console.log('Handling event ${event.event_name}');\n}\n\n`,
-  //   )
-  //   .join('');
-
-  return jsCodeHeader + defaultCode + methodsJS;
-};
-
-const generateDummySQLCode = (
-  contractFilter: string | string[],
-  selectedMethods: Method[],
-  selectedEvents?: Event[],
-): string => {
-  // All Types Of Methods
-  // const allMethodTypeList = selectedMethods.map(method => {
-  //   return createSchema(method.schema);
-  // });
-
-  const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
-  const sqlCodeHeader =
-    `-- SQL Code\n\n` +
-    `-- Contract Filter: ${filterString}\n\n` +
-    `-- Selected Methods: ${selectedMethods.map((m) => m.method_name).join(', ')}\n\n`;
-  // `-- Selected Events: ${selectedEvents.map((e) => e.event_name).join(', ')}\n\n`;
-
-  const methodsSQL = selectedMethods
-    .map(
-      (method) => `-- Method: ${method.method_name}\nINSERT INTO methods (name) VALUES ('${method.method_name}');\n\n`,
-    )
-    .join('');
-
-  // const eventsSQL = selectedEvents
-  //   .map((event) => `-- Event: ${event.event_name}\nINSERT INTO events (name) VALUES ('${event.event_name}');\n\n`)
-  //   .join('');
-
-  return sqlCodeHeader + defaultSchema + methodsSQL;
-};
 
 export default function handler(req: NextApiRequest, res: NextApiResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -140,8 +79,10 @@ export default function handler(req: NextApiRequest, res: NextApiResponse): void
 
   const { contractFilter, selectedMethods, selectedEvents } = req.body;
 
-  const jsCode = generateDummyJSCode(contractFilter, selectedMethods, selectedEvents);
-  const sqlCode = generateDummySQLCode(contractFilter, selectedMethods, selectedEvents);
+  const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
+
+  const generator = new WizardCodeGenerator(filterString, selectedMethods, selectedEvents);
+  const { jsCode, sqlCode } = generator.generateCode();
 
   res.status(200).json({ jsCode, sqlCode });
 }

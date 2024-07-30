@@ -199,12 +199,13 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "repairing", skip_all)]
     async fn handle_repairing(
         &self,
-        config: Option<&IndexerConfig>,
+        _config: Option<&IndexerConfig>,
         _state: &IndexerState,
     ) -> LifecycleState {
-        if config.is_none() {
-            return LifecycleState::Deleting;
-        }
+        // TODO: Re-enable auto deprovision once guard rails in place
+        // if config.is_none() {
+        //     return LifecycleState::Deleting;
+        // }
 
         // TODO Add more robust error handling, for now just stop
         LifecycleState::Repairing
@@ -228,33 +229,36 @@ impl<'a> LifecycleManager<'a> {
             warn!(?error, "Failed to stop executor");
         }
 
-        if self.state_manager.delete_state(state).await.is_err() {
-            // Retry
-            return LifecycleState::Deleting;
-        }
+        tracing::error!("Temporarily preventing indexer deprovision due to service instability");
+        LifecycleState::Repairing
 
-        info!("Clearing block stream");
-
-        if self
-            .redis_client
-            .del(state.get_redis_stream_key())
-            .await
-            .is_err()
-        {
-            // Retry
-            return LifecycleState::Deleting;
-        }
-
-        if self
-            .data_layer_handler
-            .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
-            .await
-            .is_err()
-        {
-            return LifecycleState::Deleted;
-        }
-
-        LifecycleState::Deleted
+        // if self.state_manager.delete_state(state).await.is_err() {
+        //     // Retry
+        //     return LifecycleState::Deleting;
+        // }
+        //
+        // info!("Clearing block stream");
+        //
+        // if self
+        //     .redis_client
+        //     .del(state.get_redis_stream_key())
+        //     .await
+        //     .is_err()
+        // {
+        //     // Retry
+        //     return LifecycleState::Deleting;
+        // }
+        //
+        // if self
+        //     .data_layer_handler
+        //     .ensure_deprovisioned(state.account_id.clone(), state.function_name.clone())
+        //     .await
+        //     .is_err()
+        // {
+        //     return LifecycleState::Deleted;
+        // }
+        //
+        // LifecycleState::Deleted
     }
 
     #[tracing::instrument(
