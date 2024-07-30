@@ -282,8 +282,9 @@ const Editor: React.FC = (): ReactElement => {
       `${primitives}}`,
       'file:///node_modules/@near-lake/primitives/index.d.ts',
     );
+    
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2016,
+      target: monaco.languages.typescript.ScriptTarget.ES2018,
       allowNonTsExtensions: true,
       moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
     });
