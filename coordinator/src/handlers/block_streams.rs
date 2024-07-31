@@ -257,7 +257,11 @@ impl BlockStreamsHandler {
             if !stale && !stalled {
                 return Ok(());
             } else {
-                tracing::info!(stale, stalled, "Restarting stalled block stream");
+                tracing::info!(
+                    stale,
+                    stalled,
+                    "Restarting stalled block stream after {RESTART_TIMEOUT_SECONDS} seconds"
+                );
             }
         } else {
             tracing::info!(
