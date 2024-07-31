@@ -1,12 +1,13 @@
+import type { NextApiRequest, NextApiResponse } from 'next';
+
 import { createSchema } from 'genson-js';
 import type { Schema } from 'genson-js/dist/types';
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { WizardCodeGenerator } from './WizardCodeGenerator';
 
 export type Method = {
   method_name: string;
   schema: Schema;
 };
-import { WizardCodeGenerator } from './WizardCodeGenerator';
 
 export type Event = {
   event_name: string;
@@ -16,7 +17,7 @@ export type Event = {
 export interface RequestBody {
   contractFilter: string | string[];
   selectedMethods: Method[];
-  selectedEvents: Event[];
+  selectedEvents?: Event[];
 }
 
 export const isStringOrArray = (value: any): value is string | string[] =>
@@ -36,8 +37,8 @@ export const validateRequestBody = (body: any): body is RequestBody => {
   return (
     isStringOrArray(body.contractFilter) &&
     Array.isArray(body.selectedMethods) &&
-    body.selectedMethods.every(isValidMethod) //&&
-    // Array.isArray(body.selectedEvents) &&
+    body.selectedMethods.every(isValidMethod)
+    // && Array.isArray(body.selectedEvents) &&
     // body.selectedEvents.every(isValidEvent)
   );
 };
@@ -77,6 +78,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse): void
   }
 
   const { contractFilter, selectedMethods, selectedEvents } = req.body;
+
   const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
 
   const generator = new WizardCodeGenerator(filterString, selectedMethods, selectedEvents);

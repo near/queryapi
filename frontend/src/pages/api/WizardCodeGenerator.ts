@@ -58,11 +58,7 @@ const createColumn = (columnName: string, schema: Schema): Column => {
 };
 
 export class WizardCodeGenerator {
-  constructor(
-    private contractFilter: string,
-    private selectedMethods: Method[],
-    private selectedEvents: Event[],
-  ) {}
+  constructor(private contractFilter: string, private selectedMethods: Method[], private selectedEvents?: Event[]) {}
 
   private getColumns(method: Method): Column[] {
     if (!method.schema.properties) {
@@ -107,8 +103,8 @@ ${columns.map((c) => `-- CREATE INDEX "${tableName}_${c.name}_key" ON "${tableNa
     return `
   // Extract and upsert ${methodName} function calls
   const callsTo${methodName} = extractFunctionCallEntity("${this.contractFilter}", "${methodName}", ${JSON.stringify(
-    columnNames,
-  )});
+      columnNames,
+    )});
   try {
     await context.db.${contextDbName}.upsert(callsTo${methodName}, ${JSON.stringify(primaryKeys)}, ${JSON.stringify(
       columnNames,
