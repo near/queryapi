@@ -58,6 +58,8 @@ let deleteIndexer = (request) => {
 };
 
 const getLaunchpadCode = (request, response) => {
+  const wizardContractFilter = wizardContractFilter ?? 'noFilter';
+  const wizardMethods = wizardMethods;
   response(request).send({ wizardContractFilter, wizardMethods });
 }
 

@@ -40,6 +40,7 @@ interface WizardResponse {
   wizardMethods: Method[];
   wizardEvents?: Event[];
 }
+
 const fetchWizardData = (req: string): Promise<WizardResponse> => {
   return request<WizardResponse>('launchpad-create-indexer', req);
 };
@@ -139,6 +140,11 @@ const Editor: React.FC = (): ReactElement => {
       try {
         const response = await fetchWizardData('');
         const { wizardContractFilter, wizardMethods } = response;
+        
+        if (wizardContractFilter === 'noFilter') {
+          //request returns user did not navigate from the launchpad. Exit
+          return;
+        }
 
         const codeResponse = await generateCode(wizardContractFilter, wizardMethods);
         setIndexingCode(codeResponse.jsCode);
@@ -326,7 +332,7 @@ const Editor: React.FC = (): ReactElement => {
       `${primitives}}`,
       'file:///node_modules/@near-lake/primitives/index.d.ts',
     );
-    
+
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
       target: monaco.languages.typescript.ScriptTarget.ES2018,
       allowNonTsExtensions: true,
