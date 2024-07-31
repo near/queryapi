@@ -158,7 +158,6 @@ const fetchIndexerMetadata = () => {
           original_deployment_date
         }) => {
           const indexer = {
-            indexerName: indexer_name,
             lastDeploymentDate: last_deployment_date,
             numDeployements: num_deployements,
             numQueries: num_queries,
