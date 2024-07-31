@@ -74,9 +74,9 @@ const fetchIndexerData = () => {
           const sanitizedAccountID = author_account_id.replace(/\./g, '_');
           const key = `${sanitizedAccountID}/${indexer_name}`;
           return ({
+            ...(indexerMetaData.has(key) && indexerMetaData.get(key)),
             accountId: author_account_id,
             indexerName: indexer_name,
-            ...(indexerMetaData.has(key) && indexerMetaData.get(key))
           })
         });
         // sort by numQueries
@@ -158,8 +158,6 @@ const fetchIndexerMetadata = () => {
           original_deployment_date
         }) => {
           const indexer = {
-            accountId: indexer_account_id,
-            indexerName: indexer_name,
             lastDeploymentDate: last_deployment_date,
             numDeployements: num_deployements,
             numQueries: num_queries,
