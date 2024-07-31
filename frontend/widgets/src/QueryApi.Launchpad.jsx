@@ -445,7 +445,6 @@ const [checkboxState, setCheckboxState] = useState(initialCheckboxState);
 const [methodCount, setMethodCount] = useState(0);
 const [contractInputMessage, setContractInputMessage] = useState('');
 const [inputValue, setInputValue] = useState('');
-const [allIndexers, setAllIndexers] = useState([]);
 const [loading, setLoading] = useState(false);
 
 
@@ -460,7 +459,6 @@ const initializeCheckboxState = (data) => {
       });
     }
   });
-
   return initialState;
 };
 
@@ -473,7 +471,7 @@ const generateMethods = () => {
     const parentChecked = checkboxState[item.method_name];
     if (!item.schema) return null;
 
-    if (item.schema && !item.schema.properties) {
+    if (!item.schema.properties) {
       if (parentChecked) {
         return {
           method_name: item.method_name,
@@ -483,23 +481,21 @@ const generateMethods = () => {
         };
       }
       return null;
-    }
-
-    if (item.schema && item.schema.properties) {
-      const filteredProperties = Object.keys(item.schema.properties).reduce((acc, property) => {
+    } else {
+      const result = Object.entries(item.schema.properties).reduce((acc, [property, details]) => {
         const childKey = `${item.method_name}::${property}`;
         if (checkboxState[childKey]) {
-          acc[property] = item.schema.properties[property];
+          acc.filteredProperties[property] = details;
         }
         return acc;
-      }, {});
+      }, { filteredProperties: {}, shouldReturn: parentChecked });
 
-      if (parentChecked || Object.keys(filteredProperties).length > 0) {
+      if (result.shouldReturn || Object.keys(result.filteredProperties).length > 0) {
         return {
           method_name: item.method_name,
           schema: {
             ...item.schema,
-            properties: filteredProperties
+            properties: result.filteredProperties
           }
         };
       }
@@ -560,7 +556,6 @@ const handleFetchCheckboxData = async () => {
     });
 
 };
-
 
 const handleParentChange = (methodName) => {
   setCheckboxState(prevState => {

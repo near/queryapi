@@ -129,6 +129,11 @@ const Editor: React.FC = (): ReactElement => {
         throw new Error('Network response was not ok');
       }
       const data = await response.json();
+
+      if (!data.hasOwnProperty('jsCode') || !data.hasOwnProperty('sqlCode')) {
+        throw new Error('No code was returned from the server');
+      }
+
       return data;
     } catch (error) {
       throw error;
@@ -140,9 +145,8 @@ const Editor: React.FC = (): ReactElement => {
       try {
         const response = await fetchWizardData('');
         const { wizardContractFilter, wizardMethods } = response;
-        
+
         if (wizardContractFilter === 'noFilter') {
-          //request returns user did not navigate from the launchpad. Exit
           return;
         }
 
@@ -150,6 +154,7 @@ const Editor: React.FC = (): ReactElement => {
         setIndexingCode(codeResponse.jsCode);
         setSchema(codeResponse.sqlCode);
       } catch (error: unknown) {
+        //todo: figure out best course of action for user if api fails
         console.error(error);
       }
     };
