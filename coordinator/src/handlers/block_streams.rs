@@ -19,6 +19,8 @@ use crate::indexer_config::IndexerConfig;
 use crate::redis::{KeyProvider, RedisClient};
 use crate::utils::exponential_retry;
 
+const RESTART_TIMEOUT_SECONDS: u64 = 600;
+
 #[derive(Clone)]
 pub struct BlockStreamsHandler {
     client: BlockStreamerClient<Channel>,
@@ -258,11 +260,13 @@ impl BlockStreamsHandler {
                 tracing::info!(stale, stalled, "Restarting stalled block stream");
             }
         } else {
-            tracing::info!("Restarting stalled block stream");
+            tracing::info!(
+                "Restarting stalled block stream after {RESTART_TIMEOUT_SECONDS} seconds"
+            );
         }
 
         self.stop(block_stream.stream_id.clone()).await?;
-
+        tokio::time::sleep(tokio::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
         let height = self.get_continuation_block_height(config).await?;
         self.start(height, config).await?;
 

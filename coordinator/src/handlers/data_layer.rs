@@ -14,7 +14,7 @@ use crate::indexer_config::IndexerConfig;
 
 type TaskId = String;
 
-const TASK_TIMEOUT_SECONDS: u64 = 300; // 5 minutes
+const TASK_TIMEOUT_SECONDS: u64 = 600; // 10 minutes
 
 #[derive(Clone)]
 pub struct DataLayerHandler {
