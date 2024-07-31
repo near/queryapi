@@ -46,6 +46,8 @@ enum StorageKeys {
     AccountV3(CryptoHash),
     RegistryV4,
     AccountV4(CryptoHash),
+    RegistryV5,
+    AccountV5(CryptoHash),
 }
 
 /// These roles are used to control access across the various contract methods.
@@ -74,7 +76,7 @@ pub struct AccountRole {
 impl Default for Contract {
     fn default() -> Self {
         Self {
-            registry: IndexersByAccount::new(StorageKeys::RegistryV4),
+            registry: IndexersByAccount::new(StorageKeys::RegistryV5),
             account_roles: vec![
                 AccountRole {
                     account_id: "morgs.near".parse().unwrap(),
@@ -82,10 +84,6 @@ impl Default for Contract {
                 },
                 AccountRole {
                     account_id: "nearpavel.near".parse().unwrap(),
-                    role: Role::Owner,
-                },
-                AccountRole {
-                    account_id: "roshaan.near".parse().unwrap(),
                     role: Role::Owner,
                 },
                 AccountRole {
@@ -117,11 +115,11 @@ impl Contract {
     pub fn migrate() -> Self {
         let state: OldContract = env::state_read().expect("failed to parse existing state");
 
-        let mut registry = IndexersByAccount::new(StorageKeys::RegistryV4);
+        let mut registry = IndexersByAccount::new(StorageKeys::RegistryV5);
 
         for (account_id, indexers) in state.registry.iter() {
             let mut new_indexers: IndexerConfigByFunctionName = IndexerConfigByFunctionName::new(
-                StorageKeys::AccountV4(env::sha256_array(account_id.as_bytes())),
+                StorageKeys::AccountV5(env::sha256_array(account_id.as_bytes())),
             );
 
             for (function_name, indexer_config) in indexers.iter() {
@@ -289,6 +287,7 @@ impl Contract {
                     start_block,
                     updated_at_block_height: Some(env::block_height()),
                     created_at_block_height: indexer.created_at_block_height,
+                    deleted_at_block_height: None,
                     forked_from,
                 });
             }
@@ -300,6 +299,7 @@ impl Contract {
                     start_block,
                     updated_at_block_height: None,
                     created_at_block_height: env::block_height(),
+                    deleted_at_block_height: None,
                     forked_from,
                 });
             }
