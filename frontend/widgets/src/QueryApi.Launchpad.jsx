@@ -274,7 +274,7 @@ const SearchButton = styled.button`
 //   width: 100%;
 // `
 
-const HowItWorksContainer = styled.div`
+const HowItWorksWrapper = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
@@ -292,6 +292,40 @@ font-family: 'Mona Sans', sans-serif;
   font-size: 20px;
   line-height: 31.2px;
 `;
+
+const HowItWorksContainer = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const HowItWorksSquare = styled.div`
+  width: 140px;
+  height: 140px;
+  background-color: #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #333;
+  font-size: 24px;
+  font-weight: bold;
+`;
+
+const HowItWorksArrow = styled.div`
+  margin: 0 10px;
+  font-size: 24px;
+`;
+
+const HowItWorksRow = () => {
+  return (
+    <HowItWorksContainer>
+      <HowItWorksSquare>A</HowItWorksSquare>
+      <HowItWorksArrow>&rarr;</HowItWorksArrow>
+      <HowItWorksSquare>B</HowItWorksSquare>
+      <HowItWorksArrow>&rarr;</HowItWorksArrow>
+      <HowItWorksSquare>C</HowItWorksSquare>
+    </HowItWorksContainer>
+  );
+};
 
 const LoadingSpinner = () => {
   const spinnerStyle = {
@@ -586,14 +620,14 @@ return (
     </Hero>
     {/* <Divider /> */}
 
-    <HowItWorksContainer>
+    <HowItWorksWrapper>
       <Container>
         <HeadlineContainer>
           <HowItWorksHeadline>How it works</HowItWorksHeadline>
-          {/* Add Image here */}
+          <HowItWorksRow />
         </HeadlineContainer>
         <DummyComponent />
       </Container>
-    </HowItWorksContainer>
+    </HowItWorksWrapper>
   </>
 )
