@@ -1,6 +1,7 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use anyhow::Context;
+use serde_json::Value;
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 
@@ -130,6 +131,7 @@ impl RegistryImpl {
                                     rule: indexer.rule,
                                     updated_at_block_height: indexer.updated_at_block_height,
                                     created_at_block_height: indexer.created_at_block_height,
+                                    deleted_at_block_height: indexer.deleted_at_block_height,
                                 },
                             )
                         })
@@ -194,21 +196,30 @@ impl RegistryImpl {
             .context("Failed to fetch indexer")?;
 
         if let QueryResponseKind::CallResult(call_result) = response.kind {
-            let indexer = serde_json::from_slice::<Option<registry_types::IndexerConfig>>(
-                &call_result.result,
-            )?
-            .map(|indexer| IndexerConfig {
+            // Handle case where call returns successfully but returns null due to not matching
+            let raw_json: Value = serde_json::from_slice(&call_result.result)
+                .context("Failed to deserialize config from JSON provided by RPC call")?;
+            if raw_json.is_null() {
+                return Ok(None);
+            }
+
+            // Handle case where we now expect returned JSON to actually parse into config
+            let config: registry_types::IndexerConfig =
+                serde_json::from_slice::<registry_types::IndexerConfig>(&call_result.result)
+                    .context("Failed to deserialize config from JSON provided by RPC call")?;
+            let indexer = IndexerConfig {
                 account_id: account_id.clone(),
                 function_name: function_name.to_string(),
-                code: indexer.code,
-                schema: indexer.schema,
-                rule: indexer.rule,
-                start_block: indexer.start_block,
-                updated_at_block_height: indexer.updated_at_block_height,
-                created_at_block_height: indexer.created_at_block_height,
-            });
+                code: config.code,
+                schema: config.schema,
+                rule: config.rule,
+                start_block: config.start_block,
+                updated_at_block_height: config.updated_at_block_height,
+                created_at_block_height: config.created_at_block_height,
+                deleted_at_block_height: config.deleted_at_block_height,
+            };
 
-            return Ok(indexer);
+            return Ok(Some(indexer));
         }
 
         anyhow::bail!("Invalid registry response")
