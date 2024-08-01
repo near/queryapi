@@ -131,7 +131,7 @@ impl BlockStream {
                     redis.get_last_processed_block(&config).await.unwrap();
 
                 loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(120)).await;
 
                     let new_last_processed_block =
                         if let Ok(block) = redis.get_last_processed_block(&config).await {

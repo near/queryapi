@@ -248,7 +248,7 @@ impl BlockStreamsHandler {
             let updated_at =
                 SystemTime::UNIX_EPOCH + Duration::from_secs(health.updated_at_timestamp_secs);
 
-            let stale = updated_at.elapsed().unwrap_or_default() > Duration::from_secs(60);
+            let stale = updated_at.elapsed().unwrap_or_default() > Duration::from_secs(180);
             let stalled = matches!(
                 health.processing_state.try_into(),
                 Ok(ProcessingState::Stalled)
@@ -257,7 +257,11 @@ impl BlockStreamsHandler {
             if !stale && !stalled {
                 return Ok(());
             } else {
-                tracing::info!(stale, stalled, "Restarting stalled block stream");
+                tracing::info!(
+                    stale,
+                    stalled,
+                    "Restarting stalled block stream after {RESTART_TIMEOUT_SECONDS} seconds"
+                );
             }
         } else {
             tracing::info!(
