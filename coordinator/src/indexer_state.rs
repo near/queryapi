@@ -213,6 +213,7 @@ mod tests {
             },
             created_at_block_height: 1,
             updated_at_block_height: None,
+            deleted_at_block_height: None,
             start_block: StartBlock::Continue,
         };
 
