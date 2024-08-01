@@ -1640,6 +1640,19 @@ mod tests {
             deleted_at_block_height: None,
             forked_from: None,
         };
+        let deleted_config = IndexerConfig {
+            start_block: StartBlock::Latest,
+            code: "var x= 1;".to_string(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "social.near".to_string(),
+                status: Status::Success,
+            },
+            updated_at_block_height: None,
+            created_at_block_height: 0,
+            deleted_at_block_height: Some(1),
+            forked_from: None,
+        };
         let account_id = "bob.near".parse::<AccountId>().unwrap();
         let mut account_indexers = IndexerConfigByFunctionName::new(StorageKeys::Account(
             env::sha256_array(account_id.as_bytes()),
@@ -1674,6 +1687,19 @@ mod tests {
             updated_at_block_height: None,
             created_at_block_height: 0,
             deleted_at_block_height: None,
+            forked_from: None,
+        };
+        let deleted_config = IndexerConfig {
+            start_block: StartBlock::Latest,
+            code: "var x= 1;".to_string(),
+            schema: String::new(),
+            rule: Rule::ActionAny {
+                affected_account_id: "social.near".to_string(),
+                status: Status::Success,
+            },
+            updated_at_block_height: None,
+            created_at_block_height: 0,
+            deleted_at_block_height: Some(1),
             forked_from: None,
         };
         let account_id = "bob.near".parse::<AccountId>().unwrap();
@@ -1746,6 +1772,22 @@ mod tests {
             StartBlock::Latest,
             None,
         );
+        contract.register(
+            "delete_this".to_string(),
+            Some(IndexerIdentity {
+                account_id: "some_other_account.near".parse().unwrap(),
+                function_name: String::from("some_other_function"),
+            }),
+            String::from("code"),
+            String::from("schema"),
+            Rule::ActionAny {
+                affected_account_id: String::from("social.near"),
+                status: Status::Any,
+            },
+            StartBlock::Latest,
+            None,
+        );
+        contract.remove_indexer_function("delete_this".to_string(), None);
 
         assert_eq!(
             contract.list_all(),
@@ -1793,6 +1835,33 @@ mod tests {
             StartBlock::Latest,
             None,
         );
+
+        assert_eq!(
+            contract.list_by_account("morgs.near".parse().unwrap()),
+            HashMap::new()
+        );
+    }
+
+    #[test]
+    fn list_only_deleted_account_indexers() {
+        let mut contract = Contract::default();
+
+        contract.register(
+            "test".to_string(),
+            Some(IndexerIdentity {
+                account_id: "some_other_account.near".parse().unwrap(),
+                function_name: String::from("some_other_function"),
+            }),
+            String::from("code"),
+            String::from("schema"),
+            Rule::ActionAny {
+                affected_account_id: String::from("social.near"),
+                status: Status::Any,
+            },
+            StartBlock::Latest,
+            None,
+        );
+        contract.remove_indexer_function("test".to_string(), None);
 
         assert_eq!(
             contract.list_by_account("morgs.near".parse().unwrap()),
