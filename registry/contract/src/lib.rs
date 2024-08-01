@@ -1864,7 +1864,7 @@ mod tests {
         contract.remove_indexer_function("test".to_string(), None);
 
         assert_eq!(
-            contract.list_by_account("morgs.near".parse().unwrap()),
+            contract.list_by_account(env::signer_account_id()),
             HashMap::new()
         );
     }
