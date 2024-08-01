@@ -274,7 +274,7 @@ impl<'a> LifecycleManager<'a> {
             {
                 Ok(Some(config)) => config,
                 Ok(None) => {
-                    tracing::error!("No matching indexer config was found");
+                    warn!("No matching indexer config was found");
                     continue;
                 }
                 Err(error) => {
