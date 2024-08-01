@@ -1,6 +1,7 @@
 #![cfg_attr(test, allow(dead_code))]
 
 use anyhow::Context;
+use serde_json::Value;
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 
@@ -195,10 +196,14 @@ impl RegistryImpl {
             .context("Failed to fetch indexer")?;
 
         if let QueryResponseKind::CallResult(call_result) = response.kind {
-            if call_result.result.is_empty() {
+            // Handle case where call returns successfully but returns null due to not matching
+            let raw_json: Value = serde_json::from_slice(&call_result.result)
+                .context("Failed to deserialzie config from JSON provided by RPC call")?;
+            if raw_json.is_null() {
                 return Ok(None);
             }
 
+            // Handle case where we now expect returned JSON to actually parse into config
             let config: registry_types::IndexerConfig =
                 serde_json::from_slice::<registry_types::IndexerConfig>(&call_result.result)
                     .context("Failed to deserialize config from JSON provided by RPC call")?;
