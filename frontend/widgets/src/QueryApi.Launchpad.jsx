@@ -1,4 +1,4 @@
-const { setActiveTab, activeTab, setSelectedIndexer, setWizardContractFilter, setWizardMethods } = props;
+const { setActiveTab, activeTab, setSelectedIndexer, setWizardContractFilter, setWizardMethods, setWizardEvents } = props;
 
 const NoQueryContainer = styled.div`
   display: flex;
@@ -28,10 +28,10 @@ const CheckboxContainer = styled.div`
 `;
 
 const CheckboxLabel = styled.label`
+  font-size: 12px;
   display: flex;
   align-items: center;
   cursor: pointer;
-  font-size: 16px;
   margin-bottom: 5px;
 `;
 
@@ -136,14 +136,21 @@ const SubContainerTitle = styled.h2`
   margin-bottom: 6px;
 `;
 
-const MethodsText = styled.div`
+const Metadata = styled.div`
   display: flex;
   align-items: center;
   font-size: 12px;
   margin-bottom: 8px;
 `;
+const MetadataTab = styled.div`
+  cursor: pointer;
+`;
 
-const MethodsSpan = styled.span`
+const MetadataText = styled.span`
+display: inline-block;
+`;
+
+const MetadataIcon = styled.span`
   display: flex;
   align-items: center;
   justify-content: center;
@@ -199,7 +206,7 @@ scrollbar-color: #888 #f1f1f1;
 -ms-scroll-snap-points-x: snapInterval(0%, 100%);
 `;
 
-const GenerateMethodsButton = styled.button`
+const GenerateButton = styled.button`
   margin-top: 16px;
   width: 100%;
   background-color: #37CD83;
@@ -318,80 +325,90 @@ const validateContractId = (accountId) => {
   return true;
 };
 
-const [checkBoxData, setCheckBoxData] = useState([]);
-const [checkboxState, setCheckboxState] = useState(initialCheckboxState);
+const [methodsData, setMethodsData] = useState([]);
+const [checkboxMethods, setCheckboxMethods] = useState({});
 const [methodCount, setMethodCount] = useState(0);
+
+const [eventsData, setEventsData] = useState([]);
+const [checkboxEvents, setCheckboxEvents] = useState({});
+const [eventCount, setEventCount] = useState(0);
+
 const [contractInputMessage, setContractInputMessage] = useState('');
 const [inputValue, setInputValue] = useState('');
 const [loading, setLoading] = useState(false);
 
+const [tab, setTab] = useState('methods_tab')
 
-const initializeCheckboxState = (data) => {
+const initializeCheckboxState = (data, keyName) => {
   const initialState = {};
-  data.forEach((item) => {
-    initialState[item.method_name] = true;
 
-    if (item.schema.properties) {
-      Object.keys(item.schema.properties).forEach((property) => {
-        initialState[`${item.method_name}::${property}`] = true;
+  data.forEach(item => {
+    initialState[item[keyName]] = true;
+
+    if (item.schema?.properties) {
+      Object.keys(item.schema.properties).forEach(property => {
+        initialState[`${item[keyName]}::${property}`] = true;
       });
     }
   });
+
   return initialState;
 };
 
 useEffect(() => {
-  setCheckboxState(initializeCheckboxState(checkBoxData));
-}, [checkBoxData]);
+  setCheckboxMethods(initializeCheckboxState(methodsData, 'method_name'));
+  setCheckboxEvents(initializeCheckboxState(eventsData, 'event_name'));
+}, [methodsData, eventsData]);
 
 const generateMethods = () => {
-  const filteredData = checkBoxData.map(item => {
-    const parentChecked = checkboxState[item.method_name];
-    if (!item.schema) return null;
+  const filterData = (data, checkboxState, keyName) => {
+    return data
+      .map(item => {
+        const parentChecked = checkboxState[item[keyName]];
 
-    if (!item.schema.properties) {
-      if (parentChecked) {
-        return {
-          method_name: item.method_name,
-          schema: {
-            ...item.schema
+        if (!item.schema) return null;
+
+        const properties = item.schema.properties || {};
+
+        const filteredProperties = Object.entries(properties).reduce((acc, [property, details]) => {
+          const childKey = `${item[keyName]}::${property}`;
+          if (checkboxState[childKey]) {
+            acc[property] = details;
           }
-        };
-      }
-      return null;
-    } else {
-      const result = Object.entries(item.schema.properties).reduce((acc, [property, details]) => {
-        const childKey = `${item.method_name}::${property}`;
-        if (checkboxState[childKey]) {
-          acc.filteredProperties[property] = details;
+          return acc;
+        }, {});
+
+        if (parentChecked || Object.keys(filteredProperties).length > 0) {
+          return {
+            [keyName]: item[keyName],
+            schema: {
+              ...item.schema,
+              properties: filteredProperties
+            }
+          };
         }
-        return acc;
-      }, { filteredProperties: {}, shouldReturn: parentChecked });
 
-      if (result.shouldReturn || Object.keys(result.filteredProperties).length > 0) {
-        return {
-          method_name: item.method_name,
-          schema: {
-            ...item.schema,
-            properties: result.filteredProperties
-          }
-        };
-      }
-    }
+        return null;
+      })
+      .filter(item => item !== null);
+  };
 
-    return null;
-  }).filter(item => item !== null);
-
-  const copy = filteredData;
+  const filteredMethods = filterData(methodsData, checkboxMethods, 'method_name');
+  const filteredEvents = filterData(eventsData, checkboxEvents, 'event_name');
   setWizardContractFilter(inputValue)
-  setWizardMethods(copy);
+  setWizardMethods(filteredMethods);
+  setWizardEvents(filteredEvents);
   setSelectedIndexer(null);
   setActiveTab('launch-new-indexer');
 };
 
 const handleFetchCheckboxData = async () => {
-  setCheckBoxData([]);
+  setMethodsData([]);
   setMethodCount(0);
+
+  setEventsData([]);
+  setEventCount(0);
+
   setContractInputMessage('');
 
   if (!validateContractId(inputValue)) {
@@ -425,31 +442,69 @@ const handleFetchCheckboxData = async () => {
         setLoading(false);
         return;
       };
-      setCheckBoxData(data.methods);
+      setMethodsData(data.methods);
       setMethodCount(data.methods.length);
+      setEventsData(data.events);
+      setEventCount(data.events.length);
       setLoading(false);
     }).catch(error => {
       setLoading(false);
       setError('There was an error fetching the data');
     });
-
 };
 
-const handleParentChange = (methodName) => {
-  setCheckboxState(prevState => {
-    const newState = !prevState[methodName];
-    const updatedState = { ...prevState };
-    updatedState[methodName] = newState;
+const handleSelectUnselectAll = (action) => {
+  const isMethodsTab = tab === 'methods_tab';
+  const isEventsTab = tab === 'events_tab';
 
-    if (!newState) {
+  const setStateFunction = isMethodsTab ? setCheckboxMethods : isEventsTab ? setCheckboxEvents : null;
+
+  if (setStateFunction) {
+    const value = action === 'select_all';
+
+    setStateFunction(prevState => {
+      const newState = Object.keys(prevState).reduce((acc, key) => {
+        acc[key] = value;
+        return acc;
+      }, {});
+      return newState;
+    });
+  }
+};
+
+const handleParentChange = (propertyName) => {
+  const isMethodsTab = tab === 'methods_tab';
+  const isEventsTab = tab === 'events_tab';
+
+  if (propertyName === 'select_all' || propertyName === 'unselect_all') {
+    handleSelectUnselectAll(propertyName);
+    return;
+  }
+
+  if (!isMethodsTab && !isEventsTab) {
+    console.log('handleParentChange tab not found');
+    return;
+  }
+
+  const setCheckboxState = isMethodsTab ? setCheckboxMethods : setCheckboxEvents;
+  const data = isMethodsTab ? methodsData : eventsData;
+  const findItem = item => (isMethodsTab ? item.method_name : item.event_name) === propertyName;
+
+  setCheckboxState(prevState => {
+    const isParentChecked = !prevState[propertyName];
+    const updatedState = { ...prevState, [propertyName]: isParentChecked };
+
+    if (!isParentChecked) {
       Object.keys(updatedState).forEach(key => {
-        if (key.startsWith(`${methodName}::`)) {
+        if (key.startsWith(`${propertyName}::`)) {
           updatedState[key] = false;
         }
       });
     } else {
-      Object.keys(checkBoxData.find(item => item.method_name === methodName)?.schema.properties || {}).forEach(property => {
-        const childKey = `${methodName}::${property}`;
+      const item = data.find(findItem);
+      const properties = item?.schema.properties || {};
+      Object.keys(properties).forEach(property => {
+        const childKey = `${propertyName}::${property}`;
         updatedState[childKey] = true;
       });
     }
@@ -458,19 +513,64 @@ const handleParentChange = (methodName) => {
 };
 
 const handleChildChange = (key) => {
+  const isMethodsTab = tab === 'methods_tab';
+  const isEventsTab = tab === 'events_tab';
+
+  if (!isMethodsTab && !isEventsTab) {
+    console.log('handleChildChange tab not found');
+    return;
+  }
+
+  const setCheckboxState = isMethodsTab ? setCheckboxMethods : setCheckboxEvents;
+  const parentName = key.split('::')[0];
+
   setCheckboxState(prevState => {
-    const newState = !prevState[key];
-    const updatedState = { ...prevState, [key]: newState };
-    const parentMethodName = key.split('::')[0];
-    const anyChildChecked = Object.keys(updatedState).some(childKey => childKey.startsWith(`${parentMethodName}::`) && updatedState[childKey]);
-    updatedState[parentMethodName] = anyChildChecked;
+    const isChecked = !prevState[key];
+    const updatedState = { ...prevState, [key]: isChecked };
+
+    const anyChildChecked = Object.keys(updatedState).some(childKey =>
+      childKey.startsWith(`${parentName}::`) && updatedState[childKey]
+    );
+    updatedState[parentName] = anyChildChecked;
+
     return updatedState;
   });
 };
 
-const hasSelectedMethod = (checkboxState) => {
-  return Object.values(checkboxState).some(value => value === true);
+const hasSelectedValues = (checkboxMethods) => {
+  return Object.values(checkboxMethods).some(value => value === true);
 }
+
+const MetadataComponent = ({ methodsData, eventsData, setTab }) => {
+  const methodCount = methodsData.length;
+  const eventCount = eventsData.length;
+
+  const tabs = (
+    <Metadata>
+      {methodsData.length > 0 && (
+        <MetadataTab
+          onClick={() => setTab('methods_tab')}
+        >
+          Methods <MetadataText><MetadataIcon>{methodCount}</MetadataIcon></MetadataText>
+        </MetadataTab>
+      )}
+
+      {methodsData.length > 0 && eventsData.length > 0 && (
+        <span style={{ margin: '0 5px' }}>|</span>
+      )}
+
+      {eventsData.length > 0 && (
+        <MetadataTab
+          onClick={() => setTab('events_tab')}
+        >
+          Events <MetadataText><MetadataIcon>{eventCount}</MetadataIcon></MetadataText>
+        </MetadataTab>
+      )}
+    </Metadata>
+  );
+
+  return tabs;
+};
 
 return (
   <>
@@ -499,7 +599,7 @@ return (
                 <Container>
                   <LoadingSpinner />
                 </Container>
-              ) : (checkBoxData.length === 0) ?
+              ) : (methodsData.length === 0) ?
                 <>
                   <NoQueryContainer>
                     <NoQuerySVG
@@ -510,50 +610,117 @@ return (
                 </>
                 : (
                   <SubContainerContent>
-                    {checkBoxData.length > 0 && (
-                      <MethodsText>
-                        Methods <MethodsSpan>{methodCount}</MethodsSpan>
-                      </MethodsText>
-                    )}
+                    {MetadataComponent({ methodsData, eventsData, setTab })}
                     < ScrollableDiv >
-                      {
-                        checkBoxData.length > 0 && (
-                          <>
-                            {checkBoxData.map((item, index) => (
-                              <CheckboxContainer key={index}>
-                                <CheckboxLabel>
-                                  <Checkbox
-                                    type="checkbox"
-                                    id={item.method_name}
-                                    checked={checkboxState[item.method_name]}
-                                    onChange={() => handleParentChange(item.method_name)}
-                                  />
-                                  {item.method_name}
-                                </CheckboxLabel>
-                                {item.schema.properties && (
-                                  <SubCheckboxContainer>
-                                    {Object.keys(item.schema.properties).map((property, subIndex) => (
-                                      <CheckboxLabel key={subIndex}>
-                                        <Checkbox
-                                          type="checkbox"
-                                          id={`${item.method_name}::${property}`}
-                                          checked={checkboxState[`${item.method_name}::${property}`]}
-                                          onChange={() => handleChildChange(`${item.method_name}::${property}`)}
-                                        />
-                                        {property}: {item.schema.properties[property].type}
-                                      </CheckboxLabel>
-                                    ))}
-                                  </SubCheckboxContainer>
-                                )}
-                              </CheckboxContainer>
-                            ))}
-                          </>
-                        )
+                      {methodsData.length > 0 && tab === 'methods_tab' && (
+                        <>
+                          <CheckboxContainer>
+                            <CheckboxLabel>
+                              <Checkbox
+                                type="checkbox"
+                                id="select_all"
+                                onChange={() => handleSelectUnselectAll('select_all')}
+                              />
+                              Select All
+                            </CheckboxLabel>
+                            <CheckboxLabel>
+                              <Checkbox
+                                type="checkbox"
+                                id="unselect_all"
+                                onChange={() => handleSelectUnselectAll('unselect_all')}
+                              />
+                              Unselect All
+                            </CheckboxLabel>
+                          </CheckboxContainer>
+
+                          {methodsData.map((item, index) => (
+                            <CheckboxContainer key={index}>
+                              <CheckboxLabel>
+                                <Checkbox
+                                  type="checkbox"
+                                  id={item.method_name}
+                                  checked={checkboxMethods[item.method_name]}
+                                  onChange={() => handleParentChange(item.method_name)}
+                                />
+                                {item.method_name}
+                              </CheckboxLabel>
+                              {item.schema.properties && (
+                                <SubCheckboxContainer>
+                                  {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                    <CheckboxLabel key={subIndex}>
+                                      <Checkbox
+                                        type="checkbox"
+                                        id={`${item.method_name}::${property}`}
+                                        checked={checkboxMethods[`${item.method_name}::${property}`]}
+                                        onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                      />
+                                      {property}: {item.schema.properties[property].type}
+                                    </CheckboxLabel>
+                                  ))}
+                                </SubCheckboxContainer>
+                              )}
+                            </CheckboxContainer>
+                          ))}
+                        </>
+                      )
                       }
+                      {eventsData.length > 0 && tab === 'events_tab' && (
+                        <>
+                          <CheckboxContainer>
+                            <CheckboxLabel>
+                              <Checkbox
+                                type="checkbox"
+                                id="select_all_events"
+                                onChange={() => handleSelectUnselectAll('select_all')}
+                              />
+                              Select All Events
+                            </CheckboxLabel>
+                            <CheckboxLabel>
+                              <Checkbox
+                                type="checkbox"
+                                id="unselect_all_events"
+                                onChange={() => handleSelectUnselectAll('unselect_all')}
+                              />
+                              Unselect All Events
+                            </CheckboxLabel>
+                          </CheckboxContainer>
+
+                          {eventsData.map((item, index) => (
+                            <CheckboxContainer key={index}>
+                              <CheckboxLabel>
+                                <Checkbox
+                                  type="checkbox"
+                                  id={item.event_name}
+                                  checked={checkboxEvents[item.event_name]}
+                                  onChange={() => handleParentChange(item.event_name)}
+                                />
+                                {item.event_name}
+                              </CheckboxLabel>
+                              {item.schema.properties && (
+                                <SubCheckboxContainer>
+                                  {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                    <CheckboxLabel key={subIndex}>
+                                      <Checkbox
+                                        type="checkbox"
+                                        id={`${item.event_name}::${property}`}
+                                        checked={checkboxEvents[`${item.event_name}::${property}`]}
+                                        onChange={() => handleChildChange(`${item.event_name}::${property}`)}
+                                      />
+                                      {property}: {item.schema.properties[property].type}
+                                    </CheckboxLabel>
+                                  ))}
+                                </SubCheckboxContainer>
+                              )}
+                            </CheckboxContainer>
+                          ))}
+                        </>
+                      )
+                      }
+
                     </ScrollableDiv>
                   </SubContainerContent>
                 )}
-              <GenerateMethodsButton onClick={generateMethods} disabled={!checkboxState || !hasSelectedMethod(checkboxState)}> Generate</GenerateMethodsButton>
+              <GenerateButton onClick={generateMethods} disabled={(!checkboxMethods || !hasSelectedValues(checkboxMethods)) && (!checkboxEvents || !hasSelectedValues(checkboxEvents))}>Generate</GenerateButton>
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>

@@ -144,13 +144,13 @@ const Editor: React.FC = (): ReactElement => {
     const fetchData = async () => {
       try {
         const response = await fetchWizardData('');
-        const { wizardContractFilter, wizardMethods } = response;
+        const { wizardContractFilter, wizardMethods, wizardEvents } = response;
 
         if (wizardContractFilter === 'noFilter') {
           return;
         }
 
-        const codeResponse = await generateCode(wizardContractFilter, wizardMethods);
+        const codeResponse = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
         setIndexingCode(codeResponse.jsCode);
         setSchema(codeResponse.sqlCode);
       } catch (error: unknown) {
