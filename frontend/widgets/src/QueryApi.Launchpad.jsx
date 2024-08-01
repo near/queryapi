@@ -55,12 +55,34 @@ const Checkbox = styled.input`
   outline: none;
 `;
 
+const Row = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  margin-right: -15px;
+  margin-left: -15px;
+`;
+
+const Column = styled.div`
+  flex: ${(props) => (props.size ? (props.size / 12) * 100 : 100)}%;
+  max-width: ${(props) => (props.size ? (props.size / 12) * 100 : 100)}%;
+  padding-right: 15px;
+  padding-left: 15px;
+`;
+
+const Container = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+`;
+
+
 // TOP HALF
 const Hero = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 349px;
   width: 100%; 
   background: linear-gradient(
     268.88deg, 
@@ -68,17 +90,14 @@ const Hero = styled.div`
     rgba(2, 133, 255, 0.08) 54.6%, 
     rgba(2, 27, 255, 0.08) 84.31%
   );
-  // , url('https://s3-alpha-sig.figma.com/img/f856/12b1/14c8f8fd2894d48314a47b98531b3002?Expires=1720396800&Key-Pair-Id=APKAQ4GOSFWCVNEHN3O4&Signature=iC8KBVqIyZDHU2~xisqW3kuwC8nLk5POGZqHyVGNcAWcLwep3jEocxIrZI9hR5VUfiXwetmD6pXTdHxScqfIMjwvIsccAhEAkzD9t5xasMfuC5vHKel9t96-CGMeMikD3No92ObNZ-eGFdo2QAnrNVNxufsdwhYUKRbXuZSquC2A2qx9kzYxv7pyUjR3QGxg8UkMqhmZiKogoiLL~727aERO3PUIiSlMMH~kRFKVyK4UnJFERuroJ9L3EZTfgBG90EUM5MYTVqLIeeA1gWeYPkfTlYghAWwOx60B2wdLk5WTgmqytRZxbqsCiN8u92ZKZjmBzFcZZcWF9eONAqdDvA__');
-  // background-size: 100%;
-  // background-position: right;
-  // background-repeat: no-repeat;
+  padding: 5%;
 `;
 
 const Headline = styled.h1`
+  width: 100%;
   font-family: 'Mona Sans', sans-serif;
   font-weight: 700;
-  width: 369px;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 31.2px;
 `;
 
@@ -91,43 +110,31 @@ const Subheadline = styled.p`
   letter-spacing: 1.5%;
 `;
 
-const Container = styled.div`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-  width: 100%;
-`;
-
 const HeadlineContainer = styled.div`
-  width: 364px;
-  height: 193px;
+  width:100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  margin-right: 80px; /* Gap between HeadlineContainer and WidgetContainer */
 `;
 
 const WidgetContainer = styled.div`
-  width: 301px;
-  height: 365px;
+  padding: 5%;
+  height: 375px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
   box-shadow: 0 8.2px 19.92px 0 rgba(0, 0, 0, 0.1), 0 2.34px 2.34px 0 rgba(0, 0, 0, 0.15);
-  margin-top: 183px; /* Gap between WidgetContainer and HeadlineContainer */
   background: #fff;
   border-radius: 10px;
 `;
 
-const SubContainer = styled.div`
-  width: 262.5px;
-  height: 330px; //270px later
-`;
+// const SubContainer = styled.div`
+//   height: 330px; 
+// `;
 
 const SubContainerTitle = styled.h2`
+  width: 100%;
   font-family: 'Product Sans', sans-serif;
   font-weight: 700;
   font-size: 14px;
@@ -268,39 +275,32 @@ const SearchButton = styled.button`
   justify-content: center;
 `;
 
-//BOTTOM HALF
-// const Divider = styled.div`
-//   height: 100px;
-//   width: 100%;
-// `
-
-const HowItWorksWrapper = styled.div`
+const HowItWorksHero = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100%; 
+  padding: 5%;
+  height: 365px;
   width: 100%; 
+
+  background: red;
 `;
-const DummyComponent = styled.div`
-  width: 301px;
-`
+
+const HowItWorksContainer = styled.div`
+  width: 365px;
+  height: 100%;
+`;
 
 const HowItWorksHeadline = styled.h1`
-font-family: 'Mona Sans', sans-serif;
+  font-family: 'Mona Sans', sans-serif;
   font-weight: 700;
-  width: 369px;
   font-size: 20px;
   line-height: 31.2px;
 `;
 
-const HowItWorksContainer = styled.div`
-  display: flex;
-  align-items: center;
-`;
-
 const HowItWorksSquare = styled.div`
-  width: 140px;
-  height: 140px;
+  width: 40px;
+  height: 40px;
   background-color: #ccc;
   display: flex;
   align-items: center;
@@ -317,13 +317,13 @@ const HowItWorksArrow = styled.div`
 
 const HowItWorksRow = () => {
   return (
-    <HowItWorksContainer>
+    <div>
       <HowItWorksSquare>A</HowItWorksSquare>
       <HowItWorksArrow>&rarr;</HowItWorksArrow>
       <HowItWorksSquare>B</HowItWorksSquare>
       <HowItWorksArrow>&rarr;</HowItWorksArrow>
       <HowItWorksSquare>C</HowItWorksSquare>
-    </HowItWorksContainer>
+    </div>
   );
 };
 
@@ -535,99 +535,105 @@ return (
   <>
     <Hero>
       <Container>
-        <HeadlineContainer>
-          <Headline>Launch an indexer in minutes</Headline>
-          <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
-          <InputWrapper>
-            <StyledInput
-              placeholder="*.pool.near, *.poolv1.near"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
-            />
-            <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
-          </InputWrapper>
-          <ContractInputMessage>{contractInputMessage ?? <><WarningSVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><path d="M142.41,40.22l87.46,151.87C236,202.79,228.08,216,215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22C119.89,29.26,136.11,29.26,142.41,40.22Z" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><line x1="128" y1="144" x2="128" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="180" fill="red" r="12" /></WarningSVG> {contractInputMessage}</>}</ContractInputMessage>
+        <Row>
+          <Column size={2} />
+          <Column size={4}>
+            {/* the second it enters this larget column 4. */}
+            <Headline>Launch an indexer in minutes</Headline>
+            <Subheadline>Get a working indexer exportable to your Near react application faster than ever. Extract on-chain data, and easily query it using GraphQL endpoints and subscriptions.</Subheadline>
+            <InputWrapper>
+              <StyledInput
+                placeholder="*.pool.near, *.poolv1.near"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(event) => event.key === 'Enter' && handleFetchCheckboxData()}
+              />
+              <SearchButton onClick={handleFetchCheckboxData} tabIndex={0}>Start</SearchButton>
+            </InputWrapper>
+            <ContractInputMessage>{contractInputMessage ?? <><WarningSVG xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><path d="M142.41,40.22l87.46,151.87C236,202.79,228.08,216,215.46,216H40.54C27.92,216,20,202.79,26.13,192.09L113.59,40.22C119.89,29.26,136.11,29.26,142.41,40.22Z" fill="none" stroke="red" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><line x1="128" y1="144" x2="128" y2="104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="180" fill="red" r="12" /></WarningSVG> {contractInputMessage}</>}</ContractInputMessage>
+          </Column>
 
-        </HeadlineContainer>
-        <WidgetContainer>
-          <SubContainer>
-            <SubContainerTitle>Customize indexer</SubContainerTitle>
-            <SubContainerContent>
-              {loading ? (
-                <Container>
-                  <LoadingSpinner />
-                </Container>
-              ) : (checkBoxData.length === 0) ?
-                <>
-                  <NoQueryContainer>
-                    <NoQuerySVG
-                      xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
-                    </NoQuerySVG>
-                    <NoQueryText>No smart contract address entered</NoQueryText>
-                  </NoQueryContainer>
-                </>
-                : (
-                  <SubContainerContent>
-                    {checkBoxData.length > 0 && (
-                      <MethodsText>
-                        Methods <MethodsSpan>{methodCount}</MethodsSpan>
-                      </MethodsText>
-                    )}
-                    < ScrollableDiv >
-                      {
-                        checkBoxData.length > 0 && (
-                          <>
-                            {checkBoxData.map((item, index) => (
-                              <CheckboxContainer key={index}>
-                                <CheckboxLabel>
-                                  <Checkbox
-                                    type="checkbox"
-                                    id={item.method_name}
-                                    checked={checkboxState[item.method_name]}
-                                    onChange={() => handleParentChange(item.method_name)}
-                                  />
-                                  {item.method_name}
-                                </CheckboxLabel>
-                                {item.schema.properties && (
-                                  <SubCheckboxContainer>
-                                    {Object.keys(item.schema.properties).map((property, subIndex) => (
-                                      <CheckboxLabel key={subIndex}>
-                                        <Checkbox
-                                          type="checkbox"
-                                          id={`${item.method_name}::${property}`}
-                                          checked={checkboxState[`${item.method_name}::${property}`]}
-                                          onChange={() => handleChildChange(`${item.method_name}::${property}`)}
-                                        />
-                                        {property}: {item.schema.properties[property].type}
-                                      </CheckboxLabel>
-                                    ))}
-                                  </SubCheckboxContainer>
-                                )}
-                              </CheckboxContainer>
-                            ))}
-                          </>
-                        )
-                      }
-                    </ScrollableDiv>
-                  </SubContainerContent>
-                )}
-              <GenerateMethodsButton onClick={generateMethods} disabled={!checkboxState || !hasSelectedMethod(checkboxState)}> Generate</GenerateMethodsButton>
-            </SubContainerContent>
-          </SubContainer>
-        </WidgetContainer>
-      </Container>
-    </Hero>
-    {/* <Divider /> */}
+          <Column size={4} >
+            <WidgetContainer>
+              <SubContainerTitle>Customize indexer</SubContainerTitle>
+              <SubContainerContent>
+                {loading ? (
+                  <Container>
+                    <LoadingSpinner />
+                  </Container>
+                ) : (checkBoxData.length === 0) ?
+                  <>
+                    <NoQueryContainer>
+                      <NoQuerySVG
+                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
+                      </NoQuerySVG>
+                      <NoQueryText>No smart contract address entered</NoQueryText>
+                    </NoQueryContainer>
+                  </>
+                  : (
+                    <SubContainerContent>
+                      {checkBoxData.length > 0 && (
+                        <MethodsText>
+                          Methods <MethodsSpan>{methodCount}</MethodsSpan>
+                        </MethodsText>
+                      )}
+                      < ScrollableDiv >
+                        {
+                          checkBoxData.length > 0 && (
+                            <>
+                              {checkBoxData.map((item, index) => (
+                                <CheckboxContainer key={index}>
+                                  <CheckboxLabel>
+                                    <Checkbox
+                                      type="checkbox"
+                                      id={item.method_name}
+                                      checked={checkboxState[item.method_name]}
+                                      onChange={() => handleParentChange(item.method_name)}
+                                    />
+                                    {item.method_name}
+                                  </CheckboxLabel>
+                                  {item.schema.properties && (
+                                    <SubCheckboxContainer>
+                                      {Object.keys(item.schema.properties).map((property, subIndex) => (
+                                        <CheckboxLabel key={subIndex}>
+                                          <Checkbox
+                                            type="checkbox"
+                                            id={`${item.method_name}::${property}`}
+                                            checked={checkboxState[`${item.method_name}::${property}`]}
+                                            onChange={() => handleChildChange(`${item.method_name}::${property}`)}
+                                          />
+                                          {property}: {item.schema.properties[property].type}
+                                        </CheckboxLabel>
+                                      ))}
+                                    </SubCheckboxContainer>
+                                  )}
+                                </CheckboxContainer>
+                              ))}
+                            </>
+                          )
+                        }
+                      </ScrollableDiv>
+                    </SubContainerContent>
+                  )}
+                <GenerateMethodsButton onClick={generateMethods} disabled={!checkboxState || !hasSelectedMethod(checkboxState)}> Generate</GenerateMethodsButton>
+              </SubContainerContent>
+              {/* </SubContainer> */}
+            </WidgetContainer>
+          </Column>
 
-    <HowItWorksWrapper>
-      <Container>
-        <HeadlineContainer>
-          <HowItWorksHeadline>How it works</HowItWorksHeadline>
-          <HowItWorksRow />
-        </HeadlineContainer>
-        <DummyComponent />
+
+          <Column size={2} />
+        </Row>
       </Container>
-    </HowItWorksWrapper>
+    </Hero >
+
+    <HowItWorksHero>
+      <HowItWorksContainer>
+        <HowItWorksHeadline>How it works</HowItWorksHeadline>
+      </HowItWorksContainer>
+      <HowItWorksContainer />
+      {/* <HowItWorksRow /> */}
+
+    </HowItWorksHero >
   </>
 )
