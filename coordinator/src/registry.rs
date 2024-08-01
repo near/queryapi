@@ -198,7 +198,7 @@ impl RegistryImpl {
         if let QueryResponseKind::CallResult(call_result) = response.kind {
             // Handle case where call returns successfully but returns null due to not matching
             let raw_json: Value = serde_json::from_slice(&call_result.result)
-                .context("Failed to deserialzie config from JSON provided by RPC call")?;
+                .context("Failed to deserialize config from JSON provided by RPC call")?;
             if raw_json.is_null() {
                 return Ok(None);
             }
