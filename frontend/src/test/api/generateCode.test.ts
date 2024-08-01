@@ -65,6 +65,7 @@ describe('generateCode API', () => {
           },
         },
       ],
+      selectedEvents: [],
     });
 
     handler(req, res);
