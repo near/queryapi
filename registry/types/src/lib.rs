@@ -68,6 +68,7 @@ pub struct OldIndexerConfig {
     pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+    pub forked_from: Option<IndexerIdentity>,
 }
 
 #[derive(BorshSerialize, BorshDeserialize, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -78,6 +79,7 @@ pub struct IndexerConfig {
     pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+    pub deleted_at_block_height: Option<u64>,
     pub forked_from: Option<IndexerIdentity>,
 }
 
@@ -90,7 +92,8 @@ impl From<OldIndexerConfig> for IndexerConfig {
             rule: config.rule,
             created_at_block_height: config.created_at_block_height,
             updated_at_block_height: config.updated_at_block_height,
-            forked_from: None,
+            deleted_at_block_height: None,
+            forked_from: config.forked_from,
         }
     }
 }
