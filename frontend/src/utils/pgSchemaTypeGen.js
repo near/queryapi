@@ -187,6 +187,7 @@ export class PgSchemaTypeGen {
             set: (key, value) => Promise<any>,
             log: (...log) => Promise<any>,
             fetchFromSocialApi: (path, options) => Promise<Response>,
+            error: (message: string) => Promise<void>,
             db: {`;
 
     const tableList = new Set();
