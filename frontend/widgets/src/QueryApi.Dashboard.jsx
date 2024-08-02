@@ -46,6 +46,7 @@ const [activeTab, setActiveTab] = useState(props.view === "create-new-indexer" ?
 const [activeIndexerTabView, setActiveIndexerTabView] = useState(props.activeIndexerView ?? "editor");
 const [selectedIndexer, setSelectedIndexer] = useState(props.selectedIndexerPath);
 
+const [wizardEvents, setWizardEvents] = useState({});
 const [wizardMethods, setWizardMethods] = useState({});
 const [wizardContractFilter, setWizardContractFilter] = useState('');
 
@@ -109,6 +110,7 @@ return (
               setSelectedIndexer: setSelectedIndexer,
               setWizardContractFilter: setWizardContractFilter,
               setWizardMethods: setWizardMethods,
+              setWizardEvents: setWizardEvents,
             }}
           />
         </Section>
@@ -131,6 +133,7 @@ return (
               path: "create-new-indexer",
               wizardContractFilter: wizardContractFilter,
               wizardMethods: wizardMethods,
+              wizardEvents: wizardEvents,
             }}
           />
         </Section>
