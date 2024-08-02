@@ -453,7 +453,7 @@ const handleFetchCheckboxData = async () => {
     });
 };
 
-const handleSelectUnselectAll = (action) => {
+const toggleAllSelection = (action) => {
   const isMethodsTab = tab === 'methods_tab';
   const isEventsTab = tab === 'events_tab';
 
@@ -477,7 +477,7 @@ const handleParentChange = (propertyName) => {
   const isEventsTab = tab === 'events_tab';
 
   if (propertyName === 'select_all' || propertyName === 'unselect_all') {
-    handleSelectUnselectAll(propertyName);
+    toggleAllSelection(propertyName);
     return;
   }
 
@@ -619,7 +619,7 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="select_all"
-                                onChange={() => handleSelectUnselectAll('select_all')}
+                                onChange={() => toggleAllSelection('select_all')}
                               />
                               Select All
                             </CheckboxLabel>
@@ -627,7 +627,7 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="unselect_all"
-                                onChange={() => handleSelectUnselectAll('unselect_all')}
+                                onChange={() => toggleAllSelection('unselect_all')}
                               />
                               Unselect All
                             </CheckboxLabel>
@@ -671,7 +671,7 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="select_all_events"
-                                onChange={() => handleSelectUnselectAll('select_all')}
+                                onChange={() => toggleAllSelection('select_all')}
                               />
                               Select All Events
                             </CheckboxLabel>
@@ -679,7 +679,7 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="unselect_all_events"
-                                onChange={() => handleSelectUnselectAll('unselect_all')}
+                                onChange={() => toggleAllSelection('unselect_all')}
                               />
                               Unselect All Events
                             </CheckboxLabel>
