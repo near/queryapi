@@ -337,6 +337,9 @@ const [contractInputMessage, setContractInputMessage] = useState('');
 const [inputValue, setInputValue] = useState('');
 const [loading, setLoading] = useState(false);
 
+const [selectAllEvents, setSelectAllEvents] = useState(true);
+const [selectAllMethods, setSelectAllMethods] = useState(true);
+
 const [tab, setTab] = useState('methods_tab')
 
 const initializeCheckboxState = (data, keyName) => {
@@ -454,21 +457,25 @@ const handleFetchCheckboxData = async () => {
 };
 
 const toggleAllSelection = (action) => {
+  const isSelectAll = action === 'select_all';
   const isMethodsTab = tab === 'methods_tab';
   const isEventsTab = tab === 'events_tab';
 
   const setStateFunction = isMethodsTab ? setCheckboxMethods : isEventsTab ? setCheckboxEvents : null;
 
   if (setStateFunction) {
-    const value = action === 'select_all';
-
-    setStateFunction(prevState => {
-      const newState = Object.keys(prevState).reduce((acc, key) => {
-        acc[key] = value;
+    setStateFunction((prevState) =>
+      Object.keys(prevState).reduce((acc, key) => {
+        acc[key] = isSelectAll;
         return acc;
-      }, {});
-      return newState;
-    });
+      }, {})
+    );
+
+    if (isMethodsTab) {
+      setSelectAllMethods(isSelectAll);
+    } else if (isEventsTab) {
+      setSelectAllEvents(isSelectAll);
+    }
   }
 };
 
@@ -620,6 +627,7 @@ return (
                                 type="checkbox"
                                 id="select_all"
                                 onChange={() => toggleAllSelection('select_all')}
+                                checked={selectAllMethods}
                               />
                               Select All
                             </CheckboxLabel>
@@ -628,6 +636,7 @@ return (
                                 type="checkbox"
                                 id="unselect_all"
                                 onChange={() => toggleAllSelection('unselect_all')}
+                                checked={!selectAllMethods}
                               />
                               Unselect All
                             </CheckboxLabel>
@@ -672,6 +681,7 @@ return (
                                 type="checkbox"
                                 id="select_all_events"
                                 onChange={() => toggleAllSelection('select_all')}
+                                checked={selectAllEvents}
                               />
                               Select All Events
                             </CheckboxLabel>
@@ -680,6 +690,7 @@ return (
                                 type="checkbox"
                                 id="unselect_all_events"
                                 onChange={() => toggleAllSelection('unselect_all')}
+                                checked={!selectAllEvents}
                               />
                               Unselect All Events
                             </CheckboxLabel>
