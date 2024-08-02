@@ -79,42 +79,44 @@ describe('generateCode API ', () => {
     const { req, res } = createRequestResponseMocks('POST', {
       contractFilter: 'filter',
       selectedMethods: [],
-      selectedEvents: [{
-        event_name: 'register',
-        schema: {
-          type: 'object',
-          properties: {
-            function_name: {
-              type: 'string',
+      selectedEvents: [
+        {
+          event_name: 'register',
+          schema: {
+            type: 'object',
+            properties: {
+              function_name: {
+                type: 'string',
+              },
+              code: {
+                type: 'string',
+              },
+              schema: {
+                type: 'string',
+              },
+              start_block_height: {
+                type: 'integer',
+              },
+              filter_json: {
+                type: 'string',
+              },
             },
-            code: {
-              type: 'string',
-            },
-            schema: {
-              type: 'string',
-            },
-            start_block_height: {
-              type: 'integer',
-            },
-            filter_json: {
-              type: 'string',
-            },
+            required: ['function_name', 'code', 'schema', 'start_block_height', 'filter_json'],
           },
-          required: ['function_name', 'code', 'schema', 'start_block_height', 'filter_json'],
         },
-      },
-      {
-        event_name: 'remove_indexer_function',
-        schema: {
-          type: 'object',
-          properties: {
-            function_name: {
-              type: 'string',
+        {
+          event_name: 'remove_indexer_function',
+          schema: {
+            type: 'object',
+            properties: {
+              function_name: {
+                type: 'string',
+              },
             },
+            required: ['function_name'],
           },
-          required: ['function_name'],
         },
-      },],
+      ],
     });
 
     handler(req, res);

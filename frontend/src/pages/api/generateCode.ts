@@ -37,8 +37,8 @@ export const validateRequestBody = (body: any): body is RequestBody => {
   return (
     isStringOrArray(body.contractFilter) &&
     Array.isArray(body.selectedMethods) &&
-    body.selectedMethods.every(isValidMethod)
-    && Array.isArray(body.selectedEvents) &&
+    body.selectedMethods.every(isValidMethod) &&
+    Array.isArray(body.selectedEvents) &&
     body.selectedEvents.every(isValidEvent)
   );
 };

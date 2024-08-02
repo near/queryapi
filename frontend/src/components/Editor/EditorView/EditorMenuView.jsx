@@ -24,12 +24,14 @@ const EditorMenuView = ({
           {accountId && indexerName && (
             <span className="me-4 font-weight-bold text-secondary text-sm">
               Indexer: {accountId}/{indexerName}
-            </span>)}
+            </span>
+          )}
 
           {!isCreateNewIndexer && (
             <span className="me-4 font-weight-bold text-secondary text-sm">
               Filter: {indexerDetails.rule.affected_account_id}
-            </span>)}
+            </span>
+          )}
         </div>
         <ButtonGroup className="mt-3 mt-md-0">
           {isUserIndexer && !isCreateNewIndexer && (
