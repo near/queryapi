@@ -299,7 +299,7 @@ const LoadingSpinner = () => {
       justify-content: center;
       font-size: 14px;
     `
-  return <LoadingContainer> <LoadingSpinnerContainer><div style={spinnerStyle} /> </LoadingSpinnerContainer><>Generating Methods</></LoadingContainer>;
+  return <LoadingContainer> <LoadingSpinnerContainer><div style={spinnerStyle} /> </LoadingSpinnerContainer><>Inspecting Methods and Events</></LoadingContainer>;
 };
 
 
@@ -440,8 +440,8 @@ const handleFetchCheckboxData = async () => {
       }
       const data = response.body;
 
-      if (data.length === 0) {
-        setContractInputMessage('No methods found for this contract');
+      if (data.methods.length === 0 && data.events.length === 0) {
+        setContractInputMessage('No methods and events found for this filter');
         setLoading(false);
         return;
       };
@@ -612,7 +612,7 @@ return (
                     <NoQuerySVG
                       xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none" /><line x1="144" y1="224" x2="112" y2="224" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><circle cx="128" cy="100" r="12" fill="#A1A09A" /><path d="M94.81,192C37.52,95.32,103.87,32.53,123.09,17.68a8,8,0,0,1,9.82,0C152.13,32.53,218.48,95.32,161.19,192Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M183.84,110.88l30.31,36.36a8,8,0,0,1,1.66,6.86l-12.36,55.63a8,8,0,0,1-12.81,4.51L161.19,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" /><path d="M72.16,110.88,41.85,147.24a8,8,0,0,0-1.66,6.86l12.36,55.63a8,8,0,0,0,12.81,4.51L94.81,192" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16" />
                     </NoQuerySVG>
-                    <NoQueryText>No smart contract address entered</NoQueryText>
+                    <NoQueryText>Enter smart contract filter on the left</NoQueryText>
                   </NoQueryContainer>
                 </>
                 : (
