@@ -85,13 +85,39 @@ impl std::ops::Deref for IndexerRegistry {
     }
 }
 
+#[cfg(not(test))]
+use JsonRpcClientWrapperImpl as JsonRpcClientWrapper;
+#[cfg(test)]
+use MockJsonRpcClientWrapperImpl as JsonRpcClientWrapper;
+
+struct JsonRpcClientWrapperImpl {
+    inner: JsonRpcClient,
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl JsonRpcClientWrapperImpl {
+    pub fn new(inner: JsonRpcClient) -> Self {
+        Self { inner }
+    }
+
+    pub async fn call<M>(
+        &self,
+        method: M,
+    ) -> near_jsonrpc_client::MethodCallResult<M::Response, M::Error>
+    where
+        M: near_jsonrpc_client::methods::RpcMethod + 'static,
+    {
+        self.inner.call(method).await
+    }
+}
+
 #[cfg(test)]
 pub use MockRegistryImpl as Registry;
 #[cfg(not(test))]
 pub use RegistryImpl as Registry;
 
 pub struct RegistryImpl {
-    json_rpc_client: JsonRpcClient,
+    json_rpc_client: JsonRpcClientWrapper,
     registry_contract_id: AccountId,
 }
 
@@ -100,12 +126,23 @@ impl RegistryImpl {
     const LIST_METHOD: &'static str = "list_all";
     const GET_METHOD: &'static str = "read_indexer_function";
 
+    #[cfg(test)]
+    pub fn new(
+        registry_contract_id: AccountId,
+        json_rpc_client_wrapper: JsonRpcClientWrapper,
+    ) -> Self {
+        Self {
+            registry_contract_id,
+            json_rpc_client: json_rpc_client_wrapper,
+        }
+    }
+
     pub fn connect(registry_contract_id: AccountId, rpc_url: &str) -> Self {
         let json_rpc_client = JsonRpcClient::connect(rpc_url);
 
         Self {
             registry_contract_id,
-            json_rpc_client,
+            json_rpc_client: JsonRpcClientWrapper::new(json_rpc_client),
         }
     }
 
