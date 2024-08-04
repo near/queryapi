@@ -334,4 +334,44 @@ mod tests {
 
         assert!(config.is_some());
     }
+
+    #[tokio::test]
+    async fn propagates_parse_failures() {
+        let mut mock_json_rpc_client = JsonRpcClientWrapper::default();
+        mock_json_rpc_client
+            .expect_call::<RpcQueryRequest>()
+            .with(always())
+            .returning(|_| {
+                Ok(near_jsonrpc_client::methods::query::RpcQueryResponse {
+                    kind: QueryResponseKind::CallResult(near_primitives::views::CallResult {
+                        result: serde_json::json!({
+                            "rule": "invalid",
+
+                            "code": "code",
+                            "schema": "schema",
+                            "start_block": {
+                                "HEIGHT": 0,
+                            },
+                            "updated_at_block_height": 0,
+                            "created_at_block_height": 0,
+                            "deleted_at_block_height": 0
+                        })
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                        logs: vec![],
+                    }),
+                    block_height: Default::default(),
+                    block_hash: Default::default(),
+                })
+            });
+
+        let registry = RegistryImpl::new("registry".parse().unwrap(), mock_json_rpc_client);
+
+        let parse_result = registry
+            .fetch_indexer(&"account".parse().unwrap(), "function")
+            .await;
+
+        assert!(parse_result.is_err());
+    }
 }
