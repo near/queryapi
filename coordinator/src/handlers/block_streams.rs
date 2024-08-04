@@ -8,7 +8,7 @@ use anyhow::Context;
 use block_streamer::block_streamer_client::BlockStreamerClient;
 use block_streamer::{
     start_stream_request::Rule, ActionAnyRule, ActionFunctionCallRule, GetStreamRequest,
-    ListStreamsRequest, ProcessingState, StartStreamRequest, Status, StopStreamRequest,
+    ProcessingState, StartStreamRequest, Status, StopStreamRequest,
 };
 use near_primitives::types::AccountId;
 use registry_types::StartBlock;
@@ -39,24 +39,6 @@ impl BlockStreamsHandler {
             client,
             redis_client,
         })
-    }
-
-    pub async fn list(&self) -> anyhow::Result<Vec<StreamInfo>> {
-        exponential_retry(|| async {
-            let response = self
-                .client
-                .clone()
-                .list_streams(Request::new(ListStreamsRequest {}))
-                .await
-                .context("Failed to list streams")?;
-
-            let streams = response.into_inner().streams;
-
-            tracing::debug!("List streams response: {:#?}", streams);
-
-            Ok(streams)
-        })
-        .await
     }
 
     pub async fn stop(&self, stream_id: String) -> anyhow::Result<()> {
