@@ -26,7 +26,7 @@ use BlockStreamsClientWrapperImpl as BlockStreamsClientWrapper;
 use MockBlockStreamsClientWrapperImpl as BlockStreamsClientWrapper;
 
 #[derive(Clone)]
-pub struct BlockStreamsClientWrapperImpl {
+struct BlockStreamsClientWrapperImpl {
     inner: BlockStreamerClient<Channel>,
 }
 
@@ -36,10 +36,13 @@ impl BlockStreamsClientWrapperImpl {
         Self { inner }
     }
 
-    pub async fn stop_stream(
+    pub async fn stop_stream<R>(
         &self,
-        request: StopStreamRequest,
-    ) -> std::result::Result<tonic::Response<StopStreamResponse>, tonic::Status> {
+        request: R,
+    ) -> std::result::Result<tonic::Response<StopStreamResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<StopStreamRequest> + 'static,
+    {
         self.inner.clone().stop_stream(request).await
     }
 
@@ -166,14 +169,10 @@ impl BlockStreamsHandler {
             rule: Some(rule),
         };
 
-        let response = self
-            .client
-            .start_stream(request.clone())
-            .await
-            .context(format!(
-                "Failed to start stream: {}",
-                indexer_config.get_full_name()
-            ))?;
+        let response = self.client.start_stream(request).await.context(format!(
+            "Failed to start stream: {}",
+            indexer_config.get_full_name()
+        ))?;
 
         tracing::debug!(
             account_id = indexer_config.account_id.as_str(),
@@ -353,5 +352,376 @@ impl BlockStreamsHandler {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use mockall::predicate::*;
+    use tonic::Response;
+
+    impl Clone for MockBlockStreamsClientWrapperImpl {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn resumes_stopped_streams() {
+        let config = IndexerConfig::default();
+        let last_published_block = 10;
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .with(eq(GetStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| Err(tonic::Status::not_found("not found")));
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .with(eq(StartStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: Status::Any.into(),
+                })),
+                start_block_height: last_published_block + 1,
+                version: config.get_registry_version(),
+            }))
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
+
+        let mut mock_redis = RedisClient::default();
+        mock_redis
+            .expect_get_last_published_block::<IndexerConfig>()
+            .returning(move |_| Ok(Some(last_published_block)));
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler
+            .synchronise(&config, Some(config.get_registry_version()))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn reconfigures_outdated_streams() {
+        let config = IndexerConfig::default();
+
+        let existing_stream = StreamInfo {
+            account_id: config.account_id.to_string(),
+            function_name: config.function_name.clone(),
+            stream_id: "stream-id".to_string(),
+            version: config.get_registry_version() - 1,
+            health: None,
+        };
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_stop_stream::<StopStreamRequest>()
+            .with(eq(StopStreamRequest {
+                stream_id: existing_stream.stream_id.clone(),
+            }))
+            .returning(|_| Ok(Response::new(StopStreamResponse::default())));
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .with(eq(GetStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(move |_| Ok(Response::new(existing_stream.clone())));
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .with(eq(StartStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: Status::Any.into(),
+                })),
+                start_block_height: if let StartBlock::Height(height) = config.start_block {
+                    height
+                } else {
+                    unreachable!()
+                },
+                version: config.get_registry_version(),
+            }))
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
+
+        let mut mock_redis = RedisClient::default();
+        mock_redis
+            .expect_clear_block_stream::<IndexerConfig>()
+            .returning(|_| Ok(()))
+            .once();
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler
+            .synchronise(&config, Some(config.get_registry_version()))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn starts_new_streams() {
+        let config = IndexerConfig::default();
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .with(eq(GetStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| Err(tonic::Status::not_found("not found")));
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .with(eq(StartStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: Status::Any.into(),
+                })),
+                start_block_height: if let StartBlock::Height(height) = config.start_block {
+                    height
+                } else {
+                    unreachable!()
+                },
+                version: config.get_registry_version(),
+            }))
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
+
+        let mock_redis = RedisClient::default();
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler.synchronise(&config, None).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reconfigures_outdated_and_stopped_streams() {
+        let config = IndexerConfig {
+            start_block: StartBlock::Latest,
+            ..Default::default()
+        };
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .with(eq(GetStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| Err(tonic::Status::not_found("not found")));
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .with(eq(StartStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: Status::Any.into(),
+                })),
+                start_block_height: config.get_registry_version(),
+                version: config.get_registry_version(),
+            }))
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
+
+        let mut mock_redis = RedisClient::default();
+        mock_redis
+            .expect_clear_block_stream::<IndexerConfig>()
+            .returning(|_| Ok(()))
+            .once();
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler
+            .synchronise(&config, Some(config.get_registry_version() - 1))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn restarts_unhealthy_streams() {
+        tokio::time::pause();
+
+        let config = IndexerConfig::default();
+        let last_published_block = 10;
+
+        let existing_stream = StreamInfo {
+            account_id: config.account_id.to_string(),
+            function_name: config.function_name.clone(),
+            stream_id: "stream-id".to_string(),
+            version: config.get_registry_version(),
+            health: Some(block_streamer::Health {
+                updated_at_timestamp_secs: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                processing_state: ProcessingState::Stalled.into(),
+            }),
+        };
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_stop_stream::<StopStreamRequest>()
+            .with(eq(StopStreamRequest {
+                stream_id: existing_stream.stream_id.clone(),
+            }))
+            .returning(|_| Ok(Response::new(StopStreamResponse::default())));
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .with(eq(GetStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(move |_| Ok(Response::new(existing_stream.clone())));
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .with(eq(StartStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
+                    affected_account_id: "queryapi.dataplatform.near".to_string(),
+                    status: Status::Any.into(),
+                })),
+                start_block_height: last_published_block + 1,
+                version: config.get_registry_version(),
+            }))
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
+
+        let mut mock_redis = RedisClient::default();
+        mock_redis
+            .expect_get_last_published_block::<IndexerConfig>()
+            .returning(move |_| Ok(Some(last_published_block)));
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler
+            .synchronise(&config, Some(config.get_registry_version() - 1))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn ignores_healthy_streams() {
+        tokio::time::pause();
+
+        let config = IndexerConfig::default();
+
+        let existing_stream = StreamInfo {
+            account_id: config.account_id.to_string(),
+            function_name: config.function_name.clone(),
+            stream_id: "stream-id".to_string(),
+            version: config.get_registry_version(),
+            health: Some(block_streamer::Health {
+                updated_at_timestamp_secs: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                processing_state: ProcessingState::Running.into(),
+            }),
+        };
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .with(eq(GetStreamRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(move |_| Ok(Response::new(existing_stream.clone())));
+        mock_client
+            .expect_stop_stream::<StopStreamRequest>()
+            .never();
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .never();
+
+        let mock_redis = RedisClient::default();
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler
+            .synchronise(&config, Some(config.get_registry_version()))
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn clears_redis_stream() {
+        let config_with_height = IndexerConfig::default();
+        let config_with_latest = IndexerConfig {
+            start_block: StartBlock::Latest,
+            ..Default::default()
+        };
+        let config_with_continue = IndexerConfig {
+            start_block: StartBlock::Continue,
+            ..Default::default()
+        };
+
+        let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_start_stream::<StartStreamRequest>()
+            .with(always())
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())))
+            .times(3);
+
+        let mut mock_redis = RedisClient::default();
+        mock_redis
+            .expect_clear_block_stream::<IndexerConfig>()
+            .with(eq(config_with_height.clone()))
+            .returning(|_| Ok(()))
+            .once();
+        mock_redis
+            .expect_clear_block_stream::<IndexerConfig>()
+            .with(eq(config_with_latest.clone()))
+            .returning(|_| Ok(()))
+            .once();
+        mock_redis
+            .expect_clear_block_stream::<IndexerConfig>()
+            .with(eq(config_with_continue.clone()))
+            .never();
+        mock_redis
+            .expect_get_last_published_block::<IndexerConfig>()
+            .returning(|_| Ok(None))
+            .once();
+
+        let handler = BlockStreamsHandler {
+            client: mock_client,
+            redis_client: mock_redis,
+        };
+
+        handler.reconfigure(&config_with_latest).await.unwrap();
+        handler.reconfigure(&config_with_continue).await.unwrap();
+        handler.reconfigure(&config_with_height).await.unwrap();
     }
 }
