@@ -7,7 +7,7 @@ use anyhow::Context;
 use runner::runner_client::RunnerClient;
 use runner::{
     ExecutionState, GetExecutorRequest, StartExecutorRequest, StartExecutorResponse,
-    StopExecutorRequest,
+    StopExecutorRequest, StopExecutorResponse,
 };
 use tonic::transport::channel::Channel;
 use tonic::Request;
@@ -17,9 +17,63 @@ use crate::redis::KeyProvider;
 
 const RESTART_TIMEOUT_SECONDS: u64 = 600;
 
+#[cfg(not(test))]
+use ExecutorsClientWrapperImpl as ExecutorsClientWrapper;
+#[cfg(test)]
+use MockExecutorsClientWrapperImpl as ExecutorsClientWrapper;
+
+#[derive(Clone)]
+struct ExecutorsClientWrapperImpl {
+    inner: RunnerClient<Channel>,
+}
+
+#[cfg(test)]
+impl Clone for MockExecutorsClientWrapperImpl {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl ExecutorsClientWrapperImpl {
+    pub fn new(inner: RunnerClient<Channel>) -> Self {
+        Self { inner }
+    }
+
+    pub async fn get_executor<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<ExecutorInfo>, tonic::Status>
+    where
+        R: tonic::IntoRequest<GetExecutorRequest> + 'static,
+    {
+        self.inner.clone().get_executor(request).await
+    }
+
+    pub async fn start_executor<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StartExecutorResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<StartExecutorRequest> + 'static,
+    {
+        self.inner.clone().start_executor(request).await
+    }
+
+    pub async fn stop_executor<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StopExecutorResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<StopExecutorRequest> + 'static,
+    {
+        self.inner.clone().stop_executor(request).await
+    }
+}
+
 #[derive(Clone)]
 pub struct ExecutorsHandler {
-    client: RunnerClient<Channel>,
+    client: ExecutorsClientWrapper,
 }
 
 impl ExecutorsHandler {
@@ -29,7 +83,9 @@ impl ExecutorsHandler {
             .connect_lazy();
         let client = RunnerClient::new(channel);
 
-        Ok(Self { client })
+        Ok(Self {
+            client: ExecutorsClientWrapper::new(client),
+        })
     }
 
     pub async fn get(
@@ -42,12 +98,7 @@ impl ExecutorsHandler {
             function_name: function_name.clone(),
         };
 
-        match self
-            .client
-            .clone()
-            .get_executor(Request::new(request))
-            .await
-        {
+        match self.client.get_executor(Request::new(request)).await {
             Ok(response) => Ok(Some(response.into_inner())),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(err) => Err(err).context(format!(
@@ -69,8 +120,7 @@ impl ExecutorsHandler {
 
         let response = self
             .client
-            .clone()
-            .start_executor(Request::new(request.clone()))
+            .start_executor(Request::new(request))
             .await
             .context(format!(
                 "Failed to start executor: {}",
@@ -95,8 +145,7 @@ impl ExecutorsHandler {
 
         let response = self
             .client
-            .clone()
-            .stop_executor(Request::new(request.clone()))
+            .stop_executor(Request::new(request))
             .await
             .context(format!("Failed to stop executor: {executor_id}"))?;
 
