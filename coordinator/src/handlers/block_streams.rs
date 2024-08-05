@@ -186,7 +186,7 @@ impl BlockStreamsHandler {
         Ok(())
     }
 
-    async fn reconfigure_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    async fn reconfigure(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         if matches!(
             config.start_block,
             StartBlock::Latest | StartBlock::Height(..)
@@ -249,7 +249,7 @@ impl BlockStreamsHandler {
         Ok(height)
     }
 
-    async fn resume_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    async fn resume(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         let height = self.get_continuation_block_height(config).await?;
 
         tracing::info!(height, "Resuming block stream");
@@ -297,7 +297,7 @@ impl BlockStreamsHandler {
         Ok(())
     }
 
-    pub async fn synchronise_block_stream(
+    pub async fn synchronise(
         &self,
         config: &IndexerConfig,
         previous_sync_version: Option<u64>,
@@ -319,7 +319,7 @@ impl BlockStreamsHandler {
 
             self.stop(block_stream.stream_id.clone()).await?;
 
-            self.reconfigure_block_stream(config).await?;
+            self.reconfigure(config).await?;
 
             return Ok(());
         }
@@ -331,12 +331,12 @@ impl BlockStreamsHandler {
         }
 
         if previous_sync_version.unwrap() != config.get_registry_version() {
-            self.reconfigure_block_stream(config).await?;
+            self.reconfigure(config).await?;
 
             return Ok(());
         }
 
-        self.resume_block_stream(config).await?;
+        self.resume(config).await?;
 
         Ok(())
     }
