@@ -3,6 +3,7 @@
 use std::time::{Duration, SystemTime};
 
 pub use block_streamer::StreamInfo;
+use block_streamer::{StartStreamResponse, StopStreamResponse};
 
 use anyhow::Context;
 use block_streamer::block_streamer_client::BlockStreamerClient;
@@ -13,21 +14,62 @@ use block_streamer::{
 use near_primitives::types::AccountId;
 use registry_types::StartBlock;
 use tonic::transport::channel::Channel;
-use tonic::Request;
 
 use crate::indexer_config::IndexerConfig;
 use crate::redis::{KeyProvider, RedisClient};
-use crate::utils::exponential_retry;
 
 const RESTART_TIMEOUT_SECONDS: u64 = 600;
 
+#[cfg(not(test))]
+use BlockStreamsClientWrapperImpl as BlockStreamsClientWrapper;
+#[cfg(test)]
+use MockBlockStreamsClientWrapperImpl as BlockStreamsClientWrapper;
+
 #[derive(Clone)]
-pub struct BlockStreamsHandler {
-    client: BlockStreamerClient<Channel>,
-    redis_client: RedisClient,
+pub struct BlockStreamsClientWrapperImpl {
+    inner: BlockStreamerClient<Channel>,
 }
 
 #[cfg_attr(test, mockall::automock)]
+impl BlockStreamsClientWrapperImpl {
+    pub fn new(inner: BlockStreamerClient<Channel>) -> Self {
+        Self { inner }
+    }
+
+    pub async fn stop_stream(
+        &self,
+        request: StopStreamRequest,
+    ) -> std::result::Result<tonic::Response<StopStreamResponse>, tonic::Status> {
+        self.inner.clone().stop_stream(request).await
+    }
+
+    pub async fn get_stream<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StreamInfo>, tonic::Status>
+    where
+        R: tonic::IntoRequest<GetStreamRequest> + 'static,
+    {
+        self.inner.clone().get_stream(request).await
+    }
+
+    pub async fn start_stream<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StartStreamResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<StartStreamRequest> + 'static,
+    {
+        self.inner.clone().start_stream(request).await
+    }
+}
+
+#[derive(Clone)]
+pub struct BlockStreamsHandler {
+    client: BlockStreamsClientWrapper,
+    redis_client: RedisClient,
+}
+
 impl BlockStreamsHandler {
     pub fn connect(block_streamer_url: &str, redis_client: RedisClient) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(block_streamer_url.to_string())
@@ -36,20 +78,17 @@ impl BlockStreamsHandler {
         let client = BlockStreamerClient::new(channel);
 
         Ok(Self {
-            client,
+            client: BlockStreamsClientWrapper::new(client),
             redis_client,
         })
     }
 
     pub async fn stop(&self, stream_id: String) -> anyhow::Result<()> {
-        let request = StopStreamRequest {
-            stream_id: stream_id.clone(),
-        };
-
         let response = self
             .client
-            .clone()
-            .stop_stream(Request::new(request.clone()))
+            .stop_stream(StopStreamRequest {
+                stream_id: stream_id.clone(),
+            })
             .await
             .context(format!("Failed to stop stream: {stream_id}"))?;
 
@@ -77,7 +116,7 @@ impl BlockStreamsHandler {
             function_name: function_name.clone(),
         };
 
-        match self.client.clone().get_stream(Request::new(request)).await {
+        match self.client.get_stream(request).await {
             Ok(response) => Ok(Some(response.into_inner())),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(err) => Err(err).context(format!(
@@ -129,8 +168,7 @@ impl BlockStreamsHandler {
 
         let response = self
             .client
-            .clone()
-            .start_stream(Request::new(request.clone()))
+            .start_stream(request.clone())
             .await
             .context(format!(
                 "Failed to start stream: {}",
