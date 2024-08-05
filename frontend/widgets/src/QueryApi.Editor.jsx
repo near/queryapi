@@ -25,6 +25,21 @@ const registerFunctionHandler = (request, response) => {
 
   const jsonFilter = `{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"${contractFilter || "social.near"}","status":"SUCCESS"}}`
 
+
+  const data = {
+    function_name: indexerName,
+    code,
+    schema,
+    start_block: startBlock,
+    rule: {
+      kind: "ACTION_ANY",
+      affected_account_id: contractFilter,
+      status: "SUCCESS"
+    }
+  };
+  console.log(data);
+
+  return;
   Near.call(
     `${REPL_REGISTRY_CONTRACT_ID}`,
     "register",
@@ -83,18 +98,16 @@ const requestHandler = (request, response) => {
   }
 };
 
-const props = {
-  externalAppUrl,
-  path,
-  initialViewHeight,
-  initialPayload,
-  requestHandler,
-};
-
 // NearSocialBridgeCore widget is the core that makes all the "magic" happens
 return (
   <Widget
     src={"wendersonpires.near/widget/NearSocialBridgeCore"}
-    props={props}
+    props={{
+      externalAppUrl,
+      path,
+      initialViewHeight,
+      initialPayload,
+      requestHandler,
+    }}
   />
 );

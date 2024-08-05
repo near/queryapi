@@ -12,12 +12,14 @@ const GENESIS_BLOCK_HEIGHT = 9820210;
 
 enum START_BLOCK {
   CONTINUE = 'startBlockContinue',
+  FIRST_SEEN = 'startBlockFirstSeen',
   LATEST = 'startBlockLatest',
   HEIGHT = 'startBlockHeight',
 }
 
 const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
-  const { indexerDetails, showPublishModal, isCreateNewIndexer, latestHeight } = useContext(IndexerDetailsContext);
+  const { indexerDetails, showPublishModal, isCreateNewIndexer, latestHeight, firstSeenHeight } =
+    useContext(IndexerDetailsContext);
   const [blockHeight, setBlockHeight] = useState('0');
   const [contractFilter, setContractFilter] = useState('social.near');
   const [startBlock, setStartBlock] = useState<START_BLOCK>(START_BLOCK.LATEST);
@@ -46,6 +48,10 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
 
     if (indexerDetails.startBlock === 'CONTINUE') {
       setStartBlock(START_BLOCK.CONTINUE);
+    }
+
+    if (indexerDetails.startBlock === 'FIRST_SEEN') {
+      setStartBlock(START_BLOCK.FIRST_SEEN);
     }
   }, [indexerDetails]);
 
@@ -92,6 +98,7 @@ const ViewContainer: React.FC<Props> = ({ updateConfig }) => {
       handleSetContractFilter={handleSetContractFilter}
       updateConfig={updateConfig}
       indexerDetails={indexerDetails}
+      firstSeenHeight={firstSeenHeight}
     />
   );
 };

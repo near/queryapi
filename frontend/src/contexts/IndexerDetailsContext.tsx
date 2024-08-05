@@ -30,6 +30,8 @@ interface IndexerDetailsContextProps {
   setDebugMode: (mode: boolean) => void;
   latestHeight: number;
   setLatestHeight: (height: number) => void;
+  firstSeenHeight: number;
+  setFirstSeenHeight: (height: number) => void;
   isCreateNewIndexer: boolean;
   setIsCreateNewIndexer: (bool: boolean) => void;
   accountId?: string;
@@ -66,6 +68,8 @@ export const IndexerDetailsContext = createContext<IndexerDetailsContextProps>({
   setDebugMode: () => {},
   latestHeight: 0,
   setLatestHeight: () => {},
+  firstSeenHeight: 0,
+  setFirstSeenHeight: () => {},
   isCreateNewIndexer: false,
   setIsCreateNewIndexer: () => {},
   setAccountId: () => {},
@@ -101,6 +105,7 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
   const [debugMode, setDebugMode] = useState(false);
   const [showLogsView, setShowLogsView] = useState(false);
   const [latestHeight, setLatestHeight] = useState(0);
+  const [firstSeenHeight, setFirstSeenHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
 
   const activeView = useInitialPayload<string>();
@@ -133,6 +138,7 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       setLatestHeight(latestHeight);
     };
     fetchData();
+    setFirstSeenHeight(124000000); //static here
   }, []);
 
   useEffect(() => {
@@ -183,6 +189,8 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       setDebugMode,
       latestHeight,
       setLatestHeight,
+      firstSeenHeight,
+      setFirstSeenHeight,
       isCreateNewIndexer,
       setIsCreateNewIndexer,
       showLogsView,
@@ -206,6 +214,7 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       debugMode,
       setDebugMode,
       latestHeight,
+      firstSeenHeight,
       isCreateNewIndexer,
       showLogsView,
     ],

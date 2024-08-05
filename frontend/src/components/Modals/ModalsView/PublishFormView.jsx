@@ -16,6 +16,7 @@ const PublishFormView = ({
   handleSetContractFilter,
   updateConfig,
   indexerDetails,
+  firstSeenHeight,
 }) => (
   <div className="space-y-6">
     <div className="flex flex-col">
@@ -46,6 +47,21 @@ const PublishFormView = ({
       />
       <label htmlFor="startLatest" className="text-gray-700">
         Start from latest block
+      </label>
+    </div>
+
+    <div className="flex items-center space-x-3">
+      <input
+        type="radio"
+        id="startBlockFirstSeen"
+        value="startBlockFirstSeen"
+        checked={startBlock === 'startBlockFirstSeen'}
+        onChange={onChangeStartBlock}
+        aria-label="Start from first seen block"
+        className="form-radio h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500"
+      />
+      <label htmlFor="startBlockFirstSeen" className="text-gray-700">
+        Start from first seen block {firstSeenHeight}
       </label>
     </div>
 

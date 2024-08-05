@@ -71,6 +71,7 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
     // reset code
     setShowResetCodeModel,
     // publish
+    firstSeenHeight,
     setShowPublishModal,
   } = useContext(IndexerDetailsContext);
 
@@ -145,12 +146,17 @@ const EditorMenuContainer: React.FC<EditorMenuContainerProps> = ({
           }
         : null;
 
-    const startBlock =
-      indexerConfig.startBlock === 'startBlockHeight'
-        ? { HEIGHT: indexerConfig.height }
-        : indexerConfig.startBlock === 'startBlockLatest'
-        ? 'LATEST'
-        : 'CONTINUE';
+    let startBlock;
+
+    if (indexerConfig.startBlock === 'startBlockHeight') {
+      startBlock = { HEIGHT: indexerConfig.height };
+    } else if (indexerConfig.startBlock === 'startBlockLatest') {
+      startBlock = 'LATEST';
+    } else if (indexerConfig.startBlock === 'startBlockContinue') {
+      startBlock = 'CONTINUE';
+    } else if (indexerConfig.startBlock === 'startBlockFirstSeen') {
+      startBlock = { HEIGHT: firstSeenHeight };
+    }
 
     if (schemaValidationError?.type === FORMATTING_ERROR_TYPE) {
       setSchemaError(SCHEMA_FORMATTING_ERROR_MESSAGE);

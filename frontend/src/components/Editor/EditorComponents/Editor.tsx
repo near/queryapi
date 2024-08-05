@@ -86,6 +86,9 @@ const Editor: React.FC = (): ReactElement => {
       callback();
     }
   };
+  useEffect(() => {
+    console.log(indexerDetails);
+  });
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
   const disposableRef = useRef<any>(null);
