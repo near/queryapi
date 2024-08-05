@@ -85,13 +85,39 @@ impl std::ops::Deref for IndexerRegistry {
     }
 }
 
+#[cfg(not(test))]
+use JsonRpcClientWrapperImpl as JsonRpcClientWrapper;
+#[cfg(test)]
+use MockJsonRpcClientWrapperImpl as JsonRpcClientWrapper;
+
+struct JsonRpcClientWrapperImpl {
+    inner: JsonRpcClient,
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl JsonRpcClientWrapperImpl {
+    pub fn new(inner: JsonRpcClient) -> Self {
+        Self { inner }
+    }
+
+    pub async fn call<M>(
+        &self,
+        method: M,
+    ) -> near_jsonrpc_client::MethodCallResult<M::Response, M::Error>
+    where
+        M: near_jsonrpc_client::methods::RpcMethod + 'static,
+    {
+        self.inner.call(method).await
+    }
+}
+
 #[cfg(test)]
 pub use MockRegistryImpl as Registry;
 #[cfg(not(test))]
 pub use RegistryImpl as Registry;
 
 pub struct RegistryImpl {
-    json_rpc_client: JsonRpcClient,
+    json_rpc_client: JsonRpcClientWrapper,
     registry_contract_id: AccountId,
 }
 
@@ -100,12 +126,23 @@ impl RegistryImpl {
     const LIST_METHOD: &'static str = "list_all";
     const GET_METHOD: &'static str = "read_indexer_function";
 
+    #[cfg(test)]
+    pub fn new(
+        registry_contract_id: AccountId,
+        json_rpc_client_wrapper: JsonRpcClientWrapper,
+    ) -> Self {
+        Self {
+            registry_contract_id,
+            json_rpc_client: json_rpc_client_wrapper,
+        }
+    }
+
     pub fn connect(registry_contract_id: AccountId, rpc_url: &str) -> Self {
         let json_rpc_client = JsonRpcClient::connect(rpc_url);
 
         Self {
             registry_contract_id,
-            json_rpc_client,
+            json_rpc_client: JsonRpcClientWrapper::new(json_rpc_client),
         }
     }
 
@@ -196,32 +233,145 @@ impl RegistryImpl {
             .context("Failed to fetch indexer")?;
 
         if let QueryResponseKind::CallResult(call_result) = response.kind {
-            // Handle case where call returns successfully but returns null due to not matching
-            let raw_json: Value = serde_json::from_slice(&call_result.result)
-                .context("Failed to deserialize config from JSON provided by RPC call")?;
-            if raw_json.is_null() {
-                return Ok(None);
-            }
-
-            // Handle case where we now expect returned JSON to actually parse into config
-            let config: registry_types::IndexerConfig =
-                serde_json::from_slice::<registry_types::IndexerConfig>(&call_result.result)
+            let config: Option<registry_types::IndexerConfig> =
+                serde_json::from_slice(&call_result.result)
                     .context("Failed to deserialize config from JSON provided by RPC call")?;
-            let indexer = IndexerConfig {
-                account_id: account_id.clone(),
-                function_name: function_name.to_string(),
-                code: config.code,
-                schema: config.schema,
-                rule: config.rule,
-                start_block: config.start_block,
-                updated_at_block_height: config.updated_at_block_height,
-                created_at_block_height: config.created_at_block_height,
-                deleted_at_block_height: config.deleted_at_block_height,
-            };
 
-            return Ok(Some(indexer));
+            return if let Some(config) = config {
+                Ok(Some(IndexerConfig {
+                    account_id: account_id.clone(),
+                    function_name: function_name.to_string(),
+                    code: config.code,
+                    schema: config.schema,
+                    rule: config.rule,
+                    start_block: config.start_block,
+                    updated_at_block_height: config.updated_at_block_height,
+                    created_at_block_height: config.created_at_block_height,
+                    deleted_at_block_height: config.deleted_at_block_height,
+                }))
+            } else {
+                Ok(None)
+            };
         }
 
         anyhow::bail!("Invalid registry response")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use mockall::predicate::*;
+
+    #[tokio::test]
+    async fn parses_non_existant_config() {
+        let mut mock_json_rpc_client = JsonRpcClientWrapper::default();
+        mock_json_rpc_client
+            .expect_call::<RpcQueryRequest>()
+            .with(always())
+            .returning(|_| {
+                Ok(near_jsonrpc_client::methods::query::RpcQueryResponse {
+                    kind: QueryResponseKind::CallResult(near_primitives::views::CallResult {
+                        result: "null".as_bytes().to_vec(),
+                        logs: vec![],
+                    }),
+                    block_height: Default::default(),
+                    block_hash: Default::default(),
+                })
+            });
+
+        let registry = RegistryImpl::new("registry".parse().unwrap(), mock_json_rpc_client);
+
+        let config = registry
+            .fetch_indexer(&"account".parse().unwrap(), "function")
+            .await
+            .unwrap();
+
+        assert!(config.is_none());
+    }
+
+    #[tokio::test]
+    async fn parses_existing_config() {
+        let mut mock_json_rpc_client = JsonRpcClientWrapper::default();
+        mock_json_rpc_client
+            .expect_call::<RpcQueryRequest>()
+            .with(always())
+            .returning(|_| {
+                Ok(near_jsonrpc_client::methods::query::RpcQueryResponse {
+                    kind: QueryResponseKind::CallResult(near_primitives::views::CallResult {
+                        result: serde_json::json!({
+                            "code": "code",
+                            "schema": "schema",
+                            "rule": {
+                                "affected_account_id": "queryapi.dataplatform.near",
+                                "kind": "ACTION_ANY",
+                                "status": "SUCCESS"
+                            },
+                            "start_block": {
+                                "HEIGHT": 0,
+                            },
+                            "updated_at_block_height": 0,
+                            "created_at_block_height": 0,
+                            "deleted_at_block_height": 0
+                        })
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                        logs: vec![],
+                    }),
+                    block_height: Default::default(),
+                    block_hash: Default::default(),
+                })
+            });
+
+        let registry = RegistryImpl::new("registry".parse().unwrap(), mock_json_rpc_client);
+
+        let config = registry
+            .fetch_indexer(&"account".parse().unwrap(), "function")
+            .await
+            .unwrap();
+
+        assert!(config.is_some());
+    }
+
+    #[tokio::test]
+    async fn propagates_parse_failures() {
+        let mut mock_json_rpc_client = JsonRpcClientWrapper::default();
+        mock_json_rpc_client
+            .expect_call::<RpcQueryRequest>()
+            .with(always())
+            .returning(|_| {
+                Ok(near_jsonrpc_client::methods::query::RpcQueryResponse {
+                    kind: QueryResponseKind::CallResult(near_primitives::views::CallResult {
+                        result: serde_json::json!({
+                            "rule": "invalid",
+
+                            "code": "code",
+                            "schema": "schema",
+                            "start_block": {
+                                "HEIGHT": 0,
+                            },
+                            "updated_at_block_height": 0,
+                            "created_at_block_height": 0,
+                            "deleted_at_block_height": 0
+                        })
+                        .to_string()
+                        .as_bytes()
+                        .to_vec(),
+                        logs: vec![],
+                    }),
+                    block_height: Default::default(),
+                    block_hash: Default::default(),
+                })
+            });
+
+        let registry = RegistryImpl::new("registry".parse().unwrap(), mock_json_rpc_client);
+
+        let parse_result = registry
+            .fetch_indexer(&"account".parse().unwrap(), "function")
+            .await;
+
+        assert!(parse_result.is_err());
     }
 }
