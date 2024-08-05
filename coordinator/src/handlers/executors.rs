@@ -177,7 +177,7 @@ impl ExecutorsHandler {
         Ok(())
     }
 
-    pub async fn synchronise_executor(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn synchronise(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         let executor = self
             .get(config.account_id.clone(), config.function_name.clone())
             .await?;
