@@ -378,32 +378,41 @@ mod tests {
 
         let config = IndexerConfig::default();
 
-        let executor = ExecutorInfo {
-            account_id: config.account_id.to_string(),
-            function_name: config.function_name.clone(),
-            executor_id: "executor_id".to_string(),
-            version: config.get_registry_version(),
-            health: Some(runner::Health {
-                execution_state: runner::ExecutionState::Running.into(),
-            }),
-        };
+        let healthy_states = vec![
+            runner::ExecutionState::Running,
+            runner::ExecutionState::Failing,
+            runner::ExecutionState::Waiting,
+            runner::ExecutionState::Stopped,
+        ];
 
-        let mut mock_client = ExecutorsClientWrapper::default();
-        mock_client
-            .expect_stop_executor::<StopExecutorRequest>()
-            .never();
-        mock_client
-            .expect_start_executor::<StartExecutorRequest>()
-            .never();
-        mock_client
-            .expect_get_executor::<GetExecutorRequest>()
-            .with(always())
-            .returning(move |_| Ok(Response::new(executor.clone())));
+        for healthy_state in healthy_states {
+            let executor = ExecutorInfo {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                executor_id: "executor_id".to_string(),
+                version: config.get_registry_version(),
+                health: Some(runner::Health {
+                    execution_state: healthy_state.into(),
+                }),
+            };
 
-        let handler = ExecutorsHandler {
-            client: mock_client,
-        };
+            let mut mock_client = ExecutorsClientWrapper::default();
+            mock_client
+                .expect_stop_executor::<StopExecutorRequest>()
+                .never();
+            mock_client
+                .expect_start_executor::<StartExecutorRequest>()
+                .never();
+            mock_client
+                .expect_get_executor::<GetExecutorRequest>()
+                .with(always())
+                .returning(move |_| Ok(Response::new(executor.clone())));
 
-        handler.synchronise(&config).await.unwrap()
+            let handler = ExecutorsHandler {
+                client: mock_client,
+            };
+
+            handler.synchronise(&config).await.unwrap()
+        }
     }
 }

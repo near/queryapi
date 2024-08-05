@@ -634,46 +634,54 @@ mod tests {
 
         let config = IndexerConfig::default();
 
-        let existing_stream = StreamInfo {
-            account_id: config.account_id.to_string(),
-            function_name: config.function_name.clone(),
-            stream_id: "stream-id".to_string(),
-            version: config.get_registry_version(),
-            health: Some(block_streamer::Health {
-                updated_at_timestamp_secs: SystemTime::now()
-                    .duration_since(SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs(),
-                processing_state: ProcessingState::Running.into(),
-            }),
-        };
+        let healthy_states = vec![
+            ProcessingState::Running,
+            ProcessingState::Idle,
+            ProcessingState::Waiting,
+        ];
 
-        let mut mock_client = BlockStreamsClientWrapper::default();
-        mock_client
-            .expect_get_stream::<GetStreamRequest>()
-            .with(eq(GetStreamRequest {
+        for healthy_state in healthy_states {
+            let existing_stream = StreamInfo {
                 account_id: config.account_id.to_string(),
                 function_name: config.function_name.clone(),
-            }))
-            .returning(move |_| Ok(Response::new(existing_stream.clone())));
-        mock_client
-            .expect_stop_stream::<StopStreamRequest>()
-            .never();
-        mock_client
-            .expect_start_stream::<StartStreamRequest>()
-            .never();
+                stream_id: "stream-id".to_string(),
+                version: config.get_registry_version(),
+                health: Some(block_streamer::Health {
+                    updated_at_timestamp_secs: SystemTime::now()
+                        .duration_since(SystemTime::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs(),
+                    processing_state: healthy_state.into(),
+                }),
+            };
 
-        let mock_redis = RedisClient::default();
+            let mut mock_client = BlockStreamsClientWrapper::default();
+            mock_client
+                .expect_get_stream::<GetStreamRequest>()
+                .with(eq(GetStreamRequest {
+                    account_id: config.account_id.to_string(),
+                    function_name: config.function_name.clone(),
+                }))
+                .returning(move |_| Ok(Response::new(existing_stream.clone())));
+            mock_client
+                .expect_stop_stream::<StopStreamRequest>()
+                .never();
+            mock_client
+                .expect_start_stream::<StartStreamRequest>()
+                .never();
 
-        let handler = BlockStreamsHandler {
-            client: mock_client,
-            redis_client: mock_redis,
-        };
+            let mock_redis = RedisClient::default();
 
-        handler
-            .synchronise(&config, Some(config.get_registry_version()))
-            .await
-            .unwrap();
+            let handler = BlockStreamsHandler {
+                client: mock_client,
+                redis_client: mock_redis,
+            };
+
+            handler
+                .synchronise(&config, Some(config.get_registry_version()))
+                .await
+                .unwrap();
+        }
     }
 
     #[tokio::test]
