@@ -6,7 +6,7 @@ pub use runner::ExecutorInfo;
 use anyhow::Context;
 use runner::runner_client::RunnerClient;
 use runner::{
-    ExecutionState, GetExecutorRequest, ListExecutorsRequest, StartExecutorRequest,
+    ExecutionState, GetExecutorRequest, StartExecutorRequest, StartExecutorResponse,
     StopExecutorRequest,
 };
 use tonic::transport::channel::Channel;
@@ -14,7 +14,6 @@ use tonic::Request;
 
 use crate::indexer_config::IndexerConfig;
 use crate::redis::KeyProvider;
-use crate::utils::exponential_retry;
 
 const RESTART_TIMEOUT_SECONDS: u64 = 600;
 
@@ -31,24 +30,6 @@ impl ExecutorsHandler {
         let client = RunnerClient::new(channel);
 
         Ok(Self { client })
-    }
-
-    pub async fn list(&self) -> anyhow::Result<Vec<ExecutorInfo>> {
-        exponential_retry(|| async {
-            let response = self
-                .client
-                .clone()
-                .list_executors(Request::new(ListExecutorsRequest {}))
-                .await
-                .context("Failed to list executors")?;
-
-            let executors = response.into_inner().executors;
-
-            tracing::debug!("List executors response: {:#?}", executors);
-
-            Ok(executors)
-        })
-        .await
     }
 
     pub async fn get(
