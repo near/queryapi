@@ -34,6 +34,8 @@ interface IndexerDetailsContextProps {
   setFirstSeenHeight: (height: number) => void;
   isCreateNewIndexer: boolean;
   setIsCreateNewIndexer: (bool: boolean) => void;
+  isLaunchPadIndexer: boolean;
+  setIsLaunchPadIndexer: (bool: boolean) => void;
   accountId?: string;
   setAccountId: (accountId?: string) => void;
   indexerName?: string;
@@ -57,27 +59,29 @@ export const IndexerDetailsContext = createContext<IndexerDetailsContextProps>({
     forkedAccountId: null,
     forkedIndexerName: null,
   },
-  setIndexerDetails: () => {},
+  setIndexerDetails: () => { },
   showResetCodeModel: false,
-  setShowResetCodeModel: () => {},
+  setShowResetCodeModel: () => { },
   showPublishModal: false,
-  setShowPublishModal: () => {},
+  setShowPublishModal: () => { },
   showForkIndexerModal: false,
-  setShowForkIndexerModal: () => {},
+  setShowForkIndexerModal: () => { },
   debugMode: false,
-  setDebugMode: () => {},
+  setDebugMode: () => { },
   latestHeight: 0,
-  setLatestHeight: () => {},
+  setLatestHeight: () => { },
   firstSeenHeight: 0,
-  setFirstSeenHeight: () => {},
+  setFirstSeenHeight: () => { },
   isCreateNewIndexer: false,
-  setIsCreateNewIndexer: () => {},
-  setAccountId: () => {},
-  setIndexerName: () => {},
-  setForkedAccountId: () => {},
-  setForkedIndexerName: () => {},
+  setIsCreateNewIndexer: () => { },
+  isLaunchPadIndexer: false,
+  setIsLaunchPadIndexer: () => { },
+  setAccountId: () => { },
+  setIndexerName: () => { },
+  setForkedAccountId: () => { },
+  setForkedIndexerName: () => { },
   showLogsView: false,
-  setShowLogsView: () => {},
+  setShowLogsView: () => { },
 });
 
 interface IndexerDetailsProviderProps {
@@ -92,7 +96,7 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
   const [indexerDetails, setIndexerDetails] = useState<IndexerDetails>({
     code: undefined,
     schema: undefined,
-    rule: { affected_account_id: 'social.near' },
+    rule: { affected_account_id: '' },
     startBlock: 'LATEST',
     accountId,
     indexerName,
@@ -107,6 +111,7 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
   const [latestHeight, setLatestHeight] = useState(0);
   const [firstSeenHeight, setFirstSeenHeight] = useState(0);
   const [isCreateNewIndexer, setIsCreateNewIndexer] = useState(false);
+  const [isLaunchPadIndexer, setIsLaunchPadIndexer] = useState(false);
 
   const activeView = useInitialPayload<string>();
 
@@ -142,7 +147,22 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
   }, []);
 
   useEffect(() => {
-    if (isCreateNewIndexer || !accountId || !indexerName) {
+    const isNewIndexer = isCreateNewIndexer || !accountId || !indexerName;
+    const isFromLaunchPad = isLaunchPadIndexer;
+
+    if (isFromLaunchPad) {
+      console.log('we got a launchpad indexer here...');
+      setIndexerDetails((prevDetails) => ({
+        ...prevDetails,
+        rule: { affected_account_id: 'doggie' },
+        accountId,
+        indexerName,
+        forkedAccountId: forkedAccountId ?? null,
+        forkedIndexerName: forkedIndexerName ?? null,
+      }));
+      console.log('Default condition for launchpad indexer');
+    } else if (isNewIndexer) {
+      console.log('we got a new indexer here...')
       setIndexerDetails((prevDetails) => ({
         ...prevDetails,
         accountId,
@@ -150,21 +170,24 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
         forkedAccountId: forkedAccountId ?? null,
         forkedIndexerName: forkedIndexerName ?? null,
       }));
-      return;
+      console.log('Default condition for new indexer');
+    } else {
+      (async () => {
+        try {
+          const indexer = await requestIndexerDetails();
+          if (indexer) setIndexerDetails(indexer);
+        } catch (error) {
+          console.error('Failed to fetch indexer details', error);
+        }
+      })();
     }
-    const fetchIndexerDetails = async () => {
-      const indexer = await requestIndexerDetails();
-      if (indexer) {
-        setIndexerDetails(indexer);
-      }
-    };
-    fetchIndexerDetails();
   }, [
     accountId,
     indexerName,
     forkedAccountId,
     forkedIndexerName,
     isCreateNewIndexer,
+    isLaunchPadIndexer,
     requestIndexerDetails,
     setIndexerDetails,
   ]);
@@ -193,6 +216,8 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       setFirstSeenHeight,
       isCreateNewIndexer,
       setIsCreateNewIndexer,
+      isLaunchPadIndexer,
+      setIsLaunchPadIndexer,
       showLogsView,
       setShowLogsView,
     }),
@@ -216,6 +241,7 @@ export const IndexerDetailsProvider: React.FC<IndexerDetailsProviderProps> = ({ 
       latestHeight,
       firstSeenHeight,
       isCreateNewIndexer,
+      isLaunchPadIndexer,
       showLogsView,
     ],
   );
