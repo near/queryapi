@@ -187,7 +187,7 @@ impl BlockStream {
                             health_lock.processing_state = ProcessingState::Waiting;
                         }
                         Ordering::Equal => {
-                            tracing::error!(
+                            tracing::warn!(
                                 account_id = config.account_id.as_str(),
                                 function_name = config.function_name,
                                 "No block has been processed for {stalled_timeout_seconds} seconds"
@@ -352,7 +352,7 @@ pub(crate) async fn start_block_stream(
     .context("Failed while fetching and streaming bitmap indexer blocks")?;
 
     let last_indexed_near_lake_block = process_near_lake_blocks(
-        last_bitmap_indexer_block + 1,
+        last_bitmap_indexer_block,
         lake_s3_client,
         lake_prefetch_size,
         redis,
