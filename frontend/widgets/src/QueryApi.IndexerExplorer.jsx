@@ -40,7 +40,7 @@ const [hasMetadataRendered, setHasMetadataRendered] = useState(false);
 const [indexers, setIndexers] = useState([]);
 const [total, setTotal] = useState(0);
 const [currentPageIndexer, setCurrentPageIndexer] = useState([]);
-const [page, setPage] = useState(1);
+const [page, setPage] = useState(0);
 
 const [myIndexers, setMyIndexers] = useState([]);
 
@@ -188,11 +188,12 @@ useEffect(() => {
 }, [selectedTab, hasMetadataRendered]);
 
 const handleLoadMore = () => {
-  const start = page * PAGE_SIZE;
+  const nextPage = page + 1;
+  const start = nextPage * PAGE_SIZE;
   const end = start + PAGE_SIZE;
   const newIndexers = indexers.slice(start, end);
   setCurrentPageIndexer([...currentPageIndexer, ...newIndexers]);
-  setPage(page + 1);
+  setPage(nextPage);
 };
 
 const backupNearRPCRequest = () => {
