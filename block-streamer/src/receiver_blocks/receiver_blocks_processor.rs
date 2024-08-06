@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_stream::try_stream;
-use chrono::{DateTime, Duration, TimeZone, Utc};
+use chrono::{DateTime, Duration, TimeZone, Timelike, Utc};
 use near_lake_framework::near_indexer_primitives;
 use regex::Regex;
 
@@ -165,7 +165,15 @@ impl ReceiverBlocksProcessor {
         try_stream! {
             let start_date = self.get_nearest_block_date(start_block_height).await?;
             let contract_pattern_type = ContractPatternType::from(contract_pattern.as_str());
-            let mut current_date = start_date;
+            let mut current_date = start_date
+                .with_hour(0)
+                .unwrap()
+                .with_minute(0)
+                .unwrap()
+                .with_second(0)
+                .unwrap()
+                .with_nanosecond(0)
+                .unwrap();
 
             while current_date <= Utc::now() {
                 let base_64_bitmaps: Vec<Base64Bitmap> = self.query_base_64_bitmaps(&contract_pattern_type, &current_date).await?;
