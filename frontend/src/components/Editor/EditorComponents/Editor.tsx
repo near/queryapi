@@ -46,7 +46,7 @@ const fetchWizardData = (req: string): Promise<WizardResponse> => {
 };
 
 const Editor: React.FC = (): ReactElement => {
-  const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+  const { indexerDetails, isCreateNewIndexer, setIsLaunchPadIndexer } = useContext(IndexerDetailsContext);
 
   const storageManager = useMemo(() => {
     if (indexerDetails.accountId && indexerDetails.indexerName) {
@@ -86,6 +86,9 @@ const Editor: React.FC = (): ReactElement => {
       callback();
     }
   };
+  useEffect(() => {
+    console.log(indexerDetails.rule.affected_account_id);
+  });
 
   const indexerRunner = useMemo(() => new IndexerRunner(handleLog), []);
   const disposableRef = useRef<any>(null);
@@ -149,10 +152,11 @@ const Editor: React.FC = (): ReactElement => {
         if (wizardContractFilter === 'noFilter') {
           return;
         }
-
+        setIsLaunchPadIndexer(true);
         const codeResponse = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
         setIndexingCode(codeResponse.jsCode);
         setSchema(codeResponse.sqlCode);
+
       } catch (error: unknown) {
         //todo: figure out best course of action for user if api fails
         console.error(error);

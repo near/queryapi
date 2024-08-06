@@ -3,7 +3,7 @@ const tab = props.tab || "";
 const activeView = props.activeView || "editor";
 let accountId = props.accountId || context.accountId;
 let externalAppUrl = `${REPL_EXTERNAL_APP_URL}/${path}?accountId=${accountId}`;
-
+console.log(externalAppUrl);
 const { wizardContractFilter, wizardMethods, wizardEvents } = props;
 
 if (props.indexerName) {
@@ -25,6 +25,21 @@ const registerFunctionHandler = (request, response) => {
 
   const jsonFilter = `{"indexer_rule_kind":"Action","matching_rule":{"rule":"ACTION_ANY","affected_account_id":"${contractFilter || "social.near"}","status":"SUCCESS"}}`
 
+
+  const data = {
+    function_name: indexerName,
+    code,
+    schema,
+    start_block: startBlock,
+    rule: {
+      kind: "ACTION_ANY",
+      affected_account_id: contractFilter,
+      status: "SUCCESS"
+    }
+  };
+  console.log(data);
+
+  return;
   Near.call(
     `${REPL_REGISTRY_CONTRACT_ID}`,
     "register",
