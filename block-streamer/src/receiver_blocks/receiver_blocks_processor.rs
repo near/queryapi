@@ -296,13 +296,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn collect_block_heights_from_one_day() {
+    async fn collect_block_heights_from_today() {
         let mut mock_s3_client = crate::s3_client::S3Client::default();
         mock_s3_client
             .expect_get_text_file()
             .returning(move |_, _| {
                 Ok(crate::test_utils::generate_block_with_timestamp(
-                    &Utc::now().format("%Y-%m-%d").to_string(),
+                    &Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
                 ))
             });
 
@@ -334,7 +334,7 @@ mod tests {
             .expect_get_text_file()
             .returning(move |_, _| {
                 Ok(crate::test_utils::generate_block_with_timestamp(
-                    &Utc::now().format("%Y-%m-%d").to_string(),
+                    &Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string(),
                 ))
             });
 
@@ -370,8 +370,8 @@ mod tests {
             .expect_get_text_file()
             .returning(move |_, _| {
                 Ok(crate::test_utils::generate_block_with_timestamp(
-                    &(Utc::now() - Duration::days(2))
-                        .format("%Y-%m-%d")
+                    &(Utc::now() - Duration::days(2) + Duration::hours(1))
+                        .format("%Y-%m-%dT%H:%M:%S")
                         .to_string(),
                 ))
             });
