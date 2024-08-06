@@ -533,11 +533,7 @@ mod tests {
                 predicate::eq("near-lake-data-mainnet".to_string()),
                 predicate::eq("000091940840/block.json"),
             )
-            .returning(move |_, _| {
-                Ok(crate::test_utils::generate_block_with_timestamp(
-                    "2023-12-09",
-                ))
-            });
+            .returning(move |_, _| Ok(crate::test_utils::generate_block_with_date("2023-12-09")));
 
         let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
 
@@ -663,7 +659,7 @@ mod tests {
                 predicate::eq("000107503704/block.json"),
             )
             .returning(move |_, _| {
-                Ok(crate::test_utils::generate_block_with_timestamp(
+                Ok(crate::test_utils::generate_block_with_date(
                     &chrono::Utc::now().format("%Y-%m-%d").to_string(),
                 ))
             });
