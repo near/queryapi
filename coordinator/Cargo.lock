@@ -1307,6 +1307,7 @@ dependencies = [
  "tonic 0.10.2",
  "tonic-build 0.10.2",
  "tracing",
+ "tracing-stackdriver",
  "tracing-subscriber",
 ]
 
