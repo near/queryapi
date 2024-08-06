@@ -370,7 +370,7 @@ mod tests {
             .expect_get_text_file()
             .returning(move |_, _| {
                 Ok(crate::test_utils::generate_block_with_timestamp(
-                    &(Utc::now() - Duration::days(2) + Duration::hours(1))
+                    &(Utc::now() - Duration::days(2) + Duration::minutes(10))
                         .format("%Y-%m-%dT%H:%M:%S")
                         .to_string(),
                 ))
