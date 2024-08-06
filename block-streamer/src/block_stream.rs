@@ -132,7 +132,7 @@ impl BlockStream {
             let stalled_timeout_seconds = 120;
 
             async move {
-                let mut last_processed_block = Some(start_block_height);
+                let mut last_processed_block = Some(start_block_height - 1);
                 loop {
                     tokio::time::sleep(std::time::Duration::from_secs(stalled_timeout_seconds))
                         .await;
@@ -352,7 +352,7 @@ pub(crate) async fn start_block_stream(
     .context("Failed while fetching and streaming bitmap indexer blocks")?;
 
     let last_indexed_near_lake_block = process_near_lake_blocks(
-        last_bitmap_indexer_block,
+        last_bitmap_indexer_block + 1,
         lake_s3_client,
         lake_prefetch_size,
         redis,
