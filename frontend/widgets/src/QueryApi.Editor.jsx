@@ -83,18 +83,16 @@ const requestHandler = (request, response) => {
   }
 };
 
-const props = {
-  externalAppUrl,
-  path,
-  initialViewHeight,
-  initialPayload,
-  requestHandler,
-};
-
 // NearSocialBridgeCore widget is the core that makes all the "magic" happens
 return (
   <Widget
     src={"wendersonpires.near/widget/NearSocialBridgeCore"}
-    props={props}
+    props={{
+      externalAppUrl,
+      path,
+      initialViewHeight,
+      initialPayload,
+      requestHandler,
+    }}
   />
 );
