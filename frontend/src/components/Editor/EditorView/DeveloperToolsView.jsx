@@ -26,9 +26,6 @@ const DeveloperToolsView = ({
 
   return (
     <div className="bg-gray-100 rounded-lg p-2 mb-0 mx-2">
-      <div className="text-center mb-3">
-        <span className="text-xs font-medium">Developer Tools</span>
-      </div>
       <div className="flex justify-between">
         <div className="flex space-x-1">
           <button

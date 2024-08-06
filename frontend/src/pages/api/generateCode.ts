@@ -37,9 +37,9 @@ export const validateRequestBody = (body: any): body is RequestBody => {
   return (
     isStringOrArray(body.contractFilter) &&
     Array.isArray(body.selectedMethods) &&
-    body.selectedMethods.every(isValidMethod)
-    // && Array.isArray(body.selectedEvents) &&
-    // body.selectedEvents.every(isValidEvent)
+    body.selectedMethods.every(isValidMethod) &&
+    Array.isArray(body.selectedEvents) &&
+    body.selectedEvents.every(isValidEvent)
   );
 };
 
@@ -59,7 +59,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse): void
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
@@ -78,7 +77,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse): void
   }
 
   const { contractFilter, selectedMethods, selectedEvents } = req.body;
-
   const filterString = Array.isArray(contractFilter) ? contractFilter.join(', ') : contractFilter;
 
   const generator = new WizardCodeGenerator(filterString, selectedMethods, selectedEvents);

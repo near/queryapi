@@ -184,11 +184,16 @@ pub fn utc_date_time_from_date_string(date: &str) -> chrono::DateTime<chrono::Ut
     chrono::TimeZone::from_utc_datetime(&chrono::Utc, &naive_date_time)
 }
 
-pub fn generate_block_with_timestamp(date: &str) -> String {
+pub fn generate_block_with_date(date: &str) -> String {
     let naive_date = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .unwrap()
         .and_hms_opt(0, 0, 0)
         .unwrap();
+    return generate_block_with_timestamp(&naive_date.format("%Y-%m-%dT%H:%M:%S").to_string());
+}
+
+pub fn generate_block_with_timestamp(date: &str) -> String {
+    let naive_date = chrono::NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S").unwrap();
 
     let date_time_utc = chrono::Utc.from_utc_datetime(&naive_date).timestamp() * 1_000_000_000;
 

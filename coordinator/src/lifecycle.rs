@@ -90,14 +90,12 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "initializing", skip_all)]
     async fn handle_initializing(
         &self,
-        config: Option<&IndexerConfig>,
+        config: &IndexerConfig,
         _state: &IndexerState,
     ) -> LifecycleState {
-        if config.is_none() {
+        if config.is_deleted() {
             return LifecycleState::Deleting;
         }
-
-        let config = config.unwrap();
 
         if self
             .data_layer_handler
@@ -114,14 +112,12 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "running", skip_all)]
     async fn handle_running(
         &self,
-        config: Option<&IndexerConfig>,
+        config: &IndexerConfig,
         state: &mut IndexerState,
     ) -> LifecycleState {
-        if config.is_none() {
+        if config.is_deleted() {
             return LifecycleState::Deleting;
         }
-
-        let config = config.unwrap();
 
         if !state.enabled {
             return LifecycleState::Stopping;
@@ -129,7 +125,7 @@ impl<'a> LifecycleManager<'a> {
 
         if let Err(error) = self
             .block_streams_handler
-            .synchronise_block_stream(config, state.block_stream_synced_at)
+            .synchronise(config, state.block_stream_synced_at)
             .await
         {
             warn!(?error, "Failed to synchronise block stream, retrying...");
@@ -139,7 +135,7 @@ impl<'a> LifecycleManager<'a> {
 
         state.block_stream_synced_at = Some(config.get_registry_version());
 
-        if let Err(error) = self.executors_handler.synchronise_executor(config).await {
+        if let Err(error) = self.executors_handler.synchronise(config).await {
             warn!(?error, "Failed to synchronise executor, retrying...");
 
             return LifecycleState::Running;
@@ -149,12 +145,10 @@ impl<'a> LifecycleManager<'a> {
     }
 
     #[tracing::instrument(name = "stopping", skip_all)]
-    async fn handle_stopping(&self, config: Option<&IndexerConfig>) -> LifecycleState {
-        if config.is_none() {
+    async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleState {
+        if config.is_deleted() {
             return LifecycleState::Deleting;
         }
-
-        let config = config.unwrap();
 
         if let Err(error) = self
             .block_streams_handler
@@ -178,12 +172,8 @@ impl<'a> LifecycleManager<'a> {
     }
 
     #[tracing::instrument(name = "stopped", skip_all)]
-    async fn handle_stopped(
-        &self,
-        config: Option<&IndexerConfig>,
-        state: &IndexerState,
-    ) -> LifecycleState {
-        if config.is_none() {
+    async fn handle_stopped(&self, config: &IndexerConfig, state: &IndexerState) -> LifecycleState {
+        if config.is_deleted() {
             return LifecycleState::Deleting;
         }
 
@@ -199,13 +189,12 @@ impl<'a> LifecycleManager<'a> {
     #[tracing::instrument(name = "repairing", skip_all)]
     async fn handle_repairing(
         &self,
-        _config: Option<&IndexerConfig>,
+        config: &IndexerConfig,
         _state: &IndexerState,
     ) -> LifecycleState {
-        // TODO: Re-enable auto deprovision once guard rails in place
-        // if config.is_none() {
-        //     return LifecycleState::Deleting;
-        // }
+        if config.is_deleted() {
+            return LifecycleState::Deleting;
+        }
 
         // TODO Add more robust error handling, for now just stop
         LifecycleState::Repairing
@@ -230,7 +219,7 @@ impl<'a> LifecycleManager<'a> {
         }
 
         tracing::error!("Temporarily preventing indexer deprovision due to service instability");
-        LifecycleState::Repairing
+        LifecycleState::Deleted
 
         // if self.state_manager.delete_state(state).await.is_err() {
         //     // Retry
@@ -283,7 +272,11 @@ impl<'a> LifecycleManager<'a> {
                 )
                 .await
             {
-                Ok(config) => config,
+                Ok(Some(config)) => config,
+                Ok(None) => {
+                    warn!("No matching indexer config was found");
+                    continue;
+                }
                 Err(error) => {
                     warn!(?error, "Failed to fetch config");
                     continue;
@@ -304,13 +297,11 @@ impl<'a> LifecycleManager<'a> {
             }
 
             let desired_lifecycle_state = match state.lifecycle_state {
-                LifecycleState::Initializing => {
-                    self.handle_initializing(config.as_ref(), &state).await
-                }
-                LifecycleState::Running => self.handle_running(config.as_ref(), &mut state).await,
-                LifecycleState::Stopping => self.handle_stopping(config.as_ref()).await,
-                LifecycleState::Stopped => self.handle_stopped(config.as_ref(), &state).await,
-                LifecycleState::Repairing => self.handle_repairing(config.as_ref(), &state).await,
+                LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
+                LifecycleState::Running => self.handle_running(&config, &mut state).await,
+                LifecycleState::Stopping => self.handle_stopping(&config).await,
+                LifecycleState::Stopped => self.handle_stopped(&config, &state).await,
+                LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
                 LifecycleState::Deleting => self.handle_deleting(&state).await,
                 LifecycleState::Deleted => LifecycleState::Deleted,
             };

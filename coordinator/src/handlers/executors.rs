@@ -6,21 +6,66 @@ pub use runner::ExecutorInfo;
 use anyhow::Context;
 use runner::runner_client::RunnerClient;
 use runner::{
-    ExecutionState, GetExecutorRequest, ListExecutorsRequest, StartExecutorRequest,
-    StopExecutorRequest,
+    ExecutionState, GetExecutorRequest, StartExecutorRequest, StartExecutorResponse,
+    StopExecutorRequest, StopExecutorResponse,
 };
 use tonic::transport::channel::Channel;
-use tonic::Request;
 
 use crate::indexer_config::IndexerConfig;
 use crate::redis::KeyProvider;
-use crate::utils::exponential_retry;
 
 const RESTART_TIMEOUT_SECONDS: u64 = 600;
 
+#[cfg(not(test))]
+use ExecutorsClientWrapperImpl as ExecutorsClientWrapper;
+#[cfg(test)]
+use MockExecutorsClientWrapperImpl as ExecutorsClientWrapper;
+
+#[derive(Clone)]
+struct ExecutorsClientWrapperImpl {
+    inner: RunnerClient<Channel>,
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl ExecutorsClientWrapperImpl {
+    pub fn new(inner: RunnerClient<Channel>) -> Self {
+        Self { inner }
+    }
+
+    pub async fn get_executor<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<ExecutorInfo>, tonic::Status>
+    where
+        R: tonic::IntoRequest<GetExecutorRequest> + 'static,
+    {
+        self.inner.clone().get_executor(request).await
+    }
+
+    pub async fn start_executor<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StartExecutorResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<StartExecutorRequest> + 'static,
+    {
+        self.inner.clone().start_executor(request).await
+    }
+
+    pub async fn stop_executor<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StopExecutorResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<StopExecutorRequest> + 'static,
+    {
+        self.inner.clone().stop_executor(request).await
+    }
+}
+
 #[derive(Clone)]
 pub struct ExecutorsHandler {
-    client: RunnerClient<Channel>,
+    client: ExecutorsClientWrapper,
 }
 
 impl ExecutorsHandler {
@@ -30,25 +75,9 @@ impl ExecutorsHandler {
             .connect_lazy();
         let client = RunnerClient::new(channel);
 
-        Ok(Self { client })
-    }
-
-    pub async fn list(&self) -> anyhow::Result<Vec<ExecutorInfo>> {
-        exponential_retry(|| async {
-            let response = self
-                .client
-                .clone()
-                .list_executors(Request::new(ListExecutorsRequest {}))
-                .await
-                .context("Failed to list executors")?;
-
-            let executors = response.into_inner().executors;
-
-            tracing::debug!("List executors response: {:#?}", executors);
-
-            Ok(executors)
+        Ok(Self {
+            client: ExecutorsClientWrapper::new(client),
         })
-        .await
     }
 
     pub async fn get(
@@ -61,12 +90,7 @@ impl ExecutorsHandler {
             function_name: function_name.clone(),
         };
 
-        match self
-            .client
-            .clone()
-            .get_executor(Request::new(request))
-            .await
-        {
+        match self.client.get_executor(request).await {
             Ok(response) => Ok(Some(response.into_inner())),
             Err(status) if status.code() == tonic::Code::NotFound => Ok(None),
             Err(err) => Err(err).context(format!(
@@ -86,15 +110,10 @@ impl ExecutorsHandler {
             function_name: indexer_config.function_name.clone(),
         };
 
-        let response = self
-            .client
-            .clone()
-            .start_executor(Request::new(request.clone()))
-            .await
-            .context(format!(
-                "Failed to start executor: {}",
-                indexer_config.get_full_name()
-            ))?;
+        let response = self.client.start_executor(request).await.context(format!(
+            "Failed to start executor: {}",
+            indexer_config.get_full_name()
+        ))?;
 
         tracing::debug!(
             account_id = indexer_config.account_id.as_str(),
@@ -114,8 +133,7 @@ impl ExecutorsHandler {
 
         let response = self
             .client
-            .clone()
-            .stop_executor(Request::new(request.clone()))
+            .stop_executor(request)
             .await
             .context(format!("Failed to stop executor: {executor_id}"))?;
 
@@ -147,7 +165,7 @@ impl ExecutorsHandler {
         Ok(())
     }
 
-    pub async fn synchronise_executor(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn synchronise(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         let executor = self
             .get(config.account_id.clone(), config.function_name.clone())
             .await?;
@@ -191,5 +209,210 @@ impl ExecutorsHandler {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use mockall::predicate::*;
+    use tonic::Response;
+
+    impl Clone for MockExecutorsClientWrapperImpl {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn resumes_stopped_executors() {
+        let config = IndexerConfig::default();
+
+        let mut mock_client = ExecutorsClientWrapper::default();
+        mock_client
+            .expect_get_executor::<GetExecutorRequest>()
+            .with(eq(GetExecutorRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| Err(tonic::Status::not_found("not found")))
+            .once();
+        mock_client
+            .expect_start_executor::<StartExecutorRequest>()
+            .with(eq(StartExecutorRequest {
+                code: config.code.clone(),
+                schema: config.schema.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                version: config.get_registry_version(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartExecutorResponse {
+                    executor_id: "executor_id".to_string(),
+                }))
+            })
+            .once();
+
+        let handler = ExecutorsHandler {
+            client: mock_client,
+        };
+
+        handler.synchronise(&config).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn reconfigures_outdated_executors() {
+        let config = IndexerConfig::default();
+
+        let executor = ExecutorInfo {
+            account_id: config.account_id.to_string(),
+            function_name: config.function_name.clone(),
+            executor_id: "executor_id".to_string(),
+            version: config.get_registry_version() - 1,
+            health: None,
+        };
+
+        let mut mock_client = ExecutorsClientWrapper::default();
+        mock_client
+            .expect_stop_executor::<StopExecutorRequest>()
+            .with(eq(StopExecutorRequest {
+                executor_id: executor.executor_id.clone(),
+            }))
+            .returning(|_| {
+                Ok(Response::new(StopExecutorResponse {
+                    executor_id: "executor_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_start_executor::<StartExecutorRequest>()
+            .with(eq(StartExecutorRequest {
+                code: config.code.clone(),
+                schema: config.schema.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                version: config.get_registry_version(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartExecutorResponse {
+                    executor_id: "executor_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_executor::<GetExecutorRequest>()
+            .with(always())
+            .returning(move |_| Ok(Response::new(executor.clone())))
+            .once();
+
+        let handler = ExecutorsHandler {
+            client: mock_client,
+        };
+
+        handler.synchronise(&config).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn restarts_unhealthy_executors() {
+        tokio::time::pause();
+
+        let config = IndexerConfig::default();
+
+        let executor = ExecutorInfo {
+            account_id: config.account_id.to_string(),
+            function_name: config.function_name.clone(),
+            executor_id: "executor_id".to_string(),
+            version: config.get_registry_version(),
+            health: Some(runner::Health {
+                execution_state: runner::ExecutionState::Stalled.into(),
+            }),
+        };
+
+        let mut mock_client = ExecutorsClientWrapper::default();
+        mock_client
+            .expect_stop_executor::<StopExecutorRequest>()
+            .with(eq(StopExecutorRequest {
+                executor_id: executor.executor_id.clone(),
+            }))
+            .returning(|_| {
+                Ok(Response::new(StopExecutorResponse {
+                    executor_id: "executor_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_start_executor::<StartExecutorRequest>()
+            .with(eq(StartExecutorRequest {
+                code: config.code.clone(),
+                schema: config.schema.clone(),
+                redis_stream: config.get_redis_stream_key(),
+                version: config.get_registry_version(),
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartExecutorResponse {
+                    executor_id: "executor_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_executor::<GetExecutorRequest>()
+            .with(always())
+            .returning(move |_| Ok(Response::new(executor.clone())))
+            .once();
+
+        let handler = ExecutorsHandler {
+            client: mock_client,
+        };
+
+        handler.synchronise(&config).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn ignores_healthy_executors() {
+        tokio::time::pause();
+
+        let config = IndexerConfig::default();
+
+        let healthy_states = vec![
+            runner::ExecutionState::Running,
+            runner::ExecutionState::Failing,
+            runner::ExecutionState::Waiting,
+            runner::ExecutionState::Stopped,
+        ];
+
+        for healthy_state in healthy_states {
+            let executor = ExecutorInfo {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                executor_id: "executor_id".to_string(),
+                version: config.get_registry_version(),
+                health: Some(runner::Health {
+                    execution_state: healthy_state.into(),
+                }),
+            };
+
+            let mut mock_client = ExecutorsClientWrapper::default();
+            mock_client
+                .expect_stop_executor::<StopExecutorRequest>()
+                .never();
+            mock_client
+                .expect_start_executor::<StartExecutorRequest>()
+                .never();
+            mock_client
+                .expect_get_executor::<GetExecutorRequest>()
+                .with(always())
+                .returning(move |_| Ok(Response::new(executor.clone())));
+
+            let handler = ExecutorsHandler {
+                client: mock_client,
+            };
+
+            handler.synchronise(&config).await.unwrap()
+        }
     }
 }

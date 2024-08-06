@@ -131,7 +131,7 @@ const Editor: React.FC = (): ReactElement => {
       const data = await response.json();
 
       if (!data.hasOwnProperty('jsCode') || !data.hasOwnProperty('sqlCode')) {
-        throw new Error('No code was returned from the server');
+        throw new Error('No code was returned from the server with properties jsCode and sqlCode');
       }
 
       return data;
@@ -144,15 +144,16 @@ const Editor: React.FC = (): ReactElement => {
     const fetchData = async () => {
       try {
         const response = await fetchWizardData('');
-        const { wizardContractFilter, wizardMethods } = response;
+        const { wizardContractFilter, wizardMethods, wizardEvents } = response;
 
         if (wizardContractFilter === 'noFilter') {
           return;
         }
 
-        const codeResponse = await generateCode(wizardContractFilter, wizardMethods);
-        setIndexingCode(codeResponse.jsCode);
-        setSchema(codeResponse.sqlCode);
+        const codeResponse = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
+        const { validatedCode, validatedSchema } = reformatAll(codeResponse.jsCode, codeResponse.sqlCode);
+        validatedCode && setIndexingCode(validatedCode);
+        validatedSchema && setSchema(validatedSchema);
       } catch (error: unknown) {
         //todo: figure out best course of action for user if api fails
         console.error(error);
@@ -339,7 +340,7 @@ const Editor: React.FC = (): ReactElement => {
     );
 
     monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-      target: monaco.languages.typescript.ScriptTarget.ES2018,
+      target: monaco.languages.typescript.ScriptTarget.ES2020,
       allowNonTsExtensions: true,
       moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
     });

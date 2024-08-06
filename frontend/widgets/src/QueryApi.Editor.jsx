@@ -4,7 +4,7 @@ const activeView = props.activeView || "editor";
 let accountId = props.accountId || context.accountId;
 let externalAppUrl = `${REPL_EXTERNAL_APP_URL}/${path}?accountId=${accountId}`;
 
-const { wizardContractFilter, wizardMethods } = props;
+const { wizardContractFilter, wizardMethods, wizardEvents } = props;
 
 if (props.indexerName) {
   externalAppUrl += `&indexerName=${props.indexerName}`;
@@ -60,7 +60,8 @@ let deleteIndexer = (request) => {
 const getLaunchpadCode = (request, response) => {
   const wizardContractFilter = wizardContractFilter ?? 'noFilter';
   const wizardMethods = wizardMethods;
-  response(request).send({ wizardContractFilter, wizardMethods });
+  const wizardEvents = wizardEvents;
+  response(request).send({ wizardContractFilter, wizardMethods, wizardEvents });
 }
 
 /**
@@ -82,18 +83,16 @@ const requestHandler = (request, response) => {
   }
 };
 
-const props = {
-  externalAppUrl,
-  path,
-  initialViewHeight,
-  initialPayload,
-  requestHandler,
-};
-
 // NearSocialBridgeCore widget is the core that makes all the "magic" happens
 return (
   <Widget
     src={"wendersonpires.near/widget/NearSocialBridgeCore"}
-    props={props}
+    props={{
+      externalAppUrl,
+      path,
+      initialViewHeight,
+      initialPayload,
+      requestHandler,
+    }}
   />
 );

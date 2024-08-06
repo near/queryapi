@@ -21,6 +21,13 @@ jobs:
       uses: arduino/setup-protoc@v2
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.75.0
+        override: true
+        profile: minimal
+        components: rustfmt
     - name: Check
       working-directory: ./coordinator
       run: cargo check
@@ -33,6 +40,13 @@ jobs:
       uses: arduino/setup-protoc@v2
       with:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.75.0
+        override: true
+        profile: minimal
+        components: rustfmt
     - name: Test
       working-directory: ./coordinator
       run: cargo test

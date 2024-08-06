@@ -13,6 +13,7 @@ pub struct IndexerConfig {
     pub rule: Rule,
     pub updated_at_block_height: Option<u64>,
     pub created_at_block_height: u64,
+    pub deleted_at_block_height: Option<u64>,
 }
 
 impl KeyProvider for IndexerConfig {
@@ -39,6 +40,7 @@ impl Default for IndexerConfig {
             },
             created_at_block_height: 1,
             updated_at_block_height: Some(2),
+            deleted_at_block_height: Some(3),
             start_block: StartBlock::Height(100),
         }
     }
@@ -52,5 +54,9 @@ impl IndexerConfig {
     pub fn get_registry_version(&self) -> u64 {
         self.updated_at_block_height
             .unwrap_or(self.created_at_block_height)
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        self.deleted_at_block_height.is_some()
     }
 }

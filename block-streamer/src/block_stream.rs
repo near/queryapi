@@ -120,18 +120,22 @@ impl BlockStream {
         }
     }
 
-    fn start_health_monitoring_task(&self, redis: Arc<RedisClient>) -> JoinHandle<()> {
+    fn start_health_monitoring_task(
+        &self,
+        redis: Arc<RedisClient>,
+        start_block_height: near_indexer_primitives::types::BlockHeight,
+    ) -> JoinHandle<()> {
         tokio::spawn({
             let config = self.indexer_config.clone();
             let health = self.health.clone();
             let redis_stream = self.redis_stream.clone();
+            let stalled_timeout_seconds = 120;
 
             async move {
-                let mut last_processed_block =
-                    redis.get_last_processed_block(&config).await.unwrap();
-
+                let mut last_processed_block = Some(start_block_height - 1);
                 loop {
-                    tokio::time::sleep(std::time::Duration::from_secs(120)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(stalled_timeout_seconds))
+                        .await;
 
                     let new_last_processed_block =
                         if let Ok(block) = redis.get_last_processed_block(&config).await {
@@ -183,6 +187,11 @@ impl BlockStream {
                             health_lock.processing_state = ProcessingState::Waiting;
                         }
                         Ordering::Equal => {
+                            tracing::warn!(
+                                account_id = config.account_id.as_str(),
+                                function_name = config.function_name,
+                                "No block has been processed for {stalled_timeout_seconds} seconds"
+                            );
                             health_lock.processing_state = ProcessingState::Stalled;
                         }
                         Ordering::Greater => {
@@ -266,7 +275,8 @@ impl BlockStream {
 
         let cancellation_token = tokio_util::sync::CancellationToken::new();
 
-        let monitor_handle = self.start_health_monitoring_task(redis.clone());
+        let monitor_handle =
+            self.start_health_monitoring_task(redis.clone(), start_block_height.clone());
 
         let stream_handle = self.start_block_stream_task(
             start_block_height,
@@ -533,11 +543,7 @@ mod tests {
                 predicate::eq("near-lake-data-mainnet".to_string()),
                 predicate::eq("000091940840/block.json"),
             )
-            .returning(move |_, _| {
-                Ok(crate::test_utils::generate_block_with_timestamp(
-                    "2023-12-09",
-                ))
-            });
+            .returning(move |_, _| Ok(crate::test_utils::generate_block_with_date("2023-12-09")));
 
         let mut mock_graphql_client = crate::graphql::client::GraphQLClient::default();
 
@@ -663,7 +669,7 @@ mod tests {
                 predicate::eq("000107503704/block.json"),
             )
             .returning(move |_, _| {
-                Ok(crate::test_utils::generate_block_with_timestamp(
+                Ok(crate::test_utils::generate_block_with_date(
                     &chrono::Utc::now().format("%Y-%m-%d").to_string(),
                 ))
             });

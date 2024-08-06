@@ -23,8 +23,8 @@ const createRequestResponseMocks = (
   };
 };
 
-describe('generateCode API', () => {
-  it('should return generated JS and SQL code for valid input', async () => {
+describe('generateCode API ', () => {
+  it('should return generated JS and SQL code for valid input methods', async () => {
     const { req, res } = createRequestResponseMocks('POST', {
       contractFilter: 'filter',
       selectedMethods: [
@@ -65,6 +65,7 @@ describe('generateCode API', () => {
           },
         },
       ],
+      selectedEvents: [],
     });
 
     handler(req, res);
@@ -73,6 +74,58 @@ describe('generateCode API', () => {
     const responseData = JSON.parse(res._getData());
     console.log(responseData);
   });
+
+  it('should return generated JS and SQL code for valid input events', async () => {
+    const { req, res } = createRequestResponseMocks('POST', {
+      contractFilter: 'filter',
+      selectedMethods: [],
+      selectedEvents: [
+        {
+          event_name: 'register',
+          schema: {
+            type: 'object',
+            properties: {
+              function_name: {
+                type: 'string',
+              },
+              code: {
+                type: 'string',
+              },
+              schema: {
+                type: 'string',
+              },
+              start_block_height: {
+                type: 'integer',
+              },
+              filter_json: {
+                type: 'string',
+              },
+            },
+            required: ['function_name', 'code', 'schema', 'start_block_height', 'filter_json'],
+          },
+        },
+        {
+          event_name: 'remove_indexer_function',
+          schema: {
+            type: 'object',
+            properties: {
+              function_name: {
+                type: 'string',
+              },
+            },
+            required: ['function_name'],
+          },
+        },
+      ],
+    });
+
+    handler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    const responseData = JSON.parse(res._getData());
+    console.log(responseData);
+  });
+
   it('should handle empty arrays correctly because I mean maybe they just want something to do with contractName?', async () => {
     const { req, res } = createRequestResponseMocks('POST', {
       contractFilter: 'filter',
