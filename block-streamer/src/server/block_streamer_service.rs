@@ -285,7 +285,7 @@ mod tests {
                 predicate::always(),
             )
             .returning(move |_, _| {
-                Ok(crate::test_utils::generate_block_with_timestamp(
+                Ok(crate::test_utils::generate_block_with_date(
                     &chrono::Utc::now().format("%Y-%m-%d").to_string(),
                 ))
             });

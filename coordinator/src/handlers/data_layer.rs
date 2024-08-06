@@ -6,9 +6,12 @@ pub use runner::data_layer::TaskStatus;
 
 use anyhow::Context;
 use runner::data_layer::data_layer_client::DataLayerClient;
-use runner::data_layer::{DeprovisionRequest, GetTaskStatusRequest, ProvisionRequest};
+use runner::data_layer::{
+    DeprovisionRequest, GetTaskStatusRequest, GetTaskStatusResponse, ProvisionRequest,
+    StartTaskResponse,
+};
 use tonic::transport::channel::Channel;
-use tonic::{Request, Status};
+use tonic::Status;
 
 use crate::indexer_config::IndexerConfig;
 
@@ -16,9 +19,63 @@ type TaskId = String;
 
 const TASK_TIMEOUT_SECONDS: u64 = 600; // 10 minutes
 
+#[cfg(not(test))]
+use DataLayerClientWrapperImpl as DataLayerClientWrapper;
+#[cfg(test)]
+use MockDataLayerClientWrapperImpl as DataLayerClientWrapper;
+
+#[derive(Clone)]
+struct DataLayerClientWrapperImpl {
+    inner: DataLayerClient<Channel>,
+}
+
+#[cfg(test)]
+impl Clone for MockDataLayerClientWrapperImpl {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+#[cfg_attr(test, mockall::automock)]
+impl DataLayerClientWrapperImpl {
+    pub fn new(inner: DataLayerClient<Channel>) -> Self {
+        Self { inner }
+    }
+
+    pub async fn start_provisioning_task<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StartTaskResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<ProvisionRequest> + 'static,
+    {
+        self.inner.clone().start_provisioning_task(request).await
+    }
+
+    pub async fn start_deprovisioning_task<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<StartTaskResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<DeprovisionRequest> + 'static,
+    {
+        self.inner.clone().start_deprovisioning_task(request).await
+    }
+
+    pub async fn get_task_status<R>(
+        &self,
+        request: R,
+    ) -> std::result::Result<tonic::Response<GetTaskStatusResponse>, tonic::Status>
+    where
+        R: tonic::IntoRequest<GetTaskStatusRequest> + 'static,
+    {
+        self.inner.clone().get_task_status(request).await
+    }
+}
+
 #[derive(Clone)]
 pub struct DataLayerHandler {
-    client: DataLayerClient<Channel>,
+    client: DataLayerClientWrapper,
 }
 
 impl DataLayerHandler {
@@ -28,7 +85,9 @@ impl DataLayerHandler {
             .connect_lazy();
         let client = DataLayerClient::new(channel);
 
-        Ok(Self { client })
+        Ok(Self {
+            client: DataLayerClientWrapper::new(client),
+        })
     }
 
     pub async fn start_provisioning_task(
@@ -41,11 +100,7 @@ impl DataLayerHandler {
             schema: indexer_config.schema.clone(),
         };
 
-        let response = self
-            .client
-            .clone()
-            .start_provisioning_task(Request::new(request))
-            .await?;
+        let response = self.client.start_provisioning_task(request).await?;
 
         Ok(response.into_inner().task_id)
     }
@@ -60,11 +115,7 @@ impl DataLayerHandler {
             function_name,
         };
 
-        let response = self
-            .client
-            .clone()
-            .start_deprovisioning_task(Request::new(request))
-            .await?;
+        let response = self.client.start_deprovisioning_task(request).await?;
 
         Ok(response.into_inner().task_id)
     }
@@ -72,11 +123,7 @@ impl DataLayerHandler {
     pub async fn get_task_status(&self, task_id: TaskId) -> anyhow::Result<TaskStatus> {
         let request = GetTaskStatusRequest { task_id };
 
-        let response = self
-            .client
-            .clone()
-            .get_task_status(Request::new(request))
-            .await;
+        let response = self.client.get_task_status(request).await;
 
         if let Err(error) = response {
             if error.code() == tonic::Code::NotFound {
@@ -191,5 +238,286 @@ impl DataLayerHandler {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::redis::KeyProvider;
+
+    use super::*;
+
+    use mockall::predicate::*;
+
+    #[tokio::test]
+    async fn provisions_data_layer() {
+        let config = IndexerConfig::default();
+
+        let mut mock_client = DataLayerClientWrapper::default();
+        mock_client
+            .expect_start_provisioning_task::<ProvisionRequest>()
+            .with(eq(ProvisionRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                schema: config.schema.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartTaskResponse {
+                    task_id: "task_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Pending.into(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Complete.into(),
+                }))
+            })
+            .once();
+
+        let handler = DataLayerHandler {
+            client: mock_client,
+        };
+
+        handler.ensure_provisioned(&config).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn timesout_provisioning_task() {
+        tokio::time::pause();
+
+        let config = IndexerConfig::default();
+
+        let mut mock_client = DataLayerClientWrapper::default();
+        mock_client
+            .expect_start_provisioning_task::<ProvisionRequest>()
+            .with(eq(ProvisionRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                schema: config.schema.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartTaskResponse {
+                    task_id: "task_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Pending.into(),
+                }))
+            })
+            .times(610);
+
+        let handler = DataLayerHandler {
+            client: mock_client,
+        };
+
+        let result = handler.ensure_provisioned(&config).await;
+
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Provisioning task timed out"
+        );
+    }
+
+    #[tokio::test]
+    async fn propagates_provisioning_failures() {
+        let config = IndexerConfig::default();
+
+        let mut mock_client = DataLayerClientWrapper::default();
+        mock_client
+            .expect_start_provisioning_task::<ProvisionRequest>()
+            .with(eq(ProvisionRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+                schema: config.schema.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartTaskResponse {
+                    task_id: "task_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Failed.into(),
+                }))
+            })
+            .once();
+
+        let handler = DataLayerHandler {
+            client: mock_client,
+        };
+
+        let result = handler.ensure_provisioned(&config).await;
+
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Provisioning task failed"
+        );
+    }
+
+    #[tokio::test]
+    async fn deprovisions_data_layer() {
+        let config = IndexerConfig::default();
+
+        let mut mock_client = DataLayerClientWrapper::default();
+        mock_client
+            .expect_start_deprovisioning_task::<DeprovisionRequest>()
+            .with(eq(DeprovisionRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartTaskResponse {
+                    task_id: "task_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Pending.into(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Complete.into(),
+                }))
+            })
+            .once();
+
+        let handler = DataLayerHandler {
+            client: mock_client,
+        };
+
+        handler
+            .ensure_deprovisioned(config.account_id, config.function_name)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn timesout_deprovisioning_task() {
+        tokio::time::pause();
+
+        let config = IndexerConfig::default();
+
+        let mut mock_client = DataLayerClientWrapper::default();
+        mock_client
+            .expect_start_deprovisioning_task::<DeprovisionRequest>()
+            .with(eq(DeprovisionRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartTaskResponse {
+                    task_id: "task_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Pending.into(),
+                }))
+            })
+            .times(610);
+
+        let handler = DataLayerHandler {
+            client: mock_client,
+        };
+
+        let result = handler
+            .ensure_deprovisioned(config.account_id, config.function_name)
+            .await;
+
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Deprovisioning task timed out"
+        );
+    }
+
+    #[tokio::test]
+    async fn propagates_deprovisioning_failures() {
+        let config = IndexerConfig::default();
+
+        let mut mock_client = DataLayerClientWrapper::default();
+        mock_client
+            .expect_start_deprovisioning_task::<DeprovisionRequest>()
+            .with(eq(DeprovisionRequest {
+                account_id: config.account_id.to_string(),
+                function_name: config.function_name.clone(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(StartTaskResponse {
+                    task_id: "task_id".to_string(),
+                }))
+            })
+            .once();
+        mock_client
+            .expect_get_task_status::<GetTaskStatusRequest>()
+            .with(eq(GetTaskStatusRequest {
+                task_id: "task_id".to_string(),
+            }))
+            .returning(|_| {
+                Ok(tonic::Response::new(GetTaskStatusResponse {
+                    status: TaskStatus::Failed.into(),
+                }))
+            })
+            .once();
+
+        let handler = DataLayerHandler {
+            client: mock_client,
+        };
+
+        let result = handler
+            .ensure_deprovisioned(config.account_id, config.function_name)
+            .await;
+
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Deprovisioning task failed"
+        );
     }
 }

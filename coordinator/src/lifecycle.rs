@@ -125,7 +125,7 @@ impl<'a> LifecycleManager<'a> {
 
         if let Err(error) = self
             .block_streams_handler
-            .synchronise_block_stream(config, state.block_stream_synced_at)
+            .synchronise(config, state.block_stream_synced_at)
             .await
         {
             warn!(?error, "Failed to synchronise block stream, retrying...");
@@ -135,7 +135,7 @@ impl<'a> LifecycleManager<'a> {
 
         state.block_stream_synced_at = Some(config.get_registry_version());
 
-        if let Err(error) = self.executors_handler.synchronise_executor(config).await {
+        if let Err(error) = self.executors_handler.synchronise(config).await {
             warn!(?error, "Failed to synchronise executor, retrying...");
 
             return LifecycleState::Running;
