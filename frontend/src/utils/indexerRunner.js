@@ -194,8 +194,8 @@ export default class IndexerRunner {
                 blockHeight,
                 `Mocking: Update of objects that match the specified fields with the following values in table ${tableDefinitionNames.originalTableName} on schema ${schemaName}`,
                 {
-                  matchingFields: whereObj.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col),
-                  fieldsToUpdate: updateObj.map((col) => tableDefinitionNames.originalColumnNames.get(col) ?? col),
+                  matchingFields: whereObj,
+                  fieldsToUpdate: updateObj,
                 },
               ),
 
