@@ -103,6 +103,7 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
+            tracing::warn!("Failed to provision data layer");
             return LifecycleState::Repairing;
         }
 
@@ -129,7 +130,6 @@ impl<'a> LifecycleManager<'a> {
             .await
         {
             warn!(?error, "Failed to synchronise block stream, retrying...");
-
             return LifecycleState::Running;
         }
 
@@ -137,7 +137,6 @@ impl<'a> LifecycleManager<'a> {
 
         if let Err(error) = self.executors_handler.synchronise(config).await {
             warn!(?error, "Failed to synchronise executor, retrying...");
-
             return LifecycleState::Running;
         }
 
@@ -180,6 +179,7 @@ impl<'a> LifecycleManager<'a> {
         // TODO Transistion to `Running` on config update
 
         if state.enabled {
+            tracing::debug!("Suspended indexer was reactivated");
             return LifecycleState::Running;
         }
 
