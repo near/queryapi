@@ -33,10 +33,16 @@ async fn sleep(duration: Duration) -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+    let subscriber =
+        tracing_subscriber::registry().with(tracing_subscriber::EnvFilter::from_default_env());
+
+    if std::env::var("GCP_LOGGING_ENABLED").is_ok() {
+        subscriber.with(tracing_stackdriver::layer()).init();
+    } else {
+        subscriber
+            .with(tracing_subscriber::fmt::layer().compact())
+            .init();
+    }
 
     let rpc_url = std::env::var("RPC_URL").expect("RPC_URL is not set");
     let registry_contract_id = std::env::var("REGISTRY_CONTRACT_ID")
