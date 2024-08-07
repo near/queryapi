@@ -323,41 +323,52 @@ export default class Provisioner {
   }
 
   async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type
-    const userName = indexerConfig.userName();
-    const databaseName = indexerConfig.databaseName();
-    const schemaName = indexerConfig.schemaName();
-
     await wrapSpan(async () => {
       await wrapError(
         async () => {
-          if (!await this.hasuraClient.doesSourceExist(databaseName)) {
-            const password = this.generatePassword();
-            await this.createUserDb(userName, password, databaseName);
-            await this.addDatasource(userName, password, databaseName);
-          }
-
-          await this.createSchema(databaseName, schemaName);
-
-          await this.createMetadataTable(databaseName, schemaName);
-          await this.setProvisioningStatus(userName, schemaName);
-          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
-          await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
-
-          const updatedTableNames = await this.getTableNames(schemaName, databaseName);
-
-          await this.trackTables(schemaName, updatedTableNames, databaseName);
-
-          await this.exponentialRetry(async () => {
-            await this.trackForeignKeyRelationships(schemaName, databaseName);
-          });
-
-          await this.exponentialRetry(async () => {
-            await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
-          });
+          await this.provisionSystemResources(indexerConfig);
+          await this.provisionUserResources(indexerConfig);
         },
         'Failed to provision endpoint'
       );
     }, this.tracer, 'provision indexer resources');
+  }
+
+  async provisionSystemResources (indexerConfig: ProvisioningConfig): Promise<void> {
+    const userName = indexerConfig.userName();
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
+
+    if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+      const password = this.generatePassword();
+      await this.createUserDb(userName, password, databaseName);
+      await this.addDatasource(userName, password, databaseName);
+    }
+
+    await this.createSchema(databaseName, schemaName);
+
+    await this.createMetadataTable(databaseName, schemaName);
+    await this.setProvisioningStatus(userName, schemaName);
+    await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+  }
+
+  async provisionUserResources (indexerConfig: ProvisioningConfig): Promise<void> {
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
+
+    await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+
+    const updatedTableNames = await this.getTableNames(schemaName, databaseName);
+
+    await this.trackTables(schemaName, updatedTableNames, databaseName);
+
+    await this.exponentialRetry(async () => {
+      await this.trackForeignKeyRelationships(schemaName, databaseName);
+    });
+
+    await this.exponentialRetry(async () => {
+      await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
+    });
   }
 
   async exponentialRetry (fn: () => Promise<void>): Promise<void> {
