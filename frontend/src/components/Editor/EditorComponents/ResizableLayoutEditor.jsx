@@ -8,7 +8,7 @@ const containerStyle = {
   display: 'flex',
   flexDirection: 'row',
   width: '100%',
-  height: '100%',
+  height: '100vh',
 };
 
 const editorContainerStyle = {
@@ -145,6 +145,8 @@ export default function ResizableLayoutEditor({
   indexingCode,
   onMount,
   isCreateNewIndexer,
+  launchPadDefaultCode,
+  launchPadDefaultSchema,
 }) {
   const {
     dragBarRef: dragBarRefConsole,
@@ -158,6 +160,9 @@ export default function ResizableLayoutEditor({
     sizeThresholdSecond: 20,
   });
 
+  const defaultCode = launchPadDefaultCode ? launchPadDefaultCode : originalIndexingCode;
+  const defaultSchema = launchPadDefaultSchema ? launchPadDefaultSchema : originalSQLCode;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Code Editor */}
@@ -165,15 +170,15 @@ export default function ResizableLayoutEditor({
         <ResizableEditor
           accountId={accountId}
           fileName={fileName}
-          indexingCode={indexingCode}
           blockView={blockView}
           diffView={diffView}
           onChangeCode={onChangeCode}
           onChangeSchema={onChangeSchema}
           block_details={block_details}
-          originalSQLCode={originalSQLCode}
-          originalIndexingCode={originalIndexingCode}
+          indexingCode={indexingCode}
+          originalIndexingCode={defaultCode}
           schema={schema}
+          originalSQLCode={defaultSchema}
           onMount={onMount}
         />
       </div>

@@ -42,6 +42,7 @@ const SCHEMA_TAB_NAME = 'schema.sql';
 const originalSQLCode = formatSQL(defaultSchema);
 const originalIndexingCode = formatIndexingCode(defaultCode);
 const pgSchemaTypeGen = new PgSchemaTypeGen();
+
 interface WizardResponse {
   wizardContractFilter: string;
   wizardMethods: Method[];
@@ -79,6 +80,10 @@ const Editor: React.FC = (): ReactElement => {
 
   const [diffView, setDiffView] = useState<boolean>(false);
   const [blockView, setBlockView] = useState<boolean>(false);
+
+  const [launchPadDefaultCode, setLaunchPadDefaultCode] = useState<string>('');
+  const [launchPadDefaultSchema, setLaunchPadDefaultSchema] = useState<string>('');
+
   const { showModal } = useModal();
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState<boolean>(false);
@@ -158,8 +163,8 @@ const Editor: React.FC = (): ReactElement => {
         const wrappedIndexingCode = wrapCode(jsCode) ? wrapCode(jsCode) : jsCode;
         const { validatedCode, validatedSchema } = reformatAll(wrappedIndexingCode, sqlCode);
 
-        validatedCode && setIndexingCode(validatedCode);
-        validatedSchema && setSchema(validatedSchema);
+        validatedCode && (setIndexingCode(validatedCode), setLaunchPadDefaultCode(validatedCode));
+        validatedSchema && (setSchema(validatedSchema), setLaunchPadDefaultSchema(validatedSchema));
       } catch (error: unknown) {
         //todo: figure out best course of action for user if api fails
         console.error(error);
@@ -471,6 +476,8 @@ const Editor: React.FC = (): ReactElement => {
                   schema={schema}
                   isCreateNewIndexer={isCreateNewIndexer}
                   onMount={handleEditorWillMount}
+                  launchPadDefaultCode={launchPadDefaultCode}
+                  launchPadDefaultSchema={launchPadDefaultSchema}
                 />
               </GlyphContainer>
             </div>
