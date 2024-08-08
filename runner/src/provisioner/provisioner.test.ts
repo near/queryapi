@@ -273,13 +273,13 @@ describe('Provisioner', () => {
     it('throws an error when it fails to create a postgres db', async () => {
       adminPgClient.query = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to create user db: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
     });
 
     it('throws an error when it fails to add the db to hasura', async () => {
       hasuraClient.addDatasource = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to add datasource: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
     });
 
     it('throws an error when it fails to run sql to create indexer sql', async () => {
@@ -309,39 +309,39 @@ describe('Provisioner', () => {
     it('throws an error when it fails to fetch table names', async () => {
       hasuraClient.getTableNames = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to fetch table names: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
     });
 
     it('throws an error when it fails to track tables', async () => {
       hasuraClient.trackTables = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to track tables: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
     });
 
     it('throws an error when it fails to track foreign key relationships', async () => {
       hasuraClient.trackForeignKeyRelationships = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to track foreign key relationships: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
       expect(hasuraClient.trackForeignKeyRelationships).toHaveBeenCalledTimes(testingRetryConfig.maxRetries);
     });
 
     it('throws an error when it fails to add permissions to tables', async () => {
       hasuraClient.addPermissionsToTables = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to add permissions to tables: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
       expect(hasuraClient.addPermissionsToTables).toHaveBeenCalledTimes(testingRetryConfig.maxRetries);
     });
 
     it('throws when grant cron access fails', async () => {
       cronPgClient.query = jest.fn().mockRejectedValue(error);
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to grant cron access: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
     });
 
     it('throws when scheduling cron jobs fails', async () => {
       userPgClientQuery = jest.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(error); // Succeed setting provisioning status first
 
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error');
+      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toMatchSnapshot();
     });
 
     it('get credentials for postgres', async () => {

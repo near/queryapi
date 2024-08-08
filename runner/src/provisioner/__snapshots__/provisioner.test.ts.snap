@@ -16,3 +16,19 @@ exports[`Provisioner provisionUserApi formats user input before executing the qu
   ],
 ]
 `;
+
+exports[`Provisioner provisionUserApi throws an error when it fails to add permissions to tables 1`] = `[FailedToProvisionUserResources: Failed to provision user resources: Failed to add permissions to tables: some error]`;
+
+exports[`Provisioner provisionUserApi throws an error when it fails to add the db to hasura 1`] = `[FailedToProvisionSystemResources: Failed to provision system resources: Failed to add datasource: some error]`;
+
+exports[`Provisioner provisionUserApi throws an error when it fails to create a postgres db 1`] = `[FailedToProvisionSystemResources: Failed to provision system resources: Failed to create user db: some error]`;
+
+exports[`Provisioner provisionUserApi throws an error when it fails to fetch table names 1`] = `[FailedToProvisionUserResources: Failed to provision user resources: Failed to fetch table names: some error]`;
+
+exports[`Provisioner provisionUserApi throws an error when it fails to track foreign key relationships 1`] = `[FailedToProvisionUserResources: Failed to provision user resources: Failed to track foreign key relationships: some error]`;
+
+exports[`Provisioner provisionUserApi throws an error when it fails to track tables 1`] = `[FailedToProvisionUserResources: Failed to provision user resources: Failed to track tables: some error]`;
+
+exports[`Provisioner provisionUserApi throws when grant cron access fails 1`] = `[FailedToProvisionSystemResources: Failed to provision system resources: Failed to setup partitioned logs table: Failed to grant cron access: some error]`;
+
+exports[`Provisioner provisionUserApi throws when scheduling cron jobs fails 1`] = `[FailedToProvisionSystemResources: Failed to provision system resources: Failed to setup partitioned logs table: Failed to schedule log partition jobs: some error]`;

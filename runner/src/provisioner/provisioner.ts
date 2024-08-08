@@ -57,8 +57,27 @@ const defaultRetryConfig: RetryConfig = {
   baseDelay: 1000
 };
 
+class FailedToProvisionSystemResources extends Error {
+  constructor (cause: Error) {
+    super(`Failed to provision system resources: ${cause.message}`, { cause });
+    this.name = this.constructor.name;
+  }
+}
+
+class FailedToProvisionUserResources extends Error {
+  constructor (cause: Error) {
+    super(`Failed to provision user resources: ${cause.message}`, { cause });
+    this.name = this.constructor.name;
+  }
+}
+
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
+
+  public static Errors = {
+    FailedToProvisionSystemResources,
+    FailedToProvisionUserResources
+  };
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -322,15 +341,19 @@ export default class Provisioner {
     }, 'Failed to deprovision');
   }
 
-  async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type
+  async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> {
     await wrapSpan(async () => {
-      await wrapError(
-        async () => {
-          await this.provisionSystemResources(indexerConfig);
-          await this.provisionUserResources(indexerConfig);
-        },
-        'Failed to provision endpoint'
-      );
+      try {
+        await this.provisionSystemResources(indexerConfig);
+      } catch (error) {
+        throw new FailedToProvisionSystemResources(error as Error);
+      }
+
+      try {
+        await this.provisionUserResources(indexerConfig);
+      } catch (error) {
+        throw new FailedToProvisionUserResources(error as Error);
+      }
     }, this.tracer, 'provision indexer resources');
   }
 
