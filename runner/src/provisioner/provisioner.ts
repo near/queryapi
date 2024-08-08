@@ -58,27 +58,8 @@ const defaultRetryConfig: RetryConfig = {
   baseDelay: 1000
 };
 
-class FailedToProvisionSystemResources extends Error {
-  constructor (cause: Error) {
-    super(`Failed to provision system resources: ${cause.message}`, { cause });
-    this.name = this.constructor.name;
-  }
-}
-
-class FailedToProvisionUserResources extends Error {
-  constructor (cause: Error) {
-    super(`Failed to provision user resources: ${cause.message}`, { cause });
-    this.name = this.constructor.name;
-  }
-}
-
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
-
-  public static Errors = {
-    FailedToProvisionSystemResources,
-    FailedToProvisionUserResources
-  };
 
   private readonly SYSTEM_TABLES = ['sys_logs', 'sys_metadata'];
   private readonly logger: typeof logger;
@@ -364,15 +345,21 @@ export default class Provisioner {
       } catch (err) {
         const error = err as Error;
 
-        // TODO handle failures write logs, should probably log to system
-        // TODO do this via pg directly to avoid to avoid requirement of indexer config?
-        const indexerMeta = new this.IndexerMeta(indexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
-        await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
+        try {
+          await this.writeFailureToUserLogs(indexerConfig, error);
+        } catch (error) {
+          logger.error('Failed to log provisioning failure', error);
+        }
 
         logger.warn('Failed to provision user resources', error);
         throw error;
       }
     }, this.tracer, 'provision indexer resources');
+  }
+
+  async writeFailureToUserLogs (indexerConfig: ProvisioningConfig, error: Error): Promise<void> {
+    const indexerMeta = new this.IndexerMeta(indexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
+    await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
   }
 
   async provisionSystemResources (indexerConfig: ProvisioningConfig): Promise<void> {
