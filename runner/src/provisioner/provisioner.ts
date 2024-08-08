@@ -333,27 +333,29 @@ export default class Provisioner {
     const logger = this.logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName });
 
     await wrapSpan(async () => {
-      try {
-        await this.provisionSystemResources(indexerConfig);
-      } catch (error) {
-        logger.error('Failed to provision system resources', error);
-        throw error;
-      }
-
-      try {
-        await this.provisionUserResources(indexerConfig);
-      } catch (err) {
-        const error = err as Error;
-
+      await wrapError(async () => {
         try {
-          await this.writeFailureToUserLogs(indexerConfig, error);
+          await this.provisionSystemResources(indexerConfig);
         } catch (error) {
-          logger.error('Failed to log provisioning failure', error);
+          logger.error('Failed to provision system resources', error);
+          throw error;
         }
 
-        logger.warn('Failed to provision user resources', error);
-        throw error;
-      }
+        try {
+          await this.provisionUserResources(indexerConfig);
+        } catch (err) {
+          const error = err as Error;
+
+          try {
+            await this.writeFailureToUserLogs(indexerConfig, error);
+          } catch (error) {
+            logger.error('Failed to log provisioning failure', error);
+          }
+
+          logger.warn('Failed to provision user resources', error);
+          throw error;
+        }
+      }, 'Failed to provision endpoint');
     }, this.tracer, 'provision indexer resources');
   }
 
