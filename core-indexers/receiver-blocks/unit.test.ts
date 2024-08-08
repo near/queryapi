@@ -1,5 +1,5 @@
 import fs from 'fs';
-import LocalIndexer from 'queryapi-runner/src/local-indexer';
+import LocalIndexer from 'queryapi-runner/src/indexer/local-indexer';
 import { LocalIndexerConfig } from 'queryapi-runner/src/indexer-config/indexer-config';
 import { LogLevel } from 'queryapi-runner/src/indexer-meta/log-entry';
 import path from 'path';
