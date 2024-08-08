@@ -74,7 +74,7 @@ export default class StreamHandler {
         this.executorContext.executionState = ExecutionState.RUNNING;
       } catch (error: any) {
         const errorContent = error instanceof Error ? error.toString() : JSON.stringify(error);
-        this.logger.error('Terminating thread', error);
+        this.logger.warn('Terminating thread', error);
         this.executorContext.executionState = ExecutionState.STALLED;
         throw new Error(`Failed to start Indexer: ${errorContent}`);
       }
@@ -92,7 +92,7 @@ export default class StreamHandler {
   }
 
   private handleError (error: Error): void {
-    this.logger.error('Terminating thread', error);
+    this.logger.warn('Terminating thread', error);
     this.executorContext.executionState = ExecutionState.STALLED;
 
     if (this.indexerMeta) {

@@ -187,7 +187,7 @@ async function blockQueueConsumer (workerContext: WorkerContext): Promise<void> 
         const error = err as Error;
         if (previousError !== error.message) {
           previousError = error.message;
-          workerContext.logger.error(`Failed on block ${currBlockHeight}`, err);
+          workerContext.logger.warn(`Failed on block ${currBlockHeight}`, err);
         }
         const sleepSpan = tracer.startSpan('Sleep for 10 seconds after failing', {}, context.active());
         await sleep(10000);

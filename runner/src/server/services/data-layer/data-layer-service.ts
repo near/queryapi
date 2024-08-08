@@ -112,7 +112,7 @@ export function createDataLayerService (
                 logger.info('Successfully provisioned Data Layer');
               })
               .catch((err) => {
-                logger.error('Failed to provision Data Layer', err);
+                logger.warn('Failed to provision Data Layer', err);
                 throw err;
               })
           );
@@ -120,7 +120,7 @@ export function createDataLayerService (
           callback(null, { taskId });
         })
         .catch((err) => {
-          logger.error('Failed to check if Data Layer is provisioned', err);
+          logger.warn('Failed to check if Data Layer is provisioned', err);
 
           const internal = new StatusBuilder()
             .withCode(status.INTERNAL)
@@ -148,7 +148,7 @@ export function createDataLayerService (
             logger.info('Successfully deprovisioned Data Layer');
           })
           .catch((err) => {
-            logger.error('Failed to deprovision Data Layer', err);
+            logger.warn('Failed to deprovision Data Layer', err);
             throw err;
           })
       );

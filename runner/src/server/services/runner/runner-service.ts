@@ -81,7 +81,7 @@ export function getRunnerService (
         executors.set(indexerConfig.executorId, streamHandler);
         callback(null, { executorId: indexerConfig.executorId });
         streamHandler.start().catch((error: Error) => {
-          logger.error('Failed to start executor', error);
+          logger.warn('Failed to start executor', error);
         });
       } catch (e) {
         const error = e as Error;
