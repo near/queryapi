@@ -9,8 +9,9 @@ import HasuraClient, {
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
+import type IndexerConfig from '../indexer-config/indexer-config';
 import { type ProvisioningConfig } from '../indexer-config/indexer-config';
-import { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus } from '../indexer-meta';
+import IndexerMetaClass, { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus, LogEntry } from '../indexer-meta';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -88,6 +89,7 @@ export default class Provisioner {
     private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
     private readonly PgClient: typeof PgClientClass = PgClientClass,
     private readonly retryConfig: RetryConfig = defaultRetryConfig,
+    private readonly IndexerMeta: typeof IndexerMetaClass = IndexerMetaClass
   ) {}
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
@@ -351,8 +353,13 @@ export default class Provisioner {
 
       try {
         await this.provisionUserResources(indexerConfig);
-      } catch (error) {
-        throw new FailedToProvisionUserResources(error as Error);
+      } catch (err) {
+        const error = err as Error;
+
+        const indexerMeta = new this.IndexerMeta(indexerConfig as IndexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
+        await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
+
+        throw new FailedToProvisionUserResources(error);
       }
     }, this.tracer, 'provision indexer resources');
   }
