@@ -9,7 +9,6 @@ import HasuraClient, {
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
-import type IndexerConfig from '../indexer-config/indexer-config';
 import { type ProvisioningConfig } from '../indexer-config/indexer-config';
 import IndexerMetaClass, { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus, LogEntry } from '../indexer-meta';
 
@@ -79,6 +78,8 @@ export default class Provisioner {
     FailedToProvisionSystemResources,
     FailedToProvisionUserResources
   };
+
+  private readonly SYSTEM_TABLES = ['sys_logs', 'sys_metadata'];
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -356,7 +357,9 @@ export default class Provisioner {
       } catch (err) {
         const error = err as Error;
 
-        const indexerMeta = new this.IndexerMeta(indexerConfig as IndexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
+        // TODO handle failures write logs, should probably log to system
+        // TODO do this via pg directly to avoid to avoid requirement of indexer config?
+        const indexerMeta = new this.IndexerMeta(indexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
         await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
 
         throw new FailedToProvisionUserResources(error);
@@ -380,6 +383,12 @@ export default class Provisioner {
     await this.createMetadataTable(databaseName, schemaName);
     await this.setProvisioningStatus(userName, schemaName);
     await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+
+    await this.trackTables(schemaName, this.SYSTEM_TABLES, databaseName);
+
+    await this.exponentialRetry(async () => {
+      await this.addPermissionsToTables(indexerConfig, this.SYSTEM_TABLES, ['select', 'insert', 'update', 'delete']);
+    });
   }
 
   async provisionUserResources (indexerConfig: ProvisioningConfig): Promise<void> {
@@ -388,16 +397,16 @@ export default class Provisioner {
 
     await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
 
-    const updatedTableNames = await this.getTableNames(schemaName, databaseName);
+    const userTableNames = (await this.getTableNames(schemaName, databaseName)).filter((tableName) => !this.SYSTEM_TABLES.includes(tableName));
 
-    await this.trackTables(schemaName, updatedTableNames, databaseName);
+    await this.trackTables(schemaName, userTableNames, databaseName);
 
     await this.exponentialRetry(async () => {
       await this.trackForeignKeyRelationships(schemaName, databaseName);
     });
 
     await this.exponentialRetry(async () => {
-      await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
+      await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
     });
   }
 
