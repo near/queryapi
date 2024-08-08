@@ -9,7 +9,7 @@ import LogEntry from '../indexer-meta/log-entry';
 import type IndexerConfig from '../indexer-config';
 import { IndexerStatus } from '../indexer-meta';
 import { type IndexerMetaInterface } from '../indexer-meta/indexer-meta';
-import type ContextBuilder from '../context-builder';
+import type ContextBuilder from './context-builder';
 
 interface Dependencies {
   contextBuilder: ContextBuilder

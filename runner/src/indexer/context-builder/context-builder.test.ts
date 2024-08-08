@@ -1,8 +1,8 @@
 import type fetch from 'node-fetch';
 
-import type DmlHandler from '../dml-handler';
-import IndexerConfig from '../indexer-config';
-import { LogLevel } from '../indexer-meta/log-entry';
+import type DmlHandler from '../../dml-handler';
+import IndexerConfig from '../../indexer-config';
+import { LogLevel } from '../../indexer-meta/log-entry';
 import ContextBuilder from './context-builder';
 
 describe('ContextBuilder unit tests', () => {
