@@ -17,7 +17,8 @@ export class ProvisioningConfig extends BaseConfig {
   constructor (
     public readonly accountId: string,
     public readonly functionName: string,
-    public readonly schema: string
+    public readonly schema: string,
+    public readonly logLevel: LogLevel = LogLevel.INFO
   ) {
     super(accountId, functionName);
   }
@@ -101,7 +102,7 @@ export default class IndexerConfig extends ProvisioningConfig {
     public readonly schema: string,
     public readonly logLevel: LogLevel
   ) {
-    super(accountId, functionName, schema);
+    super(accountId, functionName, schema, logLevel);
     const hash = crypto.createHash('sha256');
     hash.update(`${accountId}/${functionName}`);
     this.executorId = hash.digest('hex');
