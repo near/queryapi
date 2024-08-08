@@ -11,6 +11,7 @@ import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import { type ProvisioningConfig } from '../indexer-config/indexer-config';
 import IndexerMetaClass, { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus, LogEntry } from '../indexer-meta';
+import logger from '../logger';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -80,6 +81,7 @@ export default class Provisioner {
   };
 
   private readonly SYSTEM_TABLES = ['sys_logs', 'sys_metadata'];
+  private readonly logger: typeof logger;
 
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
@@ -91,7 +93,9 @@ export default class Provisioner {
     private readonly PgClient: typeof PgClientClass = PgClientClass,
     private readonly retryConfig: RetryConfig = defaultRetryConfig,
     private readonly IndexerMeta: typeof IndexerMetaClass = IndexerMetaClass
-  ) {}
+  ) {
+    this.logger = logger.child({ service: 'Provisioner' });
+  }
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
     return this.crypto
@@ -345,11 +349,14 @@ export default class Provisioner {
   }
 
   async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> {
+    const logger = this.logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName });
+
     await wrapSpan(async () => {
       try {
         await this.provisionSystemResources(indexerConfig);
       } catch (error) {
-        throw new FailedToProvisionSystemResources(error as Error);
+        logger.error('Failed to provision system resources', error);
+        throw error;
       }
 
       try {
@@ -362,7 +369,8 @@ export default class Provisioner {
         const indexerMeta = new this.IndexerMeta(indexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
         await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
 
-        throw new FailedToProvisionUserResources(error);
+        logger.warn('Failed to provision user resources', error);
+        throw error;
       }
     }, this.tracer, 'provision indexer resources');
   }
