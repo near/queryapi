@@ -3,7 +3,7 @@ import { trace, type Span, context } from '@opentelemetry/api';
 import promClient from 'prom-client';
 import { Block } from '@near-lake/primitives';
 
-import Indexer from '../indexer';
+import { Indexer } from '../indexer';
 import RedisClient from '../redis-client';
 import { METRICS } from '../metrics';
 import LakeClient from '../lake-client';
@@ -14,8 +14,8 @@ import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
 import { type PostgresConnectionParams } from '../pg-client';
-import DmlHandler from 'src/indexer/context-builder/dml-handler/dml-handler';
-import ContextBuilder from 'src/indexer/context-builder';
+import { DmlHandler } from '../indexer/dml-handler';
+import ContextBuilder from '../indexer/context-builder';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');

@@ -6,7 +6,6 @@
     "rootDir": "../", 
     "paths": {
       "@queryapi-runner/*": ["../runner/*"],             /* Allow imports from runner using queryapi-runner alias */
-      "src/*": ["../runner/src/*"]                       /* Allow absolute imports in runner */
     },
     "moduleResolution": "node",                     /* Specify how TypeScript looks up a file from a given module specifier. */
     "resolveJsonModule": true,                           /* Enable importing .json files. */

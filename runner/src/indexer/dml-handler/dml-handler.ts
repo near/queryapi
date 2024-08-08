@@ -1,7 +1,7 @@
-import { wrapError } from 'src/utility';
-import PgClient, { type PostgresConnectionParams } from 'src/pg-client';
-import { type TableDefinitionNames } from 'src/indexer';
-import type IndexerConfig from 'src/indexer-config/indexer-config';
+import { wrapError } from '../../utility';
+import PgClient, { type PostgresConnectionParams } from '../../pg-client';
+import { type TableDefinitionNames } from '../../indexer';
+import type IndexerConfig from '../../indexer-config/indexer-config';
 
 import { type Tracer, trace, type Span } from '@opentelemetry/api';
 import { type QueryResult } from 'pg';

@@ -1,4 +1,4 @@
-import { type TableDefinitionNames } from 'src/indexer';
+import { type TableDefinitionNames } from '../../indexer';
 import InMemoryDmlHandler from './in-memory-dml-handler';
 
 const DEFAULT_ITEM_1_WITHOUT_ID = {

@@ -2,7 +2,7 @@ import { Block, type StreamerMessage } from '@near-lake/primitives';
 
 import Indexer from './indexer';
 import { VM } from 'vm2';
-import type { DmlHandler } from './context-builder/dml-handler';
+import type { DmlHandler } from './dml-handler';
 import { LogLevel } from '../indexer-meta/log-entry';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { IndexerStatus } from '../indexer-meta';
