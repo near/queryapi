@@ -2,20 +2,20 @@ import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Network, type StartedNetwork } from 'testcontainers';
 import { gql, GraphQLClient } from 'graphql-request';
 
-import Indexer from '../src/indexer';
-import HasuraClient from '../src/hasura-client';
-import Provisioner from '../src/provisioner';
-import PgClient from '../src/pg-client';
+import Indexer from 'src/indexer';
+import HasuraClient from 'src/hasura-client';
+import Provisioner from 'src/provisioner';
+import PgClient from 'src/pg-client';
 
 import { HasuraGraphQLContainer, type StartedHasuraGraphQLContainer } from './testcontainers/hasura';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from './testcontainers/postgres';
 import block_115185108 from './blocks/00115185108/streamer_message.json';
 import block_115185109 from './blocks/00115185109/streamer_message.json';
-import { LogLevel } from '../src/indexer-meta/log-entry';
-import IndexerConfig from '../src/indexer-config';
-import IndexerMeta from '../src/indexer-meta/indexer-meta';
-import DmlHandler from '../src/dml-handler/dml-handler';
-import ContextBuilder from '../src/indexer/context-builder';
+import { LogLevel } from 'src/indexer-meta/log-entry';
+import IndexerConfig from 'src/indexer-config';
+import IndexerMeta from 'src/indexer-meta/indexer-meta';
+import DmlHandler from 'src/indexer/context-builder/dml-handler/dml-handler';
+import ContextBuilder from 'src/indexer/context-builder';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);

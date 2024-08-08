@@ -14,8 +14,8 @@ import IndexerConfig from '../indexer-config';
 import parentLogger from '../logger';
 import { wrapSpan } from '../utility';
 import { type PostgresConnectionParams } from '../pg-client';
-import DmlHandler from '../dml-handler/dml-handler';
-import ContextBuilder from '../context-builder';
+import DmlHandler from 'src/indexer/context-builder/dml-handler/dml-handler';
+import ContextBuilder from 'src/indexer/context-builder';
 
 if (isMainThread) {
   throw new Error('Worker should not be run on main thread');

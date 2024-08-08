@@ -1,5 +1,5 @@
 import ContextBuilder, { type ContextObject } from '../context-builder';
-import InMemoryDmlHandler from '../../dml-handler/in-memory-dml-handler';
+import InMemoryDmlHandler from '../context-builder/dml-handler/in-memory-dml-handler';
 import IndexerConfig from '../../indexer-config';
 import { type LocalIndexerConfig } from '../../indexer-config/indexer-config';
 import NoOpIndexerMeta from '../../indexer-meta/no-op-indexer-meta';

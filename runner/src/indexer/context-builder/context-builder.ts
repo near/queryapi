@@ -1,11 +1,11 @@
 import fetch from 'node-fetch';
 import { type Response } from 'node-fetch';
 import { Parser } from 'node-sql-parser';
-import { type DmlHandlerInterface } from '../../dml-handler/dml-handler';
+import { type DmlHandlerInterface } from './dml-handler/dml-handler';
 import { type TableDefinitionNames } from '../indexer';
-import type IndexerConfig from '../../indexer-config/indexer-config';
-import { LogEntry } from '../../indexer-meta';
-import { wrapSpan } from '../../utility';
+import type IndexerConfig from 'src/indexer-config/indexer-config';
+import { LogEntry } from 'src/indexer-meta';
+import { wrapSpan } from 'src/utility';
 import assert from 'assert';
 import logger from '../../logger';
 import { trace } from '@opentelemetry/api';
