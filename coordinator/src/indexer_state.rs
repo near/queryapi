@@ -80,17 +80,22 @@ impl IndexerStateManagerImpl {
             tracing::info!("Migrating {}", raw_state);
 
             let old_state: OldIndexerState = serde_json::from_str(&raw_state)?;
+            let migrated_lifecycle_state =
+                if old_state.lifecycle_state == OldLifecycleState::Stopping {
+                    LifecycleState::Suspending
+                } else if old_state.lifecycle_state == OldLifecycleState::Stopped {
+                    LifecycleState::Suspended
+                } else {
+                    tracing::warn!("Unknown lifecycle state: {:?}", old_state.lifecycle_state);
+                    continue;
+                };
 
             let state = IndexerState {
                 account_id: old_state.account_id,
                 function_name: old_state.function_name,
                 block_stream_synced_at: old_state.block_stream_synced_at,
                 enabled: old_state.enabled,
-                lifecycle_state: if old_state.lifecycle_state == OldLifecycleState::Stopping {
-                    LifecycleState::Suspending
-                } else {
-                    LifecycleState::Suspended
-                },
+                lifecycle_state: migrated_lifecycle_state,
             };
             self.redis_client
                 .set(state.get_state_key(), serde_json::to_string(&state)?)
