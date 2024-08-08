@@ -112,7 +112,14 @@ export function createDataLayerService (
                 logger.info('Successfully provisioned Data Layer');
               })
               .catch((err) => {
-                logger.warn('Failed to provision Data Layer', err);
+                if (err instanceof Provisioner.Errors.FailedToProvisionSystemResources) {
+                  logger.error('Failed to provision system data layer resources', err);
+                }
+
+                if (err instanceof Provisioner.Errors.FailedToProvisionUserResources) {
+                  logger.warn('Failed to provision user data layer resources', err);
+                }
+
                 throw err;
               })
           );
