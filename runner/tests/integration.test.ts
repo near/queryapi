@@ -270,7 +270,7 @@ describe('Indexer integration', () => {
     await expect(hasuraClient.doesSourceExist(testConfig1.databaseName())).resolves.toBe(false);
   });
 
-  it.only('Writes provisioning errors to user logs table', async () => {
+  it('Writes provisioning errors to user logs table', async () => {
     const testConfig = new IndexerConfig(
       'test:stream',
       'user-failures.near', // must be unique to prevent conflicts with other tests
