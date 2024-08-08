@@ -53,6 +53,30 @@ const fetchWizardData = (req: string): Promise<WizardResponse> => {
   return request<WizardResponse>('launchpad-create-indexer', req);
 };
 
+const generateCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
+  try {
+    const response = await fetch('/api/generateCode', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ contractFilter, selectedMethods, selectedEvents }),
+    });
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const data = await response.json();
+
+    if (!data.hasOwnProperty('jsCode') || !data.hasOwnProperty('sqlCode')) {
+      throw new Error('No code was returned from the server with properties jsCode and sqlCode');
+    }
+
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
 
@@ -128,30 +152,6 @@ const Editor: React.FC = (): ReactElement => {
     return;
   };
 
-  const generateCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
-    try {
-      const response = await fetch('/api/generateCode', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ contractFilter, selectedMethods, selectedEvents }),
-      });
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const data = await response.json();
-
-      if (!data.hasOwnProperty('jsCode') || !data.hasOwnProperty('sqlCode')) {
-        throw new Error('No code was returned from the server with properties jsCode and sqlCode');
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
   useEffect(() => {
     (async () => {
       try {
@@ -204,7 +204,6 @@ const Editor: React.FC = (): ReactElement => {
   useEffect(() => {
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
-
     if (schemaError || codeError) {
       if (schemaError) schemaErrorHandler(schemaError);
       if (codeError) indexerErrorHandler(codeError);
@@ -212,7 +211,7 @@ const Editor: React.FC = (): ReactElement => {
     }
 
     handleCodeGen();
-  }, [fileName]);
+  }, [fileName, launchPadDefaultCode, launchPadDefaultSchema, schema, indexingCode]);
 
   useEffect(() => {
     cacheToLocal();
