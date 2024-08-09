@@ -17,12 +17,17 @@ pub enum ProvisionedState {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+pub enum OldLifecycleState {
+    Stopping,
+    Stopped,
+}
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct OldIndexerState {
     pub account_id: AccountId,
     pub function_name: String,
     pub block_stream_synced_at: Option<u64>,
     pub enabled: bool,
-    pub provisioned_state: ProvisionedState,
+    pub lifecycle_state: OldLifecycleState,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
@@ -75,15 +80,23 @@ impl IndexerStateManagerImpl {
             tracing::info!("Migrating {}", raw_state);
 
             let old_state: OldIndexerState = serde_json::from_str(&raw_state)?;
+            let migrated_lifecycle_state =
+                if old_state.lifecycle_state == OldLifecycleState::Stopping {
+                    LifecycleState::Suspending
+                } else if old_state.lifecycle_state == OldLifecycleState::Stopped {
+                    LifecycleState::Suspended
+                } else {
+                    tracing::warn!("Unknown lifecycle state: {:?}", old_state.lifecycle_state);
+                    continue;
+                };
 
             let state = IndexerState {
                 account_id: old_state.account_id,
                 function_name: old_state.function_name,
                 block_stream_synced_at: old_state.block_stream_synced_at,
                 enabled: old_state.enabled,
-                lifecycle_state: LifecycleState::Running,
+                lifecycle_state: migrated_lifecycle_state,
             };
-
             self.redis_client
                 .set(state.get_state_key(), serde_json::to_string(&state)?)
                 .await?;
@@ -181,6 +194,59 @@ mod tests {
 
     use mockall::predicate;
     use registry_types::{Rule, StartBlock, Status};
+
+    #[tokio::test]
+    async fn migrate_state() {
+        let mut mock_redis_client = RedisClient::default();
+        let valid_state = serde_json::json!({ "account_id": "morgs.near", "function_name": "test_valid_1", "block_stream_synced_at": 200, "enabled": true, "lifecycle_state": "Initializing" }).to_string();
+        let valid_state_two = serde_json::json!({ "account_id": "morgs.near", "function_name": "test_valid_2", "block_stream_synced_at": 200, "enabled": true, "lifecycle_state": "Running" }).to_string();
+        let state_to_migrate_stopping = serde_json::json!({ "account_id": "morgs.near", "function_name": "test_migrate_stopping", "block_stream_synced_at": 200, "enabled": true, "lifecycle_state": "Stopping" }).to_string();
+        let state_to_migrate_stopped = serde_json::json!({ "account_id": "morgs.near", "function_name": "test_migrate_stopped", "block_stream_synced_at": 200, "enabled": true, "lifecycle_state": "Stopped" }).to_string();
+        let migrated_suspending = IndexerState {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test_migrate_stopping".to_string(),
+            block_stream_synced_at: Some(200),
+            enabled: true,
+            lifecycle_state: LifecycleState::Suspending,
+        };
+        let migrated_suspended = IndexerState {
+            account_id: "morgs.near".parse().unwrap(),
+            function_name: "test_migrate_stopped".to_string(),
+            block_stream_synced_at: Some(200),
+            enabled: true,
+            lifecycle_state: LifecycleState::Suspended,
+        };
+        mock_redis_client
+            .expect_list_indexer_states()
+            .returning(move || {
+                Ok(vec![
+                    valid_state.clone(),
+                    valid_state_two.clone(),
+                    state_to_migrate_stopping.clone(),
+                    state_to_migrate_stopped.clone(),
+                ])
+            })
+            .once();
+        mock_redis_client
+            .expect_set::<String, String>()
+            .with(
+                predicate::eq(migrated_suspending.get_state_key()),
+                predicate::eq(serde_json::to_string(&migrated_suspending).unwrap()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+        mock_redis_client
+            .expect_set::<String, String>()
+            .with(
+                predicate::eq(migrated_suspended.get_state_key()),
+                predicate::eq(serde_json::to_string(&migrated_suspended).unwrap()),
+            )
+            .returning(|_, _| Ok(()))
+            .once();
+
+        let indexer_manager = IndexerStateManagerImpl::new(mock_redis_client);
+        let _ = indexer_manager.migrate().await;
+    }
 
     #[tokio::test]
     async fn list_indexer_states() {

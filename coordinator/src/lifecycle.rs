@@ -24,22 +24,22 @@ pub enum LifecycleState {
     /// they are running the latest version of the Indexer.
     ///
     /// Transitions:
-    /// - `Stopping` if suspended
+    /// - `Suspending` if suspended
     /// - `Running` if Block Stream or Executor fails to synchronise, essentially triggering a
     /// retry
     /// - `Running` on success
     Running,
-    /// Indexer is being stopped, Block Stream and Executors are being stopped.
+    /// Indexer is being suspended, Block Stream and Executors are being stopped.
     ///
     /// Transitions:
-    /// - `Stopping` on failure, triggering a retry
-    /// - `Stopped` on success
-    Stopping,
-    /// Indexer is stopped, Block Stream and Executors are not running.
+    /// - `Suspending` on failure, triggering a retry
+    /// - `Suspended` on success
+    Suspending,
+    /// Indexer is suspended, Block Stream and Executors are not running.
     ///
     /// Transitions:
     /// - `Running` if unsuspended
-    Stopped,
+    Suspended,
     /// Indexer is in a bad state, currently requires manual intervention, but should eventually
     /// self heal. This is a dead-end state
     ///
@@ -103,6 +103,7 @@ impl<'a> LifecycleManager<'a> {
             .await
             .is_err()
         {
+            tracing::warn!("Failed to provision data layer");
             return LifecycleState::Repairing;
         }
 
@@ -120,7 +121,7 @@ impl<'a> LifecycleManager<'a> {
         }
 
         if !state.enabled {
-            return LifecycleState::Stopping;
+            return LifecycleState::Suspending;
         }
 
         if let Err(error) = self
@@ -129,7 +130,6 @@ impl<'a> LifecycleManager<'a> {
             .await
         {
             warn!(?error, "Failed to synchronise block stream, retrying...");
-
             return LifecycleState::Running;
         }
 
@@ -137,15 +137,14 @@ impl<'a> LifecycleManager<'a> {
 
         if let Err(error) = self.executors_handler.synchronise(config).await {
             warn!(?error, "Failed to synchronise executor, retrying...");
-
             return LifecycleState::Running;
         }
 
         LifecycleState::Running
     }
 
-    #[tracing::instrument(name = "stopping", skip_all)]
-    async fn handle_stopping(&self, config: &IndexerConfig) -> LifecycleState {
+    #[tracing::instrument(name = "suspending", skip_all)]
+    async fn handle_suspending(&self, config: &IndexerConfig) -> LifecycleState {
         if config.is_deleted() {
             return LifecycleState::Deleting;
         }
@@ -156,7 +155,7 @@ impl<'a> LifecycleManager<'a> {
             .await
         {
             warn!(?error, "Failed to stop block stream, retrying...");
-            return LifecycleState::Stopping;
+            return LifecycleState::Suspending;
         }
 
         if let Err(error) = self
@@ -165,14 +164,18 @@ impl<'a> LifecycleManager<'a> {
             .await
         {
             warn!(?error, "Failed to stop executor, retrying...");
-            return LifecycleState::Stopping;
+            return LifecycleState::Suspending;
         }
 
-        LifecycleState::Stopped
+        LifecycleState::Suspended
     }
 
-    #[tracing::instrument(name = "stopped", skip_all)]
-    async fn handle_stopped(&self, config: &IndexerConfig, state: &IndexerState) -> LifecycleState {
+    #[tracing::instrument(name = "suspended", skip_all)]
+    async fn handle_suspended(
+        &self,
+        config: &IndexerConfig,
+        state: &IndexerState,
+    ) -> LifecycleState {
         if config.is_deleted() {
             return LifecycleState::Deleting;
         }
@@ -180,10 +183,11 @@ impl<'a> LifecycleManager<'a> {
         // TODO Transistion to `Running` on config update
 
         if state.enabled {
+            tracing::debug!("Suspended indexer was reactivated");
             return LifecycleState::Running;
         }
 
-        LifecycleState::Stopped
+        LifecycleState::Suspended
     }
 
     #[tracing::instrument(name = "repairing", skip_all)]
@@ -299,8 +303,8 @@ impl<'a> LifecycleManager<'a> {
             let desired_lifecycle_state = match state.lifecycle_state {
                 LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
                 LifecycleState::Running => self.handle_running(&config, &mut state).await,
-                LifecycleState::Stopping => self.handle_stopping(&config).await,
-                LifecycleState::Stopped => self.handle_stopped(&config, &state).await,
+                LifecycleState::Suspending => self.handle_suspending(&config).await,
+                LifecycleState::Suspended => self.handle_suspended(&config, &state).await,
                 LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
                 LifecycleState::Deleting => self.handle_deleting(&state).await,
                 LifecycleState::Deleted => LifecycleState::Deleted,
