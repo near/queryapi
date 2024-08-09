@@ -15,7 +15,14 @@ import {
 } from '@/constants/Strings';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { useModal } from '@/contexts/ModalContext';
-import { defaultCode, defaultSchema, defaultSchemaTypes, formatIndexingCode, formatSQL } from '@/utils/formatters';
+import {
+  defaultCode,
+  defaultSchema,
+  defaultSchemaTypes,
+  formatIndexingCode,
+  formatSQL,
+  wrapCode,
+} from '@/utils/formatters';
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import IndexerRunner from '@/utils/indexerRunner';
 import { PgSchemaTypeGen } from '@/utils/pgSchemaTypeGen';
@@ -141,25 +148,23 @@ const Editor: React.FC = (): ReactElement => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       try {
-        const response = await fetchWizardData('');
-        const { wizardContractFilter, wizardMethods, wizardEvents } = response;
+        const { wizardContractFilter, wizardMethods, wizardEvents } = await fetchWizardData('');
 
-        if (wizardContractFilter === 'noFilter') {
-          return;
-        }
+        if (wizardContractFilter === 'noFilter') return;
 
-        const codeResponse = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
-        const { validatedCode, validatedSchema } = reformatAll(codeResponse.jsCode, codeResponse.sqlCode);
+        const { jsCode, sqlCode } = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
+        const wrappedIndexingCode = wrapCode(jsCode) ? wrapCode(jsCode) : jsCode;
+        const { validatedCode, validatedSchema } = reformatAll(wrappedIndexingCode, sqlCode);
+
         validatedCode && setIndexingCode(validatedCode);
         validatedSchema && setSchema(validatedSchema);
       } catch (error: unknown) {
         //todo: figure out best course of action for user if api fails
         console.error(error);
       }
-    };
-    fetchData();
+    })();
   }, []);
 
   useEffect(() => {
