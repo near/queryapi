@@ -2,7 +2,7 @@ import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Network, type StartedNetwork } from 'testcontainers';
 import { gql, GraphQLClient } from 'graphql-request';
 
-import Indexer from '../src/indexer';
+import { Indexer } from '../src/indexer';
 import HasuraClient from '../src/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
@@ -14,7 +14,8 @@ import block_115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
 import IndexerMeta from '../src/indexer-meta/indexer-meta';
-import DmlHandler from '../src/dml-handler/dml-handler';
+import { DmlHandler } from '../src/indexer/dml-handler';
+import ContextBuilder from '../src/indexer/context-builder';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -293,17 +294,20 @@ async function prepareIndexer (indexerConfig: IndexerConfig, provisioner: Provis
 
   const dbConnectionParams = await provisioner.getPostgresConnectionParameters(indexerConfig.userName());
   const dmlHandler = new DmlHandler(dbConnectionParams, indexerConfig);
+  const contextBuilder = new ContextBuilder(
+    indexerConfig,
+    { dmlHandler },
+    {
+      hasuraAdminSecret: hasuraContainer.getAdminSecret(),
+      hasuraEndpoint: hasuraContainer.getEndpoint(),
+    });
   const indexerMeta = new IndexerMeta(indexerConfig, dbConnectionParams);
 
   return new Indexer(
     indexerConfig,
     {
-      dmlHandler,
+      contextBuilder,
       indexerMeta,
-    },
-    {
-      hasuraAdminSecret: hasuraContainer.getAdminSecret(),
-      hasuraEndpoint: hasuraContainer.getEndpoint(),
     }
   );
 }
