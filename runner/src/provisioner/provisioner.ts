@@ -5,7 +5,7 @@ import { wrapError, wrapSpan } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient, {
   type HasuraDatabaseConnectionParameters,
-} from '../hasura-client';
+} from './hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';

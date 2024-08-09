@@ -3,7 +3,7 @@ import { Network, type StartedNetwork } from 'testcontainers';
 import { gql, GraphQLClient } from 'graphql-request';
 
 import { Indexer } from '../src/indexer';
-import HasuraClient from '../src/hasura-client';
+import HasuraClient from '../src/provisioner/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
 
