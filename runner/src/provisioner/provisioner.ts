@@ -10,7 +10,8 @@ import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import { type ProvisioningConfig } from '../indexer-config/indexer-config';
-import { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus } from '../indexer-meta';
+import IndexerMetaClass, { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus, LogEntry } from '../indexer-meta';
+import logger from '../logger';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -60,6 +61,9 @@ const defaultRetryConfig: RetryConfig = {
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
 
+  private readonly SYSTEM_TABLES = ['sys_logs', 'sys_metadata'];
+  private readonly logger: typeof logger;
+
   constructor (
     private readonly hasuraClient: HasuraClient = new HasuraClient(),
     private readonly adminDefaultPgClient: PgClientClass = adminDefaultPgClientGlobal,
@@ -69,7 +73,10 @@ export default class Provisioner {
     private readonly pgFormat: typeof pgFormatLib = pgFormatLib,
     private readonly PgClient: typeof PgClientClass = PgClientClass,
     private readonly retryConfig: RetryConfig = defaultRetryConfig,
-  ) {}
+    private readonly IndexerMeta: typeof IndexerMetaClass = IndexerMetaClass
+  ) {
+    this.logger = logger.child({ service: 'Provisioner' });
+  }
 
   generatePassword (length: number = DEFAULT_PASSWORD_LENGTH): string {
     return this.crypto
@@ -322,42 +329,82 @@ export default class Provisioner {
     }, 'Failed to deprovision');
   }
 
-  async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> { // replace any with actual type
+  async provisionUserApi (indexerConfig: ProvisioningConfig): Promise<void> {
+    const logger = this.logger.child({ accountId: indexerConfig.accountId, functionName: indexerConfig.functionName });
+
+    await wrapSpan(async () => {
+      await wrapError(async () => {
+        try {
+          await this.provisionSystemResources(indexerConfig);
+        } catch (error) {
+          logger.error('Failed to provision system resources', error);
+          throw error;
+        }
+
+        try {
+          await this.provisionUserResources(indexerConfig);
+        } catch (err) {
+          const error = err as Error;
+
+          try {
+            await this.writeFailureToUserLogs(indexerConfig, error);
+          } catch (error) {
+            logger.error('Failed to log provisioning failure', error);
+          }
+
+          logger.warn('Failed to provision user resources', error);
+          throw error;
+        }
+      }, 'Failed to provision endpoint');
+    }, this.tracer, 'provision indexer resources');
+  }
+
+  async writeFailureToUserLogs (indexerConfig: ProvisioningConfig, error: Error): Promise<void> {
+    const indexerMeta = new this.IndexerMeta(indexerConfig, await this.getPostgresConnectionParameters(indexerConfig.userName()));
+    await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
+  }
+
+  async provisionSystemResources (indexerConfig: ProvisioningConfig): Promise<void> {
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
 
-    await wrapSpan(async () => {
-      await wrapError(
-        async () => {
-          if (!await this.hasuraClient.doesSourceExist(databaseName)) {
-            const password = this.generatePassword();
-            await this.createUserDb(userName, password, databaseName);
-            await this.addDatasource(userName, password, databaseName);
-          }
+    if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+      const password = this.generatePassword();
+      await this.createUserDb(userName, password, databaseName);
+      await this.addDatasource(userName, password, databaseName);
+    }
 
-          await this.createSchema(databaseName, schemaName);
+    await this.createSchema(databaseName, schemaName);
 
-          await this.createMetadataTable(databaseName, schemaName);
-          await this.setProvisioningStatus(userName, schemaName);
-          await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
-          await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+    await this.createMetadataTable(databaseName, schemaName);
+    await this.setProvisioningStatus(userName, schemaName);
+    await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
-          const updatedTableNames = await this.getTableNames(schemaName, databaseName);
+    await this.trackTables(schemaName, this.SYSTEM_TABLES, databaseName);
 
-          await this.trackTables(schemaName, updatedTableNames, databaseName);
+    await this.exponentialRetry(async () => {
+      await this.addPermissionsToTables(indexerConfig, this.SYSTEM_TABLES, ['select', 'insert', 'update', 'delete']);
+    });
+  }
 
-          await this.exponentialRetry(async () => {
-            await this.trackForeignKeyRelationships(schemaName, databaseName);
-          });
+  async provisionUserResources (indexerConfig: ProvisioningConfig): Promise<void> {
+    const databaseName = indexerConfig.databaseName();
+    const schemaName = indexerConfig.schemaName();
 
-          await this.exponentialRetry(async () => {
-            await this.addPermissionsToTables(indexerConfig, updatedTableNames, ['select', 'insert', 'update', 'delete']);
-          });
-        },
-        'Failed to provision endpoint'
-      );
-    }, this.tracer, 'provision indexer resources');
+    await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+
+    const userTableNames = (await this.getTableNames(schemaName, databaseName)).filter((tableName) => !this.SYSTEM_TABLES.includes(tableName));
+
+    await this.trackTables(schemaName, userTableNames, databaseName);
+
+    await this.exponentialRetry(async () => {
+      await this.trackForeignKeyRelationships(schemaName, databaseName);
+    });
+
+    await this.exponentialRetry(async () => {
+      await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
+    });
   }
 
   async exponentialRetry (fn: () => Promise<void>): Promise<void> {

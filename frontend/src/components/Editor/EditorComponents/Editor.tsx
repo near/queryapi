@@ -158,7 +158,6 @@ const Editor: React.FC = (): ReactElement => {
         const { wizardContractFilter, wizardMethods, wizardEvents } = await fetchWizardData('');
 
         if (wizardContractFilter === 'noFilter') return;
-
         const { jsCode, sqlCode } = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
         const wrappedIndexingCode = wrapCode(jsCode) ? wrapCode(jsCode) : jsCode;
         const { validatedCode, validatedSchema } = reformatAll(wrappedIndexingCode, sqlCode);

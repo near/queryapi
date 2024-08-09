@@ -6,3 +6,5 @@ redis/
 node_modules/
 .vscode/
 runner/yarn.lock
+**/.DS_Store
+

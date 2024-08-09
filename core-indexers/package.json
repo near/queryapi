@@ -7,9 +7,6 @@
   },
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "queryapi-runner": "file:../runner"
-  },
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.7.0",
