@@ -176,7 +176,6 @@ const Editor: React.FC = (): ReactElement => {
   }, []);
 
   useEffect(() => {
-    console.log(indexerDetails.code);
     //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
     if (savedCode) setIndexingCode(savedCode);
@@ -195,7 +194,6 @@ const Editor: React.FC = (): ReactElement => {
   }, [indexerDetails.code]);
 
   useEffect(() => {
-    console.log(indexerDetails.schema);
     //* Load saved schema from local storage if it exists else load code from context
     const savedSchema = storageManager?.getSchemaCode();
     if (savedSchema) setSchema(savedSchema);
