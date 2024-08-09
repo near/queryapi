@@ -210,7 +210,7 @@ const Editor: React.FC = (): ReactElement => {
     }
 
     handleCodeGen();
-  }, [fileName, launchPadDefaultCode, launchPadDefaultSchema, schema, indexingCode]);
+  }, [fileName, launchPadDefaultSchema]);
 
   useEffect(() => {
     cacheToLocal();
