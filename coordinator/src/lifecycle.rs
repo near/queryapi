@@ -250,7 +250,7 @@ impl<'a> LifecycleManager<'a> {
         // LifecycleState::Deleted
     }
 
-    pub async fn handle_transitions(&self, first_iteration: bool) {
+    pub async fn handle_transitions(&self, first_iteration: bool) -> bool {
         let config = match self
             .registry
             .fetch_indexer(
@@ -262,11 +262,11 @@ impl<'a> LifecycleManager<'a> {
             Ok(Some(config)) => config,
             Ok(None) => {
                 warn!("No matching indexer config was found");
-                return;
+                return false;
             }
             Err(error) => {
                 warn!(?error, "Failed to fetch config");
-                return;
+                return false;
             }
         };
 
@@ -274,7 +274,7 @@ impl<'a> LifecycleManager<'a> {
             Ok(state) => state,
             Err(error) => {
                 warn!(?error, "Failed to get state");
-                return;
+                return false;
             }
         };
 
@@ -300,7 +300,7 @@ impl<'a> LifecycleManager<'a> {
         }
 
         if desired_lifecycle_state == LifecycleState::Deleted {
-            return;
+            return true;
         }
 
         state.lifecycle_state = desired_lifecycle_state;
@@ -319,6 +319,8 @@ impl<'a> LifecycleManager<'a> {
                 }
             }
         }
+
+        false
     }
 
     #[tracing::instrument(
@@ -334,7 +336,11 @@ impl<'a> LifecycleManager<'a> {
 
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
-            self.handle_transitions(first_iteration).await;
+            let should_exit = self.handle_transitions(first_iteration).await;
+
+            if should_exit {
+                break;
+            }
 
             first_iteration = false;
         }
@@ -345,24 +351,808 @@ impl<'a> LifecycleManager<'a> {
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn name() {
-        let config = IndexerConfig::default();
-        let block_streams_handler = BlockStreamsHandler::default();
-        let executors_handler = ExecutorsHandler::default();
-        let data_layer_handler = DataLayerHandler::default();
-        let registry = Registry::default();
-        let state_manager = IndexerStateManager::default();
-        let redis_client = RedisClient::default();
+    use mockall::predicate::*;
 
-        let lifecycle_manager = LifecycleManager::new(
-            config,
-            &block_streams_handler,
-            &executors_handler,
-            &data_layer_handler,
-            &registry,
-            &state_manager,
-            &redis_client,
-        );
+    mod initializing {
+        use super::*;
+
+        #[tokio::test]
+        async fn transitions_to_running_on_provisioning_success() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_ensure_provisioned()
+                .returning(|_| Ok(()));
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Initializing,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Running
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn transitions_to_repairing_on_provisioning_failure() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_ensure_provisioned()
+                .returning(|_| anyhow::bail!("failed"));
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Initializing,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Repairing
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn transitions_to_deleting_on_delete() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+
+            let mut data_layer_handler = DataLayerHandler::default();
+            data_layer_handler
+                .expect_ensure_provisioned()
+                .returning(|_| anyhow::bail!("failed"));
+
+            let mut registry = Registry::default();
+            registry.expect_fetch_indexer().returning(move |_, _| {
+                Ok(Some(IndexerConfig {
+                    deleted_at_block_height: Some(3),
+                    ..Default::default()
+                }))
+            });
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Initializing,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleting
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+    }
+
+    mod running {
+        use super::*;
+
+        #[tokio::test]
+        async fn transitions_to_deleting_on_delete() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry.expect_fetch_indexer().returning(move |_, _| {
+                Ok(Some(IndexerConfig {
+                    deleted_at_block_height: Some(3),
+                    ..Default::default()
+                }))
+            });
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Running,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleting
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn transitions_to_stopping_on_disabled() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry.expect_fetch_indexer().returning(move |_, _| {
+                Ok(Some(IndexerConfig {
+                    deleted_at_block_height: Some(3),
+                    ..Default::default()
+                }))
+            });
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Running,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: false,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleting
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn synchronises_streams_and_executors() {
+            let config = IndexerConfig::default();
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_synchronise()
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler
+                .expect_synchronise()
+                .returning(|_| Ok(()))
+                .once();
+
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Running,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Running
+                            && state.block_stream_synced_at == Some(2)
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+    }
+
+    mod stopping {
+        use super::*;
+
+        #[tokio::test]
+        async fn transitions_to_deleting_on_delete() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry.expect_fetch_indexer().returning(move |_, _| {
+                Ok(Some(IndexerConfig {
+                    deleted_at_block_height: Some(3),
+                    ..Default::default()
+                }))
+            });
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Stopping,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleting
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn stops_streams_and_executors() {
+            let config = IndexerConfig::default();
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_stop_if_needed()
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler
+                .expect_stop_if_needed()
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Stopping,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Stopped
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+    }
+
+    mod stopped {
+        use super::*;
+
+        #[tokio::test]
+        async fn transitions_to_deleting_on_delete() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry.expect_fetch_indexer().returning(move |_, _| {
+                Ok(Some(IndexerConfig {
+                    deleted_at_block_height: Some(3),
+                    ..Default::default()
+                }))
+            });
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Stopped,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: false,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleting
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn transitions_to_running_on_enabled() {
+            let config = IndexerConfig::default();
+
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Stopped,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Running
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn transitions_to_stopped() {
+            let config = IndexerConfig::default();
+
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Stopped,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: false,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Stopped
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+    }
+
+    mod repairing {
+        use super::*;
+
+        #[tokio::test]
+        async fn transitions_to_deleting_on_delete() {
+            let config = IndexerConfig::default();
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry.expect_fetch_indexer().returning(move |_, _| {
+                Ok(Some(IndexerConfig {
+                    deleted_at_block_height: Some(3),
+                    ..Default::default()
+                }))
+            });
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Repairing,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleting
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn transitions_to_repairing() {
+            let config = IndexerConfig::default();
+
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Repairing,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Repairing
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+    }
+
+    mod deleting {
+        use super::*;
+
+        #[tokio::test]
+        async fn stops_streams_and_executors() {
+            let config = IndexerConfig::default();
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_stop_if_needed()
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler
+                .expect_stop_if_needed()
+                .returning(|_, _| Ok(()))
+                .once();
+
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Deleting,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleted
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_transitions(true).await;
+        }
+    }
+
+    mod deleted {
+        use super::*;
+
+        #[tokio::test]
+        async fn exits() {
+            tokio::time::pause();
+
+            let config = IndexerConfig::default();
+
+            let block_streams_handler = BlockStreamsHandler::default();
+            let executors_handler = ExecutorsHandler::default();
+            let data_layer_handler = DataLayerHandler::default();
+
+            let mut registry = Registry::default();
+            registry
+                .expect_fetch_indexer()
+                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
+
+            let mut state_manager = IndexerStateManager::default();
+            state_manager.expect_get_state().returning(|_| {
+                Ok(IndexerState {
+                    lifecycle_state: LifecycleState::Deleted,
+                    account_id: "near".parse().unwrap(),
+                    function_name: "function_name".to_string(),
+                    enabled: true,
+                    block_stream_synced_at: None,
+                })
+            });
+            state_manager
+                .expect_set_state()
+                .with(
+                    always(),
+                    function(|state: &IndexerState| {
+                        state.lifecycle_state == LifecycleState::Deleted
+                    }),
+                )
+                .returning(|_, _| Ok(()));
+
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config,
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.run().await;
+        }
     }
 }
