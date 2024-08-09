@@ -270,6 +270,23 @@ describe('Indexer integration', () => {
     await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(0);
     await expect(hasuraClient.doesSourceExist(testConfig1.databaseName())).resolves.toBe(false);
   });
+
+  it('Writes provisioning errors to user logs table', async () => {
+    const testConfig = new IndexerConfig(
+      'test:stream',
+      'user-failures.near', // must be unique to prevent conflicts with other tests
+      'test',
+      0,
+      '',
+      'broken schema',
+      LogLevel.INFO
+    );
+
+    await expect(provisioner.provisionUserApi(testConfig)).rejects.toThrow();
+
+    const logs: any = await indexerLogsQuery(testConfig.schemaName(), graphqlClient);
+    expect(logs[0].message).toContain('Failed to run user script');
+  });
 });
 
 async function prepareIndexer (indexerConfig: IndexerConfig, provisioner: Provisioner, hasuraContainer: StartedHasuraGraphQLContainer): Promise<Indexer> {

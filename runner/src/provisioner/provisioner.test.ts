@@ -72,7 +72,13 @@ describe('Provisioner', () => {
       };
     });
 
-    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any, testingRetryConfig);
+    const IndexerMeta = jest.fn().mockImplementation(() => {
+      return {
+        writeLogs: jest.fn()
+      };
+    });
+
+    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any, testingRetryConfig, IndexerMeta);
 
     indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
   });

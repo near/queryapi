@@ -4,7 +4,7 @@ import PgClient, { type PostgresConnectionParams } from '../pg-client';
 import { trace } from '@opentelemetry/api';
 import type LogEntry from './log-entry';
 import { LogLevel } from './log-entry';
-import type IndexerConfig from '../indexer-config';
+import { type ProvisioningConfig } from '../indexer-config/indexer-config';
 
 export enum IndexerStatus {
   PROVISIONING = 'PROVISIONING',
@@ -29,11 +29,11 @@ export default class IndexerMeta implements IndexerMetaInterface {
   tracer = trace.getTracer('queryapi-runner-indexer-logger');
 
   private readonly pgClient: PgClient;
-  private readonly indexerConfig: IndexerConfig;
+  private readonly indexerConfig: ProvisioningConfig;
   private readonly logInsertQueryTemplate: string = 'INSERT INTO %I.sys_logs (block_height, date, timestamp, type, level, message) VALUES %L';
 
   constructor (
-    indexerConfig: IndexerConfig,
+    indexerConfig: ProvisioningConfig,
     databaseConnectionParameters: PostgresConnectionParams,
     pgClientInstance: PgClient | undefined = undefined,
   ) {
