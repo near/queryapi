@@ -73,12 +73,18 @@ impl DataLayerClientWrapperImpl {
     }
 }
 
+#[cfg(not(test))]
+pub use DataLayerHandlerImpl as DataLayerHandler;
+#[cfg(test)]
+pub use MockDataLayerHandlerImpl as DataLayerHandler;
+
 #[derive(Clone)]
-pub struct DataLayerHandler {
+pub struct DataLayerHandlerImpl {
     client: DataLayerClientWrapper,
 }
 
-impl DataLayerHandler {
+#[cfg_attr(test, mockall::automock)]
+impl DataLayerHandlerImpl {
     pub fn connect(runner_url: &str) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(runner_url.to_string())
             .context("Runner URL is invalid")?
@@ -249,6 +255,12 @@ mod tests {
 
     use mockall::predicate::*;
 
+    impl Clone for MockDataLayerHandlerImpl {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+
     #[tokio::test]
     async fn provisions_data_layer() {
         let config = IndexerConfig::default();
@@ -290,7 +302,7 @@ mod tests {
             })
             .once();
 
-        let handler = DataLayerHandler {
+        let handler = DataLayerHandlerImpl {
             client: mock_client,
         };
 
@@ -329,7 +341,7 @@ mod tests {
             })
             .times(610);
 
-        let handler = DataLayerHandler {
+        let handler = DataLayerHandlerImpl {
             client: mock_client,
         };
 
@@ -371,7 +383,7 @@ mod tests {
             })
             .once();
 
-        let handler = DataLayerHandler {
+        let handler = DataLayerHandlerImpl {
             client: mock_client,
         };
 
@@ -423,7 +435,7 @@ mod tests {
             })
             .once();
 
-        let handler = DataLayerHandler {
+        let handler = DataLayerHandlerImpl {
             client: mock_client,
         };
 
@@ -464,7 +476,7 @@ mod tests {
             })
             .times(610);
 
-        let handler = DataLayerHandler {
+        let handler = DataLayerHandlerImpl {
             client: mock_client,
         };
 
@@ -507,7 +519,7 @@ mod tests {
             })
             .once();
 
-        let handler = DataLayerHandler {
+        let handler = DataLayerHandlerImpl {
             client: mock_client,
         };
 

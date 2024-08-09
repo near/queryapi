@@ -67,13 +67,19 @@ impl BlockStreamsClientWrapperImpl {
     }
 }
 
+#[cfg(not(test))]
+pub use BlockStreamsHandlerImpl as BlockStreamsHandler;
+#[cfg(test)]
+pub use MockBlockStreamsHandlerImpl as BlockStreamsHandler;
+
 #[derive(Clone)]
-pub struct BlockStreamsHandler {
+pub struct BlockStreamsHandlerImpl {
     client: BlockStreamsClientWrapper,
     redis_client: RedisClient,
 }
 
-impl BlockStreamsHandler {
+#[cfg_attr(test, mockall::automock)]
+impl BlockStreamsHandlerImpl {
     pub fn connect(block_streamer_url: &str, redis_client: RedisClient) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(block_streamer_url.to_string())
             .context("Block Streamer URL is invalid")?
@@ -368,6 +374,12 @@ mod tests {
         }
     }
 
+    impl Clone for MockBlockStreamsHandlerImpl {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+
     #[tokio::test]
     async fn resumes_stopped_streams() {
         let config = IndexerConfig::default();
@@ -401,7 +413,7 @@ mod tests {
             .expect_get_last_published_block::<IndexerConfig>()
             .returning(move |_| Ok(Some(last_published_block)));
 
-        let handler = BlockStreamsHandler {
+        let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
@@ -463,7 +475,7 @@ mod tests {
             .returning(|_| Ok(()))
             .once();
 
-        let handler = BlockStreamsHandler {
+        let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
@@ -507,7 +519,7 @@ mod tests {
 
         let mock_redis = RedisClient::default();
 
-        let handler = BlockStreamsHandler {
+        let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
@@ -551,7 +563,7 @@ mod tests {
             .returning(|_| Ok(()))
             .once();
 
-        let handler = BlockStreamsHandler {
+        let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
@@ -617,7 +629,7 @@ mod tests {
             .expect_get_last_published_block::<IndexerConfig>()
             .returning(move |_| Ok(Some(last_published_block)));
 
-        let handler = BlockStreamsHandler {
+        let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
@@ -672,7 +684,7 @@ mod tests {
 
             let mock_redis = RedisClient::default();
 
-            let handler = BlockStreamsHandler {
+            let handler = BlockStreamsHandlerImpl {
                 client: mock_client,
                 redis_client: mock_redis,
             };
@@ -723,7 +735,7 @@ mod tests {
             .returning(|_| Ok(None))
             .once();
 
-        let handler = BlockStreamsHandler {
+        let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };

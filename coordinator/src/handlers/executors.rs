@@ -63,12 +63,18 @@ impl ExecutorsClientWrapperImpl {
     }
 }
 
+#[cfg(not(test))]
+pub use ExecutorsHandlerImpl as ExecutorsHandler;
+#[cfg(test)]
+pub use MockExecutorsHandlerImpl as ExecutorsHandler;
+
 #[derive(Clone)]
-pub struct ExecutorsHandler {
+pub struct ExecutorsHandlerImpl {
     client: ExecutorsClientWrapper,
 }
 
-impl ExecutorsHandler {
+#[cfg_attr(test, mockall::automock)]
+impl ExecutorsHandlerImpl {
     pub fn connect(runner_url: &str) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(runner_url.to_string())
             .context("Runner URL is invalid")?
@@ -225,6 +231,12 @@ mod tests {
         }
     }
 
+    impl Clone for MockExecutorsHandlerImpl {
+        fn clone(&self) -> Self {
+            Self::default()
+        }
+    }
+
     #[tokio::test]
     async fn resumes_stopped_executors() {
         let config = IndexerConfig::default();
@@ -255,7 +267,7 @@ mod tests {
             })
             .once();
 
-        let handler = ExecutorsHandler {
+        let handler = ExecutorsHandlerImpl {
             client: mock_client,
         };
 
@@ -308,7 +320,7 @@ mod tests {
             .returning(move |_| Ok(Response::new(executor.clone())))
             .once();
 
-        let handler = ExecutorsHandler {
+        let handler = ExecutorsHandlerImpl {
             client: mock_client,
         };
 
@@ -365,7 +377,7 @@ mod tests {
             .returning(move |_| Ok(Response::new(executor.clone())))
             .once();
 
-        let handler = ExecutorsHandler {
+        let handler = ExecutorsHandlerImpl {
             client: mock_client,
         };
 
@@ -408,7 +420,7 @@ mod tests {
                 .with(always())
                 .returning(move |_| Ok(Response::new(executor.clone())));
 
-            let handler = ExecutorsHandler {
+            let handler = ExecutorsHandlerImpl {
                 client: mock_client,
             };
 
