@@ -1,6 +1,6 @@
 import { createClient, type RedisClientType } from 'redis';
 
-import logger from '../logger';
+import logger from '../../logger';
 
 interface StreamMessage {
   id: string

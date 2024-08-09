@@ -4,7 +4,7 @@ import promClient from 'prom-client';
 import { Block } from '@near-lake/primitives';
 
 import { Indexer } from '../indexer';
-import RedisClient from '../redis-client';
+import RedisClient from './redis-client';
 import { METRICS } from '../metrics';
 import LakeClient from '../lake-client';
 import { WorkerMessageType, type WorkerMessage, ExecutionState } from './stream-handler';
