@@ -250,6 +250,77 @@ impl<'a> LifecycleManager<'a> {
         // LifecycleState::Deleted
     }
 
+    pub async fn handle_transitions(&self, first_iteration: bool) {
+        let config = match self
+            .registry
+            .fetch_indexer(
+                &self.initial_config.account_id,
+                &self.initial_config.function_name,
+            )
+            .await
+        {
+            Ok(Some(config)) => config,
+            Ok(None) => {
+                warn!("No matching indexer config was found");
+                return;
+            }
+            Err(error) => {
+                warn!(?error, "Failed to fetch config");
+                return;
+            }
+        };
+
+        let mut state = match self.state_manager.get_state(&self.initial_config).await {
+            Ok(state) => state,
+            Err(error) => {
+                warn!(?error, "Failed to get state");
+                return;
+            }
+        };
+
+        if first_iteration {
+            info!("Initial lifecycle state: {:?}", state.lifecycle_state);
+        }
+
+        let desired_lifecycle_state = match state.lifecycle_state {
+            LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
+            LifecycleState::Running => self.handle_running(&config, &mut state).await,
+            LifecycleState::Stopping => self.handle_stopping(&config).await,
+            LifecycleState::Stopped => self.handle_stopped(&config, &state).await,
+            LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
+            LifecycleState::Deleting => self.handle_deleting(&state).await,
+            LifecycleState::Deleted => LifecycleState::Deleted,
+        };
+
+        if desired_lifecycle_state != state.lifecycle_state {
+            info!(
+                "Transitioning lifecycle state: {:?} -> {:?}",
+                state.lifecycle_state, desired_lifecycle_state,
+            );
+        }
+
+        if desired_lifecycle_state == LifecycleState::Deleted {
+            return;
+        }
+
+        state.lifecycle_state = desired_lifecycle_state;
+
+        loop {
+            match self
+                .state_manager
+                .set_state(&self.initial_config, state.clone())
+                .await
+            {
+                Ok(_) => break,
+                Err(e) => {
+                    warn!("Failed to set state: {:?}. Retrying...", e);
+
+                    tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+                }
+            }
+        }
+    }
+
     #[tracing::instrument(
         name = "lifecycle_manager",
         skip(self),
@@ -263,76 +334,35 @@ impl<'a> LifecycleManager<'a> {
 
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(LOOP_THROTTLE_MS)).await;
+            self.handle_transitions(first_iteration).await;
 
-            let config = match self
-                .registry
-                .fetch_indexer(
-                    &self.initial_config.account_id,
-                    &self.initial_config.function_name,
-                )
-                .await
-            {
-                Ok(Some(config)) => config,
-                Ok(None) => {
-                    warn!("No matching indexer config was found");
-                    continue;
-                }
-                Err(error) => {
-                    warn!(?error, "Failed to fetch config");
-                    continue;
-                }
-            };
-
-            let mut state = match self.state_manager.get_state(&self.initial_config).await {
-                Ok(state) => state,
-                Err(error) => {
-                    warn!(?error, "Failed to get state");
-                    continue;
-                }
-            };
-
-            if first_iteration {
-                info!("Initial lifecycle state: {:?}", state.lifecycle_state,);
-                first_iteration = false;
-            }
-
-            let desired_lifecycle_state = match state.lifecycle_state {
-                LifecycleState::Initializing => self.handle_initializing(&config, &state).await,
-                LifecycleState::Running => self.handle_running(&config, &mut state).await,
-                LifecycleState::Stopping => self.handle_stopping(&config).await,
-                LifecycleState::Stopped => self.handle_stopped(&config, &state).await,
-                LifecycleState::Repairing => self.handle_repairing(&config, &state).await,
-                LifecycleState::Deleting => self.handle_deleting(&state).await,
-                LifecycleState::Deleted => LifecycleState::Deleted,
-            };
-
-            if desired_lifecycle_state != state.lifecycle_state {
-                info!(
-                    "Transitioning lifecycle state: {:?} -> {:?}",
-                    state.lifecycle_state, desired_lifecycle_state,
-                );
-            }
-
-            if desired_lifecycle_state == LifecycleState::Deleted {
-                break;
-            }
-
-            state.lifecycle_state = desired_lifecycle_state;
-
-            loop {
-                match self
-                    .state_manager
-                    .set_state(&self.initial_config, state.clone())
-                    .await
-                {
-                    Ok(_) => break,
-                    Err(e) => {
-                        warn!("Failed to set state: {:?}. Retrying...", e);
-
-                        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-                    }
-                }
-            }
+            first_iteration = false;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn name() {
+        let config = IndexerConfig::default();
+        let block_streams_handler = BlockStreamsHandler::default();
+        let executors_handler = ExecutorsHandler::default();
+        let data_layer_handler = DataLayerHandler::default();
+        let registry = Registry::default();
+        let state_manager = IndexerStateManager::default();
+        let redis_client = RedisClient::default();
+
+        let lifecycle_manager = LifecycleManager::new(
+            config,
+            &block_streams_handler,
+            &executors_handler,
+            &data_layer_handler,
+            &registry,
+            &state_manager,
+            &redis_client,
+        );
     }
 }
