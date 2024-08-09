@@ -1,10 +1,10 @@
 import pgFormat from 'pg-format';
 import DmlHandler from './dml-handler';
-import type PgClient from '../pg-client';
-import { type TableDefinitionNames } from '../indexer';
-import { type PostgresConnectionParams } from '../pg-client';
-import IndexerConfig from '../indexer-config/indexer-config';
-import { LogLevel } from '../indexer-meta/log-entry';
+import type PgClient from '../../pg-client';
+import { type PostgresConnectionParams } from '../../pg-client';
+import { type TableDefinitionNames } from '../../indexer';
+import IndexerConfig from '../../indexer-config';
+import { LogLevel } from '../../indexer-meta/log-entry';
 
 describe('DML Handler tests', () => {
   const getDbConnectionParameters: PostgresConnectionParams = {
