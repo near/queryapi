@@ -56,6 +56,9 @@ const fetchWizardData = (req: string): Promise<WizardResponse> => {
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
 
+  const contextCode = indexerDetails.code && formatIndexingCode(indexerDetails.code);
+  const contextSchema = indexerDetails.schema && formatSQL(indexerDetails.schema);
+
   const storageManager = useMemo(() => {
     if (indexerDetails.accountId && indexerDetails.indexerName) {
       return new QueryAPIStorageManager(indexerDetails.accountId, indexerDetails.indexerName);
@@ -173,6 +176,7 @@ const Editor: React.FC = (): ReactElement => {
   }, []);
 
   useEffect(() => {
+    console.log(indexerDetails.code);
     //* Load saved code from local storage if it exists else load code from context
     const savedCode = storageManager?.getIndexerCode();
     if (savedCode) setIndexingCode(savedCode);
@@ -191,6 +195,7 @@ const Editor: React.FC = (): ReactElement => {
   }, [indexerDetails.code]);
 
   useEffect(() => {
+    console.log(indexerDetails.schema);
     //* Load saved schema from local storage if it exists else load code from context
     const savedSchema = storageManager?.getSchemaCode();
     if (savedSchema) setSchema(savedSchema);
@@ -478,6 +483,8 @@ const Editor: React.FC = (): ReactElement => {
                   onMount={handleEditorWillMount}
                   launchPadDefaultCode={launchPadDefaultCode}
                   launchPadDefaultSchema={launchPadDefaultSchema}
+                  contextCode={contextCode}
+                  contextSchema={contextSchema}
                 />
               </GlyphContainer>
             </div>
