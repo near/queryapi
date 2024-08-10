@@ -13,8 +13,8 @@ describe('ProvisioiningState', () => {
   );
 
   it('can create state whether source exists or not', async () => {
-    const sourceWithoutUser = generateSourceWithTables(['some_schema'], ['tableA', 'tableB'], 'someAccount');
-    const mockExportMetadata = jest.fn().mockResolvedValue(sourceWithoutUser);
+    const metadataWithoutUser = generateHasuraMetadata(['some_schema'], ['tableA', 'tableB'], 'someAccount');
+    const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithoutUser);
     const mockGetTableNames = jest.fn().mockResolvedValue([]);
     const mockHasuraClient = {
       exportMetadata: mockExportMetadata,
@@ -26,9 +26,43 @@ describe('ProvisioiningState', () => {
     expect(provisioningState.doesSchemaExist()).toBe(false);
     expect(provisioningState.getCreatedTables()).toEqual([]);
   });
+
+  it('state works with existing source', async () => {
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName());
+    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole'));
+    const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithUser);
+    const mockGetTableNames = jest.fn().mockResolvedValue(['tableA']);
+    const mockHasuraClient = {
+      exportMetadata: mockExportMetadata,
+      getTableNames: mockGetTableNames,
+    } as unknown as HasuraClient;
+
+    const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
+    expect(provisioningState.doesSourceExist()).toBe(true);
+    expect(provisioningState.doesSchemaExist()).toBe(true);
+    expect(provisioningState.getCreatedTables()).toEqual(['tableA']);
+  });
+
+  it('correctly fetch metadata for source and schema', async () => {
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName());
+    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole'));
+    const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithUser);
+    const mockGetTableNames = jest.fn().mockResolvedValue(['tableA']);
+    const mockHasuraClient = {
+      exportMetadata: mockExportMetadata,
+      getTableNames: mockGetTableNames,
+    } as unknown as HasuraClient;
+
+    const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
+    expect(provisioningState.getSourceMetadata().name).toBe(provisioningConfig.hasuraRoleName());
+    expect(provisioningState.getMetadataForTables().length).toBe(2);
+    expect(provisioningState.getMetadataForTables()).toMatchSnapshot();
+    expect(provisioningState.getTrackedTables()).toEqual(['tableA', 'tableB']);
+    expect(provisioningState.getTablesWithPermissions()).toEqual(['tableA', 'tableB']);
+  });
 });
 
-function generateSourceWithTables (schemaNames: string[], tableNames: string[], role: string): HasuraMetadata {
+function generateHasuraMetadata (schemaNames: string[], tableNames: string[], role: string): HasuraMetadata {
   const sources: HasuraSource[] = [];
   // Insert default source which has different format than the rest
   sources.push({
@@ -42,6 +76,15 @@ function generateSourceWithTables (schemaNames: string[], tableNames: string[], 
     }
   });
 
+  sources.push(generateSourceWithTables(schemaNames, tableNames, role));
+
+  return {
+    version: 3,
+    sources
+  };
+}
+
+function generateSourceWithTables (schemaNames: string[], tableNames: string[], role: string): HasuraSource {
   const tables: HasuraTableMetadata[] = [];
   schemaNames.forEach((schemaName) => {
     tableNames.forEach((tableName) => {
@@ -49,16 +92,11 @@ function generateSourceWithTables (schemaNames: string[], tableNames: string[], 
     });
   });
 
-  sources.push({
+  return {
     name: role,
     kind: 'postgres',
     tables,
     configuration: generateHasuraConfiguration(role, 'password'),
-  });
-
-  return {
-    version: 3,
-    sources
   };
 }
 

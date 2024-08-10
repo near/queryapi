@@ -49,12 +49,15 @@ export default class ProvisioningState {
 
   private tableContainsAllPermissions (tableMetadata: HasuraTableMetadata): boolean {
     const allPermissions: string[] = HASURA_PERMISSION_TYPES.map(permission => `${permission}_permissions`);
-    return allPermissions.every(permission => Object.keys(tableMetadata).includes(`${permission}_permissions`));
+    const metadataKeys = Object.keys(tableMetadata);
+    return allPermissions.every(permission => metadataKeys.includes(permission));
   }
 
   // Does not check for partial permissions
   getTablesWithPermissions (): string[] {
     const tableMetadataList = this.getMetadataForTables();
-    return tableMetadataList.filter(metadata => this.tableContainsAllPermissions(metadata)).map(metadata => metadata.table.name);
+    return tableMetadataList
+      .filter(metadata => this.tableContainsAllPermissions(metadata))
+      .map(metadata => metadata.table.name);
   }
 }
