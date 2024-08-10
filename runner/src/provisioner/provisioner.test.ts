@@ -1,6 +1,6 @@
 import pgFormat from 'pg-format';
 
-import Provisioner from './provisioner';
+import Provisioner, { METADATA_TABLE_NAME } from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
 
@@ -21,7 +21,7 @@ describe('Provisioner', () => {
     maxRetries: 5,
     baseDelay: 10
   };
-  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.sys_metadata (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
+  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.${METADATA_TABLE_NAME} (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
   const logsDDL = expect.any(String);
   const metadataDDL = expect.any(String);
   const error = new Error('some error');

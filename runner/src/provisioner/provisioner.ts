@@ -58,10 +58,13 @@ const defaultRetryConfig: RetryConfig = {
   baseDelay: 1000
 };
 
+export const METADATA_TABLE_NAME = 'sys_metadata';
+export const LOGS_TABLE_NAME = 'sys_logs';
+
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
 
-  private readonly SYSTEM_TABLES = ['sys_logs', 'sys_metadata'];
+  private readonly SYSTEM_TABLES = [METADATA_TABLE_NAME, LOGS_TABLE_NAME];
   private readonly logger: typeof logger;
 
   constructor (
