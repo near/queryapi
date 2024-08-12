@@ -1,6 +1,6 @@
 use tracing::{info, warn};
 
-use crate::handlers::block_streams::BlockStreamsHandler;
+use crate::handlers::block_streams::{BlockStreamStatus, BlockStreamsHandler};
 use crate::handlers::data_layer::DataLayerHandler;
 use crate::handlers::executors::ExecutorsHandler;
 use crate::indexer_config::IndexerConfig;
@@ -124,11 +124,29 @@ impl<'a> LifecycleManager<'a> {
             return LifecycleState::Suspending;
         }
 
-        if let Err(error) = self
+        let stream_status = match self
             .block_streams_handler
-            .synchronise(config, state.block_stream_synced_at)
+            .get_status(config, state.block_stream_synced_at)
             .await
         {
+            Ok(status) => status,
+            Err(error) => {
+                warn!(?error, "Failed to get block stream status");
+                return LifecycleState::Running;
+            }
+        };
+
+        if let Err(error) = match stream_status {
+            BlockStreamStatus::Active => Ok(()),
+            BlockStreamStatus::Unhealthy => self.block_streams_handler.restart(config).await,
+            BlockStreamStatus::Inactive => self.block_streams_handler.resume(config).await,
+            BlockStreamStatus::Unsynced => self.block_streams_handler.reconfigure(config).await,
+            BlockStreamStatus::NotStarted => {
+                self.block_streams_handler
+                    .start_new_block_stream(config)
+                    .await
+            }
+        } {
             warn!(?error, "Failed to synchronise block stream, retrying...");
             return LifecycleState::Running;
         }
@@ -601,65 +619,6 @@ mod tests {
                     always(),
                     function(|state: &IndexerState| {
                         state.lifecycle_state == LifecycleState::Deleting
-                    }),
-                )
-                .returning(|_, _| Ok(()));
-
-            let redis_client = RedisClient::default();
-
-            let lifecycle_manager = LifecycleManager::new(
-                config,
-                &block_streams_handler,
-                &executors_handler,
-                &data_layer_handler,
-                &registry,
-                &state_manager,
-                &redis_client,
-            );
-
-            lifecycle_manager.handle_transitions(true).await;
-        }
-
-        #[tokio::test]
-        async fn synchronises_streams_and_executors() {
-            let config = IndexerConfig::default();
-
-            let mut block_streams_handler = BlockStreamsHandler::default();
-            block_streams_handler
-                .expect_synchronise()
-                .returning(|_, _| Ok(()))
-                .once();
-
-            let mut executors_handler = ExecutorsHandler::default();
-            executors_handler
-                .expect_synchronise()
-                .returning(|_| Ok(()))
-                .once();
-
-            let data_layer_handler = DataLayerHandler::default();
-
-            let mut registry = Registry::default();
-            registry
-                .expect_fetch_indexer()
-                .returning(move |_, _| Ok(Some(IndexerConfig::default())));
-
-            let mut state_manager = IndexerStateManager::default();
-            state_manager.expect_get_state().returning(|_| {
-                Ok(IndexerState {
-                    lifecycle_state: LifecycleState::Running,
-                    account_id: "near".parse().unwrap(),
-                    function_name: "function_name".to_string(),
-                    enabled: true,
-                    block_stream_synced_at: None,
-                })
-            });
-            state_manager
-                .expect_set_state()
-                .with(
-                    always(),
-                    function(|state: &IndexerState| {
-                        state.lifecycle_state == LifecycleState::Running
-                            && state.block_stream_synced_at == Some(2)
                     }),
                 )
                 .returning(|_, _| Ok(()));
