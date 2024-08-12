@@ -161,8 +161,10 @@ export default function ResizableLayoutEditor({
     sizeThresholdFirst: 60,
     sizeThresholdSecond: 20,
   });
+  
   const defaultCode = launchPadDefaultCode ? launchPadDefaultCode : contextCode ? contextCode : originalIndexingCode;
   const defaultSchema = launchPadDefaultSchema ? launchPadDefaultSchema : contextSchema ? contextSchema : originalSQLCode;
+  
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Code Editor */}
