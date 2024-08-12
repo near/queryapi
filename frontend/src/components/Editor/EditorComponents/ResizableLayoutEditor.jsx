@@ -1,144 +1,114 @@
-import { DiffEditorComponent } from './DiffEditorComponent';
-import { MonacoEditorComponent } from './MonacoEditorComponent';
-import { defaultCode, defaultSchema } from '@/utils/formatters';
+import React from 'react';
+import MonacoEditor, { DiffEditor } from '@monaco-editor/react';
 import GraphqlPlayground from '../../Playground';
 
-const ResizableEditor = ({
-  accountId,
-  fileName,
-  blockView,
-  diffView,
-  consoleView,
-  onChangeCode,
-  onChangeSchema,
-  block_details,
-  originalSQLCode,
-  originalIndexingCode,
-  schema,
-  indexingCode,
-  onMount,
-  isCreateNewIndexer,
-}) => {
-  // Render logic based on fileName
-  const editorComponents = {
-    GraphiQL: () => <GraphqlPlayground />,
-    'indexer.js': () =>
-      diffView ? (
-        <DiffEditorComponent
-          key="code-diff"
-          original={originalIndexingCode}
-          modified={indexingCode}
-          language="typescript"
-          readOnly={false}
-          onMount={onMount}
-        />
-      ) : (
-        <MonacoEditorComponent
-          key="code-editor"
-          value={indexingCode}
-          height="100vh"
-          defaultValue={defaultCode}
-          defaultLanguage="typescript"
-          readOnly={false}
-          onChange={onChangeCode}
-          onMount={onMount}
-          options={{
-            wordWrap: 'on',
-            minimap: { enabled: false },
-            folding: false,
-            lineNumberMinChars: 3,
-            scrollBeyondLastLine: true,
-            automaticLayout: true,
-            formatOnPaste: true,
-            definitionLinkOpensInPeek: true,
-            font: 'serif',
-          }}
-        />
-      ),
-    'schema.sql': () =>
-      diffView ? (
-        <DiffEditorComponent
-          key="schema-diff"
-          original={originalSQLCode}
-          modified={schema}
-          language="sql"
-          readOnly={isCreateNewIndexer === true ? false : true}
-          onMount={onMount}
-        />
-      ) : (
-        <MonacoEditorComponent
-          key="schema-editor"
-          value={schema}
-          defaultValue={defaultSchema}
-          defaultLanguage="sql"
-          readOnly={isCreateNewIndexer === true ? false : false}
-          onChange={onChangeSchema}
-          onMount={onMount}
-          options={{
-            wordWrap: 'on',
-            minimap: { enabled: false },
-            folding: false,
-            lineNumberMinChars: 3,
-            scrollBeyondLastLine: true,
-            automaticLayout: true,
-            formatOnPaste: true,
-            definitionLinkOpensInPeek: true,
-            glyphMargin: true,
-            font: 'serif',
-          }}
-        />
-      ),
-  };
-
-  return <div className="h-screen">{editorComponents[fileName] && editorComponents[fileName]()}</div>;
+const editorOptions = {
+  wordWrap: 'on',
+  minimap: { enabled: false },
+  folding: false,
+  lineNumberMinChars: 3,
+  scrollBeyondLastLine: true,
+  automaticLayout: true,
+  formatOnPaste: true,
+  definitionLinkOpensInPeek: true,
+  font: 'serif',
 };
 
-export default function ResizableLayoutEditor({
-  accountId,
+const getEditorOptions = (options, readOnly) => ({
+  ...options,
+  readOnly,
+});
+
+const getDiffEditorOptions = (options, readOnly) => ({
+  ...options,
+  readOnly,
+});
+
+const getDefaultValues = (launchPadDefault, context, original) => launchPadDefault || context || original;
+
+const ResizableLayoutEditor = ({
   fileName,
-  blockView,
   diffView,
-  consoleView,
-  onChangeCode,
-  onChangeSchema,
-  block_details,
+  launchPadDefaultSchema,
+  contextSchema,
   originalSQLCode,
+  launchPadDefaultCode,
+  contextCode,
   originalIndexingCode,
   schema,
   indexingCode,
-  onMount,
   isCreateNewIndexer,
-  launchPadDefaultCode,
-  launchPadDefaultSchema,
-  contextCode,
-  contextSchema,
-}) {
-  const defaultCode = launchPadDefaultCode ? launchPadDefaultCode : contextCode ? contextCode : originalIndexingCode;
-  const defaultSchema = launchPadDefaultSchema
-    ? launchPadDefaultSchema
-    : contextSchema
-    ? contextSchema
-    : originalSQLCode;
+  onMount,
+  onChangeSchema,
+  onChangeCode,
+}) => {
+  const determineEditorProps = () => {
+    const isSchemaEditor = fileName === 'schema.sql';
+    const isCodeEditor = fileName === 'indexer.js';
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Code Editor */}
-      <div style={{ overflow: 'auto' }}>
-        <ResizableEditor
-          accountId={accountId}
-          fileName={fileName}
-          blockView={blockView}
-          diffView={diffView}
-          onChangeCode={onChangeCode}
-          onChangeSchema={onChangeSchema}
-          block_details={block_details}
-          indexingCode={indexingCode}
-          originalIndexingCode={defaultCode}
-          schema={schema}
-          originalSQLCode={defaultSchema}
-          onMount={onMount}
+    if (!isSchemaEditor && !isCodeEditor) return null;
+
+    const defaultValue = isSchemaEditor
+      ? getDefaultValues(launchPadDefaultSchema, contextSchema, originalSQLCode)
+      : getDefaultValues(launchPadDefaultCode, contextCode, originalIndexingCode);
+
+    const value = isSchemaEditor ? schema : indexingCode;
+    const readOnly = isSchemaEditor && !isCreateNewIndexer;
+
+    return {
+      editorProps: {
+        onMount,
+        options: getEditorOptions(editorOptions, readOnly),
+        defaultValue,
+        value,
+        readOnly,
+        onChange: isSchemaEditor ? onChangeSchema : onChangeCode,
+        language: isSchemaEditor ? 'sql' : 'typescript',
+      },
+      diffProps: {
+        original: defaultValue,
+        modified: value,
+        language: isSchemaEditor ? 'sql' : 'typescript',
+        readOnly,
+        options: getDiffEditorOptions(editorOptions, readOnly),
+      },
+    };
+  };
+
+  const renderEditor = () => {
+    if (fileName === 'GraphiQL') return <GraphqlPlayground />;
+
+    const { editorProps, diffProps } = determineEditorProps();
+
+    if (diffView) {
+      return (
+        <DiffEditor
+          key={`${fileName}-diff`}
+          original={diffProps.original}
+          modified={diffProps.modified}
+          language={diffProps.language}
+          onMount={editorProps.onMount}
+          options={diffProps.options}
+          theme="vs-dark"
         />
-      </div>
-    </div>
-  );
-}
+      );
+    }
+
+    return (
+      <MonacoEditor
+        key={`${fileName}-editor`}
+        value={editorProps.value}
+        defaultValue={editorProps.defaultValue}
+        defaultLanguage={editorProps.language}
+        onMount={editorProps.onMount}
+        onChange={editorProps.onChange}
+        options={editorProps.options}
+        theme="vs-dark"
+      />
+    );
+  };
+
+  return <div className="h-screen">{renderEditor()}</div>;
+};
+
+export default React.memo(ResizableLayoutEditor);
