@@ -29,7 +29,7 @@ pub enum BlockStreamStatus {
     /// Existing Block Stream is not running
     Inactive,
     /// Block Stream is not synchronized with the latest config
-    Unsynced,
+    Outdated,
     /// Block Stream has not been encountered before
     NotStarted,
 }
@@ -324,7 +324,7 @@ impl BlockStreamsHandlerImpl {
             .await?
         {
             if block_stream.version != config.get_registry_version() {
-                return Ok(BlockStreamStatus::Unsynced);
+                return Ok(BlockStreamStatus::Outdated);
             }
 
             if !self.is_healthy(&block_stream) {
@@ -339,7 +339,7 @@ impl BlockStreamsHandlerImpl {
         }
 
         if previous_sync_version.unwrap() != config.get_registry_version() {
-            return Ok(BlockStreamStatus::Unsynced);
+            return Ok(BlockStreamStatus::Outdated);
         }
 
         Ok(BlockStreamStatus::Inactive)
@@ -406,7 +406,7 @@ mod tests {
                     ..Default::default()
                 }),
                 Some(config.get_registry_version()),
-                BlockStreamStatus::Unsynced,
+                BlockStreamStatus::Outdated,
             ),
             (
                 Some(StreamInfo {

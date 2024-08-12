@@ -140,7 +140,7 @@ impl<'a> LifecycleManager<'a> {
             BlockStreamStatus::Active => Ok(()),
             BlockStreamStatus::Unhealthy => self.block_streams_handler.restart(config).await,
             BlockStreamStatus::Inactive => self.block_streams_handler.resume(config).await,
-            BlockStreamStatus::Unsynced => self.block_streams_handler.reconfigure(config).await,
+            BlockStreamStatus::Outdated => self.block_streams_handler.reconfigure(config).await,
             BlockStreamStatus::NotStarted => {
                 self.block_streams_handler
                     .start_new_block_stream(config)
@@ -636,6 +636,207 @@ mod tests {
             );
 
             lifecycle_manager.handle_transitions(true).await;
+        }
+
+        #[tokio::test]
+        async fn ignores_active_stream() {
+            let config = IndexerConfig::default();
+            let mut state = IndexerState {
+                lifecycle_state: LifecycleState::Running,
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                enabled: true,
+                block_stream_synced_at: None,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_get_status()
+                .returning(|_, _| Ok(BlockStreamStatus::Active));
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_synchronise().returning(|_| Ok(()));
+
+            let data_layer_handler = DataLayerHandler::default();
+            let state_manager = IndexerStateManager::default();
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config.clone(),
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_running(&config, &mut state).await;
+        }
+
+        #[tokio::test]
+        async fn restarts_unhealthy_stream() {
+            let config = IndexerConfig::default();
+            let mut state = IndexerState {
+                lifecycle_state: LifecycleState::Running,
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                enabled: true,
+                block_stream_synced_at: None,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_get_status()
+                .returning(|_, _| Ok(BlockStreamStatus::Unhealthy));
+            block_streams_handler
+                .expect_restart()
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_synchronise().returning(|_| Ok(()));
+
+            let data_layer_handler = DataLayerHandler::default();
+            let state_manager = IndexerStateManager::default();
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config.clone(),
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_running(&config, &mut state).await;
+        }
+
+        #[tokio::test]
+        async fn resumes_inactive_streams() {
+            let config = IndexerConfig::default();
+            let mut state = IndexerState {
+                lifecycle_state: LifecycleState::Running,
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                enabled: true,
+                block_stream_synced_at: None,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_get_status()
+                .returning(|_, _| Ok(BlockStreamStatus::Inactive));
+            block_streams_handler
+                .expect_resume()
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_synchronise().returning(|_| Ok(()));
+
+            let data_layer_handler = DataLayerHandler::default();
+            let state_manager = IndexerStateManager::default();
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config.clone(),
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_running(&config, &mut state).await;
+        }
+
+        #[tokio::test]
+        async fn reconfigures_outdated_streams() {
+            let config = IndexerConfig::default();
+            let mut state = IndexerState {
+                lifecycle_state: LifecycleState::Running,
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                enabled: true,
+                block_stream_synced_at: None,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_get_status()
+                .returning(|_, _| Ok(BlockStreamStatus::Outdated));
+            block_streams_handler
+                .expect_reconfigure()
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_synchronise().returning(|_| Ok(()));
+
+            let data_layer_handler = DataLayerHandler::default();
+            let state_manager = IndexerStateManager::default();
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config.clone(),
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_running(&config, &mut state).await;
+        }
+
+        #[tokio::test]
+        async fn starts_new_streams() {
+            let config = IndexerConfig::default();
+            let mut state = IndexerState {
+                lifecycle_state: LifecycleState::Running,
+                account_id: config.account_id.clone(),
+                function_name: config.function_name.clone(),
+                enabled: true,
+                block_stream_synced_at: None,
+            };
+
+            let mut block_streams_handler = BlockStreamsHandler::default();
+            block_streams_handler
+                .expect_get_status()
+                .returning(|_, _| Ok(BlockStreamStatus::NotStarted));
+            block_streams_handler
+                .expect_start_new_block_stream()
+                .returning(|_| Ok(()))
+                .once();
+
+            let mut executors_handler = ExecutorsHandler::default();
+            executors_handler.expect_synchronise().returning(|_| Ok(()));
+
+            let data_layer_handler = DataLayerHandler::default();
+            let state_manager = IndexerStateManager::default();
+            let registry = Registry::default();
+            let redis_client = RedisClient::default();
+
+            let lifecycle_manager = LifecycleManager::new(
+                config.clone(),
+                &block_streams_handler,
+                &executors_handler,
+                &data_layer_handler,
+                &registry,
+                &state_manager,
+                &redis_client,
+            );
+
+            lifecycle_manager.handle_running(&config, &mut state).await;
         }
     }
 
