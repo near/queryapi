@@ -53,7 +53,7 @@ const fetchWizardData = (req: string): Promise<WizardResponse> => {
   return request<WizardResponse>('launchpad-create-indexer', req);
 };
 
-const generateCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
+const fetchGeneratedCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
   try {
     const response = await fetch('/api/generateCode', {
       method: 'POST',
@@ -161,7 +161,7 @@ const Editor: React.FC = (): ReactElement => {
         const { wizardContractFilter, wizardMethods, wizardEvents } = await fetchWizardData('');
 
         if (wizardContractFilter === 'noFilter') return;
-        const { jsCode, sqlCode } = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
+        const { jsCode, sqlCode } = await fetchGeneratedCode(wizardContractFilter, wizardMethods, wizardEvents);
         const wrappedIndexingCode = wrapCode(jsCode) ? wrapCode(jsCode) : jsCode;
         const { validatedCode, validatedSchema } = reformatAll(wrappedIndexingCode, sqlCode);
 
