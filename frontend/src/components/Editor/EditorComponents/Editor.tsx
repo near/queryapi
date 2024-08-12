@@ -31,14 +31,12 @@ import { validateJSCode, validateSQLSchema } from '@/utils/validators';
 import DeveloperToolsContainer from '../EditorViewContainer/DeveloperToolsContainer';
 import EditorMenuContainer from '../EditorViewContainer/EditorMenuContainer';
 import QueryAPIStorageManager from '../QueryApiStorageManager';
-import { block_details } from './block_details';
 import { FileSwitcher } from './FileSwitcher';
 import { GlyphContainer } from './GlyphContainer';
 import ResizableLayoutEditor from './ResizableLayoutEditor';
 
 declare const monaco: any;
 const INDEXER_TAB_NAME = 'indexer.js';
-const SCHEMA_TAB_NAME = 'schema.sql';
 const originalSQLCode = formatSQL(defaultSchema);
 const originalIndexingCode = formatIndexingCode(defaultCode);
 const pgSchemaTypeGen = new PgSchemaTypeGen();
