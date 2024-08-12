@@ -61,6 +61,46 @@ describe('ProvisioiningState', () => {
     expect(provisioningState.getTablesWithPermissions()).toEqual(['tableA', 'tableB']);
   });
 
+  it('handles table with missing permissions', async () => {
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
+    const role = provisioningConfig.hasuraRoleName();
+    const tableMissingPermissions = {
+      table: {
+        name: 'tableC',
+        schema: provisioningConfig.schemaName(),
+      },
+      insert_permissions: [{ role, permission: {} }],
+      update_permissions: [{ role, permission: {} }],
+      delete_permissions: [{ role, permission: {} }],
+    };
+    const tableWithIncorrectlyNamedPermission = {
+      table: {
+        name: 'tableD',
+        schema: provisioningConfig.schemaName(),
+      },
+      select_permissions: [{ role, permission: {} }],
+      insert_permission: [{ role, permission: {} }],
+      update_permissions: [{ role, permission: {} }],
+      delete_permissions: [{ role, permission: {} }],
+    };
+    metadataWithUser.sources[1].tables.push(tableMissingPermissions); // First source is a default source
+    metadataWithUser.sources[1].tables.push(tableWithIncorrectlyNamedPermission);
+
+    const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithUser);
+    const mockGetTableNames = jest.fn().mockResolvedValue(['tableA']);
+    const mockHasuraClient = {
+      exportMetadata: mockExportMetadata,
+      getTableNames: mockGetTableNames,
+    } as unknown as HasuraClient;
+
+    const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
+    expect(provisioningState.getSourceMetadata().name).toBe(provisioningConfig.hasuraRoleName());
+    expect(provisioningState.getMetadataForTables().length).toBe(4);
+    expect(provisioningState.getMetadataForTables()).toMatchSnapshot();
+    expect(provisioningState.getTrackedTables()).toEqual(['tableA', 'tableB', 'tableC', 'tableD']);
+    expect(provisioningState.getTablesWithPermissions()).toEqual(['tableA', 'tableB']);
+  });
+
   it('throws error when multiple sources with same name exist', async () => {
     const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
     metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName()));

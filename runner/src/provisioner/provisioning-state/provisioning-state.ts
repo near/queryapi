@@ -54,7 +54,7 @@ export default class ProvisioningState {
     return allPermissions.every(permission => metadataKeys.includes(permission));
   }
 
-  // Does not check for partial permissions
+  // Does not check for untracked tables or partial permissions
   getTablesWithPermissions (): string[] {
     const tableMetadataList = this.getMetadataForTables();
     return tableMetadataList

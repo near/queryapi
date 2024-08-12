@@ -64,3 +64,122 @@ exports[`ProvisioiningState correctly fetch metadata for existing source and sch
   },
 ]
 `;
+
+exports[`ProvisioiningState handles table with missing permissions 1`] = `
+[
+  {
+    "delete_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "insert_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "select_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "table": {
+      "name": "tableA",
+      "schema": "account_id_function_name",
+    },
+    "update_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+  },
+  {
+    "delete_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "insert_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "select_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "table": {
+      "name": "tableB",
+      "schema": "account_id_function_name",
+    },
+    "update_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+  },
+  {
+    "delete_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "insert_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "table": {
+      "name": "tableC",
+      "schema": "account_id_function_name",
+    },
+    "update_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+  },
+  {
+    "delete_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "insert_permission": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "select_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+    "table": {
+      "name": "tableD",
+      "schema": "account_id_function_name",
+    },
+    "update_permissions": [
+      {
+        "permission": {},
+        "role": "account_id",
+      },
+    ],
+  },
+]
+`;
