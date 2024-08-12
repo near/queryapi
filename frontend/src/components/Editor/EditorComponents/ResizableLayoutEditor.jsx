@@ -1,28 +1,7 @@
 import { DiffEditorComponent } from './DiffEditorComponent';
 import { MonacoEditorComponent } from './MonacoEditorComponent';
 import { defaultCode, defaultSchema } from '@/utils/formatters';
-import { useDragResize } from '@/utils/resize';
 import GraphqlPlayground from '../../Playground';
-
-const containerStyle = {
-  display: 'flex',
-  flexDirection: 'row',
-  width: '100%',
-  height: '100vh',
-};
-
-const editorContainerStyle = {
-  width: '100%',
-  display: 'flex',
-  justifyContent: 'center',
-  minWidth: '100px',
-};
-
-const dragBarStyle = {
-  width: '10px',
-  backgroundColor: 'gray',
-  cursor: 'col-resize',
-};
 
 const ResizableEditor = ({
   accountId,
@@ -40,14 +19,6 @@ const ResizableEditor = ({
   onMount,
   isCreateNewIndexer,
 }) => {
-  const { firstRef, secondRef, dragBarRef } = useDragResize({
-    direction: 'horizontal',
-    initiallyHidden: null,
-    defaultSizeRelation: 3,
-    sizeThresholdFirst: 60,
-    sizeThresholdSecond: 60,
-  });
-
   // Render logic based on fileName
   const editorComponents = {
     GraphiQL: () => <GraphqlPlayground />,
@@ -80,7 +51,6 @@ const ResizableEditor = ({
             automaticLayout: true,
             formatOnPaste: true,
             definitionLinkOpensInPeek: true,
-            // glyphMargin: true,
             font: 'serif',
           }}
         />
@@ -120,14 +90,7 @@ const ResizableEditor = ({
       ),
   };
 
-  return (
-    <div style={containerStyle}>
-      <div ref={firstRef} style={editorContainerStyle}>
-        {editorComponents[fileName] && editorComponents[fileName]()}
-      </div>
-      <div ref={dragBarRef} style={dragBarStyle} />
-    </div>
-  );
+  return <div className="h-screen">{editorComponents[fileName] && editorComponents[fileName]()}</div>;
 };
 
 export default function ResizableLayoutEditor({
@@ -150,25 +113,17 @@ export default function ResizableLayoutEditor({
   contextCode,
   contextSchema,
 }) {
-  const {
-    dragBarRef: dragBarRefConsole,
-    firstRef: firstRefEditor,
-    secondRef: secondRefConsole,
-  } = useDragResize({
-    direction: 'vertical',
-    initiallyHidden: 'second',
-    defaultSizeRelation: 3,
-    sizeThresholdFirst: 60,
-    sizeThresholdSecond: 20,
-  });
-  
   const defaultCode = launchPadDefaultCode ? launchPadDefaultCode : contextCode ? contextCode : originalIndexingCode;
-  const defaultSchema = launchPadDefaultSchema ? launchPadDefaultSchema : contextSchema ? contextSchema : originalSQLCode;
-  
+  const defaultSchema = launchPadDefaultSchema
+    ? launchPadDefaultSchema
+    : contextSchema
+    ? contextSchema
+    : originalSQLCode;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Code Editor */}
-      <div ref={firstRefEditor} style={{ overflow: 'auto' }}>
+      <div style={{ overflow: 'auto' }}>
         <ResizableEditor
           accountId={accountId}
           fileName={fileName}
