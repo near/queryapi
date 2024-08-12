@@ -80,6 +80,9 @@ const generateCode = async (contractFilter: string, selectedMethods: Method[], s
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
 
+  const contextCode = indexerDetails.code && formatIndexingCode(indexerDetails.code);
+  const contextSchema = indexerDetails.schema && formatSQL(indexerDetails.schema);
+
   const storageManager = useMemo(() => {
     if (indexerDetails.accountId && indexerDetails.indexerName) {
       return new QueryAPIStorageManager(indexerDetails.accountId, indexerDetails.indexerName);
@@ -476,6 +479,8 @@ const Editor: React.FC = (): ReactElement => {
                   onMount={handleEditorWillMount}
                   launchPadDefaultCode={launchPadDefaultCode}
                   launchPadDefaultSchema={launchPadDefaultSchema}
+                  contextCode={contextCode}
+                  contextSchema={contextSchema}
                 />
               </GlyphContainer>
             </div>
