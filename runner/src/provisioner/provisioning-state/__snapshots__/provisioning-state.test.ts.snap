@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`ProvisioiningState correctly fetch metadata for source and schema 1`] = `
+exports[`ProvisioiningState correctly fetch metadata for existing source and schema 1`] = `
 [
   {
     "delete_permissions": [

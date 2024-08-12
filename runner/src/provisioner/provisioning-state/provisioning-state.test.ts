@@ -13,7 +13,7 @@ describe('ProvisioiningState', () => {
   );
 
   it('can create state whether source exists or not', async () => {
-    const metadataWithoutUser = generateHasuraMetadata(['some_schema'], ['tableA', 'tableB'], 'someAccount');
+    const metadataWithoutUser = generateHasuraMetadata(['some_schema'], ['tableA', 'tableB'], 'someAccount', 'someDb');
     const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithoutUser);
     const mockGetTableNames = jest.fn().mockResolvedValue([]);
     const mockHasuraClient = {
@@ -28,8 +28,8 @@ describe('ProvisioiningState', () => {
   });
 
   it('state works with existing source', async () => {
-    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName());
-    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole'));
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
+    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole', 'anotherDb'));
     const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithUser);
     const mockGetTableNames = jest.fn().mockResolvedValue(['tableA']);
     const mockHasuraClient = {
@@ -43,9 +43,9 @@ describe('ProvisioiningState', () => {
     expect(provisioningState.getCreatedTables()).toEqual(['tableA']);
   });
 
-  it('correctly fetch metadata for source and schema', async () => {
-    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName());
-    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole'));
+  it('correctly fetch metadata for existing source and schema', async () => {
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
+    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole', 'anotherDb'));
     const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithUser);
     const mockGetTableNames = jest.fn().mockResolvedValue(['tableA']);
     const mockHasuraClient = {
@@ -60,9 +60,25 @@ describe('ProvisioiningState', () => {
     expect(provisioningState.getTrackedTables()).toEqual(['tableA', 'tableB']);
     expect(provisioningState.getTablesWithPermissions()).toEqual(['tableA', 'tableB']);
   });
+
+  it('throws error when multiple sources with same name exist', async () => {
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
+    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName()));
+    const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithUser);
+    const mockGetTableNames = jest.fn().mockResolvedValue(['tableA']);
+    const mockHasuraClient = {
+      exportMetadata: mockExportMetadata,
+      getTableNames: mockGetTableNames,
+    } as unknown as HasuraClient;
+
+    const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
+    expect(() => provisioningState.getSourceMetadata()).toThrow('Expected exactly one source');
+    expect(() => provisioningState.getMetadataForTables()).toThrow('Expected exactly one source');
+    expect(() => provisioningState.getTrackedTables()).toThrow('Expected exactly one source');
+  });
 });
 
-function generateHasuraMetadata (schemaNames: string[], tableNames: string[], role: string): HasuraMetadata {
+function generateHasuraMetadata (schemaNames: string[], tableNames: string[], role: string, db: string): HasuraMetadata {
   const sources: HasuraSource[] = [];
   // Insert default source which has different format than the rest
   sources.push({
@@ -76,7 +92,7 @@ function generateHasuraMetadata (schemaNames: string[], tableNames: string[], ro
     }
   });
 
-  sources.push(generateSourceWithTables(schemaNames, tableNames, role));
+  sources.push(generateSourceWithTables(schemaNames, tableNames, role, db));
 
   return {
     version: 3,
@@ -84,7 +100,7 @@ function generateHasuraMetadata (schemaNames: string[], tableNames: string[], ro
   };
 }
 
-function generateSourceWithTables (schemaNames: string[], tableNames: string[], role: string): HasuraSource {
+function generateSourceWithTables (schemaNames: string[], tableNames: string[], role: string, db: string): HasuraSource {
   const tables: HasuraTableMetadata[] = [];
   schemaNames.forEach((schemaName) => {
     tableNames.forEach((tableName) => {
@@ -93,7 +109,7 @@ function generateSourceWithTables (schemaNames: string[], tableNames: string[], 
   });
 
   return {
-    name: role,
+    name: db,
     kind: 'postgres',
     tables,
     configuration: generateHasuraConfiguration(role, 'password'),

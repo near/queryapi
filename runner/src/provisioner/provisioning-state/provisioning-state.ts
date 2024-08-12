@@ -1,4 +1,3 @@
-import { assert } from 'console';
 import { type ProvisioningConfig } from '../../indexer-config';
 import { type HasuraTableMetadata, type HasuraMetadata, type HasuraSource, HASURA_PERMISSION_TYPES } from '../hasura-client';
 import type HasuraClient from '../hasura-client';
@@ -35,7 +34,9 @@ export default class ProvisioningState {
 
   getSourceMetadata (): HasuraSource {
     const matchedSource = this.hasuraMetadata.sources.filter(source => source.name === this.config.databaseName());
-    assert(matchedSource.length === 1, `Expected exactly one source with name ${this.config.databaseName()}`);
+    if (matchedSource.length !== 1) {
+      throw new Error(`Expected exactly one source with name ${this.config.databaseName()}`);
+    };
     return matchedSource[0];
   }
 
