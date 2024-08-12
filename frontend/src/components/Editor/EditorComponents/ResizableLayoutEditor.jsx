@@ -108,7 +108,7 @@ const ResizableLayoutEditor = ({
     );
   };
 
-  return <div className="h-screen">{renderEditor()}</div>;
+  return <div className="h-[85vh]">{renderEditor()}</div>;
 };
 
 export default React.memo(ResizableLayoutEditor);
