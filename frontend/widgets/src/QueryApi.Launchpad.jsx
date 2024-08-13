@@ -369,7 +369,7 @@ useEffect(() => {
   setCheckboxEvents(initializeCheckboxState(eventsData, 'event_name'));
 }, [methodsData, eventsData]);
 
-const generateMethods = () => {
+const generateProperties = () => {
   const filterData = (data, checkboxState, keyName) => {
     return data
       .map(item => {
@@ -463,7 +463,7 @@ const handleFetchCheckboxData = async () => {
 };
 
 const toggleAllSelection = (action) => {
-  const isSelectAll = action === 'select_all';
+  const isSelectAll = !selectAllMethods;
   const isMethodsTab = tab === 'methods_tab';
   const isEventsTab = tab === 'events_tab';
 
@@ -632,19 +632,10 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="select_all"
-                                onChange={() => toggleAllSelection('select_all')}
+                                onChange={() => toggleAllSelection(selectAllMethods)}
                                 checked={selectAllMethods}
                               />
                               Select All
-                            </CheckboxLabel>
-                            <CheckboxLabel>
-                              <Checkbox
-                                type="checkbox"
-                                id="unselect_all"
-                                onChange={() => toggleAllSelection('unselect_all')}
-                                checked={!selectAllMethods}
-                              />
-                              Unselect All
                             </CheckboxLabel>
                           </CheckboxContainer>
 
@@ -686,19 +677,10 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="select_all_events"
-                                onChange={() => toggleAllSelection('select_all')}
+                                onChange={() => toggleAllSelection(selectAllEvents)}
                                 checked={selectAllEvents}
                               />
                               Select All Events
-                            </CheckboxLabel>
-                            <CheckboxLabel>
-                              <Checkbox
-                                type="checkbox"
-                                id="unselect_all_events"
-                                onChange={() => toggleAllSelection('unselect_all')}
-                                checked={!selectAllEvents}
-                              />
-                              Unselect All Events
                             </CheckboxLabel>
                           </CheckboxContainer>
 
@@ -737,7 +719,7 @@ return (
                     </ScrollableDiv>
                   </SubContainerContent>
                 )}
-              <GenerateButton onClick={generateMethods} disabled={(!checkboxMethods || !hasSelectedValues(checkboxMethods)) && (!checkboxEvents || !hasSelectedValues(checkboxEvents))}>Generate</GenerateButton>
+              <GenerateButton onClick={generateProperties} disabled={(!checkboxMethods || !hasSelectedValues(checkboxMethods)) && (!checkboxEvents || !hasSelectedValues(checkboxEvents))}>Generate</GenerateButton>
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>
