@@ -31,14 +31,12 @@ import { validateJSCode, validateSQLSchema } from '@/utils/validators';
 import DeveloperToolsContainer from '../EditorViewContainer/DeveloperToolsContainer';
 import EditorMenuContainer from '../EditorViewContainer/EditorMenuContainer';
 import QueryAPIStorageManager from '../QueryApiStorageManager';
-import { block_details } from './block_details';
 import { FileSwitcher } from './FileSwitcher';
 import { GlyphContainer } from './GlyphContainer';
 import ResizableLayoutEditor from './ResizableLayoutEditor';
 
 declare const monaco: any;
 const INDEXER_TAB_NAME = 'indexer.js';
-const SCHEMA_TAB_NAME = 'schema.sql';
 const originalSQLCode = formatSQL(defaultSchema);
 const originalIndexingCode = formatIndexingCode(defaultCode);
 const pgSchemaTypeGen = new PgSchemaTypeGen();
@@ -106,7 +104,6 @@ const Editor: React.FC = (): ReactElement => {
   const [heights, setHeights] = useState<number[]>(initialHeights);
 
   const [diffView, setDiffView] = useState<boolean>(false);
-  const [blockView, setBlockView] = useState<boolean>(false);
 
   const [launchPadDefaultCode, setLaunchPadDefaultCode] = useState<string>('');
   const [launchPadDefaultSchema, setLaunchPadDefaultSchema] = useState<string>('');
@@ -463,24 +460,21 @@ const Editor: React.FC = (): ReactElement => {
                 indexerError={indexerError}
               />
               <GlyphContainer style={{ height: '100%', width: '100%' }}>
-                {/* @ts-ignore remove after refactoring Resizable Editor to ts*/}
                 <ResizableLayoutEditor
                   fileName={fileName}
-                  indexingCode={indexingCode}
-                  blockView={blockView}
                   diffView={diffView}
+                  isCreateNewIndexer={isCreateNewIndexer}
                   onChangeCode={handleOnChangeCode}
                   onChangeSchema={handleOnChangeSchema}
-                  block_details={block_details}
-                  originalSQLCode={originalSQLCode}
-                  originalIndexingCode={originalIndexingCode}
-                  schema={schema}
-                  isCreateNewIndexer={isCreateNewIndexer}
                   onMount={handleEditorWillMount}
+                  indexingCode={indexingCode}
+                  schema={schema}
                   launchPadDefaultCode={launchPadDefaultCode}
                   launchPadDefaultSchema={launchPadDefaultSchema}
                   contextCode={contextCode}
                   contextSchema={contextSchema}
+                  originalSQLCode={originalSQLCode}
+                  originalIndexingCode={originalIndexingCode}
                 />
               </GlyphContainer>
             </div>
