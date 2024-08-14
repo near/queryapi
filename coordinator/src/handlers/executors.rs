@@ -20,7 +20,7 @@ pub enum ExecutorStatus {
     Active,
     /// Executor is in an unhealthy state
     Unhealthy,
-    /// Executor
+    /// Executor is not running
     Inactive,
     /// Executor is not synchronized with the latest config
     Outdated,
