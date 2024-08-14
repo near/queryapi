@@ -381,13 +381,13 @@ export default class Provisioner {
       await this.createUserDb(userName, password, databaseName);
       await this.addDatasource(userName, password, databaseName);
     } else {
-      logger.info('Source already exists');
+      logger.debug('Source already exists');
     }
 
     if (!provisioningState.doesSchemaExist()) {
       await this.createSchema(databaseName, schemaName);
     } else {
-      logger.info('Schema already exists');
+      logger.debug('Schema already exists');
     }
 
     const createdTables = provisioningState.getCreatedTables();
@@ -395,21 +395,21 @@ export default class Provisioner {
     if (!createdTables.includes(METADATA_TABLE_NAME)) {
       await this.createMetadataTable(databaseName, schemaName);
     } else {
-      logger.info('Metadata table already exists');
+      logger.debug('Metadata table already exists');
     }
     await this.setProvisioningStatus(userName, schemaName);
 
     if (!createdTables.includes(LOGS_TABLE_NAME)) {
       await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
     } else {
-      logger.info('Logs table already exists');
+      logger.debug('Logs table already exists');
     }
 
     const tablesToTrack = this.SYSTEM_TABLES.filter(systemTable => !provisioningState.getTrackedTables().includes(systemTable));
     if (tablesToTrack.length > 0) {
       await this.trackTables(schemaName, tablesToTrack, databaseName);
     } else {
-      logger.info('All system tables are already tracked');
+      logger.debug('All system tables are already tracked');
     }
 
     const tablesToAddPermissions = this.SYSTEM_TABLES.filter(systemTable => !provisioningState.getTablesWithPermissions().includes(systemTable));
@@ -418,7 +418,7 @@ export default class Provisioner {
         await this.addPermissionsToTables(indexerConfig, tablesToAddPermissions, ['select', 'insert', 'update', 'delete']);
       });
     } else {
-      logger.info('All system tables already have permissions');
+      logger.debug('All system tables already have permissions');
     }
   }
 
@@ -430,7 +430,7 @@ export default class Provisioner {
     if (onlySystemTablesCreated) {
       await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
     } else {
-      logger.info('Skipping user script execution as non system tables have already been created');
+      logger.debug('Skipping user script execution as non system tables have already been created');
     }
 
     await provisioningState.reload(this.hasuraClient);
@@ -439,7 +439,7 @@ export default class Provisioner {
     if (userTableNames.length > 0) {
       await this.trackTables(schemaName, userTableNames, databaseName);
     } else {
-      logger.info('No user tables to track');
+      logger.debug('No user tables to track');
     }
 
     // Safely retryable
@@ -453,7 +453,7 @@ export default class Provisioner {
         await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
       });
     } else {
-      logger.info('All user tables already have permissions');
+      logger.debug('All user tables already have permissions');
     }
   }
 
