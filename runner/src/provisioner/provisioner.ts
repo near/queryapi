@@ -213,10 +213,6 @@ export default class Provisioner {
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
   }
 
-  async getTableNames (schemaName: string, databaseName: string): Promise<string[]> {
-    return await wrapError(async () => await this.hasuraClient.getTableNames(schemaName, databaseName), 'Failed to fetch table names');
-  }
-
   async trackTables (schemaName: string, tableNames: string[], databaseName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.trackTables(schemaName, tableNames, databaseName), 'Failed to track tables');
   }
@@ -438,7 +434,7 @@ export default class Provisioner {
     }
 
     await provisioningState.reload(this.hasuraClient);
-    const userTableNames = provisioningState.getCreatedTables().filter((tableName) => !this.SYSTEM_TABLES.includes(tableName));
+    const userTableNames = provisioningState.getCreatedTables().filter((tableName) => !provisioningState.getTrackedTables().includes(tableName));
 
     if (userTableNames.length > 0) {
       await this.trackTables(schemaName, userTableNames, databaseName);
@@ -452,7 +448,7 @@ export default class Provisioner {
     });
 
     const tablesWithoutPermissions = userTableNames.filter((tableName) => !provisioningState.getTablesWithPermissions().includes(tableName));
-    if (tablesWithoutPermissions) {
+    if (tablesWithoutPermissions.length > 0) {
       await this.exponentialRetry(async () => {
         await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
       });

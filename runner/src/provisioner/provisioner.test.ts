@@ -1,6 +1,6 @@
 import pgFormat from 'pg-format';
 
-import Provisioner, { METADATA_TABLE_NAME } from './provisioner';
+import Provisioner, { LOGS_TABLE_NAME, METADATA_TABLE_NAME } from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
 import { type HasuraTableMetadata, type HasuraMetadata, type HasuraSource } from './hasura-client';
@@ -14,6 +14,8 @@ describe('Provisioner', () => {
   let indexerConfig: IndexerConfig;
 
   const tableNames = ['blocks'];
+  const systemTables = [METADATA_TABLE_NAME, LOGS_TABLE_NAME];
+  const tableNamesWithSystemTables = ['blocks', ...systemTables];
   const accountId = 'morgs.near';
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
@@ -21,8 +23,10 @@ describe('Provisioner', () => {
   const emptyHasuraMetadata = generateDefaultHasuraMetadata();
   const hasuraMetadataWithEmptySource = generateDefaultHasuraMetadata();
   hasuraMetadataWithEmptySource.sources.push(generateSourceWithTables([], [], indexerConfig.userName(), indexerConfig.databaseName()));
+  const hasuraMetadataWithSystemProvisions = generateDefaultHasuraMetadata();
+  hasuraMetadataWithSystemProvisions.sources.push(generateSourceWithTables([indexerConfig.schemaName()], systemTables, indexerConfig.userName(), indexerConfig.databaseName()));
   const hasuraMetadataWithProvisions = generateDefaultHasuraMetadata();
-  hasuraMetadataWithProvisions.sources.push(generateSourceWithTables([indexerConfig.schemaName()], tableNames, indexerConfig.userName(), indexerConfig.databaseName()));
+  hasuraMetadataWithProvisions.sources.push(generateSourceWithTables([indexerConfig.schemaName()], tableNamesWithSystemTables, indexerConfig.userName(), indexerConfig.databaseName()));
   const testingRetryConfig = {
     maxRetries: 5,
     baseDelay: 10
@@ -45,8 +49,8 @@ describe('Provisioner', () => {
 
   beforeEach(() => {
     hasuraClient = {
-      exportMetadata: jest.fn().mockResolvedValueOnce(emptyHasuraMetadata).mockResolvedValue(hasuraMetadataWithProvisions),
-      getTableNames: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(tableNames),
+      exportMetadata: jest.fn().mockResolvedValueOnce(emptyHasuraMetadata).mockResolvedValue(hasuraMetadataWithSystemProvisions),
+      getTableNames: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(tableNamesWithSystemTables),
       trackTables: jest.fn().mockReturnValueOnce(null),
       trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(null),
       addPermissionsToTables: jest.fn().mockReturnValueOnce(null),
@@ -234,7 +238,20 @@ describe('Provisioner', () => {
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
-      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(1, indexerConfig.schemaName(), [METADATA_TABLE_NAME, LOGS_TABLE_NAME], indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(2, indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
+        indexerConfig.schemaName(),
+        indexerConfig.databaseName(),
+        [METADATA_TABLE_NAME, LOGS_TABLE_NAME],
+        indexerConfig.userName(),
+        [
+          'select',
+          'insert',
+          'update',
+          'delete'
+        ]
+      );
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
         indexerConfig.schemaName(),
         indexerConfig.databaseName(),
@@ -250,7 +267,7 @@ describe('Provisioner', () => {
     });
 
     it('skips provisioning the datasource if it already exists', async () => {
-      hasuraClient.exportMetadata = jest.fn().mockResolvedValue(hasuraMetadataWithEmptySource);
+      hasuraClient.exportMetadata = jest.fn().mockResolvedValueOnce(hasuraMetadataWithEmptySource).mockResolvedValue(hasuraMetadataWithSystemProvisions);
 
       await provisioner.provisionUserApi(indexerConfig);
 
@@ -262,7 +279,20 @@ describe('Provisioner', () => {
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
-      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(1, indexerConfig.schemaName(), [METADATA_TABLE_NAME, LOGS_TABLE_NAME], indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(2, indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
+        indexerConfig.schemaName(),
+        indexerConfig.databaseName(),
+        [METADATA_TABLE_NAME, LOGS_TABLE_NAME],
+        indexerConfig.userName(),
+        [
+          'select',
+          'insert',
+          'update',
+          'delete'
+        ]
+      );
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
         indexerConfig.schemaName(),
         indexerConfig.databaseName(),
@@ -275,6 +305,22 @@ describe('Provisioner', () => {
           'delete'
         ]
       );
+    });
+
+    it('skips all provisioning if all provisioning tasks already done', async () => {
+      hasuraClient.exportMetadata = jest.fn().mockResolvedValue(hasuraMetadataWithProvisions);
+      hasuraClient.getTableNames = jest.fn().mockResolvedValue(tableNamesWithSystemTables);
+
+      await provisioner.provisionUserApi(indexerConfig);
+
+      expect(adminPgClient.query).not.toBeCalled();
+      expect(hasuraClient.addDatasource).not.toBeCalled();
+
+      expect(hasuraClient.createSchema).not.toBeCalled();
+      expect(hasuraClient.executeSqlOnSchema).not.toBeCalled();
+      expect(hasuraClient.trackTables).not.toBeCalled();
+      expect(hasuraClient.trackForeignKeyRelationships).toHaveBeenCalledTimes(1);
+      expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
     });
 
     it('formats user input before executing the query', async () => {
