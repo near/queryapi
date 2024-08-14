@@ -3,6 +3,7 @@ import pgFormat from 'pg-format';
 import Provisioner, { METADATA_TABLE_NAME } from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
+import { type HasuraTableMetadata, type HasuraMetadata, type HasuraSource } from './hasura-client';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -17,6 +18,11 @@ describe('Provisioner', () => {
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
+  const emptyHasuraMetadata = generateDefaultHasuraMetadata();
+  const hasuraMetadataWithEmptySource = generateDefaultHasuraMetadata();
+  hasuraMetadataWithEmptySource.sources.push(generateSourceWithTables([], [], indexerConfig.userName(), indexerConfig.databaseName()));
+  const hasuraMetadataWithProvisions = generateDefaultHasuraMetadata();
+  hasuraMetadataWithProvisions.sources.push(generateSourceWithTables([indexerConfig.schemaName()], tableNames, indexerConfig.userName(), indexerConfig.databaseName()));
   const testingRetryConfig = {
     maxRetries: 5,
     baseDelay: 10
@@ -39,7 +45,8 @@ describe('Provisioner', () => {
 
   beforeEach(() => {
     hasuraClient = {
-      getTableNames: jest.fn().mockReturnValueOnce(tableNames),
+      exportMetadata: jest.fn().mockResolvedValueOnce(emptyHasuraMetadata).mockResolvedValue(hasuraMetadataWithProvisions),
+      getTableNames: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(tableNames),
       trackTables: jest.fn().mockReturnValueOnce(null),
       trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(null),
       addPermissionsToTables: jest.fn().mockReturnValueOnce(null),
@@ -243,7 +250,7 @@ describe('Provisioner', () => {
     });
 
     it('skips provisioning the datasource if it already exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
+      hasuraClient.exportMetadata = jest.fn().mockResolvedValue(hasuraMetadataWithEmptySource);
 
       await provisioner.provisionUserApi(indexerConfig);
 
@@ -310,12 +317,6 @@ describe('Provisioner', () => {
       hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.runLogsSql(accountId, functionName)).rejects.toThrow('Failed to run logs script: some error');
-    });
-
-    it('throws an error when it fails to fetch table names', async () => {
-      hasuraClient.getTableNames = jest.fn().mockRejectedValue(error);
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to fetch table names: some error');
     });
 
     it('throws an error when it fails to track tables', async () => {
@@ -407,3 +408,52 @@ describe('Provisioner', () => {
     });
   });
 });
+
+function generateDefaultHasuraMetadata (): HasuraMetadata {
+  const sources: HasuraSource[] = [];
+  // Insert default source which has different format than the rest
+  sources.push({
+    name: 'default',
+    kind: 'postgres',
+    tables: [],
+    configuration: {
+      connection_info: {
+        database_url: { from_env: 'HASURA_GRAPHQL_DATABASE_URL' },
+      }
+    }
+  });
+
+  return {
+    version: 3,
+    sources
+  };
+}
+
+function generateSourceWithTables (schemaNames: string[], tableNames: string[], role: string, db: string): HasuraSource {
+  const tables: HasuraTableMetadata[] = [];
+  schemaNames.forEach((schemaName) => {
+    tableNames.forEach((tableName) => {
+      tables.push(generateTableConfig(schemaName, tableName, role));
+    });
+  });
+
+  return {
+    name: db,
+    kind: 'postgres',
+    tables,
+    configuration: {} as any,
+  };
+}
+
+function generateTableConfig (schemaName: string, tableName: string, role: string): HasuraTableMetadata {
+  return {
+    table: {
+      name: tableName,
+      schema: schemaName,
+    },
+    insert_permissions: [{ role, permission: {} }],
+    select_permissions: [{ role, permission: {} }],
+    update_permissions: [{ role, permission: {} }],
+    delete_permissions: [{ role, permission: {} }],
+  };
+}
