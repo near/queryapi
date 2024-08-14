@@ -10,7 +10,7 @@ interface SqlOptions {
   source?: string
 }
 
-export type HasuraPermission = 'select' | 'insert' | 'update' | 'delete';
+export const HASURA_PERMISSION_TYPES = ['select', 'insert', 'update', 'delete'];
 
 interface TableDefinition {
   name: string

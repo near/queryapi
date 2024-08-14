@@ -5,13 +5,14 @@ import { wrapError, wrapSpan } from '../utility';
 import cryptoModule from 'crypto';
 import HasuraClient, {
   type HasuraDatabaseConnectionParameters,
-} from '../hasura-client';
+} from './hasura-client';
 import { logsTableDDL } from './schemas/logs-table';
 import { metadataTableDDL } from './schemas/metadata-table';
 import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import { type ProvisioningConfig } from '../indexer-config/indexer-config';
 import IndexerMetaClass, { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus, LogEntry } from '../indexer-meta';
 import logger from '../logger';
+import ProvisioningState from './provisioning-state/provisioning-state';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -58,10 +59,13 @@ const defaultRetryConfig: RetryConfig = {
   baseDelay: 1000
 };
 
+export const METADATA_TABLE_NAME = 'sys_metadata';
+export const LOGS_TABLE_NAME = 'sys_logs';
+
 export default class Provisioner {
   tracer: Tracer = trace.getTracer('queryapi-runner-provisioner');
 
-  private readonly SYSTEM_TABLES = ['sys_logs', 'sys_metadata'];
+  private readonly SYSTEM_TABLES = [METADATA_TABLE_NAME, LOGS_TABLE_NAME];
   private readonly logger: typeof logger;
 
   constructor (
@@ -162,24 +166,6 @@ export default class Provisioner {
     );
   }
 
-  async isProvisioned (indexerConfig: ProvisioningConfig): Promise<boolean> {
-    const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
-
-    const databaseName = indexerConfig.databaseName();
-    const schemaName = indexerConfig.schemaName();
-
-    const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
-    if (!sourceExists) {
-      return false;
-    }
-
-    const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
-
-    checkProvisioningSpan.end();
-
-    return schemaExists;
-  }
-
   async createSchema (databaseName: string, schemaName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }
@@ -207,10 +193,6 @@ export default class Provisioner {
 
   async runIndexerSql (databaseName: string, schemaName: string, sqlScript: any): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.executeSqlOnSchema(databaseName, schemaName, sqlScript), 'Failed to run user script');
-  }
-
-  async getTableNames (schemaName: string, databaseName: string): Promise<string[]> {
-    return await wrapError(async () => await this.hasuraClient.getTableNames(schemaName, databaseName), 'Failed to fetch table names');
   }
 
   async trackTables (schemaName: string, tableNames: string[], databaseName: string): Promise<void> {
@@ -334,15 +316,22 @@ export default class Provisioner {
 
     await wrapSpan(async () => {
       await wrapError(async () => {
+        let provisioningState: ProvisioningState;
         try {
-          await this.provisionSystemResources(indexerConfig);
+          provisioningState = await ProvisioningState.loadProvisioningState(this.hasuraClient, indexerConfig);
+        } catch (error) {
+          logger.error('Failed to get current state of indexer resources', error);
+          throw error;
+        }
+        try {
+          await this.provisionSystemResources(indexerConfig, provisioningState);
         } catch (error) {
           logger.error('Failed to provision system resources', error);
           throw error;
         }
 
         try {
-          await this.provisionUserResources(indexerConfig);
+          await this.provisionUserResources(indexerConfig, provisioningState);
         } catch (err) {
           const error = err as Error;
 
@@ -364,47 +353,90 @@ export default class Provisioner {
     await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
   }
 
-  async provisionSystemResources (indexerConfig: ProvisioningConfig): Promise<void> {
+  async provisionSystemResources (indexerConfig: ProvisioningConfig, provisioningState: ProvisioningState): Promise<void> {
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
 
-    if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+    if (!provisioningState.doesSourceExist()) {
       const password = this.generatePassword();
       await this.createUserDb(userName, password, databaseName);
       await this.addDatasource(userName, password, databaseName);
+    } else {
+      logger.debug('Source already exists');
     }
 
-    await this.createSchema(databaseName, schemaName);
+    if (!provisioningState.doesSchemaExist()) {
+      await this.createSchema(databaseName, schemaName);
+    } else {
+      logger.debug('Schema already exists');
+    }
 
-    await this.createMetadataTable(databaseName, schemaName);
+    const createdTables = provisioningState.getCreatedTables();
+
+    if (!createdTables.includes(METADATA_TABLE_NAME)) {
+      await this.createMetadataTable(databaseName, schemaName);
+    } else {
+      logger.debug('Metadata table already exists');
+    }
     await this.setProvisioningStatus(userName, schemaName);
-    await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
-    await this.trackTables(schemaName, this.SYSTEM_TABLES, databaseName);
+    if (!createdTables.includes(LOGS_TABLE_NAME)) {
+      await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+    } else {
+      logger.debug('Logs table already exists');
+    }
 
-    await this.exponentialRetry(async () => {
-      await this.addPermissionsToTables(indexerConfig, this.SYSTEM_TABLES, ['select', 'insert', 'update', 'delete']);
-    });
+    const tablesToTrack = this.SYSTEM_TABLES.filter(systemTable => !provisioningState.getTrackedTables().includes(systemTable));
+    if (tablesToTrack.length > 0) {
+      await this.trackTables(schemaName, tablesToTrack, databaseName);
+    } else {
+      logger.debug('All system tables are already tracked');
+    }
+
+    const tablesToAddPermissions = this.SYSTEM_TABLES.filter(systemTable => !provisioningState.getTablesWithPermissions().includes(systemTable));
+    if (tablesToAddPermissions.length > 0) {
+      await this.exponentialRetry(async () => {
+        await this.addPermissionsToTables(indexerConfig, tablesToAddPermissions, ['select', 'insert', 'update', 'delete']);
+      });
+    } else {
+      logger.debug('All system tables already have permissions');
+    }
   }
 
-  async provisionUserResources (indexerConfig: ProvisioningConfig): Promise<void> {
+  async provisionUserResources (indexerConfig: ProvisioningConfig, provisioningState: ProvisioningState): Promise<void> {
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
 
-    await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+    const onlySystemTablesCreated = provisioningState.getCreatedTables().every((table) => this.SYSTEM_TABLES.includes(table));
+    if (onlySystemTablesCreated) {
+      await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+    } else {
+      logger.debug('Skipping user script execution as non system tables have already been created');
+    }
 
-    const userTableNames = (await this.getTableNames(schemaName, databaseName)).filter((tableName) => !this.SYSTEM_TABLES.includes(tableName));
+    await provisioningState.reload(this.hasuraClient);
+    const userTableNames = provisioningState.getCreatedTables().filter((tableName) => !provisioningState.getTrackedTables().includes(tableName));
 
-    await this.trackTables(schemaName, userTableNames, databaseName);
+    if (userTableNames.length > 0) {
+      await this.trackTables(schemaName, userTableNames, databaseName);
+    } else {
+      logger.debug('No user tables to track');
+    }
 
+    // Safely retryable
     await this.exponentialRetry(async () => {
       await this.trackForeignKeyRelationships(schemaName, databaseName);
     });
 
-    await this.exponentialRetry(async () => {
-      await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
-    });
+    const tablesWithoutPermissions = userTableNames.filter((tableName) => !provisioningState.getTablesWithPermissions().includes(tableName));
+    if (tablesWithoutPermissions.length > 0) {
+      await this.exponentialRetry(async () => {
+        await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
+      });
+    } else {
+      logger.debug('All user tables already have permissions');
+    }
   }
 
   async exponentialRetry (fn: () => Promise<void>): Promise<void> {
