@@ -353,7 +353,7 @@ export default class Provisioner {
         }
 
         try {
-          await this.provisionUserResources(indexerConfig);
+          await this.provisionUserResources(indexerConfig, provisioningState);
         } catch (err) {
           const error = err as Error;
 
@@ -426,23 +426,39 @@ export default class Provisioner {
     }
   }
 
-  async provisionUserResources (indexerConfig: ProvisioningConfig): Promise<void> {
+  async provisionUserResources (indexerConfig: ProvisioningConfig, provisioningState: ProvisioningState): Promise<void> {
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
 
-    await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+    const onlySystemTablesCreated = provisioningState.getCreatedTables().every((table) => this.SYSTEM_TABLES.includes(table));
+    if (onlySystemTablesCreated) {
+      await this.runIndexerSql(databaseName, schemaName, indexerConfig.schema);
+    } else {
+      logger.info('Skipping user script execution as non system tables have already been created');
+    }
 
-    const userTableNames = (await this.getTableNames(schemaName, databaseName)).filter((tableName) => !this.SYSTEM_TABLES.includes(tableName));
+    await provisioningState.reload(this.hasuraClient);
+    const userTableNames = provisioningState.getCreatedTables().filter((tableName) => !this.SYSTEM_TABLES.includes(tableName));
 
-    await this.trackTables(schemaName, userTableNames, databaseName);
+    if (userTableNames.length > 0) {
+      await this.trackTables(schemaName, userTableNames, databaseName);
+    } else {
+      logger.info('No user tables to track');
+    }
 
+    // Safely retryable
     await this.exponentialRetry(async () => {
       await this.trackForeignKeyRelationships(schemaName, databaseName);
     });
 
-    await this.exponentialRetry(async () => {
-      await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
-    });
+    const tablesWithoutPermissions = userTableNames.filter((tableName) => !provisioningState.getTablesWithPermissions().includes(tableName));
+    if (tablesWithoutPermissions) {
+      await this.exponentialRetry(async () => {
+        await this.addPermissionsToTables(indexerConfig, userTableNames, ['select', 'insert', 'update', 'delete']);
+      });
+    } else {
+      logger.info('All user tables already have permissions');
+    }
   }
 
   async exponentialRetry (fn: () => Promise<void>): Promise<void> {

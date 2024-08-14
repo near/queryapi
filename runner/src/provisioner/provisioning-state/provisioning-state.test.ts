@@ -65,6 +65,31 @@ describe('ProvisioiningState', () => {
     expect(provisioningState.getTablesWithPermissions()).toEqual(['tableA', 'tableB']);
   });
 
+  it('reload loads metadata and created tables', async () => {
+    const metadataWithoutUser = generateHasuraMetadata(['some_schema'], ['tableA', 'tableB'], 'someAccount', 'someDb');
+    const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
+    metadataWithUser.sources.push(generateSourceWithTables(['anotherSchema'], ['anotherTable'], 'anotherRole', 'anotherDb'));
+    const mockExportMetadata = jest.fn().mockResolvedValueOnce(metadataWithoutUser).mockResolvedValue(metadataWithUser);
+    const mockGetTableNames = jest.fn().mockRejectedValueOnce(new Error('{"error":"source with name "someAccount" does not exist","path":"$.args","code":"not-exists"}')).mockResolvedValueOnce(['tableA']);
+    const mockHasuraClient = {
+      exportMetadata: mockExportMetadata,
+      getTableNames: mockGetTableNames,
+    } as unknown as HasuraClient;
+
+    const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
+    expect(provisioningState.doesSourceExist()).toBe(false);
+    expect(provisioningState.doesSchemaExist()).toBe(false);
+    expect(provisioningState.getCreatedTables()).toEqual([]);
+    expect(provisioningState.getSourceMetadata()).toEqual(undefined);
+
+    await provisioningState.reload(mockHasuraClient);
+    expect(provisioningState.getSourceMetadata()?.name).toBe(provisioningConfig.hasuraRoleName());
+    expect(provisioningState.getMetadataForTables().length).toBe(2);
+    expect(provisioningState.getMetadataForTables()).toMatchSnapshot();
+    expect(provisioningState.getTrackedTables()).toEqual(['tableA', 'tableB']);
+    expect(provisioningState.getTablesWithPermissions()).toEqual(['tableA', 'tableB']);
+  });
+
   it('handles table with missing permissions', async () => {
     const metadataWithUser = generateHasuraMetadata([provisioningConfig.schemaName(), 'some_schema'], ['tableA', 'tableB'], provisioningConfig.hasuraRoleName(), provisioningConfig.databaseName());
     const role = provisioningConfig.hasuraRoleName();

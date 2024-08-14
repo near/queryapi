@@ -5,8 +5,8 @@ import type HasuraClient from '../hasura-client';
 export default class ProvisioningState {
   constructor (
     private readonly config: ProvisioningConfig,
-    private readonly hasuraMetadata: HasuraMetadata,
-    private readonly tablesInSource: string[],
+    private hasuraMetadata: HasuraMetadata,
+    private tablesInSource: string[],
   ) {}
 
   static async loadProvisioningState (hasuraClient: HasuraClient, provisioningConfig: ProvisioningConfig): Promise<ProvisioningState> {
@@ -19,6 +19,17 @@ export default class ProvisioningState {
       throw error;
     });
     return new ProvisioningState(provisioningConfig, hasuraMetadata, tablesInSource);
+  }
+
+  async reload (hasuraClient: HasuraClient): Promise<void> {
+    this.hasuraMetadata = await hasuraClient.exportMetadata();
+    this.tablesInSource = await hasuraClient.getTableNames(this.config.schemaName(), this.config.databaseName()).catch((err) => {
+      const error = err as Error;
+      if (error.message.includes('source with name') && error.message.includes('not-exists')) {
+        return [];
+      }
+      throw error;
+    });
   }
 
   doesSourceExist (): boolean {
