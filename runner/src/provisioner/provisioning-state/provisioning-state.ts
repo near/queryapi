@@ -11,7 +11,13 @@ export default class ProvisioningState {
 
   static async loadProvisioningState (hasuraClient: HasuraClient, provisioningConfig: ProvisioningConfig): Promise<ProvisioningState> {
     const hasuraMetadata = await hasuraClient.exportMetadata();
-    const tablesInSource = await hasuraClient.getTableNames(provisioningConfig.schemaName(), provisioningConfig.databaseName());
+    const tablesInSource = await hasuraClient.getTableNames(provisioningConfig.schemaName(), provisioningConfig.databaseName()).catch((err) => {
+      const error = err as Error;
+      if (error.message.includes('source with name') && error.message.includes('not-exists')) {
+        return [];
+      }
+      throw error;
+    });
     return new ProvisioningState(provisioningConfig, hasuraMetadata, tablesInSource);
   }
 
@@ -32,16 +38,16 @@ export default class ProvisioningState {
     return this.tablesInSource;
   }
 
-  getSourceMetadata (): HasuraSource {
+  getSourceMetadata (): HasuraSource | undefined {
     const matchedSource = this.hasuraMetadata.sources.filter(source => source.name === this.config.databaseName());
-    if (matchedSource.length !== 1) {
-      throw new Error(`Expected exactly one source with name ${this.config.databaseName()}`);
+    if (matchedSource.length > 1) {
+      throw new Error(`Expected no more than one source with name ${this.config.databaseName()}. Found ${matchedSource.length}`);
     };
-    return matchedSource[0];
+    return matchedSource.length === 0 ? undefined : matchedSource[0];
   }
 
   getMetadataForTables (): HasuraTableMetadata[] {
-    return this.getSourceMetadata().tables.filter(tableMetadata => tableMetadata.table.schema === this.config.schemaName());
+    return this.getSourceMetadata()?.tables.filter(tableMetadata => tableMetadata.table.schema === this.config.schemaName()) ?? [];
   }
 
   getTrackedTables (): string[] {
@@ -54,7 +60,7 @@ export default class ProvisioningState {
     return allPermissions.every(permission => metadataKeys.includes(permission));
   }
 
-  // Does not check for untracked tables or partial permissions
+  // Does not check for partial permissions
   getTablesWithPermissions (): string[] {
     const tableMetadataList = this.getMetadataForTables();
     return tableMetadataList

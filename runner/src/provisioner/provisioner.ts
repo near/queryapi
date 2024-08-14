@@ -12,6 +12,7 @@ import PgClientClass, { type PostgresConnectionParams } from '../pg-client';
 import { type ProvisioningConfig } from '../indexer-config/indexer-config';
 import IndexerMetaClass, { METADATA_TABLE_UPSERT, MetadataFields, IndexerStatus, LogEntry } from '../indexer-meta';
 import logger from '../logger';
+import ProvisioningState from './provisioning-state/provisioning-state';
 
 const DEFAULT_PASSWORD_LENGTH = 16;
 
@@ -337,8 +338,15 @@ export default class Provisioner {
 
     await wrapSpan(async () => {
       await wrapError(async () => {
+        let provisioningState: ProvisioningState;
         try {
-          await this.provisionSystemResources(indexerConfig);
+          provisioningState = await ProvisioningState.loadProvisioningState(this.hasuraClient, indexerConfig);
+        } catch (error) {
+          logger.error('Failed to get current state of indexer resources', error);
+          throw error;
+        }
+        try {
+          await this.provisionSystemResources(indexerConfig, provisioningState);
         } catch (error) {
           logger.error('Failed to provision system resources', error);
           throw error;
@@ -367,28 +375,55 @@ export default class Provisioner {
     await indexerMeta.writeLogs([LogEntry.systemError(error.message)]);
   }
 
-  async provisionSystemResources (indexerConfig: ProvisioningConfig): Promise<void> {
+  async provisionSystemResources (indexerConfig: ProvisioningConfig, provisioningState: ProvisioningState): Promise<void> {
     const userName = indexerConfig.userName();
     const databaseName = indexerConfig.databaseName();
     const schemaName = indexerConfig.schemaName();
 
-    if (!await this.hasuraClient.doesSourceExist(databaseName)) {
+    if (!provisioningState.doesSourceExist()) {
       const password = this.generatePassword();
       await this.createUserDb(userName, password, databaseName);
       await this.addDatasource(userName, password, databaseName);
+    } else {
+      logger.info('Source already exists');
     }
 
-    await this.createSchema(databaseName, schemaName);
+    if (!provisioningState.doesSchemaExist()) {
+      await this.createSchema(databaseName, schemaName);
+    } else {
+      logger.info('Schema already exists');
+    }
 
-    await this.createMetadataTable(databaseName, schemaName);
+    const createdTables = provisioningState.getCreatedTables();
+
+    if (!createdTables.includes(METADATA_TABLE_NAME)) {
+      await this.createMetadataTable(databaseName, schemaName);
+    } else {
+      logger.info('Metadata table already exists');
+    }
     await this.setProvisioningStatus(userName, schemaName);
-    await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
 
-    await this.trackTables(schemaName, this.SYSTEM_TABLES, databaseName);
+    if (!createdTables.includes(LOGS_TABLE_NAME)) {
+      await this.setupPartitionedLogsTable(userName, databaseName, schemaName);
+    } else {
+      logger.info('Logs table already exists');
+    }
 
-    await this.exponentialRetry(async () => {
-      await this.addPermissionsToTables(indexerConfig, this.SYSTEM_TABLES, ['select', 'insert', 'update', 'delete']);
-    });
+    const tablesToTrack = this.SYSTEM_TABLES.filter(systemTable => !provisioningState.getTrackedTables().includes(systemTable));
+    if (tablesToTrack.length > 0) {
+      await this.trackTables(schemaName, tablesToTrack, databaseName);
+    } else {
+      logger.info('All system tables are already tracked');
+    }
+
+    const tablesToAddPermissions = this.SYSTEM_TABLES.filter(systemTable => !provisioningState.getTablesWithPermissions().includes(systemTable));
+    if (tablesToAddPermissions.length > 0) {
+      await this.exponentialRetry(async () => {
+        await this.addPermissionsToTables(indexerConfig, tablesToAddPermissions, ['select', 'insert', 'update', 'delete']);
+      });
+    } else {
+      logger.info('All system tables already have permissions');
+    }
   }
 
   async provisionUserResources (indexerConfig: ProvisioningConfig): Promise<void> {

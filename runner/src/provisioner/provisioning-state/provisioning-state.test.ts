@@ -15,7 +15,7 @@ describe('ProvisioiningState', () => {
   it('can create state whether source exists or not', async () => {
     const metadataWithoutUser = generateHasuraMetadata(['some_schema'], ['tableA', 'tableB'], 'someAccount', 'someDb');
     const mockExportMetadata = jest.fn().mockResolvedValue(metadataWithoutUser);
-    const mockGetTableNames = jest.fn().mockResolvedValue([]);
+    const mockGetTableNames = jest.fn().mockRejectedValueOnce(new Error('{"error":"source with name "someAccount" does not exist","path":"$.args","code":"not-exists"}'));
     const mockHasuraClient = {
       exportMetadata: mockExportMetadata,
       getTableNames: mockGetTableNames,
@@ -25,6 +25,10 @@ describe('ProvisioiningState', () => {
     expect(provisioningState.doesSourceExist()).toBe(false);
     expect(provisioningState.doesSchemaExist()).toBe(false);
     expect(provisioningState.getCreatedTables()).toEqual([]);
+    expect(provisioningState.getSourceMetadata()).toEqual(undefined);
+    expect(provisioningState.getMetadataForTables()).toEqual([]);
+    expect(provisioningState.getTrackedTables()).toEqual([]);
+    expect(provisioningState.getTablesWithPermissions()).toEqual([]);
   });
 
   it('state works with existing source', async () => {
@@ -54,7 +58,7 @@ describe('ProvisioiningState', () => {
     } as unknown as HasuraClient;
 
     const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
-    expect(provisioningState.getSourceMetadata().name).toBe(provisioningConfig.hasuraRoleName());
+    expect(provisioningState.getSourceMetadata()?.name).toBe(provisioningConfig.hasuraRoleName());
     expect(provisioningState.getMetadataForTables().length).toBe(2);
     expect(provisioningState.getMetadataForTables()).toMatchSnapshot();
     expect(provisioningState.getTrackedTables()).toEqual(['tableA', 'tableB']);
@@ -94,7 +98,7 @@ describe('ProvisioiningState', () => {
     } as unknown as HasuraClient;
 
     const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
-    expect(provisioningState.getSourceMetadata().name).toBe(provisioningConfig.hasuraRoleName());
+    expect(provisioningState.getSourceMetadata()?.name).toBe(provisioningConfig.hasuraRoleName());
     expect(provisioningState.getMetadataForTables().length).toBe(4);
     expect(provisioningState.getMetadataForTables()).toMatchSnapshot();
     expect(provisioningState.getTrackedTables()).toEqual(['tableA', 'tableB', 'tableC', 'tableD']);
@@ -112,9 +116,9 @@ describe('ProvisioiningState', () => {
     } as unknown as HasuraClient;
 
     const provisioningState = await ProvisioningState.loadProvisioningState(mockHasuraClient, provisioningConfig);
-    expect(() => provisioningState.getSourceMetadata()).toThrow('Expected exactly one source');
-    expect(() => provisioningState.getMetadataForTables()).toThrow('Expected exactly one source');
-    expect(() => provisioningState.getTrackedTables()).toThrow('Expected exactly one source');
+    expect(() => provisioningState.getSourceMetadata()).toThrow('Expected no more than one source');
+    expect(() => provisioningState.getMetadataForTables()).toThrow('Expected no more than one source');
+    expect(() => provisioningState.getTrackedTables()).toThrow('Expected no more than one source');
   });
 });
 
