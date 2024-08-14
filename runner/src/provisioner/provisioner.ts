@@ -166,24 +166,6 @@ export default class Provisioner {
     );
   }
 
-  async isProvisioned (indexerConfig: ProvisioningConfig): Promise<boolean> {
-    const checkProvisioningSpan = this.tracer.startSpan('Check if indexer is provisioned');
-
-    const databaseName = indexerConfig.databaseName();
-    const schemaName = indexerConfig.schemaName();
-
-    const sourceExists = await this.hasuraClient.doesSourceExist(databaseName);
-    if (!sourceExists) {
-      return false;
-    }
-
-    const schemaExists = await this.hasuraClient.doesSchemaExist(databaseName, schemaName);
-
-    checkProvisioningSpan.end();
-
-    return schemaExists;
-  }
-
   async createSchema (databaseName: string, schemaName: string): Promise<void> {
     return await wrapError(async () => await this.hasuraClient.createSchema(databaseName, schemaName), 'Failed to create schema');
   }

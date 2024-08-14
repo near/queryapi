@@ -190,28 +190,6 @@ describe('Provisioner', () => {
     });
   });
 
-  describe('isUserApiProvisioned', () => {
-    it('returns false if datasource doesnt exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
-
-      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
-    });
-
-    it('returns false if datasource and schema dont exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
-      hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(false);
-
-      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
-    });
-
-    it('returns true if datasource and schema exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
-      hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
-
-      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(true);
-    });
-  });
-
   describe('provisionUserApi', () => {
     it('provisions an API for the user', async () => {
       await provisioner.provisionUserApi(indexerConfig);
