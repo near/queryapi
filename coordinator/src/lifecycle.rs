@@ -9,6 +9,7 @@ use crate::redis::{KeyProvider, RedisClient};
 use crate::registry::Registry;
 
 const LOOP_THROTTLE_MS: u64 = 1000;
+const RESTART_TIMEOUT_SECONDS: u64 = 600;
 
 /// Represents the different lifecycle states of an Indexer
 #[derive(Default, Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
@@ -138,9 +139,12 @@ impl<'a> LifecycleManager<'a> {
 
         if let Err(error) = match stream_status {
             BlockStreamStatus::Active => Ok(()),
-            BlockStreamStatus::Unhealthy => self.block_streams_handler.restart(config).await,
             BlockStreamStatus::Inactive => self.block_streams_handler.resume(config).await,
             BlockStreamStatus::Outdated => self.block_streams_handler.reconfigure(config).await,
+            BlockStreamStatus::Unhealthy => {
+                tokio::time::sleep(tokio::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
+                self.block_streams_handler.restart(config).await
+            }
             BlockStreamStatus::NotStarted => {
                 self.block_streams_handler
                     .start_new_block_stream(config)
@@ -164,7 +168,9 @@ impl<'a> LifecycleManager<'a> {
         if let Err(error) = match executor_status {
             ExecutorStatus::Active => Ok(()),
             ExecutorStatus::Inactive => self.executors_handler.start(config).await,
-            ExecutorStatus::Unhealthy | ExecutorStatus::Outdated => {
+            ExecutorStatus::Outdated => self.executors_handler.restart(config).await,
+            ExecutorStatus::Unhealthy => {
+                tokio::time::sleep(tokio::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
                 self.executors_handler.restart(config).await
             }
         } {

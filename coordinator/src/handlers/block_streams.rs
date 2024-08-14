@@ -18,8 +18,6 @@ use tonic::transport::channel::Channel;
 use crate::indexer_config::IndexerConfig;
 use crate::redis::{KeyProvider, RedisClient};
 
-const RESTART_TIMEOUT_SECONDS: u64 = 600;
-
 #[derive(Debug, PartialEq)]
 pub enum BlockStreamStatus {
     /// Block Stream is running as expected

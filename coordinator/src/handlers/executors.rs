@@ -14,8 +14,6 @@ use tonic::transport::channel::Channel;
 use crate::indexer_config::IndexerConfig;
 use crate::redis::KeyProvider;
 
-const RESTART_TIMEOUT_SECONDS: u64 = 600;
-
 #[derive(Debug, PartialEq)]
 pub enum ExecutorStatus {
     /// Executor is running as expected
