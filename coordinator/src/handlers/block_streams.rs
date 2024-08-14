@@ -18,7 +18,19 @@ use tonic::transport::channel::Channel;
 use crate::indexer_config::IndexerConfig;
 use crate::redis::{KeyProvider, RedisClient};
 
-const RESTART_TIMEOUT_SECONDS: u64 = 600;
+#[derive(Debug, PartialEq)]
+pub enum BlockStreamStatus {
+    /// Block Stream is running as expected
+    Active,
+    /// Existing Block Stream is in an unhealthy state
+    Unhealthy,
+    /// Existing Block Stream is not running
+    Inactive,
+    /// Block Stream is not synchronized with the latest config
+    Outdated,
+    /// Block Stream has not been encountered before
+    NotStarted,
+}
 
 #[cfg(not(test))]
 use BlockStreamsClientWrapperImpl as BlockStreamsClientWrapper;
@@ -191,7 +203,10 @@ impl BlockStreamsHandlerImpl {
         Ok(())
     }
 
-    async fn reconfigure(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn reconfigure(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        self.stop_if_needed(config.account_id.clone(), config.function_name.clone())
+            .await?;
+
         if matches!(
             config.start_block,
             StartBlock::Latest | StartBlock::Height(..)
@@ -216,7 +231,7 @@ impl BlockStreamsHandlerImpl {
         Ok(())
     }
 
-    async fn start_new_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn start_new_block_stream(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         let height = match config.start_block {
             StartBlock::Height(height) => height,
             StartBlock::Latest => config.get_registry_version(),
@@ -254,7 +269,7 @@ impl BlockStreamsHandlerImpl {
         Ok(height)
     }
 
-    async fn resume(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+    pub async fn resume(&self, config: &IndexerConfig) -> anyhow::Result<()> {
         let height = self.get_continuation_block_height(config).await?;
 
         tracing::info!(height, "Resuming block stream");
@@ -264,11 +279,7 @@ impl BlockStreamsHandlerImpl {
         Ok(())
     }
 
-    async fn ensure_healthy(
-        &self,
-        config: &IndexerConfig,
-        block_stream: &StreamInfo,
-    ) -> anyhow::Result<()> {
+    fn is_healthy(&self, block_stream: &StreamInfo) -> bool {
         if let Some(health) = block_stream.health.as_ref() {
             let updated_at =
                 SystemTime::UNIX_EPOCH + Duration::from_secs(health.updated_at_timestamp_secs);
@@ -280,70 +291,11 @@ impl BlockStreamsHandlerImpl {
             );
 
             if !stale && !stalled {
-                return Ok(());
-            } else {
-                tracing::info!(
-                    stale,
-                    stalled,
-                    "Restarting stalled block stream after {RESTART_TIMEOUT_SECONDS} seconds"
-                );
+                return true;
             }
-        } else {
-            tracing::info!(
-                "Restarting stalled block stream after {RESTART_TIMEOUT_SECONDS} seconds"
-            );
         }
 
-        self.stop(block_stream.stream_id.clone()).await?;
-        tokio::time::sleep(tokio::time::Duration::from_secs(RESTART_TIMEOUT_SECONDS)).await;
-        let height = self.get_continuation_block_height(config).await?;
-        self.start(height, config).await?;
-
-        Ok(())
-    }
-
-    pub async fn synchronise(
-        &self,
-        config: &IndexerConfig,
-        previous_sync_version: Option<u64>,
-    ) -> anyhow::Result<()> {
-        let block_stream = self
-            .get(config.account_id.clone(), config.function_name.clone())
-            .await?;
-
-        if let Some(block_stream) = block_stream {
-            if block_stream.version == config.get_registry_version() {
-                self.ensure_healthy(config, &block_stream).await?;
-                return Ok(());
-            }
-
-            tracing::info!(
-                previous_version = block_stream.version,
-                "Stopping outdated block stream"
-            );
-
-            self.stop(block_stream.stream_id.clone()).await?;
-
-            self.reconfigure(config).await?;
-
-            return Ok(());
-        }
-
-        if previous_sync_version.is_none() {
-            self.start_new_block_stream(config).await?;
-
-            return Ok(());
-        }
-
-        if previous_sync_version.unwrap() != config.get_registry_version() {
-            self.reconfigure(config).await?;
-
-            return Ok(());
-        }
-
-        self.resume(config).await?;
-
-        Ok(())
+        false
     }
 
     pub async fn stop_if_needed(
@@ -358,6 +310,48 @@ impl BlockStreamsHandlerImpl {
         }
 
         Ok(())
+    }
+
+    pub async fn get_status(
+        &self,
+        config: &IndexerConfig,
+        previous_sync_version: Option<u64>,
+    ) -> anyhow::Result<BlockStreamStatus> {
+        if let Some(block_stream) = self
+            .get(config.account_id.clone(), config.function_name.clone())
+            .await?
+        {
+            if block_stream.version != config.get_registry_version() {
+                return Ok(BlockStreamStatus::Outdated);
+            }
+
+            if !self.is_healthy(&block_stream) {
+                return Ok(BlockStreamStatus::Unhealthy);
+            }
+
+            return Ok(BlockStreamStatus::Active);
+        }
+
+        if previous_sync_version.is_none() {
+            return Ok(BlockStreamStatus::NotStarted);
+        }
+
+        if previous_sync_version.unwrap() != config.get_registry_version() {
+            return Ok(BlockStreamStatus::Outdated);
+        }
+
+        Ok(BlockStreamStatus::Inactive)
+    }
+
+    pub async fn restart(&self, config: &IndexerConfig) -> anyhow::Result<()> {
+        if let Some(block_stream) = self
+            .get(config.account_id.clone(), config.function_name.clone())
+            .await?
+        {
+            self.stop(block_stream.stream_id.clone()).await?;
+        }
+
+        self.resume(config).await
     }
 }
 
@@ -381,18 +375,84 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn resumes_stopped_streams() {
+    async fn returns_stream_status() {
+        let config = IndexerConfig::default();
+        let test_cases = [
+            (
+                Some(StreamInfo {
+                    version: config.get_registry_version(),
+                    health: Some(block_streamer::Health {
+                        updated_at_timestamp_secs: SystemTime::now()
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs(),
+                        processing_state: ProcessingState::Running.into(),
+                    }),
+                    ..Default::default()
+                }),
+                Some(config.get_registry_version()),
+                BlockStreamStatus::Active,
+            ),
+            (
+                None,
+                Some(config.get_registry_version()),
+                BlockStreamStatus::Inactive,
+            ),
+            (
+                Some(StreamInfo {
+                    version: config.get_registry_version() - 1,
+                    ..Default::default()
+                }),
+                Some(config.get_registry_version()),
+                BlockStreamStatus::Outdated,
+            ),
+            (
+                Some(StreamInfo {
+                    version: config.get_registry_version(),
+                    health: None,
+                    ..Default::default()
+                }),
+                Some(config.get_registry_version()),
+                BlockStreamStatus::Unhealthy,
+            ),
+            (None, None, BlockStreamStatus::NotStarted),
+        ];
+
+        for (stream, previous_sync_version, expected) in test_cases {
+            let mut mock_client = BlockStreamsClientWrapper::default();
+            mock_client
+                .expect_get_stream::<GetStreamRequest>()
+                .returning(move |_| {
+                    if let Some(stream) = stream.clone() {
+                        Ok(Response::new(stream))
+                    } else {
+                        Err(tonic::Status::not_found("not found"))
+                    }
+                });
+
+            let mock_redis = RedisClient::default();
+
+            let handler = BlockStreamsHandlerImpl {
+                client: mock_client,
+                redis_client: mock_redis,
+            };
+
+            assert_eq!(
+                expected,
+                handler
+                    .get_status(&config, previous_sync_version)
+                    .await
+                    .unwrap()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn resumes_streams() {
         let config = IndexerConfig::default();
         let last_published_block = 10;
 
         let mut mock_client = BlockStreamsClientWrapper::default();
-        mock_client
-            .expect_get_stream::<GetStreamRequest>()
-            .with(eq(GetStreamRequest {
-                account_id: config.account_id.to_string(),
-                function_name: config.function_name.clone(),
-            }))
-            .returning(|_| Err(tonic::Status::not_found("not found")));
         mock_client
             .expect_start_stream::<StartStreamRequest>()
             .with(eq(StartStreamRequest {
@@ -406,26 +466,25 @@ mod tests {
                 start_block_height: last_published_block + 1,
                 version: config.get_registry_version(),
             }))
-            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
+            .returning(|_| Ok(Response::new(StartStreamResponse::default())))
+            .once();
 
         let mut mock_redis = RedisClient::default();
         mock_redis
             .expect_get_last_published_block::<IndexerConfig>()
-            .returning(move |_| Ok(Some(last_published_block)));
+            .returning(move |_| Ok(Some(last_published_block)))
+            .once();
 
         let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
 
-        handler
-            .synchronise(&config, Some(config.get_registry_version()))
-            .await
-            .unwrap();
+        handler.resume(&config).await.unwrap();
     }
 
     #[tokio::test]
-    async fn reconfigures_outdated_streams() {
+    async fn reconfigures_streams() {
         let config = IndexerConfig::default();
 
         let existing_stream = StreamInfo {
@@ -480,10 +539,7 @@ mod tests {
             redis_client: mock_redis,
         };
 
-        handler
-            .synchronise(&config, Some(config.get_registry_version()))
-            .await
-            .unwrap();
+        handler.reconfigure(&config).await.unwrap();
     }
 
     #[tokio::test]
@@ -491,13 +547,6 @@ mod tests {
         let config = IndexerConfig::default();
 
         let mut mock_client = BlockStreamsClientWrapper::default();
-        mock_client
-            .expect_get_stream::<GetStreamRequest>()
-            .with(eq(GetStreamRequest {
-                account_id: config.account_id.to_string(),
-                function_name: config.function_name.clone(),
-            }))
-            .returning(|_| Err(tonic::Status::not_found("not found")));
         mock_client
             .expect_start_stream::<StartStreamRequest>()
             .with(eq(StartStreamRequest {
@@ -524,62 +573,14 @@ mod tests {
             redis_client: mock_redis,
         };
 
-        handler.synchronise(&config, None).await.unwrap();
+        handler.start_new_block_stream(&config).await.unwrap();
     }
 
     #[tokio::test]
-    async fn reconfigures_outdated_and_stopped_streams() {
-        let config = IndexerConfig {
-            start_block: StartBlock::Latest,
-            ..Default::default()
-        };
-
-        let mut mock_client = BlockStreamsClientWrapper::default();
-        mock_client
-            .expect_get_stream::<GetStreamRequest>()
-            .with(eq(GetStreamRequest {
-                account_id: config.account_id.to_string(),
-                function_name: config.function_name.clone(),
-            }))
-            .returning(|_| Err(tonic::Status::not_found("not found")));
-        mock_client
-            .expect_start_stream::<StartStreamRequest>()
-            .with(eq(StartStreamRequest {
-                account_id: config.account_id.to_string(),
-                function_name: config.function_name.clone(),
-                redis_stream: config.get_redis_stream_key(),
-                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any.into(),
-                })),
-                start_block_height: config.get_registry_version(),
-                version: config.get_registry_version(),
-            }))
-            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
-
-        let mut mock_redis = RedisClient::default();
-        mock_redis
-            .expect_clear_block_stream::<IndexerConfig>()
-            .returning(|_| Ok(()))
-            .once();
-
-        let handler = BlockStreamsHandlerImpl {
-            client: mock_client,
-            redis_client: mock_redis,
-        };
-
-        handler
-            .synchronise(&config, Some(config.get_registry_version() - 1))
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn restarts_unhealthy_streams() {
+    async fn unhealthy_stream() {
         tokio::time::pause();
 
         let config = IndexerConfig::default();
-        let last_published_block = 10;
 
         let existing_stream = StreamInfo {
             account_id: config.account_id.to_string(),
@@ -595,53 +596,19 @@ mod tests {
             }),
         };
 
-        let mut mock_client = BlockStreamsClientWrapper::default();
-        mock_client
-            .expect_stop_stream::<StopStreamRequest>()
-            .with(eq(StopStreamRequest {
-                stream_id: existing_stream.stream_id.clone(),
-            }))
-            .returning(|_| Ok(Response::new(StopStreamResponse::default())));
-        mock_client
-            .expect_get_stream::<GetStreamRequest>()
-            .with(eq(GetStreamRequest {
-                account_id: config.account_id.to_string(),
-                function_name: config.function_name.clone(),
-            }))
-            .returning(move |_| Ok(Response::new(existing_stream.clone())));
-        mock_client
-            .expect_start_stream::<StartStreamRequest>()
-            .with(eq(StartStreamRequest {
-                account_id: config.account_id.to_string(),
-                function_name: config.function_name.clone(),
-                redis_stream: config.get_redis_stream_key(),
-                rule: Some(Rule::ActionAnyRule(ActionAnyRule {
-                    affected_account_id: "queryapi.dataplatform.near".to_string(),
-                    status: Status::Any.into(),
-                })),
-                start_block_height: last_published_block + 1,
-                version: config.get_registry_version(),
-            }))
-            .returning(|_| Ok(Response::new(StartStreamResponse::default())));
-
-        let mut mock_redis = RedisClient::default();
-        mock_redis
-            .expect_get_last_published_block::<IndexerConfig>()
-            .returning(move |_| Ok(Some(last_published_block)));
+        let mock_client = BlockStreamsClientWrapper::default();
+        let mock_redis = RedisClient::default();
 
         let handler = BlockStreamsHandlerImpl {
             client: mock_client,
             redis_client: mock_redis,
         };
 
-        handler
-            .synchronise(&config, Some(config.get_registry_version() - 1))
-            .await
-            .unwrap();
+        assert!(!handler.is_healthy(&existing_stream));
     }
 
     #[tokio::test]
-    async fn ignores_healthy_streams() {
+    async fn healthy_streams() {
         tokio::time::pause();
 
         let config = IndexerConfig::default();
@@ -667,21 +634,7 @@ mod tests {
                 }),
             };
 
-            let mut mock_client = BlockStreamsClientWrapper::default();
-            mock_client
-                .expect_get_stream::<GetStreamRequest>()
-                .with(eq(GetStreamRequest {
-                    account_id: config.account_id.to_string(),
-                    function_name: config.function_name.clone(),
-                }))
-                .returning(move |_| Ok(Response::new(existing_stream.clone())));
-            mock_client
-                .expect_stop_stream::<StopStreamRequest>()
-                .never();
-            mock_client
-                .expect_start_stream::<StartStreamRequest>()
-                .never();
-
+            let mock_client = BlockStreamsClientWrapper::default();
             let mock_redis = RedisClient::default();
 
             let handler = BlockStreamsHandlerImpl {
@@ -689,10 +642,7 @@ mod tests {
                 redis_client: mock_redis,
             };
 
-            handler
-                .synchronise(&config, Some(config.get_registry_version()))
-                .await
-                .unwrap();
+            assert!(handler.is_healthy(&existing_stream));
         }
     }
 
@@ -709,6 +659,10 @@ mod tests {
         };
 
         let mut mock_client = BlockStreamsClientWrapper::default();
+        mock_client
+            .expect_get_stream::<GetStreamRequest>()
+            .returning(|_| Err(tonic::Status::not_found("not found")))
+            .times(3);
         mock_client
             .expect_start_stream::<StartStreamRequest>()
             .with(always())
