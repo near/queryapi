@@ -21,11 +21,11 @@ npm run serve:widgets:prod // for running prod enviornment
 
 **Then, Head to `dev.near.org/flags` and enter `http://127.0.0.1:3030`**
 
-> In order to tell our BOS gateway (near.org), where to load the local widgets from, we head to `near.org/flags` and enter the local path we got from running the previous command. If you have not changed any configurations then the default should be `http://127.0.0.1:3030`
+> In order to tell our BOS gateway (near.org), where to load the local widgets from, we head to `dev.near.org/flags` and enter the local path we got from running the previous command. If you have not changed any configurations then the default should be `http://127.0.0.1:3030`
 
 **Finally**, run the following to serve the local NextJS frontend
 ```bash
-npm dev
+npm run dev
 ```
 
 **Now, head to the path where the widgets are served on the BOS.**
