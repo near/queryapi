@@ -47,19 +47,6 @@ Coordinator:
 
 These should be populated with your credentials. In most cases, the same key pair can be used for all 3 sets of credentials. Just ensure the keys have permissions to access S3 for handling [Requestor Pays](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html) in Near Lake. 
 
-### Hasura Configuration
-Hasura contains shared tables for e.g. logging and setting arbitrary state. These tables must be configured prior to running the entire QueryApi application. Configuration is stored in the `hasura/` directory and deployed through the Hasura CLI.
-
-To configure Hasura, first start it with:
-```sh
-docker compose up hasura-graphql --detach
-```
-
-And apply the configuration with:
-```sh
-cd ./hasura && hasura deploy
-```
-
 ### Running QueryApi
 With everything configured correctly, we can now start all components of QueryApi with:
 ```sh
