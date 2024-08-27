@@ -9,17 +9,11 @@ export class HasuraGraphQLContainer {
 
   private readonly PORT = 8080;
 
-  private constructor (private readonly container: GenericContainer) {
+  constructor (private readonly container = new GenericContainer('hasura/graphql-engine:latest')) {
     container.withExposedPorts(this.PORT)
-      .withWaitStrategy(Wait.forLogMessage(/.*Starting API server.*/, 2))
+      .withWaitStrategy(Wait.forLogMessage(/.*starting API server.*/))
       .withLogConsumer(logConsumer)
       .withStartupTimeout(120_000);
-  }
-
-  public static async build (): Promise<HasuraGraphQLContainer> {
-    const container = await GenericContainer.fromDockerfile('../hasura/').build();
-
-    return new HasuraGraphQLContainer(container);
   }
 
   public withNetwork (network: StartedNetwork): this {
