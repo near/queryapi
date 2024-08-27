@@ -11,7 +11,7 @@ export class HasuraGraphQLContainer {
 
   constructor (private readonly container = new GenericContainer('hasura/graphql-engine:latest')) {
     container.withExposedPorts(this.PORT)
-      .withWaitStrategy(Wait.forLogMessage(/.*starting API server.*/))
+      .withWaitStrategy(Wait.forLogMessage(/.*Starting API server.*/i))
       .withLogConsumer(logConsumer)
       .withStartupTimeout(120_000);
   }
