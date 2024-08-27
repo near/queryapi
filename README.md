@@ -39,11 +39,9 @@ Runner:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-Coordinator:
-- `LAKE_AWS_ACCESS_KEY`
-- `LAKE_AWS_SECRET_ACCESS_KEY`
-- `QUEUE_AWS_ACCESS_KEY`
-- `QUEUE_AWS_SECRET_ACCESS_KEY`
+Block Streamer:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 These should be populated with your credentials. In most cases, the same key pair can be used for all 3 sets of credentials. Just ensure the keys have permissions to access S3 for handling [Requestor Pays](https://docs.aws.amazon.com/AmazonS3/latest/userguide/RequesterPaysBuckets.html) in Near Lake. 
 
