@@ -66,7 +66,7 @@ describe('Indexer integration', () => {
     postgresContainer = await (await PostgreSqlContainer.build())
       .withNetwork(network)
       .start();
-    hasuraContainer = await (await HasuraGraphQLContainer.build())
+    hasuraContainer = await new HasuraGraphQLContainer()
       .withNetwork(network)
       .withDatabaseUrl(postgresContainer.getConnectionUri(network.getName()))
       .start();
