@@ -2,6 +2,14 @@ const Wrapper = styled.div`
   margin-top: calc(var(--body-top-padding) * -1);
 `;
 
+const Banner = styled.div`
+  background-color: #f8d7da; /* Light red background color */
+  color: #721c24; /* Dark red text color */
+  padding: 5px; /* Padding around the text */
+  text-align: center; /* Center the text */
+  border-radius: 4px; /* Rounded corners */
+`;
+
 const Main = styled.div`
   display: block;
 `;
@@ -63,6 +71,10 @@ const selectIndexerPage = (viewName) => {
 
 return (
   <Wrapper>
+    <Banner>
+        <p>QueryApi is being decommissioned by Dec 9, 2024. New Indexer creation has been disabled. Please refer to <a href="https://docs.near.org/build/data-infrastructure/query-api/intro">documentation</a> for more details. </p>
+      </Banner>
+
     <Tabs>
       {IS_DEV && (
         <TabsButton
@@ -97,7 +109,6 @@ return (
               : `Indexer (${selectedIndexer})`}
       </TabsButton>
     </Tabs>
-
 
     <Main>
       {activeTab === 'launchpad' && IS_DEV && (

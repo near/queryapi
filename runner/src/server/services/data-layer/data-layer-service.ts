@@ -87,47 +87,19 @@ export function createDataLayerService (
 
       const logger = createLogger(provisioningConfig);
 
-      provisioner
-        .isProvisioned(provisioningConfig)
-        .then((isProvisioned) => {
-          if (isProvisioned) {
-            const failedPrecondition = new StatusBuilder()
-              .withCode(status.FAILED_PRECONDITION)
-              .withDetails('Data Layer is already provisioned')
-              .build();
+      const taskId = crypto.randomUUID();
 
-            callback(failedPrecondition);
+      logger.info(`Starting provisioning task: ${taskId}`);
 
-            return;
-          }
+      tasks[taskId] = new AsyncTask(
+        provisioner
+          .provisionUserApi(provisioningConfig)
+          .then(() => {
+            logger.info('Successfully provisioned Data Layer');
+          })
+      );
 
-          const taskId = crypto.randomUUID();
-
-          logger.info(`Starting provisioning task: ${taskId}`);
-
-          tasks[taskId] = new AsyncTask(
-            provisioner
-              .provisionUserApi(provisioningConfig)
-              .then(() => {
-                logger.info('Successfully provisioned Data Layer');
-              })
-              .catch((err) => {
-                logger.error('Failed to provision Data Layer', err);
-                throw err;
-              })
-          );
-
-          callback(null, { taskId });
-        })
-        .catch((err) => {
-          logger.error('Failed to check if Data Layer is provisioned', err);
-
-          const internal = new StatusBuilder()
-            .withCode(status.INTERNAL)
-            .withDetails('Failed to check Data Layer provisioned status')
-            .build();
-          callback(internal);
-        });
+      callback(null, { taskId });
     },
 
     StartDeprovisioningTask (call: ServerUnaryCall<DeprovisionRequest__Output, StartTaskResponse>, callback: sendUnaryData<StartTaskResponse>): void {
@@ -148,7 +120,7 @@ export function createDataLayerService (
             logger.info('Successfully deprovisioned Data Layer');
           })
           .catch((err) => {
-            logger.error('Failed to deprovision Data Layer', err);
+            logger.warn('Failed to deprovision Data Layer', err);
             throw err;
           })
       );

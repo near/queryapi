@@ -40,7 +40,7 @@ impl Default for IndexerConfig {
             },
             created_at_block_height: 1,
             updated_at_block_height: Some(2),
-            deleted_at_block_height: Some(3),
+            deleted_at_block_height: None,
             start_block: StartBlock::Height(100),
         }
     }

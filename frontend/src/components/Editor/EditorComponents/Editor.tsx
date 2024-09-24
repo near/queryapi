@@ -15,7 +15,14 @@ import {
 } from '@/constants/Strings';
 import { IndexerDetailsContext } from '@/contexts/IndexerDetailsContext';
 import { useModal } from '@/contexts/ModalContext';
-import { defaultCode, defaultSchema, defaultSchemaTypes, formatIndexingCode, formatSQL } from '@/utils/formatters';
+import {
+  defaultCode,
+  defaultSchema,
+  defaultSchemaTypes,
+  formatIndexingCode,
+  formatSQL,
+  wrapCode,
+} from '@/utils/formatters';
 import { getLatestBlockHeight } from '@/utils/getLatestBlockHeight';
 import IndexerRunner from '@/utils/indexerRunner';
 import { PgSchemaTypeGen } from '@/utils/pgSchemaTypeGen';
@@ -24,17 +31,16 @@ import { validateJSCode, validateSQLSchema } from '@/utils/validators';
 import DeveloperToolsContainer from '../EditorViewContainer/DeveloperToolsContainer';
 import EditorMenuContainer from '../EditorViewContainer/EditorMenuContainer';
 import QueryAPIStorageManager from '../QueryApiStorageManager';
-import { block_details } from './block_details';
 import { FileSwitcher } from './FileSwitcher';
 import { GlyphContainer } from './GlyphContainer';
 import ResizableLayoutEditor from './ResizableLayoutEditor';
 
 declare const monaco: any;
 const INDEXER_TAB_NAME = 'indexer.js';
-const SCHEMA_TAB_NAME = 'schema.sql';
 const originalSQLCode = formatSQL(defaultSchema);
 const originalIndexingCode = formatIndexingCode(defaultCode);
 const pgSchemaTypeGen = new PgSchemaTypeGen();
+
 interface WizardResponse {
   wizardContractFilter: string;
   wizardMethods: Method[];
@@ -45,8 +51,35 @@ const fetchWizardData = (req: string): Promise<WizardResponse> => {
   return request<WizardResponse>('launchpad-create-indexer', req);
 };
 
+const fetchGeneratedCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
+  try {
+    const response = await fetch('/api/generateCode', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ contractFilter, selectedMethods, selectedEvents }),
+    });
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const data = await response.json();
+
+    if (!data.hasOwnProperty('jsCode') || !data.hasOwnProperty('sqlCode')) {
+      throw new Error('No code was returned from the server with properties jsCode and sqlCode');
+    }
+
+    return data;
+  } catch (error) {
+    throw error;
+  }
+};
+
 const Editor: React.FC = (): ReactElement => {
   const { indexerDetails, isCreateNewIndexer } = useContext(IndexerDetailsContext);
+
+  const contextCode = indexerDetails.code && formatIndexingCode(indexerDetails.code);
+  const contextSchema = indexerDetails.schema && formatSQL(indexerDetails.schema);
 
   const storageManager = useMemo(() => {
     if (indexerDetails.accountId && indexerDetails.indexerName) {
@@ -71,7 +104,10 @@ const Editor: React.FC = (): ReactElement => {
   const [heights, setHeights] = useState<number[]>(initialHeights);
 
   const [diffView, setDiffView] = useState<boolean>(false);
-  const [blockView, setBlockView] = useState<boolean>(false);
+
+  const [launchPadDefaultCode, setLaunchPadDefaultCode] = useState<string>('');
+  const [launchPadDefaultSchema, setLaunchPadDefaultSchema] = useState<string>('');
+
   const { showModal } = useModal();
 
   const [isExecutingIndexerFunction, setIsExecutingIndexerFunction] = useState<boolean>(false);
@@ -116,50 +152,23 @@ const Editor: React.FC = (): ReactElement => {
     return;
   };
 
-  const generateCode = async (contractFilter: string, selectedMethods: Method[], selectedEvents?: Event[]) => {
-    try {
-      const response = await fetch('/api/generateCode', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ contractFilter, selectedMethods, selectedEvents }),
-      });
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      const data = await response.json();
-
-      if (!data.hasOwnProperty('jsCode') || !data.hasOwnProperty('sqlCode')) {
-        throw new Error('No code was returned from the server with properties jsCode and sqlCode');
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
   useEffect(() => {
-    const fetchData = async () => {
+    (async () => {
       try {
-        const response = await fetchWizardData('');
-        const { wizardContractFilter, wizardMethods, wizardEvents } = response;
+        const { wizardContractFilter, wizardMethods, wizardEvents } = await fetchWizardData('');
 
-        if (wizardContractFilter === 'noFilter') {
-          return;
-        }
+        if (wizardContractFilter === 'noFilter') return;
+        const { jsCode, sqlCode } = await fetchGeneratedCode(wizardContractFilter, wizardMethods, wizardEvents);
+        const wrappedIndexingCode = wrapCode(jsCode) ? wrapCode(jsCode) : jsCode;
+        const { validatedCode, validatedSchema } = reformatAll(wrappedIndexingCode, sqlCode);
 
-        const codeResponse = await generateCode(wizardContractFilter, wizardMethods, wizardEvents);
-        const { validatedCode, validatedSchema } = reformatAll(codeResponse.jsCode, codeResponse.sqlCode);
-        validatedCode && setIndexingCode(validatedCode);
-        validatedSchema && setSchema(validatedSchema);
+        validatedCode && (setIndexingCode(validatedCode), setLaunchPadDefaultCode(validatedCode));
+        validatedSchema && (setSchema(validatedSchema), setLaunchPadDefaultSchema(validatedSchema));
       } catch (error: unknown) {
         //todo: figure out best course of action for user if api fails
         console.error(error);
       }
-    };
-    fetchData();
+    })();
   }, []);
 
   useEffect(() => {
@@ -194,7 +203,6 @@ const Editor: React.FC = (): ReactElement => {
   useEffect(() => {
     const { error: schemaError } = validateSQLSchema(schema);
     const { error: codeError } = validateJSCode(indexingCode);
-
     if (schemaError || codeError) {
       if (schemaError) schemaErrorHandler(schemaError);
       if (codeError) indexerErrorHandler(codeError);
@@ -202,7 +210,7 @@ const Editor: React.FC = (): ReactElement => {
     }
 
     handleCodeGen();
-  }, [fileName]);
+  }, [fileName, launchPadDefaultSchema]);
 
   useEffect(() => {
     cacheToLocal();
@@ -452,20 +460,21 @@ const Editor: React.FC = (): ReactElement => {
                 indexerError={indexerError}
               />
               <GlyphContainer style={{ height: '100%', width: '100%' }}>
-                {/* @ts-ignore remove after refactoring Resizable Editor to ts*/}
                 <ResizableLayoutEditor
                   fileName={fileName}
-                  indexingCode={indexingCode}
-                  blockView={blockView}
                   diffView={diffView}
+                  isCreateNewIndexer={isCreateNewIndexer}
                   onChangeCode={handleOnChangeCode}
                   onChangeSchema={handleOnChangeSchema}
-                  block_details={block_details}
+                  onMount={handleEditorWillMount}
+                  indexingCode={indexingCode}
+                  schema={schema}
+                  launchPadDefaultCode={launchPadDefaultCode}
+                  launchPadDefaultSchema={launchPadDefaultSchema}
+                  contextCode={contextCode}
+                  contextSchema={contextSchema}
                   originalSQLCode={originalSQLCode}
                   originalIndexingCode={originalIndexingCode}
-                  schema={schema}
-                  isCreateNewIndexer={isCreateNewIndexer}
-                  onMount={handleEditorWillMount}
                 />
               </GlyphContainer>
             </div>

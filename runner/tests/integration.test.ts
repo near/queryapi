@@ -2,8 +2,8 @@ import { Block, type StreamerMessage } from '@near-lake/primitives';
 import { Network, type StartedNetwork } from 'testcontainers';
 import { gql, GraphQLClient } from 'graphql-request';
 
-import Indexer from '../src/indexer';
-import HasuraClient from '../src/hasura-client';
+import { Indexer } from '../src/indexer';
+import HasuraClient from '../src/provisioner/hasura-client';
 import Provisioner from '../src/provisioner';
 import PgClient from '../src/pg-client';
 
@@ -14,7 +14,8 @@ import block_115185109 from './blocks/00115185109/streamer_message.json';
 import { LogLevel } from '../src/indexer-meta/log-entry';
 import IndexerConfig from '../src/indexer-config';
 import IndexerMeta from '../src/indexer-meta/indexer-meta';
-import DmlHandler from '../src/dml-handler/dml-handler';
+import { DmlHandler } from '../src/indexer/dml-handler';
+import ContextBuilder from '../src/indexer/context-builder';
 
 describe('Indexer integration', () => {
   jest.setTimeout(300_000);
@@ -65,7 +66,7 @@ describe('Indexer integration', () => {
     postgresContainer = await (await PostgreSqlContainer.build())
       .withNetwork(network)
       .start();
-    hasuraContainer = await (await HasuraGraphQLContainer.build())
+    hasuraContainer = await new HasuraGraphQLContainer()
       .withNetwork(network)
       .withDatabaseUrl(postgresContainer.getConnectionUri(network.getName()))
       .start();
@@ -269,29 +270,49 @@ describe('Indexer integration', () => {
     await expect(pgClient.query('SELECT * FROM cron.job WHERE jobname like $1', ['provisioning_near_test_provisioning%']).then(({ rows }) => rows)).resolves.toHaveLength(0);
     await expect(hasuraClient.doesSourceExist(testConfig1.databaseName())).resolves.toBe(false);
   });
+
+  it('Writes provisioning errors to user logs table', async () => {
+    const testConfig = new IndexerConfig(
+      'test:stream',
+      'user-failures.near', // must be unique to prevent conflicts with other tests
+      'test',
+      0,
+      '',
+      'broken schema',
+      LogLevel.INFO
+    );
+
+    await expect(provisioner.provisionUserApi(testConfig)).rejects.toThrow();
+
+    const logs: any = await indexerLogsQuery(testConfig.schemaName(), graphqlClient);
+    expect(logs[0].message).toContain('Failed to run user script');
+  });
 });
 
-async function prepareIndexer(indexerConfig: IndexerConfig, provisioner: Provisioner, hasuraContainer: StartedHasuraGraphQLContainer): Promise<Indexer> {
+async function prepareIndexer (indexerConfig: IndexerConfig, provisioner: Provisioner, hasuraContainer: StartedHasuraGraphQLContainer): Promise<Indexer> {
   await provisioner.provisionUserApi(indexerConfig);
 
-  const db_connection_params = await provisioner.getPostgresConnectionParameters(indexerConfig.userName());
-  const dmlHandler = new DmlHandler(db_connection_params, indexerConfig);
-  const indexerMeta = new IndexerMeta(indexerConfig, db_connection_params);
+  const dbConnectionParams = await provisioner.getPostgresConnectionParameters(indexerConfig.userName());
+  const dmlHandler = new DmlHandler(dbConnectionParams, indexerConfig);
+  const contextBuilder = new ContextBuilder(
+    indexerConfig,
+    { dmlHandler },
+    {
+      hasuraAdminSecret: hasuraContainer.getAdminSecret(),
+      hasuraEndpoint: hasuraContainer.getEndpoint(),
+    });
+  const indexerMeta = new IndexerMeta(indexerConfig, dbConnectionParams);
 
   return new Indexer(
     indexerConfig,
     {
-      dmlHandler,
+      contextBuilder,
       indexerMeta,
-    },
-    {
-      hasuraAdminSecret: hasuraContainer.getAdminSecret(),
-      hasuraEndpoint: hasuraContainer.getEndpoint(),
     }
   );
 }
 
-async function indexerLogsQuery(indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerLogsQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`
     query {
       ${indexerSchemaName}_sys_logs {
@@ -302,15 +323,15 @@ async function indexerLogsQuery(indexerSchemaName: string, graphqlClient: GraphQ
   return graphqlResult[`${indexerSchemaName}_sys_logs`];
 }
 
-async function indexerStatusQuery(indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerStatusQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   return await indexerMetadataQuery(indexerSchemaName, 'STATUS', graphqlClient);
 }
 
-async function indexerBlockHeightQuery(indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerBlockHeightQuery (indexerSchemaName: string, graphqlClient: GraphQLClient): Promise<any> {
   return await indexerMetadataQuery(indexerSchemaName, 'LAST_PROCESSED_BLOCK_HEIGHT', graphqlClient);
 }
 
-async function indexerMetadataQuery(indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
+async function indexerMetadataQuery (indexerSchemaName: string, attribute: string, graphqlClient: GraphQLClient): Promise<any> {
   const graphqlResult: any = await graphqlClient.request(gql`
     query {
       ${indexerSchemaName}_sys_metadata(where: {attribute: {_eq: "${attribute}"}}) {

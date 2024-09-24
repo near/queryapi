@@ -67,23 +67,6 @@ describe('DataLayerService', () => {
   });
 
   describe('StartProvisioningTask', () => {
-    it('returns FAILED_PRECONDITION if already provisioned', (done) => {
-      const provisioner = {
-        isProvisioned: jest.fn().mockResolvedValue(true)
-      } as unknown as Provisioner;
-      const tasks = {};
-      const call = {
-        request: { accountId: 'testAccount', functionName: 'testFunction', schema: 'testSchema' }
-      } as unknown as ServerUnaryCall<any, any>;
-      const callback = (error: any): void => {
-        expect(error.code).toBe(status.FAILED_PRECONDITION);
-        expect(error.details).toBe('Data Layer is already provisioned');
-        done();
-      };
-
-      createDataLayerService(provisioner, tasks).StartProvisioningTask(call, callback);
-    });
-
     it('should start a new provisioning task', (done) => {
       const tasks: Record<any, any> = {};
       const provisioner = {

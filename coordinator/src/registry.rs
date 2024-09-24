@@ -250,6 +250,13 @@ impl RegistryImpl {
                     deleted_at_block_height: config.deleted_at_block_height,
                 }))
             } else {
+                tracing::info!(
+                    account_id = account_id.as_str(),
+                    function_name,
+                    "Received null config from registry: {:?}",
+                    String::from_utf8_lossy(&call_result.result)
+                );
+
                 Ok(None)
             };
         }

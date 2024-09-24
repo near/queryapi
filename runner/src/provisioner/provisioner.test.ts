@@ -1,8 +1,9 @@
 import pgFormat from 'pg-format';
 
-import Provisioner from './provisioner';
+import Provisioner, { LOGS_TABLE_NAME, METADATA_TABLE_NAME } from './provisioner';
 import IndexerConfig from '../indexer-config/indexer-config';
 import { LogLevel } from '../indexer-meta/log-entry';
+import { type HasuraTableMetadata, type HasuraMetadata, type HasuraSource } from './hasura-client';
 
 describe('Provisioner', () => {
   let adminPgClient: any;
@@ -13,15 +14,24 @@ describe('Provisioner', () => {
   let indexerConfig: IndexerConfig;
 
   const tableNames = ['blocks'];
+  const systemTables = [METADATA_TABLE_NAME, LOGS_TABLE_NAME];
+  const tableNamesWithSystemTables = ['blocks', ...systemTables];
   const accountId = 'morgs.near';
   const functionName = 'test-function';
   const databaseSchema = 'CREATE TABLE blocks (height numeric)';
   indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
+  const emptyHasuraMetadata = generateDefaultHasuraMetadata();
+  const hasuraMetadataWithEmptySource = generateDefaultHasuraMetadata();
+  hasuraMetadataWithEmptySource.sources.push(generateSourceWithTables([], [], indexerConfig.userName(), indexerConfig.databaseName()));
+  const hasuraMetadataWithSystemProvisions = generateDefaultHasuraMetadata();
+  hasuraMetadataWithSystemProvisions.sources.push(generateSourceWithTables([indexerConfig.schemaName()], systemTables, indexerConfig.userName(), indexerConfig.databaseName()));
+  const hasuraMetadataWithProvisions = generateDefaultHasuraMetadata();
+  hasuraMetadataWithProvisions.sources.push(generateSourceWithTables([indexerConfig.schemaName()], tableNamesWithSystemTables, indexerConfig.userName(), indexerConfig.databaseName()));
   const testingRetryConfig = {
     maxRetries: 5,
     baseDelay: 10
   };
-  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.sys_metadata (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
+  const setProvisioningStatusQuery = `INSERT INTO ${indexerConfig.schemaName()}.${METADATA_TABLE_NAME} (attribute, value) VALUES ('STATUS', 'PROVISIONING') ON CONFLICT (attribute) DO UPDATE SET value = EXCLUDED.value RETURNING *`;
   const logsDDL = expect.any(String);
   const metadataDDL = expect.any(String);
   const error = new Error('some error');
@@ -39,7 +49,8 @@ describe('Provisioner', () => {
 
   beforeEach(() => {
     hasuraClient = {
-      getTableNames: jest.fn().mockReturnValueOnce(tableNames),
+      exportMetadata: jest.fn().mockResolvedValueOnce(emptyHasuraMetadata).mockResolvedValue(hasuraMetadataWithSystemProvisions),
+      getTableNames: jest.fn().mockResolvedValueOnce([]).mockResolvedValue(tableNamesWithSystemTables),
       trackTables: jest.fn().mockReturnValueOnce(null),
       trackForeignKeyRelationships: jest.fn().mockReturnValueOnce(null),
       addPermissionsToTables: jest.fn().mockReturnValueOnce(null),
@@ -72,7 +83,13 @@ describe('Provisioner', () => {
       };
     });
 
-    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any, testingRetryConfig);
+    const IndexerMeta = jest.fn().mockImplementation(() => {
+      return {
+        writeLogs: jest.fn()
+      };
+    });
+
+    provisioner = new Provisioner(hasuraClient, adminPgClient, cronPgClient, undefined, crypto, pgFormat, PgClient as any, testingRetryConfig, IndexerMeta);
 
     indexerConfig = new IndexerConfig('', accountId, functionName, 0, '', databaseSchema, LogLevel.INFO);
   });
@@ -173,28 +190,6 @@ describe('Provisioner', () => {
     });
   });
 
-  describe('isUserApiProvisioned', () => {
-    it('returns false if datasource doesnt exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
-
-      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
-    });
-
-    it('returns false if datasource and schema dont exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(false);
-      hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(false);
-
-      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(false);
-    });
-
-    it('returns true if datasource and schema exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
-      hasuraClient.doesSchemaExist = jest.fn().mockReturnValueOnce(true);
-
-      await expect(provisioner.isProvisioned(indexerConfig)).resolves.toBe(true);
-    });
-  });
-
   describe('provisionUserApi', () => {
     it('provisions an API for the user', async () => {
       await provisioner.provisionUserApi(indexerConfig);
@@ -221,7 +216,20 @@ describe('Provisioner', () => {
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.userName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
-      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(1, indexerConfig.schemaName(), [METADATA_TABLE_NAME, LOGS_TABLE_NAME], indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(2, indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
+        indexerConfig.schemaName(),
+        indexerConfig.databaseName(),
+        [METADATA_TABLE_NAME, LOGS_TABLE_NAME],
+        indexerConfig.userName(),
+        [
+          'select',
+          'insert',
+          'update',
+          'delete'
+        ]
+      );
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
         indexerConfig.schemaName(),
         indexerConfig.databaseName(),
@@ -237,7 +245,7 @@ describe('Provisioner', () => {
     });
 
     it('skips provisioning the datasource if it already exists', async () => {
-      hasuraClient.doesSourceExist = jest.fn().mockReturnValueOnce(true);
+      hasuraClient.exportMetadata = jest.fn().mockResolvedValueOnce(hasuraMetadataWithEmptySource).mockResolvedValue(hasuraMetadataWithSystemProvisions);
 
       await provisioner.provisionUserApi(indexerConfig);
 
@@ -249,7 +257,20 @@ describe('Provisioner', () => {
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(2, indexerConfig.userName(), indexerConfig.schemaName(), logsDDL);
       expect(hasuraClient.executeSqlOnSchema).toHaveBeenNthCalledWith(3, indexerConfig.databaseName(), indexerConfig.schemaName(), databaseSchema);
       expect(hasuraClient.getTableNames).toBeCalledWith(indexerConfig.schemaName(), indexerConfig.databaseName());
-      expect(hasuraClient.trackTables).toBeCalledWith(indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(1, indexerConfig.schemaName(), [METADATA_TABLE_NAME, LOGS_TABLE_NAME], indexerConfig.databaseName());
+      expect(hasuraClient.trackTables).toHaveBeenNthCalledWith(2, indexerConfig.schemaName(), tableNames, indexerConfig.databaseName());
+      expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
+        indexerConfig.schemaName(),
+        indexerConfig.databaseName(),
+        [METADATA_TABLE_NAME, LOGS_TABLE_NAME],
+        indexerConfig.userName(),
+        [
+          'select',
+          'insert',
+          'update',
+          'delete'
+        ]
+      );
       expect(hasuraClient.addPermissionsToTables).toBeCalledWith(
         indexerConfig.schemaName(),
         indexerConfig.databaseName(),
@@ -262,6 +283,22 @@ describe('Provisioner', () => {
           'delete'
         ]
       );
+    });
+
+    it('skips all provisioning if all provisioning tasks already done', async () => {
+      hasuraClient.exportMetadata = jest.fn().mockResolvedValue(hasuraMetadataWithProvisions);
+      hasuraClient.getTableNames = jest.fn().mockResolvedValue(tableNamesWithSystemTables);
+
+      await provisioner.provisionUserApi(indexerConfig);
+
+      expect(adminPgClient.query).not.toBeCalled();
+      expect(hasuraClient.addDatasource).not.toBeCalled();
+
+      expect(hasuraClient.createSchema).not.toBeCalled();
+      expect(hasuraClient.executeSqlOnSchema).not.toBeCalled();
+      expect(hasuraClient.trackTables).not.toBeCalled();
+      expect(hasuraClient.trackForeignKeyRelationships).toHaveBeenCalledTimes(1);
+      expect(hasuraClient.addPermissionsToTables).not.toBeCalled();
     });
 
     it('formats user input before executing the query', async () => {
@@ -304,12 +341,6 @@ describe('Provisioner', () => {
       hasuraClient.executeSqlOnSchema = jest.fn().mockRejectedValue(error);
 
       await expect(provisioner.runLogsSql(accountId, functionName)).rejects.toThrow('Failed to run logs script: some error');
-    });
-
-    it('throws an error when it fails to fetch table names', async () => {
-      hasuraClient.getTableNames = jest.fn().mockRejectedValue(error);
-
-      await expect(provisioner.provisionUserApi(indexerConfig)).rejects.toThrow('Failed to provision endpoint: Failed to fetch table names: some error');
     });
 
     it('throws an error when it fails to track tables', async () => {
@@ -401,3 +432,52 @@ describe('Provisioner', () => {
     });
   });
 });
+
+function generateDefaultHasuraMetadata (): HasuraMetadata {
+  const sources: HasuraSource[] = [];
+  // Insert default source which has different format than the rest
+  sources.push({
+    name: 'default',
+    kind: 'postgres',
+    tables: [],
+    configuration: {
+      connection_info: {
+        database_url: { from_env: 'HASURA_GRAPHQL_DATABASE_URL' },
+      }
+    }
+  });
+
+  return {
+    version: 3,
+    sources
+  };
+}
+
+function generateSourceWithTables (schemaNames: string[], tableNames: string[], role: string, db: string): HasuraSource {
+  const tables: HasuraTableMetadata[] = [];
+  schemaNames.forEach((schemaName) => {
+    tableNames.forEach((tableName) => {
+      tables.push(generateTableConfig(schemaName, tableName, role));
+    });
+  });
+
+  return {
+    name: db,
+    kind: 'postgres',
+    tables,
+    configuration: {} as any,
+  };
+}
+
+function generateTableConfig (schemaName: string, tableName: string, role: string): HasuraTableMetadata {
+  return {
+    table: {
+      name: tableName,
+      schema: schemaName,
+    },
+    insert_permissions: [{ role, permission: {} }],
+    select_permissions: [{ role, permission: {} }],
+    update_permissions: [{ role, permission: {} }],
+    delete_permissions: [{ role, permission: {} }],
+  };
+}

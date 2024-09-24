@@ -14,11 +14,12 @@ const NoQueryText = styled.p`
   font-size: 16px;
   font-family: 'Mona Sans', sans-serif;
   color: #A1A09A;
+  width: 80%;
   text-align: center;
 `;
 
 const NoQuerySVG = styled.svg`
-  height: 100px;
+  height: 90px;
   width: 100%;
   color: #A1A09A;
 `;
@@ -28,7 +29,7 @@ const CheckboxContainer = styled.div`
 `;
 
 const CheckboxLabel = styled.label`
-  font-size: 12px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -53,6 +54,10 @@ const Checkbox = styled.input`
   vertical-align: middle;
   margin-right: 7.2px;
   outline: none;
+
+  &:checked {
+    background-color: #8279E2;
+  }
 `;
 
 // TOP HALF
@@ -86,7 +91,7 @@ const Subheadline = styled.p`
   font-family: 'Mona Sans', sans-serif;
   font-weight: 400;
   font-size: 16px;
-  line-height: 18.2px;
+  line-height: 24px;
   color: #717069;
   letter-spacing: 1.5%;
 `;
@@ -101,25 +106,25 @@ const Container = styled.div`
 
 const HeadlineContainer = styled.div`
   width: 364px;
-  height: 193px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   margin-right: 80px; /* Gap between HeadlineContainer and WidgetContainer */
+  margin-top: 24px; //combine margin 
 `;
 
 const WidgetContainer = styled.div`
   width: 301px;
-  height: 365px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   box-shadow: 0 8.2px 19.92px 0 rgba(0, 0, 0, 0.1), 0 2.34px 2.34px 0 rgba(0, 0, 0, 0.15);
-  margin-top: 183px; /* Gap between WidgetContainer and HeadlineContainer */
+  margin-top: 140px; /* Gap between WidgetContainer and HeadlineContainer */
   background: #fff;
   border-radius: 10px;
+  padding: 16px 0 28px;
 `;
 
 const SubContainer = styled.div`
@@ -128,7 +133,7 @@ const SubContainer = styled.div`
 `;
 
 const SubContainerTitle = styled.h2`
-  font-family: 'Product Sans', sans-serif;
+  font-family: 'Mona Sans', sans-serif;
   font-weight: 700;
   font-size: 14px;
   line-height: 14.06px;
@@ -154,7 +159,7 @@ const MetadataIcon = styled.span`
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: normal; 
   width: 23px; 
   height: 17px;
@@ -207,7 +212,7 @@ scrollbar-color: #888 #f1f1f1;
 `;
 
 const GenerateButton = styled.button`
-  margin-top: 16px;
+  margin-top: 24px;
   width: 100%;
   background-color: #37CD83;
   border: none;
@@ -237,6 +242,7 @@ const InputWrapper = styled.div`
   border-radius: 6px;
   padding: 0;
   overflow: hidden;
+  margin-top: 24px;
 `;
 
 const StyledInput = styled.input` 
@@ -363,7 +369,7 @@ useEffect(() => {
   setCheckboxEvents(initializeCheckboxState(eventsData, 'event_name'));
 }, [methodsData, eventsData]);
 
-const generateMethods = () => {
+const generateProperties = () => {
   const filterData = (data, checkboxState, keyName) => {
     return data
       .map(item => {
@@ -457,7 +463,7 @@ const handleFetchCheckboxData = async () => {
 };
 
 const toggleAllSelection = (action) => {
-  const isSelectAll = action === 'select_all';
+  const isSelectAll = !selectAllMethods;
   const isMethodsTab = tab === 'methods_tab';
   const isEventsTab = tab === 'events_tab';
 
@@ -626,19 +632,10 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="select_all"
-                                onChange={() => toggleAllSelection('select_all')}
+                                onChange={() => toggleAllSelection(selectAllMethods)}
                                 checked={selectAllMethods}
                               />
                               Select All
-                            </CheckboxLabel>
-                            <CheckboxLabel>
-                              <Checkbox
-                                type="checkbox"
-                                id="unselect_all"
-                                onChange={() => toggleAllSelection('unselect_all')}
-                                checked={!selectAllMethods}
-                              />
-                              Unselect All
                             </CheckboxLabel>
                           </CheckboxContainer>
 
@@ -680,19 +677,10 @@ return (
                               <Checkbox
                                 type="checkbox"
                                 id="select_all_events"
-                                onChange={() => toggleAllSelection('select_all')}
+                                onChange={() => toggleAllSelection(selectAllEvents)}
                                 checked={selectAllEvents}
                               />
                               Select All Events
-                            </CheckboxLabel>
-                            <CheckboxLabel>
-                              <Checkbox
-                                type="checkbox"
-                                id="unselect_all_events"
-                                onChange={() => toggleAllSelection('unselect_all')}
-                                checked={!selectAllEvents}
-                              />
-                              Unselect All Events
                             </CheckboxLabel>
                           </CheckboxContainer>
 
@@ -731,7 +719,7 @@ return (
                     </ScrollableDiv>
                   </SubContainerContent>
                 )}
-              <GenerateButton onClick={generateMethods} disabled={(!checkboxMethods || !hasSelectedValues(checkboxMethods)) && (!checkboxEvents || !hasSelectedValues(checkboxEvents))}>Generate</GenerateButton>
+              <GenerateButton onClick={generateProperties} disabled={(!checkboxMethods || !hasSelectedValues(checkboxMethods)) && (!checkboxEvents || !hasSelectedValues(checkboxEvents))}>Generate</GenerateButton>
             </SubContainerContent>
           </SubContainer>
         </WidgetContainer>
