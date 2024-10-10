@@ -72,8 +72,8 @@ const selectIndexerPage = (viewName) => {
 return (
   <Wrapper>
     <Banner>
-        <p>QueryApi is being decommissioned by Dec 9, 2024. New Indexer creation has been disabled. Please refer to <a href="https://docs.near.org/build/data-infrastructure/query-api/intro">documentation</a> for more details. </p>
-      </Banner>
+      <p>QueryApi is being decommissioned by Dec 9, 2024. New Indexer creation has been disabled. Please refer to <a href="https://docs.near.org/build/data-infrastructure/data-apis">documentation</a> for alternatives. </p>
+    </Banner>
 
     <Tabs>
       {IS_DEV && (
