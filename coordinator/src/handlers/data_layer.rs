@@ -88,6 +88,7 @@ impl DataLayerHandlerImpl {
     pub fn connect(runner_url: &str) -> anyhow::Result<Self> {
         let channel = Channel::from_shared(runner_url.to_string())
             .context("Runner URL is invalid")?
+            .rate_limit(1, std::time::Duration::from_secs(5))
             .connect_lazy();
         let client = DataLayerClient::new(channel);
 
