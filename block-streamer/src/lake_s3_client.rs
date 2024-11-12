@@ -144,11 +144,11 @@ impl LakeS3Client {
         let prefix = prefix.to_owned();
 
         async move {
-            metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
-
             let object = s3_client.get_object(&bucket, &prefix).await?;
 
             let bytes = object.body.collect().await?.into_bytes().to_vec();
+
+            metrics::LAKE_S3_GET_REQUEST_COUNT.inc();
 
             Ok(bytes)
         }
