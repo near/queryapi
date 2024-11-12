@@ -699,6 +699,8 @@ mod tests {
 
         #[tokio::test]
         async fn restarts_unhealthy_stream() {
+            tokio::time::pause();
+
             let config = IndexerConfig::default();
             let mut state = IndexerState {
                 lifecycle_state: LifecycleState::Running,
@@ -953,6 +955,8 @@ mod tests {
 
         #[tokio::test]
         async fn restarts_unhealthy_executor() {
+            tokio::time::pause();
+
             let config = IndexerConfig::default();
             let mut state = IndexerState {
                 lifecycle_state: LifecycleState::Running,
