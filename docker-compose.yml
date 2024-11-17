@@ -10,8 +10,9 @@ services:
     depends_on:
       - redis
     environment:
-      SERVER_PORT: 8002
+      GRPC_PORT: 8002
       REDIS_URL: redis://redis
+      HASURA_GRAPHQL_ENDPOINT: http://hasura-graphql:8080/v1/graphql
       AWS_ACCESS_KEY_ID:
       AWS_SECRET_ACCESS_KEY:
       AWS_REGION: eu-central-1
@@ -29,7 +30,7 @@ services:
       - redis
     environment:
       REDIS_URL: redis://redis
-      BLOCK_STREAMER_URL: http://block_streamer:8001
+      BLOCK_STREAMER_URL: http://block-streamer:8002
       RUNNER_URL: http://runner:7001
       REGISTRY_CONTRACT_ID: dev-queryapi.dataplatform.near
       RUST_LOG: info
