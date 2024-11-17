@@ -11,6 +11,7 @@ services:
       - redis
     environment:
       GRPC_PORT: 8002
+      METRICS_PORT: 9180
       REDIS_URL: redis://redis
       HASURA_GRAPHQL_ENDPOINT: http://hasura-graphql:8080/v1/graphql
       AWS_ACCESS_KEY_ID:
@@ -19,6 +20,7 @@ services:
       RUST_LOG: info
     ports:
       - "8002:8002"
+      - "9181:9180"
 
   coordinator:
     build:
@@ -71,6 +73,7 @@ services:
       MAX_PG_POOL_SIZE: 10
     ports:
       - "7001:7001"
+      - "9182:9180"
 
   redis:
     image: redis
