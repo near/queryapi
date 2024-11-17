@@ -29,7 +29,6 @@ The majority of the QueryApi components can be set up locally using Docker. For 
 ### Requirements
 - [Docker](https://docs.docker.com/engine/install/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
-- [Hasura CLI](https://hasura.io/docs/latest/hasura-cli/install-hasura-cli/)
 - AWS Access Keys
 
 ### AWS Credentials Setup
@@ -50,6 +49,17 @@ With everything configured correctly, we can now start all components of QueryAp
 ```sh
 docker compose up
 ```
+
+### Developing
+The most convenient way to develop the individual components of QueryAPI is to start everthing _except_ the target component in docker and then run the target on the host machine directly. For example, to develop Coordinator, you can run:
+
+```sh
+docker compose up --scale coordinator=0
+cd coordinator
+cargo run coordinator
+```
+
+Before running the component, ensure that the environment is configured correctly. Refer to [docker compose](./docker-compose.yml) for required variables, these may need to be adapted to ensure that networking still works between the host and containers.
 
 ### Developing frontend
 1. Change `frontend/replacement.dev.json` to
